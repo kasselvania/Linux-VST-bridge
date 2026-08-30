@@ -1,0 +1,43 @@
+# Rust / C++ build output
+/target/
+/build/
+/out/
+cmake-build-*/
+compile_commands.json
+
+# Managed runtime and proprietary fixtures
+/runners/
+/environments/
+/prefixes/
+/installers/
+/plugins/
+/content/
+/licenses/
+/activation/
+/vendor-cache/
+
+# Evidence that must be reviewed before retention
+/evidence/local/
+/evidence/raw/
+/evidence/private/
+*.trace
+*.core
+core.*
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.token
+*.secret
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
