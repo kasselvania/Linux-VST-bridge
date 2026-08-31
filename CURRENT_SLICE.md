@@ -1,85 +1,103 @@
-# Current Slice: None Selected
+# Current Slice: HP0 — Native VST3 Probe Build and Bitwig Flatpak Sandbox Load
 
-## Status
-
-```text
-status: no_active_implementation_slice
-implementation: forbidden
-last completed slice: SR0 — Steam Deck Host and Serum 2 Pre-Installation Reconnaissance
-```
-
-No successor, host probe, installer/authorization session, runner experiment, Flatpak override change, bridge implementation, VST3/CLAP implementation, build-system scaffold, or compatibility claim is selected or implied.
-
-## Last accepted slice
+## Status and basis
 
 ```text
-slice: SR0
-implementation PR: #1
-reviewed amended head: 7eee151da1bd94a0faf0af5c481ce4c8ea013408
-reviewed tree: ac8e440222df71ae735bff21b94c519dea47f2c6
-basis commit: 7319ba8dea7cf2e81a2e4d32c39907bdc6279cf4
-basis tree: b3dc324444f769e7d145bb85f5d56a7d587ea6f2
-merge commit: 0c41a43ce6f5b1e32eb3da5e169c66aacaa007fe
-merge tree: ac8e440222df71ae735bff21b94c519dea47f2c6
+status: active
+basis commit: 5614da2d769931f0aa26a8f902d14e911b39b085
+basis tree: 6d3cea1638e12e65298d9496755d8cc4d0f2eeba
+branch: codex/hp0-native-vst3-bitwig-sandbox-probe
+target: main
 ```
 
-## Accepted claim
+## Primary claim
 
-SR0 establishes a reproducible, sanitized, exact baseline of the maintainer's Steam Deck + Bitwig Flatpak fixture and its existing Windows-audio compatibility state, including bounded Serum 2 artifact observations, without mutating commercial software, compatibility environments, DAW configuration, or SteamOS.
+From repository-owned C++20 source, the project can repeatably build one deterministic no-editor Linux VST3 probe against the exact pinned official VST3 SDK using a user-space Freedesktop 25.08 SDK; validate it with the official VST3 validator; publish an exact owned copy beneath the user's standard VST3 area; and load and validate that exact published bundle from inside the current Bitwig Flatpak sandbox without launching Bitwig or changing Bitwig's Flatpak overrides.
 
-The retained packet is under:
-
-```text
-evidence/sr0-steam-deck-fixture-reconnaissance/
-```
-
-The reusable capture is under:
-
-```text
-tools/sr0-fixture-capture/
-```
-
-## Accepted fixture facts
+## Exact fixture
 
 - Steam Deck model `Galileo`, SteamOS `3.8.16`, x86_64, KDE/Wayland, read-only mode enabled.
-- Bitwig Flatpak `6.0.11`, system installation, Flathub stable, Freedesktop `25.08`.
-- Bitwig package metadata declares VST, VST3, and CLAP Linux Audio extension paths.
-- Current user overrides leave effective `VST3_PATH` and `CLAP_PATH` empty and produce effective VST `/app/extensions/Plugins/vst;=/usr/lib/`; SR0 did not change them.
-- No installed `org.freedesktop.LinuxAudio*` extension matched exact branch `25.08`.
-- PipeWire `1.6.4`, WirePlumber `0.5.14`, PulseAudio compatibility, and ALSA were observed.
-- Proton `11.0`, Steam Linux Runtime entries, and UMU `steamrt3` data were observed as existing runner/data directories.
-- One direct `.wine` environment and 33 immediate Steam compatdata prefixes were retained through a complete bounded prefix census.
-- A yabridge-style native Serum 2 proxy bundle and corresponding Windows VST3 bundle are present in bounded locations.
-- Native proxy regular-file SHA-256: `317d70f95a3c7559ff3d43b014c3e7b792fd03362d5e999d550a5566cf25b184`.
-- Windows module regular-file SHA-256: `838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175`.
-- No lawful Serum 2 installer or other Serum/Xfer content was found in the fully completed declared bounded locations.
+- Bitwig Flatpak `com.bitwig.BitwigStudio` version `6.0.11`, system scope, stable x86_64 branch, app commit `7b66aed37386ffff99e40bbd486f90ceee7ac1d5c59508c7952094122cebf50e`.
+- Bitwig runtime `org.freedesktop.Platform/x86_64/25.08`, system commit `bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8`.
+- Existing override state: user output SHA-256 `1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e`, empty system output SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; effective `VST3_PATH` and `CLAP_PATH` empty; effective `VST_PATH=/app/extensions/Plugins/vst;=/usr/lib/`.
+- Build toolchain: user-scope `org.freedesktop.Sdk/x86_64/25.08`; exact installed commit is retained in HP0 evidence.
+- Official VST3 SDK: `steinbergmedia/vst3sdk` commit `3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96`, with recursive submodules locked in `docs/HP0_DEPENDENCY_LOCK.md`.
 
-## Accepted capture posture
+## Allowed tracked paths
 
-- Collection requires a trusted GNU `timeout`; no unbounded fallback is permitted.
-- Completeness-sensitive observations fail closed on timeout, command failure, row/output truncation, candidate-cap exhaustion, rejected roots, or incomplete prefix coverage.
-- Dynamically accepted roots require lexical and canonical containment beneath the real home and reject symlinked ancestors.
-- Linux Audio extensions match Bitwig only on the exact Freedesktop runtime branch.
-- Seven deterministic self-tests cover timeout propagation, artifact-cap exhaustion, directory-row truncation, root self-match exclusion, runtime-branch mismatch, symlinked-ancestor rejection, and normal complete non-finding.
-- Raw data remains ignored/transient; retained evidence is sanitized, bounded text/JSON with verified hashes.
+- `CURRENT_SLICE.md`
+- `CMakeLists.txt`
+- `cmake/**`
+- `native-probe/**`
+- `tools/hp0-native-probe/**`
+- `docs/HP0_DEPENDENCY_LOCK.md`
+- `evidence/hp0-native-vst3-bitwig-sandbox/**`
 
-## Current unknowns
+No other tracked path is authorized.
 
-SR0 does not determine:
+## Intended route
 
-- the exact Serum 2 build/version;
-- the lawful Serum 2 license channel;
-- current authorization state;
-- whether Bitwig currently discovers the existing proxy;
-- whether the existing proxy and Windows module can instantiate;
-- whether audio, MIDI/events, automation, state, project recall, editor behavior, or crash containment work;
-- which Wine/Proton/UMU runtime created or can operate the existing environment;
-- whether the current Bitwig Flatpak overrides are intentional, stale, or causally related to plug-in visibility.
+```text
+repository-owned C++20 source
+  -> user-scope Freedesktop SDK 25.08
+  -> exact pinned official VST3 SDK
+  -> LabHostProbe.vst3 Linux x86_64 bundle
+  -> official validator inside the build SDK
+  -> exact owned copy at <HOME>/.vst3/linux-vst-bridge/LabHostProbe.vst3
+  -> explicit-path official validation inside the Bitwig Flatpak sandbox
+```
 
-## Nonclaims
+## In scope
 
-SR0 does not claim that Serum 2 installs, authorizes, scans, opens, processes audio, appears in Bitwig, or interoperates with Proton, Wine, yabridge, or a project bridge. It does not generalize this fixture to Linux support and does not authorize credentials, installer execution, environment mutation, Flatpak override changes, or bridge implementation.
+- One original deterministic stereo gain effect named `LAB Host Probe` with separate processor/controller classes, fixed class and parameter IDs, versioned state, bypass, 32-bit and 64-bit processing, and no custom editor.
+- Exact dependency and user-space toolchain verification.
+- Deterministic build-affecting tracked-source manifest binding build receipts
+  across evidence-only amended heads while rejecting every covered source or
+  declared-directory path-set change.
+- Two clean out-of-tree builds and stable semantic/metadata comparison.
+- Official validator execution in both build environments and against the published copy inside the existing Bitwig sandbox.
+- Exact owned publication with staged verification, atomic replacement, safe inspection, and documented exact removal.
+- One ordinary project receipt path with strict prior-receipt ownership, plus
+  canonical no-symlink containment for every alternate test root and path.
+- Read-only sandbox visibility, readability, ELF architecture, hash, dependency-closure, effective environment, override-preservation, and process-state observations.
+- Sanitized retained evidence for this exact fixture and claim.
 
-## Work selection
+## Explicit non-goals and nonclaims
 
-The technical lead must inspect this accepted evidence and present one bounded next decision. Until the operator approves that decision, do not add `Cargo.toml`, CMake projects, SDK sources, native proxies, Windows hosts, runners, compatibility profiles, or experimental host-path changes.
+HP0 does not launch Bitwig, request a scan, change a plug-in path or Flatpak override, or claim automatic `~/.vst3` discovery. It does not load, inspect, authorize, or change Serum, Wine, Proton, UMU, yabridge, `.wine`, or Steam compatdata. It does not implement a Windows host, bridge IPC, shared-memory transport, manager, broker, Rust component, CLAP plug-in, editor, compatibility profile, or real-time bridge claim. It does not generalize this exact fixture to Linux support.
+
+## Evidence requirements
+
+Retain the exact repository basis, host/Bitwig fixture, Freedesktop SDK identity and before/after state, official SDK root/submodule lock and license, source/class/parameter IDs, two-build receipts and hashes, bounded official-validator summaries, bundle structure and dependencies, publication receipt, sandbox load receipt, negative-test ledger, override byte identity, no-Bitwig-process checks, sanitization review, and explicit claim ceiling.
+
+Build evidence also retains the canonical build-source path/mode/blob manifest
+schema and digest, historical exercised commit/tree, final-head manifest
+equality, and successful final-head receipt verification. Publication evidence
+retains the exact ordinary receipt path, prior-receipt ownership validation,
+unrelated-receipt refusal, and canonical test-root/symlink-escape results.
+
+Generated binaries, SDK checkouts, build directories, validator executables, published bundles, private paths, hostname, proprietary material, and license/account state remain untracked.
+
+## Negative acceptance
+
+Acceptance must fail closed for a wrong or dirty SDK, absent exact user SDK,
+changed/missing/unexpected build-source identity, a stale receipt with edited
+historical provenance, unknown publication or receipt destination, alternate
+ordinary receipt, escaped/symlinked test path, any failed post-swap publication
+or receipt operation, absent bundle, modified published module or validator,
+wrong architecture or unresolved dependency, Bitwig app/runtime/scope drift, a
+shadowing user app installation, running Bitwig process, validator failure,
+changed or unexpected Flatpak override bytes, an unexpected effective
+VST/VST3/CLAP path, or unsanitized/unhashable evidence.
+
+## Cleanup and rollback
+
+- The Freedesktop SDK may remain as the declared user-space development fixture.
+- Third-party source and build products remain beneath the user cache or ignored `build/` tree and may be removed without touching tracked source.
+- Publication removal is limited to the exact manifest-verified HP0-owned bundle.
+- Failed publication or receipt commit removes only the transaction-owned replacement, restores the exact prior complete bundle and receipt bytes (or prior absence), and leaves no stage or backup sibling after a successful rollback.
+- HP0 leaves the verified owned bundle published for HP1.
+
+## Review standard
+
+Review the exact PR head against this one claim, the exact SDK/toolchain locks, original source and fixed identities, validator results, publication ownership/rollback law, sandbox evidence, unchanged overrides/process state, negative tests, sanitization, and explicit nonclaims. A successful explicit-path validator run is not Bitwig discovery or musical-operation evidence.
