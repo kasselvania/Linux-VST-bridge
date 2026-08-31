@@ -1,0 +1,18 @@
+set(HP0_EXPECTED_SDK_REF "runtime/org.freedesktop.Sdk/x86_64/25.08")
+set(HP0_EXPECTED_SDK_COMMIT "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8")
+
+function(hp0_require_freedesktop_sdk)
+    if(NOT EXISTS "/.flatpak-info")
+        message(FATAL_ERROR "HP0 configuration must run inside ${HP0_EXPECTED_SDK_REF}; host tools are forbidden")
+    endif()
+
+    file(READ "/.flatpak-info" hp0_flatpak_info LIMIT 16384)
+    string(FIND "${hp0_flatpak_info}" "runtime=${HP0_EXPECTED_SDK_REF}" hp0_ref_index)
+    if(hp0_ref_index EQUAL -1)
+        message(FATAL_ERROR "Wrong Flatpak SDK runtime; expected ${HP0_EXPECTED_SDK_REF}")
+    endif()
+    string(FIND "${hp0_flatpak_info}" "runtime-commit=${HP0_EXPECTED_SDK_COMMIT}" hp0_commit_index)
+    if(hp0_commit_index EQUAL -1)
+        message(FATAL_ERROR "Wrong Flatpak SDK commit; expected ${HP0_EXPECTED_SDK_COMMIT}")
+    endif()
+endfunction()
