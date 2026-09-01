@@ -26,16 +26,19 @@ adversarial_review_github_id: 5083590311
 adversarial_review_result: DESIGN_CLEAR
 design_approval: docs/slices/WF0/DESIGN_APPROVAL_V5.md
 design_approval_git_blob: aabf50ae545a4a4a3d7efddc4abec00d04dfc452
-design_authority_merge_pr: pending_exact_merge_vehicle
-design_authority_merge_commit: pending_exact_main_readback
-design_authority_merge_tree: pending_exact_main_readback
+design_authority_merge_pr: #19
+design_authority_merge_commit: 07aa098d4cee2397e221742e8284aa1c6ba3b1c8
+design_authority_merge_tree: 2e1c04925a4bf728469b15b0e9ae8fd3bcb76abf
+authority_readback_branch: status/wf0-v5-authority-readback
 implementation_branch: codex/wf0-windows-vst3-factory-census
-implementation_branch_state: paused_until_exact_authority_merge_readback
-implementation_basis_rule: exact_current_main_after_v5_authority_merge_and_readback
+implementation_branch_state: awaiting_exact_authority_readback_merge
+implementation_basis_rule: exact_current_main_after_this_authority_readback_merges
 successor_selection_authorized: false
 ```
 
-The operator has explicitly approved the immutable `wf0-design-v5` card. Implementation may begin only after this complete amendment authority is merged and the exact resulting `main` commit and tree are read back. The implementation branch must then begin from that exact basis.
+PR #18 retains the reviewed V3/V4/V5 amendment history. Because GitHub's draft-ready transition failed, the exact approved head was merged through ordinary PR #19 as design-authority commit `07aa098d4cee2397e221742e8284aa1c6ba3b1c8`, tree `2e1c04925a4bf728469b15b0e9ae8fd3bcb76abf`.
+
+This file is a post-merge authority readback only. It does not amend `wf0-design-v5`. The implementation branch must begin from the exact current `main` commit and tree after this readback merges; the technical-lead handoff supplies those identities. The design, reconciliation, review, and approval records are immutable implementation inputs.
 
 ## Primary claim
 
