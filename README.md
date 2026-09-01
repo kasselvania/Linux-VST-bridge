@@ -17,44 +17,84 @@ choose an installer
 
 The project is **not** based on the fiction that Proton lets a native Linux DAW load a Windows DLL directly. The native DAW loads a native Linux proxy. A supervised Windows host loads the actual plug-in under a pinned audio-oriented Wine/Proton-derived runner. Versioned IPC carries factory calls, state, parameters, events, audio, editor coordination, and diagnostics across that boundary.
 
-## Current posture
+## Accepted boundary
 
-- The repository contains a human-facing soft design dossier and provisional architecture.
-- No production bridge implementation exists yet.
-- No implementation slice has been selected beyond the completed repository-design seed.
-- **Serum 2 is the first real commercial VST3 fixture.**
-- An openly distributable VST3 reference module may be used as test infrastructure, but it is not a substitute for the Serum 2 product proof.
-- **Kontakt is a later hostile-system fixture** for Native Access, large and relocatable content, authorization, historical library layouts, and version compatibility.
+The repository currently retains four accepted proof layers:
+
+```text
+SR0  exact Steam Deck / Bitwig / existing Serum-artifact reconnaissance
+HP0  repository-owned native Linux VST3 build, validation, publication, and sandbox load
+HP1  normal Bitwig discovery and exact native instance admission
+WR0  controlled Runtime 4 / Proton 11 Windows-command execution and isolated environment ownership
+```
+
+Those layers do **not** yet establish a Windows VST3 scanner, Windows plug-in host, native bridge proxy, bridge IPC, shared-memory audio transport, Serum operation, authorization, or product compatibility.
+
+Serum 2 remains the first real commercial VST3 fixture. Open reference modules are test instrumentation, not a substitute for the Serum proof. Kontakt remains a later hostile-system fixture for Native Access, large and relocatable content, authorization, historical library layouts, and version compatibility.
+
+## Development method
+
+High-risk work uses a two-approval process:
+
+```text
+select one bounded slice
+    -> bounded reconnaissance
+    -> freeze an implementation design card
+    -> independent adversarial design review
+    -> approve the exact design revision
+    -> implement only that revision
+    -> independent pre-PR implementation audit
+    -> technical-lead exact-head review
+```
+
+Selecting a slice does not automatically authorize implementation. A material discovery about ownership, state, topology, mutation, recovery, security, licensing, real-time behavior, or proof coverage returns the slice to the design gate rather than becoming an improvised patch.
+
+See [`docs/DEVELOPMENT_PROCESS.md`](docs/DEVELOPMENT_PROCESS.md).
 
 ## Authority and reading order
 
 1. [`AGENTS.md`](AGENTS.md)
 2. [`GOVERNANCE.md`](GOVERNANCE.md)
 3. [`CURRENT_SLICE.md`](CURRENT_SLICE.md)
-4. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-5. [`docs/DESIGN_DOSSIER.md`](docs/DESIGN_DOSSIER.md)
-6. [`docs/FIXTURE_CARDS.md`](docs/FIXTURE_CARDS.md)
-7. [`docs/DECISION_REGISTER.md`](docs/DECISION_REGISTER.md)
-8. [`docs/RESEARCH_BASIS.md`](docs/RESEARCH_BASIS.md)
+4. [`docs/DEVELOPMENT_PROCESS.md`](docs/DEVELOPMENT_PROCESS.md)
+5. the approved current-slice implementation design and approval receipt, when present
+6. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+7. [`docs/DESIGN_DOSSIER.md`](docs/DESIGN_DOSSIER.md)
+8. [`docs/FIXTURE_CARDS.md`](docs/FIXTURE_CARDS.md)
+9. [`docs/DECISION_REGISTER.md`](docs/DECISION_REGISTER.md)
+10. [`docs/RESEARCH_BASIS.md`](docs/RESEARCH_BASIS.md)
 
-The dossier is north-star material for the operator and technical lead. Coding agents receive only the current bounded slice, the applicable architecture sections, ordinary interfaces, and focused acceptance requirements.
+The dossier is north-star material for the operator and technical lead. A coding agent receives one bounded authority phase, the approved design revision when implementation is authorized, applicable architecture sections, ordinary interfaces, and focused acceptance requirements.
 
 ## Repository shape
 
 ```text
-AGENTS.md                    repository execution law
-GOVERNANCE.md                design/implementation/evidence separation
-CURRENT_SLICE.md             the only active implementation authority
-docs/DESIGN_DOSSIER.md       human product and experience north star
-docs/ARCHITECTURE.md         provisional component boundaries and laws
-docs/FIXTURE_CARDS.md        Serum 2, Kontakt, and reference-fixture pressure
-docs/DECISION_REGISTER.md    accepted, provisional, and open decisions
-docs/RESEARCH_BASIS.md       exact internal and external grounding
-compatibility/               future versioned compatibility profiles and schema
-evidence/                    sanitized retained experimental evidence
+AGENTS.md                              repository execution law
+GOVERNANCE.md                          authority and truth-class law
+CURRENT_SLICE.md                       the only active slice and authority phase
+docs/DEVELOPMENT_PROCESS.md            human selection/design/implementation/review process
+docs/templates/                        design and authority receipt templates
+docs/prompts/                          reusable technical-lead and independent-review prompts
+docs/slices/<SLICE_ID>/                future approved per-slice design/review/approval records
+docs/DESIGN_DOSSIER.md                 human product and experience north star
+docs/ARCHITECTURE.md                   provisional component boundaries and laws
+docs/FIXTURE_CARDS.md                  Serum 2, Kontakt, and reference-fixture pressure
+docs/DECISION_REGISTER.md              accepted, provisional, and open decisions
+docs/RESEARCH_BASIS.md                 exact internal and external grounding
+compatibility/                         future versioned compatibility profiles and schema
+evidence/                              sanitized retained experimental evidence
 ```
 
 No proprietary plug-in binary, installer, preset library, activation file, token, credential, account data, or licensed content belongs in this repository.
+
+## Reusable process artifacts
+
+- [Implementation design card template](docs/templates/IMPLEMENTATION_DESIGN_CARD.md)
+- [Slice-selection receipt template](docs/templates/SLICE_SELECTION_RECEIPT.md)
+- [Design-approval receipt template](docs/templates/DESIGN_APPROVAL_RECEIPT.md)
+- [Prompt: choose the next slice](docs/prompts/CHOOSE_NEXT_SLICE.md)
+- [Prompt: adversarially review an implementation design](docs/prompts/ADVERSARIAL_DESIGN_REVIEW.md)
+- [Prompt: independently audit an implementation before PR review](docs/prompts/PRE_PR_IMPLEMENTATION_AUDIT.md)
 
 ## Language ruling
 
