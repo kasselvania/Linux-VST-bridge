@@ -11,8 +11,8 @@ launch.py supervisor
 ```
 
 - Neutral application ID: `0`.
-- Contract-source schema / SHA-256: `linux-vst-bridge-wr0-contract-source/v1` / `887b148b7862038fd8fc0af52146ecc7452a5fbf82c22c5af8eaec6fe47504b8`.
-- Historical implementation commit / tree: `100713669295f67d47aa670cf33891c72bef0481` / `7d14b91bd838d60faee9a443b66ac2104fe72da9`.
+- Contract-source schema / SHA-256: `linux-vst-bridge-wr0-contract-source/v1` / `c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541`.
+- Historical implementation commit / tree: `5008d19ff0a419114c4f60e5e9d0b11de5328a27` / `63bfe5189ce3de36860aef604137eb0ff564dc47`.
 - Tracked workload SHA-256: `4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac`.
 - Persistent state roots: exact WR0 compatdata, runtime variable, cache, config, data, and temporary directories only.
 - Explicit environment names: `HOME`, `USER`, `LOGNAME`, `PATH`, `LANG`, `XDG_RUNTIME_DIR`, `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `TMPDIR`, `STEAM_COMPAT_DATA_PATH`, `STEAM_COMPAT_CLIENT_INSTALL_PATH`, `STEAM_COMPAT_APP_ID`, `SteamAppId`, `SteamGameId`, `PRESSURE_VESSEL_VARIABLE_DIR`, `STEAM_ZENITY`.
@@ -31,12 +31,12 @@ launch.py supervisor
 
 | Repository-relative path | Git mode | Git blob |
 |---|---|---|
-| `docs/WR0_RUNNER_LOCK.md` | `100644` | `d2076de6c90f6611ea8ab55426b57a6edf5c8a4c` |
-| `tools/wr0-proton-bootstrap/README.md` | `100644` | `4e2b71a7ae524b3ab76e57db6f15e8595de746d1` |
+| `docs/WR0_RUNNER_LOCK.md` | `100644` | `94471e033951f735bd2eb792020c7197ce3536c8` |
+| `tools/wr0-proton-bootstrap/README.md` | `100644` | `d90180efb2812feb0e510e7f0fb697d08a20c466` |
 | `tools/wr0-proton-bootstrap/common.sh` | `100755` | `2e382985402e19b09d71ceaf85078a77f52bab57` |
 | `tools/wr0-proton-bootstrap/environment.sh` | `100755` | `b5389c36e0d75484b2cdad5f159f8a9cbd1d73e6` |
 | `tools/wr0-proton-bootstrap/inspect-runner.sh` | `100755` | `e157340eff629127332d94650d4f369ad8688d94` |
-| `tools/wr0-proton-bootstrap/launch.py` | `100755` | `2a5337be3c2d1a330a245289f694b5ca3a18ab66` |
+| `tools/wr0-proton-bootstrap/launch.py` | `100755` | `215718bb641765da9163779c0e2145bd02d3198a` |
 | `tools/wr0-proton-bootstrap/negative-tests.sh` | `100755` | `b1882ddb3f903a441145866bfb24650ff046a20e` |
 | `tools/wr0-proton-bootstrap/preflight.sh` | `100755` | `13bceffe6c75830ef6ed0828d32dcd7d7938068b` |
 | `tools/wr0-proton-bootstrap/sanitize.sh` | `100755` | `44fd2d9ecf369030ed58b7898cdcfb87c2075cfb` |

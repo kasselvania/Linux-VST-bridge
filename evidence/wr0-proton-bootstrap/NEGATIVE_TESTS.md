@@ -46,6 +46,16 @@
 | windows_command_exit_37_flag_exactly_if_expected | `passed` |
 | final_sigkill_survivor_produces_process_topology_blocked | `passed` |
 | ready_gate_temporary_artifacts_absent_after_scoped_cleanup | `passed` |
+| predecessor_backup_rename_then_first_fsync_failure_restores_exact | `passed` |
+| predecessor_backup_verification_failure_restores_exact | `passed` |
+| predecessor_restore_fsync_failure_outer_recovery_accepts_exact_destination | `passed` |
+| predecessor_backup_physical_rename_before_event_is_recovered | `passed` |
+| predecessor_recovery_false_event_exact_backup_restored | `passed` |
+| predecessor_backup_unknown_object_refused_unchanged | `passed` |
+| predecessor_backup_forged_marker_identity_refused | `passed` |
+| predecessor_recovery_both_absent_fails_closed | `passed` |
+| predecessor_recovery_unknown_destination_refuses_exact_backup | `passed` |
+| predecessor_guarded_backup_receipt_and_rollback_pass | `passed` |
 | replacement_failure_before_predecessor_backup_preserves_predecessor | `passed` |
 | replacement_failure_after_backup_before_promotion_restores_predecessor | `passed` |
 | replacement_failure_after_promotion_before_commit_restores_predecessor | `passed` |
@@ -73,4 +83,4 @@
 | live_held_cleanup_unrelated_sentinel_survives | `passed` |
 | live_handshake_artifacts_absent_after_bad_gate_and_forced_cleanup | `passed` |
 
-Aggregate: `passed` (70/70). Fixtures remained beneath the canonical cache test root. The real Proton/Runtime deployments were not modified.
+Aggregate: `passed` (80/80). Fixtures remained beneath the canonical cache test root. The real Proton/Runtime deployments were not modified.

@@ -5,35 +5,35 @@ Classification: `expected_failure`.
 | Fact | Result |
 |---|---|
 | Run number | `37` |
-| Nonce | `e923d07248d8dc20b68d9651e15c736a` |
-| Started | `2026-09-01T04:53:54Z` |
-| Finished | `2026-09-01T04:53:57Z` |
-| Duration ms | `3146` |
+| Nonce | `496771a945167f46a8aaa97aa6133633` |
+| Started | `2026-09-01T05:33:35Z` |
+| Finished | `2026-09-01T05:33:38Z` |
+| Duration ms | `3106` |
 | Windows/supervisor exit | `37` / expected `37` |
 | Timeout | `false` |
-| Root start ticks | `4163387` |
-| Root identity SHA-256 | `5bd76ade8b2313c798eb62c897ab617da80043c5ca283bc77bd7fda968cbb6ca` |
-| Environment identity SHA-256 | `447e6d4dfccfbebe7be44cc521e8ed192bfad4ab1fe1f16673d391161db73c24` |
+| Root start ticks | `4401483` |
+| Root identity SHA-256 | `2cebec2ae8921f851eb17e93d50f33a7330dd669127612e5edf3b327280ed0b9` |
+| Environment identity SHA-256 | `d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4` |
 | Clean descendants after completion | `0` |
 | Steam game-launch ancestor | `false` |
 | Process-role assertion | `passed` |
 | Missing required roles | `[]` |
 | Observed process scope | `complete_bounded_exact_root_descendants` |
 | Descendants outside initial process group | `11` |
-| Command first observed us | `2893430` |
-| Fresh pre-gate revalidation us | `2949835` |
-| Gate committed us | `2962222` |
-| Command completed us | `3102508` |
+| Command first observed us | `2855862` |
+| Fresh pre-gate revalidation us | `2909331` |
+| Gate committed us | `2920948` |
+| Command completed us | `3062939` |
 | Causal gate order | `true` |
 | Strict command vector | `true` |
-| Contract-source SHA-256 | `887b148b7862038fd8fc0af52146ecc7452a5fbf82c22c5af8eaec6fe47504b8` |
+| Contract-source SHA-256 | `c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541` |
 | Tracked workload SHA-256 | `4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac` |
 
 ## Exact normalized stdout
 
 ```text
 WR0_MAGIC=LINUX_VST_BRIDGE_WR0_V1
-WR0_NONCE=e923d07248d8dc20b68d9651e15c736a
+WR0_NONCE=496771a945167f46a8aaa97aa6133633
 WR0_RUN=37
 WR0_ARCH=x86_64
 WR0_READY=waiting_for_supervisor
@@ -41,27 +41,27 @@ WR0_GATE=accepted
 WR0_EXIT=37
 ```
 
-- Raw stdout SHA-256: `007719df843bf00965844576ec8889c12510db2fe813518755a7a2f30544ec04`.
+- Raw stdout SHA-256: `412a1106b823cb39e014f9ad1361ee31fa5d094bc06381a3556e17e4b72b0a33`.
 - Bounded stderr: `352` bytes / SHA-256 `776f568fe17292177657bc22a107fa8846c74d5d3418ed6f9e8071bd539e6eb6`; content is not retained.
 
 ## Bounded owned process identities
 
 | Label | Role | Safe executable | UID | Start ticks | Parent | Root PG | Root session | Identity SHA-256 |
 |---|---|---|---:|---:|---|---|---|---|
-| `RUNTIME_ROOT_1` | `runtime_root` | `pressure-vessel-wrap` | 1000 | 4163387 | `SUPERVISOR` | `true` | `true` | `5bd76ade8b2313c798eb62c897ab617da80043c5ca283bc77bd7fda968cbb6ca` |
-| `OWNED_DESCENDANT_1` | `owned_descendant` | `x86_64-linux-gnu-capsule-capture-libs` | 1000 | 4163439 | `RUNTIME_ROOT_1` | `true` | `true` | `384f5ca5cde149f314c7006f2779b2fee5993f58c2c83aa611b07d989fa24f1a` |
-| `OWNED_DESCENDANT_2` | `owned_descendant` | `i386-linux-gnu-capsule-capture-libs` | 1000 | 4163459 | `RUNTIME_ROOT_1` | `true` | `true` | `74b3d90ca7bcae015a1cd06c3bab3eb77b5ec2035fa6d881307d1e87d7f1a9eb` |
-| `RUNTIME_COMPONENT_1` | `runtime_component` | `pv-adverb` | 1000 | 4163490 | `RUNTIME_ROOT_1` | `false` | `false` | `ba2cca402e5c0bd10dbcc18c80bab7580b5cf41e6a8159d68873bad64dcb4305` |
-| `PROTON_1` | `proton` | `python3.13` | 1000 | 4163498 | `RUNTIME_COMPONENT_1` | `false` | `false` | `5744178b5f84e13bc8777bae3b8baa5cab90289b3b358c1eedf6ec161c32853a` |
-| `WINE_1` | `wine` | `wine-preloader` | 1000 | 4163503 | `PROTON_1` | `false` | `false` | `3e16294d52eb5b6981433aa47858f4b35382bd0ccd93e36792f99b9d303562cc` |
-| `WINESERVER_1` | `wineserver` | `wineserver` | 1000 | 4163504 | `RUNTIME_COMPONENT_1` | `false` | `false` | `7c7607671d457a5db91a1fd6eb11f48adf578ae8f6ec11e09c068004f1044fd1` |
-| `OWNED_DESCENDANT_3` | `owned_descendant` | `wine64-preloader` | 1000 | 4163509 | `RUNTIME_COMPONENT_1` | `false` | `false` | `412a9cf168f11bdea6dbd2cf0ff242af2ad709485b36bb7e1b4ee7eff88b85c4` |
-| `WINE_SUPPORT_1` | `wine_support` | `wine64-preloader` | 1000 | 4163512 | `RUNTIME_COMPONENT_1` | `false` | `false` | `ed0a46024733115f69dc8df4a1ca277811219fb60fd1dcfc1f4d3270bcfb3962` |
-| `WINE_SUPPORT_2` | `wine_support` | `wine64-preloader` | 1000 | 4163516 | `RUNTIME_COMPONENT_1` | `false` | `false` | `82c9adc5104530f432973fd9e4b86c7bb29b5f37865e5ac531e5f25e27cf58ea` |
-| `OWNED_DESCENDANT_4` | `owned_descendant` | `wine64-preloader` | 1000 | 4163519 | `RUNTIME_COMPONENT_1` | `false` | `false` | `076acf8901d65ad7dfc3e0aa7fb964e1fdf3b76179ba6b2df29513f0c6cc839f` |
-| `OWNED_DESCENDANT_5` | `owned_descendant` | `wine64-preloader` | 1000 | 4163551 | `RUNTIME_COMPONENT_1` | `false` | `false` | `f2ab2d377139149cb69691d9162a34c9360b3314213f5753d19ce8013073d3ec` |
-| `WINE_SUPPORT_3` | `wine_support` | `wine64-preloader` | 1000 | 4163554 | `RUNTIME_COMPONENT_1` | `false` | `false` | `c38126b02abd427a65299692c3712425cb164dea62d7d4970c27700aa34e7a3e` |
-| `WINDOWS_COMMAND_1` | `windows_command` | `wine64-preloader` | 1000 | 4163661 | `RUNTIME_COMPONENT_1` | `false` | `false` | `557de52238248354c1713cbdee897791b2a4121af7e27d4d3ce414c6ce93aa83` |
+| `RUNTIME_ROOT_1` | `runtime_root` | `pressure-vessel-wrap` | 1000 | 4401483 | `SUPERVISOR` | `true` | `true` | `2cebec2ae8921f851eb17e93d50f33a7330dd669127612e5edf3b327280ed0b9` |
+| `OWNED_DESCENDANT_1` | `owned_descendant` | `x86_64-linux-gnu-capsule-capture-libs` | 1000 | 4401535 | `RUNTIME_ROOT_1` | `true` | `true` | `8dd49f9e13e6a3d065c5d572fe23298cd17c46b39b218a2d029e10b8fa86024e` |
+| `OWNED_DESCENDANT_2` | `owned_descendant` | `i386-linux-gnu-capsule-capture-libs` | 1000 | 4401555 | `RUNTIME_ROOT_1` | `true` | `true` | `922b062ebee3410ac4d5be9d59f595976ca4e93fbe8b4c89eb6a5fe0edd8d796` |
+| `RUNTIME_COMPONENT_1` | `runtime_component` | `pv-adverb` | 1000 | 4401586 | `RUNTIME_ROOT_1` | `false` | `false` | `f8458c2c7da34dd416d6f85dd2322383d95f2552119bff2b138b2d76b70c6962` |
+| `PROTON_1` | `proton` | `python3.13` | 1000 | 4401594 | `RUNTIME_COMPONENT_1` | `false` | `false` | `668de040bef77fe40a671180070b474d134134b4ab263d0fa1a09266a309b842` |
+| `WINE_1` | `wine` | `wine-preloader` | 1000 | 4401599 | `PROTON_1` | `false` | `false` | `7036aac7eabf31cdeae932118f2f6ee74cbd8f5ebaf7cccd47347c5924330562` |
+| `WINESERVER_1` | `wineserver` | `wineserver` | 1000 | 4401600 | `RUNTIME_COMPONENT_1` | `false` | `false` | `365c3f6a340d4d13225be047ddc48115313a2114415a812f6a16a5f44d567e07` |
+| `OWNED_DESCENDANT_3` | `owned_descendant` | `wine64-preloader` | 1000 | 4401604 | `RUNTIME_COMPONENT_1` | `false` | `false` | `9893d315dbfadbf48ccf71f95c9623dcd361a646cf413fb9fa5713b5f4ba4782` |
+| `WINE_SUPPORT_1` | `wine_support` | `wine64-preloader` | 1000 | 4401607 | `RUNTIME_COMPONENT_1` | `false` | `false` | `b6f1e4f40fa1235e48e89b300faef0d50c9a0366c84c9bf44ccbab5e032ef994` |
+| `WINE_SUPPORT_2` | `wine_support` | `wine64-preloader` | 1000 | 4401611 | `RUNTIME_COMPONENT_1` | `false` | `false` | `e62f5e0e6f744e1ed1acb1a0ebb513406ea600774aaf86cde0ff9a1383c0c6d4` |
+| `OWNED_DESCENDANT_4` | `owned_descendant` | `wine64-preloader` | 1000 | 4401614 | `RUNTIME_COMPONENT_1` | `false` | `false` | `a420ce2efde6ad6f8a95bb2b029cd2b5c02679836340e4d61021514e7a49075b` |
+| `OWNED_DESCENDANT_5` | `owned_descendant` | `wine64-preloader` | 1000 | 4401644 | `RUNTIME_COMPONENT_1` | `false` | `false` | `d5a8cf109a491a762205378ab7f845f3653c53b3fed28d7aade79d08d54d4f1b` |
+| `WINE_SUPPORT_3` | `wine_support` | `wine64-preloader` | 1000 | 4401648 | `RUNTIME_COMPONENT_1` | `false` | `false` | `4c9d7eb28c8806d13a46479252589fe73ddc2aecc29d23dec516a107b032c79a` |
+| `WINDOWS_COMMAND_1` | `windows_command` | `wine64-preloader` | 1000 | 4401753 | `RUNTIME_COMPONENT_1` | `false` | `false` | `e654e59f33c2fe1068983873c4cc38f1dd0c0f9f6abb8a8fd27913abe8e55965` |
 
 No PID, command line, process environment, complete process map, or unrelated process is retained.
 
