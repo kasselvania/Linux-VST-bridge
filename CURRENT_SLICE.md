@@ -1,140 +1,144 @@
-# Current Slice: WF0 — Supervised Windows VST3 Factory Census Probe
+# Current Slice: WF0 — Bitwig 6.1 Protected-Fixture Amendment
 
 ## Status
 
 ```text
-status: active_implementation_slice
-authority_phase: implementation
-implementation_authorized: true
+status: active_design_amendment
+authority_phase: reconnaissance_and_design
+implementation_authorized: false
 slice: WF0
 target: main
-selection_basis_commit: 745ca63bdd8641ade85cb9a024c1dc842681192d
-selection_basis_tree: 275521adff574f165bb2b3e883c2ec909bae4c66
-reviewed_design_pr: #15
-design_authority_merge_pr: #16
-design_authority_merge_commit: df102033292e815e26103e08929c1183fb1c260a
-design_authority_merge_tree: f1ed5493b51518705c759c1b8f7dab7407414038
-design_revision: wf0-design-v2
-design_commit: 4a04d5b52d1fa8e2d309ed1e2883ff96a7963ca6
-design_tree: b14b216ad5964ec68a1cf32d33c4201670d3ffd7
-design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN.md
-design_card_git_blob: d618cbf6b397f10947d50fd4824cd3e06ef55726
-design_card_sha256: f323e2b429c4f91c1821488d980b249901b8d82c3cceaa7bf9be9d874a455e24
-adversarial_review: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW.md
-adversarial_review_git_blob: 7ee98c4c0fb0d28b11d43d33b46e2ab5fa57c299
-adversarial_review_github_id: 5082923871
-adversarial_review_result: DESIGN_CLEAR
-design_approval: docs/slices/WF0/DESIGN_APPROVAL.md
-design_approval_git_blob: a84df2044b8a78b44b7c004b53b620d474994221
+amendment_basis_commit: 15523c69567d24b256cb3c65cb6f06bfa07854be
+amendment_basis_tree: a6e2fc8c7a564f50e9033094fde847387478de62
+amendment_branch: codex/wf0-bitwig-6-1-fixture-amendment
+amendment_authorized: true
+amendment_authorization_text: I authorize an ammendment.
+design_revision: wf0-design-v3
+design_status: proposed_for_adversarial_review
+design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V3.md
+design_card_git_blob: pending_external_identity_from_design_commit
+design_card_sha256: pending_external_identity_from_design_commit
+adversarial_review: pending_fresh_independent_review
+design_approval: pending_exact_operator_approval
 implementation_branch: codex/wf0-windows-vst3-factory-census
-implementation_basis_rule: exact_current_main_after_this_authority_readback_merges
+implementation_branch_state: paused_at_superseded_v2_basis
 successor_selection_authorized: false
 ```
 
-PR #15 retains the reviewed V1/V2 design history. Because GitHub's draft-ready transition failed, the byte-identical approved branch head was merged through ordinary PR #16 as design-authority commit `df102033292e815e26103e08929c1183fb1c260a`, tree `f1ed5493b51518705c759c1b8f7dab7407414038`.
+The operator authorized the narrow amendment proposed immediately after live
+WF0 preflight found that the Deck had intentionally moved from the former
+Bitwig `6.0.11` beta fixture to Bitwig `6.1` on the stable Flatpak branch.
+That authorization returns WF0 to the design gate. It authorizes bounded
+read-only reconciliation, a V3 design draft, fresh independent adversarial
+review, and preparation of an exact approval request.
 
-This file is a post-merge authority readback only. It does not amend `wf0-design-v2`. The implementation branch must begin from the exact current `main` commit and tree after this readback merges; the technical-lead handoff supplies those identities. The design, review, selection, reconnaissance, and approval records are immutable implementation inputs.
+It does **not** approve the draft, reauthorize implementation, authorize a
+toolchain installation, permit a build or Windows workload, or authorize a
+merge. Implementation may resume only after the exact V3 card is independently
+reviewed, explicitly approved by the operator, retained in a new approval
+receipt, merged to `main`, and read back into this authority card.
 
-## Primary claim
+## Amendment trigger
 
-> On the exact accepted Steam Deck fixture, a repository-owned supervised Windows x86_64 factory probe, built against the pinned official VST3 SDK and executed through the accepted Runtime 4/Proton 11 lane in a disposable WF0-owned scan environment, loads the exact pinned AGain VST3 bundle, obtains its plug-in factory, retains deterministic factory metadata and the complete expected three-class census, unloads cleanly, and leaves the accepted WR0 environment and every protected fixture unchanged.
-
-The claim is not accepted until an exact implementation head passes independent pre-PR audit and technical-lead review and is merged.
-
-## Approved design authority
+The implementation preflight reached the protected-fixture gate without a
+protected-fixture or implementation-source mutation and returned:
 
 ```text
-selection receipt:
-  docs/slices/WF0/SLICE_SELECTION.md
+WF0_PROTECTED_FIXTURE_DRIFT
+```
 
-reconnaissance:
-  docs/slices/WF0/RECONNAISSANCE.md
+The approved V2-era protected snapshot expected the historical Bitwig
+`6.0.11` application identity. Live readback found the intentional stable
+update below:
 
-immutable design:
-  docs/slices/WF0/IMPLEMENTATION_DESIGN.md
+```text
+application ref: app/com.bitwig.BitwigStudio/x86_64/stable
+version: 6.1
+application commit: 8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231
+scope: system
+origin: flathub
+runtime ref: org.freedesktop.Platform/x86_64/25.08
+runtime commit: bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8
+user shadow: absent
+user override SHA-256: 1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e
+system override SHA-256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+```
+
+The application version and application commit changed. The runtime identity,
+override-byte identities, installation scope, Steam Deck identity, SteamOS
+read-only posture, Runtime/Proton digest, accepted WR0 environment, VST3 SDK,
+and implementation basis remained exact. The reconciliation record is
+[`docs/slices/WF0/BITWIG_6_1_FIXTURE_RECONCILIATION.md`](docs/slices/WF0/BITWIG_6_1_FIXTURE_RECONCILIATION.md).
+
+## Prior approved authority
+
+The following V2 artifacts remain immutable historical authority:
+
+```text
+design:
+  path: docs/slices/WF0/IMPLEMENTATION_DESIGN.md
   revision: wf0-design-v2
   Git blob: d618cbf6b397f10947d50fd4824cd3e06ef55726
   SHA-256: f323e2b429c4f91c1821488d980b249901b8d82c3cceaa7bf9be9d874a455e24
 
-independent review:
-  docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW.md
+review:
+  path: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW.md
   Git blob: 7ee98c4c0fb0d28b11d43d33b46e2ab5fa57c299
   GitHub review: 5082923871
   result: DESIGN_CLEAR
 
-approval receipt:
-  docs/slices/WF0/DESIGN_APPROVAL.md
+approval:
+  path: docs/slices/WF0/DESIGN_APPROVAL.md
   Git blob: a84df2044b8a78b44b7c004b53b620d474994221
 
-design authority merge:
+design-authority merge:
   PR: #16
   commit: df102033292e815e26103e08929c1183fb1c260a
   tree: f1ed5493b51518705c759c1b8f7dab7407414038
+
+exact former implementation basis:
+  commit: 15523c69567d24b256cb3c65cb6f06bfa07854be
+  tree: a6e2fc8c7a564f50e9033094fde847387478de62
 ```
 
-## Binding implementation clarifications
+The live fixture change does not erase or rewrite those facts. It means the V2
+approval no longer authorizes implementation against the current fixture.
 
-1. Each `call_completed` record is synchronously flushed immediately after the bounded return value is captured and before any later lifecycle event or call attempt. A retained call is “in flight” when no validated completion was observed; WF0 does not claim instruction-level knowledge after abnormal process death.
-2. The required `GetPluginFactory` export is resolved and checked before optional `InitDll` is invoked. A missing required export follows `factory_export_missing` without executing `InitDll`. Optional `ExitDll` cleanup remains governed by the loaded-module cleanup law.
+## Amendment scope
 
-These clarifications are part of the approved design and do not create a V3 revision.
+V3 may change only the protected-fixture interpretation needed to distinguish:
 
-## Exact implementation boundary
+1. immutable HP0, HP1, WR0, and WR0A evidence that truthfully records the
+   historical Bitwig `6.0.11` fixture; and
+2. the current Bitwig `6.1` stable installation, runtime, and override identities
+   that WF0 must preserve without launching or modifying Bitwig.
 
-WF0 implements only:
+V3 must assign current Bitwig readback to the existing
+`ProtectedFixtureSnapshot` owner inside the already approved WF0 tooling paths.
+It must not edit historical tools or evidence merely to make their old fixture
+identity appear current. It must not promote HP1's `6.0.11` discovery and
+instance-admission proof to a `6.1` claim.
 
-```text
-exact user-scope Freedesktop SDK / MinGW lock
-    -> exact Windows x86_64 scanner and AGain reference builds
-    -> exact PE, export, import, dependency, bundle, and reproducibility checks
-    -> disposable WF0-owned scan environment
-    -> supervised Runtime 4 / Proton 11 scanner launch
-    -> causal held-gate proof before module load
-    -> explicit Win32 module loading
-    -> required GetPluginFactory / IPluginFactory acquisition
-    -> factory metadata and IPluginFactory1/2/3 support
-    -> exact ordered three-class census
-    -> reverse-order factory release
-    -> optional ExitDll and module unload
-    -> exact process cleanup and environment retirement
-    -> bounded sanitized evidence
-```
+The amendment does not change the WF0 primary claim, AGain fixture,
+Runtime/Proton route, ten-owner model, state machine, 40-path implementation
+envelope, 26-path implementation-source roster, 14-file evidence packet,
+35-row proof matrix, 23-result blocker taxonomy, external mutation envelope,
+or explicit nonclaims.
 
-WF0 stops before `createInstance`.
+## Primary claim
 
-## Approved tracked path envelope
+> On the exact accepted Steam Deck fixture, a repository-owned supervised
+> Windows x86_64 factory probe, built against the pinned official VST3 SDK and
+> executed through the accepted Runtime 4 / Proton 11 lane in a disposable
+> WF0-owned scan environment, loads the exact pinned AGain VST3 bundle, obtains
+> its plug-in factory, retains deterministic factory metadata and the complete
+> expected three-class census, unloads cleanly, and leaves the accepted WR0
+> environment and every protected fixture unchanged.
 
-The implementation PR may change exactly the 40 paths listed in Section 14 of `docs/slices/WF0/IMPLEMENTATION_DESIGN.md`:
+The claim remains unproved. Bitwig is protected state only and is not an
+execution fixture for WF0.
 
-- 26 implementation and configuration paths;
-- 14 evidence paths.
-
-The implementation-source identity is:
-
-```text
-schema: linux-vst-bridge-wf0-implementation-source/v1
-record_count: 26
-records: exact lexically sorted path / Git mode / Git blob
-```
-
-All builds and live runs must use one clean committed 26-path implementation identity. The final evidence-only head must reproduce the same manifest exactly. A source/configuration change after live execution invalidates the artifacts and live evidence and requires rebuild and rerun.
-
-No implementation edit is authorized outside the exact 40-path envelope.
-
-## Approved external mutations
-
-WF0 implementation may:
-
-- install the exact user-scope Flatpak ref `org.freedesktop.Sdk.Extension.mingw-w64/x86_64/25.08` only at approved commit `f15a5a88eb09557f645860bfcb3c4a6bc267683fce06cb68436bd76376fca694`;
-- create the declared WF0 build and verified-artifact cache roots;
-- create and retire exact marker-bound disposable WF0 scan roots;
-- launch the exact supervised Runtime 4 / Proton 11 scanner workloads and bounded source-owned negative fixtures;
-- create bounded owned runtime transients and remove them after exact cleanup;
-- push the implementation branch and open an ordinary non-draft PR.
-
-No other package, compiler, SDK, runner, system, Flatpak, Bitwig, Serum, `.wine`, Steam-compatdata, accepted-WR0-environment, HP0, HP1, or user-content mutation is authorized.
-
-## Protected fixture
+## Current protected fixture
 
 ```text
 host:
@@ -142,6 +146,22 @@ host:
   SteamOS 3.8.16
   x86_64
   SteamOS read-only
+
+current protected Bitwig installation:
+  Bitwig 6.1
+  app/com.bitwig.BitwigStudio/x86_64/stable
+  commit 8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231
+  system scope / flathub
+  no user shadow
+
+Bitwig runtime:
+  org.freedesktop.Platform/x86_64/25.08
+  commit bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8
+
+Bitwig configuration projections:
+  user override SHA-256 1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e
+  system override SHA-256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  permission-output SHA-256 c7f5a34dce104cc3d347dcaf89e135cc5ad73b891101d7587f78423858ad5c73
 
 runner/runtime digest:
   2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
@@ -153,76 +173,40 @@ accepted WR0 environment:
 VST3 SDK root:
   3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96
 
-positive fixture:
+positive WF0 fixture:
   official pinned AGain Windows VST3
 ```
 
-The accepted WR0 environment is never reused as the WF0 scan environment.
+Historical HP0/HP1/WR0 evidence remains protected byte-for-byte and retains
+its original `6.0.11` fixture statements. No current Bitwig behavior is inferred
+from those records.
 
-## Proof obligations
+## Phase restrictions
 
-The implementation must satisfy the approved 35-row proof matrix and 23-result blocked taxonomy. Material obligations include:
+During this amendment phase:
 
-- exact installed toolchain identity;
-- clean pinned SDK and exact 26-path implementation source;
-- two truthful reproducibility builds;
-- PE32+ x86_64, export, import, dependency, and bundle closure;
-- valid checked DLL-search calls;
-- first supervised launch as sole prefix-initialization owner;
-- causal held-gate proof with no module-open attempt or AGain mapping;
-- exact factory metadata and ordered three-class census;
-- exact pre-call attribution for all 15 closed operations;
-- no `createInstance`, proven by source/contract and tripwire;
-- reverse-order releases, optional exit, unload, and cleanup;
-- zero owned descendants and unrelated-process survival;
-- exact disposable-environment retirement;
-- accepted-WR0 and protected-fixture equality;
-- bounded sanitized fixed-roster evidence.
+- no implementation-source or evidence path may be edited;
+- no MinGW extension may be installed;
+- no build, validator, Bitwig, Wine, Proton, Runtime, scanner, or fixture
+  workload may be launched;
+- no WF0 scan environment may be created;
+- no accepted WR0, HP0, HP1, Bitwig, Flatpak, Serum, `.wine`, Steam compatdata,
+  vendor, or user state may be changed;
+- the paused implementation branch may not be advanced, rebased, or used for
+  evidence;
+- no design approval or merge may be inferred from the amendment authorization.
 
-A production exercise may satisfy several proof rows where the retained mapping is explicit. An arbitrary test-count target is not required.
-
-## Material-discovery stop law
-
-Implementation must stop and return to the design gate if evidence changes the approved:
-
-- owner map;
-- scanner or build lifecycle;
-- mutation root or recovery boundary;
-- process/thread topology;
-- call/event or census contract;
-- identity or dependency-search law;
-- security, privacy, licensing, or distribution posture;
-- exact MinGW, SDK, AGain, Runtime, Proton, or protected fixture;
-- primary claim or claim ceiling;
-- 40-path tracked envelope;
-- 35-row proof matrix.
-
-A normal defect within the approved owner/model/path envelope is repaired in the implementation branch and does not require redesign.
-
-## Required implementation topology
-
-The implementation branch should preserve the approved two-phase commit posture:
+## Required gate sequence
 
 ```text
-clean source commit:
-  exactly 26 implementation/configuration paths
-  -> freeze implementation-source manifest
-  -> install exact toolchain
-  -> build twice
-  -> run negatives
-  -> held-gate proof
-  -> positive AGain factory census
-
-final evidence-only commit:
-  exactly 14 evidence paths
-  -> reproduce identical 26-path source manifest
-  -> retain bounded evidence
+bounded fixture reconciliation
+    -> complete V3 design draft
+    -> fresh independent adversarial review
+    -> repair and re-review if required
+    -> exact operator approval
+    -> new approval receipt
+    -> merge and exact main readback
+    -> separately reissue the WF0 implementation handoff
 ```
-
-The implementation PR must remain open, ordinary/non-draft, and unmerged pending independent pre-PR audit and technical-lead review.
-
-## Explicit nonclaims
-
-WF0 does not establish or implement class instantiation, component/controller lifecycle, connection points, instantiated-interface census, host contexts, buses, parameters, MIDI/events, state, process setup, audio, timing, automation, presets, editor/GUI behavior, a native Linux proxy, C ABI, IPC, shared memory, a Rust service, Bitwig execution, Serum execution or compatibility, installation/authorization, product-runner selection, Steam-independent distribution, another plug-in or format, general Windows VST3 support, or general Linux compatibility.
 
 No successor slice or adjacent feature is authorized.
