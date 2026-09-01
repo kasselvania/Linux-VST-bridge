@@ -10,7 +10,10 @@ slice: WF0
 target: main
 selection_basis_commit: 745ca63bdd8641ade85cb9a024c1dc842681192d
 selection_basis_tree: 275521adff574f165bb2b3e883c2ec909bae4c66
-design_authority_pr: #15
+reviewed_design_pr: #15
+design_authority_merge_pr: #16
+design_authority_merge_commit: df102033292e815e26103e08929c1183fb1c260a
+design_authority_merge_tree: f1ed5493b51518705c759c1b8f7dab7407414038
 design_revision: wf0-design-v2
 design_commit: 4a04d5b52d1fa8e2d309ed1e2883ff96a7963ca6
 design_tree: b14b216ad5964ec68a1cf32d33c4201670d3ffd7
@@ -24,11 +27,13 @@ adversarial_review_result: DESIGN_CLEAR
 design_approval: docs/slices/WF0/DESIGN_APPROVAL.md
 design_approval_git_blob: a84df2044b8a78b44b7c004b53b620d474994221
 implementation_branch: codex/wf0-windows-vst3-factory-census
-implementation_basis: exact_design_authority_merge_of_pr_15
+implementation_basis_rule: exact_current_main_after_this_authority_readback_merges
 successor_selection_authorized: false
 ```
 
-WF0 implementation is authorized only after PR #15 is merged. The implementation branch must begin from that exact design-authority merge commit and tree. The design, review, selection, reconnaissance, and approval records become immutable implementation inputs after merge.
+PR #15 retains the reviewed V1/V2 design history. Because GitHub's draft-ready transition failed, the byte-identical approved branch head was merged through ordinary PR #16 as design-authority commit `df102033292e815e26103e08929c1183fb1c260a`, tree `f1ed5493b51518705c759c1b8f7dab7407414038`.
+
+This file is a post-merge authority readback only. It does not amend `wf0-design-v2`. The implementation branch must begin from the exact current `main` commit and tree after this readback merges; the technical-lead handoff supplies those identities. The design, review, selection, reconnaissance, and approval records are immutable implementation inputs.
 
 ## Primary claim
 
@@ -60,6 +65,11 @@ independent review:
 approval receipt:
   docs/slices/WF0/DESIGN_APPROVAL.md
   Git blob: a84df2044b8a78b44b7c004b53b620d474994221
+
+design authority merge:
+  PR: #16
+  commit: df102033292e815e26103e08929c1183fb1c260a
+  tree: f1ed5493b51518705c759c1b8f7dab7407414038
 ```
 
 ## Binding implementation clarifications
