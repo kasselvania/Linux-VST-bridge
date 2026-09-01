@@ -1,101 +1,218 @@
-# Current Slice: None Selected
+# Current Slice: WF0 — Supervised Windows VST3 Factory Census Probe
 
 ## Status
 
 ```text
-status: no_active_slice
-authority_phase: no_active_slice
-implementation_authorized: false
-last accepted slice: WR0A — Post-Merge Final WR0 Repair Reconciliation and Adoption
+status: active_implementation_slice
+authority_phase: implementation
+implementation_authorized: true
+slice: WF0
+target: main
+selection_basis_commit: 745ca63bdd8641ade85cb9a024c1dc842681192d
+selection_basis_tree: 275521adff574f165bb2b3e883c2ec909bae4c66
+design_authority_pr: #15
+design_revision: wf0-design-v2
+design_commit: 4a04d5b52d1fa8e2d309ed1e2883ff96a7963ca6
+design_tree: b14b216ad5964ec68a1cf32d33c4201670d3ffd7
+design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN.md
+design_card_git_blob: d618cbf6b397f10947d50fd4824cd3e06ef55726
+design_card_sha256: f323e2b429c4f91c1821488d980b249901b8d82c3cceaa7bf9be9d874a455e24
+adversarial_review: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW.md
+adversarial_review_git_blob: 7ee98c4c0fb0d28b11d43d33b46e2ab5fa57c299
+adversarial_review_github_id: 5082923871
+adversarial_review_result: DESIGN_CLEAR
+design_approval: docs/slices/WF0/DESIGN_APPROVAL.md
+design_approval_git_blob: a84df2044b8a78b44b7c004b53b620d474994221
+implementation_branch: codex/wf0-windows-vst3-factory-census
+implementation_basis: exact_design_authority_merge_of_pr_15
 successor_selection_authorized: false
 ```
 
-No Windows VST3 scanner, Windows host, native proxy/factory crossing, bridge IPC, shared-memory transport, Serum operation, Bitwig operation, installer/authorization session, manager, broker, editor, CLAP work, runner change, or broader compatibility claim is selected or implied.
+WF0 implementation is authorized only after PR #15 is merged. The implementation branch must begin from that exact design-authority merge commit and tree. The design, review, selection, reconnaissance, and approval records become immutable implementation inputs after merge.
 
-## Last accepted slice
+## Primary claim
 
-```text
-slice: WR0A — Post-Merge Final WR0 Repair Reconciliation and Adoption
-design-authority merge: 5aa757e46f6e8c15751743b68a8504386fbe840c
-design-authority tree: a779d2ac85ec74adc907327dde13f5d31201f914
-implementation PR: #13
-implementation basis: 5aa757e46f6e8c15751743b68a8504386fbe840c
-tool commit: c78e5845ccae7ca0f5d1e1c802f1839d519ee096
-adoption commit: 60f05fb97ae1438a10b5360f47b5812fabf131a0
-reviewed head: 48b66e87f8e65a8e8e57832039ec567452ed857b
-reviewed tree: d46b907ecac1df970d83d364884b8fdd2ed57d82
-technical-lead review: 5081542159
-implementation merge: 8e6a5e55a4c731defd518618286adb308d9640ed
-implementation merge tree: d46b907ecac1df970d83d364884b8fdd2ed57d82
-```
+> On the exact accepted Steam Deck fixture, a repository-owned supervised Windows x86_64 factory probe, built against the pinned official VST3 SDK and executed through the accepted Runtime 4/Proton 11 lane in a disposable WF0-owned scan environment, loads the exact pinned AGain VST3 bundle, obtains its plug-in factory, retains deterministic factory metadata and the complete expected three-class census, unloads cleanly, and leaves the accepted WR0 environment and every protected fixture unchanged.
 
-## Accepted reconciliation claim
+The claim is not accepted until an exact implementation head passes independent pre-PR audit and technical-lead review and is merged.
 
-Current `main` now contains the exact content-addressed final WR0 repair represented by archive commit:
+## Approved design authority
 
 ```text
-52be94316664f88a19df630e164105a0ca50b875
+selection receipt:
+  docs/slices/WF0/SLICE_SELECTION.md
+
+reconnaissance:
+  docs/slices/WF0/RECONNAISSANCE.md
+
+immutable design:
+  docs/slices/WF0/IMPLEMENTATION_DESIGN.md
+  revision: wf0-design-v2
+  Git blob: d618cbf6b397f10947d50fd4824cd3e06ef55726
+  SHA-256: f323e2b429c4f91c1821488d980b249901b8d82c3cceaa7bf9be9d874a455e24
+
+independent review:
+  docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW.md
+  Git blob: 7ee98c4c0fb0d28b11d43d33b46e2ab5fa57c299
+  GitHub review: 5082923871
+  result: DESIGN_CLEAR
+
+approval receipt:
+  docs/slices/WF0/DESIGN_APPROVAL.md
+  Git blob: a84df2044b8a78b44b7c004b53b620d474994221
 ```
 
-The accepted reconciliation:
+## Binding implementation clarifications
+
+1. Each `call_completed` record is synchronously flushed immediately after the bounded return value is captured and before any later lifecycle event or call attempt. A retained call is “in flight” when no validated completion was observed; WF0 does not claim instruction-level knowledge after abnormal process death.
+2. The required `GetPluginFactory` export is resolved and checked before optional `InitDll` is invoked. A missing required export follows `factory_export_missing` without executing `InitDll`. Optional `ExitDll` cleanup remains governed by the loaded-module cleanup law.
+
+These clarifications are part of the approved design and do not create a V3 revision.
+
+## Exact implementation boundary
+
+WF0 implements only:
 
 ```text
-merged historical WR0 source/evidence
-    + exact post-merge final-repair archive
-    + 13 exact imported path/mode/blob identities
-    + 11 exact preserved WR0 identities
-    + archived CURRENT_SLICE.md explicitly excluded
-    + dedicated repository-owned reconciliation verifier
-    + bounded read-only live Deck equality
-    -> current repository truth aligned with the existing final WR0 environment
+exact user-scope Freedesktop SDK / MinGW lock
+    -> exact Windows x86_64 scanner and AGain reference builds
+    -> exact PE, export, import, dependency, bundle, and reproducibility checks
+    -> disposable WF0-owned scan environment
+    -> supervised Runtime 4 / Proton 11 scanner launch
+    -> causal held-gate proof before module load
+    -> explicit Win32 module loading
+    -> required GetPluginFactory / IPluginFactory acquisition
+    -> factory metadata and IPluginFactory1/2/3 support
+    -> exact ordered three-class census
+    -> reverse-order factory release
+    -> optional ExitDll and module unload
+    -> exact process cleanup and environment retirement
+    -> bounded sanitized evidence
 ```
 
-Accepted identities:
+WF0 stops before `createInstance`.
+
+## Approved tracked path envelope
+
+The implementation PR may change exactly the 40 paths listed in Section 14 of `docs/slices/WF0/IMPLEMENTATION_DESIGN.md`:
+
+- 26 implementation and configuration paths;
+- 14 evidence paths.
+
+The implementation-source identity is:
 
 ```text
-archive tree: 21601814bd352114fe2e55833c88a81e47e13e41
-archive parent: 3deb414a54174cd95432c84e117a642f30c482fe
-final WR0 contract source: c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541
-WR0A reconciliation source: c0675f824d2f4cd12b84486c5378a7af65a582cf07ad06ff06a1ed5e2cc0d9c8
-live transaction: wr0-20260901T053317Z-183afd5bbf0736e4
-live environment: d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4
-runner/runtime: 2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
-workload: 4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac
-retired replacement record: 917c939c605f457376b0bdd53e06d252d4aecee4b39728850b2e1a61aa102b3e
+schema: linux-vst-bridge-wf0-implementation-source/v1
+record_count: 26
+records: exact lexically sorted path / Git mode / Git blob
 ```
 
-No Proton, Wine, Windows workload, Bitwig, Serum, or validator execution was required for WR0A. The live environment remained unchanged. The canonical WR0 packet now represents the actual final repair, while immutable Git history retains the older merged WR0 state.
+All builds and live runs must use one clean committed 26-path implementation identity. The final evidence-only head must reproduce the same manifest exactly. A source/configuration change after live execution invalidates the artifacts and live evidence and requires rebuild and rerun.
 
-## Current accepted product frontier
+No implementation edit is authorized outside the exact 40-path envelope.
 
-The project now proves, on the exact accepted Steam Deck fixture:
+## Approved external mutations
+
+WF0 implementation may:
+
+- install the exact user-scope Flatpak ref `org.freedesktop.Sdk.Extension.mingw-w64/x86_64/25.08` only at approved commit `f15a5a88eb09557f645860bfcb3c4a6bc267683fce06cb68436bd76376fca694`;
+- create the declared WF0 build and verified-artifact cache roots;
+- create and retire exact marker-bound disposable WF0 scan roots;
+- launch the exact supervised Runtime 4 / Proton 11 scanner workloads and bounded source-owned negative fixtures;
+- create bounded owned runtime transients and remove them after exact cleanup;
+- push the implementation branch and open an ordinary non-draft PR.
+
+No other package, compiler, SDK, runner, system, Flatpak, Bitwig, Serum, `.wine`, Steam-compatdata, accepted-WR0-environment, HP0, HP1, or user-content mutation is authorized.
+
+## Protected fixture
 
 ```text
-native Linux VST3 build and official validation
-    -> controlled publication into Bitwig's Flatpak-visible user path
-    -> normal Bitwig discovery and native instance admission
-    -> controlled Steam Linux Runtime 4 / Proton 11 Windows-command execution
-    -> isolated project-owned Windows environment
-    -> exact process ownership, cleanup, and durable replacement semantics
-    -> repository/live-state reconciliation of the final WR0 repair
+host:
+  Steam Deck Galileo
+  SteamOS 3.8.16
+  x86_64
+  SteamOS read-only
+
+runner/runtime digest:
+  2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
+
+accepted WR0 environment:
+  d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4
+  posture: protected_read_only
+
+VST3 SDK root:
+  3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96
+
+positive fixture:
+  official pinned AGain Windows VST3
 ```
 
-No Windows VST3 module has yet been factory-loaded, scanned, hosted, instantiated, or bridged.
+The accepted WR0 environment is never reused as the WF0 scan environment.
 
-## Next lawful action
+## Proof obligations
 
-Run the analysis-only successor-selection process in:
+The implementation must satisfy the approved 35-row proof matrix and 23-result blocked taxonomy. Material obligations include:
+
+- exact installed toolchain identity;
+- clean pinned SDK and exact 26-path implementation source;
+- two truthful reproducibility builds;
+- PE32+ x86_64, export, import, dependency, and bundle closure;
+- valid checked DLL-search calls;
+- first supervised launch as sole prefix-initialization owner;
+- causal held-gate proof with no module-open attempt or AGain mapping;
+- exact factory metadata and ordered three-class census;
+- exact pre-call attribution for all 15 closed operations;
+- no `createInstance`, proven by source/contract and tripwire;
+- reverse-order releases, optional exit, unload, and cleanup;
+- zero owned descendants and unrelated-process survival;
+- exact disposable-environment retirement;
+- accepted-WR0 and protected-fixture equality;
+- bounded sanitized fixed-roster evidence.
+
+A production exercise may satisfy several proof rows where the retained mapping is explicit. An arbitrary test-count target is not required.
+
+## Material-discovery stop law
+
+Implementation must stop and return to the design gate if evidence changes the approved:
+
+- owner map;
+- scanner or build lifecycle;
+- mutation root or recovery boundary;
+- process/thread topology;
+- call/event or census contract;
+- identity or dependency-search law;
+- security, privacy, licensing, or distribution posture;
+- exact MinGW, SDK, AGain, Runtime, Proton, or protected fixture;
+- primary claim or claim ceiling;
+- 40-path tracked envelope;
+- 35-row proof matrix.
+
+A normal defect within the approved owner/model/path envelope is repaired in the implementation branch and does not require redesign.
+
+## Required implementation topology
+
+The implementation branch should preserve the approved two-phase commit posture:
 
 ```text
-docs/prompts/CHOOSE_NEXT_SLICE.md
+clean source commit:
+  exactly 26 implementation/configuration paths
+  -> freeze implementation-source manifest
+  -> install exact toolchain
+  -> build twice
+  -> run negatives
+  -> held-gate proof
+  -> positive AGain factory census
+
+final evidence-only commit:
+  exactly 14 evidence paths
+  -> reproduce identical 26-path source manifest
+  -> retain bounded evidence
 ```
 
-against the exact current `main` commit and tree after this status closure merges.
-
-That analysis may recommend one bounded slice and emit an operator approval sentence. It may not edit the repository, activate a slice, or implement a design-gated successor.
-
-The likely product frontier is the Windows VST3 factory boundary, but no successor is selected by this closure.
+The implementation PR must remain open, ordinary/non-draft, and unmerged pending independent pre-PR audit and technical-lead review.
 
 ## Explicit nonclaims
 
-WR0A does not prove Windows VST3 loading or hosting, Serum authorization or operation, Bitwig scanning of a Windows plug-in, audio processing, parameter/state transport, GUI/editor behavior, IPC, shared memory, real-time safety, packaging, Steam-independent distribution, another DAW, or general Linux compatibility.
+WF0 does not establish or implement class instantiation, component/controller lifecycle, connection points, instantiated-interface census, host contexts, buses, parameters, MIDI/events, state, process setup, audio, timing, automation, presets, editor/GUI behavior, a native Linux proxy, C ABI, IPC, shared memory, a Rust service, Bitwig execution, Serum execution or compatibility, installation/authorization, product-runner selection, Steam-independent distribution, another plug-in or format, general Windows VST3 support, or general Linux compatibility.
+
+No successor slice or adjacent feature is authorized.
