@@ -64,7 +64,7 @@ This file materializes the independent owner review supplied as GitHub review `5
 
 **Additional live reconnaissance required:** false
 
-## Disposition
+## V1 disposition
 
 ```text
 DESIGN_REPAIR_REQUIRED
@@ -75,3 +75,46 @@ The repair must preserve the WF0 primary claim, AGain fixture, Runtime 4/Proton 
 ```text
 implementation_authorized=false
 ```
+
+---
+
+# WF0 V2 Adversarial Design Review
+
+## Review identity
+
+```yaml
+reviewed_design_commit: 4a04d5b52d1fa8e2d309ed1e2883ff96a7963ca6
+reviewed_design_tree: b14b216ad5964ec68a1cf32d33c4201670d3ffd7
+reviewed_design_path: docs/slices/WF0/IMPLEMENTATION_DESIGN.md
+reviewed_design_blob: d618cbf6b397f10947d50fd4824cd3e06ef55726
+reviewed_design_sha256: f323e2b429c4f91c1821488d980b249901b8d82c3cceaa7bf9be9d874a455e24
+reviewed_revision: wf0-design-v2
+github_review_id: 5082923871
+review_result: DESIGN_CLEAR
+implementation_authorized: false
+```
+
+The technical lead independently reviewed the exact immutable V2 design. V2 resolves all four V1 findings without widening WF0:
+
+1. Every potentially blocking module or factory call is preceded by a closed, synchronously flushed, monotonically sequenced attempt record, with exact call-boundary attribution and secondary cleanup precedence.
+2. `SetDefaultDllDirectories` and `LoadLibraryExW` have valid, distinct, checked dependency-search contracts.
+3. The first supervised Runtime 4 / Proton 11 scanner launch is the sole owner of prefix initialization; no ungated bootstrap workload exists.
+4. The exact 26-path implementation-source manifest, held-gate proof, and no-`createInstance` tripwire causally bind the result to one committed implementation and the factory-only claim.
+
+The design remains proportionate: exact about untrusted Windows module calls, process containment, source/artifact identity, disposable-environment ownership, and protected WR0 state, while explicitly excluding class instantiation, IPC, proxy, audio, GUI, Bitwig, Serum, and product-runner work.
+
+## Binding implementation clarifications
+
+These clarifications resolve implementation ordering inside the approved owners and do not amend the design:
+
+1. Emit and synchronously flush each `call_completed` record immediately after capturing the bounded return value and before any subsequent lifecycle event or call attempt. “In flight” in retained attribution means that no validated completion was observed; it is not a claim about an unknowable instruction-level point after abnormal process death.
+2. Resolve and check the required `GetPluginFactory` export before invoking optional `InitDll`. A missing required export takes the existing `factory_export_missing` path without executing `InitDll`; optional `ExitDll` cleanup remains governed by the approved loaded-module cleanup law.
+
+## V2 disposition
+
+```text
+DESIGN_CLEAR
+implementation_authorized=false
+```
+
+No further reconnaissance or design revision is required. This review clears the exact V2 design only. Toolchain installation and implementation require the separate approval receipt and implementation-authority card.
