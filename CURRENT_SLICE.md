@@ -35,10 +35,18 @@ The implementation design is:
 docs/slices/WR0A/IMPLEMENTATION_DESIGN.md
 ```
 
-Implementation requires a fresh independent adversarial design review and a
-separate operator-approved design revision recorded through the DG0 process.
-No implementation prompt, archived branch, live fixture, or apparent
-simplicity substitutes for that approval.
+The supplied technical-lead review of design revision v1 is materialized at:
+
+```text
+docs/slices/WR0A/ADVERSARIAL_DESIGN_REVIEW.md
+```
+
+Revision v1 received `DESIGN_REPAIR_REQUIRED`. Revision v2 is proposed for a
+fresh independent adversarial review. Implementation still requires a
+`DESIGN_CLEAR` record against the exact immutable v2 blob, a separate operator
+approval receipt, an implementation-authority update to this card, and merge
+of that design authority into main. No implementation prompt, archived branch,
+live fixture, or apparent simplicity substitutes for those transitions.
 
 ## Exact basis and reconciliation sources
 
@@ -131,11 +139,13 @@ CURRENT_SLICE.md
 docs/slices/WR0A/SLICE_SELECTION.md
 docs/slices/WR0A/RECONNAISSANCE.md
 docs/slices/WR0A/IMPLEMENTATION_DESIGN.md
+docs/slices/WR0A/ADVERSARIAL_DESIGN_REVIEW.md
 ```
 
-Do not create `docs/slices/WR0A/ADVERSARIAL_DESIGN_REVIEW.md` or
-`docs/slices/WR0A/DESIGN_APPROVAL.md` in this phase. Those records require a
-fresh independent reviewer and separate operator approval.
+Do not create `docs/slices/WR0A/DESIGN_APPROVAL.md` in this phase. The existing
+adversarial-review file records only the supplied v1 repair verdict. A fresh
+independent reviewer may later append the disposition of the exact immutable
+v2 design; the design card itself must remain byte-identical.
 
 ## External mutation posture
 
@@ -166,9 +176,10 @@ longer closes the predecessor-backup defect, if the live environment no longer
 matches the archive packet, if exact final blobs cannot be imported without
 rewriting them, or if DG0 would need modification.
 
-The next expected record is a fresh-context result of either `DESIGN_CLEAR` or
-`DESIGN_REPAIR_REQUIRED`. Source adoption remains forbidden until the exact
-design revision is separately approved.
+The next expected record is a fresh-context v2 result of either `DESIGN_CLEAR`
+or `DESIGN_REPAIR_REQUIRED`. After a clear review, source adoption remains
+forbidden until the exact v2 design is separately approved, the authority
+records are committed, and the design-authority branch is merged into main.
 
 ## Explicit nonclaims
 

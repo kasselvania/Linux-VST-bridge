@@ -37,6 +37,7 @@ allowed_changed_paths:
   - docs/slices/WR0A/SLICE_SELECTION.md
   - docs/slices/WR0A/RECONNAISSANCE.md
   - docs/slices/WR0A/IMPLEMENTATION_DESIGN.md
+  - docs/slices/WR0A/ADVERSARIAL_DESIGN_REVIEW.md
 permitted_external_mutation:
   - none
 protected_state:
@@ -78,3 +79,9 @@ or SSH agent forwarding is authorized.
 This receipt selects reconnaissance and design only. It is not an
 implementation authorization receipt and cannot be used to import archive
 blobs, replace evidence, mutate the live WR0 fixture, or merge any change.
+
+The selected design authority must complete independent review and operator
+approval, then merge into main before an implementation branch is created.
+The future implementation basis is that exact design-authority merge commit
+and tree, not this selection basis. This clarification does not authorize
+implementation or alter the original operator selection.
