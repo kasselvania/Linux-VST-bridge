@@ -238,3 +238,19 @@ Define review, signatures, evidence links, withdrawal, third-party contribution,
 ### O-013 — First second-vendor fixture
 
 Select only after Serum reveals which architectural assumptions need counter-pressure.
+
+## Accepted reconciliation rulings
+
+### D-022 — Final WR0 repair reconciliation accepted
+
+**Decision:** WR0A reconciles current repository truth to the exact post-merge final WR0 repair represented by archive commit `52be94316664f88a19df630e164105a0ca50b875`, without rerunning or mutating the existing live WR0 environment.
+
+**Accepted implementation:** Design authority merge `5aa757e46f6e8c15751743b68a8504386fbe840c`; implementation PR #13; reconciliation-owner commit `c78e5845ccae7ca0f5d1e1c802f1839d519ee096`; exact archive-adoption commit `60f05fb97ae1438a10b5360f47b5812fabf131a0`; reviewed evidence head `48b66e87f8e65a8e8e57832039ec567452ed857b` / tree `d46b907ecac1df970d83d364884b8fdd2ed57d82`; merge `8e6a5e55a4c731defd518618286adb308d9640ed` / tree `d46b907ecac1df970d83d364884b8fdd2ed57d82`.
+
+**Accepted source and evidence:** Exactly 13 final-repair archive blobs replace their stale merged counterparts; 11 shared WR0 path/mode/blob identities remain exact; archived `CURRENT_SLICE.md` is excluded; the canonical WR0 packet is the archive's exact 14-file packet; and a separate eight-file WR0A packet records the reconciliation. The final WR0 contract-source digest is `c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541`; the WR0A reconciliation-source digest is `c0675f824d2f4cd12b84486c5378a7af65a582cf07ad06ff06a1ed5e2cc0d9c8`.
+
+**Accepted live join:** Read-only Deck verification matched transaction `wr0-20260901T053317Z-183afd5bbf0736e4`, environment identity `d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4`, runner/runtime identity `2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`, workload `4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac`, and retired record `917c939c605f457376b0bdd53e06d252d4aecee4b39728850b2e1a61aa102b3e`. No live workload or live-environment mutation occurred.
+
+**Claim ceiling:** WR0A proves repository/live-state reconciliation only. It does not prove Windows VST3 factory loading or hosting, Serum authorization or operation, Bitwig scanning of a Windows plug-in, audio, parameters, state transport, GUI/editor behavior, IPC, shared memory, real-time safety, packaging, Steam-independent distribution, another DAW, or general Linux compatibility.
+
+**Successor:** None selected. The next product slice must be chosen through `docs/prompts/CHOOSE_NEXT_SLICE.md` from the post-closure `main` commit and tree.
