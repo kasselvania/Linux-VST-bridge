@@ -155,7 +155,14 @@ prefix, `.wine` file, or protected fixture is a mutable target.
 The repaired governed source replaces only the exact accepted WR0 predecessor.
 That environment is first verified in full and atomically retained as a
 transaction-owned `.wr0-proton11.previous-*` sibling. It is restored exactly on
-any pre-commit failure. After the complete replacement launch, live cleanup,
+any pre-commit failure. The backup helper treats destination verification,
+exact transaction-derived backup absence, rename, the first parent-directory
+fsync, and exact backup verification as one guarded operation. A post-rename
+failure triggers exact backup verification and restoration before the original
+failure is rethrown. Outer recovery derives authority from the physical
+destination/backup state, not its in-memory event flag; it restores only the
+complete exact predecessor, removes only an exact new-transaction destination,
+and refuses unknown or forged objects without altering them. After the complete replacement launch, live cleanup,
 preservation, and commit-ready evidence validation succeed, the new environment
 is made authoritative by a `linux-vst-bridge-wr0-replacement-commit/v1` record
 that is atomically written, file-fsynced, directory-fsynced, and read back. The
@@ -167,6 +174,10 @@ environment and remaining transaction-owned predecessor material; it never
 enters the pre-commit rollback path. Final evidence may claim retirement only
 after predecessor absence, parent fsync, exact new-environment readback, and a
 retired commit-record update are all verified.
+
+An unrecoverable guarded backup state is
+`WR0_PREDECESSOR_BACKUP_BLOCKED`; it is distinct from launch, observability,
+topology, retirement, and evidence-finalization ownership.
 
 ## Claim ceiling
 

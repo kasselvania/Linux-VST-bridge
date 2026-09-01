@@ -32,8 +32,8 @@ BASIS_COMMIT = "3deb414a54174cd95432c84e117a642f30c482fe"
 BASIS_TREE = "7f29cc727ce128021a6a2d74d04ca9ad6e30cb13"
 EXPECTED_BRANCH = "codex/wr0-proton-isolated-bootstrap"
 EXPECTED_REPOSITORY_SUFFIX = pathlib.Path("code/Linux-VST-bridge")
-REVIEWED_PRE_REPAIR_HEAD = "e1b5995ee10722eb4e1e696cc19e34b9546febbf"
-REVIEWED_PRE_REPAIR_TREE = "ee4cff7cd843319e9923c922f1f75568ae2141bf"
+REVIEWED_PRE_REPAIR_HEAD = "9228217b2abf7314b9dfaecc5fc4323d5f3d7a89"
+REVIEWED_PRE_REPAIR_TREE = "8da6817eba1f259d3565e377fcb50098ab8f3cf2"
 
 RUNNER_VERSION = "1787334450 proton-11.0-2-x86_64"
 RUNNER_APP_ID = "4628710"
@@ -120,10 +120,10 @@ HELD_COMMAND_SECONDS = 1.0
 FIXTURE_COMMAND_TIMEOUT = 20.0
 MAX_EVIDENCE_FILE_BYTES = 512 * 1024
 
-PREDECESSOR_TRANSACTION_ID = "wr0-20260901T040545Z-faed70d04e3b9661"
-PREDECESSOR_ENVIRONMENT_IDENTITY = "c301db6f41257925ab7bec9e1f64118e7a176a5b79bf97b8bdbfb98a40bcb497"
+PREDECESSOR_TRANSACTION_ID = "wr0-20260901T045337Z-caf9f4eaf52d2d34"
+PREDECESSOR_ENVIRONMENT_IDENTITY = "447e6d4dfccfbebe7be44cc521e8ed192bfad4ab1fe1f16673d391161db73c24"
 PREDECESSOR_RUNNER_IDENTITY = "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547"
-PREDECESSOR_CONTRACT_SOURCE = "da9d9bd3ccc36d35e8e89a195343b0a5bf758f1f9831bd8859d8cdd4be20bf0f"
+PREDECESSOR_CONTRACT_SOURCE = "887b148b7862038fd8fc0af52146ecc7452a5fbf82c22c5af8eaec6fe47504b8"
 PREDECESSOR_WORKLOAD_SHA256 = "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
 
 REPLACEMENT_PHASES = (
@@ -191,6 +191,10 @@ class ProcessObservabilityBlocked(LaunchBlocked):
 
 class ReplacementPrecommitBlocked(WR0Error):
     """Replacement failed before the new environment became authoritative."""
+
+
+class PredecessorBackupBlocked(ReplacementPrecommitBlocked):
+    """The exact predecessor could not be restored during guarded backup."""
 
 
 class PredecessorRetirementBlocked(WR0Error):
@@ -3453,48 +3457,287 @@ def verify_predecessor_environment(
     }
 
 
+@dataclass(frozen=True)
+class PredecessorBackupOperations:
+    """Narrow operation seam used only by deterministic production-helper tests."""
+
+    replace: Any
+    sync_directory: Any
+    verify_predecessor: Any
+    transaction_owns: Any
+    remove_transaction: Any
+
+
+def live_predecessor_backup_operations() -> PredecessorBackupOperations:
+    return PredecessorBackupOperations(
+        replace=os.replace,
+        sync_directory=fsync_directory,
+        verify_predecessor=verify_predecessor_environment,
+        transaction_owns=transaction_owns,
+        remove_transaction=remove_owned_transaction_root,
+    )
+
+
+def predecessor_backup_context(
+    destination: pathlib.Path,
+    backup: pathlib.Path,
+    transaction_id: str,
+    *,
+    operations: PredecessorBackupOperations | None,
+    test_parent: pathlib.Path | None,
+) -> tuple[pathlib.Path, PredecessorBackupOperations]:
+    if re.fullmatch(r"wr0-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{16}", transaction_id) is None:
+        fail("predecessor backup transaction identity is malformed")
+    if operations is None:
+        if test_parent is not None:
+            fail("ordinary predecessor backup cannot select another parent")
+        parent = environments_root()
+        selected = live_predecessor_backup_operations()
+    else:
+        if test_parent is None:
+            fail("predecessor backup operation injection is restricted to the deterministic test root")
+        parent = test_parent
+        require_contained(parent, test_root(), label="predecessor backup test parent")
+        selected = operations
+    require_contained(destination, parent, label="predecessor destination", allow_absent_leaf=True)
+    require_contained(backup, parent, label="predecessor backup", allow_absent_leaf=True)
+    if destination != parent / "wr0-proton11":
+        fail("predecessor destination is not the fixed WR0 environment")
+    if backup != parent / f".wr0-proton11.previous-{transaction_id}":
+        fail("predecessor backup is not derived from the exact transaction")
+    return parent, selected
+
+
+def physical_object_exists(path: pathlib.Path) -> bool:
+    return path.exists() or path.is_symlink()
+
+
+def verify_exact_predecessor(
+    environment: pathlib.Path,
+    *,
+    predecessor: dict[str, Any],
+    fixture: dict[str, Any],
+    operations: PredecessorBackupOperations,
+) -> dict[str, Any]:
+    observed = operations.verify_predecessor(environment, fixture=fixture)
+    if observed != predecessor:
+        fail("predecessor object differs from the complete exact snapshot")
+    return observed
+
+
+def recover_precommit_predecessor(
+    destination: pathlib.Path,
+    backup: pathlib.Path,
+    *,
+    transaction_id: str,
+    predecessor: dict[str, Any],
+    fixture: dict[str, Any],
+    backup_created_event: bool,
+    operations: PredecessorBackupOperations | None = None,
+    test_parent: pathlib.Path | None = None,
+) -> dict[str, Any]:
+    """Recover from physical state; the in-memory event flag is not authority."""
+
+    parent, selected = predecessor_backup_context(
+        destination,
+        backup,
+        transaction_id,
+        operations=operations,
+        test_parent=test_parent,
+    )
+    destination_present = physical_object_exists(destination)
+    backup_present = physical_object_exists(backup)
+
+    backup_exact = False
+    if backup_present:
+        try:
+            verify_exact_predecessor(
+                backup,
+                predecessor=predecessor,
+                fixture=fixture,
+                operations=selected,
+            )
+        except Exception as exc:
+            raise PredecessorBackupBlocked(
+                "WR0_PREDECESSOR_BACKUP_BLOCKED: transaction backup is not the exact predecessor"
+            ) from exc
+        backup_exact = True
+
+    destination_exact = False
+    if destination_present:
+        try:
+            verify_exact_predecessor(
+                destination,
+                predecessor=predecessor,
+                fixture=fixture,
+                operations=selected,
+            )
+        except Exception:
+            destination_exact = False
+        else:
+            destination_exact = True
+
+    if destination_exact:
+        if backup_present:
+            raise PredecessorBackupBlocked(
+                "WR0_PREDECESSOR_BACKUP_BLOCKED: exact destination and transaction backup both exist"
+            )
+        selected.sync_directory(parent)
+        verify_exact_predecessor(
+            destination,
+            predecessor=predecessor,
+            fixture=fixture,
+            operations=selected,
+        )
+        return {
+            "classification": "passed",
+            "physical_state": "destination_exact_backup_absent",
+            "backup_created_event": backup_created_event,
+            "event_state_was_authority": False,
+            "predecessor_restored": True,
+            "destination_exact": True,
+            "backup_absent": True,
+            "parent_fsync_completed": True,
+        }
+
+    if destination_present:
+        if not backup_exact:
+            raise PredecessorBackupBlocked(
+                "WR0_PREDECESSOR_BACKUP_BLOCKED: canonical destination is occupied by an unknown object"
+            )
+        if not selected.transaction_owns(destination, transaction_id):
+            raise PredecessorBackupBlocked(
+                "WR0_PREDECESSOR_BACKUP_BLOCKED: unknown destination will not be overwritten by exact backup"
+            )
+        selected.remove_transaction(destination, transaction_id)
+        if physical_object_exists(destination):
+            raise PredecessorBackupBlocked(
+                "WR0_PREDECESSOR_BACKUP_BLOCKED: transaction-owned new destination was not removed"
+            )
+        recovery_shape = "new_destination_removed_exact_backup_restored"
+    elif backup_exact:
+        recovery_shape = "destination_absent_exact_backup_restored"
+    else:
+        raise PredecessorBackupBlocked(
+            "WR0_PREDECESSOR_BACKUP_BLOCKED: predecessor destination and exact backup are both absent"
+        )
+
+    selected.replace(backup, destination)
+    selected.sync_directory(parent)
+    verify_exact_predecessor(
+        destination,
+        predecessor=predecessor,
+        fixture=fixture,
+        operations=selected,
+    )
+    if physical_object_exists(backup):
+        raise PredecessorBackupBlocked(
+            "WR0_PREDECESSOR_BACKUP_BLOCKED: backup remains after exact predecessor restoration"
+        )
+    return {
+        "classification": "passed",
+        "physical_state": recovery_shape,
+        "backup_created_event": backup_created_event,
+        "event_state_was_authority": False,
+        "predecessor_restored": True,
+        "destination_exact": True,
+        "backup_absent": True,
+        "parent_fsync_completed": True,
+    }
+
+
 def move_predecessor_to_backup(
     destination: pathlib.Path,
     backup: pathlib.Path,
     *,
+    transaction_id: str,
     predecessor: dict[str, Any],
     fixture: dict[str, Any],
-) -> None:
-    parent = environments_root()
-    require_contained(destination, parent, label="predecessor destination")
-    require_contained(backup, parent, label="predecessor backup", allow_absent_leaf=True)
-    if backup.exists():
+    operations: PredecessorBackupOperations | None = None,
+    test_parent: pathlib.Path | None = None,
+) -> dict[str, Any]:
+    """Guard rename, first directory fsync, and exact backup verification."""
+
+    parent, selected = predecessor_backup_context(
+        destination,
+        backup,
+        transaction_id,
+        operations=operations,
+        test_parent=test_parent,
+    )
+    if physical_object_exists(backup):
         fail("predecessor backup collision")
-    os.replace(destination, backup)
-    fsync_directory(parent)
+    verify_exact_predecessor(
+        destination,
+        predecessor=predecessor,
+        fixture=fixture,
+        operations=selected,
+    )
+    rename_completed = False
     try:
-        if verify_predecessor_environment(backup, fixture=fixture) != predecessor:
-            fail("atomic predecessor backup changed the exact reviewed snapshot")
-    except Exception:
-        if destination.exists() or not backup.exists():
-            raise WR0Error("predecessor backup verification failed without a safe rollback shape")
-        os.replace(backup, destination)
-        fsync_directory(parent)
-        if verify_predecessor_environment(destination, fixture=fixture) != predecessor:
-            raise WR0Error("predecessor backup verification failed and exact rollback failed")
+        selected.replace(destination, backup)
+        rename_completed = True
+        selected.sync_directory(parent)
+        verify_exact_predecessor(
+            backup,
+            predecessor=predecessor,
+            fixture=fixture,
+            operations=selected,
+        )
+        if physical_object_exists(destination) or not physical_object_exists(backup):
+            fail("guarded predecessor backup has an invalid physical state")
+    except Exception as original_error:
+        if not rename_completed:
+            raise
+        try:
+            recover_precommit_predecessor(
+                destination,
+                backup,
+                transaction_id=transaction_id,
+                predecessor=predecessor,
+                fixture=fixture,
+                backup_created_event=False,
+                operations=operations,
+                test_parent=test_parent,
+            )
+        except Exception as recovery_error:
+            raise PredecessorBackupBlocked(
+                "WR0_PREDECESSOR_BACKUP_BLOCKED: guarded predecessor backup recovery did not complete"
+            ) from recovery_error
         raise
+    return {
+        "classification": "passed",
+        "rename_completed": True,
+        "first_directory_fsync_guarded": True,
+        "parent_fsync_completed": True,
+        "backup_snapshot_verified": True,
+        "destination_absent": True,
+        "backup_present": True,
+        "transaction_derived_backup": True,
+    }
 
 
 def restore_predecessor_from_backup(
     destination: pathlib.Path,
     backup: pathlib.Path,
     *,
+    transaction_id: str,
     predecessor: dict[str, Any],
     fixture: dict[str, Any],
-) -> None:
-    if destination.exists():
-        fail("cannot restore predecessor over an existing destination")
-    if verify_predecessor_environment(backup, fixture=fixture) != predecessor:
-        fail("predecessor backup changed before rollback")
-    os.replace(backup, destination)
-    fsync_directory(environments_root())
-    if verify_predecessor_environment(destination, fixture=fixture) != predecessor:
-        fail("predecessor rollback did not restore the exact reviewed snapshot")
+    backup_created_event: bool,
+    operations: PredecessorBackupOperations | None = None,
+    test_parent: pathlib.Path | None = None,
+) -> dict[str, Any]:
+    return recover_precommit_predecessor(
+        destination,
+        backup,
+        transaction_id=transaction_id,
+        predecessor=predecessor,
+        fixture=fixture,
+        backup_created_event=backup_created_event,
+        operations=operations,
+        test_parent=test_parent,
+    )
 
 
 def write_environment_receipt(environment: pathlib.Path, name: str, value: dict[str, Any]) -> None:
@@ -4552,13 +4795,405 @@ def run_negative_tests(*, require_clean_source: bool = True) -> dict[str, Any]:
             destination = root_directory / "wr0-proton11"
             destination.mkdir()
             (destination / "payload").write_bytes(b"exact-predecessor")
-            return {
+            predecessor_marker = marker_document(
+                transaction_id="wr0-19990101T000000Z-2222222222222222",
+                created_at="1999-01-01T00:00:00Z",
+                lock_digest="3" * 64,
+                contract_source_digest="4" * 64,
+                workload_sha256="5" * 64,
+                status_value="ready",
+            )
+            atomic_write_json(destination / "wr0-environment.json", predecessor_marker)
+            result = {
                 "root": root_directory,
                 "destination": destination,
                 "backup": root_directory / ".wr0-proton11.previous-wr0-20000101T000000Z-1111111111111111",
                 "stage": root_directory / ".wr0-proton11.stage-wr0-20000101T000000Z-1111111111111111",
                 "predecessor_sha256": sha256_file(destination / "payload"),
+                "predecessor_marker": predecessor_marker,
             }
+            result["predecessor_snapshot"] = {
+                "classification": "passed",
+                "transaction_id": predecessor_marker["transaction_id"],
+                "marker_sha256": sha256_file(destination / "wr0-environment.json"),
+                "payload_sha256": result["predecessor_sha256"],
+                "roster": ["payload", "wr0-environment.json"],
+            }
+            return result
+
+        def verify_synthetic_predecessor(
+            environment: pathlib.Path,
+            *,
+            fixture: dict[str, Any],
+        ) -> dict[str, Any]:
+            if not environment.is_dir() or environment.is_symlink():
+                fail("synthetic predecessor is not a safe directory")
+            roster = sorted(entry.name for entry in environment.iterdir())
+            if roster != ["payload", "wr0-environment.json"]:
+                fail("synthetic predecessor roster differs")
+            marker_path = environment / "wr0-environment.json"
+            payload_path = environment / "payload"
+            if marker_path.is_symlink() or payload_path.is_symlink() or not payload_path.is_file():
+                fail("synthetic predecessor contains an unsafe object")
+            try:
+                marker = json.loads(marker_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                raise WR0Error("synthetic predecessor marker is malformed") from exc
+            observed = {
+                "classification": "passed",
+                "transaction_id": marker.get("transaction_id"),
+                "marker_sha256": sha256_file(marker_path),
+                "payload_sha256": sha256_file(payload_path),
+                "roster": roster,
+            }
+            if observed != fixture["predecessor_snapshot"]:
+                fail("synthetic predecessor differs from the complete exact snapshot")
+            return observed
+
+        def synthetic_transaction_owns(path: pathlib.Path, transaction_id: str) -> bool:
+            marker = path / "synthetic-new-transaction"
+            return marker.is_file() and not marker.is_symlink() and marker.read_text(encoding="utf-8") == transaction_id
+
+        def remove_synthetic_transaction(path: pathlib.Path, transaction_id: str) -> None:
+            if not synthetic_transaction_owns(path, transaction_id):
+                fail("synthetic new destination is not transaction-owned")
+            shutil.rmtree(path)
+
+        def synthetic_backup_operations(
+            *,
+            replace: Any = os.replace,
+            sync_directory: Any = fsync_directory,
+            verify_predecessor: Any = verify_synthetic_predecessor,
+            transaction_owns_operation: Any = synthetic_transaction_owns,
+            remove_transaction: Any = remove_synthetic_transaction,
+        ) -> PredecessorBackupOperations:
+            return PredecessorBackupOperations(
+                replace=replace,
+                sync_directory=sync_directory,
+                verify_predecessor=verify_predecessor,
+                transaction_owns=transaction_owns_operation,
+                remove_transaction=remove_transaction,
+            )
+
+        def assert_synthetic_predecessor_restored(fixture: dict[str, Any]) -> None:
+            observed = verify_synthetic_predecessor(fixture["destination"], fixture=fixture)
+            if observed != fixture["predecessor_snapshot"] or physical_object_exists(fixture["backup"]):
+                raise AssertionError("exact synthetic predecessor was not restored without a sibling")
+
+        def first_parent_fsync_failure() -> None:
+            fixture = replacement_fixture("backup-first-fsync")
+            calls: list[str] = []
+
+            def injected_sync(path: pathlib.Path) -> None:
+                calls.append("sync")
+                if len(calls) == 1:
+                    raise OSError("injected first parent fsync failure")
+                fsync_directory(path)
+
+            try:
+                move_predecessor_to_backup(
+                    fixture["destination"],
+                    fixture["backup"],
+                    transaction_id="wr0-20000101T000000Z-1111111111111111",
+                    predecessor=fixture["predecessor_snapshot"],
+                    fixture=fixture,
+                    operations=synthetic_backup_operations(sync_directory=injected_sync),
+                    test_parent=fixture["root"],
+                )
+            except OSError as exc:
+                if str(exc) != "injected first parent fsync failure":
+                    raise AssertionError("guarded backup did not retain the original fsync failure") from exc
+            else:
+                raise AssertionError("injected first parent fsync failure did not fail")
+            assert_synthetic_predecessor_restored(fixture)
+            if len(calls) != 2:
+                raise AssertionError("the first parent fsync was not inside the guarded rollback boundary")
+
+        case("predecessor_backup_rename_then_first_fsync_failure_restores_exact", first_parent_fsync_failure)
+
+        def backup_verification_failure() -> None:
+            fixture = replacement_fixture("backup-verification")
+            failed = False
+            sync_calls = 0
+
+            def injected_verify(environment: pathlib.Path, *, fixture: dict[str, Any]) -> dict[str, Any]:
+                nonlocal failed
+                if environment == fixture["backup"] and not failed:
+                    failed = True
+                    raise WR0Error("injected backup verification failure")
+                return verify_synthetic_predecessor(environment, fixture=fixture)
+
+            def recording_sync(path: pathlib.Path) -> None:
+                nonlocal sync_calls
+                sync_calls += 1
+                fsync_directory(path)
+
+            expect_refusal(
+                lambda: move_predecessor_to_backup(
+                    fixture["destination"],
+                    fixture["backup"],
+                    transaction_id="wr0-20000101T000000Z-1111111111111111",
+                    predecessor=fixture["predecessor_snapshot"],
+                    fixture=fixture,
+                    operations=synthetic_backup_operations(
+                        sync_directory=recording_sync,
+                        verify_predecessor=injected_verify,
+                    ),
+                    test_parent=fixture["root"],
+                )
+            )
+            assert_synthetic_predecessor_restored(fixture)
+            if not failed or sync_calls < 2:
+                raise AssertionError("backup verification failure did not complete guarded restoration")
+
+        case("predecessor_backup_verification_failure_restores_exact", backup_verification_failure)
+
+        def restoration_fsync_failure_then_outer_recovery() -> None:
+            fixture = replacement_fixture("backup-restore-fsync")
+            calls = 0
+
+            def injected_sync(_path: pathlib.Path) -> None:
+                nonlocal calls
+                calls += 1
+                if calls <= 2:
+                    raise OSError("injected guarded or restoration fsync failure")
+
+            expect_refusal(
+                lambda: move_predecessor_to_backup(
+                    fixture["destination"],
+                    fixture["backup"],
+                    transaction_id="wr0-20000101T000000Z-1111111111111111",
+                    predecessor=fixture["predecessor_snapshot"],
+                    fixture=fixture,
+                    operations=synthetic_backup_operations(sync_directory=injected_sync),
+                    test_parent=fixture["root"],
+                )
+            )
+            removals: list[str] = []
+            operations = synthetic_backup_operations(
+                remove_transaction=lambda _path, _transaction: removals.append("removed")
+            )
+            receipt = recover_precommit_predecessor(
+                fixture["destination"],
+                fixture["backup"],
+                transaction_id="wr0-20000101T000000Z-1111111111111111",
+                predecessor=fixture["predecessor_snapshot"],
+                fixture=fixture,
+                backup_created_event=False,
+                operations=operations,
+                test_parent=fixture["root"],
+            )
+            assert_synthetic_predecessor_restored(fixture)
+            if receipt["physical_state"] != "destination_exact_backup_absent" or removals:
+                raise AssertionError("outer recovery destructively repeated an already completed restoration")
+
+        case(
+            "predecessor_restore_fsync_failure_outer_recovery_accepts_exact_destination",
+            restoration_fsync_failure_then_outer_recovery,
+        )
+
+        def rename_completed_before_event_record() -> None:
+            fixture = replacement_fixture("backup-before-event")
+            replaced = False
+
+            def rename_then_raise(source: pathlib.Path, target: pathlib.Path) -> None:
+                nonlocal replaced
+                os.replace(source, target)
+                replaced = True
+                raise OSError("injected return-path failure after physical rename")
+
+            expect_refusal(
+                lambda: move_predecessor_to_backup(
+                    fixture["destination"],
+                    fixture["backup"],
+                    transaction_id="wr0-20000101T000000Z-1111111111111111",
+                    predecessor=fixture["predecessor_snapshot"],
+                    fixture=fixture,
+                    operations=synthetic_backup_operations(replace=rename_then_raise),
+                    test_parent=fixture["root"],
+                )
+            )
+            if not replaced or physical_object_exists(fixture["destination"]) or not fixture["backup"].exists():
+                raise AssertionError("physical rename injection did not produce the false-event backup shape")
+            receipt = recover_precommit_predecessor(
+                fixture["destination"],
+                fixture["backup"],
+                transaction_id="wr0-20000101T000000Z-1111111111111111",
+                predecessor=fixture["predecessor_snapshot"],
+                fixture=fixture,
+                backup_created_event=False,
+                operations=synthetic_backup_operations(),
+                test_parent=fixture["root"],
+            )
+            assert_synthetic_predecessor_restored(fixture)
+            if receipt["event_state_was_authority"] is not False:
+                raise AssertionError("outer recovery trusted the stale in-memory event")
+
+        case("predecessor_backup_physical_rename_before_event_is_recovered", rename_completed_before_event_record)
+
+        def false_event_exact_backup() -> None:
+            fixture = replacement_fixture("backup-false-event")
+            os.replace(fixture["destination"], fixture["backup"])
+            receipt = recover_precommit_predecessor(
+                fixture["destination"],
+                fixture["backup"],
+                transaction_id="wr0-20000101T000000Z-1111111111111111",
+                predecessor=fixture["predecessor_snapshot"],
+                fixture=fixture,
+                backup_created_event=False,
+                operations=synthetic_backup_operations(),
+                test_parent=fixture["root"],
+            )
+            assert_synthetic_predecessor_restored(fixture)
+            if receipt["physical_state"] != "destination_absent_exact_backup_restored":
+                raise AssertionError("false backup event did not yield physical-state restoration")
+
+        case("predecessor_recovery_false_event_exact_backup_restored", false_event_exact_backup)
+
+        def unknown_backup_collision() -> None:
+            fixture = replacement_fixture("backup-unknown-collision")
+            fixture["backup"].mkdir()
+            unknown = fixture["backup"] / "unknown"
+            unknown.write_bytes(b"preserve-unknown")
+            before_hash = sha256_file(unknown)
+            expect_refusal(
+                lambda: move_predecessor_to_backup(
+                    fixture["destination"],
+                    fixture["backup"],
+                    transaction_id="wr0-20000101T000000Z-1111111111111111",
+                    predecessor=fixture["predecessor_snapshot"],
+                    fixture=fixture,
+                    operations=synthetic_backup_operations(),
+                    test_parent=fixture["root"],
+                )
+            )
+            verify_synthetic_predecessor(fixture["destination"], fixture=fixture)
+            if sha256_file(unknown) != before_hash:
+                raise AssertionError("unknown backup collision bytes changed")
+
+        case("predecessor_backup_unknown_object_refused_unchanged", unknown_backup_collision)
+
+        def forged_backup_marker() -> None:
+            fixture = replacement_fixture("backup-forged-marker")
+            os.replace(fixture["destination"], fixture["backup"])
+            marker_path = fixture["backup"] / "wr0-environment.json"
+            marker = json.loads(marker_path.read_text(encoding="utf-8"))
+            marker["transaction_id"] = "wr0-19980101T000000Z-3333333333333333"
+            atomic_write_json(marker_path, marker)
+            forged_hash = sha256_file(marker_path)
+            expect_refusal(
+                lambda: recover_precommit_predecessor(
+                    fixture["destination"],
+                    fixture["backup"],
+                    transaction_id="wr0-20000101T000000Z-1111111111111111",
+                    predecessor=fixture["predecessor_snapshot"],
+                    fixture=fixture,
+                    backup_created_event=False,
+                    operations=synthetic_backup_operations(),
+                    test_parent=fixture["root"],
+                )
+            )
+            if not fixture["backup"].exists() or fixture["destination"].exists() or sha256_file(marker_path) != forged_hash:
+                raise AssertionError("forged predecessor backup was adopted or changed")
+
+        case("predecessor_backup_forged_marker_identity_refused", forged_backup_marker)
+
+        def predecessor_both_absent() -> None:
+            fixture = replacement_fixture("backup-both-absent")
+            shutil.rmtree(fixture["destination"])
+            expect_refusal(
+                lambda: recover_precommit_predecessor(
+                    fixture["destination"],
+                    fixture["backup"],
+                    transaction_id="wr0-20000101T000000Z-1111111111111111",
+                    predecessor=fixture["predecessor_snapshot"],
+                    fixture=fixture,
+                    backup_created_event=False,
+                    operations=synthetic_backup_operations(),
+                    test_parent=fixture["root"],
+                )
+            )
+            if fixture["destination"].exists() or fixture["backup"].exists():
+                raise AssertionError("both-absent recovery invented predecessor state")
+
+        case("predecessor_recovery_both_absent_fails_closed", predecessor_both_absent)
+
+        def unknown_destination_with_exact_backup() -> None:
+            fixture = replacement_fixture("backup-unknown-destination")
+            os.replace(fixture["destination"], fixture["backup"])
+            fixture["destination"].mkdir()
+            unknown = fixture["destination"] / "unknown"
+            unknown.write_bytes(b"do-not-overwrite")
+            before_hash = sha256_file(unknown)
+            expect_refusal(
+                lambda: recover_precommit_predecessor(
+                    fixture["destination"],
+                    fixture["backup"],
+                    transaction_id="wr0-20000101T000000Z-1111111111111111",
+                    predecessor=fixture["predecessor_snapshot"],
+                    fixture=fixture,
+                    backup_created_event=False,
+                    operations=synthetic_backup_operations(),
+                    test_parent=fixture["root"],
+                )
+            )
+            if sha256_file(unknown) != before_hash or not fixture["backup"].exists():
+                raise AssertionError("unknown destination was overwritten or exact backup was removed")
+
+        case("predecessor_recovery_unknown_destination_refuses_exact_backup", unknown_destination_with_exact_backup)
+
+        def successful_guarded_backup_and_rollback() -> None:
+            fixture = replacement_fixture("backup-success")
+            state = ReplacementTransactionState()
+            receipt = move_predecessor_to_backup(
+                fixture["destination"],
+                fixture["backup"],
+                transaction_id="wr0-20000101T000000Z-1111111111111111",
+                predecessor=fixture["predecessor_snapshot"],
+                fixture=fixture,
+                operations=synthetic_backup_operations(),
+                test_parent=fixture["root"],
+            )
+            if not all(
+                receipt.get(name) is True
+                for name in (
+                    "rename_completed",
+                    "first_directory_fsync_guarded",
+                    "parent_fsync_completed",
+                    "backup_snapshot_verified",
+                    "destination_absent",
+                    "backup_present",
+                    "transaction_derived_backup",
+                )
+            ):
+                raise AssertionError("successful guarded backup receipt is incomplete")
+            state.advance("predecessor_backed_up")
+            fixture["destination"].mkdir()
+            (fixture["destination"] / "payload").write_bytes(b"exact-new-transaction")
+            (fixture["destination"] / "synthetic-new-transaction").write_text(
+                "wr0-20000101T000000Z-1111111111111111",
+                encoding="utf-8",
+            )
+            recovery = recover_precommit_predecessor(
+                fixture["destination"],
+                fixture["backup"],
+                transaction_id="wr0-20000101T000000Z-1111111111111111",
+                predecessor=fixture["predecessor_snapshot"],
+                fixture=fixture,
+                backup_created_event=True,
+                operations=synthetic_backup_operations(),
+                test_parent=fixture["root"],
+            )
+            state.rollback_invoked = True
+            assert_synthetic_predecessor_restored(fixture)
+            if (
+                not recovery["predecessor_restored"]
+                or recovery["physical_state"] != "new_destination_removed_exact_backup_restored"
+                or state.phase != "predecessor_backed_up"
+            ):
+                raise AssertionError("successful helper receipt did not support exact pre-commit rollback")
+
+        case("predecessor_guarded_backup_receipt_and_rollback_pass", successful_guarded_backup_and_rollback)
 
         def advance_replacement_state(state: ReplacementTransactionState, target: str) -> None:
             while state.phase != target:
@@ -4925,9 +5560,9 @@ def run_negative_tests(*, require_clean_source: bool = True) -> dict[str, Any]:
         if working.exists():
             require_contained(working, root, label="negative-test cleanup")
             shutil.rmtree(working)
-    minimum = 61 if require_clean_source else 54
-    if len(cases) < minimum:
-        fail("negative-test ledger is incomplete")
+    expected_count = 75 if require_clean_source else 68
+    if len(cases) != expected_count:
+        fail("negative-test ledger count differs from the exact declared roster")
     result = {
         "schema": NEGATIVE_SCHEMA,
         "classification": "passed",
@@ -5327,6 +5962,7 @@ launch.py supervisor
         marker = environment["marker"]
         run1_env = session["environment_run_1"]
         run2_env = session["environment_run_2"]
+        guarded_backup = replacement.get("guarded_backup_receipt") or {}
         environment_md = f"""# WR0 owned environment
 
 {markdown_table((
@@ -5345,6 +5981,9 @@ launch.py supervisor
     ('Predecessor retired', f'`{str(bool(replacement.get("predecessor_retired"))).lower()}`'),
     ('Rollback available', f'`{str(bool(replacement.get("rollback_available"))).lower()}`'),
     ('Retirement pending', f'`{str(bool(replacement.get("retirement_pending"))).lower()}`'),
+    ('Guarded predecessor rename', f'`{str(bool(guarded_backup.get("rename_completed"))).lower()}`'),
+    ('First parent fsync inside rollback guard', f'`{str(bool(guarded_backup.get("first_directory_fsync_guarded"))).lower()}`'),
+    ('Exact backup snapshot verified', f'`{str(bool(guarded_backup.get("backup_snapshot_verified"))).lower()}`'),
     ('Durable commit-record schema', f'`{commit_record.get("schema", "not_committed")}`'),
     ('Durable commit-record SHA-256', f'`{commit_record.get("final_sha256", commit_record.get("committed_sha256", "not_committed"))}`'),
     ('Run 1 / Run 2 identity agreement', f'`{str(run1_env["environment_identity_sha256"] == run2_env["environment_identity_sha256"]).lower()}`'),
@@ -5357,7 +5996,7 @@ Bounded prefix top-level roster: `{json.dumps(environment['bounded_prefix_top_le
 
 Selected registry hashes are retained in `fixture.json`; no registry content, machine GUID, SID, credential, browser state, or complete prefix roster is retained.
 
-The predecessor transaction `{PREDECESSOR_TRANSACTION_ID}` was first moved to one exact recoverable sibling. The repaired environment was promoted only after Run 1; the predecessor remained untouched through Run 2, exit 37, the two actual bad-gate paths, held-command cleanup, preservation comparison, and commit-ready evidence validation. An atomically written, file-fsynced, directory-fsynced, read-back commit record made the new environment authoritative before predecessor deletion began. Predecessor retirement was then proved by parent fsync, absence readback, exact final-environment readback, and a retired commit-record update before final evidence was published.
+The predecessor transaction `{PREDECESSOR_TRANSACTION_ID}` was moved to one exact transaction-derived recoverable sibling under a single guarded operation covering rename, the first parent-directory fsync, exact backup verification, and exact restoration on every post-rename failure. Outer pre-commit recovery classifies the physical destination/backup state and never treats the in-memory `backup_created` event as authority. The repaired environment was promoted only after Run 1; the predecessor remained untouched through Run 2, exit 37, the two actual bad-gate paths, held-command cleanup, preservation comparison, and commit-ready evidence validation. An atomically written, file-fsynced, directory-fsynced, read-back commit record made the new environment authoritative before predecessor deletion began. Predecessor retirement was then proved by parent fsync, absence readback, exact final-environment readback, and a retired commit-record update before final evidence was published.
 """
     else:
         environment_md = f"""# WR0 owned environment
@@ -5693,6 +6332,18 @@ def sanitize_evidence(*, output_root: pathlib.Path | None = None) -> dict[str, A
             and replacement.get("predecessor_environment_identity_sha256") == PREDECESSOR_ENVIRONMENT_IDENTITY
         ):
             fail("successful evidence lacks the exact committed predecessor replacement")
+        guarded_backup = replacement.get("guarded_backup_receipt", {})
+        if not (
+            guarded_backup.get("classification") == "passed"
+            and guarded_backup.get("rename_completed") is True
+            and guarded_backup.get("first_directory_fsync_guarded") is True
+            and guarded_backup.get("parent_fsync_completed") is True
+            and guarded_backup.get("backup_snapshot_verified") is True
+            and guarded_backup.get("destination_absent") is True
+            and guarded_backup.get("backup_present") is True
+            and guarded_backup.get("transaction_derived_backup") is True
+        ):
+            fail("successful evidence lacks the guarded predecessor-backup receipt")
         events = replacement.get("phase_events", [])
         if [event.get("phase") for event in events] != list(REPLACEMENT_PHASES):
             fail("successful evidence lacks the exact replacement phase order")
@@ -5789,13 +6440,23 @@ def sanitize_evidence(*, output_root: pathlib.Path | None = None) -> dict[str, A
             "stale_or_forged_replacement_commit_record_refused",
             "replacement_commit_record_wrong_environment_identities_refused",
             "post_commit_exception_never_invokes_precommit_rollback",
+            "predecessor_backup_rename_then_first_fsync_failure_restores_exact",
+            "predecessor_backup_verification_failure_restores_exact",
+            "predecessor_restore_fsync_failure_outer_recovery_accepts_exact_destination",
+            "predecessor_backup_physical_rename_before_event_is_recovered",
+            "predecessor_recovery_false_event_exact_backup_restored",
+            "predecessor_backup_unknown_object_refused_unchanged",
+            "predecessor_backup_forged_marker_identity_refused",
+            "predecessor_recovery_both_absent_fails_closed",
+            "predecessor_recovery_unknown_destination_refuses_exact_backup",
+            "predecessor_guarded_backup_receipt_and_rollback_pass",
         }
         passed_cases = {item.get("case") for item in negative.get("cases", []) if item.get("result") == "passed"}
         if (
             negative.get("classification") != "passed"
             or negative.get("failed_count") != 0
-            or negative.get("passed_count") != 70
-            or len(negative.get("cases", [])) != 70
+            or negative.get("passed_count") != 80
+            or len(negative.get("cases", [])) != 80
             or negative.get("live_production_cases") != 5
             or not required_cases.issubset(passed_cases)
         ):
@@ -5885,6 +6546,8 @@ def run_live(*, implementation_worktree: bool) -> dict[str, Any]:
             "classification": "observed",
             "predecessor_environment_identity_sha256": PREDECESSOR_ENVIRONMENT_IDENTITY,
             "backup_created": False,
+            "guarded_backup_receipt": None,
+            "precommit_recovery_receipt": None,
             "durable_commit_record": {
                 "schema": REPLACEMENT_COMMIT_SCHEMA,
                 "committed_sha256": None,
@@ -5907,14 +6570,16 @@ def run_live(*, implementation_worktree: bool) -> dict[str, Any]:
     committed_environment: dict[str, Any] | None = None
     blocked_stage = "predecessor_backup"
     try:
-        move_predecessor_to_backup(
+        guarded_backup_receipt = move_predecessor_to_backup(
             destination,
             backup,
+            transaction_id=transaction_id,
             predecessor=predecessor,
             fixture=predecessor_fixture,
         )
         backup_created = True
         session["replacement"]["backup_created"] = True
+        session["replacement"]["guarded_backup_receipt"] = guarded_backup_receipt
         replacement_state.advance("predecessor_backed_up")
         session["replacement"].update(replacement_state.evidence())
         atomic_write_json(session_dir / "session.json", session)
@@ -6366,25 +7031,24 @@ def run_live(*, implementation_worktree: bool) -> dict[str, Any]:
 
         def rollback_precommit() -> None:
             nonlocal stage, backup_created, cleanup_restored_predecessor
-            for candidate in (stage, destination):
-                if candidate is not None and candidate.exists() and transaction_owns(candidate, transaction_id):
-                    remove_owned_transaction_root(candidate, transaction_id)
+            if stage is not None and stage.exists():
+                if not transaction_owns(stage, transaction_id):
+                    raise PredecessorBackupBlocked(
+                        "WR0_PREDECESSOR_BACKUP_BLOCKED: staged cleanup target is not owned by the replacement transaction"
+                    )
+                remove_owned_transaction_root(stage, transaction_id)
             stage = None
-            if backup_created and backup.exists():
-                if destination.exists():
-                    fail("pre-commit rollback destination is occupied by an unknown environment")
-                restore_predecessor_from_backup(
-                    destination,
-                    backup,
-                    predecessor=predecessor,
-                    fixture=predecessor_fixture,
-                )
-                backup_created = False
-            elif destination.exists():
-                if verify_predecessor_environment(destination, fixture=predecessor_fixture) != predecessor:
-                    fail("predecessor is not exact after pre-commit failure")
-            else:
-                fail("pre-commit failure has neither the predecessor destination nor its backup")
+            recovery_receipt = recover_precommit_predecessor(
+                destination,
+                backup,
+                transaction_id=transaction_id,
+                predecessor=predecessor,
+                fixture=predecessor_fixture,
+                backup_created_event=backup_created,
+            )
+            session["replacement"]["precommit_recovery_receipt"] = recovery_receipt
+            backup_created = False
+            session["replacement"]["backup_created"] = False
             assert_no_transaction_siblings()
             cleanup_restored_predecessor = True
 
@@ -6419,6 +7083,9 @@ def run_live(*, implementation_worktree: bool) -> dict[str, Any]:
                 precommit_rollback=rollback_precommit,
                 verify_committed_environment=verify_postcommit_environment,
             )
+        except PredecessorBackupBlocked as recovery_error:
+            result_name = "WR0_PREDECESSOR_BACKUP_BLOCKED"
+            exc = recovery_error
         except Exception as recovery_error:
             raise WR0Error("WR0 replacement failure recovery could not prove its authority state") from recovery_error
 
@@ -6457,7 +7124,7 @@ def run_live(*, implementation_worktree: bool) -> dict[str, Any]:
             session["environment_final"] = None
         atomic_write_json(session_dir / "session.json", session)
         sanitize: dict[str, Any] | None = None
-        if result_name == "WR0_REPLACEMENT_PRECOMMIT_BLOCKED":
+        if result_name in {"WR0_REPLACEMENT_PRECOMMIT_BLOCKED", "WR0_PREDECESSOR_BACKUP_BLOCKED"}:
             blocked_packet = session_dir / "evidence-blocked"
             render_evidence(session, output_root=blocked_packet)
             sanitize_evidence(output_root=blocked_packet)

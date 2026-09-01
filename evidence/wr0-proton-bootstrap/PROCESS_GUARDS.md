@@ -22,19 +22,19 @@ Ordinary Steam client/web-helper processes were neither terminated nor classifie
 
 | Label | Role | Safe executable | UID | Start ticks | Parent | Root PG | Root session | Identity SHA-256 |
 |---|---|---|---:|---:|---|---|---|---|
-| `RUNTIME_ROOT_1` | `runtime_root` | `pressure-vessel-wrap` | 1000 | 4165419 | `SUPERVISOR` | `true` | `true` | `5252045df74418de126f3f1236af53249e3dd8c1c678a72facd78ff19a51b46d` |
-| `OWNED_DESCENDANT_1` | `owned_descendant` | `x86_64-linux-gnu-capsule-capture-libs` | 1000 | 4165471 | `RUNTIME_ROOT_1` | `true` | `true` | `4e33c6bf4608c02c3052f56ddc29b33e37d2c79484d9cd6d4dbe0adf4eb4cef8` |
-| `OWNED_DESCENDANT_2` | `owned_descendant` | `i386-linux-gnu-capsule-capture-libs` | 1000 | 4165491 | `RUNTIME_ROOT_1` | `true` | `true` | `67e349f5dc8d9ec52c617029efe97f165c281a037c14498cd66a9f2ba3dd2d0e` |
-| `RUNTIME_COMPONENT_1` | `runtime_component` | `pv-adverb` | 1000 | 4165522 | `RUNTIME_ROOT_1` | `false` | `false` | `b54264b98564867295d766c54d1da5c000b0921d7c1fd2da49a7f02878445792` |
-| `PROTON_1` | `proton` | `python3.13` | 1000 | 4165530 | `RUNTIME_COMPONENT_1` | `false` | `false` | `62b726ee6b1432909d90947312a9379d125ed74d57c4aa79143f5e2f4f88908c` |
-| `WINE_1` | `wine` | `wine-preloader` | 1000 | 4165535 | `PROTON_1` | `false` | `false` | `8a560df574159cd4850f47753e7ab57daecc10932c9e3fa94ef1a4977270b367` |
-| `WINESERVER_1` | `wineserver` | `wineserver` | 1000 | 4165536 | `RUNTIME_COMPONENT_1` | `false` | `false` | `08ff5173a44f13de4aefe234a271c6f7ed6cb8fd63ad67897c23d34ed81d0261` |
-| `OWNED_DESCENDANT_3` | `owned_descendant` | `wine64-preloader` | 1000 | 4165542 | `RUNTIME_COMPONENT_1` | `false` | `false` | `6a361ea9c88c820f882b45e01287bd8fb018b910a52708908af67f2c0755a3f2` |
-| `WINE_SUPPORT_1` | `wine_support` | `wine64-preloader` | 1000 | 4165545 | `RUNTIME_COMPONENT_1` | `false` | `false` | `5d31a53fe0477033202bdc96cf759b7b620419c65dde5e9b466e0cf03fe2a324` |
-| `WINE_SUPPORT_2` | `wine_support` | `wine64-preloader` | 1000 | 4165548 | `RUNTIME_COMPONENT_1` | `false` | `false` | `724e69e85179967d8146eaa3a1b12f7c23279713f725faa761fed029c46ef8fb` |
-| `OWNED_DESCENDANT_4` | `owned_descendant` | `wine64-preloader` | 1000 | 4165551 | `RUNTIME_COMPONENT_1` | `false` | `false` | `314d241705d0813c826d9237f5c7d733c77829fe63b1eaf343b984b810067a34` |
-| `OWNED_DESCENDANT_5` | `owned_descendant` | `wine64-preloader` | 1000 | 4165582 | `RUNTIME_COMPONENT_1` | `false` | `false` | `525cf71e8114edcd4bb7a33a3587962407fe7b6d997736e1bb6b1a92c4b0381d` |
-| `WINE_SUPPORT_3` | `wine_support` | `wine64-preloader` | 1000 | 4165585 | `RUNTIME_COMPONENT_1` | `false` | `false` | `db52ac81d107e08a6ac04070fb2fce051c2a921672b19b16f7e3fd26b65d5fe7` |
-| `WINDOWS_COMMAND_1` | `windows_command` | `wine64-preloader` | 1000 | 4165688 | `RUNTIME_COMPONENT_1` | `false` | `false` | `4f250bb6f86c256b65ea3466f2105a83e3ac8d65cdfdb359af432417e6e261c4` |
+| `RUNTIME_ROOT_1` | `runtime_root` | `pressure-vessel-wrap` | 1000 | 4403501 | `SUPERVISOR` | `true` | `true` | `5ca718656a22579a0ad88024a5c71c8ba153cc00a60608f73ab910de206b9dc0` |
+| `OWNED_DESCENDANT_1` | `owned_descendant` | `x86_64-linux-gnu-capsule-capture-libs` | 1000 | 4403552 | `RUNTIME_ROOT_1` | `true` | `true` | `60b73d4ab2e523cee54666b29ac334f3139ee996451bc438f25d534647bc390d` |
+| `OWNED_DESCENDANT_2` | `owned_descendant` | `i386-linux-gnu-capsule-capture-libs` | 1000 | 4403572 | `RUNTIME_ROOT_1` | `true` | `true` | `75cbe5d5972a69f8122cf5ac518082b77942cd2816246197bd865ff7f4441d91` |
+| `RUNTIME_COMPONENT_1` | `runtime_component` | `pv-adverb` | 1000 | 4403603 | `RUNTIME_ROOT_1` | `false` | `false` | `4a4c26a142f268d6b07327a5734c3af579ff898968681745b76665e2ff81e5cd` |
+| `PROTON_1` | `proton` | `python3.13` | 1000 | 4403611 | `RUNTIME_COMPONENT_1` | `false` | `false` | `ff1afd9317cf011dcb9dbeab2d093a37d055106c2743992adefd8791bf756f61` |
+| `WINESERVER_1` | `wineserver` | `wineserver` | 1000 | 4403617 | `RUNTIME_COMPONENT_1` | `false` | `false` | `3aeb848d1255c335637be66aa54c39e7737018f9fd470b85c9329754f4a0f27d` |
+| `WINE_1` | `wine` | `wine-preloader` | 1000 | 4403617 | `PROTON_1` | `false` | `false` | `bd4c862cb511c79705ccb9597aa4a536145556e92f91530158e1f88d18161b9b` |
+| `OWNED_DESCENDANT_3` | `owned_descendant` | `wine64-preloader` | 1000 | 4403622 | `RUNTIME_COMPONENT_1` | `false` | `false` | `0d6e85fa7e4b5c5d1e83c688412c3eb0adf5a9b772cc36ab1456eadd79f9216a` |
+| `WINE_SUPPORT_1` | `wine_support` | `wine64-preloader` | 1000 | 4403625 | `RUNTIME_COMPONENT_1` | `false` | `false` | `2ae35187c4e51062decd3183e28f567c4cb30406af267018306e6f973b60468f` |
+| `WINE_SUPPORT_2` | `wine_support` | `wine64-preloader` | 1000 | 4403628 | `RUNTIME_COMPONENT_1` | `false` | `false` | `b1373c6a7fb385910864caaf108adba68f8327a5559fd2d94a48c47633111578` |
+| `OWNED_DESCENDANT_4` | `owned_descendant` | `wine64-preloader` | 1000 | 4403631 | `RUNTIME_COMPONENT_1` | `false` | `false` | `bd803d76153ae607b9d2b858cce0c6e1ff244494f23f439352c093c9ed984e40` |
+| `OWNED_DESCENDANT_5` | `owned_descendant` | `wine64-preloader` | 1000 | 4403661 | `RUNTIME_COMPONENT_1` | `false` | `false` | `8f5adc8a6b3f5e6c102e9260e7cad918c660f47480106ea340324bd6dd9484ff` |
+| `WINE_SUPPORT_3` | `wine_support` | `wine64-preloader` | 1000 | 4403665 | `RUNTIME_COMPONENT_1` | `false` | `false` | `e30841675dc3208be57856ac30bb173f2ea1d56b978ee8cafdc850371c9258af` |
+| `WINDOWS_COMMAND_1` | `windows_command` | `wine64-preloader` | 1000 | 4403757 | `RUNTIME_COMPONENT_1` | `false` | `false` | `2d74d3a964497e6c13f3a0ad8548d5ecd204d9aa326d7f9548b0e72699236430` |
 
 The sentinel used a separate process group/session and the same safe `python` comm family as the Proton script where available. Its PID was held only in raw local supervision state; evidence retains only its safe basename/start identity hash and the survival assertion.

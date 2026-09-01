@@ -47,14 +47,18 @@ binds their sorted Git modes/blobs plus the independent `.cmd` SHA-256.
 command-vector, handshake, verified-cleanup, and Git-backed production
 contract-source cases beneath the test root. It also exercises the production
 replacement phase, durable-record, retirement, and evidence-finalization
-helpers with 14 bounded failure-injection cases. The clean-source suite contains
-65 non-live cases. `--implementation-worktree` runs the 58 deterministic cases
+helpers plus the guarded predecessor-backup and physical-state recovery helpers
+with 24 bounded failure-injection cases. The clean-source suite contains
+75 non-live cases. `--implementation-worktree` runs the 68 deterministic cases
 that are valid before the intermediate implementation commit; it skips only
 the clean-source detached-worktree matrix.
 
 `environment.sh` re-runs preflight and the clean-source suite, captures the
 protected fixture, and verifies the accepted predecessor environment. It moves
-that predecessor atomically to a transaction-owned recoverable sibling, creates
+that predecessor to a transaction-owned recoverable sibling through one guarded
+rename/first-fsync/exact-verification operation. Its outer pre-commit recovery
+uses exact physical state rather than the caller's event flag and refuses
+unknown destination or backup objects. It then creates
 a new stage, executes and promotes repaired Run 1, executes Run 2 and exit 37,
 then runs actual wrong-nonce/wrong-run gate probes and a separate live
 gate-withheld cleanup exercise. It compares protected state, re-verifies the
