@@ -26,16 +26,19 @@ adversarial_review_github_id: 5083590311
 adversarial_review_result: DESIGN_CLEAR
 design_approval: docs/slices/WF0/DESIGN_APPROVAL_V5.md
 design_approval_git_blob: aabf50ae545a4a4a3d7efddc4abec00d04dfc452
-design_authority_merge_pr: pending_exact_merge_vehicle
-design_authority_merge_commit: pending_exact_main_readback
-design_authority_merge_tree: pending_exact_main_readback
+design_authority_merge_pr: #19
+design_authority_merge_commit: 07aa098d4cee2397e221742e8284aa1c6ba3b1c8
+design_authority_merge_tree: 2e1c04925a4bf728469b15b0e9ae8fd3bcb76abf
+authority_readback_branch: status/wf0-v5-authority-readback
 implementation_branch: codex/wf0-windows-vst3-factory-census
-implementation_branch_state: paused_until_exact_authority_merge_readback
-implementation_basis_rule: exact_current_main_after_v5_authority_merge_and_readback
+implementation_branch_state: awaiting_exact_authority_readback_merge
+implementation_basis_rule: exact_current_main_after_this_authority_readback_merges
 successor_selection_authorized: false
 ```
 
-The operator has explicitly approved the immutable `wf0-design-v5` card. Implementation may begin only after this complete amendment authority is merged and the exact resulting `main` commit and tree are read back. The implementation branch must then begin from that exact basis.
+PR #18 retains the reviewed V3/V4/V5 amendment history. Because GitHub's draft-ready transition failed, the exact approved head was merged through ordinary PR #19 as design-authority commit `07aa098d4cee2397e221742e8284aa1c6ba3b1c8`, tree `2e1c04925a4bf728469b15b0e9ae8fd3bcb76abf`.
+
+This file is a post-merge authority readback only. It does not amend `wf0-design-v5`. The implementation branch must begin from the exact current `main` commit and tree after this readback merges; the technical-lead handoff supplies those identities. The design, reconciliation, review, and approval records are immutable implementation inputs.
 
 ## Primary claim
 
@@ -83,7 +86,7 @@ origin: flathub
 user shadow: absent
 runtime ref: org.freedesktop.Platform/x86_64/25.08
 runtime commit: bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8
-user override SHA-256: 1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e
+user override SHA-256: 1b4a6a6ed688f69dd3c36dcac8db008c5a41ed70ea3e23dee984b0aae6a1e
 system override SHA-256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 permission-output SHA-256: c7f5a34dce104cc3d347dcaf89e135cc5ad73b891101d7587f78423858ad5c73
 ```
