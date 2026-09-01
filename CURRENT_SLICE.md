@@ -1,16 +1,242 @@
-# Current Slice: None Selected
+# Current Slice: WR0 — Controlled Proton Runner and Isolated Windows Environment Bootstrap
 
 ## Status
 
 ```text
-status: no_active_implementation_slice
-implementation: forbidden
-last completed slice: HP1 — Bitwig Native Discovery and Instance Admission
+status: active_implementation_slice
+slice: WR0
+branch: codex/wr0-proton-isolated-bootstrap
+basis commit: 3deb414a54174cd95432c84e117a642f30c482fe
+basis tree: 7f29cc727ce128021a6a2d74d04ca9ad6e30cb13
+target: main
 ```
 
-No successor, Windows runner experiment, Windows scanner, proxy/factory crossing, Flatpak override change, Serum operation, installer/authorization session, audio transport, IPC, shared memory, manager, broker, editor, CLAP work, or compatibility claim is selected or implied.
+WR0 owns one controlled Windows-process execution lane. It does not load a
+Windows VST3 module, touch Serum, build a bridge, or choose the final
+commercial-audio runner.
 
-## Last accepted slice
+## Primary claim
+
+On the exact accepted Steam Deck fixture, repository-owned supervision may use
+only the already-installed Proton 11.0 deployment and its manifest-declared
+Steam Linux Runtime to:
+
+```text
+repository-owned supervisor
+  -> exact Steam Linux Runtime entrypoint
+  -> exact Proton 11.0 script
+  -> new staged project-owned compatdata environment
+  -> runner-provided 64-bit Windows cmd.exe
+  -> tracked wr0-probe.cmd
+  -> exact stdout, internal receipt, architecture, and exit readback
+  -> verified atomic environment promotion
+  -> second launch through the same owned environment
+  -> exact intentional exit-37 propagation
+  -> clean owned-process-tree shutdown
+```
+
+Success proves controlled Windows command execution and isolated environment
+bootstrap only.
+
+## Exact runner candidate and implementability gate
+
+- Candidate runner root:
+  `<HOME>/.local/share/Steam/steamapps/common/Proton 11.0`.
+- Candidate runtime roots are the installed `SteamLinuxRuntime` and
+  `SteamLinuxRuntime_4` directories. Their names are not pairing authority.
+- Before implementation, inspect the runner version/manifest/entrypoint,
+  runner command executable, matching Steam app manifests, runtime metadata,
+  runtime entrypoint, and pressure-vessel components.
+- Establish the exact runtime app-ID pairing, supported Proton verb, minimum
+  controlled environment, direct non-Steam-owned route, isolated layout, and
+  expected mutation envelope.
+- If those installed assets do not establish one exact contract, stop with
+  `WR0_RUNNER_CONTRACT_BLOCKED`. Do not download, repair, update, or guess.
+
+The content-bound implementation lock is `docs/WR0_RUNNER_LOCK.md`.
+
+## Owned environment and transaction law
+
+The only ordinary WR0 destination is:
+
+```text
+<HOME>/.local/share/linux-vst-bridge/environments/wr0-proton11
+```
+
+It must be canonical, absolute, beneath a symlink-free owned parent, and either
+absent or an exactly verified WR0 environment. First creation occurs in a
+temporary sibling. Run 1 executes there; verified prefix shape and the external
+ownership/runner-binding marker are then promoted with an atomic rename. Run 2
+and the expected exit-37 run use the promoted path. Failure restores prior
+absence or the exact prior verified environment, and no stage/backup sibling
+may remain.
+
+The bounded WR0 repair may replace only the exact accepted predecessor
+environment created by reviewed head
+`e1b5995ee10722eb4e1e696cc19e34b9546febbf`. Before replacement, its complete
+safe identity and receipts are verified. It is atomically moved to one
+transaction-owned `.wr0-proton11.previous-*` sibling and remains untouched and
+recoverable until repaired Run 1, promotion, Run 2, exit 37, live held-command
+cleanup, preservation, and provisional evidence validation all pass. Any
+pre-commit failure removes only new transaction-owned material and atomically
+restores the exact predecessor. The replacement becomes authoritative only
+after an exact transaction/runner/source/workload/run/protection-bound commit
+record is atomically written, file-fsynced, directory-fsynced, and read back.
+The in-memory state becomes post-commit before any predecessor content is
+deleted. After that boundary the new final environment must never be removed
+or overwritten by rollback: predecessor deletion, parent fsync, retired-record
+readback, and final evidence are cleanup/finalization phases. An incomplete
+retirement is `WR0_PREDECESSOR_RETIREMENT_BLOCKED`; an evidence failure after
+retirement is `WR0_EVIDENCE_FINALIZATION_BLOCKED`. Both preserve the committed
+new environment and its durable record.
+
+The marker is outside registry content and binds the environment schema,
+creation transaction/time, neutral application ID, exact runner/runtime
+identity digest, and relative layout. It contains no credential, hostname,
+username, account identifier, Windows machine identifier, or private path.
+
+WR0 must not use or mutate `.wine`, Steam `steamapps/compatdata`, Bottles,
+yabridge prefixes, Serum, or another Windows environment.
+
+## Allowed tracked paths
+
+Only these tracked paths may change:
+
+```text
+CURRENT_SLICE.md
+docs/WR0_RUNNER_LOCK.md
+windows-fixtures/wr0-probe/**
+tools/wr0-proton-bootstrap/**
+evidence/wr0-proton-bootstrap/**
+```
+
+No Rust, CMake, native-probe, binary, Windows VST3 source, scanner, bridge,
+proxy, IPC, shared memory, manager, compatibility profile, runner/runtime
+payload, generated prefix material, or proprietary content is authorized.
+
+## Launch, supervision, and Steam-ancestry law
+
+- Pin every executable and verify the declared launch-critical manifest before
+  and after execution.
+- Use Runtime `_v2-entry-point --verb=run --`, the pinned Proton script's
+  `runinprefix` verb, and runner-owned x86_64 Windows `cmd.exe` only.
+- Use neutral fixture app ID `0`; never impersonate a real Steam application.
+- Start from an allow-listed environment and omit ambient compatibility
+  overrides. Redirect persistent runtime/cache/config/data state beneath WR0.
+- Normal mode accepts no caller-selected executable or environment root.
+- Bind every governed WR0 tool, wrapper, workload, and runner-lock document to
+  a clean-commit sorted Git path/mode/blob contract-source manifest; retain the
+  `.cmd` SHA-256 independently and verify the historical live identity at the
+  final evidence-only head.
+- Use a nonce/run-bound ready/gate file handshake. Release the gate only after
+  exact Proton-script and Windows-command identities and ancestry are live and
+  proved; stdout alone is insufficient.
+- Classify `windows_command` only when the Wine-hosted `cmd.exe` identity has
+  one exact unique ordered argument vector: fixed `/d /q /c` switches, the
+  complete Windows form of the tracked probe path, exact current nonce, exact
+  decimal run number, contract-source digest, workload SHA-256, and
+  `--exit-37` exactly when and only when exit 37 is expected. A matching
+  basename, partial token set, duplicate subsequence, alternate path, or wrong
+  switch/run/exit form is insufficient.
+- Immediately before gate publication, take a fresh bounded `/proc` snapshot;
+  revalidate the Runtime-root, Proton, and Windows-command PID/start identities,
+  both exact ancestry chains, the full command vector, ready bytes/stdout, and
+  continued gate absence. If an identity disappeared or changed, withhold the
+  gate.
+- Bound stdout, stderr, process count, polling interval, and wall time; create a
+  new process group and census the complete descendant tree of the exact root
+  PID/start identity, retaining safe identities/parent and group/session facts.
+- On timeout, signal the isolated group and only exact observed PID/start
+  identities that escaped it. Never use `killall`, global `pkill`, or unscoped
+  wineserver termination. Revalidate each exact identity immediately before
+  signalling. After TERM and any final KILL, run the production bounded
+  owned-empty verifier; success requires the original group and every exact
+  observed identity to be absent or zombie before deadline. Any survivor is
+  `WR0_PROCESS_TOPOLOGY_BLOCKED`.
+- Separately exercise that cleanup against the actual Runtime/Proton/Wine/cmd
+  topology with the gate deliberately withheld. Prove every owned identity is
+  gone, the unrelated same-family sentinel outside the ancestry survives, all
+  handshake files and the disposable stage are removed, and the accepted final
+  environment remains exact.
+- Do not retain durable PIDs, command lines, environments, maps, or unrelated
+  processes.
+- Ordinary Steam/web helpers may remain open. Prove the repository supervisor
+  owns the Unix launch root and that no Steam game-launch process is an
+  ancestor. Do not create a Steam entry or modify Steam configuration.
+
+The accepted wording is “project-owned process launch using exact existing
+Steam-installed runner assets,” not Steam-independent distribution.
+
+## Preservation and evidence law
+
+Before and after live execution compare exact accepted identities for Bitwig
+app/runtime and override bytes; HP0 publication/module/receipt/build source;
+HP1 evidence; both SR0 Serum files including hash/size/mtime; the known `.wine`
+module and selected registry hashes; the immediate Steam compatdata roster; and
+the launch-critical Proton/Runtime/app-manifest lock. Steam background activity
+is not globally frozen. Any protected drift invalidates WR0.
+
+Run 1 must initialize a previously absent staged environment with run number
+`1`, exact output/receipt/architecture/exit `0`, then promote atomically. Run 2
+must reuse the same transaction/environment identity with run number `2`, a
+fresh nonce, distinct process-tree identity, exact readback, and exit `0`. The
+test path must return `37` through the supervisor exactly and leave the
+environment valid.
+
+Retain the bounded packet under `evidence/wr0-proton-bootstrap/`, including the
+runner lock/digest, launch contract, environment transaction, three run
+results, causal handshake, complete-root ancestry/guards, preservation, the
+complete negative/production ledger, sanitization, `fixture.json`, and
+`hashes.sha256`. Retain no private path, hostname, raw
+launch directory, PID, full command line/environment/map, registry content,
+machine identifier, Steam account data, prefix file, proprietary content, or
+secret.
+
+The 30 accepted negative cases remain required. The repaired ledger also runs
+production helpers for strict command/run/path identity, readiness and bad-gate
+handling, verified cleanup failure, exact escaped-descendant cleanup, Git-backed
+contract-source identity across detached temporary worktrees, and the separate
+live held-command exercise. It additionally injects failures before backup,
+after backup, after promotion, during commit write/readback, after durable
+commit, during predecessor deletion/fsync, and during evidence
+rendering/sanitization; every case proves the phase-appropriate rollback or
+post-commit preservation law. Temporary worktrees remain beneath the canonical
+WR0 cache test root and are removed and pruned.
+
+## Blocked-result law, cleanup, and review
+
+`WR0_RUNNER_LAUNCH_BLOCKED` remains reserved for an actual pairing or direct
+launch failure. If the exact run/path-bound Windows-command identity cannot be
+observed, use `WR0_PROCESS_OBSERVABILITY_BLOCKED`. If the actual held-command
+topology cannot be safely terminated and verified empty, use
+`WR0_PROCESS_TOPOLOGY_BLOCKED`. A failure before durable replacement commit is
+`WR0_REPLACEMENT_PRECOMMIT_BLOCKED` after the exact predecessor is restored. A
+post-commit predecessor-cleanup failure is
+`WR0_PREDECESSOR_RETIREMENT_BLOCKED`; a post-retirement evidence failure is
+`WR0_EVIDENCE_FINALIZATION_BLOCKED`. Neither post-commit path may invoke the
+pre-commit rollback helper or remove the authoritative replacement. Retain
+bounded failure ownership, reverify preservation, and do not install UMU or
+select another Wine/Proton build.
+
+Cleanup is transaction- and process-group-scoped. Failed first creation
+restores absence; failed synthetic replacement restores its byte-identical
+owned predecessor; success leaves only the verified final environment for a
+separately authorized future slice. Review the exact PR head against this one
+claim, content lock, ownership transaction, output/exit, ancestry, clean
+shutdown, preservation, negative ledger, changed-path envelope, sanitized
+evidence, and claim ceiling. Leave the PR ordinary, open, unmerged, and target
+`main`.
+
+## Explicit non-goals and nonclaims
+
+WR0 does not load, inspect, launch, install, authorize, or claim usability of
+Serum or any VST3 module. It does not launch Bitwig, alter Flatpak overrides,
+use `.wine` or Steam compatdata, install/build/update a runner, build a Windows
+binary, scan plug-ins, process audio, implement IPC/shared memory/proxy/bridge
+or manager behavior, add Rust, prove real-time safety, choose a product runner,
+claim Steam-independent distribution, or generalize beyond this exact fixture.
+
+## Accepted predecessor: HP1
 
 ```text
 slice: HP1
@@ -114,6 +340,10 @@ HP1 does not determine:
 
 HP1 is exact native discovery, class registration, operator-assisted instance admission, process ancestry, and native module-mapping evidence only. It does not claim that Bitwig processed audio through the probe, that parameter or project state works, that Serum works, that a Windows bridge exists, or that the result generalizes beyond the accepted fixture.
 
-## Work selection
+## WR0 selection receipt
 
-The technical lead must inspect the accepted native boundary and present one bounded next decision. Until the operator approves it, do not change Bitwig or Flatpak configuration, rebuild or move the native probe, touch Serum or its environment, select a Windows runner, add a Windows scanner/host, create a bridge proxy, or introduce IPC/shared-memory/manager/broker code.
+The technical lead selected only WR0 against the exact pinned basis after the
+read-only pre-flight and runner/runtime contract scan. The operator explicitly
+approved replacing the no-active-slice card with this bounded authority. No
+later scanner, VST3, Serum, Bitwig, bridge, IPC, shared-memory, manager, broker,
+Rust, audio, or successor-slice work is selected or implied.
