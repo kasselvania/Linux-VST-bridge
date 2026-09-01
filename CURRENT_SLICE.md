@@ -1,207 +1,101 @@
-# Current Slice: WR0A — Post-Merge Final WR0 Repair Reconciliation and Adoption
+# Current Slice: None Selected
 
 ## Status
 
 ```text
-status: implementation_authority_ready_for_merge
-authority_phase: implementation
-implementation_authorized: true
-slice: WR0A
-design_branch: codex/wr0a-final-repair-reconciliation-design
-selection_basis_commit: b517f96bafa388107ea28c9d2e91528fd37b00d9
-selection_basis_tree: 839cda6145f592642f06b5273855b04ffa0562ac
-target: main
-implementation_branch: codex/wr0a-final-repair-reconciliation
-implementation_basis: exact future design-authority merge commit and tree
-design_gate: cleared
+status: no_active_slice
+authority_phase: no_active_slice
+implementation_authorized: false
+last accepted slice: WR0A — Post-Merge Final WR0 Repair Reconciliation and Adoption
 successor_selection_authorized: false
 ```
 
-Implementation may begin only after this design authority is merged into
-`main`. The implementation branch must begin from that exact merge commit and
-tree. The unmerged design branch and the original selection basis are not
-implementation bases.
+No Windows VST3 scanner, Windows host, native proxy/factory crossing, bridge IPC, shared-memory transport, Serum operation, Bitwig operation, installer/authorization session, manager, broker, editor, CLAP work, runner change, or broader compatibility claim is selected or implied.
 
-## Exact authority
-
-Selection receipt:
+## Last accepted slice
 
 ```text
-docs/slices/WR0A/SLICE_SELECTION.md
+slice: WR0A — Post-Merge Final WR0 Repair Reconciliation and Adoption
+design-authority merge: 5aa757e46f6e8c15751743b68a8504386fbe840c
+design-authority tree: a779d2ac85ec74adc907327dde13f5d31201f914
+implementation PR: #13
+implementation basis: 5aa757e46f6e8c15751743b68a8504386fbe840c
+tool commit: c78e5845ccae7ca0f5d1e1c802f1839d519ee096
+adoption commit: 60f05fb97ae1438a10b5360f47b5812fabf131a0
+reviewed head: 48b66e87f8e65a8e8e57832039ec567452ed857b
+reviewed tree: d46b907ecac1df970d83d364884b8fdd2ed57d82
+technical-lead review: 5081542159
+implementation merge: 8e6a5e55a4c731defd518618286adb308d9640ed
+implementation merge tree: d46b907ecac1df970d83d364884b8fdd2ed57d82
 ```
 
-Immutable approved design:
+## Accepted reconciliation claim
+
+Current `main` now contains the exact content-addressed final WR0 repair represented by archive commit:
 
 ```text
-path: docs/slices/WR0A/IMPLEMENTATION_DESIGN.md
-revision: wr0a-design-v3
-commit: 19a1314ec3d750c01edeaf0fee6a5b4bc1aa6791
-tree: 79bfdbbeeecb18893c5b35738fde7353aacf9c19
-Git blob: 18759d2297b3e0bc0e69d0939f72391b373ce9ec
-SHA-256: add191cf0dee588e9fce08c8b97f9b5a87aa6102eb3f5376d2aa2dfb4b455261
+52be94316664f88a19df630e164105a0ca50b875
 ```
 
-Adversarial-review history:
+The accepted reconciliation:
 
 ```text
-path: docs/slices/WR0A/ADVERSARIAL_DESIGN_REVIEW.md
-file blob before authority finalization: 9110f9ef24682f90eb1dca6bb98eb8a8dfdd7bb1
-V3 DESIGN_CLEAR review: GitHub review 5080493577
-superseded over-scoped V3 review: GitHub review 5080390572
+merged historical WR0 source/evidence
+    + exact post-merge final-repair archive
+    + 13 exact imported path/mode/blob identities
+    + 11 exact preserved WR0 identities
+    + archived CURRENT_SLICE.md explicitly excluded
+    + dedicated repository-owned reconciliation verifier
+    + bounded read-only live Deck equality
+    -> current repository truth aligned with the existing final WR0 environment
 ```
 
-Design approval:
+Accepted identities:
 
 ```text
-path: docs/slices/WR0A/DESIGN_APPROVAL.md
-Git blob: 40179957b349390f8484e114b4d23dc14a7c1a13
-implementation_authorized: true
+archive tree: 21601814bd352114fe2e55833c88a81e47e13e41
+archive parent: 3deb414a54174cd95432c84e117a642f30c482fe
+final WR0 contract source: c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541
+WR0A reconciliation source: c0675f824d2f4cd12b84486c5378a7af65a582cf07ad06ff06a1ed5e2cc0d9c8
+live transaction: wr0-20260901T053317Z-183afd5bbf0736e4
+live environment: d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4
+runner/runtime: 2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
+workload: 4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac
+retired replacement record: 917c939c605f457376b0bdd53e06d252d4aecee4b39728850b2e1a61aa102b3e
 ```
 
-The immutable V3 design does not need another revision. Review `5080493577`
-correctly classifies WR0A as an exact Git reconciliation with a read-only live
-fixture, not as a new live environment transaction.
+No Proton, Wine, Windows workload, Bitwig, Serum, or validator execution was required for WR0A. The live environment remained unchanged. The canonical WR0 packet now represents the actual final repair, while immutable Git history retains the older merged WR0 state.
 
-## Primary claim
+## Current accepted product frontier
 
-> Current main adopts the exact content-addressed final WR0 repair represented
-> by archive commit `52be94316664f88a19df630e164105a0ca50b875`
-> without re-running or mutating the live WR0 environment.
-
-## Exact source and fixture
+The project now proves, on the exact accepted Steam Deck fixture:
 
 ```text
-merged historical WR0:
-  commit: 9228217b2abf7314b9dfaecc5fc4323d5f3d7a89
-  tree: 8da6817eba1f259d3565e377fcb50098ab8f3cf2
-  merge: 8237b96ce7c885edcf4e7a0923f2ac78d05a928d
-
-immutable final-repair archive:
-  commit: 52be94316664f88a19df630e164105a0ca50b875
-  tree: 21601814bd352114fe2e55833c88a81e47e13e41
-  parent: 3deb414a54174cd95432c84e117a642f30c482fe
-
-live WR0 environment:
-  path: <HOME>/.local/share/linux-vst-bridge/environments/wr0-proton11
-  transaction: wr0-20260901T053317Z-183afd5bbf0736e4
-  environment identity: d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4
-  runner/runtime: 2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
-  contract source: c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541
-  workload: 4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac
-  retired record: 917c939c605f457376b0bdd53e06d252d4aecee4b39728850b2e1a61aa102b3e
+native Linux VST3 build and official validation
+    -> controlled publication into Bitwig's Flatpak-visible user path
+    -> normal Bitwig discovery and native instance admission
+    -> controlled Steam Linux Runtime 4 / Proton 11 Windows-command execution
+    -> isolated project-owned Windows environment
+    -> exact process ownership, cleanup, and durable replacement semantics
+    -> repository/live-state reconciliation of the final WR0 repair
 ```
 
-The live environment is read-only in WR0A. It must not be repaired, replaced,
-renamed, regenerated, or rerun.
+No Windows VST3 module has yet been factory-loaded, scanned, hosted, instantiated, or bridged.
 
-## Implementation shape
+## Next lawful action
 
-The approved implementation has one tracked reconciliation owner:
+Run the analysis-only successor-selection process in:
 
 ```text
-tools/wr0a-reconciliation/README.md
-tools/wr0a-reconciliation/reconcile.py
+docs/prompts/CHOOSE_NEXT_SLICE.md
 ```
 
-It must:
+against the exact current `main` commit and tree after this status closure merges.
 
-1. verify the merged design authority and immutable archive;
-2. commit the two reconciliation-tool files before they act;
-3. import exactly 13 archive blobs and never archive `CURRENT_SLICE.md`;
-4. preserve the exact 11 already-identical WR0 paths;
-5. reproduce the final WR0 contract-source digest `c6543004...`;
-6. retain the exact canonical final WR0 evidence packet;
-7. perform bounded read-only live/archive equality checks;
-8. create a separate eight-file WR0A reconciliation packet;
-9. preserve DG0 and all immutable authority records;
-10. obtain an independent pre-PR audit before technical-lead merge.
+That analysis may recommend one bounded slice and emit an operator approval sentence. It may not edit the repository, activate a slice, or implement a design-gated successor.
 
-Unexpected disposable implementation-worktree state is not a live product
-recovery problem. Stop, preserve unknown work, and recreate an owned clean
-implementation worktree from the exact design-authority merge rather than
-expanding WR0A into another transaction framework.
+The likely product frontier is the Windows VST3 factory boundary, but no successor is selected by this closure.
 
-## Exact implementation changed paths: 23
+## Explicit nonclaims
 
-```text
-docs/WR0_RUNNER_LOCK.md
-tools/wr0-proton-bootstrap/README.md
-tools/wr0-proton-bootstrap/launch.py
-evidence/wr0-proton-bootstrap/BASIS.md
-evidence/wr0-proton-bootstrap/ENVIRONMENT.md
-evidence/wr0-proton-bootstrap/EXIT_PROPAGATION.md
-evidence/wr0-proton-bootstrap/LAUNCH_CONTRACT.md
-evidence/wr0-proton-bootstrap/NEGATIVE_TESTS.md
-evidence/wr0-proton-bootstrap/PROCESS_GUARDS.md
-evidence/wr0-proton-bootstrap/RUN_1.md
-evidence/wr0-proton-bootstrap/RUN_2.md
-evidence/wr0-proton-bootstrap/fixture.json
-evidence/wr0-proton-bootstrap/hashes.sha256
-tools/wr0a-reconciliation/README.md
-tools/wr0a-reconciliation/reconcile.py
-evidence/wr0a-final-repair-reconciliation/BASIS.md
-evidence/wr0a-final-repair-reconciliation/SOURCE_DELTA.md
-evidence/wr0a-final-repair-reconciliation/ARCHIVE_AUDIT.md
-evidence/wr0a-final-repair-reconciliation/LIVE_READBACK.md
-evidence/wr0a-final-repair-reconciliation/GOVERNANCE.md
-evidence/wr0a-final-repair-reconciliation/FINDINGS.md
-evidence/wr0a-final-repair-reconciliation/fixture.json
-evidence/wr0a-final-repair-reconciliation/hashes.sha256
-```
-
-The implementation PR may not modify this file, the selection receipt,
-reconnaissance, design card, adversarial-review record, design approval,
-`docs/DECISION_REGISTER.md`, or any other governance/architecture path.
-
-## External mutation
-
-Permitted:
-
-```text
-owned implementation Git worktree/index/commits
-read-only inspection of the exact live WR0 environment
-bounded WR0A transient cache that is removed after use
-configured branch push and ordinary non-draft pull request metadata
-```
-
-Prohibited:
-
-- Proton, Wine, Windows workload, Bitwig, Serum, or validator execution;
-- live WR0 environment or receipt mutation;
-- `.wine`, Steam compatdata, Flatpak, runner/runtime, or vendor mutation;
-- archive `CURRENT_SLICE.md` adoption;
-- another slice or product capability;
-- implementation-agent merge.
-
-## Material-discovery stop law
-
-Return to the design gate only if implementation changes a material approved
-fact: archive/source identity, live fixture, owner model, exact import set,
-read-only boundary, implementation path envelope, primary claim, claim ceiling,
-or proof ownership.
-
-Ordinary implementation defects within the approved V3 design are repaired
-under that design. The implementation must not grow new Git-runtime, lease,
-filesystem-transaction, or governance frameworks merely to defend disposable
-unaccepted worktree state.
-
-## Completion and closure
-
-The implementation agent opens an ordinary non-draft PR and leaves it
-unmerged. After independent pre-PR audit and technical-lead exact-head review,
-the technical lead may merge. A separate status closure then changes only:
-
-```text
-CURRENT_SLICE.md
-docs/DECISION_REGISTER.md
-```
-
-That closure records WR0A acceptance and restores no-active-slice posture.
-
-## Nonclaims
-
-WR0A does not create a new WR0 execution result, run or replace the environment,
-load or scan a Windows VST3, operate Serum or Bitwig, process audio, implement a
-proxy, bridge, IPC, shared memory, manager, broker, GUI, activation flow, Rust
-component, real-time path, final product runner, Steam-independent distribution,
-or general Linux compatibility.
+WR0A does not prove Windows VST3 loading or hosting, Serum authorization or operation, Bitwig scanning of a Windows plug-in, audio processing, parameter/state transport, GUI/editor behavior, IPC, shared memory, real-time safety, packaging, Steam-independent distribution, another DAW, or general Linux compatibility.
