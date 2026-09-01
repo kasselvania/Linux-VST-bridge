@@ -13,12 +13,14 @@ amendment_basis_tree: a6e2fc8c7a564f50e9033094fde847387478de62
 amendment_branch: codex/wf0-bitwig-6-1-fixture-amendment
 amendment_authorized: true
 amendment_authorization_text: I authorize an ammendment.
-design_revision: wf0-design-v3
+repair_basis_commit: b6a697d71ea1cf81974199cdd35d4b7dcede6d45
+repair_basis_tree: 0182c76f39567147da1c6767e3f0e2ac8eafc7e1
+design_revision: wf0-design-v4
 design_status: proposed_for_adversarial_review
-design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V3.md
+design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V4.md
 design_card_git_blob: pending_external_identity_from_design_commit
 design_card_sha256: pending_external_identity_from_design_commit
-adversarial_review: pending_fresh_independent_review
+adversarial_review: pending_fresh_independent_v4_review
 design_approval: pending_exact_operator_approval
 implementation_branch: codex/wf0-windows-vst3-factory-census
 implementation_branch_state: paused_at_superseded_v2_basis
@@ -29,12 +31,12 @@ The operator authorized the narrow amendment proposed immediately after live
 WF0 preflight found that the Deck had intentionally moved from the former
 Bitwig `6.0.11` beta fixture to Bitwig `6.1` on the stable Flatpak branch.
 That authorization returns WF0 to the design gate. It authorizes bounded
-read-only reconciliation, a V3 design draft, fresh independent adversarial
+read-only reconciliation, a complete successor design, fresh independent adversarial
 review, and preparation of an exact approval request.
 
 It does **not** approve the draft, reauthorize implementation, authorize a
 toolchain installation, permit a build or Windows workload, or authorize a
-merge. Implementation may resume only after the exact V3 card is independently
+merge. Implementation may resume only after the exact V4 card is independently
 reviewed, explicitly approved by the operator, retained in a new approval
 receipt, merged to `main`, and read back into this authority card.
 
@@ -104,22 +106,64 @@ exact former implementation basis:
 The live fixture change does not erase or rewrite those facts. It means the V2
 approval no longer authorizes implementation against the current fixture.
 
+## V3 review and bounded V4 repair
+
+The first complete amendment card was retained immutably as:
+
+```text
+V3 design:
+  commit: 158e1229d1e3b6e84fbb05fc472ebf7f75887965
+  tree: 2c312d069cc54cefb3b382dc87638d3fa1dc82fa
+  path: docs/slices/WF0/IMPLEMENTATION_DESIGN_V3.md
+  Git blob: 523d81f4b449ff96251dd1e52abb741b20033f95
+  SHA-256: 948fbc249e399de82db8f7cd50f46a357e32be67ccdb7598b4d69183b921fc78
+
+V3 independent review:
+  commit: b6a697d71ea1cf81974199cdd35d4b7dcede6d45
+  tree: 0182c76f39567147da1c6767e3f0e2ac8eafc7e1
+  path: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW_V3.md
+  Git blob: 62c0b953ed6c9eda7724de53f7dd87f9a55d613f
+  SHA-256: 08284b2f8f5f7b11b15dbf8eec3b30494e64539e0f5bc756b7a6e5c71f387a36
+  result: DESIGN_REPAIR_REQUIRED
+  unresolved findings: 1
+```
+
+The reviewer found that V3 correctly separated current Bitwig `6.1` from the
+historical `6.0.11` proof, but did not unambiguously restate both binding V2
+implementation clarifications in the successor approval contract. V4 repairs
+only that gap:
+
+1. every ordinary return from all 15 closed call operations must be followed
+   immediately by the paired synchronously flushed `call_completed`, before
+   any later lifecycle event or call attempt; and
+2. required `GetPluginFactory` must be resolved and checked before optional
+   `InitDll` may be invoked, and a missing required export must not execute
+   `InitDll`.
+
+The future V4 approval receipt and implementation handoff must bind both
+clauses. The repair creates no owner, state, call operation, implementation
+path, proof row, blocker, mutation, or reconnaissance requirement.
+
 ## Amendment scope
 
-V3 may change only the protected-fixture interpretation needed to distinguish:
+The fixture amendment may change only the protected-fixture interpretation
+needed to distinguish:
 
 1. immutable HP0, HP1, WR0, and WR0A evidence that truthfully records the
    historical Bitwig `6.0.11` fixture; and
 2. the current Bitwig `6.1` stable installation, runtime, and override identities
    that WF0 must preserve without launching or modifying Bitwig.
 
-V3 must assign current Bitwig readback to the existing
+The V4 review repair may only restate the two already-binding V2
+clarifications without changing their substance.
+
+V4 must assign current Bitwig readback to the existing
 `ProtectedFixtureSnapshot` owner inside the already approved WF0 tooling paths.
 It must not edit historical tools or evidence merely to make their old fixture
 identity appear current. It must not promote HP1's `6.0.11` discovery and
 instance-admission proof to a `6.1` claim.
 
-The amendment does not change the WF0 primary claim, AGain fixture,
+The amendment and bounded V4 repair do not change the WF0 primary claim, AGain fixture,
 Runtime/Proton route, ten-owner model, state machine, 40-path implementation
 envelope, 26-path implementation-source roster, 14-file evidence packet,
 35-row proof matrix, 23-result blocker taxonomy, external mutation envelope,
@@ -200,7 +244,8 @@ During this amendment phase:
 
 ```text
 bounded fixture reconciliation
-    -> complete V3 design draft
+    -> retain V3 DESIGN_REPAIR_REQUIRED review
+    -> complete V4 design repair
     -> fresh independent adversarial review
     -> repair and re-review if required
     -> exact operator approval
