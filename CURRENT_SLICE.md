@@ -1,101 +1,92 @@
-# Current Slice: None Selected
+# Current Slice: DG0 — Implementation Design Gate and Successor Selection Protocol
 
 ## Status
 
 ```text
-status: no_active_implementation_slice
-implementation: forbidden
-last accepted slice: WR0 — Controlled Proton Runner and Isolated Windows Environment Bootstrap
+status: active_governance_slice
+authority_phase: documentation_and_governance
+implementation_authorized: false
+slice: DG0
+branch: codex/dg0-implementation-design-gate
+basis commit: a01c6121de63097fa56fa4f81825456b467b09ed
+basis tree: c887e3acfe34c56cdd0f141dec761f4598dea098
+target: main
 ```
 
-No Windows VST3 scanner, native proxy/factory crossing, bridge IPC, shared-memory transport, Serum operation, Bitwig operation, installer/authorization session, manager, broker, editor, CLAP work, cleanup program, design amendment, or compatibility claim is selected or implied.
+The operator explicitly directed the technical lead to immortalize the implementation-design process and the next-slice selection prompt in the human-facing repository.
 
-## Last accepted slice
+## Primary claim
+
+DG0 makes the repository's development process explicit and enforceable:
 
 ```text
-slice: WR0
-implementation PR: #7
-reviewed head: 9228217b2abf7314b9dfaecc5fc4323d5f3d7a89
-reviewed tree: 8da6817eba1f259d3565e377fcb50098ab8f3cf2
-basis commit: 3deb414a54174cd95432c84e117a642f30c482fe
-basis tree: 7f29cc727ce128021a6a2d74d04ca9ad6e30cb13
-implementation merge: 8237b96ce7c885edcf4e7a0923f2ac78d05a928d
+accepted main / no active slice
+    -> technical-lead successor analysis
+    -> operator selects one bounded slice
+    -> bounded reconnaissance and design authority
+    -> implementation design card
+    -> independent adversarial design review
+    -> exact design approval receipt
+    -> implementation authorization
+    -> implementation against the approved revision
+    -> independent pre-PR implementation audit
+    -> technical-lead exact-head review
+    -> merge
+    -> separate no-active-slice closure
 ```
 
-## Accepted claim
+It distinguishes slice selection from implementation authorization, defines when the implementation-design gate is mandatory, defines material-discovery stop behavior, defines independent review roles, and provides reusable prompts and templates.
 
-WR0 establishes one exact controlled Windows-process execution and environment-ownership lane on the accepted Steam Deck fixture:
+## Changed-path envelope
+
+Only these paths may change:
 
 ```text
-repository-owned supervisor
-  -> exact Steam Linux Runtime 4 entrypoint
-  -> exact installed Proton 11.0 runner
-  -> runner Wine
-  -> exact runner-provided x86_64 cmd.exe
-  -> exact tracked nonce/run/source/workload-bound command fixture
-  -> isolated project-owned environment
-  -> verified Run 1
-  -> atomic promotion
-  -> verified Run 2 through the same environment
-  -> exact live exit-37 propagation
-  -> verified scoped cleanup of the real Runtime/Proton/Wine topology
-  -> durable environment replacement commit
-  -> predecessor retirement
-  -> finalized retained evidence
+README.md
+AGENTS.md
+GOVERNANCE.md
+CURRENT_SLICE.md
+docs/DEVELOPMENT_PROCESS.md
+docs/DESIGN_DOSSIER.md
+docs/DECISION_REGISTER.md
+docs/templates/IMPLEMENTATION_DESIGN_CARD.md
+docs/templates/SLICE_SELECTION_RECEIPT.md
+docs/templates/DESIGN_APPROVAL_RECEIPT.md
+docs/prompts/CHOOSE_NEXT_SLICE.md
+docs/prompts/ADVERSARIAL_DESIGN_REVIEW.md
+docs/prompts/PRE_PR_IMPLEMENTATION_AUDIT.md
 ```
 
-The retained packet is under:
+## Acceptance
 
-```text
-evidence/wr0-proton-bootstrap/
-```
+DG0 is complete when:
 
-The reusable exact runner, environment, process-supervision, transaction, and evidence tooling is under:
+- the human process is readable from the repository root;
+- the authority phases are unambiguous;
+- high-risk design-gate triggers and waiver law are explicit;
+- the implementation design card requires owner, state, mutation/fault, identity, proof, stop-condition, and code-topology decisions;
+- material discoveries return work to the design gate;
+- design review and pre-PR audit use independent fresh contexts;
+- the exact operator selection and design-approval receipts are templated;
+- the reusable next-slice selection prompt performs analysis only and emits an exact approval sentence;
+- all relative document links resolve;
+- no product implementation or external fixture mutation occurs.
 
-```text
-tools/wr0-proton-bootstrap/
-```
+## Explicit non-goals
 
-The tracked Windows command fixture is:
+DG0 does not:
 
-```text
-windows-fixtures/wr0-probe/wr0-probe.cmd
-```
+- choose the Windows VST3 scanner slice;
+- authorize implementation of any successor;
+- modify the accepted WR0 environment;
+- launch Proton, Wine, Bitwig, Serum, or another fixture;
+- change Flatpak, SteamOS, `.wine`, Steam compatdata, or user content;
+- refactor WR0;
+- add source code, dependencies, CI, schemas, or compatibility profiles;
+- amend the product architecture or claim compatibility.
 
-## Accepted runner and environment identities
+## Last accepted implementation boundary
 
-- Runner: `1787334450 proton-11.0-2-x86_64`.
-- Runtime: Steam Linux Runtime 4 `4.0.20260805.254769`.
-- pressure-vessel: `0.20260805.0`.
-- Launch-critical identity: `linux-vst-bridge-wr0-launch-critical/v1` / `2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`.
-- Contract-source identity: `linux-vst-bridge-wr0-contract-source/v1` / `887b148b7862038fd8fc0af52146ecc7452a5fbf82c22c5af8eaec6fe47504b8`.
-- Workload SHA-256: `4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac`.
-- Owned environment: `<HOME>/.local/share/linux-vst-bridge/environments/wr0-proton11`.
-- Final environment transaction: `wr0-20260901T045337Z-caf9f4eaf52d2d34`.
-- Final environment identity: `447e6d4dfccfbebe7be44cc521e8ed192bfad4ab1fe1f16673d391161db73c24`.
-- Durable replacement-record schema: `linux-vst-bridge-wr0-replacement-commit/v1`.
-- Final retired replacement-record SHA-256: `aba3913537590b6c1302cfd473cb29e201b68342b58e8d92cdc6d09fe61ec6f1`.
+WR0 is accepted through implementation PR #7 and merge commit `8237b96ce7c885edcf4e7a0923f2ac78d05a928d`. Its status closure merged as `a01c6121de63097fa56fa4f81825456b467b09ed`.
 
-## Accepted operating laws
-
-WR0 proved several laws that later stateful/process slices must consume rather than rediscover casually:
-
-- The installed runner/runtime pairing is content-bound and may not be selected from directory names alone.
-- A Windows workload is not admitted from stdout alone; its exact process identity, command vector, run identity, and ancestry are causally proved before release.
-- Process ownership follows the exact Runtime-root descendant tree across process-group and session boundaries.
-- Cleanup signals only exact PID/start identities and must prove the owned scope empty.
-- An environment replacement remains reversible before durable commit.
-- After durable commit, the new environment is authoritative and cannot be destroyed to restore an old predecessor.
-- Destructive predecessor retirement begins only after exact durable commit and readback.
-- Filesystem physical state and exact identity—not an in-memory boolean alone—govern recovery.
-- Evidence finalization is a separate post-commit phase and cannot rewrite implementation authority.
-
-## Claim ceiling
-
-WR0 does not prove that Proton can load, scan, instantiate, authorize, display, or process audio through a Windows VST3 module. It did not inspect or launch Serum, launch Bitwig, modify `.wine` or Steam compatdata, implement a native proxy, cross a VST3 factory boundary, implement bridge IPC or shared memory, establish real-time safety, select a final distributable product runner, or generalize beyond the exact fixture.
-
-## Work selection
-
-The technical lead must inspect the accepted native-host and Windows-runner boundaries and present one bounded next decision. The operator has directed that the repository first formalize a human-facing implementation-design gate, adversarial design review, and successor-selection protocol before another high-risk implementation slice begins.
-
-That direction does not itself authorize repository changes beyond a separately bounded governance slice, and it does not authorize Windows VST3, Serum, bridge, IPC, audio, or manager implementation.
+DG0 is a process-governance response to the lesson that empirical discoveries, implementation design, coding, and architectural review must not collapse into one patch-forward loop. It does not diminish WR0's accepted Windows-execution result.
