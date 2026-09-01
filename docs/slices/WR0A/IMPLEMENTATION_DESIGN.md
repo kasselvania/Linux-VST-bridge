@@ -5,13 +5,15 @@
 ```text
 slice_id: WR0A
 title: Post-Merge Final WR0 Repair Reconciliation and Adoption
-design_revision: wr0a-design-v2
+design_revision: wr0a-design-v3
 design_status: proposed_for_adversarial_review
 repository: kasselvania/Linux-VST-bridge
 basis_commit: b517f96bafa388107ea28c9d2e91528fd37b00d9
 basis_tree: 839cda6145f592642f06b5273855b04ffa0562ac
 selection_receipt_path: docs/slices/WR0A/SLICE_SELECTION.md
-selection_receipt_identity: git-blob fe7b3f84f5f427cc48ce6b41752686812f678051; sha256 4cf4b4173aa99a0a62611f599359ab0f7416520b44484f4a582d2d9963810ed0
+selection_receipt_mode: 100644
+selection_receipt_identity: git-blob 4f3131c93ef7b8178a623032146316226071a10b; sha256 6fd547646d1501831b6264ec9f0f729fa1feac7cf6f482278330a0a96644da2a
+selection_receipt_lineage: original git-blob fe7b3f84f5f427cc48ce6b41752686812f678051 clarified without changing the operator selection
 current_slice_path: CURRENT_SLICE.md
 authority_phase: reconnaissance_and_design
 implementation_authorized: false
@@ -21,18 +23,20 @@ prepared_at: 2026-09-01T14:23:36Z
 
 ```text
 supersedes_design:
-  commit: fce6078ab3c6e7ae9ad8bf116daefb62682ee093
-  tree: a8cfe44a08781c6bcbf7c5057fb2d3c47e108c8d
+  commit: 2aeac55f0297b5d8c6b843eb5ce489d936999923
+  tree: 6be95aaca2eddf8008a0177bf07bac48921133c0
   path: docs/slices/WR0A/IMPLEMENTATION_DESIGN.md
-  blob: 2d4e2c662e616461b233d398a3e40c5e3e248573
-  sha256: a822d2671b253f386721f3756f684a6065072c353ea4d98e64c1bcd82f85d939
-  revision: wr0a-design-v1
+  blob: 9375172252f6dca73636916536a1bcbd8641115d
+  sha256: 0ccf184612d7312334e65658181f1bb32ae5d3ddb847cb8bab042d470533b15e
+  revision: wr0a-design-v2
   verdict: DESIGN_REPAIR_REQUIRED
+  github_review_id: 5080009434
 ```
 
-Revision v2 resolves the supplied review as one ownership and transition-order
-repair. It is not clear, approved, merged authority, or implementation
-authority. A fresh independent context must review the exact committed v2
+Revision v3 resolves the supplied v2 review as one exact-byte, transaction-
+ownership, and bootstrap-order repair. It is not clear, approved, merged
+authority, or implementation authority. A fresh independent context must
+review the exact committed v3
 blob. No field in this card is designed to be rewritten after that review.
 
 ### Design-gate trigger
@@ -97,6 +101,7 @@ distribution, or compatibility claim beyond the exact accepted Deck fixture.
 | Fixture/prerequisite | Exact identity | Accepted source/evidence | Mutation permitted? |
 |---|---|---|---|
 | Selection-basis main | `b517f96bafa388107ea28c9d2e91528fd37b00d9` / tree `839cda6145f592642f06b5273855b04ffa0562ac` | technical-lead receipt plus exact local object | none; implementation begins only after future authority merge |
+| Current selection receipt | `100644` / blob `4f3131c93ef7b8178a623032146316226071a10b`; SHA-256 `6fd547646d1501831b6264ec9f0f729fa1feac7cf6f482278330a0a96644da2a`; predecessor blob `fe7b3f84...` | exact reviewed v2 tree plus original operator text | none after v3 commit |
 | Merged WR0 history | `9228217b2abf7314b9dfaecc5fc4323d5f3d7a89` / tree `8da6817eba1f259d3565e377fcb50098ab8f3cf2`; merge `8237b96...` | main Git history and PR #7 | no |
 | Final repair archive | `52be94316664f88a19df630e164105a0ca50b875` / tree `21601814bd352114fe2e55833c88a81e47e13e41` / parent `3deb414...` | technical-lead GitHub receipt plus exact local object | no; read-only source |
 | Live WR0 environment | transaction `wr0-20260901T053317Z-183afd5bbf0736e4`; identity `d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4` | archive packet and read-only Deck inspection | no |
@@ -131,7 +136,7 @@ before archive blob import.
 IMPLEMENTABLE
 ```
 
-Implementation remains forbidden until fresh independent v2 review, a
+Implementation remains forbidden until fresh independent v3 review, a
 separate exact design-approval receipt, an implementation-authority
 `CURRENT_SLICE.md`, and merge of those authority records into main.
 
@@ -160,11 +165,11 @@ during WR0A.
 
 ### Design-authority merge law
 
-1. Commit v2.
-2. A fresh reviewer records `DESIGN_CLEAR` against the exact unchanged v2 blob.
+1. Commit v3.
+2. A fresh reviewer records `DESIGN_CLEAR` against the exact unchanged v3 blob.
 3. The operator supplies the approval sentence and `DESIGN_APPROVAL.md` binds
-   the unchanged v2 identity and final clear-review-file identity.
-4. `CURRENT_SLICE.md` is updated to name the v2/review/approval identities, the
+   the unchanged v3 identity and final clear-review-file identity.
+4. `CURRENT_SLICE.md` is updated to name the v3/review/approval identities, the
    expected implementation branch, `authority_phase=implementation`, and
    `implementation_authorized=true`.
 5. The design-authority branch is merged into main.
@@ -176,6 +181,28 @@ The selection basis remains `b517f96...`; it is not the implementation basis.
 The implementation basis is the exact future `DESIGN_AUTHORITY_MERGED` commit
 and tree, which is unknown until that merge is read back.
 
+The design-authority finalization envelope is exactly these six paths:
+
+```text
+CURRENT_SLICE.md
+docs/slices/WR0A/SLICE_SELECTION.md
+docs/slices/WR0A/RECONNAISSANCE.md
+docs/slices/WR0A/IMPLEMENTATION_DESIGN.md
+docs/slices/WR0A/ADVERSARIAL_DESIGN_REVIEW.md
+docs/slices/WR0A/DESIGN_APPROVAL.md
+```
+
+The selection receipt consumed by v3 is exact mode/blob
+`100644/4f3131c93ef7b8178a623032146316226071a10b`, SHA-256
+`6fd547646d1501831b6264ec9f0f729fa1feac7cf6f482278330a0a96644da2a`.
+Its predecessor blob `fe7b3f84...` retains the original operator selection;
+the current receipt only clarifies the later merge lifecycle. After the exact
+v3 commit, final authority may append the review, create the sixth path, and
+update `CURRENT_SLICE.md`; the selection receipt, reconnaissance, and reviewed
+v3 card remain byte-identical. The six paths describe the cumulative authority
+tree relative to the selection basis, not permission to rewrite all six during
+finalization.
+
 ### Legal states
 
 | State | Authoritative facts | Physical/external reality | Entry proof | Exit operation |
@@ -184,20 +211,23 @@ and tree, which is unknown until that merge is read back.
 | `ARCHIVE_FINAL_REPAIR_IDENTIFIED` | exact archive commit/tree/parent known | no repository/live mutation | local object and technical-lead receipt | bounded archive audit |
 | `LIVE_ENVIRONMENT_MATCHES_ARCHIVE` | live identity equals archive packet | environment untouched | read-only exact comparison | path/blob delta audit |
 | `ARCHIVE_DELTA_AUDITED` | 25-path roster, 14 differences, 13 adoptable blobs fixed | design records only | `RECONNAISSANCE.md` | independent design review |
-| `DESIGN_V2_PROPOSED` | exact immutable v2 design exists | implementation remains forbidden | committed v2 path/blob/SHA | fresh independent review |
-| `DESIGN_V2_REVIEWED_CLEAR` | external review records `DESIGN_CLEAR` against unchanged v2 | source/evidence still unmodified | exact v2 and review-file identities | operator approval |
-| `DESIGN_APPROVAL_RECORDED` | operator receipt binds v2 and clear review | implementation still not begun | exact approval blob | update implementation authority |
+| `DESIGN_V3_PROPOSED` | exact immutable v3 design exists | implementation remains forbidden | committed v3 path/blob/SHA | fresh independent review |
+| `DESIGN_V3_REVIEWED_CLEAR` | external review records `DESIGN_CLEAR` against unchanged v3 | source/evidence still unmodified | exact v3 and review-file identities | operator approval |
+| `DESIGN_APPROVAL_RECORDED` | operator receipt binds v3 and clear review | implementation still not begun | exact approval blob | update implementation authority |
 | `DESIGN_AUTHORITY_MERGED` | design/review/approval/current-slice implementation authority is on main | accepted implementation basis exists | merge commit/tree readback | create implementation branch |
-| `IMPLEMENTATION_BRANCH_CREATED` | branch/worktree starts from exact design-authority merge | clean Git-only worktree | exact HEAD/tree/status | verify adoption plan |
-| `ADOPTION_PLAN_VERIFIED` | fixed 25/14/13/11/exclusion ledgers exact | no adopted source yet | production plan output | stage archive blobs |
-| `ARCHIVE_BLOBS_STAGED` | exact 13 archive modes/blobs are the only staged changes | live environment unchanged | index/worktree readback | create clean implementation commit |
-| `CLEAN_IMPLEMENTATION_COMMIT_CREATED` | 13 imports plus two WR0A tool files committed | immutable reachable clean commit | commit/tree/parent/path set | source/evidence/live verification |
-| `WR0_SOURCE_MATCHED` | clean commit reproduces ten-file digest `c654...` | no live mutation | production manifest | verify WR0A source |
-| `WR0A_IMPLEMENTATION_SOURCE_MATCHED` | two-file WR0A manifest exact | reconciler implementation frozen | production manifest | canonical evidence verification |
+| `IMPLEMENTATION_BRANCH_CREATED` | branch/worktree starts from exact design-authority merge | clean Git-only worktree | exact HEAD/tree/status | create tool commit |
+| `RECONCILIATION_TOOL_COMMIT_CREATED` | only the two WR0A tool paths are added in a clean commit | committed tool is the production owner before it acts | commit/tree/parent/two-path delta and clean status | measure source and run committed tests |
+| `WR0A_IMPLEMENTATION_SOURCE_MATCHED` | two-file WR0A manifest is measured at the tool commit | reconciler implementation frozen | production manifest plus negative tests | verify authority and hold archive provenance |
+| `ARCHIVE_PROVENANCE_HELD` | committed tool verified authority and exact local provenance ref | archive object cannot be pruned during adoption/closure | ref/object/tree/parent and authority readback | verify adoption plan |
+| `ADOPTION_PLAN_VERIFIED` | fixed 25/14/13/11/exclusion ledgers exact | no adopted WR0 source yet | committed production `plan` output | stage archive blobs |
+| `ARCHIVE_BLOBS_STAGED` | exact 13 archive modes/blobs are the only staged changes | live environment unchanged | index/worktree readback | create adoption commit |
+| `ADOPTION_COMMIT_CREATED` | exact 13 imports form a clean child of the tool commit | tool source remains unchanged and reachable | commit/tree/parent/thirteen-path delta | source/evidence/live verification |
+| `WR0_SOURCE_MATCHED` | adoption commit reproduces ten-file digest `c654...` | no live mutation | production manifest | canonical evidence verification |
 | `CANONICAL_EVIDENCE_MATCHED` | exact archive 14-file packet current/hash-valid | old packet remains in history | roster/blob/hash readback | read-only live inspection |
-| `LIVE_READBACK_MATCHED` | candidate source/evidence/live identities agree | live environment still untouched | fresh bounded inspector result | render reconciliation packet |
-| `RECONCILIATION_EVIDENCE_STAGED` | eight sanitized WR0A files staged | clean implementation commit remains parent | packet validation | evidence-only commit |
-| `FINAL_EVIDENCE_COMMIT_CREATED` | evidence-only child commit exists and all source identities reproduce | final candidate head exists | final-head audit | pre-PR audit |
+| `DIAGNOSTIC_LIVE_READBACK_MATCHED` | standalone bounded diagnostics agree | no retained evidence consumes this result | stdout-only result and exact session cleanup | render retained evidence independently |
+| `RETAINED_LIVE_READBACK_MATCHED` | renderer-owned inspection agrees inside its exact transaction | live environment untouched | transaction marker, bounded snapshot, before/after equality | render packet in same transaction |
+| `RECONCILIATION_EVIDENCE_STAGED` | eight sanitized WR0A files staged by the renderer transaction | tool and adoption commits remain reachable | packet validation and session publication receipt | evidence-only commit |
+| `FINAL_EVIDENCE_COMMIT_CREATED` | third implementation commit contains evidence only and all source identities reproduce | final candidate head exists | final-head audit | pre-PR audit |
 | `PRE_PR_AUDIT_CLEAR` | independent exact-head audit is clear | PR remains unmerged | exact audit identity | technical-lead merge |
 | `WR0A_IMPLEMENTATION_MERGED` | technical lead merged exact reviewed head | current main contains final repair | merge commit/tree readback | separate closure |
 | `STATUS_CLOSED` | no active slice; WR0A accepted fact retained | no product mutation | closure commit/tree | successor selection only |
@@ -209,18 +239,21 @@ MAIN_ACCEPTS_OLDER_WR0
   -> ARCHIVE_FINAL_REPAIR_IDENTIFIED
   -> LIVE_ENVIRONMENT_MATCHES_ARCHIVE
   -> ARCHIVE_DELTA_AUDITED
-  -> DESIGN_V2_PROPOSED
-  -> DESIGN_V2_REVIEWED_CLEAR
+  -> DESIGN_V3_PROPOSED
+  -> DESIGN_V3_REVIEWED_CLEAR
   -> DESIGN_APPROVAL_RECORDED
   -> DESIGN_AUTHORITY_MERGED
   -> IMPLEMENTATION_BRANCH_CREATED
+  -> RECONCILIATION_TOOL_COMMIT_CREATED
+  -> WR0A_IMPLEMENTATION_SOURCE_MATCHED
+  -> ARCHIVE_PROVENANCE_HELD
   -> ADOPTION_PLAN_VERIFIED
   -> ARCHIVE_BLOBS_STAGED
-  -> CLEAN_IMPLEMENTATION_COMMIT_CREATED
+  -> ADOPTION_COMMIT_CREATED
   -> WR0_SOURCE_MATCHED
-  -> WR0A_IMPLEMENTATION_SOURCE_MATCHED
   -> CANONICAL_EVIDENCE_MATCHED
-  -> LIVE_READBACK_MATCHED
+  -> DIAGNOSTIC_LIVE_READBACK_MATCHED
+  -> RETAINED_LIVE_READBACK_MATCHED
   -> RECONCILIATION_EVIDENCE_STAGED
   -> FINAL_EVIDENCE_COMMIT_CREATED
   -> PRE_PR_AUDIT_CLEAR
@@ -233,17 +266,21 @@ MAIN_ACCEPTS_OLDER_WR0
 | older-main | verify immutable archive | archive identified | commit/tree/parent exact | `WR0A_SOURCE_IDENTITY_BLOCKED` |
 | archive identified | read-only live comparison | live matches archive | exact marker/snapshot/record and sibling/process guard | `WR0A_ARCHIVE_LIVE_MISMATCH` |
 | live matched | raw path/mode/blob and semantic audit | delta audited | exact 25-path roster | `WR0A_ARCHIVE_DELTA_BLOCKED` |
-| delta audited | commit v2, fresh review, operator approval | approval recorded | exact immutable v2/review/approval identities | `RETURN_TO_DESIGN_GATE` |
+| delta audited | commit v3, fresh review, operator approval | approval recorded | exact immutable v3/review/approval identities | `RETURN_TO_DESIGN_GATE` |
 | approval recorded | merge design authority | authority merged | main merge commit/tree | `DESIGN_AUTHORITY_MERGE_BLOCKED` |
 | authority merged | create branch from exact merge | implementation branch created | HEAD/tree/clean status | `IMPLEMENTATION_BASIS_MISMATCH` |
-| implementation branch | verify fixed plan | plan verified | exact 25/14/13/11/exclusion manifests | `ADOPTION_PLAN_MISMATCH` |
+| implementation branch | add only two tool files and commit | tool commit created | exact parent/tree/two-path delta and clean status | `ADOPTION_TOOL_SOURCE_MISMATCH` |
+| tool commit | measure source and run production negative tests | WR0A source matched | exact two-file manifest and test ledger | `ADOPTION_TOOL_SOURCE_MISMATCH` |
+| WR0A source matched | committed tool verifies authority and creates/verifies exact provenance ref | archive provenance held | authority/ref/object/tree/parent exact | `ARCHIVE_PROVENANCE_BLOCKED` |
+| archive provenance held | committed tool verifies fixed plan | plan verified | exact 25/14/13/11/exclusion manifests | `ADOPTION_PLAN_MISMATCH` |
 | plan verified | import exact 13 blobs | archive blobs staged | exact index/worktree modes/blobs | `WR0A_BLOB_IMPORT_BLOCKED` |
-| blobs staged | add two tools and commit | clean implementation commit | Git commit/tree/parent/path set | `ADOPTION_TOOL_SOURCE_MISMATCH` |
-| clean commit | verify WR0 and WR0A manifests | both sources matched | digests and stable records | `WR0A_CONTRACT_SOURCE_BLOCKED` |
+| blobs staged | create archive-adoption child commit | adoption commit | Git commit/tree/parent/thirteen-path delta | `WR0A_BLOB_IMPORT_BLOCKED` |
+| adoption commit | verify WR0 and unchanged WR0A manifests | WR0 source matched | both digests and stable records | `WR0A_CONTRACT_SOURCE_BLOCKED` |
 | sources matched | verify exact canonical packet | canonical evidence matched | 14-file roster and 13 hash entries | `WR0A_EVIDENCE_ADOPTION_BLOCKED` |
-| canonical evidence matched | frozen read-only fixture check | live readback matched | exact live/archive/candidate join | `WR0A_LIVE_READBACK_BLOCKED` |
-| live matched | render/validate eight evidence files | evidence staged | hashes/schema/redaction | `WR0A_RECONCILIATION_EVIDENCE_BLOCKED` |
-| evidence staged | create evidence-only child commit | final evidence commit | final identities/path set reproduce | `FINAL_HEAD_SOURCE_MISMATCH` |
+| canonical evidence matched | diagnostic-only frozen fixture check | diagnostic live matched | stdout-only bounded result; session absent | `WR0A_LIVE_READBACK_BLOCKED` |
+| diagnostic matched | renderer opens marker-bound session and performs its own retained inspection | retained live matched | exact live/archive/candidate join in renderer transaction | `WR0A_LIVE_READBACK_BLOCKED` |
+| retained live matched | same transaction renders/validates/publishes eight evidence files | evidence staged | hashes/schema/redaction/publication/session cleanup | `WR0A_RECONCILIATION_EVIDENCE_BLOCKED` |
+| evidence staged | create evidence-only third commit | final evidence commit | final identities/path set reproduce | `FINAL_HEAD_SOURCE_MISMATCH` |
 | final commit | independent audit | audit clear | exact-head audit | `PRE_PR_AUDIT_REPAIR_REQUIRED` |
 | audit clear | technical-lead merge | implementation merged | merge readback | `WR0A_IMPLEMENTATION_MERGE_BLOCKED` |
 | implementation merged | separate two-path closure | closed | no-active card and append-only decision | `WR0A_STATUS_CLOSURE_BLOCKED` |
@@ -251,6 +288,7 @@ MAIN_ACCEPTS_OLDER_WR0
 ### Forbidden transitions
 
 - Any implementation state before `DESIGN_AUTHORITY_MERGED`.
+- Running any reconciliation mode from untracked or uncommitted tool source.
 - Any state directly to implementation acceptance without exact audit and merge.
 - Importing archive `CURRENT_SLICE.md` in any state.
 - Recreating “equivalent” source rather than importing exact archive blobs.
@@ -263,62 +301,81 @@ MAIN_ACCEPTS_OLDER_WR0
 
 ### Restart/retry reconciliation
 
-Before a candidate commit, restore only tool-owned Git changes after exact
-physical index/worktree inspection and restart from the merged design-authority
-basis; never touch the live environment. The clean implementation commit is a
-reachable parent of the evidence-only commit and is the source-identity restart
-point. At final head, reproduce every manifest rather than relying on an
-in-memory phase. After push, branch/PR readback owns the final head. After
-merge, main owns acceptance and only a separate closure may change status.
-Unknown worktree/index/cache paths fail closed and are not deleted or
-overwritten.
+Before the tool commit, no reconciliation mode may run. After that commit, a
+marker-bound adoption transaction records the exact tool commit, worktree,
+original clean index, thirteen old entries, expected archive entries, nonce,
+and phase. On interruption, recovery reads the marker plus physical
+worktree/index state; it restores only entries whose states are exact old or
+expected archive identities. Unknown content is preserved and blocks cleanup.
+The tool commit and adoption commit remain reachable parents of the evidence-
+only commit and are the source/adoption restart points. At final head, every
+manifest is reproduced rather than inferred from an in-memory phase. After
+push, branch/PR readback owns the final head. After merge, main owns acceptance
+and only a separate closure may change status. Unknown worktree/index/cache
+paths fail closed and are never deleted or overwritten.
 
 ## 7. Fallible-operation and mutation ledger
 
 | # | Mode/owner | Preconditions | Fallible mutation or observation | Exact readback/recovery | Next state or blocker |
 |---:|---|---|---|---|---|
-| 1 | independent reviewer | committed immutable v2 | append v2 review only | exact v2/review blobs | reviewed clear or return to gate |
-| 2 | approval recorder | exact clear review | create approval receipt | binds unchanged v2 and review | approval recorded |
+| 1 | independent reviewer | committed immutable v3 | append v3 review only | exact v3/review blobs | reviewed clear or return to gate |
+| 2 | approval recorder | exact clear review | create approval receipt | binds unchanged v3 and review | approval recorded |
 | 3 | authority recorder | exact approval | update only current-slice authority | exact implementation fields/path diff | merge candidate |
 | 4 | technical lead | exact authority PR | merge design authority | main merge commit/tree | merged or `DESIGN_AUTHORITY_MERGE_BLOCKED` |
 | 5 | Git setup | exact merged authority | create implementation branch/worktree | exact HEAD/tree/clean status | implementation branch created |
-| 6 | `verify-authority` | clean branch | read source/design/DG0 objects | no mutation; bounded JSON | verified or basis/source blocker |
-| 7 | `plan` | verified authority | derive fixed adoption plan | no mutation; exact manifest | verified or `ADOPTION_PLAN_MISMATCH` |
-| 8 | `stage-adoption` preflight | exact plan | inspect destination/index | no mutation on mismatch | stage permitted or refuse |
-| 9 | `stage-adoption` writes | exact destinations | write thirteen archive blobs | exact thirteen-path Git-local rollback only | candidate files written |
-| 10 | `stage-adoption` index | exact files/modes | stage thirteen literal paths | index mode/blob/roster readback | archive blobs staged |
-| 11 | `verify-candidate` | staged exact set | verify imports/preservation/exclusion | no mutation | candidate verified |
-| 12 | implementation owner | exact candidate plus two tools | create clean implementation commit | commit/tree/parent and 15-path delta | clean commit created |
-| 13 | source verifier | clean commit | build WR0 import manifest | byte/digest readback | import identity matched |
-| 14 | source verifier | clean commit | build WR0 contract manifest | exact `c654...` | WR0 source matched |
-| 15 | source verifier | clean commit | build two-file WR0A manifest | schema/digest readback | WR0A source matched |
-| 16 | packet verifier | clean commit | verify canonical archive packet | roster/hash/blob equality | canonical evidence matched |
-| 17 | `inspect-live` | guards clear | create transient WR0A cache | exact marker/containment | inspection active |
-| 18 | `inspect-live` | fixed call graph | bounded live reads only | before/after equality | live matched or blocker |
-| 19 | `inspect-live` | result bounded | remove exact transient cache | exact cache absence | clear or cache blocker |
-| 20 | `negative-tests` | canonical test root | create synthetic Git/live fixtures | exact test-root/worktree cleanup | ledger passed |
-| 21 | `render-evidence` | all proofs passed | create eight evidence files | schemas/hashes/redaction | evidence staged |
-| 22 | implementation owner | evidence-only stage | create evidence-only child commit | clean commit remains parent; 23 paths cumulative | final evidence commit |
-| 23 | final verifier | final head | reproduce all five identities | no mutation | final matched or `FINAL_HEAD_SOURCE_MISMATCH` |
-| 24 | publisher | exact final head | push branch/open ordinary non-draft PR | remote head/base/state readback | audit pending |
-| 25 | independent auditor | exact PR head | read-only pre-PR audit | exact-head verdict | clear or `PRE_PR_AUDIT_REPAIR_REQUIRED` |
-| 26 | technical lead | exact clear head | merge implementation | merge commit/tree readback | implementation merged |
-| 27 | closure owner | merged result | two-path status closure | no-active card + append-only decision | status closed |
+| 6 | implementation owner | clean branch | create exactly two WR0A tool paths | no mode/path extras | tool files ready |
+| 7 | implementation owner | only two tool paths changed | create tool-only commit | exact parent/tree/two-path delta; clean status | tool commit created |
+| 8 | source verifier | clean tool commit | build two-file WR0A manifest | schema/digest readback | WR0A source matched |
+| 9 | committed `negative-tests` | clean tool commit | create synthetic Git/session fixtures | production helper coverage; exact cleanup | bootstrap ledger passed |
+| 10 | committed `verify-authority` | exact tool commit | read source/design/DG0/archive objects | no mutation; bounded JSON | verified or basis/source blocker |
+| 11 | committed provenance helper | verified exact archive object | compare-and-set exact local provenance ref | ref/object/tree/parent readback; refuse wrong existing ref | provenance held through closure |
+| 12 | committed `plan` | verified authority and provenance | derive fixed adoption plan | no mutation; exact manifest | verified or `ADOPTION_PLAN_MISMATCH` |
+| 13 | `stage-adoption` transaction | exact plan/clean index | create unique marker-bound adoption session | file and parent fsync; exact readback | staging transaction active |
+| 14 | `stage-adoption` preflight | owned session | inspect all destinations/index/modes | no source mutation on mismatch | writes permitted or refuse |
+| 15 | production blob writer | exact old entries | write each of thirteen archive blobs | per-path old/archive physical classification | all bytes written or exact recovery |
+| 16 | production mode setter | exact written blobs | apply each exact archive mode | per-path mode/blob readback | all modes exact or recovery |
+| 17 | production index updater | exact worktree set | update thirteen literal index entries | per-entry mode/blob readback | index updated or recovery |
+| 18 | production final-stage verifier | expected worktree/index | read complete index/worktree/roster | exact staged set | archive blobs staged or recovery |
+| 19 | production adoption recovery | any pre-commit staging failure/restart | restore exact thirteen old entries and original clean index | unknown objects preserved; session cleanup only after proof | pristine tool commit or recovery blocker |
+| 20 | implementation owner | exact staged set | create thirteen-path adoption commit | exact parent/tree/delta and clean status | adoption commit created |
+| 21 | `verify-candidate`/source verifier | clean adoption commit | verify import/WR0/WR0A/design/DG0 identities | all manifests exact | sources matched |
+| 22 | packet verifier | clean adoption commit | verify canonical archive packet | roster/hash/blob equality | canonical evidence matched |
+| 23 | `inspect-live` session owner | guards clear | create unique diagnostic session | marker/nonce/containment/fsync/readback | diagnostic session active |
+| 24 | `inspect-live` dispatcher | fixed call graph | bounded live reads; stdout diagnostics only | before/after equality; no retained handoff | diagnostic matched or blocker |
+| 25 | `inspect-live` session owner | diagnostic complete/failure | remove exact diagnostic leaf only | root/leaf/source-tree absence checks | clear or cleanup blocker |
+| 26 | `render-evidence` session owner | candidate/guards exact | create unique retained-evidence session | marker/nonce/phase fsync/readback | render transaction active |
+| 27 | renderer-owned dispatcher | exact render session | perform sole retained live inspection | before/after equality stored only in owned session | retained readback matched |
+| 28 | renderer | retained snapshot exact | render and validate eight-file packet in session | exact roster/hashes/schema/redaction | packet ready or rollback |
+| 29 | publisher helper | validated session packet; destination absent | publish exact eight-file directory and stage literals | partial-set physical reconciliation; unknown preserved | evidence staged or publication blocker |
+| 30 | render session owner | publish success/failure reconciled | remove exact marker-bound session leaf | leaf absent; fixed cache root not broadly deleted | clear or cache blocker |
+| 31 | committed `negative-tests` | adoption commit | rerun applicable production tests | adoption/recovery/import/call-graph cases exact | ledger passed |
+| 32 | implementation owner | exact eight-file stage | create evidence-only third commit | tool/adoption commits remain parents; 23 paths cumulative | final evidence commit |
+| 33 | final verifier/`negative-tests` | final head | reproduce identities and rerun applicable safe tests | no source mutation; sessions cleaned | final matched or `FINAL_HEAD_SOURCE_MISMATCH` |
+| 34 | publisher | exact final head | push branch/open ordinary non-draft PR | remote head/base/state readback | audit pending |
+| 35 | independent auditor | exact PR head | read-only pre-PR audit | exact-head verdict | clear or `PRE_PR_AUDIT_REPAIR_REQUIRED` |
+| 36 | technical lead | exact clear head | merge implementation | merge commit/tree readback | implementation merged |
+| 37 | closure owner | merged result | two-path status closure and provenance readback | no-active card + append-only decision; exact ref/object through closure | status closed |
 
 ### Commit points
 
 ```text
-before clean candidate commit:
-    only the implementation worktree/index changed; restoration is Git-local;
-    live state is never a rollback target.
+after tool-only commit:
+    the committed reconciler, not untracked session code, is the production
+    owner; its two-file source manifest is measured before any archive import.
 
-after clean candidate commit but before evidence:
-    the reachable clean commit is immutable source provenance and owns the
-    measured WR0A implementation-source identity.
+after staged-adoption start but before adoption commit:
+    only the thirteen fixed worktree/index entries and the exact marker-bound
+    session may differ; recovery is Git-local and the live environment is never
+    a rollback target.
 
-after evidence-only child commit but before merge:
-    source manifests must reproduce; the final PR head is external Git/PR
-    readback and is not self-recorded inside its evidence.
+after adoption commit but before evidence:
+    the reachable tool commit owns reconciler source provenance and its clean
+    thirteen-path child owns exact archive adoption provenance.
+
+after evidence-only third commit but before merge:
+    tool, import, contract, authority, and governance manifests must reproduce;
+    the final PR head is external Git/PR readback and is not self-recorded
+    inside its evidence.
 
 after technical-lead merge:
     main contains the adopted final repair; rollback requires a separately
@@ -342,11 +399,13 @@ No WR0A commit point transfers or destroys live environment authority.
 ```text
 operator-approved repository agent
   -> exact Git worktree at merged design-authority basis
-      -> read-only Git object/blob verification
-      -> exact allow-listed index/worktree import
-      -> clean Git commit
-      -> bounded read-only environment inspector
-      -> sanitized reconciliation evidence
+      -> exact two-file reconciler commit and source measurement
+      -> committed read-only Git object/blob verification
+      -> marker-bound exact allow-listed index/worktree import
+      -> exact thirteen-path adoption commit
+      -> diagnostic-only bounded read-only environment inspector
+      -> renderer-owned retained inspection and sanitized evidence transaction
+      -> evidence-only third commit
       -> remote branch and PR
 ```
 
@@ -362,7 +421,7 @@ performed. If a forbidden workload appears, inspection stops.
 | select implementation basis | exact future design-authority merge commit/tree + technical-lead merge readback | immediately before branch creation | selection basis, unmerged design head, stale ref, different tree, dirty worktree |
 | read archive | commit + tree + parent | before every import/verification phase | missing object, wrong parent/tree, branch name alone |
 | import a path | repository-relative path + exact old mode/blob + exact archive mode/blob + allowlist membership | index/worktree readback immediately after import | unexpected path, mode, blob, symlink, conflict, unmerged entry |
-| accept contract source | schema + sorted ten path/mode/blob entries + digest | clean candidate commit and final head | commit SHA alone, dirty/staged governed path, new roster |
+| accept contract source | schema + sorted ten path/mode/blob entries + digest | clean adoption commit and final head | commit SHA alone, dirty/staged governed path, new roster |
 | accept workload | exact archive/current blob plus SHA-256 | candidate tree | basename/path alone |
 | replace canonical evidence | exact 14-file roster + archive blobs + hash manifest | candidate tree and final head | regenerated bytes, missing/extra file, invalid hash |
 | accept live environment | schema/status + transaction + environment digest + runner/source/workload + prefix identity + bounded roster/registries + receipts + retired record | fresh read-only inspection | path existence alone, classification-only difference, sibling/process contamination |
@@ -379,17 +438,22 @@ No friendly name, branch name alone, path suffix, timestamp, in-memory flag, or
 |---|---|---|---|---|---|---|
 | Main/merged history | Git | repository object database/GitHub | no | immutable commits | Git history | never rewritten |
 | Archive final source | immutable archive commit | Git object database/GitHub archive branch | no | immutable commit/tree | multiple exact object copies | exact blob import only |
+| Archive provenance ref | WR0A implementation/closure | exact local `refs/wr0a/provenance/archive-final-repair-52be943` | no | compare-and-set ref through closure | refuse wrong existing ref; never move it | post-closure material verification uses retained ledgers |
 | Live WR0 environment | archive transaction | `<HOME>/.local/share/linux-vst-bridge/environments/wr0-proton11` | yes | existing marker/receipts/registry/prefix | no WR0A mutation | none |
 | Canonical final WR0 evidence | archive packet | `evidence/wr0-proton-bootstrap/` | sanitized | Git blobs + hash manifest | old packet in history | exact superseding blob set |
 | Reconciliation evidence | WR0A | `evidence/wr0a-final-repair-reconciliation/` | sanitized | Git commit + hash manifest | Git history | schema v1; no raw live state |
 | DG0 governance | design-authority basis | repository docs/prompts/templates | no | Git blobs | Git history | byte-identical through implementation; separate post-merge closure owns status/decision |
 | Candidate worktree/index | implementation agent | isolated Git worktree | no | transient until commit | restore exact candidate changes | no adoption from unknown state |
+| Adoption/evidence sessions | committed reconciler | unique marker-bound leaves under fixed WR0A cache root | sanitized | marker/file/parent fsync plus physical phase readback | exact owned rollback/restart; unknown preserved | absent after completed mode |
 
-Atomicity is Git-object based: exact blobs are staged, committed, and read back
-as a tree before publication. The archive commit is the durable source record;
-the final candidate commit is the adoption record. No environment migration or
-predecessor retirement occurs. A retry rederives state from Git trees and the
-live marker rather than cached booleans. Unknown objects or dirty paths are
+Atomicity is Git-object and marker based: the tool-only commit establishes the
+owner; exact archive blobs are staged under an owned transaction, committed,
+and read back in an adoption tree; the evidence packet is rendered and
+published under a separate owned transaction and committed as the third step.
+The archive commit and exact provenance ref are source records through closure.
+No environment migration or predecessor retirement occurs. A retry rederives
+state from Git trees, exact session markers, worktree/index state, and the live
+marker rather than cached booleans. Unknown objects or dirty paths are
 preserved and refused.
 
 ## 11. Security, privacy, licensing, and proprietary material
@@ -470,6 +534,24 @@ path/mode/blob sets; and exact live identities. Normal mode accepts no arbitrary
 commit, ref, path, blob, environment, evidence destination, or call target.
 Test mode is confined beneath one canonical no-symlink user-cache test root.
 
+### Committed-tool bootstrap law
+
+The two tool paths are the entire first implementation change. They are
+committed in `RECONCILIATION_TOOL_COMMIT_CREATED` before any tool mode runs.
+That commit must have the exact future design-authority merge as parent, an
+exact two-path delta, and a clean worktree/index. The committed
+`reconcile.py`, addressed from that commit's worktree, then measures
+`linux-vst-bridge-wr0a-implementation-source/v1` and runs its production
+negative tests. Only after those proofs pass may the same committed tool run
+`verify-authority`, `plan`, or `stage-adoption`.
+
+The archive adoption is a second commit whose parent is the exact tool commit
+and whose delta is exactly the thirteen import paths. Reconciliation evidence
+is a third commit whose parent is the exact adoption commit and whose delta is
+exactly the eight WR0A evidence paths. The reconciler source manifest must be
+identical at all three commits. No untracked copy, stdin script, generated
+module, or implementation-session equivalent may perform production adoption.
+
 The exact archive evidence manifest hardcoded by normal mode is:
 
 ```text
@@ -498,27 +580,58 @@ constants; a reference to that table is not runtime authority.
 
 `stage-adoption`:
 
-1. requires the exact design-authority implementation basis;
-2. requires a clean canonical worktree and stage-zero index;
-3. verifies every current-main old mode/blob;
-4. verifies every archive mode/blob;
-5. verifies the complete thirteen-path import allowlist;
-6. verifies the complete eleven-path already-identical set;
-7. verifies the exact excluded archive `CURRENT_SLICE.md` mode/blob;
-8. reads each archive blob by exact object identity;
-9. writes only the thirteen exact destination files;
-10. preserves exact executable modes;
-11. stages only those literal thirteen paths using explicit `--` separators;
-12. recomputes every staged Git blob;
-13. requires exact staged/archive mode/blob equality;
-14. requires no additional staged, modified, or untracked path; and
-15. refuses unknown destination state rather than overwriting it.
+1. executes only from the exact clean tool commit whose parent is the accepted
+   design-authority implementation basis;
+2. verifies the measured two-file WR0A implementation-source identity;
+3. requires a clean canonical worktree and stage-zero index;
+4. creates and fsyncs a unique marker-bound adoption session containing the
+   exact tool commit, nonce, canonical worktree identity, original clean index
+   tree, thirteen old entries, thirteen expected entries, and current phase;
+5. verifies every current-main old mode/blob;
+6. verifies every archive mode/blob;
+7. verifies the complete thirteen-path import allowlist;
+8. verifies the complete eleven-path already-identical set;
+9. verifies the exact excluded archive `CURRENT_SLICE.md` mode/blob;
+10. reads each archive blob by exact object identity;
+11. writes only the thirteen exact destination files through one production
+    helper with a per-path old/archive physical-state readback;
+12. applies and verifies each exact mode through the production mode helper;
+13. stages only those literal thirteen paths using explicit `--` separators
+    through the production index helper;
+14. recomputes every staged Git blob and mode;
+15. requires exact staged/archive equality and no additional staged,
+    modified, or untracked path;
+16. records `archive_blobs_staged` in the fsynced session and returns a bounded
+    receipt; and
+17. refuses unknown destination, index, marker, or cache state rather than
+    overwriting it.
 
 Broad archive checkout, cherry-pick, directory replacement, archived
 `CURRENT_SLICE.md`, hand-edited equivalent source, reset, and clean are
 forbidden. A partial failure changes only the implementation worktree/index.
-Recovery restores only exact tool-owned Git changes after proving no unknown
-path exists; the live environment is never a rollback target.
+Recovery is owned by the same production helpers, not a parallel test state
+machine. It classifies every governed worktree file and index entry as exact
+old, exact archive, absent, or unknown. Only old/archive states are eligible
+for recovery. It atomically writes all thirteen exact old blobs, restores all
+old modes, restores the thirteen exact original index entries, and proves the
+entire worktree/index equals the clean tool commit. Unknown objects are left
+untouched and produce `WR0A_BLOB_IMPORT_RECOVERY_BLOCKED`; the live environment
+is never a rollback target.
+
+The adoption session remains through the external exact thirteen-path commit.
+`verify-candidate` accepts either (a) a staged transaction at the tool commit or
+(b) the exact clean child adoption commit named by the session. In case (b) it
+verifies parent/tree/delta/manifests, marks `adoption_committed`, then removes
+only the exact session leaf. A restart uses the same marker and physical state;
+it never treats a familiar cache path or an in-memory flag as ownership.
+
+Test-only failure injection is available only beneath the canonical WR0A test
+root and only through fixed enumerated seam names. Production-helper tests
+inject after each Nth blob write, each Nth mode update, each Nth index update,
+and the final index readback. Every injected case must restore all thirteen old
+blobs/modes and the original clean index, preserve unrelated unknown paths,
+remove no unknown object, and leave no partial import. Ordinary modes expose no
+arbitrary callback, seam, path, commit, or failure selector.
 
 ### WR0A implementation-source identity
 
@@ -534,9 +647,15 @@ Five identities stay distinct: (1) the 13-import/11-identical/excluded-card
 WR0 archive-import manifest; (2) the existing WR0 contract source
 `c6543004...`; (3) the new two-file WR0A implementation source; (4) the exact
 merged design authority; and (5) exact DG0 governance. Measure WR0A source at a
-clean intermediate implementation commit. The final evidence-only child commit
-must reproduce all five. A changed WR0A tool invalidates its manifest; adding
-only reconciliation evidence preserves it.
+clean tool-only implementation commit before any archive mode acts. Its
+thirteen-path adoption child and eight-path evidence-only grandchild must
+reproduce the identical two-file representation and digest. The adoption
+commit adds the WR0 import/contract identities; the final commit adds only the
+reconciliation packet. A changed WR0A tool invalidates its manifest at either
+later commit, while exact archive adoption and evidence-only additions preserve
+it. Production negative tests run at the tool commit, again after adoption for
+import/session boundaries, and at final head for all safe source-stability and
+packet checks.
 
 ### DG0 protected basis roster
 
@@ -555,15 +674,18 @@ only reconciliation evidence preserves it.
 | `docs/templates/SLICE_SELECTION_RECEIPT.md` | `100644` / `e10b4abf338e3d929752e4f7f2bc693b89e0fec8` |
 
 The implementation prompt supplied after the authority merge adds exact merged
-selection/recon/v2/review/approval/current-slice mode/blob identities. It does
+selection/recon/v3/review/approval/current-slice mode/blob identities. It does
 not alter the DG0 roster.
 
 ### Frozen read-only live-inspection call graph
 
 `inspect-live` first verifies candidate
 `tools/wr0-proton-bootstrap/launch.py` is exactly
-`100755/215718bb641765da9163779c0e2145bd02d3198a`, then imports only that local
-file through a fixed `importlib.util` loader. Its allowlist is:
+`100755/215718bb641765da9163779c0e2145bd02d3198a`. Before any module loader is
+constructed, the dispatcher sets `sys.dont_write_bytecode = True`; it also
+requires the process-level no-bytecode posture, uses fixed non-`__main__`
+module name `_wr0a_readonly_wr0_launch_215718bb`, and imports only that exact
+local file through a fixed `importlib.util` loader. Its allowlist is:
 
 ```text
 process_guard()
@@ -589,12 +711,133 @@ receipts, selected registries, bounded roster, retired record, siblings, and
 process guards. Access time is non-authoritative where reads may update it. Any
 content/declared-metadata change blocks.
 
-The sole permitted transient root is
-`<HOME>/.cache/linux-vst-bridge/wr0a/`. It is canonical, symlink-free,
-transaction-owned, byte/count/time-bounded, contains sanitized transient JSON
-only, and is absent after success or failure. No live-environment path is
-writable. An instrumented production-dispatch test rejects any call outside the
-allowlist before invocation.
+The dispatcher snapshots the candidate source tree and Git status before the
+load and after module removal from `sys.modules`. It requires no
+`__pycache__`, `.pyc`, or other new/changed source-tree object and no index or
+worktree change. A production dispatcher test loads the exact fixture through
+the real loader, proves the fixed module name and no-bytecode posture, and
+rejects a loader/call target that could write bytecode or invoke a non-
+allowlisted function before invocation.
+
+### Diagnostic versus retained live readback
+
+`inspect-live` is diagnostic only. It creates one owned session, invokes the
+frozen dispatcher, emits bounded sanitized JSON to stdout, and removes that
+session. It never writes repository evidence and its output is never an input
+to `render-evidence`.
+
+`render-evidence` performs the sole retained live inspection itself. In one
+transaction it opens a new session, runs the same dispatcher, keeps the
+sanitized snapshot only within that session, renders and validates all eight
+WR0A evidence files from that exact snapshot plus Git facts, publishes those
+files, stages only their literal paths, and removes the session. It neither
+consumes diagnostic stdout nor silently calls the standalone mode.
+
+### Marker-bound session and publication law
+
+The permitted transient root is
+`<HOME>/.cache/linux-vst-bridge/wr0a/`. The root is canonical, user-owned,
+symlink-free, mode-bounded, and never recursively deleted merely because its
+fixed path is familiar. Each operation exclusively creates one leaf named
+`session-<32-lowercase-hex-nonce>` with mode `0700`. Its atomically written,
+file-fsynced, parent-fsynced marker uses schema
+`linux-vst-bridge-wr0a-session/v1` and binds:
+
+```text
+nonce
+mode: inspect-live | render-evidence | stage-adoption
+implementation_basis_commit/tree
+tool_commit/tree/source_digest
+adoption_commit/tree when available
+canonical worktree identity
+fixed target path or null
+created_at
+phase
+```
+
+No private path is retained in Git. The live path is fixed in source and is
+never recorded raw in the packet. The session has explicit count, byte, and
+deadline caps. Exact session physical states are:
+
+```text
+SESSION_ABSENT
+SESSION_MARKER_COMMITTED
+LIVE_READBACK_COMPLETE
+PACKET_RENDERED_AND_VALIDATED
+PUBLICATION_IN_PROGRESS
+PACKET_PUBLISHED_AND_STAGED
+SESSION_CLEANED
+```
+
+For `render-evidence`, the final evidence directory must be absent and the
+eight paths absent from the index before publication; the marker binds that
+original clean index state. Publication writes only the eight fixed files.
+Before each write, the marker records `PUBLICATION_IN_PROGRESS`; after each
+write and literal index update, the file's exact expected hash/mode/index entry
+is read back. A failure or restart may remove a partial directory and unstage
+those paths only when every present worktree/index entry is a fixed roster
+member with the exact transaction-rendered bytes and the marker binds the same
+tool, adoption, nonce, target, and phase. It then proves prior worktree and
+index absence. An unknown
+entry, wrong byte, wrong mode, missing/forged marker, symlink, alternate target,
+or multiple session leaf is preserved and refused. Once all eight files and
+their staged index entries verify, the marker records
+`PACKET_PUBLISHED_AND_STAGED`; cleanup removes only the exact leaf after marker
+and payload classification, then proves leaf absence. The fixed root remains.
+
+On restart, the tool enumerates the root with a fixed count cap. Zero leaves is
+clean. One exact owned leaf is reconciled from marker and physical state:
+diagnostic sessions are discarded only after their bounded contents verify;
+render sessions before complete publication roll back exact partial output;
+an exact fully published packet is revalidated and retained. Unknown or
+multiple leaves produce `TRANSIENT_CACHE_CLEANUP_BLOCKED` without deletion.
+Failure before publication returns
+`WR0A_RECONCILIATION_EVIDENCE_BLOCKED` after exact rollback. Cleanup failure
+after exact publication preserves the staged packet but blocks completion as
+`TRANSIENT_CACHE_CLEANUP_BLOCKED`. No live-environment path is writable in any
+session state.
+
+### Archive-object lifecycle and provenance
+
+The archive object is an implementation-time source prerequisite, not a
+permanent runtime dependency. After the tool commit and source measurement,
+the committed authority/provenance helper creates this exact repository-local
+provenance ref only if it is absent:
+
+```text
+refs/wr0a/provenance/archive-final-repair-52be943
+  -> 52be94316664f88a19df630e164105a0ca50b875
+```
+
+Creation uses compare-and-set semantics. An existing ref at any other object is
+preserved and refused. The object, tree, and parent are reverified immediately;
+the ref is never moved or pushed by WR0A and must remain exact through
+`STATUS_CLOSED`. The technical-lead-controlled GitHub branch
+`archive/wr0-final-repair-52be943` remains the external provenance record
+through closure. Neither ref substitutes for commit/tree/parent verification.
+
+Mode lifecycle is exact:
+
+- pre-adoption `verify-authority`, `plan`, and `stage-adoption` are one-shot
+  modes and require the exact archive object plus provenance ref;
+- `verify-candidate` at the adoption commit and the pre-PR final verifier still
+  require that object through implementation acceptance and status closure;
+- `inspect-live` and `render-evidence` read the adopted current blobs, fixed
+  retained ledgers, and live fixture; they never fetch or mutate the archive;
+- post-closure source/packet verification operates from current main's exact
+  adopted blobs and the retained 25/13/11/exclusion/evidence manifests, while
+  archive-object availability is reported separately as provenance
+  availability rather than treated as product correctness.
+
+After adoption, all required source and evidence bytes are present on main and
+the reconciliation packet retains commit/tree/parent and complete mode/blob
+ledgers. The archive branch is therefore not a build, runtime, or future
+verification dependency. A clean main-only clone can verify adopted material
+and retained ledgers, but it cannot truthfully re-read or prove reachability of
+commit `52be943...` if neither archive ref nor object was fetched. V3 makes no
+such claim. Removal of the local provenance ref after closure is outside WR0A
+and requires separate authority; leaving it present is harmless provenance,
+not a source dependency.
 
 ## 13. Changed-path and external-mutation envelope
 
@@ -654,7 +897,8 @@ evidence/wr0-proton-bootstrap/hashes.sha256
 
 ```text
 Git worktree/index/commit objects for the exact implementation branch
-<HOME>/.cache/linux-vst-bridge/wr0a/ (exact bounded transient root only)
+exact local ref refs/wr0a/provenance/archive-final-repair-52be943
+<HOME>/.cache/linux-vst-bridge/wr0a/session-<32-hex> (exact marker-bound leaves only)
 configured repository branch push
 ordinary non-draft implementation pull request metadata
 ```
@@ -726,14 +970,14 @@ itself accepted.
 | 25 | ten final-repair helper tests | archive test auditor | archived tests | production helpers/seams called | name-only parallel model refused | `ARCHIVE_AUDIT.md` | retained test design |
 | 26 | retained archive ledger 80/80 | packet verifier | archived fixture | exact counts/classes | wrong count/class refused | `ARCHIVE_AUDIT.md` | historical run |
 | 27 | exact DG0 governance protection | authority manifest verifier | real candidate/final | modes/blobs exact | any changed protected path refused | `GOVERNANCE.md` | governance only |
-| 28 | exact immutable design authority | authority manifest verifier | real candidate/final | merged authority exact | design/review/approval/current-slice edit refused | `GOVERNANCE.md` | authority basis |
+| 28 | exact immutable design authority | authority manifest verifier | real candidate/final | six-path merged authority exact | selection/design/review/approval/current-slice mutation refused | `GOVERNANCE.md` | authority basis |
 | 29 | exact read-only live call graph | dispatcher | instrumented synthetic + real | only seven fixed calls | any forbidden call fails before invoke | tests, `LIVE_READBACK.md` | read-only interface |
 | 30 | no live environment content mutation | before/after helper | real read-only fixture | hashes/declared metadata exact | injected mutation detected | `LIVE_READBACK.md`, JSON | bounded selected identity |
 | 31 | no forbidden workload | accepted `process_guard` | real Deck + synthetic | all forbidden counts zero | contaminant refused | `LIVE_READBACK.md` | observation window |
 | 32 | no transaction sibling | WR0A sibling guard | real Deck + synthetic | roster empty | stage/previous/retiring/journal refused | `LIVE_READBACK.md` | immediate siblings |
-| 33 | WR0A source at clean commit | implementation-source manifest | real clean commit | two-file digest recorded | missing/extra/dirty tool refused | `SOURCE_DELTA.md`, JSON | reconciler source |
+| 33 | WR0A source at tool commit | implementation-source manifest | real tool-only commit | two-file digest recorded before any mode acts | missing/extra/dirty/uncommitted tool refused | `SOURCE_DELTA.md`, JSON | reconciler source |
 | 34 | WR0A source at final head | final verifier | real final commit | same manifest | changed tool blocks | `FINDINGS.md`, JSON | source stability |
-| 35 | evidence-only addition stability | final verifier | synthetic Git + real commits | all five identities stable | governed edit refused | test ledger | evidence transition |
+| 35 | adoption/evidence addition stability | final verifier | synthetic Git + real three-commit chain | all five identities stable at applicable states | governed edit refused | test ledger | source transitions |
 | 36 | changed reconciliation source invalidates | implementation-source manifest | synthetic Git | unchanged verifies | README/Python change changes/refuses digest | test ledger | identity sensitivity |
 | 37 | reconciliation evidence JSON/hash/roster | evidence verifier | real final candidate | eight files, JSON, seven payload hashes | bad/missing/extra refused | packet + hashes | sanitized evidence |
 | 38 | no private/proprietary content | sanitizer | real + synthetic | UTF-8/NUL/size/redaction/binary scans pass | forbidden fixture refused | `FINDINGS.md` | allow-listed metadata |
@@ -742,6 +986,25 @@ itself accepted.
 | 41 | implementation agent does not merge | publisher policy | GitHub | PR remains open/unmerged | merge action forbidden | external PR readback | no acceptance claim |
 | 42 | Decision Register unchanged before acceptance | governance verifier | real candidate/final | exact basis blob | any implementation edit refused | `GOVERNANCE.md` | pre-acceptance only |
 | 43 | separate post-merge status closure | closure verifier | post-merge Git | two-path closure after merge | pre-merge/candidate closure refused | later closure record | acceptance after merge |
+| 44 | current selection-receipt identity and lineage | authority manifest verifier | real design authority | current `100644/4f3131...` and SHA exact; original operator blob named | stale `fe7b3...` as current authority refused | `BASIS.md`, `GOVERNANCE.md` | selection authority only |
+| 45 | exact six-path authority-finalization envelope | authority manifest verifier | real design merge | only six fixed paths present/changed as authorized | seventh path or missing approval/review path refused | `GOVERNANCE.md`, JSON | design authority only |
+| 46 | committed reconciler before action | Git/tool bootstrap verifier | real tool commit | exact two-path commit precedes every mode receipt | untracked/uncommitted invocation refused | `BASIS.md`, `SOURCE_DELTA.md` | production owner |
+| 47 | tool-commit topology | Git topology verifier | real three-commit implementation chain | authority merge -> two-tool commit -> thirteen-import commit -> eight-evidence commit | combined/reordered/extra commit delta refused | `BASIS.md`, JSON | provenance topology |
+| 48 | WR0A source at adoption commit | implementation-source manifest | real adoption child | exact tool-commit manifest reproduced | changed tool in adoption commit refused | `SOURCE_DELTA.md`, tests | source stability |
+| 49 | production tests at lifecycle commits | committed `negative-tests` | real tool/adoption/final commits | applicable fixed ledger passes at each state | running uncommitted or wrong-tree tests refused | `ARCHIVE_AUDIT.md`, `FINDINGS.md` | tested source identity |
+| 50 | diagnostic readback has no evidence handoff | `inspect-live` dispatcher | synthetic + real read-only fixture | stdout-only result and exact session cleanup | renderer input from diagnostic output refused | tests, bounded diagnostic receipt | diagnostic only |
+| 51 | renderer owns sole retained live readback | `render-evidence` transaction | synthetic + real read-only fixture | live snapshot, packet, and publication share one nonce/marker | missing/reused/foreign snapshot refused | `LIVE_READBACK.md`, JSON | retained observation only |
+| 52 | unique marker-bound session ownership | session helper | synthetic cache | exclusive leaf/marker/fsync/readback exact | forged, missing, duplicate, symlinked, or wrong-phase session preserved/refused | test ledger | transient ownership |
+| 53 | partial evidence publication rollback | publication helper | synthetic worktree/cache | exact partial fixed-roster bytes restore prior absence | unknown/wrong entry preserved and blocks | test ledger | Git-local rollback |
+| 54 | session restart and cleanup | session reconciler | synthetic interrupted phases | exact owned diagnostic/render/adoption states reconcile and leaf disappears | multiple/unknown leaf produces cleanup blocker | test ledger | transient cleanup |
+| 55 | no bytecode/source-tree side effect | production module loader | synthetic + exact archive `launch.py` | fixed non-main load with no `__pycache__`/`.pyc`/Git change | cache-writing or alternate loader posture refused | tests, `LIVE_READBACK.md` | loader non-mutation |
+| 56 | failure after Nth archive-blob write | production adoption helper | synthetic Git for N=1..13 | all old blobs/modes and clean index restored | residual partial import fails test | test ledger | write-boundary recovery |
+| 57 | failure after Nth mode update | production adoption helper | synthetic Git for N=1..13 | all old blobs/modes and clean index restored | wrong/residual mode fails test | test ledger | mode-boundary recovery |
+| 58 | failure after Nth index update | production adoption helper | synthetic Git for N=1..13 | original thirteen index entries and worktree restored | residual staged entry fails test | test ledger | index-boundary recovery |
+| 59 | final index-readback failure | production final-stage verifier/recovery | synthetic Git | exact original worktree/index restored | stale staged set fails test | test ledger | readback-boundary recovery |
+| 60 | unknown-path preservation during recovery | production adoption recovery | synthetic Git | known thirteen entries restored while unrelated unknown remains byte-identical | deleting/overwriting unknown fails test | test ledger | non-destructive recovery |
+| 61 | archive provenance through closure | provenance-ref verifier | real Git + external receipt | exact local ref/object/tree/parent and external branch named through closure | wrong/moved/missing pre-closure ref blocks | `BASIS.md`, closure readback | provenance availability |
+| 62 | post-adoption archive independence | post-adoption verifier | synthetic main-only clone + real final tree | adopted blobs/retained ledgers verify without archive object | claiming archive-object reachability without object refused | `SOURCE_DELTA.md`, `FINDINGS.md` | material independence, not object reachability |
 
 ## 15. Failure and blocked-result taxonomy
 
@@ -749,21 +1012,25 @@ itself accepted.
 |---|---|---|---|---|
 | `WR0A_SOURCE_IDENTITY_BLOCKED` | main/archive object verification | Git/live state unchanged | remove only owned temp transfer/worktree state | technical lead supplies exact source authority |
 | `WR0A_DESIGN_REPAIR_PREFLIGHT_BLOCKED` | exact v1 design-repair preflight | all fixtures/known work unchanged | none | resolve authority externally |
+| `WR0A_DESIGN_V3_PREFLIGHT_BLOCKED` | exact v2-to-v3 design-repair preflight | all fixtures/known work unchanged | none | resolve authority externally |
 | `WR0A_ARCHIVE_LIVE_MISMATCH` | read-only live comparison | live state untouched | none | return to design gate; do not repair |
 | `RETURN_TO_DESIGN_GATE` | defect/owner/state/proof finding | no implementation | retain bounded recon facts | revise and independently rereview design |
 | `DESIGN_AUTHORITY_MERGE_BLOCKED` | design/review/approval/current-slice merge | implementation not started | none | repair authority transition |
 | `IMPLEMENTATION_BASIS_MISMATCH` | implementation branch preflight | live and unknown worktree state preserved | remove only empty owned worktree/ref if exact | recreate from exact merge basis |
+| `ARCHIVE_PROVENANCE_BLOCKED` | exact local archive-ref/object lifecycle | repository worktree/live state preserved | do not move or replace unknown ref | restore exact provenance authority before adoption |
+| `RECONCILIATION_TOOL_BOOTSTRAP_BLOCKED` | tool-only commit/source preflight | archive/live/current source unchanged | remove only exact uncommitted two-path attempt if safe | recreate committed owner from exact authority basis |
 | `ADOPTION_TOOL_SOURCE_MISMATCH` | WR0A two-file source manifest | candidate/live preserved | no live cleanup | repair within envelope or return to gate |
 | `ADOPTION_PLAN_MISMATCH` | fixed 25/14/13/11/exclusion plan | main/archive/live unchanged | none | resolve exact ledger; do not import |
 | `WR0A_ARCHIVE_DELTA_BLOCKED` | path/mode/blob audit | main/archive/live unchanged | none | resolve exact source delta |
 | `WR0A_BLOB_IMPORT_BLOCKED` | candidate index/worktree import | live and archive unchanged | restore only exact candidate Git changes if safe | retry from clean merged design-authority basis |
+| `WR0A_BLOB_IMPORT_RECOVERY_BLOCKED` | physical adoption rollback/restart | live/archive/unknown objects preserved | retain marker and refuse broad cleanup | inspect exact thirteen-path/index physical state |
 | `WR0A_CONTRACT_SOURCE_BLOCKED` | manifest mismatch | candidate commit retained; live unchanged | no live cleanup | inspect exact blob mismatch; no reimplementation |
 | `WR0A_EVIDENCE_ADOPTION_BLOCKED` | canonical archive packet | old evidence/history and live preserved | restore only candidate evidence changes | correct exact blob import |
 | `READ_ONLY_CALL_GRAPH_VIOLATION` | inspect-live dispatcher | live untouched | exact transient cleanup only | return to design gate |
 | `TRANSIENT_CACHE_CLEANUP_BLOCKED` | WR0A cache cleanup | live/candidate preserved | preserve unknown object; no broad deletion | inspect exact owned cache state |
 | `WR0A_LIVE_READBACK_BLOCKED` | fresh fixture join | candidate commit and live state preserved | none | return to design gate if material |
 | `WR0A_GOVERNANCE_DRIFT_BLOCKED` | DG0/current authority comparison | candidate/live/archive preserved | restore candidate governance changes only if exact | technical-lead review |
-| `WR0A_RECONCILIATION_EVIDENCE_BLOCKED` | packet rendering/sanitization | clean candidate commit/live preserved | remove only owned uncommitted packet stage | regenerate from retained Git/live facts |
+| `WR0A_RECONCILIATION_EVIDENCE_BLOCKED` | packet rendering/sanitization | tool/adoption commits and live state preserved | reconcile only exact owned packet/session state | regenerate from retained Git/live facts |
 | `FINAL_HEAD_SOURCE_MISMATCH` | final five-identity reproduction | final candidate/live preserved | none | repair evidence-only transition |
 | `PRE_PR_AUDIT_REPAIR_REQUIRED` | independent exact-head audit | PR open/unmerged; live unchanged | none | repair within approved design or return to gate |
 | `WR0A_IMPLEMENTATION_MERGE_BLOCKED` | technical-lead merge/readback | PR open/unmerged; live unchanged | none | resolve external merge state |
@@ -791,6 +1058,9 @@ Implementation stops and returns to the design gate if any observation changes:
 Slice-specific stops:
 
 - either exact Git object/tree/parent differs or disappears;
+- the current clarified selection receipt is not exact
+  `100644/4f3131c9...` or its operator-selection lineage changes;
+- the reconciler cannot be committed and source-measured before any mode acts;
 - more/fewer/different WR0 paths or blobs are needed;
 - archive source does not close the guarded rename/first-fsync boundary;
 - the 80-case ledger does not exercise the production helpers as recorded;
@@ -799,6 +1069,13 @@ Slice-specific stops:
 - a governed source blob must be edited after import;
 - archive `CURRENT_SLICE.md` would be required;
 - DG0 or immutable design authority would change in the implementation PR;
+- module loading creates bytecode or another source-tree side effect;
+- adoption recovery cannot restore every old blob/mode and original index
+  without touching an unknown object;
+- retained evidence cannot be rendered and published from one exact marker-
+  bound transaction with truthful restart/cleanup;
+- the exact archive provenance object/ref cannot remain auditable through
+  status closure;
 - any Proton/Wine/workload execution or live-environment mutation appears
   necessary;
 - status closure or successor selection is proposed inside implementation.
@@ -808,43 +1085,55 @@ The agent may retain bounded read-only evidence but may not patch forward.
 ## 17. Implementation sequence
 
 ```text
-1. Freshly review the exact immutable v2 blob.
+1. Freshly review the exact immutable v3 blob.
 2. Record separate operator approval and implementation-phase current-slice
-   authority without editing v2.
+   authority without editing v3; finalize only the exact six authority paths.
 3. Merge the design-authority branch into main.
 4. Create the implementation branch from that exact merge commit/tree.
-5. Add only the two-file WR0A owner and pass non-live production negative tests.
-6. Run verify-authority and plan; stage exactly thirteen archive blobs.
-7. Verify the candidate and create a clean implementation commit containing
-   the thirteen imports plus two tool paths.
-8. Measure the WR0 import, WR0 contract, WR0A implementation, design-authority,
-   and DG0 identities; verify the canonical WR0 evidence packet.
-9. Perform one bounded read-only live comparison through the frozen call graph;
-   do not run Proton, Wine, or the Windows workload.
-10. Render and validate the eight-file reconciliation packet.
-11. Create an evidence-only child commit so the clean source commit remains
-    reachable.
-12. At final head, reproduce all five identities, exact archive evidence,
-    live readback, 23 paths, zero forbidden processes, zero siblings, and a
-    clean worktree.
-13. Push the approved implementation branch and open an ordinary non-draft,
+5. Add exactly the two WR0A tool files and create the clean tool-only commit.
+6. Measure the WR0A implementation-source identity and run all bootstrap-safe
+   production negative tests from that committed tool.
+7. Run committed verify-authority, create/verify the exact local provenance
+   ref, and run plan; then use the marker-bound adoption
+   transaction to stage exactly thirteen archive blobs.
+8. Verify the staged candidate and create the exact thirteen-path adoption
+   child commit; finalize/clean the adoption session.
+9. Reproduce the WR0 import, WR0 contract, WR0A implementation, design-
+    authority, and DG0 identities; verify the canonical WR0 packet and rerun
+    adoption/session negative tests.
+10. Run standalone inspect-live only as bounded stdout diagnostics and prove
+    its exact session cleanup and no bytecode/source side effect.
+11. Run render-evidence, which performs its own sole retained live inspection,
+    renders/validates/publishes/stages the eight-file packet in one marker-
+    bound transaction, and removes only its exact session leaf.
+12. Create the evidence-only third implementation commit so both clean parent
+    commits remain reachable.
+13. At final head, reproduce all identities, exact archive evidence, live
+    readback, 23 paths, zero forbidden processes, zero siblings, zero source-
+    tree/cache artifacts, exact provenance ref, and a clean worktree; rerun all
+    applicable safe production tests.
+14. Push the approved implementation branch and open an ordinary non-draft,
     unmerged PR targeting main.
-14. Obtain an independent exact-head pre-PR audit. The implementation agent
+15. Obtain an independent exact-head pre-PR audit. The implementation agent
     does not merge.
-15. After technical-lead merge, perform the separate two-path status closure.
+16. After technical-lead merge, perform the separate two-path status closure
+    while the exact archive provenance ref/object remains readable.
 ```
 
-The reachable clean implementation commit is required because WR0A's own
-source identity must be measured before evidence is added. The final head must
-reproduce every manifest without executing the workload.
+The reachable tool commit is required because WR0A's production owner must be
+committed and measured before it acts. Its adoption child and evidence
+grandchild separate code authority, exact imported material, and retained
+evidence. The final head must reproduce every manifest without executing the
+workload.
 
 ## 18. Adversarial design review disposition
 
-The review file records the supplied v1 `DESIGN_REPAIR_REQUIRED` verdict
-against exact v1 commit/tree/blob/SHA. A fresh independent reviewer may append
-a v2 `DESIGN_CLEAR` or repair verdict to that external file. The review file,
-not this card, owns later disposition. This card remains byte-identical and is
-not implementation authority.
+The review file records the supplied v1 and v2 `DESIGN_REPAIR_REQUIRED`
+verdicts against their exact commit/tree/blob/SHA identities, including GitHub
+review `5080009434` for v2. A fresh independent reviewer may append a v3
+`DESIGN_CLEAR` or repair verdict to that external file. The review file, not
+this card, owns later disposition. This card remains byte-identical and is not
+implementation authority.
 
 ## 19. Approved design identity
 
@@ -852,7 +1141,7 @@ not implementation authority.
 card_path: docs/slices/WR0A/IMPLEMENTATION_DESIGN.md
 card_git_blob: to be measured at the committed design head and named by the separate approval receipt
 card_sha256: to be measured at the committed design head and named by the separate approval receipt
-design_revision: wr0a-design-v2
+design_revision: wr0a-design-v3
 design_status: proposed_for_adversarial_review
 approval_receipt_path: docs/slices/WR0A/DESIGN_APPROVAL.md
 approval_receipt_identity: absent; required before implementation
@@ -864,34 +1153,48 @@ record its external Git blob and SHA-256. The approval receipt also binds the
 final clear-review-file identity. Implementation authority is owned only by the
 merged approval/current-slice records; the card never approves itself.
 
-## 20. Non-circular evidence, archive independence, and v2 validation
+## 20. Non-circular evidence, archive independence, and v3 validation
 
 The eight-file WR0A packet may retain the merged design-authority basis, the
-reachable clean implementation commit/tree, all source/import/authority
-manifests, bounded live readback, and a seven-payload hash manifest excluding
-`hashes.sha256`. It must not contain its own final Git commit as authoritative
-data. Final PR head/tree belong to branch/PR readback, independent audit, and
-technical-lead exact-head review. Merge commit/tree and accepted result belong
-to merge readback and the separate status closure.
+reachable tool and adoption commit/trees, all source/import/authority
+manifests, renderer-owned bounded live readback, exact session/publication
+classification, and a seven-payload hash manifest excluding `hashes.sha256`.
+It must not contain its own final Git commit as authoritative data. Final PR
+head/tree belong to branch/PR readback, independent audit, and technical-lead
+exact-head review. Merge commit/tree and accepted result belong to merge
+readback and the separate status closure.
 
-Current main must not depend on future archive-branch availability. The packet
+Current main must not depend on future archive-branch availability after
+adoption. Through status closure, the exact local provenance ref/object and
+external archive branch remain required audit inputs. The packet
 retains archive commit/tree/parent, the complete 25-path ledger, thirteen
 imported and eleven identical entries, excluded current-slice mode/blob, final
 contract manifest, exact archive evidence manifest, and chronology. Exact
 source/evidence bytes exist in main after adoption; the archive remains
-provenance only.
+provenance only. A main-only clone verifies current material and ledgers, not
+the reachability of an unavailable non-ancestor archive commit.
 
-V2 is valid only when:
+V3 is valid only when:
 
 - exactly five design/review paths differ cumulatively from selection basis;
 - no product source, accepted evidence, or live fixture changed;
-- the v1 review binds exact v1 identity and v2 names it as superseded;
+- the review record binds exact v1 and v2 identities, GitHub review
+  `5080009434`, and v3 names v2 as superseded;
+- v3 binds the exact current selection receipt blob/SHA and freezes the six-
+  path authority-finalization envelope;
 - authority merge precedes implementation branch creation;
 - implementation basis is the future exact authority merge, not `b517f96...`;
-- v2 requires no post-review mutation;
+- v3 requires no post-review mutation;
+- the tool-only commit precedes every production mode, followed by separate
+  thirteen-path adoption and eight-path evidence commits;
+- diagnostic and retained live readback have distinct exact owners;
+- module loading is bytecode-cache-free and source-tree side-effect-free;
+- marker-bound adoption/evidence sessions have physical recovery and restart
+  laws, including Nth-boundary production-helper tests;
+- archive-dependent and post-adoption mode lifecycles are explicit;
 - the two-file owner, read-only call graph, WR0A source identity, separate
-  implementation/closure envelopes, 43 proof rows, mutation ledger, and
-  blocked taxonomy are exact;
+  implementation/closure envelopes, 62 proof rows, 37-row mutation ledger,
+  and blocked taxonomy are exact;
 - Decision Register acceptance occurs only after implementation merge; and
 - `implementation_authorized=false` remains exact.
 

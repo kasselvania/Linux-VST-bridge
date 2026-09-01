@@ -35,15 +35,16 @@ The implementation design is:
 docs/slices/WR0A/IMPLEMENTATION_DESIGN.md
 ```
 
-The supplied technical-lead review of design revision v1 is materialized at:
+The supplied technical-lead reviews of design revisions v1 and v2 are
+materialized at:
 
 ```text
 docs/slices/WR0A/ADVERSARIAL_DESIGN_REVIEW.md
 ```
 
-Revision v1 received `DESIGN_REPAIR_REQUIRED`. Revision v2 is proposed for a
-fresh independent adversarial review. Implementation still requires a
-`DESIGN_CLEAR` record against the exact immutable v2 blob, a separate operator
+Revisions v1 and v2 received `DESIGN_REPAIR_REQUIRED`. Revision v3 is proposed
+for a fresh independent adversarial review. Implementation still requires a
+`DESIGN_CLEAR` record against the exact immutable v3 blob, a separate operator
 approval receipt, an implementation-authority update to this card, and merge
 of that design authority into main. No implementation prompt, archived branch,
 live fixture, or apparent simplicity substitutes for those transitions.
@@ -143,9 +144,9 @@ docs/slices/WR0A/ADVERSARIAL_DESIGN_REVIEW.md
 ```
 
 Do not create `docs/slices/WR0A/DESIGN_APPROVAL.md` in this phase. The existing
-adversarial-review file records only the supplied v1 repair verdict. A fresh
+adversarial-review file records the supplied v1 and v2 repair verdicts. A fresh
 independent reviewer may later append the disposition of the exact immutable
-v2 design; the design card itself must remain byte-identical.
+v3 design; the design card itself must remain byte-identical.
 
 ## External mutation posture
 
@@ -176,9 +177,9 @@ longer closes the predecessor-backup defect, if the live environment no longer
 matches the archive packet, if exact final blobs cannot be imported without
 rewriting them, or if DG0 would need modification.
 
-The next expected record is a fresh-context v2 result of either `DESIGN_CLEAR`
+The next expected record is a fresh-context v3 result of either `DESIGN_CLEAR`
 or `DESIGN_REPAIR_REQUIRED`. After a clear review, source adoption remains
-forbidden until the exact v2 design is separately approved, the authority
+forbidden until the exact v3 design is separately approved, the authority
 records are committed, and the design-authority branch is merged into main.
 
 ## Explicit nonclaims
