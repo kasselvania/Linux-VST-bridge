@@ -1,0 +1,3095 @@
+{
+  "actual_bad_gate_tests": {
+    "classification": "passed",
+    "wrong_nonce": {
+      "ancestry": [
+        {
+          "comm": "pressure-vessel",
+          "exe_basename": "pressure-vessel-wrap",
+          "identity_sha256": "e123a53774e9eee6ec185b2ea62ef4c42d12569053d625aab41526bd45f82afb",
+          "start_ticks": 4401809,
+          "uid": 1000
+        },
+        {
+          "comm": "python3",
+          "exe_basename": "python3.13",
+          "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+          "start_ticks": 4399305,
+          "uid": 1000
+        },
+        {
+          "comm": "tailscaled",
+          "exe_basename": "unavailable",
+          "identity_sha256": "b50dcae47ad6449ccf4b9caac0a141c7a487c457f11dde6c5ba44e766a7f760a",
+          "start_ticks": 4399303,
+          "uid": 1000
+        },
+        {
+          "comm": "tailscaled",
+          "exe_basename": "unavailable",
+          "identity_sha256": "d369a3fdeed69ea1c8a1cf85baf414c1ba1752a439b97475c06dd5f3ead9c5af",
+          "start_ticks": 883,
+          "uid": 0
+        },
+        {
+          "comm": "systemd",
+          "exe_basename": "unavailable",
+          "identity_sha256": "e4f3344641b75b8f60d7d7633cacde9960f43fb397fefb1b9860f6001100bd2a",
+          "start_ticks": 14,
+          "uid": 0
+        }
+      ],
+      "classification": "expected_failure",
+      "clean_descendant_count": 0,
+      "command_contract": "exact_unique_ordered_d_q_c_full_probe_nonce_run_source_workload_vector",
+      "complete_command_line_retained": false,
+      "contract_source_schema": "linux-vst-bridge-wr0-contract-source/v1",
+      "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+      "duration_ms": 13212,
+      "environment_retained": false,
+      "escaped_process_group_count": 20,
+      "exit_status": 79,
+      "expected_exit_status": 79,
+      "finished_at": "2026-09-01T05:33:52Z",
+      "fresh_process_revalidation_verified": true,
+      "gate_behavior": "wrong_nonce",
+      "handshake": {
+        "causal_order_verified": true,
+        "command_completed_monotonic_us": 13149845,
+        "command_first_observed_monotonic_us": 12859237,
+        "common_runtime_ancestor_identity_sha256": "0e13ef4bb785f2cd22b9bf4adac86f313f3006b87c009d14fc30833e8ef71e09",
+        "fresh_revalidated_monotonic_us": 12938352,
+        "gate_committed_monotonic_us": 12945850,
+        "observed_topology": "proton_and_windows_command_share_exact_runtime_ancestor",
+        "proton_chain_depth": 7,
+        "proton_identity_sha256": "505a82aabbc26b39ff388b36776227580da5ee86a8d8e5612b502b403737cf64",
+        "ready_and_gate_absent_after": true,
+        "ready_file_verified": true,
+        "ready_stdout_verified": true,
+        "schema": "LINUX_VST_BRIDGE_WR0_HANDSHAKE_V1",
+        "windows_command_chain_depth": 7,
+        "windows_command_identity_sha256": "fb8dce97d7d94cfe40b4f10688136cfd1cb9a430e16cb58bcfa44ad551a53de6"
+      },
+      "missing_required_roles": [],
+      "nonce": "520735b3e41a13f6f0f93990e6ee13ba",
+      "observed": true,
+      "process_count": 22,
+      "process_role_assertion": "passed",
+      "process_scope": "complete_bounded_exact_root_descendants",
+      "processes": [
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "pressure-vessel",
+          "executable_basename": "pressure-vessel-wrap",
+          "first_seen_ms": 48,
+          "identity_sha256": "e123a53774e9eee6ec185b2ea62ef4c42d12569053d625aab41526bd45f82afb",
+          "label": "RUNTIME_ROOT_1",
+          "last_seen_ms": 13086,
+          "parent": "SUPERVISOR",
+          "role": "runtime_root",
+          "same_process_group_as_root": true,
+          "same_session_as_root": true,
+          "start_ticks": 4401809,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "i386-linux-gnu-",
+          "executable_basename": "i386-linux-gnu-capsule-capture-libs",
+          "first_seen_ms": 697,
+          "identity_sha256": "c4fe8095490153e8f719a2c7328e28fadc99e037025198c30eacb0b3654e7aae",
+          "label": "OWNED_DESCENDANT_1",
+          "last_seen_ms": 793,
+          "parent": "RUNTIME_ROOT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": true,
+          "same_session_as_root": true,
+          "start_ticks": 4401872,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "pv-adverb",
+          "executable_basename": "pv-adverb",
+          "first_seen_ms": 992,
+          "identity_sha256": "0e13ef4bb785f2cd22b9bf4adac86f313f3006b87c009d14fc30833e8ef71e09",
+          "label": "RUNTIME_COMPONENT_1",
+          "last_seen_ms": 13015,
+          "parent": "RUNTIME_ROOT_1",
+          "role": "runtime_component",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401904,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "python3",
+          "executable_basename": "python3.13",
+          "first_seen_ms": 1084,
+          "identity_sha256": "505a82aabbc26b39ff388b36776227580da5ee86a8d8e5612b502b403737cf64",
+          "label": "PROTON_1",
+          "last_seen_ms": 12859,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "proton",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401912,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "wine",
+          "executable_basename": "wine-preloader",
+          "first_seen_ms": 1084,
+          "identity_sha256": "743544e8b35171de67527d4eadce4ac8c96064b1cd7e44f5d6b55537b331c676",
+          "label": "WINE_1",
+          "last_seen_ms": 12859,
+          "parent": "PROTON_1",
+          "role": "wine",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401917,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "wineserver",
+          "executable_basename": "wineserver",
+          "first_seen_ms": 1137,
+          "identity_sha256": "3d6cb83d23200b482f7ea5d8d8e41dcb6e44a976ab0095bc883d641d087892b7",
+          "label": "WINESERVER_1",
+          "last_seen_ms": 13015,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wineserver",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401917,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "wineboot.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1137,
+          "identity_sha256": "a708a39cf5dd1666125ffdb203952fc794034e536d8c3d1a13f610eb8f1eb77e",
+          "label": "OWNED_DESCENDANT_2",
+          "last_seen_ms": 12379,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401918,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "services.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1137,
+          "identity_sha256": "209317d7dd3a948634a5b2ba409bc204a6cc0051005d3f5530d0f2f67889f940",
+          "label": "WINE_SUPPORT_1",
+          "last_seen_ms": 12859,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wine_support",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401922,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "rundll32.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1238,
+          "identity_sha256": "99ad71e84a93ba4a339cc7e2a832091ca33e7c86d1e24d61687aea2f9a7f6b9d",
+          "label": "OWNED_DESCENDANT_3",
+          "last_seen_ms": 1573,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401924,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "explorer.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1573,
+          "identity_sha256": "933848f3315e598e3ae25ce7d54578671edb4103c7b6a26f385cdb369a3bbd13",
+          "label": "WINE_SUPPORT_2",
+          "last_seen_ms": 1573,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wine_support",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401956,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "explorer.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1573,
+          "identity_sha256": "950b6db6d40a39d64b4477cdabe78f35972751799a9709096488d8b53d43ca99",
+          "label": "WINE_SUPPORT_3",
+          "last_seen_ms": 1573,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wine_support",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401966,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "winedevice.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1675,
+          "identity_sha256": "1f24f30ed1408e1d967633d121c6ed73fb2852f2fe63749b52da6ab234e30741",
+          "label": "WINE_SUPPORT_4",
+          "last_seen_ms": 12859,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wine_support",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401971,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "rundll32.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1675,
+          "identity_sha256": "d1481108e7752209ee260c037ad82a6f4ea2bd0d1564caf457c9701cb9db3819",
+          "label": "OWNED_DESCENDANT_4",
+          "last_seen_ms": 6622,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4401974,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "removeuserinsta",
+          "executable_basename": "wine-preloader",
+          "first_seen_ms": 4350,
+          "identity_sha256": "34e60543c182b0cdc818858f89f241eee14169c497f264c8e0927a8f2cbd7c5e",
+          "label": "OWNED_DESCENDANT_5",
+          "last_seen_ms": 4643,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4402240,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "installinf-x86.",
+          "executable_basename": "wine-preloader",
+          "first_seen_ms": 4842,
+          "identity_sha256": "394b0b282cd0a71198387fa9b3fb869a451cc5120193e3f6fabb59a20a506053",
+          "label": "OWNED_DESCENDANT_6",
+          "last_seen_ms": 4842,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4402286,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "installinf-x86_",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 4949,
+          "identity_sha256": "65836eb0e40aa912a114ea5a0f9a4e50ad64595879d0a0dd26f95904120d22a9",
+          "label": "OWNED_DESCENDANT_7",
+          "last_seen_ms": 4949,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4402300,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "svchost.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 6503,
+          "identity_sha256": "ef122341f68a7247833494e8fc460d49dbb061a577f93d0263ae3b16f604c9ce",
+          "label": "OWNED_DESCENDANT_8",
+          "last_seen_ms": 12859,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4402459,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "plugplay.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 6622,
+          "identity_sha256": "8a6079c83912742a07ca4a71100b4778b2275c7be1b1907be79871c5909dc003",
+          "label": "OWNED_DESCENDANT_9",
+          "last_seen_ms": 12859,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4402463,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "rundll32.exe",
+          "executable_basename": "wine-preloader",
+          "first_seen_ms": 6741,
+          "identity_sha256": "4f073e581abf11f96c257c85d578a7c3d2055e0e097bfc35bf0e2c1a76395e3c",
+          "label": "OWNED_DESCENDANT_10",
+          "last_seen_ms": 11518,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4402478,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "iexplore.exe",
+          "executable_basename": "wine-preloader",
+          "first_seen_ms": 11518,
+          "identity_sha256": "1530540bbbed59663271f311ca3fa403997be3f89f6cd3795f41e26d788a4e9a",
+          "label": "OWNED_DESCENDANT_11",
+          "last_seen_ms": 11518,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4402954,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "winedevice.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 11764,
+          "identity_sha256": "d0210759ff44dada831ae1ce4523177cb08025c554c537e0431394e72d098c43",
+          "label": "WINE_SUPPORT_5",
+          "last_seen_ms": 12859,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wine_support",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4402982,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "cmd.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 12761,
+          "identity_sha256": "fb8dce97d7d94cfe40b4f10688136cfd1cb9a430e16cb58bcfa44ad551a53de6",
+          "label": "WINDOWS_COMMAND_1",
+          "last_seen_ms": 12859,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "windows_command",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403077,
+          "uid": 1000
+        }
+      ],
+      "root_identity_sha256": "e123a53774e9eee6ec185b2ea62ef4c42d12569053d625aab41526bd45f82afb",
+      "root_start_ticks": 4401809,
+      "run_number": 1,
+      "schema": "linux-vst-bridge-wr0-run/v1",
+      "started_at": "2026-09-01T05:33:38Z",
+      "stderr_bytes": 523,
+      "stderr_sha256": "ac15c824b3386af137b738f3012b77d3592ddd6f4bdaf3edbea42a71c635c392",
+      "stdout": "WR0_MAGIC=LINUX_VST_BRIDGE_WR0_V1\nWR0_NONCE=520735b3e41a13f6f0f93990e6ee13ba\nWR0_RUN=1\nWR0_ARCH=x86_64\nWR0_READY=waiting_for_supervisor\nWR0_HANDSHAKE_ERROR=gate_nonce_invalid\n",
+      "stdout_sha256": "2b8592a6bc29c0be8e45d7753b482c5fc500838e79841b31fac79c85cb408db6",
+      "steam_game_ancestor": false,
+      "strict_command_vector_verified": true,
+      "supervisor": {
+        "cgroup_class": "ordinary_user_scope",
+        "comm": "python3",
+        "exe_basename": "python3.13",
+        "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+        "start_ticks": 4399305,
+        "state": "R",
+        "uid": 1000
+      },
+      "terminated_by_supervisor": false,
+      "timeout": false,
+      "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+    },
+    "wrong_run": {
+      "ancestry": [
+        {
+          "comm": "pressure-vessel",
+          "exe_basename": "pressure-vessel-wrap",
+          "identity_sha256": "b30db20d21226ed94adc4be52b909f67b0664fe9529f2b4aa3e8fafb4918a335",
+          "start_ticks": 4403147,
+          "uid": 1000
+        },
+        {
+          "comm": "python3",
+          "exe_basename": "python3.13",
+          "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+          "start_ticks": 4399305,
+          "uid": 1000
+        },
+        {
+          "comm": "tailscaled",
+          "exe_basename": "unavailable",
+          "identity_sha256": "b50dcae47ad6449ccf4b9caac0a141c7a487c457f11dde6c5ba44e766a7f760a",
+          "start_ticks": 4399303,
+          "uid": 1000
+        },
+        {
+          "comm": "tailscaled",
+          "exe_basename": "unavailable",
+          "identity_sha256": "d369a3fdeed69ea1c8a1cf85baf414c1ba1752a439b97475c06dd5f3ead9c5af",
+          "start_ticks": 883,
+          "uid": 0
+        },
+        {
+          "comm": "systemd",
+          "exe_basename": "unavailable",
+          "identity_sha256": "e4f3344641b75b8f60d7d7633cacde9960f43fb397fefb1b9860f6001100bd2a",
+          "start_ticks": 14,
+          "uid": 0
+        }
+      ],
+      "classification": "expected_failure",
+      "clean_descendant_count": 0,
+      "command_contract": "exact_unique_ordered_d_q_c_full_probe_nonce_run_source_workload_vector",
+      "complete_command_line_retained": false,
+      "contract_source_schema": "linux-vst-bridge-wr0-contract-source/v1",
+      "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+      "duration_ms": 3412,
+      "environment_retained": false,
+      "escaped_process_group_count": 11,
+      "exit_status": 79,
+      "expected_exit_status": 79,
+      "finished_at": "2026-09-01T05:33:55Z",
+      "fresh_process_revalidation_verified": true,
+      "gate_behavior": "wrong_run",
+      "handshake": {
+        "causal_order_verified": true,
+        "command_completed_monotonic_us": 3369574,
+        "command_first_observed_monotonic_us": 3143721,
+        "common_runtime_ancestor_identity_sha256": "67969e26bc25920511d2ee36c06cf2a83db229c6c4751b5a09110736c71a4415",
+        "fresh_revalidated_monotonic_us": 3216807,
+        "gate_committed_monotonic_us": 3230082,
+        "observed_topology": "proton_and_windows_command_share_exact_runtime_ancestor",
+        "proton_chain_depth": 7,
+        "proton_identity_sha256": "88c7b67051265ad06a1077fd943de04b7215eb38221ab4e26720a63ecd1cf78f",
+        "ready_and_gate_absent_after": true,
+        "ready_file_verified": true,
+        "ready_stdout_verified": true,
+        "schema": "LINUX_VST_BRIDGE_WR0_HANDSHAKE_V1",
+        "windows_command_chain_depth": 7,
+        "windows_command_identity_sha256": "306e9de909b9ace694e1b411e93663433b0a23df9b2544aadea8652f02081a2f"
+      },
+      "missing_required_roles": [],
+      "nonce": "50f997f64ab2462418fbe0ff939f14d5",
+      "observed": true,
+      "process_count": 14,
+      "process_role_assertion": "passed",
+      "process_scope": "complete_bounded_exact_root_descendants",
+      "processes": [
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "pressure-vessel",
+          "executable_basename": "pressure-vessel-wrap",
+          "first_seen_ms": 68,
+          "identity_sha256": "b30db20d21226ed94adc4be52b909f67b0664fe9529f2b4aa3e8fafb4918a335",
+          "label": "RUNTIME_ROOT_1",
+          "last_seen_ms": 3325,
+          "parent": "SUPERVISOR",
+          "role": "runtime_root",
+          "same_process_group_as_root": true,
+          "same_session_as_root": true,
+          "start_ticks": 4403147,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "x86_64-linux-gn",
+          "executable_basename": "x86_64-linux-gnu-capsule-capture-libs",
+          "first_seen_ms": 750,
+          "identity_sha256": "85fa9dcb3a90135eb3db29360e579c26595209e6967f9358a797adc5fbaf2d52",
+          "label": "OWNED_DESCENDANT_1",
+          "last_seen_ms": 750,
+          "parent": "RUNTIME_ROOT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": true,
+          "same_session_as_root": true,
+          "start_ticks": 4403219,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "i386-linux-gnu-",
+          "executable_basename": "i386-linux-gnu-capsule-capture-libs",
+          "first_seen_ms": 987,
+          "identity_sha256": "0dc835654be6ce90eee1f166e2dfc8609687cce3ef5aba121b6aae37856810cd",
+          "label": "OWNED_DESCENDANT_2",
+          "last_seen_ms": 1082,
+          "parent": "RUNTIME_ROOT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": true,
+          "same_session_as_root": true,
+          "start_ticks": 4403239,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "pv-adverb",
+          "executable_basename": "pv-adverb",
+          "first_seen_ms": 1273,
+          "identity_sha256": "67969e26bc25920511d2ee36c06cf2a83db229c6c4751b5a09110736c71a4415",
+          "label": "RUNTIME_COMPONENT_1",
+          "last_seen_ms": 3280,
+          "parent": "RUNTIME_ROOT_1",
+          "role": "runtime_component",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403270,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "python3",
+          "executable_basename": "python3.13",
+          "first_seen_ms": 1369,
+          "identity_sha256": "88c7b67051265ad06a1077fd943de04b7215eb38221ab4e26720a63ecd1cf78f",
+          "label": "PROTON_1",
+          "last_seen_ms": 3143,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "proton",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403278,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "wine",
+          "executable_basename": "wine-preloader",
+          "first_seen_ms": 1369,
+          "identity_sha256": "f70b2b824fec811460327791538c7ae50d74020b70514ae9bfbb432185306e62",
+          "label": "WINE_1",
+          "last_seen_ms": 3143,
+          "parent": "PROTON_1",
+          "role": "wine",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403284,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "wineserver",
+          "executable_basename": "wineserver",
+          "first_seen_ms": 1414,
+          "identity_sha256": "f50914d247e04ba51037cd04e36e1aa85b5a308e2ca9fc81a2de0c19d35820ed",
+          "label": "WINESERVER_1",
+          "last_seen_ms": 3280,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wineserver",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403284,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "wineboot.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1509,
+          "identity_sha256": "db297e794f93fe8079f5ef83296753b3370afa790cc722c7a4a12d4003a1e1b8",
+          "label": "OWNED_DESCENDANT_3",
+          "last_seen_ms": 2322,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403289,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "services.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1509,
+          "identity_sha256": "18edb06677669ccdbf48f43cd6427feaabd4015ee1fa1f0070666cdc34f36030",
+          "label": "WINE_SUPPORT_1",
+          "last_seen_ms": 3143,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wine_support",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403292,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "winedevice.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1509,
+          "identity_sha256": "6f46e6b19cc29954e14b672c874b80b3a7be385bf68ce3ac75e638b5d0218c4f",
+          "label": "WINE_SUPPORT_2",
+          "last_seen_ms": 3143,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wine_support",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403295,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "plugplay.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1509,
+          "identity_sha256": "91fb95f2abd48a0a66c91a63293d80f1b7aa1aad49d798c86312ff9b75b60d12",
+          "label": "OWNED_DESCENDANT_4",
+          "last_seen_ms": 3143,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403298,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "svchost.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1904,
+          "identity_sha256": "59e37a36a04980ae45776da9cd12f7335513cd61aff9a2c0abe3c073238260bc",
+          "label": "OWNED_DESCENDANT_5",
+          "last_seen_ms": 3143,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "owned_descendant",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403328,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "winedevice.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 1904,
+          "identity_sha256": "681bf4bff9ad536c525d0f1600c778a123171a67a5cea578860550a8a510f552",
+          "label": "WINE_SUPPORT_3",
+          "last_seen_ms": 3230,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "wine_support",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403332,
+          "uid": 1000
+        },
+        {
+          "cgroup_classification": "ordinary_user_scope",
+          "comm": "cmd.exe",
+          "executable_basename": "wine64-preloader",
+          "first_seen_ms": 3051,
+          "identity_sha256": "306e9de909b9ace694e1b411e93663433b0a23df9b2544aadea8652f02081a2f",
+          "label": "WINDOWS_COMMAND_1",
+          "last_seen_ms": 3143,
+          "parent": "RUNTIME_COMPONENT_1",
+          "role": "windows_command",
+          "same_process_group_as_root": false,
+          "same_session_as_root": false,
+          "start_ticks": 4403441,
+          "uid": 1000
+        }
+      ],
+      "root_identity_sha256": "b30db20d21226ed94adc4be52b909f67b0664fe9529f2b4aa3e8fafb4918a335",
+      "root_start_ticks": 4403147,
+      "run_number": 1,
+      "schema": "linux-vst-bridge-wr0-run/v1",
+      "started_at": "2026-09-01T05:33:52Z",
+      "stderr_bytes": 352,
+      "stderr_sha256": "776f568fe17292177657bc22a107fa8846c74d5d3418ed6f9e8071bd539e6eb6",
+      "stdout": "WR0_MAGIC=LINUX_VST_BRIDGE_WR0_V1\nWR0_NONCE=50f997f64ab2462418fbe0ff939f14d5\nWR0_RUN=1\nWR0_ARCH=x86_64\nWR0_READY=waiting_for_supervisor\nWR0_HANDSHAKE_ERROR=gate_run_invalid\n",
+      "stdout_sha256": "989d8dcda4638b9dda1a293d7a08d16b8dac76d19b40d00972b40364644af8a1",
+      "steam_game_ancestor": false,
+      "strict_command_vector_verified": true,
+      "supervisor": {
+        "cgroup_class": "ordinary_user_scope",
+        "comm": "python3",
+        "exe_basename": "python3.13",
+        "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+        "start_ticks": 4399305,
+        "state": "R",
+        "uid": 1000
+      },
+      "terminated_by_supervisor": false,
+      "timeout": false,
+      "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+    }
+  },
+  "basis": {
+    "branch": "codex/wr0-proton-isolated-bootstrap",
+    "classification": "observed",
+    "commit": "3deb414a54174cd95432c84e117a642f30c482fe",
+    "preflight": "PRE-FLIGHT_CLEAR",
+    "reviewed_pre_repair_head": "9228217b2abf7314b9dfaecc5fc4323d5f3d7a89",
+    "reviewed_pre_repair_tree": "8da6817eba1f259d3565e377fcb50098ab8f3cf2",
+    "tree": "7f29cc727ce128021a6a2d74d04ca9ad6e30cb13"
+  },
+  "blocked_result": {
+    "classification": "expected_failure",
+    "cleanup_restored_predecessor": false,
+    "error": null,
+    "stage": null,
+    "triggered": false
+  },
+  "claim": {
+    "audio": "explicitly_out_of_scope",
+    "bitwig": "explicitly_out_of_scope",
+    "bridge": "explicitly_out_of_scope",
+    "classification": "passed",
+    "name": "WR0_COMPLETE",
+    "primary": "controlled_windows_process_and_isolated_environment_bootstrap",
+    "product_runner_selection": "explicitly_out_of_scope",
+    "serum": "explicitly_out_of_scope",
+    "windows_vst3_hosting": "explicitly_out_of_scope"
+  },
+  "classification_vocabulary": {
+    "blocked": "bounded claim could not be established",
+    "created_by_slice": "owned artifact created by WR0",
+    "expected_failure": "intentional negative path behaved exactly",
+    "explicitly_out_of_scope": "not authorized by WR0",
+    "installed_before_slice": "preexisting protected asset",
+    "observed": "directly read from the declared fixture",
+    "passed": "acceptance assertion verified",
+    "unknown": "sensitive or out-of-scope value was not collected"
+  },
+  "contract_source": {
+    "classification": "passed",
+    "digest": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+    "file_count": 10,
+    "implementation_commit": "5008d19ff0a419114c4f60e5e9d0b11de5328a27",
+    "implementation_tree": "63bfe5189ce3de36860aef604137eb0ff564dc47",
+    "manifest": {
+      "files": [
+        {
+          "blob": "94471e033951f735bd2eb792020c7197ce3536c8",
+          "mode": "100644",
+          "path": "docs/WR0_RUNNER_LOCK.md"
+        },
+        {
+          "blob": "d90180efb2812feb0e510e7f0fb697d08a20c466",
+          "mode": "100644",
+          "path": "tools/wr0-proton-bootstrap/README.md"
+        },
+        {
+          "blob": "2e382985402e19b09d71ceaf85078a77f52bab57",
+          "mode": "100755",
+          "path": "tools/wr0-proton-bootstrap/common.sh"
+        },
+        {
+          "blob": "b5389c36e0d75484b2cdad5f159f8a9cbd1d73e6",
+          "mode": "100755",
+          "path": "tools/wr0-proton-bootstrap/environment.sh"
+        },
+        {
+          "blob": "e157340eff629127332d94650d4f369ad8688d94",
+          "mode": "100755",
+          "path": "tools/wr0-proton-bootstrap/inspect-runner.sh"
+        },
+        {
+          "blob": "215718bb641765da9163779c0e2145bd02d3198a",
+          "mode": "100755",
+          "path": "tools/wr0-proton-bootstrap/launch.py"
+        },
+        {
+          "blob": "b1882ddb3f903a441145866bfb24650ff046a20e",
+          "mode": "100755",
+          "path": "tools/wr0-proton-bootstrap/negative-tests.sh"
+        },
+        {
+          "blob": "13bceffe6c75830ef6ed0828d32dcd7d7938068b",
+          "mode": "100755",
+          "path": "tools/wr0-proton-bootstrap/preflight.sh"
+        },
+        {
+          "blob": "44fd2d9ecf369030ed58b7898cdcfb87c2075cfb",
+          "mode": "100755",
+          "path": "tools/wr0-proton-bootstrap/sanitize.sh"
+        },
+        {
+          "blob": "04c8707c01c92cfd007fe7f7a72a8adbd4de3588",
+          "mode": "100644",
+          "path": "windows-fixtures/wr0-probe/wr0-probe.cmd"
+        }
+      ],
+      "schema": "linux-vst-bridge-wr0-contract-source/v1"
+    },
+    "schema": "linux-vst-bridge-wr0-contract-source/v1",
+    "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+  },
+  "environment": {
+    "bounded_prefix_top_level": [
+      {
+        "name": ".update-timestamp",
+        "type": "regular_file"
+      },
+      {
+        "name": "dosdevices",
+        "type": "directory"
+      },
+      {
+        "name": "drive_c",
+        "type": "directory"
+      },
+      {
+        "name": "system.reg",
+        "type": "regular_file"
+      },
+      {
+        "name": "user.reg",
+        "type": "regular_file"
+      },
+      {
+        "name": "userdef.reg",
+        "type": "regular_file"
+      }
+    ],
+    "bounded_prefix_top_level_count": 6,
+    "classification": "created_by_slice",
+    "complete_prefix_roster_retained": false,
+    "environment_identity": {
+      "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+      "neutral_application_id": "0",
+      "pfx_device": 66312,
+      "pfx_inode": 5866359,
+      "runner_identity_sha256": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+      "schema": "linux-vst-bridge-wr0-environment/v1",
+      "transaction_id": "wr0-20260901T053317Z-183afd5bbf0736e4",
+      "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+    },
+    "environment_identity_sha256": "d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4",
+    "marker": {
+      "contract_source_schema": "linux-vst-bridge-wr0-contract-source/v1",
+      "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+      "created_at": "2026-09-01T05:33:17Z",
+      "credentials_retained": false,
+      "exit_37_verified": true,
+      "layout": {
+        "compatdata": "compatdata",
+        "host_cache": "host-cache",
+        "host_config": "host-config",
+        "host_data": "host-data",
+        "prefix": "compatdata/pfx",
+        "receipts": "receipts",
+        "runtime_variable_state": "runtime-var"
+      },
+      "machine_identifier_retained": false,
+      "neutral_application_id": "0",
+      "private_path_retained": false,
+      "run_receipts": {
+        "run_1": "1d39ddd01bff03b84f7b90dead806cab6610bdf72c5578c3165a187b376feac5",
+        "run_2": "42b31ae82585537c43a7bdf1b5cdb0ad2f4335cf53209b34343a8c8c26430453"
+      },
+      "runner_identity_sha256": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+      "runner_version": "1787334450 proton-11.0-2-x86_64",
+      "runtime_app_id": "4183110",
+      "runtime_version": "4.0.20260805.254769",
+      "schema": "linux-vst-bridge-wr0-environment/v1",
+      "status": "ready",
+      "transaction_id": "wr0-20260901T053317Z-183afd5bbf0736e4",
+      "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+    },
+    "marker_sha256": "3d8b315c71ef464f596189ec4273a8b4f3ed441d73101541f22a6f445da2a90b",
+    "path": "<HOME>/.local/share/linux-vst-bridge/environments/wr0-proton11",
+    "registry_files": {
+      "system.reg": {
+        "sha256": "c8d9fffd43fb5a442652ab71821b0cdba169fcc22f01d46930fef265ffe3fc1b",
+        "size": 4085559
+      },
+      "user.reg": {
+        "sha256": "9811dd3f1e1b6b0fef1001861e8f0afc013a12e027effa454dad8be5eb9b53ca",
+        "size": 107055
+      },
+      "userdef.reg": {
+        "sha256": "0ab8c8dd98a9b94d6bd4b6e4588dc9c5478908c71e7f1cb04fd81b3b2602378f",
+        "size": 4190
+      }
+    }
+  },
+  "exit_propagation": {
+    "ancestry": [
+      {
+        "comm": "pressure-vessel",
+        "exe_basename": "pressure-vessel-wrap",
+        "identity_sha256": "2cebec2ae8921f851eb17e93d50f33a7330dd669127612e5edf3b327280ed0b9",
+        "start_ticks": 4401483,
+        "uid": 1000
+      },
+      {
+        "comm": "python3",
+        "exe_basename": "python3.13",
+        "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+        "start_ticks": 4399305,
+        "uid": 1000
+      },
+      {
+        "comm": "tailscaled",
+        "exe_basename": "unavailable",
+        "identity_sha256": "b50dcae47ad6449ccf4b9caac0a141c7a487c457f11dde6c5ba44e766a7f760a",
+        "start_ticks": 4399303,
+        "uid": 1000
+      },
+      {
+        "comm": "tailscaled",
+        "exe_basename": "unavailable",
+        "identity_sha256": "d369a3fdeed69ea1c8a1cf85baf414c1ba1752a439b97475c06dd5f3ead9c5af",
+        "start_ticks": 883,
+        "uid": 0
+      },
+      {
+        "comm": "systemd",
+        "exe_basename": "unavailable",
+        "identity_sha256": "e4f3344641b75b8f60d7d7633cacde9960f43fb397fefb1b9860f6001100bd2a",
+        "start_ticks": 14,
+        "uid": 0
+      }
+    ],
+    "classification": "expected_failure",
+    "clean_descendant_count": 0,
+    "command_contract": "exact_unique_ordered_d_q_c_full_probe_nonce_run_source_workload_vector",
+    "complete_command_line_retained": false,
+    "contract_source_schema": "linux-vst-bridge-wr0-contract-source/v1",
+    "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+    "duration_ms": 3106,
+    "environment_retained": false,
+    "escaped_process_group_count": 11,
+    "exit_status": 37,
+    "expected_exit_status": 37,
+    "finished_at": "2026-09-01T05:33:38Z",
+    "fresh_process_revalidation_verified": true,
+    "gate_behavior": "release",
+    "handshake": {
+      "causal_order_verified": true,
+      "command_completed_monotonic_us": 3062939,
+      "command_first_observed_monotonic_us": 2855862,
+      "common_runtime_ancestor_identity_sha256": "f8458c2c7da34dd416d6f85dd2322383d95f2552119bff2b138b2d76b70c6962",
+      "fresh_revalidated_monotonic_us": 2909331,
+      "gate_committed_monotonic_us": 2920948,
+      "observed_topology": "proton_and_windows_command_share_exact_runtime_ancestor",
+      "proton_chain_depth": 7,
+      "proton_identity_sha256": "668de040bef77fe40a671180070b474d134134b4ab263d0fa1a09266a309b842",
+      "ready_and_gate_absent_after": true,
+      "ready_file_verified": true,
+      "ready_stdout_verified": true,
+      "schema": "LINUX_VST_BRIDGE_WR0_HANDSHAKE_V1",
+      "windows_command_chain_depth": 7,
+      "windows_command_identity_sha256": "e654e59f33c2fe1068983873c4cc38f1dd0c0f9f6abb8a8fd27913abe8e55965"
+    },
+    "missing_required_roles": [],
+    "nonce": "496771a945167f46a8aaa97aa6133633",
+    "observed": true,
+    "process_count": 14,
+    "process_role_assertion": "passed",
+    "process_scope": "complete_bounded_exact_root_descendants",
+    "processes": [
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "pressure-vessel",
+        "executable_basename": "pressure-vessel-wrap",
+        "first_seen_ms": 47,
+        "identity_sha256": "2cebec2ae8921f851eb17e93d50f33a7330dd669127612e5edf3b327280ed0b9",
+        "label": "RUNTIME_ROOT_1",
+        "last_seen_ms": 3017,
+        "parent": "SUPERVISOR",
+        "role": "runtime_root",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4401483,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "x86_64-linux-gn",
+        "executable_basename": "x86_64-linux-gnu-capsule-capture-libs",
+        "first_seen_ms": 526,
+        "identity_sha256": "8dd49f9e13e6a3d065c5d572fe23298cd17c46b39b218a2d029e10b8fa86024e",
+        "label": "OWNED_DESCENDANT_1",
+        "last_seen_ms": 526,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4401535,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "i386-linux-gnu-",
+        "executable_basename": "i386-linux-gnu-capsule-capture-libs",
+        "first_seen_ms": 786,
+        "identity_sha256": "922b062ebee3410ac4d5be9d59f595976ca4e93fbe8b4c89eb6a5fe0edd8d796",
+        "label": "OWNED_DESCENDANT_2",
+        "last_seen_ms": 883,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4401555,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "pv-adverb",
+        "executable_basename": "pv-adverb",
+        "first_seen_ms": 1076,
+        "identity_sha256": "f8458c2c7da34dd416d6f85dd2322383d95f2552119bff2b138b2d76b70c6962",
+        "label": "RUNTIME_COMPONENT_1",
+        "last_seen_ms": 2971,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "runtime_component",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401586,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "python3",
+        "executable_basename": "python3.13",
+        "first_seen_ms": 1164,
+        "identity_sha256": "668de040bef77fe40a671180070b474d134134b4ab263d0fa1a09266a309b842",
+        "label": "PROTON_1",
+        "last_seen_ms": 2855,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "proton",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401594,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wine",
+        "executable_basename": "wine-preloader",
+        "first_seen_ms": 1164,
+        "identity_sha256": "7036aac7eabf31cdeae932118f2f6ee74cbd8f5ebaf7cccd47347c5924330562",
+        "label": "WINE_1",
+        "last_seen_ms": 2855,
+        "parent": "PROTON_1",
+        "role": "wine",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401599,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wineserver",
+        "executable_basename": "wineserver",
+        "first_seen_ms": 1164,
+        "identity_sha256": "365c3f6a340d4d13225be047ddc48115313a2114415a812f6a16a5f44d567e07",
+        "label": "WINESERVER_1",
+        "last_seen_ms": 2971,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wineserver",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401600,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wineboot.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1261,
+        "identity_sha256": "9893d315dbfadbf48ccf71f95c9623dcd361a646cf413fb9fa5713b5f4ba4782",
+        "label": "OWNED_DESCENDANT_3",
+        "last_seen_ms": 2096,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401604,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "services.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1261,
+        "identity_sha256": "b6f1e4f40fa1235e48e89b300faef0d50c9a0366c84c9bf44ccbab5e032ef994",
+        "label": "WINE_SUPPORT_1",
+        "last_seen_ms": 2855,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401607,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "winedevice.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1360,
+        "identity_sha256": "e62f5e0e6f744e1ed1acb1a0ebb513406ea600774aaf86cde0ff9a1383c0c6d4",
+        "label": "WINE_SUPPORT_2",
+        "last_seen_ms": 2855,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401611,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "plugplay.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1360,
+        "identity_sha256": "a420ce2efde6ad6f8a95bb2b029cd2b5c02679836340e4d61021514e7a49075b",
+        "label": "OWNED_DESCENDANT_4",
+        "last_seen_ms": 2855,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401614,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "svchost.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1683,
+        "identity_sha256": "d5a8cf109a491a762205378ab7f845f3653c53b3fed28d7aade79d08d54d4f1b",
+        "label": "OWNED_DESCENDANT_5",
+        "last_seen_ms": 2855,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401644,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "winedevice.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1683,
+        "identity_sha256": "4c9d7eb28c8806d13a46479252589fe73ddc2aecc29d23dec516a107b032c79a",
+        "label": "WINE_SUPPORT_3",
+        "last_seen_ms": 2855,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401648,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "cmd.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 2703,
+        "identity_sha256": "e654e59f33c2fe1068983873c4cc38f1dd0c0f9f6abb8a8fd27913abe8e55965",
+        "label": "WINDOWS_COMMAND_1",
+        "last_seen_ms": 2855,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "windows_command",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401753,
+        "uid": 1000
+      }
+    ],
+    "root_identity_sha256": "2cebec2ae8921f851eb17e93d50f33a7330dd669127612e5edf3b327280ed0b9",
+    "root_start_ticks": 4401483,
+    "run_number": 37,
+    "schema": "linux-vst-bridge-wr0-run/v1",
+    "started_at": "2026-09-01T05:33:35Z",
+    "stderr_bytes": 352,
+    "stderr_sha256": "776f568fe17292177657bc22a107fa8846c74d5d3418ed6f9e8071bd539e6eb6",
+    "stdout": "WR0_MAGIC=LINUX_VST_BRIDGE_WR0_V1\nWR0_NONCE=496771a945167f46a8aaa97aa6133633\nWR0_RUN=37\nWR0_ARCH=x86_64\nWR0_READY=waiting_for_supervisor\nWR0_GATE=accepted\nWR0_EXIT=37\n",
+    "stdout_sha256": "412a1106b823cb39e014f9ad1361ee31fa5d094bc06381a3556e17e4b72b0a33",
+    "steam_game_ancestor": false,
+    "strict_command_vector_verified": true,
+    "supervisor": {
+      "cgroup_class": "ordinary_user_scope",
+      "comm": "python3",
+      "exe_basename": "python3.13",
+      "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+      "start_ticks": 4399305,
+      "state": "R",
+      "uid": 1000
+    },
+    "terminated_by_supervisor": false,
+    "timeout": false,
+    "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+  },
+  "live_held_command_cleanup": {
+    "classification": "passed",
+    "cleanup_started_after_observation": true,
+    "command_completed_monotonic_us": 5983817,
+    "command_first_observed_monotonic_us": 2671956,
+    "complete_command_line_retained": false,
+    "contract_source_schema": "linux-vst-bridge-wr0-contract-source/v1",
+    "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+    "escaped_process_group_count": 11,
+    "final_environment_unchanged": true,
+    "final_owned_count": 0,
+    "fresh_process_revalidation_verified": true,
+    "gate_withheld": true,
+    "hold_seconds": 1.0,
+    "nonce": "e5d85dcf3a4cb00814ea089539432c6f",
+    "observed": true,
+    "process_count": 14,
+    "processes": [
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "pressure-vessel",
+        "executable_basename": "pressure-vessel-wrap",
+        "first_seen_ms": 48,
+        "identity_sha256": "5ca718656a22579a0ad88024a5c71c8ba153cc00a60608f73ab910de206b9dc0",
+        "label": "RUNTIME_ROOT_1",
+        "last_seen_ms": 0,
+        "parent": "SUPERVISOR",
+        "role": "runtime_root",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4403501,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "x86_64-linux-gn",
+        "executable_basename": "x86_64-linux-gnu-capsule-capture-libs",
+        "first_seen_ms": 522,
+        "identity_sha256": "60b73d4ab2e523cee54666b29ac334f3139ee996451bc438f25d534647bc390d",
+        "label": "OWNED_DESCENDANT_1",
+        "last_seen_ms": 522,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4403552,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "i386-linux-gnu-",
+        "executable_basename": "i386-linux-gnu-capsule-capture-libs",
+        "first_seen_ms": 782,
+        "identity_sha256": "75cbe5d5972a69f8122cf5ac518082b77942cd2816246197bd865ff7f4441d91",
+        "label": "OWNED_DESCENDANT_2",
+        "last_seen_ms": 877,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4403572,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "pv-adverb",
+        "executable_basename": "pv-adverb",
+        "first_seen_ms": 1077,
+        "identity_sha256": "4a4c26a142f268d6b07327a5734c3af579ff898968681745b76665e2ff81e5cd",
+        "label": "RUNTIME_COMPONENT_1",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "runtime_component",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403603,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "python3",
+        "executable_basename": "python3.13",
+        "first_seen_ms": 1169,
+        "identity_sha256": "ff1afd9317cf011dcb9dbeab2d093a37d055106c2743992adefd8791bf756f61",
+        "label": "PROTON_1",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "proton",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403611,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wineserver",
+        "executable_basename": "wineserver",
+        "first_seen_ms": 1169,
+        "identity_sha256": "3aeb848d1255c335637be66aa54c39e7737018f9fd470b85c9329754f4a0f27d",
+        "label": "WINESERVER_1",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wineserver",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403617,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wine",
+        "executable_basename": "wine-preloader",
+        "first_seen_ms": 1169,
+        "identity_sha256": "bd4c862cb511c79705ccb9597aa4a536145556e92f91530158e1f88d18161b9b",
+        "label": "WINE_1",
+        "last_seen_ms": 0,
+        "parent": "PROTON_1",
+        "role": "wine",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403617,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wineboot.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1265,
+        "identity_sha256": "0d6e85fa7e4b5c5d1e83c688412c3eb0adf5a9b772cc36ab1456eadd79f9216a",
+        "label": "OWNED_DESCENDANT_3",
+        "last_seen_ms": 2072,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403622,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "services.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1265,
+        "identity_sha256": "2ae35187c4e51062decd3183e28f567c4cb30406af267018306e6f973b60468f",
+        "label": "WINE_SUPPORT_1",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403625,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "winedevice.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1362,
+        "identity_sha256": "b1373c6a7fb385910864caaf108adba68f8327a5559fd2d94a48c47633111578",
+        "label": "WINE_SUPPORT_2",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403628,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "plugplay.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1362,
+        "identity_sha256": "bd803d76153ae607b9d2b858cce0c6e1ff244494f23f439352c093c9ed984e40",
+        "label": "OWNED_DESCENDANT_4",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403631,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "svchost.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1668,
+        "identity_sha256": "8f5adc8a6b3f5e6c102e9260e7cad918c660f47480106ea340324bd6dd9484ff",
+        "label": "OWNED_DESCENDANT_5",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403661,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "winedevice.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1668,
+        "identity_sha256": "e30841675dc3208be57856ac30bb173f2ea1d56b978ee8cafdc850371c9258af",
+        "label": "WINE_SUPPORT_3",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403665,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "cmd.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 2605,
+        "identity_sha256": "2d74d3a964497e6c13f3a0ad8548d5ecd204d9aa326d7f9548b0e72699236430",
+        "label": "WINDOWS_COMMAND_1",
+        "last_seen_ms": 0,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "windows_command",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4403757,
+        "uid": 1000
+      }
+    ],
+    "ready_file_verified": true,
+    "ready_gate_temporary_absent_after": true,
+    "ready_stdout_verified": true,
+    "run_number": 1,
+    "schema": "linux-vst-bridge-wr0-live-held-cleanup/v1",
+    "sentinel": {
+      "comm": "python3",
+      "executable_basename": "python3.13",
+      "identity_sha256": "67922d7f1261e14193760ca00be5c9ba7b99303ab014171867e1a412a7138e9c",
+      "same_safe_comm_as_proton_family": true,
+      "separate_process_group": true,
+      "start_ticks": 4403773,
+      "uid": 1000
+    },
+    "sentinel_survival": true,
+    "sentinel_terminated_separately": true,
+    "stage_cleanup": true,
+    "strict_command_vector_verified": true,
+    "termination": {
+      "classification": "passed",
+      "deadline_seconds": 10.0,
+      "escaped_process_group_count": 11,
+      "final_group_empty": true,
+      "final_owned_count": 0,
+      "kill_signal_target_count": 0,
+      "observed_identity_count": 14,
+      "term_signal_target_count": 6
+    },
+    "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+  },
+  "negative_tests": {
+    "cases": [
+      {
+        "case": "wrong_runner_version_identity_refused",
+        "result": "passed"
+      },
+      {
+        "case": "changed_launch_critical_file_refused",
+        "result": "passed"
+      },
+      {
+        "case": "wrong_undeclared_runtime_pairing_refused",
+        "result": "passed"
+      },
+      {
+        "case": "missing_runtime_entrypoint_refused",
+        "result": "passed"
+      },
+      {
+        "case": "unknown_existing_final_environment_refused",
+        "result": "passed"
+      },
+      {
+        "case": "environment_bound_to_other_runner_refused",
+        "result": "passed"
+      },
+      {
+        "case": "symlinked_environment_ancestor_refused",
+        "result": "passed"
+      },
+      {
+        "case": "environment_path_escape_refused",
+        "result": "passed"
+      },
+      {
+        "case": "stage_failure_restores_prior_absence",
+        "result": "passed"
+      },
+      {
+        "case": "failed_replacement_restores_prior_exact_environment",
+        "result": "passed"
+      },
+      {
+        "case": "workload_wrong_nonce_refused",
+        "result": "passed"
+      },
+      {
+        "case": "missing_internal_receipt_refused",
+        "result": "passed"
+      },
+      {
+        "case": "unexpected_windows_exit_refused",
+        "result": "passed"
+      },
+      {
+        "case": "expected_test_exit_37_propagated",
+        "result": "passed"
+      },
+      {
+        "case": "supervisor_timeout_terminates_only_owned_group",
+        "result": "passed"
+      },
+      {
+        "case": "steam_game_launch_ancestry_refused",
+        "result": "passed"
+      },
+      {
+        "case": "second_run_different_environment_identity_refused",
+        "result": "passed"
+      },
+      {
+        "case": "preflight_existing_process_families_refused",
+        "result": "passed"
+      },
+      {
+        "case": "protected_fixture_mismatch_invalidates_acceptance",
+        "result": "passed"
+      },
+      {
+        "case": "test_root_symlink_escape_refused",
+        "result": "passed"
+      },
+      {
+        "case": "handshake_wrong_nonce_refused",
+        "result": "passed"
+      },
+      {
+        "case": "handshake_reused_nonce_refused",
+        "result": "passed"
+      },
+      {
+        "case": "gate_before_process_observation_refused",
+        "result": "passed"
+      },
+      {
+        "case": "runtime_wrapper_with_proton_argument_not_proton_role",
+        "result": "passed"
+      },
+      {
+        "case": "proton_and_command_sibling_branches_share_exact_runtime_root",
+        "result": "passed"
+      },
+      {
+        "case": "unrelated_same_name_process_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "stale_pid_start_identity_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "root_exit_with_open_pipe_still_hits_deadline",
+        "result": "passed"
+      },
+      {
+        "case": "root_owned_descendant_outside_group_scoped_cleanup",
+        "result": "passed"
+      },
+      {
+        "case": "changed_contract_source_manifest_refused",
+        "result": "passed"
+      },
+      {
+        "case": "handshake_wrong_ready_run_number_refused",
+        "result": "passed"
+      },
+      {
+        "case": "handshake_preexisting_ready_file_refused",
+        "result": "passed"
+      },
+      {
+        "case": "handshake_preexisting_gate_file_refused",
+        "result": "passed"
+      },
+      {
+        "case": "process_dies_between_observation_and_gate_commit_refused",
+        "result": "passed"
+      },
+      {
+        "case": "short_lived_command_without_readiness_cannot_authorize_gate",
+        "result": "passed"
+      },
+      {
+        "case": "windows_command_wrong_run_number_refused",
+        "result": "passed"
+      },
+      {
+        "case": "windows_command_alternate_full_path_same_basename_refused",
+        "result": "passed"
+      },
+      {
+        "case": "windows_command_missing_or_reordered_switches_refused",
+        "result": "passed"
+      },
+      {
+        "case": "exact_proton_process_satisfies_proton_role",
+        "result": "passed"
+      },
+      {
+        "case": "exact_command_vector_satisfies_windows_command_role",
+        "result": "passed"
+      },
+      {
+        "case": "windows_command_duplicate_ambiguous_vector_refused",
+        "result": "passed"
+      },
+      {
+        "case": "windows_command_exit_37_flag_exactly_if_expected",
+        "result": "passed"
+      },
+      {
+        "case": "final_sigkill_survivor_produces_process_topology_blocked",
+        "result": "passed"
+      },
+      {
+        "case": "ready_gate_temporary_artifacts_absent_after_scoped_cleanup",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_backup_rename_then_first_fsync_failure_restores_exact",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_backup_verification_failure_restores_exact",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_restore_fsync_failure_outer_recovery_accepts_exact_destination",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_backup_physical_rename_before_event_is_recovered",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_recovery_false_event_exact_backup_restored",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_backup_unknown_object_refused_unchanged",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_backup_forged_marker_identity_refused",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_recovery_both_absent_fails_closed",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_recovery_unknown_destination_refuses_exact_backup",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_guarded_backup_receipt_and_rollback_pass",
+        "result": "passed"
+      },
+      {
+        "case": "replacement_failure_before_predecessor_backup_preserves_predecessor",
+        "result": "passed"
+      },
+      {
+        "case": "replacement_failure_after_backup_before_promotion_restores_predecessor",
+        "result": "passed"
+      },
+      {
+        "case": "replacement_failure_after_promotion_before_commit_restores_predecessor",
+        "result": "passed"
+      },
+      {
+        "case": "replacement_commit_record_write_failure_restores_predecessor",
+        "result": "passed"
+      },
+      {
+        "case": "replacement_commit_record_readback_failure_restores_predecessor",
+        "result": "passed"
+      },
+      {
+        "case": "post_commit_failure_before_retirement_preserves_new_environment",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_recursive_retirement_failure_preserves_new_environment",
+        "result": "passed"
+      },
+      {
+        "case": "predecessor_parent_fsync_failure_preserves_new_environment",
+        "result": "passed"
+      },
+      {
+        "case": "final_evidence_render_failure_preserves_committed_environment",
+        "result": "passed"
+      },
+      {
+        "case": "final_evidence_sanitization_failure_preserves_committed_environment",
+        "result": "passed"
+      },
+      {
+        "case": "durable_commit_precedes_successful_retirement_and_evidence",
+        "result": "passed"
+      },
+      {
+        "case": "stale_or_forged_replacement_commit_record_refused",
+        "result": "passed"
+      },
+      {
+        "case": "replacement_commit_record_wrong_environment_identities_refused",
+        "result": "passed"
+      },
+      {
+        "case": "post_commit_exception_never_invokes_precommit_rollback",
+        "result": "passed"
+      },
+      {
+        "case": "production_contract_source_evidence_only_stability",
+        "result": "passed"
+      },
+      {
+        "case": "production_changed_workload_changes_digest_and_refuses_stale_identity",
+        "result": "passed"
+      },
+      {
+        "case": "production_changed_supervisor_changes_digest_and_refuses_stale_identity",
+        "result": "passed"
+      },
+      {
+        "case": "production_changed_wrapper_changes_digest_and_refuses_stale_identity",
+        "result": "passed"
+      },
+      {
+        "case": "production_unexpected_governed_path_refused",
+        "result": "passed"
+      },
+      {
+        "case": "production_historical_provenance_edit_cannot_authorize_changed_source",
+        "result": "passed"
+      },
+      {
+        "case": "production_unstaged_and_staged_governed_source_refused",
+        "result": "passed"
+      },
+      {
+        "case": "actual_batch_gate_wrong_nonce_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "actual_batch_gate_wrong_run_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "live_held_command_cleanup_actual_topology",
+        "result": "passed"
+      },
+      {
+        "case": "live_held_cleanup_unrelated_sentinel_survives",
+        "result": "passed"
+      },
+      {
+        "case": "live_handshake_artifacts_absent_after_bad_gate_and_forced_cleanup",
+        "result": "passed"
+      }
+    ],
+    "classification": "passed",
+    "failed_count": 0,
+    "live_production_cases": 5,
+    "passed_count": 80,
+    "production_contract_source_tests": true,
+    "real_runner_modified": false,
+    "schema": "linux-vst-bridge-wr0-negative-tests/v1",
+    "test_root": "<HOME>/.cache/linux-vst-bridge/wr0/tests"
+  },
+  "predecessor_environment": {
+    "classification": "installed_before_slice",
+    "environment": {
+      "bounded_prefix_top_level": [
+        {
+          "name": ".update-timestamp",
+          "type": "regular_file"
+        },
+        {
+          "name": "dosdevices",
+          "type": "directory"
+        },
+        {
+          "name": "drive_c",
+          "type": "directory"
+        },
+        {
+          "name": "system.reg",
+          "type": "regular_file"
+        },
+        {
+          "name": "user.reg",
+          "type": "regular_file"
+        },
+        {
+          "name": "userdef.reg",
+          "type": "regular_file"
+        }
+      ],
+      "bounded_prefix_top_level_count": 6,
+      "classification": "passed",
+      "complete_prefix_roster_retained": false,
+      "environment_identity": {
+        "contract_source_sha256": "887b148b7862038fd8fc0af52146ecc7452a5fbf82c22c5af8eaec6fe47504b8",
+        "neutral_application_id": "0",
+        "pfx_device": 66312,
+        "pfx_inode": 5835828,
+        "runner_identity_sha256": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+        "schema": "linux-vst-bridge-wr0-environment/v1",
+        "transaction_id": "wr0-20260901T045337Z-caf9f4eaf52d2d34",
+        "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+      },
+      "environment_identity_sha256": "447e6d4dfccfbebe7be44cc521e8ed192bfad4ab1fe1f16673d391161db73c24",
+      "marker": {
+        "contract_source_schema": "linux-vst-bridge-wr0-contract-source/v1",
+        "contract_source_sha256": "887b148b7862038fd8fc0af52146ecc7452a5fbf82c22c5af8eaec6fe47504b8",
+        "created_at": "2026-09-01T04:53:37Z",
+        "credentials_retained": false,
+        "exit_37_verified": true,
+        "layout": {
+          "compatdata": "compatdata",
+          "host_cache": "host-cache",
+          "host_config": "host-config",
+          "host_data": "host-data",
+          "prefix": "compatdata/pfx",
+          "receipts": "receipts",
+          "runtime_variable_state": "runtime-var"
+        },
+        "machine_identifier_retained": false,
+        "neutral_application_id": "0",
+        "private_path_retained": false,
+        "run_receipts": {
+          "run_1": "c3a9954ca7d9fb9f57ecc6bb50e204923132490952fc8b8eb714e4c05e3327c1",
+          "run_2": "81eb4884f7e066d79973af53cce85ac086c64c78879bea3d8c1c4372a5a5792b"
+        },
+        "runner_identity_sha256": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+        "runner_version": "1787334450 proton-11.0-2-x86_64",
+        "runtime_app_id": "4183110",
+        "runtime_version": "4.0.20260805.254769",
+        "schema": "linux-vst-bridge-wr0-environment/v1",
+        "status": "ready",
+        "transaction_id": "wr0-20260901T045337Z-caf9f4eaf52d2d34",
+        "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+      },
+      "marker_sha256": "f0f8bc6996e5413c6ab3236907f1e49c2df6c54ce7ef4ccd21020a782c2f315b",
+      "path": "<HOME>/.local/share/linux-vst-bridge/environments/wr0-proton11",
+      "registry_files": {
+        "system.reg": {
+          "sha256": "4210dba4701a9fb91878463c386bc96b7e097ee48a8050dc2891318cbcbc3f99",
+          "size": 4074218
+        },
+        "user.reg": {
+          "sha256": "ba531320b79ff7c9a6f7c25cacc96c3fea51290b93d31a79b218e6bda2a3a959",
+          "size": 106542
+        },
+        "userdef.reg": {
+          "sha256": "664c37d86aba4330492a8a6da8dfd44e6cc34369f840c33ffdd60ad093f053eb",
+          "size": 4190
+        }
+      }
+    },
+    "receipt_files": {
+      "exit-37.json": {
+        "sha256": "d3c281ee2dd5df29b409f41d5bcd073b637c71bc93e185286efe0410143e0e95",
+        "size": 792
+      },
+      "run-1.json": {
+        "sha256": "8d3f47bd0410fbfdd0ef4f0675a49331bbd52a7d4e4cfed3c557870f0ba66af8",
+        "size": 780
+      },
+      "run-2.json": {
+        "sha256": "6cbd31632b7a674e2810f3d148557ea169cef1d01b1572122d62bdcd04b1c5ac",
+        "size": 780
+      }
+    },
+    "snapshot_sha256": "7ed352c42b7f5cd5d3329a06c55a8269e40b277bcd77c9ce4891c0591ab7f5bf"
+  },
+  "preservation": {
+    "after": {
+      "accepted_evidence_packets": {
+        "hp0-native-vst3-bitwig-sandbox": {
+          "classification": "passed",
+          "manifest_sha256": "beaa49577d0e964a1d4a5ea915fb210ca85ca84e57a79eb937ff84ccece7b532",
+          "verified_file_count": 12
+        },
+        "hp1-bitwig-admission": {
+          "classification": "passed",
+          "manifest_sha256": "3f064735b78347839f3cb99c09f0fd930ff28680d0b3e740fbc5e80d9f63e827",
+          "verified_file_count": 12
+        },
+        "sr0-steam-deck-fixture-reconnaissance": {
+          "classification": "passed",
+          "manifest_sha256": "e0b7b45da7a88313bcb21d56fd9ea90a6bfa657bdcd70dd5e115b3673b56e6ba",
+          "verified_file_count": 10
+        }
+      },
+      "bitwig": {
+        "app_commit": "7b66aed37386ffff99e40bbd486f90ceee7ac1d5c59508c7952094122cebf50e",
+        "classification": "observed",
+        "runtime_commit": "bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8",
+        "runtime_ref": "org.freedesktop.Platform/x86_64/25.08",
+        "system_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "user_override_sha256": "1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e",
+        "user_shadow": false,
+        "version": "6.0.11"
+      },
+      "deck": {
+        "architecture": "x86_64",
+        "classification": "passed",
+        "hostname_retained": false,
+        "machine_class": "Steam Deck Galileo",
+        "os": "SteamOS",
+        "readonly": "enabled"
+      },
+      "hp0": {
+        "build_receipt_schema": "linux-vst-bridge-hp0-build/v2",
+        "build_receipt_sha256": "2fae3eb22cd6ee0725703d4b507525cae427bcaa01412dd80f879832c5951b4e",
+        "build_source_schema": "linux-vst-bridge-hp0-build-source/v1",
+        "build_source_sha256": "ee301e3e42b2381d5a9aa88ec64635482d098bc8cde50d33a57e6c397fb1e9ab",
+        "classification": "observed",
+        "module": {
+          "mtime_ns": 1788215299268870862,
+          "sha256": "3abaa8a2051ea179e28986cc6fbad4cde2d0d5e9a844b18aca91cdf7c59e69d7",
+          "size": 322224,
+          "type": "regular_file"
+        },
+        "publication_receipt": {
+          "mtime_ns": 1788215396039690545,
+          "sha256": "d328adb27fef326b8e5b1104f072c246a803389a77d35ee5babc9834067668d1",
+          "size": 686,
+          "type": "regular_file"
+        },
+        "publication_receipt_schema": "linux-vst-bridge-hp0-publication/v2",
+        "retained_build": {
+          "bundle_manifest": {
+            "mtime_ns": 1788215301264528122,
+            "sha256": "ec8a4531a3b73da3c3e29c6e1f3c90c989fb61e3f3397af32d4c1576b3624ea9",
+            "size": 209,
+            "type": "regular_file"
+          },
+          "module": {
+            "mtime_ns": 1788215299268870862,
+            "sha256": "3abaa8a2051ea179e28986cc6fbad4cde2d0d5e9a844b18aca91cdf7c59e69d7",
+            "size": 322224,
+            "type": "regular_file"
+          },
+          "receipt": {
+            "mtime_ns": 1788215301288528301,
+            "sha256": "2fae3eb22cd6ee0725703d4b507525cae427bcaa01412dd80f879832c5951b4e",
+            "size": 1316,
+            "type": "regular_file"
+          },
+          "source_manifest": {
+            "mtime_ns": 1788215274563335095,
+            "sha256": "ee301e3e42b2381d5a9aa88ec64635482d098bc8cde50d33a57e6c397fb1e9ab",
+            "size": 1558,
+            "type": "regular_file"
+          },
+          "validator": {
+            "mtime_ns": 1788215301201527651,
+            "sha256": "cccae776eb87fbbbf6ac9c34c78bf1548937c48db3843e0cf0f12d312650466f",
+            "size": 1026664,
+            "type": "regular_file"
+          }
+        }
+      },
+      "runner_lock_digest": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+      "schema": "linux-vst-bridge-wr0-protected-fixture/v1",
+      "serum_regular_files": [
+        {
+          "mtime_ns": 1745989109370060240,
+          "role": "existing_native_proxy",
+          "sha256": "317d70f95a3c7559ff3d43b014c3e7b792fd03362d5e999d550a5566cf25b184",
+          "size": 88888,
+          "type": "regular_file"
+        },
+        {
+          "mtime_ns": 1745689532000000000,
+          "role": "existing_windows_module",
+          "sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175",
+          "size": 18062336,
+          "type": "regular_file"
+        }
+      ],
+      "steam_compatdata": {
+        "classification": "observed",
+        "directory_count": 33,
+        "names_retained": false,
+        "roster_sha256": "be754ce016292277476721d282adba873495e34f8b218512572024189cf94967"
+      },
+      "wine_registry_files": {
+        "system.reg": {
+          "sha256": "2e0d2eb3b1bf446d93a66a7566738704072db083e7242d87c0bc1f0697738a88",
+          "size": 4397430,
+          "type": "regular_file"
+        },
+        "user.reg": {
+          "sha256": "8a34a08acfe6efb340e264cad90e70fd1586f25eb6bf90c49dde6fc78264fab9",
+          "size": 117505,
+          "type": "regular_file"
+        },
+        "userdef.reg": {
+          "sha256": "0299356f52d87c08134b7da63db359db20806f8731fd4f008985d8fd0df364bf",
+          "size": 4026,
+          "type": "regular_file"
+        }
+      }
+    },
+    "after_sha256": "3fcb16af33518797020855ef214b7b55b2f006838e2ed1e24337caf0474fcb9c",
+    "before": {
+      "accepted_evidence_packets": {
+        "hp0-native-vst3-bitwig-sandbox": {
+          "classification": "passed",
+          "manifest_sha256": "beaa49577d0e964a1d4a5ea915fb210ca85ca84e57a79eb937ff84ccece7b532",
+          "verified_file_count": 12
+        },
+        "hp1-bitwig-admission": {
+          "classification": "passed",
+          "manifest_sha256": "3f064735b78347839f3cb99c09f0fd930ff28680d0b3e740fbc5e80d9f63e827",
+          "verified_file_count": 12
+        },
+        "sr0-steam-deck-fixture-reconnaissance": {
+          "classification": "passed",
+          "manifest_sha256": "e0b7b45da7a88313bcb21d56fd9ea90a6bfa657bdcd70dd5e115b3673b56e6ba",
+          "verified_file_count": 10
+        }
+      },
+      "bitwig": {
+        "app_commit": "7b66aed37386ffff99e40bbd486f90ceee7ac1d5c59508c7952094122cebf50e",
+        "classification": "observed",
+        "runtime_commit": "bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8",
+        "runtime_ref": "org.freedesktop.Platform/x86_64/25.08",
+        "system_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "user_override_sha256": "1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e",
+        "user_shadow": false,
+        "version": "6.0.11"
+      },
+      "deck": {
+        "architecture": "x86_64",
+        "classification": "passed",
+        "hostname_retained": false,
+        "machine_class": "Steam Deck Galileo",
+        "os": "SteamOS",
+        "readonly": "enabled"
+      },
+      "hp0": {
+        "build_receipt_schema": "linux-vst-bridge-hp0-build/v2",
+        "build_receipt_sha256": "2fae3eb22cd6ee0725703d4b507525cae427bcaa01412dd80f879832c5951b4e",
+        "build_source_schema": "linux-vst-bridge-hp0-build-source/v1",
+        "build_source_sha256": "ee301e3e42b2381d5a9aa88ec64635482d098bc8cde50d33a57e6c397fb1e9ab",
+        "classification": "observed",
+        "module": {
+          "mtime_ns": 1788215299268870862,
+          "sha256": "3abaa8a2051ea179e28986cc6fbad4cde2d0d5e9a844b18aca91cdf7c59e69d7",
+          "size": 322224,
+          "type": "regular_file"
+        },
+        "publication_receipt": {
+          "mtime_ns": 1788215396039690545,
+          "sha256": "d328adb27fef326b8e5b1104f072c246a803389a77d35ee5babc9834067668d1",
+          "size": 686,
+          "type": "regular_file"
+        },
+        "publication_receipt_schema": "linux-vst-bridge-hp0-publication/v2",
+        "retained_build": {
+          "bundle_manifest": {
+            "mtime_ns": 1788215301264528122,
+            "sha256": "ec8a4531a3b73da3c3e29c6e1f3c90c989fb61e3f3397af32d4c1576b3624ea9",
+            "size": 209,
+            "type": "regular_file"
+          },
+          "module": {
+            "mtime_ns": 1788215299268870862,
+            "sha256": "3abaa8a2051ea179e28986cc6fbad4cde2d0d5e9a844b18aca91cdf7c59e69d7",
+            "size": 322224,
+            "type": "regular_file"
+          },
+          "receipt": {
+            "mtime_ns": 1788215301288528301,
+            "sha256": "2fae3eb22cd6ee0725703d4b507525cae427bcaa01412dd80f879832c5951b4e",
+            "size": 1316,
+            "type": "regular_file"
+          },
+          "source_manifest": {
+            "mtime_ns": 1788215274563335095,
+            "sha256": "ee301e3e42b2381d5a9aa88ec64635482d098bc8cde50d33a57e6c397fb1e9ab",
+            "size": 1558,
+            "type": "regular_file"
+          },
+          "validator": {
+            "mtime_ns": 1788215301201527651,
+            "sha256": "cccae776eb87fbbbf6ac9c34c78bf1548937c48db3843e0cf0f12d312650466f",
+            "size": 1026664,
+            "type": "regular_file"
+          }
+        }
+      },
+      "runner_lock_digest": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+      "schema": "linux-vst-bridge-wr0-protected-fixture/v1",
+      "serum_regular_files": [
+        {
+          "mtime_ns": 1745989109370060240,
+          "role": "existing_native_proxy",
+          "sha256": "317d70f95a3c7559ff3d43b014c3e7b792fd03362d5e999d550a5566cf25b184",
+          "size": 88888,
+          "type": "regular_file"
+        },
+        {
+          "mtime_ns": 1745689532000000000,
+          "role": "existing_windows_module",
+          "sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175",
+          "size": 18062336,
+          "type": "regular_file"
+        }
+      ],
+      "steam_compatdata": {
+        "classification": "observed",
+        "directory_count": 33,
+        "names_retained": false,
+        "roster_sha256": "be754ce016292277476721d282adba873495e34f8b218512572024189cf94967"
+      },
+      "wine_registry_files": {
+        "system.reg": {
+          "sha256": "2e0d2eb3b1bf446d93a66a7566738704072db083e7242d87c0bc1f0697738a88",
+          "size": 4397430,
+          "type": "regular_file"
+        },
+        "user.reg": {
+          "sha256": "8a34a08acfe6efb340e264cad90e70fd1586f25eb6bf90c49dde6fc78264fab9",
+          "size": 117505,
+          "type": "regular_file"
+        },
+        "userdef.reg": {
+          "sha256": "0299356f52d87c08134b7da63db359db20806f8731fd4f008985d8fd0df364bf",
+          "size": 4026,
+          "type": "regular_file"
+        }
+      }
+    },
+    "before_sha256": "3fcb16af33518797020855ef214b7b55b2f006838e2ed1e24337caf0474fcb9c",
+    "classification": "passed",
+    "exact_equality": true
+  },
+  "process_guards": {
+    "after": {
+      "classification": "passed",
+      "counts": {
+        "bitwig": 0,
+        "proton": 0,
+        "runtime": 0,
+        "umu": 0,
+        "validator": 0,
+        "wine": 0,
+        "yabridge": 0
+      },
+      "ordinary_steam_process_count": 13,
+      "ordinary_steam_separate": true
+    },
+    "before": {
+      "classification": "passed",
+      "counts": {
+        "bitwig": 0,
+        "proton": 0,
+        "runtime": 0,
+        "umu": 0,
+        "validator": 0,
+        "wine": 0,
+        "yabridge": 0
+      },
+      "ordinary_steam_process_count": 13,
+      "ordinary_steam_separate": true
+    },
+    "classification": "passed",
+    "live_held_final_owned_count": 0,
+    "steam_game_ancestor": false,
+    "unrelated_sentinel_survival": true
+  },
+  "replacement": {
+    "backup_created": false,
+    "classification": "observed",
+    "durable_commit_record": {
+      "committed_at": "2026-09-01T05:34:03Z",
+      "committed_sha256": "ccd2abd9850a7a6c13f4140229df0513c7e4450142888da2e326a770349f9bcd",
+      "final_sha256": "917c939c605f457376b0bdd53e06d252d4aecee4b39728850b2e1a61aa102b3e",
+      "pending_retirement_sha256": "c90e0e60e9974dd6ca8c765f97ccf01aa45f847fd63491b9c5f4f851758ef2bc",
+      "predecessor_retirement_status": "retired",
+      "readback_verified": true,
+      "retirement_completed_at": "2026-09-01T05:34:03Z",
+      "retirement_started_at": "2026-09-01T05:34:03Z",
+      "schema": "linux-vst-bridge-wr0-replacement-commit/v1"
+    },
+    "durably_committed": true,
+    "guarded_backup_receipt": {
+      "backup_present": true,
+      "backup_snapshot_verified": true,
+      "classification": "passed",
+      "destination_absent": true,
+      "first_directory_fsync_guarded": true,
+      "parent_fsync_completed": true,
+      "rename_completed": true,
+      "transaction_derived_backup": true
+    },
+    "phase_events": [
+      {
+        "at": "2026-09-01T05:33:15Z",
+        "phase": "predecessor_verified",
+        "sequence": 0
+      },
+      {
+        "at": "2026-09-01T05:33:18Z",
+        "phase": "predecessor_backed_up",
+        "sequence": 1
+      },
+      {
+        "at": "2026-09-01T05:33:18Z",
+        "phase": "new_environment_staged",
+        "sequence": 2
+      },
+      {
+        "at": "2026-09-01T05:33:32Z",
+        "phase": "new_environment_promoted",
+        "sequence": 3
+      },
+      {
+        "at": "2026-09-01T05:34:03Z",
+        "phase": "commit_ready",
+        "sequence": 4
+      },
+      {
+        "at": "2026-09-01T05:34:03Z",
+        "phase": "new_environment_committed",
+        "sequence": 5
+      },
+      {
+        "at": "2026-09-01T05:34:03Z",
+        "phase": "predecessor_retirement_pending",
+        "sequence": 6
+      },
+      {
+        "at": "2026-09-01T05:34:03Z",
+        "phase": "predecessor_retired",
+        "sequence": 7
+      },
+      {
+        "at": "2026-09-01T05:34:04Z",
+        "phase": "evidence_finalized",
+        "sequence": 8
+      }
+    ],
+    "precommit_recovery_receipt": null,
+    "predecessor_environment_identity_sha256": "447e6d4dfccfbebe7be44cc521e8ed192bfad4ab1fe1f16673d391161db73c24",
+    "predecessor_retired": true,
+    "replacement_phase": "evidence_finalized",
+    "retirement_pending": false,
+    "rollback_available": false
+  },
+  "run_1": {
+    "ancestry": [
+      {
+        "comm": "pressure-vessel",
+        "exe_basename": "pressure-vessel-wrap",
+        "identity_sha256": "efbc99e04babeb5ec6f82a9f3a9f2140a903440558bd4573e8f95df5f67c24bd",
+        "start_ticks": 4399738,
+        "uid": 1000
+      },
+      {
+        "comm": "python3",
+        "exe_basename": "python3.13",
+        "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+        "start_ticks": 4399305,
+        "uid": 1000
+      },
+      {
+        "comm": "tailscaled",
+        "exe_basename": "unavailable",
+        "identity_sha256": "b50dcae47ad6449ccf4b9caac0a141c7a487c457f11dde6c5ba44e766a7f760a",
+        "start_ticks": 4399303,
+        "uid": 1000
+      },
+      {
+        "comm": "tailscaled",
+        "exe_basename": "unavailable",
+        "identity_sha256": "d369a3fdeed69ea1c8a1cf85baf414c1ba1752a439b97475c06dd5f3ead9c5af",
+        "start_ticks": 883,
+        "uid": 0
+      },
+      {
+        "comm": "systemd",
+        "exe_basename": "unavailable",
+        "identity_sha256": "e4f3344641b75b8f60d7d7633cacde9960f43fb397fefb1b9860f6001100bd2a",
+        "start_ticks": 14,
+        "uid": 0
+      }
+    ],
+    "classification": "passed",
+    "clean_descendant_count": 0,
+    "command_contract": "exact_unique_ordered_d_q_c_full_probe_nonce_run_source_workload_vector",
+    "complete_command_line_retained": false,
+    "contract_source_schema": "linux-vst-bridge-wr0-contract-source/v1",
+    "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+    "duration_ms": 13793,
+    "environment_retained": false,
+    "escaped_process_group_count": 18,
+    "exit_status": 0,
+    "expected_exit_status": 0,
+    "finished_at": "2026-09-01T05:33:32Z",
+    "fresh_process_revalidation_verified": true,
+    "gate_behavior": "release",
+    "handshake": {
+      "causal_order_verified": true,
+      "command_completed_monotonic_us": 13731099,
+      "command_first_observed_monotonic_us": 13443470,
+      "common_runtime_ancestor_identity_sha256": "214a6e63476cf7770e7c5556ed3aa053f62223bc34cc11e6f9e72b084a719fb6",
+      "fresh_revalidated_monotonic_us": 13520566,
+      "gate_committed_monotonic_us": 13527137,
+      "observed_topology": "proton_and_windows_command_share_exact_runtime_ancestor",
+      "proton_chain_depth": 7,
+      "proton_identity_sha256": "1a681cac5fbce4abe8164648fe4cc6dab543321da5c1aa318a271d352d5140d5",
+      "ready_and_gate_absent_after": true,
+      "ready_file_verified": true,
+      "ready_stdout_verified": true,
+      "schema": "LINUX_VST_BRIDGE_WR0_HANDSHAKE_V1",
+      "windows_command_chain_depth": 7,
+      "windows_command_identity_sha256": "f7c5c10892f6f6617afaee0ccdf0405b5ff228820508a8a58d9ccb6e4c61cf64"
+    },
+    "missing_required_roles": [],
+    "nonce": "672302cd4fcba209d7d83092c43b1495",
+    "observed": true,
+    "process_count": 22,
+    "process_role_assertion": "passed",
+    "process_scope": "complete_bounded_exact_root_descendants",
+    "processes": [
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "pressure-vessel",
+        "executable_basename": "pressure-vessel-wrap",
+        "first_seen_ms": 70,
+        "identity_sha256": "efbc99e04babeb5ec6f82a9f3a9f2140a903440558bd4573e8f95df5f67c24bd",
+        "label": "RUNTIME_ROOT_1",
+        "last_seen_ms": 13668,
+        "parent": "SUPERVISOR",
+        "role": "runtime_root",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4399738,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "x86_64-linux-gn",
+        "executable_basename": "x86_64-linux-gnu-capsule-capture-libs",
+        "first_seen_ms": 638,
+        "identity_sha256": "35806fc94e9311a285331a330c4498067e74ddb206b83d06b28ff0acec5f62d3",
+        "label": "OWNED_DESCENDANT_1",
+        "last_seen_ms": 638,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4399798,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "i386-linux-gnu-",
+        "executable_basename": "i386-linux-gnu-capsule-capture-libs",
+        "first_seen_ms": 940,
+        "identity_sha256": "147826e4194090dc73cfa67cd337ad0d23a0141f3e102e4555dfb2215405c9cc",
+        "label": "OWNED_DESCENDANT_2",
+        "last_seen_ms": 1169,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4399824,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "srt-bwrap",
+        "executable_basename": "srt-bwrap",
+        "first_seen_ms": 1283,
+        "identity_sha256": "214a6e63476cf7770e7c5556ed3aa053f62223bc34cc11e6f9e72b084a719fb6",
+        "label": "RUNTIME_COMPONENT_1",
+        "last_seen_ms": 13596,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "runtime_component",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4399866,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "python3",
+        "executable_basename": "python3.13",
+        "first_seen_ms": 1478,
+        "identity_sha256": "1a681cac5fbce4abe8164648fe4cc6dab543321da5c1aa318a271d352d5140d5",
+        "label": "PROTON_1",
+        "last_seen_ms": 13443,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "proton",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399877,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wine",
+        "executable_basename": "wine-preloader",
+        "first_seen_ms": 1478,
+        "identity_sha256": "c43b7daf2464620820ed8d17b3c2f1310816c127d0cd762619ce76a6f1f4d5a6",
+        "label": "WINE_1",
+        "last_seen_ms": 13443,
+        "parent": "PROTON_1",
+        "role": "wine",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399885,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wineserver",
+        "executable_basename": "wineserver",
+        "first_seen_ms": 1546,
+        "identity_sha256": "f30c425b51c6914643474720b852075b85eb0bd25bc5e9b10bda062c1429343d",
+        "label": "WINESERVER_1",
+        "last_seen_ms": 13596,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wineserver",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399885,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wineboot.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1546,
+        "identity_sha256": "25558bb383ead6f9aa9a9ecf69f4ff457064fa3e38761c172a94e719cd96d5f7",
+        "label": "OWNED_DESCENDANT_3",
+        "last_seen_ms": 12961,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399886,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "services.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1546,
+        "identity_sha256": "90d88ed046e672bf88c34fa7aa363622aa74636e23729f07da482e3269bcd5e6",
+        "label": "WINE_SUPPORT_1",
+        "last_seen_ms": 13443,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399890,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "rundll32.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1672,
+        "identity_sha256": "c656f009fe93595f07b9beca8e9916d3a49b0cf2fe11bc06047d4e306439e08c",
+        "label": "OWNED_DESCENDANT_4",
+        "last_seen_ms": 2130,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399893,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "explorer.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 2025,
+        "identity_sha256": "b8a3ced479400255754a30acfceca049ab8ba14dda05e0cdaf4ed2f1f0ebb773",
+        "label": "WINE_SUPPORT_2",
+        "last_seen_ms": 2130,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399939,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "explorer.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 2130,
+        "identity_sha256": "727d4c792a6ebd2878afd3dd317eb05ee702add3a569cc456d663842cf49492f",
+        "label": "WINE_SUPPORT_3",
+        "last_seen_ms": 2130,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399948,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "winedevice.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 2231,
+        "identity_sha256": "4d799cd32c9ed43696898388b513716340a21c12153dec7bbe1f90b5dac8eaed",
+        "label": "WINE_SUPPORT_4",
+        "last_seen_ms": 13443,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399954,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "rundll32.exe",
+        "executable_basename": "unavailable",
+        "first_seen_ms": 2231,
+        "identity_sha256": "75ad0fe7d392be4fd2400daa25872b7a2c87c9df95c0611fc29723816d671e03",
+        "label": "OWNED_DESCENDANT_5",
+        "last_seen_ms": 7244,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4399957,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "removeuserinsta",
+        "executable_basename": "wine-preloader",
+        "first_seen_ms": 4976,
+        "identity_sha256": "eb578f22119f6590a6b32466fb3083739b76c7adade76ae037566f25145c8038",
+        "label": "OWNED_DESCENDANT_6",
+        "last_seen_ms": 5170,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4400229,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "installinf-x86_",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 5561,
+        "identity_sha256": "ec365fa4c8463dec08bdd5e9a15452cfe07f5ede43cb209d8d18d92c2ebc0a49",
+        "label": "OWNED_DESCENDANT_7",
+        "last_seen_ms": 5561,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4400289,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "svchost.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 7121,
+        "identity_sha256": "297e9e9bafa0b33b53b40d35af9e05b7b84e68df18cafbbae1b4a0fc7fbeb4b4",
+        "label": "OWNED_DESCENDANT_8",
+        "last_seen_ms": 13443,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4400448,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "plugplay.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 7244,
+        "identity_sha256": "822f739971d953d148b7a26aa77b5c98bad12a8bb834775919e09d1697dfd75b",
+        "label": "OWNED_DESCENDANT_9",
+        "last_seen_ms": 13443,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4400453,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "rundll32.exe",
+        "executable_basename": "wine-preloader",
+        "first_seen_ms": 7367,
+        "identity_sha256": "89a58e45d066ba67ca91ccc81a374b04154783844358646fae2726e42b5a4072",
+        "label": "OWNED_DESCENDANT_10",
+        "last_seen_ms": 12110,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4400469,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "iexplore.exe",
+        "executable_basename": "unavailable",
+        "first_seen_ms": 12110,
+        "identity_sha256": "137a50be0dc027d3f979c0ae2009a35f7c5db2072dc566bb2e17d3d67782ad29",
+        "label": "OWNED_DESCENDANT_11",
+        "last_seen_ms": 12110,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4400939,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "winedevice.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 12353,
+        "identity_sha256": "5d3f8ac14a598bf8fb9d6ec28633d45c084ec20e9aa7b00c99ea280ba88bcca7",
+        "label": "WINE_SUPPORT_5",
+        "last_seen_ms": 13443,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4400967,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "cmd.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 13350,
+        "identity_sha256": "f7c5c10892f6f6617afaee0ccdf0405b5ff228820508a8a58d9ccb6e4c61cf64",
+        "label": "WINDOWS_COMMAND_1",
+        "last_seen_ms": 13443,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "windows_command",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401065,
+        "uid": 1000
+      }
+    ],
+    "root_identity_sha256": "efbc99e04babeb5ec6f82a9f3a9f2140a903440558bd4573e8f95df5f67c24bd",
+    "root_start_ticks": 4399738,
+    "run_number": 1,
+    "schema": "linux-vst-bridge-wr0-run/v1",
+    "started_at": "2026-09-01T05:33:18Z",
+    "stderr_bytes": 523,
+    "stderr_sha256": "271b1252b1eac2ac272f1b0461109e35f22af317932c27e318cb5282531a2487",
+    "stdout": "WR0_MAGIC=LINUX_VST_BRIDGE_WR0_V1\nWR0_NONCE=672302cd4fcba209d7d83092c43b1495\nWR0_RUN=1\nWR0_ARCH=x86_64\nWR0_READY=waiting_for_supervisor\nWR0_GATE=accepted\nWR0_RECEIPT=written_and_read\nWR0_EXIT=0\n",
+    "stdout_sha256": "faf3f9163e819c9aa7ca65ed0e3d9d72782af9bd9be9a97d008e8e353c3be964",
+    "steam_game_ancestor": false,
+    "strict_command_vector_verified": true,
+    "supervisor": {
+      "cgroup_class": "ordinary_user_scope",
+      "comm": "python3",
+      "exe_basename": "python3.13",
+      "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+      "start_ticks": 4399305,
+      "state": "R",
+      "uid": 1000
+    },
+    "terminated_by_supervisor": false,
+    "timeout": false,
+    "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+  },
+  "run_2": {
+    "ancestry": [
+      {
+        "comm": "pressure-vessel",
+        "exe_basename": "pressure-vessel-wrap",
+        "identity_sha256": "a03020c4163f9b78a52da6e08013c089762de2398c61edb15721e395ffb0e9c9",
+        "start_ticks": 4401138,
+        "uid": 1000
+      },
+      {
+        "comm": "python3",
+        "exe_basename": "python3.13",
+        "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+        "start_ticks": 4399305,
+        "uid": 1000
+      },
+      {
+        "comm": "tailscaled",
+        "exe_basename": "unavailable",
+        "identity_sha256": "b50dcae47ad6449ccf4b9caac0a141c7a487c457f11dde6c5ba44e766a7f760a",
+        "start_ticks": 4399303,
+        "uid": 1000
+      },
+      {
+        "comm": "tailscaled",
+        "exe_basename": "unavailable",
+        "identity_sha256": "d369a3fdeed69ea1c8a1cf85baf414c1ba1752a439b97475c06dd5f3ead9c5af",
+        "start_ticks": 883,
+        "uid": 0
+      },
+      {
+        "comm": "systemd",
+        "exe_basename": "unavailable",
+        "identity_sha256": "e4f3344641b75b8f60d7d7633cacde9960f43fb397fefb1b9860f6001100bd2a",
+        "start_ticks": 14,
+        "uid": 0
+      }
+    ],
+    "classification": "passed",
+    "clean_descendant_count": 0,
+    "command_contract": "exact_unique_ordered_d_q_c_full_probe_nonce_run_source_workload_vector",
+    "complete_command_line_retained": false,
+    "contract_source_schema": "linux-vst-bridge-wr0-contract-source/v1",
+    "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+    "duration_ms": 3315,
+    "environment_retained": false,
+    "escaped_process_group_count": 11,
+    "exit_status": 0,
+    "expected_exit_status": 0,
+    "finished_at": "2026-09-01T05:33:35Z",
+    "fresh_process_revalidation_verified": true,
+    "gate_behavior": "release",
+    "handshake": {
+      "causal_order_verified": true,
+      "command_completed_monotonic_us": 3272143,
+      "command_first_observed_monotonic_us": 3058416,
+      "common_runtime_ancestor_identity_sha256": "152839b840b33a0fa802eda259721b820169d20de2b3d5d4856c12d002cad17e",
+      "fresh_revalidated_monotonic_us": 3114641,
+      "gate_committed_monotonic_us": 3125614,
+      "observed_topology": "proton_and_windows_command_share_exact_runtime_ancestor",
+      "proton_chain_depth": 7,
+      "proton_identity_sha256": "9b5d7517e944eb242605a2f015cda0f3c15fedc2db3bade694a0dd0887833c5d",
+      "ready_and_gate_absent_after": true,
+      "ready_file_verified": true,
+      "ready_stdout_verified": true,
+      "schema": "LINUX_VST_BRIDGE_WR0_HANDSHAKE_V1",
+      "windows_command_chain_depth": 7,
+      "windows_command_identity_sha256": "9d17e682fc7496e6ebea5f4f0672a5ca4fd65cf4ae923d3b2635184dba8c2d35"
+    },
+    "missing_required_roles": [],
+    "nonce": "5c169d4b749e45723dd9503254516d10",
+    "observed": true,
+    "process_count": 14,
+    "process_role_assertion": "passed",
+    "process_scope": "complete_bounded_exact_root_descendants",
+    "processes": [
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "pressure-vessel",
+        "executable_basename": "pressure-vessel-wrap",
+        "first_seen_ms": 68,
+        "identity_sha256": "a03020c4163f9b78a52da6e08013c089762de2398c61edb15721e395ffb0e9c9",
+        "label": "RUNTIME_ROOT_1",
+        "last_seen_ms": 3227,
+        "parent": "SUPERVISOR",
+        "role": "runtime_root",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4401138,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "x86_64-linux-gn",
+        "executable_basename": "x86_64-linux-gnu-capsule-capture-libs",
+        "first_seen_ms": 752,
+        "identity_sha256": "7856b6d123a1b2141726f530f28c3603dbaf6b2051e2266c52969ed544dd6894",
+        "label": "OWNED_DESCENDANT_1",
+        "last_seen_ms": 752,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4401210,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "i386-linux-gnu-",
+        "executable_basename": "i386-linux-gnu-capsule-capture-libs",
+        "first_seen_ms": 1000,
+        "identity_sha256": "b07f1fe3e3d8ad4b44a9e0225e33daf4377d1675dedcf9fa8ac9a6373f23e404",
+        "label": "OWNED_DESCENDANT_2",
+        "last_seen_ms": 1096,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": true,
+        "same_session_as_root": true,
+        "start_ticks": 4401231,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "pv-adverb",
+        "executable_basename": "pv-adverb",
+        "first_seen_ms": 1286,
+        "identity_sha256": "152839b840b33a0fa802eda259721b820169d20de2b3d5d4856c12d002cad17e",
+        "label": "RUNTIME_COMPONENT_1",
+        "last_seen_ms": 3179,
+        "parent": "RUNTIME_ROOT_1",
+        "role": "runtime_component",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401261,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "python3",
+        "executable_basename": "python3.13",
+        "first_seen_ms": 1371,
+        "identity_sha256": "9b5d7517e944eb242605a2f015cda0f3c15fedc2db3bade694a0dd0887833c5d",
+        "label": "PROTON_1",
+        "last_seen_ms": 3058,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "proton",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401269,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wine",
+        "executable_basename": "wine-preloader",
+        "first_seen_ms": 1371,
+        "identity_sha256": "60cbe49368278421841bb619704bea8d8d53c1b5420e0b329d9f676657644b02",
+        "label": "WINE_1",
+        "last_seen_ms": 3058,
+        "parent": "PROTON_1",
+        "role": "wine",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401274,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wineserver",
+        "executable_basename": "wineserver",
+        "first_seen_ms": 1371,
+        "identity_sha256": "1aed3407cc696bad5aacc32b5d3bdb8837e8d4d016901536d1b2f5d3a4825f7a",
+        "label": "WINESERVER_1",
+        "last_seen_ms": 3179,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wineserver",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401275,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "wineboot.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1476,
+        "identity_sha256": "8aa81d0cd46cc62511811ec6c7f9e486e47a4c0d0b1f89eff2ae76c37b23a09b",
+        "label": "OWNED_DESCENDANT_3",
+        "last_seen_ms": 2258,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401281,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "services.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1476,
+        "identity_sha256": "e179bd8eb62b2702bc5dfcf55094c97f86cd1ee93eec087b996d2587373ee48c",
+        "label": "WINE_SUPPORT_1",
+        "last_seen_ms": 3058,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401283,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "winedevice.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1572,
+        "identity_sha256": "3bea2461a144f3996e66035db661e15a035a6c3ae44bb5d8ed38ad732bdb8cf2",
+        "label": "WINE_SUPPORT_2",
+        "last_seen_ms": 3058,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401287,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "plugplay.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1572,
+        "identity_sha256": "eb864559c8f358bbfa5c4316d5a03cf43dd5421fe44b272cb0feaa164b8d05fa",
+        "label": "OWNED_DESCENDANT_4",
+        "last_seen_ms": 3058,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401290,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "svchost.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1864,
+        "identity_sha256": "bd413b85cdd4ded094f22aaa7b3fd203054c3033dbdfe8df6c213133ef3ea4fa",
+        "label": "OWNED_DESCENDANT_5",
+        "last_seen_ms": 3058,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "owned_descendant",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401320,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "winedevice.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 1864,
+        "identity_sha256": "dd32e17e7e25d6bfa5c4bf2cc92ef70ecfe39d0e0f5644102df50974de2cac69",
+        "label": "WINE_SUPPORT_3",
+        "last_seen_ms": 3058,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "wine_support",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401324,
+        "uid": 1000
+      },
+      {
+        "cgroup_classification": "ordinary_user_scope",
+        "comm": "cmd.exe",
+        "executable_basename": "wine64-preloader",
+        "first_seen_ms": 2988,
+        "identity_sha256": "9d17e682fc7496e6ebea5f4f0672a5ca4fd65cf4ae923d3b2635184dba8c2d35",
+        "label": "WINDOWS_COMMAND_1",
+        "last_seen_ms": 3058,
+        "parent": "RUNTIME_COMPONENT_1",
+        "role": "windows_command",
+        "same_process_group_as_root": false,
+        "same_session_as_root": false,
+        "start_ticks": 4401432,
+        "uid": 1000
+      }
+    ],
+    "root_identity_sha256": "a03020c4163f9b78a52da6e08013c089762de2398c61edb15721e395ffb0e9c9",
+    "root_start_ticks": 4401138,
+    "run_number": 2,
+    "schema": "linux-vst-bridge-wr0-run/v1",
+    "started_at": "2026-09-01T05:33:32Z",
+    "stderr_bytes": 352,
+    "stderr_sha256": "776f568fe17292177657bc22a107fa8846c74d5d3418ed6f9e8071bd539e6eb6",
+    "stdout": "WR0_MAGIC=LINUX_VST_BRIDGE_WR0_V1\nWR0_NONCE=5c169d4b749e45723dd9503254516d10\nWR0_RUN=2\nWR0_ARCH=x86_64\nWR0_READY=waiting_for_supervisor\nWR0_GATE=accepted\nWR0_RECEIPT=written_and_read\nWR0_EXIT=0\n",
+    "stdout_sha256": "a45e6b5d2766dd975634a60256c8a796fb4f0dfe48f45b0e6ecba913da958cfd",
+    "steam_game_ancestor": false,
+    "strict_command_vector_verified": true,
+    "supervisor": {
+      "cgroup_class": "ordinary_user_scope",
+      "comm": "python3",
+      "exe_basename": "python3.13",
+      "identity_sha256": "0e60ef8af376bac399d223aa4083c4e842c06cda5583408ffbaffa0ecd21fc45",
+      "start_ticks": 4399305,
+      "state": "R",
+      "uid": 1000
+    },
+    "terminated_by_supervisor": false,
+    "timeout": false,
+    "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+  },
+  "runner": {
+    "app_id": "4628710",
+    "build_id": "24867889",
+    "classification": "installed_before_slice",
+    "manifest_sha256": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+    "version": "1787334450 proton-11.0-2-x86_64"
+  },
+  "runtime": {
+    "app_id": "4183110",
+    "build_id": "24599767",
+    "classification": "installed_before_slice",
+    "pressure_vessel_version": "0.20260805.0",
+    "version": "4.0.20260805.254769"
+  },
+  "sanitization": {
+    "classification": "passed",
+    "command_lines_or_environments": false,
+    "durable_pids": false,
+    "hostname": false,
+    "prefix_or_registry_content": false,
+    "private_paths": false,
+    "proprietary_content": false
+  },
+  "schema": "linux-vst-bridge-wr0-fixture/v1",
+  "sensitive_environment_identity": {
+    "classification": "unknown",
+    "value": "not_collected"
+  }
+}
