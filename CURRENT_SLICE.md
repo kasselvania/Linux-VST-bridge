@@ -1,101 +1,180 @@
-# Current Slice: None Selected
+# Current Slice: WF0 — Supervised Windows VST3 Factory Census Probe
 
 ## Status
 
 ```text
-status: no_active_slice
-authority_phase: no_active_slice
+status: active_design_slice
+authority_phase: reconnaissance_and_design
 implementation_authorized: false
-last accepted slice: WR0A — Post-Merge Final WR0 Repair Reconciliation and Adoption
+slice: WF0
+target: main
+selection_basis_commit: 745ca63bdd8641ade85cb9a024c1dc842681192d
+selection_basis_tree: 275521adff574f165bb2b3e883c2ec909bae4c66
+design_branch: codex/wf0-windows-vst3-factory-census-design
+design_gate: required
+selection_receipt: docs/slices/WF0/SLICE_SELECTION.md
+design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN.md
+design_approval: absent
 successor_selection_authorized: false
 ```
 
-No Windows VST3 scanner, Windows host, native proxy/factory crossing, bridge IPC, shared-memory transport, Serum operation, Bitwig operation, installer/authorization session, manager, broker, editor, CLAP work, runner change, or broader compatibility claim is selected or implied.
+The operator explicitly selected WF0 for bounded reconnaissance and implementation design. Product implementation is not authorized by this card.
 
-## Last accepted slice
+## Operator approval
 
 ```text
-slice: WR0A — Post-Merge Final WR0 Repair Reconciliation and Adoption
-design-authority merge: 5aa757e46f6e8c15751743b68a8504386fbe840c
-design-authority tree: a779d2ac85ec74adc907327dde13f5d31201f914
-implementation PR: #13
-implementation basis: 5aa757e46f6e8c15751743b68a8504386fbe840c
-tool commit: c78e5845ccae7ca0f5d1e1c802f1839d519ee096
-adoption commit: 60f05fb97ae1438a10b5360f47b5812fabf131a0
-reviewed head: 48b66e87f8e65a8e8e57832039ec567452ed857b
-reviewed tree: d46b907ecac1df970d83d364884b8fdd2ed57d82
-technical-lead review: 5081542159
-implementation merge: 8e6a5e55a4c731defd518618286adb308d9640ed
-implementation merge tree: d46b907ecac1df970d83d364884b8fdd2ed57d82
+I explicitly approve selecting WF0 — Supervised Windows VST3 Factory Census Probe and replacing the no-active-slice card with its bounded reconnaissance-and-design authority. This approval does not authorize implementation. Implementation requires a separate approved design revision.
 ```
 
-## Accepted reconciliation claim
+## Eventual primary claim
 
-Current `main` now contains the exact content-addressed final WR0 repair represented by archive commit:
+> On the exact accepted Steam Deck fixture, a repository-owned supervised Windows x86_64 factory probe, built against the pinned official VST3 SDK and executed through the accepted Runtime 4/Proton 11 lane in a disposable WF0-owned scan environment, loads the exact pinned AGain VST3 bundle, obtains its plug-in factory, retains deterministic factory metadata and the complete expected three-class census, unloads cleanly, and leaves the accepted WR0 environment and every protected fixture unchanged.
+
+This is the claim to be designed. It is not yet an implementation or compatibility claim.
+
+## Accepted prerequisites
 
 ```text
-52be94316664f88a19df630e164105a0ca50b875
+HP0 / HP1:
+  native Linux VST3 build, validation, publication, Bitwig discovery, and native instance admission
+
+WR0:
+  exact Runtime 4 / Proton 11 controlled Windows-command execution
+  isolated project-owned Windows environment
+  exact process ownership and cleanup
+  durable environment replacement and recovery
+
+WR0A:
+  repository truth reconciled to the accepted final WR0 source, evidence, and live environment
 ```
 
-The accepted reconciliation:
+Accepted runner and environment identities:
 
 ```text
-merged historical WR0 source/evidence
-    + exact post-merge final-repair archive
-    + 13 exact imported path/mode/blob identities
-    + 11 exact preserved WR0 identities
-    + archived CURRENT_SLICE.md explicitly excluded
-    + dedicated repository-owned reconciliation verifier
-    + bounded read-only live Deck equality
-    -> current repository truth aligned with the existing final WR0 environment
-```
-
-Accepted identities:
-
-```text
-archive tree: 21601814bd352114fe2e55833c88a81e47e13e41
-archive parent: 3deb414a54174cd95432c84e117a642f30c482fe
+runner/runtime digest: 2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
+accepted WR0 environment: d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4
 final WR0 contract source: c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541
-WR0A reconciliation source: c0675f824d2f4cd12b84486c5378a7af65a582cf07ad06ff06a1ed5e2cc0d9c8
-live transaction: wr0-20260901T053317Z-183afd5bbf0736e4
-live environment: d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4
-runner/runtime: 2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
-workload: 4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac
-retired replacement record: 917c939c605f457376b0bdd53e06d252d4aecee4b39728850b2e1a61aa102b3e
 ```
 
-No Proton, Wine, Windows workload, Bitwig, Serum, or validator execution was required for WR0A. The live environment remained unchanged. The canonical WR0 packet now represents the actual final repair, while immutable Git history retains the older merged WR0 state.
+The accepted WR0 environment is protected and read-only during WF0.
 
-## Current accepted product frontier
+## Design-phase objective
 
-The project now proves, on the exact accepted Steam Deck fixture:
+Reconnaissance and the implementation design must establish the smallest lawful design for:
 
 ```text
-native Linux VST3 build and official validation
-    -> controlled publication into Bitwig's Flatpak-visible user path
-    -> normal Bitwig discovery and native instance admission
-    -> controlled Steam Linux Runtime 4 / Proton 11 Windows-command execution
-    -> isolated project-owned Windows environment
-    -> exact process ownership, cleanup, and durable replacement semantics
-    -> repository/live-state reconciliation of the final WR0 repair
+exact Windows cross-toolchain
+    -> exact Windows AGain reference bundle
+    -> disposable WF0 scan environment
+    -> supervised Windows scanner process
+    -> module open
+    -> module entry
+    -> GetPluginFactory / IPluginFactory
+    -> factory metadata
+    -> complete factory class enumeration
+    -> module exit and unload
+    -> exact process cleanup
 ```
 
-No Windows VST3 module has yet been factory-loaded, scanned, hosted, instantiated, or bridged.
-
-## Next lawful action
-
-Run the analysis-only successor-selection process in:
+The scanner stages must remain distinguishable:
 
 ```text
-docs/prompts/CHOOSE_NEXT_SLICE.md
+module_open
+module_entry
+factory_get
+factory_info
+class_enumeration
+module_exit
+module_unload
+process_cleanup
 ```
 
-against the exact current `main` commit and tree after this status closure merges.
+WF0 stops before class instantiation.
 
-That analysis may recommend one bounded slice and emit an operator approval sentence. It may not edit the repository, activate a slice, or implement a design-gated successor.
+## Exact design-phase changed paths
 
-The likely product frontier is the Windows VST3 factory boundary, but no successor is selected by this closure.
+Only these paths may change during reconnaissance and design:
+
+```text
+CURRENT_SLICE.md
+docs/slices/WF0/SLICE_SELECTION.md
+docs/slices/WF0/RECONNAISSANCE.md
+docs/slices/WF0/IMPLEMENTATION_DESIGN.md
+```
+
+The independent reviewer may later add:
+
+```text
+docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW.md
+```
+
+A design approval may later add:
+
+```text
+docs/slices/WF0/DESIGN_APPROVAL.md
+```
+
+Neither later file exists or is authorized by this design-phase activation.
+
+## Permitted design-phase activity
+
+- Read all governing repository documents and accepted HP0, HP1, WR0, and WR0A evidence.
+- Perform bounded read-only inspection of the Steam Deck, installed Flatpak SDK/runtime inventory, runner assets, accepted WR0 environment identity, and relevant local source checkouts.
+- Inspect the pinned official VST3 SDK, AGain source, Windows hosting implementation, CMake support, and applicable license material.
+- Determine the exact MinGW/toolchain candidate and whether it is available without installing it.
+- Define the owner map, scanner state machine, process topology, disposable-environment lifecycle, exact census schema, failure classifications, changed-path envelope, proof matrix, and claim ceiling.
+
+## Prohibited during design
+
+- Installing a package, Flatpak extension, compiler, SDK, dependency, or runtime.
+- Building a Windows executable or VST3 bundle.
+- Launching Proton, Wine, a Windows workload, scanner, validator, Bitwig, or Serum.
+- Creating or mutating a WF0 scan environment.
+- Modifying the accepted WR0 environment, `.wine`, Steam compatdata, Bitwig/Flatpak settings, HP0 publication, or any accepted evidence.
+- Reading vendor credentials, authorization state, proprietary plug-in contents, or private project data.
+- Implementing scanner, host, proxy, IPC, Rust product code, audio, GUI, or Serum support.
+
+## Protected state
+
+- Current accepted `main` and all governance records outside the four-path design envelope.
+- Accepted WR0 environment and receipts.
+- Runtime 4 and Proton 11 assets.
+- Existing `.wine` and observed Serum files.
+- HP0 native publication and build receipts.
+- HP1 Bitwig state and evidence.
+- Bitwig and Flatpak configuration.
+- Steam compatdata and SteamOS read-only state.
+
+## Design questions that must be answered
+
+1. Which exact user-space Windows cross-toolchain is selected and how is it pinned?
+2. Can the pinned VST3 SDK and AGain fixture be built through that toolchain without source patching or undeclared downloads?
+3. What exact AGain bundle, binary path, dependencies, class order, and factory metadata are expected?
+4. What is the narrowest C++20 scanner executable and which official SDK helpers does it own?
+5. What disposable environment does WF0 use without touching the accepted WR0 environment?
+6. Which WR0 supervisor, ancestry, timeout, and cleanup laws are reused, and what scanner-specific additions are needed?
+7. What bounded normalized schema represents factory metadata and every class exactly?
+8. Which blocked result owns each scanner stage?
+9. How is the reference fixture independently validated before scanner results are trusted?
+10. Which SDK/example notices and generated artifacts may be retained or redistributed?
+
+## Material-discovery stop law
+
+Return to the design gate if reconnaissance changes the proposed owner boundary, runner route, scan-environment mutation root, module lifecycle, toolchain route, exact fixture, primary claim, claim ceiling, changed paths, or proof ownership.
+
+Do not patch forward into implementation.
+
+## Required next gate
+
+The design agent must produce:
+
+```text
+docs/slices/WF0/RECONNAISSANCE.md
+docs/slices/WF0/IMPLEMENTATION_DESIGN.md
+```
+
+A fresh independent context must then review the exact design revision. Implementation remains forbidden until a separate exact design approval is retained and merged.
 
 ## Explicit nonclaims
 
-WR0A does not prove Windows VST3 loading or hosting, Serum authorization or operation, Bitwig scanning of a Windows plug-in, audio processing, parameter/state transport, GUI/editor behavior, IPC, shared memory, real-time safety, packaging, Steam-independent distribution, another DAW, or general Linux compatibility.
+WF0 design authority does not prove or authorize class instantiation, component/controller lifecycle, interface census beyond factory-level interfaces, buses, parameters, events, state, process setup, audio, editor behavior, a native proxy, IPC, a Rust service, Serum execution, Bitwig execution, product-runner selection, Steam-independent distribution, another plug-in, or general Windows VST3/Linux compatibility.
