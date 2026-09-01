@@ -13,14 +13,14 @@ amendment_basis_tree: a6e2fc8c7a564f50e9033094fde847387478de62
 amendment_branch: codex/wf0-bitwig-6-1-fixture-amendment
 amendment_authorized: true
 amendment_authorization_text: I authorize an ammendment.
-repair_basis_commit: b6a697d71ea1cf81974199cdd35d4b7dcede6d45
-repair_basis_tree: 0182c76f39567147da1c6767e3f0e2ac8eafc7e1
-design_revision: wf0-design-v4
+repair_basis_commit: 62cbf973f2e107f91191fc0dee90188d73b50423
+repair_basis_tree: 8142bc714ac7b757fe17444d7c76c1242afec1ce
+design_revision: wf0-design-v5
 design_status: proposed_for_adversarial_review
-design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V4.md
+design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V5.md
 design_card_git_blob: pending_external_identity_from_design_commit
 design_card_sha256: pending_external_identity_from_design_commit
-adversarial_review: pending_fresh_independent_v4_review
+adversarial_review: pending_fresh_independent_v5_review
 design_approval: pending_exact_operator_approval
 implementation_branch: codex/wf0-windows-vst3-factory-census
 implementation_branch_state: paused_at_superseded_v2_basis
@@ -36,7 +36,7 @@ review, and preparation of an exact approval request.
 
 It does **not** approve the draft, reauthorize implementation, authorize a
 toolchain installation, permit a build or Windows workload, or authorize a
-merge. Implementation may resume only after the exact V4 card is independently
+merge. Implementation may resume only after the exact V5 card is independently
 reviewed, explicitly approved by the operator, retained in a new approval
 receipt, merged to `main`, and read back into this authority card.
 
@@ -106,7 +106,7 @@ exact former implementation basis:
 The live fixture change does not erase or rewrite those facts. It means the V2
 approval no longer authorizes implementation against the current fixture.
 
-## V3 review and bounded V4 repair
+## V3/V4 reviews and bounded V5 repair
 
 The first complete amendment card was retained immutably as:
 
@@ -126,23 +126,48 @@ V3 independent review:
   SHA-256: 08284b2f8f5f7b11b15dbf8eec3b30494e64539e0f5bc756b7a6e5c71f387a36
   result: DESIGN_REPAIR_REQUIRED
   unresolved findings: 1
+
+V4 design:
+  commit: 566625445c1b3dca3a253da54756513b0c5862e3
+  tree: 9e03cc47caf044237310a9ffd155c4d908142894
+  path: docs/slices/WF0/IMPLEMENTATION_DESIGN_V4.md
+  Git blob: 6701ddf068dc1853ad746b15df413fc12fe095fd
+  SHA-256: 138f545ff28f9d1f4f76e049d4d0fa30186bfcebae627f18140b0be0eb55ad09
+
+V4 independent review:
+  commit: 62cbf973f2e107f91191fc0dee90188d73b50423
+  tree: 8142bc714ac7b757fe17444d7c76c1242afec1ce
+  path: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW_V4.md
+  Git blob: cdb3bdbc743586dd8fba9b693330a28a177bdac0
+  SHA-256: 3404119a3076070216506004e4ab89c51d23fef59285d519626dda29d023bd73
+  result: DESIGN_REPAIR_REQUIRED
+  unresolved findings: 1
 ```
 
-The reviewer found that V3 correctly separated current Bitwig `6.1` from the
+The V3 reviewer found that V3 correctly separated current Bitwig `6.1` from the
 historical `6.0.11` proof, but did not unambiguously restate both binding V2
-implementation clarifications in the successor approval contract. V4 repairs
-only that gap:
+implementation clarifications in the successor approval contract. V4 restated
+both, but its independent reviewer found one internal ordering conflict: the
+transition law published `factory_export_found` before optional entry while
+the retained 23-state lifecycle published the entry result first.
+
+V5 repairs only that conflict while preserving the binding laws:
 
 1. every ordinary return from all 15 closed call operations must be followed
    immediately by the paired synchronously flushed `call_completed`, before
    any later lifecycle event or call attempt; and
 2. required `GetPluginFactory` must be resolved and checked before optional
    `InitDll` may be invoked, and a missing required export must not execute
-   `InitDll`.
+   `InitDll`; and
+3. on a present export, successful resolution/check is retained internally,
+   optional entry handling completes, the entry result is published, then
+   `factory_export_found` is published, and only an entry-absent or
+   entry-succeeded branch may attempt the already-resolved export.
 
-The future V4 approval receipt and implementation handoff must bind both
-clauses. The repair creates no owner, state, call operation, implementation
-path, proof row, blocker, mutation, or reconnaissance requirement.
+The future V5 approval receipt and implementation handoff must bind both
+inherited clauses and the resolution/check-versus-publication distinction. The
+repair creates no owner, state, call operation, implementation path, proof row,
+blocker, mutation, or reconnaissance requirement.
 
 ## Amendment scope
 
@@ -154,16 +179,17 @@ needed to distinguish:
 2. the current Bitwig `6.1` stable installation, runtime, and override identities
    that WF0 must preserve without launching or modifying Bitwig.
 
-The V4 review repair may only restate the two already-binding V2
-clarifications without changing their substance.
+The V5 review repair may only distinguish internal required-export
+resolution/check from later lifecycle publication without changing either
+already-binding V2 clarification.
 
-V4 must assign current Bitwig readback to the existing
+V5 must assign current Bitwig readback to the existing
 `ProtectedFixtureSnapshot` owner inside the already approved WF0 tooling paths.
 It must not edit historical tools or evidence merely to make their old fixture
 identity appear current. It must not promote HP1's `6.0.11` discovery and
 instance-admission proof to a `6.1` claim.
 
-The amendment and bounded V4 repair do not change the WF0 primary claim, AGain fixture,
+The amendment and bounded V5 repair do not change the WF0 primary claim, AGain fixture,
 Runtime/Proton route, ten-owner model, state machine, 40-path implementation
 envelope, 26-path implementation-source roster, 14-file evidence packet,
 35-row proof matrix, 23-result blocker taxonomy, external mutation envelope,
@@ -246,8 +272,10 @@ During this amendment phase:
 bounded fixture reconciliation
     -> retain V3 DESIGN_REPAIR_REQUIRED review
     -> complete V4 design repair
-    -> fresh independent adversarial review
-    -> repair and re-review if required
+    -> retain V4 DESIGN_REPAIR_REQUIRED review
+    -> complete V5 design repair
+    -> fresh independent V5 adversarial review
+    -> repair and re-review again if required
     -> exact operator approval
     -> new approval receipt
     -> merge and exact main readback
