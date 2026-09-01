@@ -10,29 +10,110 @@ The project begins with Bitwig Studio on the maintainer's Steam Deck because tha
 
 When instructions conflict, use this order:
 
-1. `AGENTS.md`
-2. `GOVERNANCE.md`
-3. `CURRENT_SLICE.md`
-4. `docs/ARCHITECTURE.md`
-5. applicable accepted entries in `docs/DECISION_REGISTER.md`
-6. applicable fixture card in `docs/FIXTURE_CARDS.md`
-7. `docs/DESIGN_DOSSIER.md`
-8. `docs/RESEARCH_BASIS.md`
-9. issue / pull-request scope
-10. implementation convenience
+1. explicit operator product/design ruling;
+2. `AGENTS.md`;
+3. `GOVERNANCE.md`;
+4. `CURRENT_SLICE.md`;
+5. exact approved design-approval receipt for the current slice;
+6. exact approved implementation design card for the current slice;
+7. `docs/ARCHITECTURE.md`;
+8. applicable accepted entries in `docs/DECISION_REGISTER.md`;
+9. applicable fixture card in `docs/FIXTURE_CARDS.md`;
+10. `docs/DESIGN_DOSSIER.md`;
+11. `docs/RESEARCH_BASIS.md`;
+12. issue / pull-request scope;
+13. implementation convenience.
 
 Stop and surface a conflict. Do not silently reconcile two authorities by inventing a third design.
 
 ## Repository roles
 
-- The **design dossier** is human north-star material. It can describe the whole intended experience, difficult fixtures, failure posture, and product laws.
-- `docs/ARCHITECTURE.md` owns provisional technical boundaries accepted for this repository.
-- `CURRENT_SLICE.md` is the only active implementation task authority.
+- The **design dossier** is human north-star material. It describes the intended whole product, difficult fixtures, failure posture, and product laws.
+- `docs/ARCHITECTURE.md` owns provisional technical boundaries accepted for the repository.
+- `docs/DEVELOPMENT_PROCESS.md` owns the human selection/design/implementation/review lifecycle.
+- `CURRENT_SLICE.md` owns exactly one active slice and authority phase.
+- A **slice-selection receipt** records operator selection.
+- An **implementation design card** freezes the approved owner/state/fault/proof design for high-risk work.
+- A **design-approval receipt** binds implementation authority to one exact card revision.
 - Code and tests state what is implemented.
-- Retained evidence states what was actually observed on a declared fixture.
+- Retained evidence states what was observed on a declared fixture.
 - A compatibility profile states a bounded claim for exact versions and conditions; it is not universal truth.
 
-Do not hand the full dossier to an implementation agent as its task contract. Distill one bounded slice with one primary claim.
+Do not hand the full dossier to an implementation agent as its task contract. Distill one bounded slice and, when required, one approved design revision.
+
+## Authority-phase gate
+
+Before editing production implementation, inspect `CURRENT_SLICE.md`.
+
+Implementation is permitted only when either:
+
+```text
+authority_phase: implementation
+implementation_authorized: true
+```
+
+and the exact approved design card/receipt exist, or an explicit design-gate waiver is recorded.
+
+When authority is `reconnaissance_and_design`:
+
+- read-only fixture reconnaissance and the declared design records are allowed;
+- product implementation is forbidden;
+- implementation scaffolding that commits to an unapproved owner/state/topology is forbidden;
+- the agent must not treat a detailed implementation prompt as implicit design approval.
+
+When there is no active slice, implementation is forbidden.
+
+## Mandatory design gate
+
+A high-risk slice requires an implementation design card and adversarial design review before code. Triggers include:
+
+- new owner or lifecycle;
+- durable mutation;
+- transaction/rollback/migration/recovery;
+- process creation/supervision/termination;
+- cross-process or cross-language protocol;
+- real-time/deadline behavior;
+- thread affinity/reentrancy;
+- identity/authorization;
+- security/privacy/licensing;
+- third-party runtime;
+- persistent user data/content;
+- compatibility claims.
+
+A waiver must be explicit. Small code size or model confidence is not a waiver.
+
+Use:
+
+- `docs/templates/IMPLEMENTATION_DESIGN_CARD.md`;
+- `docs/prompts/ADVERSARIAL_DESIGN_REVIEW.md`;
+- `docs/templates/DESIGN_APPROVAL_RECEIPT.md`.
+
+## Material-discovery stop law
+
+Implementation must stop and return `RETURN_TO_DESIGN_GATE` when real evidence changes or invalidates any approved:
+
+- owner;
+- state/transition;
+- mutation root;
+- durability/commit/recovery boundary;
+- process/thread/callback topology;
+- protocol direction or payload law;
+- identity/authorization rule;
+- security/privacy/licensing posture;
+- fixture;
+- primary claim or claim ceiling;
+- changed-path envelope;
+- proof matrix.
+
+The agent may retain bounded read-only evidence. It may not patch forward, widen authority, or rewrite the design after implementation and call it documentation.
+
+## Independent review law
+
+The adversarial design reviewer and pre-PR implementation auditor use fresh contexts that did not author the reviewed artifact.
+
+Before technical-lead PR review, run the process in `docs/prompts/PRE_PR_IMPLEMENTATION_AUDIT.md`.
+
+An implementation defect can be repaired against the approved design. A design defect requires a new design revision, fresh adversarial review, and new approval.
 
 ## Core product invariants
 
@@ -91,24 +172,29 @@ Do not make “lock-free” claims from type names or intention. Prove the actua
 - Host-to-plug-in and plug-in-to-host calls are reentrant. A single blocking request socket is not an acceptable general protocol.
 - Win32 GUI/message-loop obligations stay on the correct Windows host thread.
 - Linux host GUI obligations stay on the correct DAW-facing thread.
-- VST3 factory, class, component, controller, view, context-menu, parameter, state, bus, event, and process interfaces are not to be collapsed into an imagined generic RPC object without explicit coverage.
-- Unknown or unsupported interfaces must produce inspectable capability results, not undefined behavior.
+- VST3 factory, class, component, controller, view, context-menu, parameter, state, bus, event, and process interfaces are not collapsed into an imagined generic RPC object without explicit coverage.
+- Unknown or unsupported interfaces produce inspectable capability results, not undefined behavior.
 
 ## Slice discipline
 
-Every implementation slice states:
+Every selected slice states:
 
 - exact base commit and tree;
 - basis documents and exact headings;
 - one primary claim;
 - exact fixture and versions;
+- authority phase;
+- design-gate decision;
 - files/components in scope;
 - dependencies permitted to change;
+- permitted external mutation;
+- protected state;
 - explicit non-goals and nonclaims;
 - executable acceptance criteria;
 - negative/failure acceptance criteria;
 - retained evidence requirements;
-- cleanup and rollback posture.
+- cleanup and rollback posture;
+- material-discovery stop conditions.
 
 A slice is complete only when its one claim is demonstrably true at the stated fixture and claim level.
 
@@ -127,6 +213,27 @@ Do not combine uncertainty domains merely because the combined demo would look i
 - Steam Deck proof versus general Linux support;
 - VST3 proof versus CLAP support;
 - open reference fixtures versus proprietary commercial fixtures.
+
+## Implementation design requirements
+
+For a design-gated slice, the card must include:
+
+- owner map;
+- complete state machine, including OS/runtime-visible intermediate states;
+- transition ledger;
+- fallible-operation and mutation ledger;
+- physical result if each operation succeeds and the next fails;
+- commit points and pre-/post-commit recovery law;
+- process/thread/callback topology;
+- exact identity and authorization ledger;
+- data/durability/migration law;
+- security/privacy/licensing posture;
+- approved code topology;
+- proof matrix;
+- blocked-result taxonomy;
+- material-discovery stop conditions.
+
+Do not infer missing design during implementation.
 
 ## Required development sequence discipline
 
@@ -186,7 +293,7 @@ Openly distributable SDK examples or purpose-built reference modules are test in
 - Treat Bitwig Flatpak's current permissions as observed version-specific facts, not permanent guarantees.
 - Do not assume a host path is visible in a sandbox; prove it on the exact app/runtime version.
 - Do not use unbounded host escape as the architecture. Any host broker must have an explicit narrow contract and threat model.
-- A packaged `org.freedesktop.LinuxAudio.Plugins` extension must match the application runtime branch and must be tested across runtime transitions.
+- A packaged `org.freedesktop.LinuxAudio.Plugins` extension must match the application runtime branch and be tested across runtime transitions.
 - The initial fixture may use `~/.vst3` if the exact Bitwig Flatpak build sees it. That is a proof mechanism, not automatically the production packaging decision.
 
 ## Compatibility-profile rules
@@ -235,7 +342,9 @@ Retain useful sanitized evidence under `evidence/` when the slice requires it:
 - Flatpak path/mount/IPC evidence;
 - rollback evidence.
 
-Evidence names must identify the exact fixture and claim. A screenshot alone is not protocol proof. A log alone is not audio correctness. A successful test run is not an architecture substitute.
+Evidence names identify the exact fixture and claim. A screenshot alone is not protocol proof. A log alone is not audio correctness. A successful test run is not an architecture substitute.
+
+Every approved proof-matrix row identifies whether production helpers, synthetic faults, or real fixtures are required. Test names do not substitute for execution.
 
 ## Security and privacy
 
@@ -250,10 +359,10 @@ Evidence names must identify the exact fixture and claim. A screenshot alone is 
 ## Third-party and clean-room rules
 
 - Do not copy yabridge source into this repository.
-- Yabridge may be read as prior-art and implementation evidence. Record concepts, observed constraints, and clean-room decisions in prose; implement original code from public specifications and accepted repository interfaces.
+- Yabridge may be read as prior art and implementation evidence. Record concepts, observed constraints, and clean-room decisions in prose; implement original code from public specifications and accepted repository interfaces.
 - Do not include GPL-derived code in a proprietary boundary by accident. Licensing decisions are explicit and reviewed.
-- Do not redistribute Proton, Wine, DXVK, VST3 SDK files, vendor installers, or plug-ins until the exact distribution obligations and notices are recorded.
-- Preserve third-party license texts and source offers where required by any future distribution.
+- Do not redistribute Proton, Wine, DXVK, VST3 SDK files, vendor installers, or plug-ins until exact distribution obligations and notices are recorded.
+- Preserve third-party license texts and source offers where required by future distribution.
 - Do not use the repository name or documentation to imply certification or affiliation by a DAW, format owner, runtime vendor, or plug-in vendor.
 
 ## Review standard
@@ -261,16 +370,22 @@ Evidence names must identify the exact fixture and claim. A screenshot alone is 
 Review the exact pull-request head against:
 
 - the current slice's one claim;
+- exact approved design identity when required;
 - actual component ownership;
+- complete state/fault model;
 - real-time laws;
-- reentrancy and thread-affinity requirements;
+- reentrancy and thread affinity;
 - exact identity preservation;
-- failure containment;
+- failure containment and physical-state recovery;
 - state and project recall where in scope;
 - Flatpak and path assumptions;
 - security/privacy posture;
 - license boundary;
+- proof matrix and production-helper coverage;
 - retained evidence;
-- explicit nonclaims.
+- explicit nonclaims;
+- independent pre-PR audit disposition.
 
 A green test suite is necessary but not sufficient. Do not merge a convincing demo that establishes the wrong boundary.
+
+After finding a defect, inspect the entire invariant class. Repeated local repairs require a design-return decision rather than indefinite patch-forward behavior.
