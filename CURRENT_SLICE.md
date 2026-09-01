@@ -1,28 +1,36 @@
-# Current Slice: DG0 — Implementation Design Gate and Successor Selection Protocol
+# Current Slice: None Selected
 
 ## Status
 
 ```text
-status: active_governance_slice
-authority_phase: documentation_and_governance
+status: no_active_slice
+authority_phase: no_active_slice
 implementation_authorized: false
-slice: DG0
-branch: codex/dg0-implementation-design-gate
-basis commit: a01c6121de63097fa56fa4f81825456b467b09ed
-basis tree: c887e3acfe34c56cdd0f141dec761f4598dea098
-target: main
+last accepted slice: DG0 — Implementation Design Gate and Successor Selection Protocol
 ```
 
-The operator explicitly directed the technical lead to immortalize the implementation-design process and the next-slice selection prompt in the human-facing repository.
+No Windows VST3 scanner, Windows host, native proxy/factory crossing, bridge IPC, shared-memory transport, Serum operation, Bitwig operation, installer/authorization session, manager, broker, editor, CLAP work, runner change, cleanup program, design amendment, or compatibility claim is selected or implied.
 
-## Primary claim
+## Last accepted governance slice
 
-DG0 makes the repository's development process explicit and enforceable:
+```text
+slice: DG0
+pull request: #9
+basis commit: a01c6121de63097fa56fa4f81825456b467b09ed
+basis tree: c887e3acfe34c56cdd0f141dec761f4598dea098
+reviewed head: 75c76813a602b0408d1e92823981df91c8161a26
+reviewed tree: 7d3d2d157e03c1c315a71b8e867b0cc58ba706ed
+squash merge: 04d7712aac1eb8ce05491419c24d137b64b4c3eb
+```
+
+## Accepted process
+
+The repository now requires this lifecycle for high-risk work:
 
 ```text
 accepted main / no active slice
     -> technical-lead successor analysis
-    -> operator selects one bounded slice
+    -> explicit operator selection
     -> bounded reconnaissance and design authority
     -> implementation design card
     -> independent adversarial design review
@@ -32,61 +40,53 @@ accepted main / no active slice
     -> independent pre-PR implementation audit
     -> technical-lead exact-head review
     -> merge
-    -> separate no-active-slice closure
+    -> separate status closure
 ```
 
-It distinguishes slice selection from implementation authorization, defines when the implementation-design gate is mandatory, defines material-discovery stop behavior, defines independent review roles, and provides reusable prompts and templates.
+Selecting a high-risk slice does not authorize implementation. Material discoveries about ownership, state, mutation, durability/recovery, topology, protocol, identity, security/licensing, fixture, claim, paths, or proof coverage return work to the design gate.
 
-## Changed-path envelope
-
-Only these paths may change:
+The human process is:
 
 ```text
-README.md
-AGENTS.md
-GOVERNANCE.md
-CURRENT_SLICE.md
 docs/DEVELOPMENT_PROCESS.md
-docs/DESIGN_DOSSIER.md
-docs/DECISION_REGISTER.md
+```
+
+The default successor-analysis prompt is:
+
+```text
+docs/prompts/CHOOSE_NEXT_SLICE.md
+```
+
+The design and approval templates are:
+
+```text
 docs/templates/IMPLEMENTATION_DESIGN_CARD.md
 docs/templates/SLICE_SELECTION_RECEIPT.md
 docs/templates/DESIGN_APPROVAL_RECEIPT.md
-docs/prompts/CHOOSE_NEXT_SLICE.md
+```
+
+The required fresh-context reviews are:
+
+```text
 docs/prompts/ADVERSARIAL_DESIGN_REVIEW.md
 docs/prompts/PRE_PR_IMPLEMENTATION_AUDIT.md
 ```
 
-## Acceptance
+## Current accepted product frontier
 
-DG0 is complete when:
+The last accepted product implementation remains WR0:
 
-- the human process is readable from the repository root;
-- the authority phases are unambiguous;
-- high-risk design-gate triggers and waiver law are explicit;
-- the implementation design card requires owner, state, mutation/fault, identity, proof, stop-condition, and code-topology decisions;
-- material discoveries return work to the design gate;
-- design review and pre-PR audit use independent fresh contexts;
-- the exact operator selection and design-approval receipts are templated;
-- the reusable next-slice selection prompt performs analysis only and emits an exact approval sentence;
-- all relative document links resolve;
-- no product implementation or external fixture mutation occurs.
+```text
+native Linux VST3 build and validation
+    -> normal Bitwig discovery and native instance admission
+    -> controlled Runtime 4 / Proton 11 Windows-command execution
+    -> isolated project-owned Windows environment
+```
 
-## Explicit non-goals
+No Windows VST3 module factory census, Windows plug-in host, native bridge proxy, cross-process VST3 protocol, audio/event transport, Serum operation, activation, or compatibility claim exists yet.
 
-DG0 does not:
+## Next lawful action
 
-- choose the Windows VST3 scanner slice;
-- authorize implementation of any successor;
-- modify the accepted WR0 environment;
-- launch Proton, Wine, Bitwig, Serum, or another fixture;
-- change Flatpak, SteamOS, `.wine`, Steam compatdata, or user content;
-- refactor WR0;
-- add source code, dependencies, CI, schemas, or compatibility profiles;
-- amend the product architecture or claim compatibility.
+Run the exact analysis-only process in `docs/prompts/CHOOSE_NEXT_SLICE.md` against the current accepted `main` commit and tree.
 
-## Last accepted implementation boundary
-
-WR0 is accepted through implementation PR #7 and merge commit `8237b96ce7c885edcf4e7a0923f2ac78d05a928d`. Its status closure merged as `a01c6121de63097fa56fa4f81825456b467b09ed`.
-
-DG0 is a process-governance response to the lesson that empirical discoveries, implementation design, coding, and architectural review must not collapse into one patch-forward loop. It does not diminish WR0's accepted Windows-execution result.
+That analysis may recommend one slice and emit an operator approval sentence. It may not edit the repository, activate a slice, or draft implementation for a design-gated successor.
