@@ -1,0 +1,545 @@
+{
+  "basis": {
+    "branch": "codex/hp1-bitwig-native-discovery-admission",
+    "classification": "observed",
+    "commit": "7cda2d85eb426c2ed6e4eb3d86e52c114c4aa1c4",
+    "preflight": "PRE-FLIGHT_CLEAR",
+    "tree": "e9534822625ceff0f06549b78c85546050bddf42"
+  },
+  "bitwig": {
+    "app_commit": "7b66aed37386ffff99e40bbd486f90ceee7ac1d5c59508c7952094122cebf50e",
+    "app_id": "com.bitwig.BitwigStudio",
+    "before_after": "byte_identical",
+    "classification": "observed",
+    "effective_clap_path": "empty",
+    "effective_vst3_path": "empty",
+    "effective_vst_path": "/app/extensions/Plugins/vst;=/usr/lib/",
+    "runtime": "org.freedesktop.Platform/x86_64/25.08",
+    "runtime_commit": "bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8",
+    "scope": "system",
+    "system_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "user_override_sha256": "1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e",
+    "version": "6.0.11"
+  },
+  "claim": {
+    "audio_processing": "explicitly_out_of_scope",
+    "classification": "passed",
+    "general_linux": "explicitly_out_of_scope",
+    "name": "HP1_COMPLETE",
+    "primary": "native_bitwig_discovery_and_instance_admission",
+    "project_state": "explicitly_out_of_scope",
+    "serum_operation": "explicitly_out_of_scope",
+    "windows_bridge": "explicitly_out_of_scope"
+  },
+  "discovery_readback": {
+    "candidate_cap_exhausted": false,
+    "candidate_count": 65,
+    "changed_or_matching_candidates": [
+      {
+        "applicable_scan_error": false,
+        "applicable_scan_error_basis": "same_line_exact_discovery_token_and_error_term",
+        "change": "modified",
+        "content_classification": "bounded_exact_string_scan_complete",
+        "matching_strings": [],
+        "mtime_ns": 1788220142305690139,
+        "relative_path": "07262E22D3C8F09C8EDA33ADB645BE9C-clap-x64.index",
+        "root_label": "bitwig_index",
+        "sha256": "416892cfc0327c451d674c39e2bfde0c0bfd08e5c125afc01e1e0ab08bf6dbe6",
+        "size": 287,
+        "type": "regular_file"
+      },
+      {
+        "applicable_scan_error": false,
+        "applicable_scan_error_basis": "same_line_exact_discovery_token_and_error_term",
+        "change": "modified",
+        "content_classification": "bounded_exact_string_scan_complete",
+        "matching_strings": [],
+        "mtime_ns": 1788220142304690118,
+        "relative_path": "07262E22D3C8F09C8EDA33ADB645BE9C-vst3-x64.index",
+        "root_label": "bitwig_index",
+        "sha256": "1c1987f10946031869e81a2bad1ff9c11f5d360c149c7db1dcac68f532ca6539",
+        "size": 301,
+        "type": "regular_file"
+      },
+      {
+        "applicable_scan_error": false,
+        "applicable_scan_error_basis": "same_line_exact_discovery_token_and_error_term",
+        "change": "modified",
+        "content_classification": "bounded_exact_string_scan_complete",
+        "matching_strings": [
+          {
+            "classification": "exact_string_present",
+            "value": "LAB Host Probe"
+          }
+        ],
+        "mtime_ns": 1788220142298689995,
+        "relative_path": "157DAD9E6ADD087A0CD6AF0A69CAAB1F-vst3-x64.index",
+        "root_label": "bitwig_index",
+        "sha256": "b5d2e4a5d62d979bd31c7decddb326c356dee88bd31ee65217b0896c6fecd3bb",
+        "size": 396,
+        "type": "regular_file"
+      },
+      {
+        "applicable_scan_error": false,
+        "applicable_scan_error_basis": "same_line_exact_discovery_token_and_error_term",
+        "change": "modified",
+        "content_classification": "bounded_exact_string_scan_complete",
+        "matching_strings": [],
+        "mtime_ns": 1788220142281689646,
+        "relative_path": "9F0DAB6EF8F94154CE589AF13C83E3F6-clap-x64.index",
+        "root_label": "bitwig_index",
+        "sha256": "b4ee0d5ba9fca7b20efc24691f29ceb1d4296479c0e21050134a2362defc756a",
+        "size": 510,
+        "type": "regular_file"
+      },
+      {
+        "applicable_scan_error": false,
+        "applicable_scan_error_basis": "same_line_exact_discovery_token_and_error_term",
+        "change": "modified",
+        "content_classification": "bounded_exact_string_scan_complete",
+        "matching_strings": [
+          {
+            "classification": "exact_string_present",
+            "value": "LAB Host Probe"
+          },
+          {
+            "classification": "exact_string_present",
+            "value": "Kasselvania Research"
+          },
+          {
+            "classification": "exact_string_present",
+            "value": "6F4E7A5392E54B54A98AD6F714E0C201"
+          }
+        ],
+        "mtime_ns": 1788220131349465142,
+        "relative_path": "BitwigStudio-previous-run.log",
+        "root_label": "bitwig_log",
+        "sha256": "fe7f10ca450b61aa72c6195aaab1a17aebb0ddab3c6cc921c844558b1341d36a",
+        "size": 72163,
+        "type": "regular_file"
+      },
+      {
+        "applicable_scan_error": false,
+        "applicable_scan_error_basis": "same_line_exact_discovery_token_and_error_term",
+        "change": "modified",
+        "content_classification": "bounded_exact_string_scan_complete",
+        "matching_strings": [
+          {
+            "classification": "exact_string_present",
+            "value": "LAB Host Probe"
+          },
+          {
+            "classification": "exact_string_present",
+            "value": "Kasselvania Research"
+          },
+          {
+            "classification": "exact_string_present",
+            "value": "6F4E7A5392E54B54A98AD6F714E0C201"
+          }
+        ],
+        "mtime_ns": 1788220212498127533,
+        "relative_path": "BitwigStudio.log",
+        "root_label": "bitwig_log",
+        "sha256": "b10b391549b811c4951adcbd6302b96a5add2d12062b0cad610dc807098bd792",
+        "size": 61669,
+        "type": "regular_file"
+      },
+      {
+        "applicable_scan_error": false,
+        "applicable_scan_error_basis": "same_line_exact_discovery_token_and_error_term",
+        "change": "modified",
+        "content_classification": "bounded_exact_string_scan_complete",
+        "matching_strings": [
+          {
+            "classification": "exact_string_present",
+            "value": "LAB Host Probe"
+          },
+          {
+            "classification": "exact_string_present",
+            "value": "Kasselvania Research"
+          },
+          {
+            "classification": "exact_string_present",
+            "value": "6F4E7A5392E54B54A98AD6F714E0C201"
+          }
+        ],
+        "mtime_ns": 1788220212159120607,
+        "relative_path": "engine.log",
+        "root_label": "bitwig_log",
+        "sha256": "20c07f57e510af936889b2a70114407acb33b57196c183ff582109cffaf562a4",
+        "size": 16210,
+        "type": "regular_file"
+      }
+    ],
+    "classification": "observed",
+    "incomplete_reasons": [],
+    "limits": {
+      "max_candidates": 256,
+      "max_file_bytes": 4194304,
+      "max_total_bytes": 16777216,
+      "timeout_seconds": 15.0
+    },
+    "status": "completed"
+  },
+  "hp0": {
+    "before_after": "byte_identical",
+    "build_source_manifest_schema": "linux-vst-bridge-hp0-build-source/v1",
+    "build_source_manifest_sha256": "ee301e3e42b2381d5a9aa88ec64635482d098bc8cde50d33a57e6c397fb1e9ab",
+    "bundle": "<HOME>/.vst3/linux-vst-bridge/LabHostProbe.vst3",
+    "classification": "observed",
+    "module_sha256": "3abaa8a2051ea179e28986cc6fbad4cde2d0d5e9a844b18aca91cdf7c59e69d7",
+    "preedit_accepted_readbacks": {
+      "captured_before_editing": true,
+      "classification": "passed",
+      "sha256": {
+        "build": "2110d9735644fee1c749a82bea796d7bc70fee89ee73a5c2bfdddf4bb4e70a63",
+        "publication": "4cb63d4e856c8975ee557bb48562be05edce85d63a7e14ba7127f70527af0043",
+        "sandbox": "8b4ffc86af7c5370d6f53209462c51fafbb83fa49f920296731f1888b1347e2f"
+      }
+    },
+    "publication_receipt_sha256": "d328adb27fef326b8e5b1104f072c246a803389a77d35ee5babc9834067668d1",
+    "validator_sha256": "cccae776eb87fbbbf6ac9c34c78bf1548937c48db3843e0cf0f12d312650466f"
+  },
+  "negative_tests": {
+    "captured_at": "2026-09-01T00:03:56Z",
+    "cases": [
+      {
+        "case": "wrong_hp0_module_hash",
+        "result": "passed"
+      },
+      {
+        "case": "invalid_hp0_publication_receipt",
+        "result": "passed"
+      },
+      {
+        "case": "wrong_bitwig_app_commit",
+        "result": "passed"
+      },
+      {
+        "case": "wrong_bitwig_runtime_commit",
+        "result": "passed"
+      },
+      {
+        "case": "changed_user_override",
+        "result": "passed"
+      },
+      {
+        "case": "changed_system_override",
+        "result": "passed"
+      },
+      {
+        "case": "bitwig_already_running",
+        "result": "passed"
+      },
+      {
+        "case": "unrelated_mapping_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "valid_descendant_mapping_accepted",
+        "result": "passed"
+      },
+      {
+        "case": "stale_pid_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "second_session_identity_reuse_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "forbidden_process_blocks",
+        "result": "passed"
+      },
+      {
+        "case": "wrong_or_reused_nonce_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "state_candidate_cap_propagates_unknown",
+        "result": "passed"
+      },
+      {
+        "case": "symlinked_session_or_evidence_ancestor_rejected",
+        "result": "passed"
+      },
+      {
+        "case": "override_before_after_mismatch_invalidates",
+        "result": "passed"
+      },
+      {
+        "case": "serum_hash_size_mtime_drift_invalidates",
+        "result": "passed"
+      }
+    ],
+    "classification": "passed",
+    "passed_count": 17,
+    "schema": "linux-vst-bridge-hp1-negative-tests/v1"
+  },
+  "operator_attestation": {
+    "allowed_scan_result_attested": "not_applicable_success",
+    "bypass_generic_view": "not_observed",
+    "classification": "operator_observed_supporting",
+    "confirmation_sha256": "9e453363284e49227446909e5ac097654a816929d4b8ddbe07df6a119bb487b4",
+    "confirmation_transport": "markdown_underscore_escaped",
+    "confirmed_at": "2026-08-31T23:56:41Z",
+    "gain_generic_view": "observed",
+    "host_bypass_binding": "unknown",
+    "kind": "success",
+    "nonce_sha256": "cc7fabbb70a9c680eb34941fdeefc1cf46eafd2a1b08e8683505e325632d9ad1",
+    "normal_desktop_launch_attested": true,
+    "normalized_confirmation_sha256": "1135fce6a25025ae5f770711468a461f7a145bd6af6b25a5a9f1b2e0b4f044cb",
+    "parameter_observation_classification": "operator_observed_supporting",
+    "schema": "linux-vst-bridge-hp1-operator-attestation/v1",
+    "session_1_steps_exact": true,
+    "session_2_steps_exact": true
+  },
+  "process_guards": {
+    "classification": "passed",
+    "forbidden_process_observed": false,
+    "unrelated_mapping_observed": false,
+    "validator_observed": false
+  },
+  "process_sessions": [
+    {
+      "clean_shutdown": true,
+      "launched_at": "2026-08-31T23:44:43Z",
+      "mapping": {
+        "ancestry": [
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "BitwigPluginHos",
+            "executable_basename": "BitwigPluginHost-X64-AVX2",
+            "identity_sha256": "0e4acbcff581316166f37b41d3d3917cf2b2b20ec79deedfc87bffb68cd0b207",
+            "label": "BITWIG_SESSION_1_ANCESTOR_1",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2311180,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "BitwigAudioEngi",
+            "executable_basename": "BitwigAudioEngine-X64-AVX2",
+            "identity_sha256": "71230c47a6a02c5119df35a4918808deb9c03699f0c2d0e3e3b243d37d54e8b1",
+            "label": "BITWIG_SESSION_1_ANCESTOR_2",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2309303,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "BitwigStudio",
+            "executable_basename": "java",
+            "identity_sha256": "a8a9af12af835619cafb351315da17205fae04afe69911ee8a6d2a9aa40417df",
+            "label": "BITWIG_SESSION_1_ANCESTOR_3",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2308206,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "bitwig-studio",
+            "executable_basename": "bitwig-studio",
+            "identity_sha256": "05df384613cafec8c92ee580ecd1994375e4650d9d78e9d3afb1f0a9b54328dc",
+            "label": "BITWIG_SESSION_1_ANCESTOR_4",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2308206,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "bwrap",
+            "executable_basename": "bwrap",
+            "identity_sha256": "e0bf6a9b6a5bc9fa830cd41920e4ef4c5827c49b4b5b019c4793e0a4588d74c5",
+            "label": "BITWIG_SESSION_1_ANCESTOR_5",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2308199,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "bwrap",
+            "executable_basename": "bwrap",
+            "identity_sha256": "3f540119652a972b63c16b81929ea48652c557e40bbcb4ddca5e06edda7c1921",
+            "label": "BITWIG_SESSION_1_ANCESTOR_6",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2308190,
+            "uid_classification": "fixture_user"
+          }
+        ],
+        "bitwig_ancestry": true,
+        "captured_at": "2026-08-31T23:45:13Z",
+        "map_entry": {
+          "address_range": "redacted_volatile",
+          "device": "103:08",
+          "inode": "3450620",
+          "offset": "00000000",
+          "path": "<HOME>/.vst3/linux-vst-bridge/LabHostProbe.vst3/Contents/x86_64-linux/LabHostProbe.so",
+          "permissions": "r--p"
+        },
+        "module_device": "103:8",
+        "module_inode": 3450620,
+        "module_sha256": "3abaa8a2051ea179e28986cc6fbad4cde2d0d5e9a844b18aca91cdf7c59e69d7",
+        "process": {
+          "cgroup_identity": "bitwig_flatpak_scope_observed",
+          "comm": "BitwigPluginHos",
+          "executable_basename": "BitwigPluginHost-X64-AVX2",
+          "identity_sha256": "0e4acbcff581316166f37b41d3d3917cf2b2b20ec79deedfc87bffb68cd0b207",
+          "label": "BITWIG_SESSION_1_MAPPER",
+          "pid": "redacted_volatile",
+          "proc_start_ticks": 2311180,
+          "uid_classification": "fixture_user"
+        }
+      },
+      "post_shutdown": {
+        "bitwig_processes": 0,
+        "exact_module_mappings": 0,
+        "forbidden_processes": 0,
+        "observed_descendants": 0,
+        "validator_processes": 0
+      },
+      "root": {
+        "cgroup_identity": "bitwig_flatpak_scope_observed",
+        "comm": "bwrap",
+        "executable_basename": "bwrap",
+        "identity_sha256": "3f540119652a972b63c16b81929ea48652c557e40bbcb4ddca5e06edda7c1921",
+        "label": "BITWIG_SESSION_1_ROOT",
+        "pid": "redacted_volatile",
+        "proc_start_ticks": 2308190,
+        "uid_classification": "fixture_user"
+      },
+      "session": 1,
+      "shutdown_at": "2026-08-31T23:46:27Z"
+    },
+    {
+      "clean_shutdown": true,
+      "launched_at": "2026-08-31T23:46:54Z",
+      "mapping": {
+        "ancestry": [
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "BitwigPluginHos",
+            "executable_basename": "BitwigPluginHost-X64-AVX2",
+            "identity_sha256": "d13653c5d9e3a06cedf8d55c7edefdfdef881a99214a5a48bcc23963f8f4b212",
+            "label": "BITWIG_SESSION_2_ANCESTOR_1",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2323774,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "BitwigAudioEngi",
+            "executable_basename": "BitwigAudioEngine-X64-AVX2",
+            "identity_sha256": "df7640855168ed3df821bf81dbeb582b034e910c51e6e7790f4818435972fc38",
+            "label": "BITWIG_SESSION_2_ANCESTOR_2",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2322371,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "BitwigStudio",
+            "executable_basename": "java",
+            "identity_sha256": "4d9fca03dc03badc7a67dd184e5a6e828f5e1a92a5a5e47e9f6ba9c88bb697ab",
+            "label": "BITWIG_SESSION_2_ANCESTOR_3",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2321327,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "bitwig-studio",
+            "executable_basename": "bitwig-studio",
+            "identity_sha256": "f5d4d4e0c9f279081b1fafd07c13c0b62a245a2eda48251442e8c5ea6b3d5393",
+            "label": "BITWIG_SESSION_2_ANCESTOR_4",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2321326,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "bwrap",
+            "executable_basename": "bwrap",
+            "identity_sha256": "ba68aec5f22732672498aa09fa33cdce922976a87b0b35d7087fad6ae4f57231",
+            "label": "BITWIG_SESSION_2_ANCESTOR_5",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2321319,
+            "uid_classification": "fixture_user"
+          },
+          {
+            "cgroup_identity": "bitwig_flatpak_scope_observed",
+            "comm": "bwrap",
+            "executable_basename": "bwrap",
+            "identity_sha256": "82f31d7d35e3738101d8aae510122a01e0a311132bcc4c84a37620ec97447b69",
+            "label": "BITWIG_SESSION_2_ANCESTOR_6",
+            "pid": "redacted_volatile",
+            "proc_start_ticks": 2321310,
+            "uid_classification": "fixture_user"
+          }
+        ],
+        "bitwig_ancestry": true,
+        "captured_at": "2026-08-31T23:47:19Z",
+        "map_entry": {
+          "address_range": "redacted_volatile",
+          "device": "103:08",
+          "inode": "3450620",
+          "offset": "00000000",
+          "path": "<HOME>/.vst3/linux-vst-bridge/LabHostProbe.vst3/Contents/x86_64-linux/LabHostProbe.so",
+          "permissions": "r--p"
+        },
+        "module_device": "103:8",
+        "module_inode": 3450620,
+        "module_sha256": "3abaa8a2051ea179e28986cc6fbad4cde2d0d5e9a844b18aca91cdf7c59e69d7",
+        "process": {
+          "cgroup_identity": "bitwig_flatpak_scope_observed",
+          "comm": "BitwigPluginHos",
+          "executable_basename": "BitwigPluginHost-X64-AVX2",
+          "identity_sha256": "d13653c5d9e3a06cedf8d55c7edefdfdef881a99214a5a48bcc23963f8f4b212",
+          "label": "BITWIG_SESSION_2_MAPPER",
+          "pid": "redacted_volatile",
+          "proc_start_ticks": 2323774,
+          "uid_classification": "fixture_user"
+        }
+      },
+      "post_shutdown": {
+        "bitwig_processes": 0,
+        "exact_module_mappings": 0,
+        "forbidden_processes": 0,
+        "observed_descendants": 0,
+        "validator_processes": 0
+      },
+      "root": {
+        "cgroup_identity": "bitwig_flatpak_scope_observed",
+        "comm": "bwrap",
+        "executable_basename": "bwrap",
+        "identity_sha256": "82f31d7d35e3738101d8aae510122a01e0a311132bcc4c84a37620ec97447b69",
+        "label": "BITWIG_SESSION_2_ROOT",
+        "pid": "redacted_volatile",
+        "proc_start_ticks": 2321310,
+        "uid_classification": "fixture_user"
+      },
+      "session": 2,
+      "shutdown_at": "2026-08-31T23:48:11Z"
+    }
+  ],
+  "sanitization": {
+    "classification": "passed",
+    "command_lines_or_environments_retained": false,
+    "complete_maps_retained": false,
+    "durable_pids_retained": false,
+    "private_home_retained": false,
+    "raw_session_retained": false
+  },
+  "schema": "linux-vst-bridge-hp1-fixture/v1",
+  "serum_preservation": {
+    "classification": "passed",
+    "regular_file_hash_size_mtime": "unchanged"
+  },
+  "session": {
+    "classification": "passed",
+    "monitor_status": "completed_two_sessions",
+    "nonce_receipt_sha256": "cc7fabbb70a9c680eb34941fdeefc1cf46eafd2a1b08e8683505e325632d9ad1",
+    "operator_confirmation": "operator_observed_supporting",
+    "session_id": "hp1-20260831T234336Z-24c7b1c9e5817153"
+  }
+}
