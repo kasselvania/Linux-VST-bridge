@@ -1,0 +1,385 @@
+{
+  "accepted": false,
+  "archive": {
+    "canonical_packet_files": 14,
+    "commit": "52be94316664f88a19df630e164105a0ca50b875",
+    "parent_prefix": "3deb414a",
+    "payload_hashes": 13,
+    "retained_tests": {
+      "failed": 0,
+      "final_repair_helpers": 10,
+      "live": 5,
+      "non_live": 75,
+      "passed": 80
+    },
+    "tree": "21601814bd352114fe2e55833c88a81e47e13e41"
+  },
+  "basis": {
+    "adoption_commit": "60f05fb97ae1438a10b5360f47b5812fabf131a0",
+    "adoption_tree": "df806ea8d0fc0e2e7a94883ec534f8578213ae64",
+    "implementation_commit": "5aa757e46f6e8c15751743b68a8504386fbe840c",
+    "implementation_tree": "a779d2ac85ec74adc907327dde13f5d31201f914",
+    "tool_commit": "c78e5845ccae7ca0f5d1e1c802f1839d519ee096",
+    "tool_tree": "995b5477137f471fa6925d53ab14f7e47ad1a8aa"
+  },
+  "claim": {
+    "audio": "explicitly_out_of_scope",
+    "bitwig": "explicitly_out_of_scope",
+    "bridge": "explicitly_out_of_scope",
+    "repository_final_repair_reconciled": true,
+    "serum": "explicitly_out_of_scope",
+    "technical_lead_acceptance": false,
+    "windows_vst3_hosting": "explicitly_out_of_scope"
+  },
+  "delta": {
+    "current_slice_imported": false,
+    "difference_count": 14,
+    "excluded_path": "CURRENT_SLICE.md",
+    "import_count": 13,
+    "path_count": 25,
+    "preserved_count": 11
+  },
+  "governance": {
+    "authority_count": 6,
+    "dg0_count": 11,
+    "exact": true,
+    "status_closed": false
+  },
+  "live": {
+    "archive_live_equal": true,
+    "before_after_physical_equal": true,
+    "bounded_prefix_top_level": [
+      {
+        "name": ".update-timestamp",
+        "type": "regular_file"
+      },
+      {
+        "name": "dosdevices",
+        "type": "directory"
+      },
+      {
+        "name": "drive_c",
+        "type": "directory"
+      },
+      {
+        "name": "system.reg",
+        "type": "regular_file"
+      },
+      {
+        "name": "user.reg",
+        "type": "regular_file"
+      },
+      {
+        "name": "userdef.reg",
+        "type": "regular_file"
+      }
+    ],
+    "bytecode_artifact_count": 0,
+    "classification": "WR0A_LIVE_MATCH",
+    "contract_source_sha256": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+    "dont_write_bytecode": true,
+    "environment_identity_sha256": "d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4",
+    "module_name": "_wr0a_readonly_wr0_launch_215718bb",
+    "prefix_device": 66312,
+    "prefix_inode": 5866359,
+    "process_counts_after": {
+      "bitwig": 0,
+      "proton": 0,
+      "runtime": 0,
+      "umu": 0,
+      "validator": 0,
+      "wine": 0,
+      "yabridge": 0
+    },
+    "process_counts_before": {
+      "bitwig": 0,
+      "proton": 0,
+      "runtime": 0,
+      "umu": 0,
+      "validator": 0,
+      "wine": 0,
+      "yabridge": 0
+    },
+    "protected_fixture_equal": true,
+    "protected_fixture_sha256": "3fcb16af33518797020855ef214b7b55b2f006838e2ed1e24337caf0474fcb9c",
+    "receipt_files": {
+      "exit-37.json": {
+        "sha256": "098fce59d507513e7f5d8181521c0a08e4dd553afb2f86b33d586f17b501fcdd",
+        "size": 792
+      },
+      "run-1.json": {
+        "sha256": "085f6417bdb76897e06cd87671a40d79bfe4619fc8637f00ee3bb17263c1294b",
+        "size": 780
+      },
+      "run-2.json": {
+        "sha256": "545fc788a34380152b0adbadb6b43ed2142b1ae8510e98f7891710b72b07538d",
+        "size": 780
+      }
+    },
+    "registry_files": {
+      "system.reg": {
+        "sha256": "c8d9fffd43fb5a442652ab71821b0cdba169fcc22f01d46930fef265ffe3fc1b",
+        "size": 4085559
+      },
+      "user.reg": {
+        "sha256": "9811dd3f1e1b6b0fef1001861e8f0afc013a12e027effa454dad8be5eb9b53ca",
+        "size": 107055
+      },
+      "userdef.reg": {
+        "sha256": "0ab8c8dd98a9b94d6bd4b6e4588dc9c5478908c71e7f1cb04fd81b3b2602378f",
+        "size": 4190
+      }
+    },
+    "retired_record_sha256": "917c939c605f457376b0bdd53e06d252d4aecee4b39728850b2e1a61aa102b3e",
+    "runner_identity_sha256": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+    "source_tree_equal": true,
+    "transaction_id": "wr0-20260901T053317Z-183afd5bbf0736e4",
+    "transaction_sibling_count_after": 0,
+    "transaction_sibling_count_before": 0,
+    "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac"
+  },
+  "negative_tests": {
+    "cases": [
+      {
+        "case": "production_recovery_after_write_01",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_02",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_03",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_04",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_05",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_06",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_07",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_08",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_09",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_10",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_11",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_12",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_write_13",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_01",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_02",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_03",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_04",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_05",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_06",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_07",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_08",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_09",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_10",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_11",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_12",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_mode_13",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_01",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_02",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_03",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_04",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_05",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_06",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_07",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_08",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_09",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_10",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_11",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_12",
+        "result": "passed"
+      },
+      {
+        "case": "production_recovery_after_index_13",
+        "result": "passed"
+      },
+      {
+        "case": "production_exact_thirteen_stage_and_recovery",
+        "result": "passed"
+      },
+      {
+        "case": "production_unknown_old_destination_preserved_and_refused",
+        "result": "passed"
+      },
+      {
+        "case": "production_unknown_recovery_state_preserved_and_refused",
+        "result": "passed"
+      },
+      {
+        "case": "fixed_twenty_five_path_envelope",
+        "result": "passed"
+      },
+      {
+        "case": "fixed_fourteen_difference_ledger",
+        "result": "passed"
+      },
+      {
+        "case": "fixed_thirteen_import_allowlist",
+        "result": "passed"
+      },
+      {
+        "case": "fixed_eleven_preserved_allowlist",
+        "result": "passed"
+      },
+      {
+        "case": "archive_current_slice_excluded",
+        "result": "passed"
+      },
+      {
+        "case": "tool_source_manifest_stable",
+        "result": "passed"
+      },
+      {
+        "case": "authority_and_dg0_exact",
+        "result": "passed"
+      },
+      {
+        "case": "archive_object_packet_exact",
+        "result": "passed"
+      },
+      {
+        "case": "archive_delta_plan_exact",
+        "result": "passed"
+      },
+      {
+        "case": "exact_commit_lifecycle_envelope",
+        "result": "passed"
+      },
+      {
+        "case": "fixed_read_only_dispatch_identity",
+        "result": "passed"
+      },
+      {
+        "case": "evidence_packet_matches_lifecycle",
+        "result": "passed"
+      }
+    ],
+    "classification": "passed",
+    "failed_count": 0,
+    "lifecycle": "adoption",
+    "passed_count": 54,
+    "source_digest": "c0675f824d2f4cd12b84486c5378a7af65a582cf07ad06ff06a1ed5e2cc0d9c8",
+    "synthetic_output_used_as_real_evidence": false,
+    "test_session_cleaned": true
+  },
+  "result": "WR0A_COMPLETE",
+  "sanitization": {
+    "classification": "passed",
+    "credentials": false,
+    "hostname": false,
+    "private_paths": false,
+    "proprietary_content": false,
+    "raw_process_identifiers": false
+  },
+  "schema": "linux-vst-bridge-wr0a-final-repair-reconciliation/v1",
+  "source": {
+    "workload_sha256": "4518ca37b8d7e005f01b441de5273447b70fa7c8c9c3d2b9c194a91782cfecac",
+    "wr0_contract_digest": "c6543004fbcd70252393f0e0cab4f9ad7a31e85f433ce3e903e690244cc79541",
+    "wr0_contract_schema": "linux-vst-bridge-wr0-contract-source/v1",
+    "wr0a_digest": "c0675f824d2f4cd12b84486c5378a7af65a582cf07ad06ff06a1ed5e2cc0d9c8",
+    "wr0a_schema": "linux-vst-bridge-wr0a-implementation-source/v1"
+  }
+}
