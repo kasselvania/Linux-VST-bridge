@@ -31,7 +31,7 @@ design_authority_merge_pr: #22
 design_authority_merge_commit: 17646ff1cd5342d58ecf9346e26fad6f963f8a6a
 design_authority_merge_tree: 45b2858318d57cfad74dbfe18c8d410932306e6d
 authority_readback_branch: status/wf0-v7-authority-readback
-authority_readback_pr: pending
+authority_readback_pr: #23
 implementation_branch: codex/wf0-windows-vst3-factory-census-v7
 implementation_branch_state: awaiting_exact_authority_readback_merge
 implementation_basis_rule: exact_current_main_after_this_authority_readback_merges
@@ -40,7 +40,7 @@ successor_selection_authorized: false
 
 PR #21 retains the reviewed V6/V7 design history. PR #22 squash-merged the exact reviewed and operator-approved V7 authority as commit `17646ff1cd5342d58ecf9346e26fad6f963f8a6a`, tree `45b2858318d57cfad74dbfe18c8d410932306e6d`.
 
-This file is the post-merge authority readback. It does not amend `wf0-design-v7`. The implementation branch begins only from the exact current `main` commit and tree after this readback merges; the technical-lead handoff supplies those identities.
+PR #23 is the post-merge authority readback. It does not amend `wf0-design-v7`. The implementation branch begins only from the exact current `main` commit and tree after PR #23 merges; the technical-lead handoff supplies those identities.
 
 ## Primary claim
 
