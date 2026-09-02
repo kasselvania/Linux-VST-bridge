@@ -11,9 +11,14 @@ target: main
 selection_basis_commit: 1f4b946178319887950bdb764114543a1a7b845b
 selection_basis_tree: 75b91e9f4d8b059aef76abeb9ff6518cf0c310bc
 design_gate: required
-design_revision: wc0-design-v1
+design_revision: wc0-design-v2
 design_status: proposed_for_adversarial_review
 design_card: docs/slices/WC0/IMPLEMENTATION_DESIGN.md
+v1_design_commit: e712956b14f7e216a1f83db5888701a5ee072eb6
+v1_design_tree: da1095db0def3b7387c0514ba4ae884e71fb5b5e
+v1_design_blob: bacccf99040565eee9339af3bedfe0e04a8ebcf8
+v1_design_sha256: 047f0bb86c6c1991cf8a9addbccbf3a6bfd2c1a72f2fe247953b68eb9b17364e
+v1_review: 5091717689 / DESIGN_REPAIR_REQUIRED
 implementation_branch: not_created
 successor_selection_authorized: false
 ```

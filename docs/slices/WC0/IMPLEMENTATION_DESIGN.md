@@ -1,8 +1,8 @@
-# WC0 implementation design v1
+# WC0 implementation design v2
 
 ```yaml
 slice: WC0
-design_revision: wc0-design-v1
+design_revision: wc0-design-v2
 design_status: proposed_for_adversarial_review
 implementation_authorized: false
 ```
@@ -17,6 +17,17 @@ Selection basis is commit
 `75b91e9f4d8b059aef76abeb9ff6518cf0c310bc`. Design activation is commit
 `b6292a505666db8fc646fba35406dff7382d3e67`, tree
 `63b09755f9870253d31487cce1311f786ddfa15f`.
+
+V2 supersedes the reviewed V1 design at commit
+`e712956b14f7e216a1f83db5888701a5ee072eb6`, tree
+`da1095db0def3b7387c0514ba4ae884e71fb5b5e`, design blob
+`bacccf99040565eee9339af3bedfe0e04a8ebcf8`, and design SHA-256
+`047f0bb86c6c1991cf8a9addbccbf3a6bfd2c1a72f2fe247953b68eb9b17364e`.
+The supplied independent technical-lead review is materialized in
+[the V1 adversarial review](ADVERSARIAL_DESIGN_REVIEW.md), GitHub review
+`5091717689`, result `DESIGN_REPAIR_REQUIRED`. V2 repairs only its two P1
+findings. It remains proposed for a fresh independent adversarial review and is
+immutable after that later review.
 
 The positive fixture is the accepted AGain module, SHA-256
 `60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f`:
@@ -107,6 +118,126 @@ owners do not change. The WC0 positive transaction includes one invocation of
 the accepted factory-census prefix and shutdown suffix as the sole inherited
 WF0 regression; no WF0 fault family or 62-row matrix is replayed.
 
+## Exact WC0 implementation identity
+
+The future implementation branch is exactly
+`codex/wc0-windows-vst3-processor-component-admission`, with Git ref
+`refs/heads/codex/wc0-windows-vst3-processor-component-admission`. Its source
+commit must be one direct child of the exact merged WC0 design-authority/readback
+basis named by later implementation authorization; that basis commit and tree
+are not inferred from this proposed card.
+
+The implementation-source schema is
+`linux-vst-bridge-wc0-implementation-source/v1`, with exactly 19 records. Each
+record contains only `path`, `git_mode`, and `git_blob`. The manifest binds the
+exact source commit and this literal raw-UTF-8-byte-sorted roster:
+
+```text
+.github/workflows/wf0-windows-msvc-build.yml
+cmake/WF0DependencyLock.cmake
+tools/wf0-factory-census/README.md
+tools/wf0-factory-census/artifacts.py
+tools/wf0-factory-census/build.py
+tools/wf0-factory-census/common.py
+tools/wf0-factory-census/evidence.py
+tools/wf0-factory-census/negative_tests.py
+tools/wf0-factory-census/normalize.py
+tools/wf0-factory-census/run.py
+tools/wf0-factory-census/supervise.py
+tools/wf0-factory-census/verify.py
+windows-factory-probe/CMakeLists.txt
+windows-factory-probe/include/linux_vst_bridge/wf0_probe/events.h
+windows-factory-probe/source/component_instance_session.cpp
+windows-factory-probe/source/component_instance_session.h
+windows-factory-probe/source/main.cpp
+windows-fixtures/wf0/CMakeLists.txt
+windows-fixtures/wf0/source/fault_fixture.cpp
+```
+
+The existing workflow triggers only for that exact branch and changes to that
+exact roster. Its one Actions artifact is named
+`wc0-windows-build-<source-commit>-run-<run-id>-attempt-<run-attempt>`. Mac
+custody selects no latest run, mutable head, or name-only artifact. It requires
+the exact repository, workflow path and blob, WC0 branch, source commit/tree,
+19-record manifest digest, run ID/attempt, artifact ID/name, upload-action bare
+digest, REST digest, and raw-wrapper digest, with the accepted typed-digest
+normalization and byte-equality law.
+
+## Exact WC0 source and evidence handoff identity
+
+The self-contained source bundle is
+`wc0-execution-source-<source-commit>.bundle`. Its single advertised ref and
+Deck-local ref are both `refs/handoff/wc0-source/<source-commit>`. The source
+handoff schema and receipt filenames are exactly:
+
+```text
+linux-vst-bridge-wc0-source-handoff/v1
+WC0_SOURCE_HANDOFF_RECEIPT.json
+WC0_SOURCE_HANDOFF_RECEIPT.sha256
+```
+
+The receipt binds repository; merged WC0 design-authority commit/tree; exact
+implementation-basis commit/tree; source commit/tree/parent; implementation
+branch/ref; source schema; record count 19; source-manifest digest; bundle name,
+SHA-256, and size; advertised ref; zero prerequisites; exactly one advertised
+ref; and successful `git bundle verify`. The Mac private handoff stage is
+implementation-owned temporary private state. The persistent Deck source root
+is `<HOME>/.local/share/linux-vst-bridge/handoffs/wc0/source/by-commit/`; the
+clean detached execution worktree is
+`<HOME>/.local/share/linux-vst-bridge/worktrees/wc0/<source-commit>/`. No Deck
+GitHub operation is introduced.
+
+The evidence-handoff schema and filenames are exactly:
+
+```text
+linux-vst-bridge-wc0-evidence-handoff/v1
+WC0_EVIDENCE_HANDOFF_RECEIPT.json
+WC0_EVIDENCE_HANDOFF_RECEIPT.sha256
+```
+
+That private evidence handoff and the final fourteen-file evidence-only commit
+bind the exact source commit/tree and implementation basis, 19-record manifest
+digest, accepted Windows run/artifact, inherited infrastructure receipts, Deck
+source ref/worktree, component-session and callback-ledger results,
+`object_quiescence`, process/environment cleanup, and exact evidence roster. No
+fact from an earlier source commit, run, artifact, or Deck worktree may join the
+final result.
+
+## Inherited WF0 wire identities remain exact
+
+WC0 changes no accepted custody, environment, archive, transport, supervision,
+or containment algorithm or field meaning. To preserve that implementation and
+the 33-path envelope, these schema identifiers remain unchanged:
+
+```text
+Windows build:              linux-vst-bridge-wf0-windows-build/v1
+Artifact manifest:          linux-vst-bridge-wf0-artifact-manifest/v1
+AGain bundle manifest:      linux-vst-bridge-wf0-bundle-manifest/v1
+Mac artifact custody:       linux-vst-bridge-wf0-mac-artifact-custody/v1
+Environment marker:         linux-vst-bridge-wf0-scan-environment/v1
+Artifact-cache owner:       linux-vst-bridge-wf0-artifact-cache-owner/v1
+```
+
+Their inherited wire filenames remain exactly:
+
+```text
+wf0-payload.zip
+WF0_WINDOWS_BUILD_RECEIPT.json
+WF0_WINDOWS_BUILD_RECEIPT.sha256
+WF0_MAC_ARTIFACT_CUSTODY_RECEIPT.json
+.wf0-artifact-owner.json
+```
+
+The accepted Windows payload names remain `C:\wf0\`,
+`C:\wf0\bin\wf0-factory-probe.exe`, `C:\wf0\fixture\again.vst3\`, and
+`C:\wf0\session\`. The disposable stage remains
+`.wf0-factory-census.stage-<32-lowercase-hex-run-id>`. New receipts using these
+inherited protocols must additionally embed and verify the exact WC0 source
+commit/tree/parent, 19-record source schema, and manifest digest. A need to
+rename an inherited identity, change its algorithm, or add
+`tools/wf0-factory-census/environment.py` is `WC0_DESIGN_SCOPE_BLOCKED`; it is
+not silently absorbed into implementation.
+
 ## New owners
 
 Exactly two owners are added.
@@ -115,7 +246,7 @@ Exactly two owners are added.
 
 This session borrows the already-owned factory. It owns the fixed processor CID,
 requested `IComponent` IID, null-initialized output slot, exact `tresult`, one
-returned component reference when present, the 12-state lifecycle, controller
+returned component reference when present, the 13-state lifecycle, controller
 TUID, initialize/terminate/release results, immutable first-primary failure, and
 ordered secondary cleanup failures. It never owns the module, factory, process,
 environment, controller, buses, parameters, state, audio, or editor.
@@ -129,9 +260,9 @@ count 1, and a fixed 64-record callback ledger. It owns `queryInterface`,
 retirement. It exposes only `FUnknown` and `IHostApplication`; it creates no
 message, attribute list, component, controller, view, or other host object.
 
-## Lifecycle and reference law
+## Lifecycle, reference, and object-quiescence law
 
-The component state is one of exactly 12 values:
+The component state is one of exactly 13 values:
 
 ```text
 component_absent
@@ -146,7 +277,15 @@ component_terminate_in_flight
 component_terminated
 component_release_in_flight
 component_released
+component_retirement_incomplete
 ```
+
+`component_release_in_flight` means the call has no ordinary return.
+`component_released` is entered only after an ordinary return exactly equal to
+zero; the local pointer is cleared and can never be used again.
+`component_retirement_incomplete` is the stable state after an ordinary return
+greater than zero: the local pointer is retired without another call, but
+physical component absence is unproved. It is never relabeled as released.
 
 The success path is:
 
@@ -157,12 +296,11 @@ accepted module, census, and factory ready
   -> get_controller_class_id before initialize
   -> require kResultTrue and exact controller raw TUID
   -> construct host at reference baseline 1
-  -> initialize_component exactly once; require kResultOk
-  -> require host reference count 2
-  -> terminate_component exactly once; require kResultOk
-  -> require host reference count returned to baseline 1
-  -> release_component exactly once; require return 0
-  -> recheck host baseline 1; retire owner reference; require return 0
+  -> initialize_component exactly once; require kResultOk; require host count 2
+  -> terminate_component exactly once; require kResultOk; require host count 1
+  -> release_component exactly once; require return 0; clear component pointer
+  -> retire host owner reference; require return 0; close callback ledger
+  -> require object_quiescence=true
   -> inherited factory release 2, 1, 0; ExitDll; FreeLibrary; physical cleanup
 ```
 
@@ -175,17 +313,45 @@ returned component reference. No WC0 action adds another, so final component
 `release` (2 to 1). AGain delegates those operations and makes no host-object
 request. The host owner's final local release then returns 0.
 
+There is exactly one object-quiescence predicate. On the initialized path,
+`object_quiescence=true` only when all nine facts are proved:
+
+1. initialize returned successfully;
+2. terminate was attempted exactly once and returned ordinarily;
+3. `release_component` returned exactly zero;
+4. no component call remains in flight;
+5. the component pointer has been cleared and is never used again;
+6. the host reference count returned to owner baseline 1;
+7. the host owner's final local release returned exactly zero;
+8. no host callback remains in flight; and
+9. the callback ledger closed without overflow or output failure.
+
+An ordinary terminate failure remains primary but is an ordinary return for
+item 2; it may reach quiescence only if every later retirement fact is exact.
+For a create path with no component and no host, proved component/host absence,
+no in-flight call, and a closed empty callback ledger satisfy the applicable
+parts of the same predicate. Failure/non-null create, controller-ID failure, and
+controller-ID mismatch may satisfy the component part only after their one
+cleanup release returned zero. Initialize-return failure still forbids
+terminate and may satisfy the gate only after its one cleanup release returned
+zero, host count returned to baseline, final host-owner release returned zero,
+and callbacks closed exactly.
+
 Each stable state plus the immutable failure latch states physical truth. An
 ordinary failed controller-ID call returns to `component_created`; a failed
 initialize returns to `host_context_ready`; a failed terminate leaves
-`component_initialized`. Each then transitions through `component_release_in_flight`.
-An in-flight crash or timeout has no invented transition.
+`component_initialized`. Each then transitions through
+`component_release_in_flight`. A zero return transitions to
+`component_released`; a nonzero return transitions to
+`component_retirement_incomplete`. An in-flight crash or timeout has no invented
+transition.
 
 Create accepts only `(kResultOk, non-null)`. Failure/null and success/null are
 blocked with no component call. Failure/non-null is a contradictory physical
 reference: it latches `WC0_COMPONENT_CREATE_BLOCKED`, calls no controller or
 plugin-base method, and attempts exactly one cleanup `release_component`; that
-cleanup cannot replace the create failure.
+cleanup cannot replace the create failure and must return zero before object
+quiescence can be true.
 
 ## Minimal host contract and attribution
 
@@ -225,37 +391,75 @@ unsupported interface access, or callback-output failure latches
 
 Supervisor timeout/crash attribution is exact: each unmatched operation maps to
 its corresponding create, controller-ID, initialize, terminate, or release
-blocked result. Process cleanup owns physical containment after an abnormal
-return; no later in-process release, terminate, factory release, exit, or unload
-is claimed.
+blocked result. The event state retains the exact component call and any host
+callback still in flight. Process cleanup owns physical containment after an
+abnormal return; no later in-process release, terminate, factory release, exit,
+or unload is claimed.
 
 ## Failure and cleanup law
 
 - Unknown CID, wrong IID, create failure, or null output calls no controller-ID,
   initialize, or terminate operation. Any actual returned reference follows the
-  single anomalous release rule above; then inherited cleanup runs when safe.
-- Controller-ID failure or mismatch forbids initialize and releases the component.
-- Initialize failure forbids terminate, releases the component immediately as
-  required by `IPluginBase`, checks/retire the host, then continues inherited
-  cleanup.
+  single anomalous release rule.
+- Controller-ID failure or mismatch forbids initialize and permits exactly one
+  component cleanup release.
+- Initialize-return failure forbids terminate and permits exactly one immediate
+  component cleanup release under the SDK lifecycle law.
 - After successful initialize, terminate is attempted exactly once before release,
   even when a host callback has already latched a primary failure.
-- Terminate failure remains primary; one release attempt and inherited cleanup
-  follow. A nonzero ordinary final release is blocked and is never retried.
+- Terminate-return failure remains primary and permits exactly one later release.
+- A component release returning zero enters `component_released`; a nonzero
+  ordinary return latches `WC0_COMPONENT_RELEASE_BLOCKED`, enters
+  `component_retirement_incomplete`, and is never retried.
 - Host reference equality is checked after terminate or, when terminate is
-  prohibited, after component release. A mismatch is a host-context failure; one
-  owner-reference retirement is attempted, never repeated to force zero.
-- A hang or crash leaves its operation in flight. The accepted supervisor drains
-  the owned process tree and retires only the exact environment.
+  prohibited, after component release. A mismatch latches
+  `WC0_HOST_CONTEXT_BLOCKED`; one owner-reference retirement is attempted and is
+  never repeated to force zero. Nonzero final owner release leaves host absence
+  unproved.
+- A hang or crash leaves the exact operation in flight. No later in-process result
+  is fabricated. Accepted process containment drains the exact owned process tree
+  and retires only the exact disposable environment.
 - The first create, controller-ID, mismatch, host-context, initialize, or terminate
-  failure is immutable. Release, factory, exit, unload, process, and evidence
-  failures are ordered secondary facts and never erase it.
+  failure is immutable. Component/host retirement, inherited shutdown, process,
+  and evidence results are ordered secondary facts and never erase it.
+
+Every inherited in-process shutdown operation is gated as follows:
+
+```text
+object_quiescence=true
+  -> inherited factory-interface releases may run
+  -> ExitDll may run
+  -> FreeLibrary may run
+  -> clean in-process module shutdown may be claimed
+
+object_quiescence=false or unknown
+  -> do not call any later factory release
+  -> do not call ExitDll
+  -> do not call FreeLibrary
+  -> preserve the primary WC0 blocker
+  -> record each suppressed operation as
+     not_attempted_object_quiescence_unproved
+  -> accepted process containment owns physical retirement
+  -> drain the exact owned process tree and retire the exact environment
+  -> make no clean factory-release, module-exit, or module-unload claim
+```
+
+The false-or-unknown branch applies after nonzero component release, nonzero
+final host-owner release, host-reference mismatch, callback-ledger overflow or
+output failure, any release timeout/crash, any initialize or terminate
+timeout/crash, and every other condition in which component or host-reference
+absence is unproved. It also covers create or controller-ID timeout/crash because
+object existence is then unknown or live. Suppressed operations are dispositions,
+not successful or failed calls, and therefore emit no `call_started`. Process
+termination and environment retirement prove physical containment only; they do
+not retroactively establish object quiescence or clean in-process unload.
 
 ## Focused fault family
 
 Two named exercises use AGain directly: unknown processor CID and unsupported
-test IID. The existing source-owned fault-fixture file adds exactly this 15-module
-roster:
+test IID. The existing source-owned fault-fixture file adds exactly this
+16-module roster; V2 adds only the nonzero-release case required by the
+object-quiescence gate:
 
 ```text
 wc0-create-failure-null
@@ -269,11 +473,18 @@ wc0-initialize-crash
 wc0-terminate-failure
 wc0-terminate-hang
 wc0-terminate-crash
+wc0-release-nonzero
 wc0-release-hang
 wc0-release-crash
 wc0-host-object-request
 wc0-host-reference-leak
 ```
+
+`wc0-release-nonzero` retains one fixture-owned component reference so the
+single host-owned release returns 1; no second release is exposed to the WC0
+session. `wc0-host-reference-leak` retains the supplied host context beyond
+component cleanup. Both therefore leave object quiescence unproved, suppress
+all inherited shutdown calls, and rely only on process containment.
 
 Their other `IComponent` methods are tripwires. No old WF0 fault module is built
 or rerun.
@@ -293,7 +504,7 @@ paths and 14 evidence paths.
 | `.github/workflows/wf0-windows-msvc-build.yml` | Reuse the one workflow; bind the exact WC0 branch/source roster and changed payload. |
 | `cmake/WF0DependencyLock.cmake` | Add exact interface/lifecycle source-blob readbacks without changing SDK identity. |
 | `tools/wf0-factory-census/README.md` | Replace the now-false stop-before-instantiation description with the closed WC0 mode and retained WF0 boundary. |
-| `tools/wf0-factory-census/artifacts.py` | Replace hard-coded WF0 26-record and `wf0-v7` source-handoff identity literals with WC0 identities; custody, archive, and transport algorithms stay exact. |
+| `tools/wf0-factory-census/artifacts.py` | Bind the frozen WC0 19-record schema, bundle/ref, and source/evidence receipt identities; custody, archive, and transport algorithms stay exact. |
 | `tools/wf0-factory-census/build.py` | Build only the probe, existing adapter, focused WC0 fixtures, and pinned AGain; retain two-build proof. |
 | `tools/wf0-factory-census/common.py` | Bind WC0 authority, 19-record source roster, IDs, focused fixtures, and evidence roster. |
 | `tools/wf0-factory-census/evidence.py` | Render and validate the focused WC0 packet. |
@@ -319,17 +530,17 @@ with exactly: `BASIS.md`, `BUILD.md`, `BUILD_MANIFEST.json`, `ENVIRONMENT.md`,
 All other WF0 source—including root CMake, custody/transfer algorithms,
 environment, factory census, module loading, and unload owners—remains
 unchanged. `artifacts.py` is in scope only because its accepted implementation
-literally requires schema `linux-vst-bridge-wf0-implementation-source/v1`, 26
-records, and `refs/handoff/wf0-v7-source/...`; admitting the WC0 source identity
-is impossible without changing those closed literals. No custody or transfer
-owner, route, archive law, or authentication rule changes. A need for a 34th
-path is material and returns to design.
+literally requires the WF0 26-record schema, `wf0-v7` bundle/ref, and WF0 handoff
+receipt names; it must receive only the exact WC0 replacements frozen above. No
+custody or transfer owner, route, archive law, or authentication rule changes.
+`tools/wf0-factory-census/environment.py` remains outside the envelope and is
+reused unchanged. A need for a 34th path is material and returns to design.
 
 ## Focused proof matrix
 
 `COMPONENT_SESSION.json` and `CALLBACK_LEDGER.json` retain positive object facts;
 `STAGE_TIMELINE.json` retains paired calls and fault attribution;
-`BUILD_MANIFEST.json` retains exact source/build/custody joins and the 25-row
+`BUILD_MANIFEST.json` retains exact source/build/custody joins and the 29-row
 disposition. Markdown summarizes but does not replace machine-readable proof.
 
 | # | Claim or failure owner | Production proof and fixture |
@@ -338,10 +549,10 @@ disposition. Markdown summarizes but does not replace machine-readable proof.
 | 2 | Create result/pointer consistency | Positive tuple and synthetic success/failure/null/non-null cases. |
 | 3 | Controller CID before initialize | Positive call order and exact raw/logical comparison. |
 | 4 | Minimal host interface boundary | Existing adapter tests only `FUnknown` and `IHostApplication`. |
-| 5 | Host reference ownership | Positive 1 -> 2 -> 1 -> 0 ledger and leak fixture. |
+| 5 | Host reference ownership | Positive 1 -> 2 -> 1 -> 0 ledger and blocked leak fixture. |
 | 6 | Initialize succeeds | Positive AGain paired call and `component_initialized`. |
 | 7 | Terminate succeeds | Positive AGain exactly-once paired call and `component_terminated`. |
-| 8 | Final component release | Positive AGain exactly-once return 0 and object-absence record. |
+| 8 | Final component release | Positive AGain exactly-once return 0, pointer clearance, and object-absence record. |
 | 9 | Create failure cleanup | Unknown CID, wrong IID, and three create-tuple exercises. |
 | 10 | Controller-ID failure cleanup | Focused module: no initialize, one release. |
 | 11 | Controller-ID mismatch cleanup | Focused module: mismatch blocker, no initialize, one release. |
@@ -351,14 +562,18 @@ disposition. Markdown summarizes but does not replace machine-readable proof.
 | 15 | Terminate failure then release | Primary precedence and later release attempt. |
 | 16 | Terminate timeout | Unmatched `terminate_component`; no invented release. |
 | 17 | Terminate crash | Same unmatched operation with abnormal termination. |
-| 18 | Release timeout | Unmatched `release_component`; process containment. |
-| 19 | Release crash | Same unmatched operation with abnormal termination. |
+| 18 | Release timeout | Unmatched `release_component`; no inherited shutdown call; process containment. |
+| 19 | Release crash | Same unmatched operation with abnormal termination and no inherited shutdown call. |
 | 20 | Unexpected host-object request | Null plus `kResultFalse`, host blocker, no object created. |
 | 21 | No controller creation | One-create ledger, controller-CID tripwire, static closed call surface. |
 | 22 | No bus/parameter/state/process/audio/editor call | Component tripwires plus static closed call surface. |
-| 23 | Inherited factory/module shutdown | Positive transaction's sole WF0 census/shutdown regression. |
-| 24 | Zero process/environment residue | Every focused exercise drains and retires exact ownership. |
+| 23 | Quiescence before inherited shutdown | Positive AGain proves all nine facts and `object_quiescence=true` before the sole WF0 census/shutdown regression. |
+| 24 | Zero process/environment residue | Every focused exercise, including blocked quiescence cases, drains descendants and retires the exact environment. |
 | 25 | Protected state exact | Before/after WR0, Runtime/Proton, Bitwig 6.1, and history equality. |
+| 26 | Ordinary nonzero release | Focused fixture enters `component_retirement_incomplete`, never retries release, and emits no factory-release, `ExitDll`, or `FreeLibrary` call attempt. |
+| 27 | Quiescence suppression matrix | Nonzero release, host-reference leak, release timeout, and release crash retain `not_attempted_object_quiescence_unproved` for every inherited shutdown operation. |
+| 28 | Clean shutdown versus containment | Machine evidence distinguishes positive clean in-process shutdown from blocked process-level physical retirement. |
+| 29 | Exact identity closure | Source, workflow, artifact, custody, bundle/ref, Deck worktree/cache, and evidence all reproduce one 19-record WC0 source identity. |
 
 ## Blocked results and material stops
 
