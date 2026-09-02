@@ -1,127 +1,174 @@
-# Current Slice: None Selected
+# Current Slice: WC0 — Windows VST3 Processor Component Admission
 
 ## Status
 
 ```text
-status: no_active_slice
-authority_phase: no_active_slice
-implementation_authorized: false
-last accepted slice: WF0 — Supervised Windows VST3 Factory Census Probe
+status: active_implementation_slice
+authority_phase: implementation
+implementation_authorized: true
+slice: WC0
+target: main
+selection_basis_commit: 1f4b946178319887950bdb764114543a1a7b845b
+selection_basis_tree: 75b91e9f4d8b059aef76abeb9ff6518cf0c310bc
+design_gate: required
+design_revision: wc0-design-v2
+design_status: approved_for_implementation
+design_card: docs/slices/WC0/IMPLEMENTATION_DESIGN.md
+v1_design_commit: e712956b14f7e216a1f83db5888701a5ee072eb6
+v1_design_tree: da1095db0def3b7387c0514ba4ae884e71fb5b5e
+v1_design_blob: bacccf99040565eee9339af3bedfe0e04a8ebcf8
+v1_design_sha256: 047f0bb86c6c1991cf8a9addbccbf3a6bfd2c1a72f2fe247953b68eb9b17364e
+v1_review: 5091717689 / DESIGN_REPAIR_REQUIRED
+v2_design_commit: 064db624056f0fdf4daeda3b5ae394ab6210bee2
+v2_design_tree: 6d7baf83e29704e803a76106c36d346cdbf7be03
+v2_design_blob: df31b8467af9dcd97bc06b6afdf5b4b8d6be7018
+v2_design_sha256: ca68cde6f68b02320e3c950b445aca9db99fdac1301fa7dfb50d510f83c7d78c
+v2_review: 5092052158 / DESIGN_CLEAR
+design_approval: docs/slices/WC0/DESIGN_APPROVAL.md
+implementation_branch: codex/wc0-windows-vst3-processor-component-admission
+implementation_basis: exact design-authority merge commit and tree after readback
 successor_selection_authorized: false
 ```
 
-No class-instantiation, component/controller-hosting, native-proxy, IPC, shared-memory, audio, GUI/editor, Serum, Bitwig-hosting, authorization, packaging, runner-selection, or broader compatibility slice is selected or implied.
+## Primary claim
 
-## Last accepted slice
+> On the exact accepted Steam Deck fixture, the existing supervised Windows VST3 host path creates the exact AGain processor class as one `IComponent`, verifies its declared controller class ID, initializes it with a minimal repository-owned `IHostApplication`, terminates and releases it correctly, and then completes the already-proven factory/module shutdown with no remaining object, process, environment, or protected-state residue.
+
+## Exact new boundary
 
 ```text
-slice: WF0 — Supervised Windows VST3 Factory Census Probe
-design revision: wf0-design-v7
-design commit: 1d13fefc60ad6c2c49e384cd30631f60be2a3de2
-design tree: 752b885643c730378ceefab99c7d7ec9277fdf56
-design card blob: 3c8ac56cfaa8c95cb99fa327b392ed447453a87b
-design card SHA-256: 844d646509933516ff60eeb2c6213cd1c2e89a8d22b5c986ac986fb104a19d77
-design review: 5084789559 / DESIGN_CLEAR
-design-authority merge: 17646ff1cd5342d58ecf9346e26fad6f963f8a6a
-design-authority tree: 45b2858318d57cfad74dbfe18c8d410932306e6d
-implementation basis: ce049eb410d4cff91de13fdb8bf4f0a3c4b03ece
-implementation basis tree: 2a782b5bdba4021dcbfeb5d2df5d9ff165936542
-implementation PR: #25
-source commit: 8b76ab886fd75079c72e3f820781beb5d1b36ae9
-source tree: 829aae74e221a169ccfbb46387004b5edb04ba37
-reviewed evidence head: 0096010a36ebf31a36149064d64059142ce7cfed
-reviewed evidence tree: 58401f5b9d3caab9ffe53155fb2f0517d1801427
-technical-lead review: 5090768080
-implementation merge: e694cc84344394553c4a3eff6b13f34226b368ae
-implementation merge tree: 58401f5b9d3caab9ffe53155fb2f0517d1801427
+accepted AGain factory and class census
+    -> create the exact AGain processor as IComponent
+    -> read and verify its declared controller class ID
+    -> initialize it with one minimal host context
+    -> terminate it
+    -> release it
+    -> reuse accepted factory/module shutdown and process cleanup
 ```
 
-## Accepted WF0 claim
+WC0 owns one processor object lifecycle. It does not create the controller object or enter audio, state, parameter, bus, editor, proxy, or IPC work.
 
-On the exact accepted Steam Deck fixture, the repository-owned supervised Windows x86_64 factory probe, built from one exact 26-path source identity through the supported Windows Server 2022 / Visual Studio 2022 / MSVC route, loaded the exact pinned AGain VST3 through the accepted Runtime 4 / Proton 11 lane, obtained its plug-in factory, retained deterministic factory metadata and the complete ordered three-class census, released all acquired factory interfaces, called the applicable module exit, unloaded cleanly, drained its owned process tree, retired every disposable environment, and preserved every protected fixture.
+## Approved implementation envelope
 
-Accepted source, build, artifact, and runtime identities include:
+The immutable `wc0-design-v2` card and approval receipt authorize exactly:
 
 ```text
-implementation-source manifest:
-  03c3c017f7d6eb357ae657e992ef3c3988932f6870ac3a18192dfd9e343ee05f
+new owners: 2
+new plug-in call operations: 5
+component lifecycle states: 13
+focused proof rows: 29
+blocked results: 13
+source/configuration paths: 19
+evidence paths: 14
+total tracked implementation paths: 33
+```
 
-accepted Windows workflow run:
-  33601279364 / attempt 1 / job 100155309069
+The implementation branch must begin from the exact merged design-authority commit and tree read back after this authority merges. Its source commit must be one direct child of that basis and bind the exact 19-record `linux-vst-bridge-wc0-implementation-source/v1` manifest frozen in the design.
 
-VST3 SDK:
-  commit 3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96
-  tree   38343890fd1a0cedd48b7ec80ef17da15231b6c8
+## Accepted infrastructure reused without redesign
 
-scanner SHA-256:
-  36643c2447811b52e1ad1455eb47e0ced9b5f5bf03849f9625d80979d7c5798f
+WC0 consumes these accepted WF0 capabilities as prerequisites:
 
-AGain module SHA-256:
-  60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f
+- Windows Server 2022 / Visual Studio 2022 / MSVC build plane;
+- private Actions artifact custody on the Mac;
+- exact implementation-source Git-bundle handoff;
+- ordinary SSH source/artifact transfer to the Steam Deck;
+- clean detached Deck execution worktree;
+- content-addressed Windows artifact admission;
+- Runtime 4 / Proton 11 supervision;
+- disposable environment ownership;
+- module entry, factory acquisition, reverse factory release, module exit, unload, process drainage, and protected-state verification.
 
-artifact manifest SHA-256:
-  217d38dddb5e8ae4ee6b60245cc03b3174710cf2692e2e6e1a4c4ea1c04b7684
+During WC0, those mechanisms receive exact identity preflight and one bounded regression only. Their architecture and complete WF0 proof matrix are not reopened.
 
-Actions artifact:
-  ID 9835459546
-  digest 7ccb8f53aee02748d98abaa641a53e479ebd6f1d7b8bf381c1c2f11644d44d53
+## Binding implementation clarifications
+
+Technical-lead review `5092052158` binds these implementation details without creating a V3 design:
+
+1. Zero-initialize the complete controller `TUID` before `getControllerClassId`; consume or retain it only after an ordinary successful result.
+2. Callback/reference-count evidence storage must outlive the self-deleting `MinimalHostApplication`; no field may be read through the host pointer after its final `release()` returns zero.
+3. Deterministic unmatched-call attribution must cover all five new operations, including `create_component` and `get_controller_class_id`, without expanding the live fault family.
+
+## Object-quiescence law
+
+Only `object_quiescence=true` permits inherited factory-interface release, `ExitDll`, and `FreeLibrary`.
+
+For an initialized component, quiescence requires all nine design facts: successful initialization; exactly one ordinary terminate return; component release return zero; no component call in flight; cleared unusable component pointer; host reference count returned to owner baseline; final host-owner release returned zero; no host callback in flight; and a closed non-overflowed callback ledger.
+
+A nonzero release enters `component_retirement_incomplete`, is never retried, suppresses inherited in-process shutdown as `not_attempted_object_quiescence_unproved`, and leaves physical containment to the accepted process/environment owners without a clean-unload claim.
+
+## Anti-distraction law
+
+WC0 may not redesign or re-prove:
+
+- GitHub authentication;
+- the Windows build plane;
+- Actions artifact custody;
+- Mac-to-Deck transport;
+- Deck source admission;
+- SteamOS persistence;
+- Runtime or Proton selection;
+- process-supervisor architecture;
+- Bitwig installation;
+- the WF0 factory census.
+
+WC0 may not absorb:
+
+- edit-controller instantiation;
+- `IConnectionPoint` pairing;
+- `IAudioProcessor` interface census;
+- bus enumeration or activation;
+- parameters, state, process setup, events, or audio;
+- GUI/editor behavior;
+- native Linux proxy, C ABI, IPC, or shared memory;
+- Bitwig execution;
+- Serum execution or authorization;
+- packaging or runner selection.
+
+A need for any of those owners is a material discovery and returns WC0 to the design gate.
+
+## Exact fixture
+
+```text
+accepted WF0 source commit:
+8b76ab886fd75079c72e3f820781beb5d1b36ae9
+
+accepted WF0 evidence commit:
+0096010a36ebf31a36149064d64059142ce7cfed
+
+accepted WF0 source-manifest SHA-256:
+03c3c017f7d6eb357ae657e992ef3c3988932f6870ac3a18192dfd9e343ee05f
 
 Runtime 4 / Proton 11 digest:
-  2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
+2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
+
+AGain module SHA-256:
+60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f
+
+processor class ID:
+84E8DE5F92554F5396FAE4133C935A18
+
+processor raw Windows TUID:
+5FDEE8845592534F96FAE4133C935A18
+
+requested interface:
+Steinberg::Vst::IComponent
+
+expected controller class ID:
+D39D5B65D7AF42FA843F4AC841EB04F0
+
+expected controller raw Windows TUID:
+655B9DD3AFD7FA42843F4AC841EB04F0
 ```
 
-The accepted ordered factory census is:
+Bitwig 6.1 remains unlaunched protected state only.
 
-```text
-1. 84E8DE5F92554F5396FAE4133C935A18
-   AGain VST3
-   Audio Module Class
+## Protected state
 
-2. D39D5B65D7AF42FA843F4AC841EB04F0
-   AGain VST3Controller
-   Component Controller Class
-
-3. 41347FD6FED64094AFBB12B7DBA1D441
-   AGain SideChain VST3
-   Audio Module Class
-```
-
-WF0 proved `create_instance_called=false`, exact 15-call start/completion pairing, reverse factory release, successful `ExitDll`, successful `FreeLibrary`, a causal 15-second held gate, the complete 22-module negative family, zero remaining owned descendants, zero remaining disposable environments, no Deck GitHub dependency, and exact WR0/Bitwig protected-state equality.
-
-## Current accepted product frontier
-
-The project now proves this exact sequence on the accepted fixture:
-
-```text
-native Linux VST3 build and validation
-    -> controlled publication visible to Bitwig Flatpak
-    -> normal Bitwig discovery and native instance admission
-    -> controlled Runtime 4 / Proton 11 Windows execution
-    -> isolated project-owned Windows environments and exact process cleanup
-    -> supported Windows/MSVC artifact build and Mac-to-Deck custody
-    -> Windows VST3 module open
-    -> required GetPluginFactory acquisition
-    -> IPluginFactory / IPluginFactory2 / IPluginFactory3 metadata access
-    -> exact ordered factory class census
-    -> reverse release, module exit, unload, and zero-process retirement
-```
-
-The first unproved product boundary begins after the factory census. No exported class has been instantiated and no component/controller object model, native proxy crossing, transport, state, parameters, events, audio, or editor behavior has been established.
-
-Bitwig 6.1 remains current protected state only. Historical HP0/HP1 behavior remains bound to its declared Bitwig 6.0.11 fixture, and WF0 makes no Bitwig 6.1 behavior claim.
+Protected state includes the accepted WF0 source, evidence, build, custody, and runtime identities; the accepted WR0 environment; Runtime 4 and Proton 11; current Bitwig 6.1 and its Flatpak configuration; historical SR0/HP0/HP1/WR0/WR0A/WF0 evidence; Serum and vendor material; `.wine`; Steam compatdata; SteamOS read-only posture; and every repository path outside the bounded WC0 authority.
 
 ## Next lawful action
 
-Run the analysis-only successor-selection process in:
+Merge this exact approved design authority into `main`, read back the resulting commit and tree, create `codex/wc0-windows-vst3-processor-component-admission` from that exact basis, and implement only the immutable `wc0-design-v2` claim and 33-path envelope.
 
-```text
-docs/prompts/CHOOSE_NEXT_SLICE.md
-```
-
-against the exact current `main` commit and tree after this status closure merges.
-
-That analysis may recommend one bounded successor and emit an operator approval sentence. It may not edit the repository, activate a slice, or implement a design-gated successor.
-
-## Explicit nonclaims
-
-WF0 does not prove class instantiation, component/controller lifecycle, host-context behavior, connection points, buses, parameters, events, state, processing, audio, timing, automation, presets, GUI/editor behavior, native Linux proxy publication, IPC, shared memory, Bitwig hosting of a Windows plug-in, Serum operation or authorization, packaging, signing, release suitability, product-runner selection, another plug-in, another DAW, or general Windows VST3/Linux compatibility.
+A material design discovery returns WC0 to the design gate. Ordinary defects within the approved component, host-context, event, focused-fixture, normalizer, supervisor-extension, or evidence owners are implementation repairs and must not reopen infrastructure design.
