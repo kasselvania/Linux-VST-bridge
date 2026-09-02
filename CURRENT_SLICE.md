@@ -1,165 +1,127 @@
-# Current Slice: WF0 — Supervised Windows VST3 Factory Census Probe
+# Current Slice: None Selected
 
 ## Status
 
 ```text
-status: active_implementation_slice
-authority_phase: implementation
-implementation_authorized: true
-slice: WF0
-target: main
-selection_basis_commit: 745ca63bdd8641ade85cb9a024c1dc842681192d
-selection_basis_tree: 275521adff574f165bb2b3e883c2ec909bae4c66
-stopped_v5_implementation_basis_commit: 67026ad7160a584cbf9cdb4bf0db7b8dbfa60136
-stopped_v5_implementation_basis_tree: 2021dfcbf000d934a462d40efef6bbe7b54e0862
-mandatory_stop_result: RETURN_TO_DESIGN_GATE
-reviewed_design_pr: #21
-reviewed_design_head: 1d13fefc60ad6c2c49e384cd30631f60be2a3de2
-design_revision: wf0-design-v7
-design_commit: 1d13fefc60ad6c2c49e384cd30631f60be2a3de2
-design_tree: 752b885643c730378ceefab99c7d7ec9277fdf56
-design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V7.md
-design_card_git_blob: 3c8ac56cfaa8c95cb99fa327b392ed447453a87b
-design_card_sha256: 844d646509933516ff60eeb2c6213cd1c2e89a8d22b5c986ac986fb104a19d77
-adversarial_review: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW_V7.md
-adversarial_review_git_blob: 36f6f7579f3e31e2d52a8d8e86b2950f56eaec90
-adversarial_review_github_id: 5084789559
-adversarial_review_result: DESIGN_CLEAR
-design_approval: docs/slices/WF0/DESIGN_APPROVAL_V7.md
-design_approval_git_blob: f10bf084de447be468254aed82237e2ecbbdad42
-design_authority_merge_pr: #22
-design_authority_merge_commit: 17646ff1cd5342d58ecf9346e26fad6f963f8a6a
-design_authority_merge_tree: 45b2858318d57cfad74dbfe18c8d410932306e6d
-authority_readback_branch: status/wf0-v7-authority-readback
-authority_readback_pr: #23
-implementation_branch: codex/wf0-windows-vst3-factory-census-v7
-implementation_branch_state: awaiting_exact_authority_readback_merge
-implementation_basis_rule: exact_current_main_after_this_authority_readback_merges
+status: no_active_slice
+authority_phase: no_active_slice
+implementation_authorized: false
+last accepted slice: WF0 — Supervised Windows VST3 Factory Census Probe
 successor_selection_authorized: false
 ```
 
-PR #21 retains the reviewed V6/V7 design history. PR #22 squash-merged the exact reviewed and operator-approved V7 authority as commit `17646ff1cd5342d58ecf9346e26fad6f963f8a6a`, tree `45b2858318d57cfad74dbfe18c8d410932306e6d`.
+No class-instantiation, component/controller-hosting, native-proxy, IPC, shared-memory, audio, GUI/editor, Serum, Bitwig-hosting, authorization, packaging, runner-selection, or broader compatibility slice is selected or implied.
 
-PR #23 is the post-merge authority readback. It does not amend `wf0-design-v7`. The implementation branch begins only from the exact current `main` commit and tree after PR #23 merges; the technical-lead handoff supplies those identities.
-
-## Primary claim
-
-> On the exact accepted Steam Deck fixture, a repository-owned supervised Windows x86_64 factory probe, built against the pinned official VST3 SDK and executed through the accepted Runtime 4 / Proton 11 lane in a disposable WF0-owned scan environment, loads the exact pinned AGain VST3 bundle, obtains its plug-in factory, retains deterministic factory metadata and the complete expected three-class census, unloads cleanly, and leaves the accepted WR0 environment and every protected fixture unchanged.
-
-WF0 stops before `createInstance`.
-
-## Approved three-plane boundary
+## Last accepted slice
 
 ```text
-MacControlPlane
-    -> private GitHub repository and implementation source
-    -> exact private Actions run/artifact custody
-    -> exact self-contained implementation-source Git bundle
-    -> ordinary SSH source/artifact handoff
-    -> evidence retrieval and Git publication
-
-WindowsBuildPlane
-    -> GitHub-hosted windows-2022
-    -> Visual Studio 2022 / v143 / x64
-    -> Windows SDK 10.0.19041.0
-    -> exact pinned VST3 SDK and AGain
-    -> two clean builds and exact artifact envelope
-
-SteamDeckExecutionPlane
-    -> exact local source-bundle admission under fixed non-GitHub ref
-    -> clean detached exact-commit execution worktree
-    -> exact content-addressed artifact admission
-    -> Runtime 4 / Proton 11 execution
-    -> held-gate, negative-family, and positive AGain proofs
-    -> cleanup, protected-state verification, and bounded evidence return
+slice: WF0 — Supervised Windows VST3 Factory Census Probe
+design revision: wf0-design-v7
+design commit: 1d13fefc60ad6c2c49e384cd30631f60be2a3de2
+design tree: 752b885643c730378ceefab99c7d7ec9277fdf56
+design card blob: 3c8ac56cfaa8c95cb99fa327b392ed447453a87b
+design card SHA-256: 844d646509933516ff60eeb2c6213cd1c2e89a8d22b5c986ac986fb104a19d77
+design review: 5084789559 / DESIGN_CLEAR
+design-authority merge: 17646ff1cd5342d58ecf9346e26fad6f963f8a6a
+design-authority tree: 45b2858318d57cfad74dbfe18c8d410932306e6d
+implementation basis: ce049eb410d4cff91de13fdb8bf4f0a3c4b03ece
+implementation basis tree: 2a782b5bdba4021dcbfeb5d2df5d9ff165936542
+implementation PR: #25
+source commit: 8b76ab886fd75079c72e3f820781beb5d1b36ae9
+source tree: 829aae74e221a169ccfbb46387004b5edb04ba37
+reviewed evidence head: 0096010a36ebf31a36149064d64059142ce7cfed
+reviewed evidence tree: 58401f5b9d3caab9ffe53155fb2f0517d1801427
+technical-lead review: 5090768080
+implementation merge: e694cc84344394553c4a3eff6b13f34226b368ae
+implementation merge tree: 58401f5b9d3caab9ffe53155fb2f0517d1801427
 ```
 
-The Deck has no ordinary WF0 GitHub login, fetch, push, API, pull-request, or Actions-artifact-download dependency.
+## Accepted WF0 claim
 
-## Approved repository and custody posture
+On the exact accepted Steam Deck fixture, the repository-owned supervised Windows x86_64 factory probe, built from one exact 26-path source identity through the supported Windows Server 2022 / Visual Studio 2022 / MSVC route, loaded the exact pinned AGain VST3 through the accepted Runtime 4 / Proton 11 lane, obtained its plug-in factory, retained deterministic factory metadata and the complete ordered three-class census, released all acquired factory interfaces, called the applicable module exit, unloaded cleanly, drained its owned process tree, retired every disposable environment, and preserved every protected fixture.
+
+Accepted source, build, artifact, and runtime identities include:
 
 ```text
-repository: kasselvania/Linux-VST-bridge
-visibility: private
-owner type: User
+implementation-source manifest:
+  03c3c017f7d6eb357ae657e992ef3c3988932f6870ac3a18192dfd9e343ee05f
 
-GitHub artifact attestation: not required or claimed
-GitHub Enterprise Cloud: not required
-repository visibility/ownership change: prohibited
-replacement signing system: not authorized
-cryptographic provenance / SLSA / code signing: not claimed
+accepted Windows workflow run:
+  33601279364 / attempt 1 / job 100155309069
+
+VST3 SDK:
+  commit 3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96
+  tree   38343890fd1a0cedd48b7ec80ef17da15231b6c8
+
+scanner SHA-256:
+  36643c2447811b52e1ad1455eb47e0ced9b5f5bf03849f9625d80979d7c5798f
+
+AGain module SHA-256:
+  60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f
+
+artifact manifest SHA-256:
+  217d38dddb5e8ae4ee6b60245cc03b3174710cf2692e2e6e1a4c4ea1c04b7684
+
+Actions artifact:
+  ID 9835459546
+  digest 7ccb8f53aee02748d98abaa641a53e479ebd6f1d7b8bf381c1c2f11644d44d53
+
+Runtime 4 / Proton 11 digest:
+  2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
 ```
 
-Private Actions artifact custody binds the exact repository, workflow path and blob, implementation head SHA, run ID and attempt, artifact ID, artifact name, Actions digest, exact-ID API download, three-file inner envelope, build receipt, payload digest, artifact-manifest digest, Mac custody receipt, and Deck byte readback.
-
-The upload action's human-facing artifact URL and the REST artifact object's API URL are distinct typed values. They are not compared for literal equality; they are joined through the exact artifact ID, repository, run, head SHA, name, and digest.
-
-## Approved source-handoff law
-
-The exact implementation source reaches the Deck through one self-contained Git bundle and `linux-vst-bridge-wf0-source-handoff/v1` receipt over ordinary SSH with no credential or agent forwarding.
-
-The Deck imports only under:
+The accepted ordered factory census is:
 
 ```text
-refs/handoff/wf0-v7-source/<implementation-commit>
+1. 84E8DE5F92554F5396FAE4133C935A18
+   AGain VST3
+   Audio Module Class
+
+2. D39D5B65D7AF42FA843F4AC841EB04F0
+   AGain VST3Controller
+   Component Controller Class
+
+3. 41347FD6FED64094AFBB12B7DBA1D441
+   AGain SideChain VST3
+   Audio Module Class
 ```
 
-and executes only from one clean detached worktree at:
+WF0 proved `create_instance_called=false`, exact 15-call start/completion pairing, reverse factory release, successful `ExitDll`, successful `FreeLibrary`, a causal 15-second held gate, the complete 22-module negative family, zero remaining owned descendants, zero remaining disposable environments, no Deck GitHub dependency, and exact WR0/Bitwig protected-state equality.
+
+## Current accepted product frontier
+
+The project now proves this exact sequence on the accepted fixture:
 
 ```text
-<HOME>/.local/share/linux-vst-bridge/worktrees/wf0/<implementation-commit>/
+native Linux VST3 build and validation
+    -> controlled publication visible to Bitwig Flatpak
+    -> normal Bitwig discovery and native instance admission
+    -> controlled Runtime 4 / Proton 11 Windows execution
+    -> isolated project-owned Windows environments and exact process cleanup
+    -> supported Windows/MSVC artifact build and Mac-to-Deck custody
+    -> Windows VST3 module open
+    -> required GetPluginFactory acquisition
+    -> IPluginFactory / IPluginFactory2 / IPluginFactory3 metadata access
+    -> exact ordered factory class census
+    -> reverse release, module exit, unload, and zero-process retirement
 ```
 
-Before every held-gate, fault, positive, normalization, or evidence run, the Deck reproduces the exact 26-record implementation-source manifest. Source, Windows build, artifact custody, execution, evidence handoff, and final evidence-only publication must agree on one implementation commit and source-manifest digest.
+The first unproved product boundary begins after the factory census. No exported class has been instantiated and no component/controller object model, native proxy crossing, transport, state, parameters, events, audio, or editor behavior has been established.
 
-## Approved implementation envelope
-
-```text
-tracked implementation paths: 40
-implementation/configuration paths: 26
-evidence paths: 14
-owners: 14
-material operations: 25
-proof-matrix rows: 62
-blocked results: 29
-```
-
-The exact path roster, state machines, custody schemas, scanner lifecycle, proof matrix, blocked taxonomy, protected-state law, external mutation envelope, and material-stop conditions are owned by `docs/slices/WF0/IMPLEMENTATION_DESIGN_V7.md`.
-
-A need for another tracked path, a different builder, an SDK/VSTGUI patch, another positive fixture, a Deck GitHub dependency, a changed Runtime/Proton route, class instantiation, IPC, proxy, audio, GUI, Bitwig execution, Serum, authorization, packaging, or a widened claim requires `RETURN_TO_DESIGN_GATE`.
-
-## Binding scanner laws
-
-1. Every ordinary return from all 15 closed call operations is followed immediately by its paired synchronously flushed `call_completed` record before any later lifecycle event or call attempt.
-
-2. Required `GetPluginFactory` is resolved and checked before optional `InitDll`. A missing export never invokes `InitDll`.
-
-3. With a present export, optional entry handling completes, its lifecycle result is published, then `factory_export_found` is published. Only an entry-absent or entry-succeeded branch invokes the retained factory export.
-
-4. Factory-release, `ExitDll`, `FreeLibrary`, and process-cleanup failures remain secondary when an earlier primary stage failure exists.
-
-5. No class-instantiation operation exists in the scanner command, event enum, or retained schema.
-
-## Protected state
-
-Protected state includes:
-
-- the accepted WR0 environment and receipts;
-- exact Runtime 4 / Proton 11 assets;
-- `.wine` and Steam compatdata;
-- SteamOS read-only posture;
-- all historical SR0, HP0, HP1, WR0, and WR0A source/evidence;
-- current Bitwig 6.1 application, runtime, scope, shadow, overrides, permissions, and configuration;
-- Serum/vendor material;
-- the preserved stopped provisional source and bundle;
-- unrelated worktrees and every repository path outside the 40-path envelope.
-
-Bitwig remains unlaunched protected state only. WF0 makes no Bitwig 6.1 behavior claim.
-
-## Explicit nonclaims
-
-WF0 does not establish class instantiation, component/controller lifecycle, connections, host context, buses, parameters, events, state, processing, audio, timing, automation, presets, GUI, native proxy publication, IPC, Bitwig behavior, Serum behavior, authorization, packaging, release signing, distribution, or general VST3/Windows/Linux compatibility.
+Bitwig 6.1 remains current protected state only. Historical HP0/HP1 behavior remains bound to its declared Bitwig 6.0.11 fixture, and WF0 makes no Bitwig 6.1 behavior claim.
 
 ## Next lawful action
 
-Merge this one-path authority readback, create the implementation branch from the exact resulting `main` commit and tree, and issue the bounded V7 implementation handoff. The implementation agent may not merge or select a successor.
+Run the analysis-only successor-selection process in:
+
+```text
+docs/prompts/CHOOSE_NEXT_SLICE.md
+```
+
+against the exact current `main` commit and tree after this status closure merges.
+
+That analysis may recommend one bounded successor and emit an operator approval sentence. It may not edit the repository, activate a slice, or implement a design-gated successor.
+
+## Explicit nonclaims
+
+WF0 does not prove class instantiation, component/controller lifecycle, host-context behavior, connection points, buses, parameters, events, state, processing, audio, timing, automation, presets, GUI/editor behavior, native Linux proxy publication, IPC, shared memory, Bitwig hosting of a Windows plug-in, Serum operation or authorization, packaging, signing, release suitability, product-runner selection, another plug-in, another DAW, or general Windows VST3/Linux compatibility.
