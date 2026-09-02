@@ -12,9 +12,11 @@ selection_basis_commit: 68f52e5b9678d87b13547d3bb37078a0e6a1255c
 selection_basis_tree: 776a01340eca9ec456b9c063cf9201d31bd9f3e3
 selection_receipt: docs/slices/WA0/SLICE_SELECTION.md
 design_gate: required
-design_revision: unapproved
-design_status: reconnaissance_and_design_authorized
+design_revision: wa0-design-v1
+design_status: proposed_for_adversarial_review
 design_card: docs/slices/WA0/IMPLEMENTATION_DESIGN.md
+design_blob: d927c6dae430ffe7a811193e3d9119e573cfe316
+design_sha256: eb5bd8f3aa439944f5933ecc9f0c4bcb90d46b3657499b365d11a82c0e2858ac
 design_approval: docs/slices/WA0/DESIGN_APPROVAL.md
 design_branch: codex/wa0-windows-vst3-audio-processor-interface-design
 implementation_branch: not_authorized
