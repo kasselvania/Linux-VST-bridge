@@ -27,17 +27,20 @@ adversarial_review_github_id: 5084789559
 adversarial_review_result: DESIGN_CLEAR
 design_approval: docs/slices/WF0/DESIGN_APPROVAL_V7.md
 design_approval_git_blob: f10bf084de447be468254aed82237e2ecbbdad42
-design_authority_branch: authority/wf0-v7-implementation
-design_authority_merge_pr: pending
-design_authority_merge_commit: pending
-design_authority_merge_tree: pending
+design_authority_merge_pr: #22
+design_authority_merge_commit: 17646ff1cd5342d58ecf9346e26fad6f963f8a6a
+design_authority_merge_tree: 45b2858318d57cfad74dbfe18c8d410932306e6d
+authority_readback_branch: status/wf0-v7-authority-readback
+authority_readback_pr: #23
 implementation_branch: codex/wf0-windows-vst3-factory-census-v7
 implementation_branch_state: awaiting_exact_authority_readback_merge
-implementation_basis_rule: exact_current_main_after_authority_readback_merges
+implementation_basis_rule: exact_current_main_after_this_authority_readback_merges
 successor_selection_authorized: false
 ```
 
-The immutable V7 design is approved. This authority transition does not establish the WF0 technical claim; it authorizes implementation only after the V7 design authority and its exact post-merge readback are present on `main`.
+PR #21 retains the reviewed V6/V7 design history. PR #22 squash-merged the exact reviewed and operator-approved V7 authority as commit `17646ff1cd5342d58ecf9346e26fad6f963f8a6a`, tree `45b2858318d57cfad74dbfe18c8d410932306e6d`.
+
+PR #23 is the post-merge authority readback. It does not amend `wf0-design-v7`. The implementation branch begins only from the exact current `main` commit and tree after PR #23 merges; the technical-lead handoff supplies those identities.
 
 ## Primary claim
 
@@ -159,4 +162,4 @@ WF0 does not establish class instantiation, component/controller lifecycle, conn
 
 ## Next lawful action
 
-Merge the exact V7 authority records, perform one exact post-merge authority readback, create the implementation branch from that exact `main` commit and tree, and issue a bounded implementation handoff. The implementation agent may not merge or select a successor.
+Merge this one-path authority readback, create the implementation branch from the exact resulting `main` commit and tree, and issue the bounded V7 implementation handoff. The implementation agent may not merge or select a successor.
