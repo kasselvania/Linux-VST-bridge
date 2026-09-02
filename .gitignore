@@ -4,6 +4,19 @@
 /out/
 cmake-build-*/
 compile_commands.json
+__pycache__/
+*.py[cod]
+
+# WF0 disposable build, artifact, receipt, and scan state
+/.wf0-*
+/handoffs/
+/evidence/wf0-windows-vst3-factory-census/.staging/
+wf0-v7-execution-source-*.bundle
+wf0-payload.zip
+WF0_*_RECEIPT.json
+WF0_*_RECEIPT.sha256
+*.ready
+*.gate
 
 # Managed runtime and proprietary fixtures
 /runners/
@@ -23,6 +36,7 @@ compile_commands.json
 *.trace
 *.core
 core.*
+*.stackdump
 
 # Credentials and local configuration
 .env

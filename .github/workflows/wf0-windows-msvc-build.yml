@@ -1,0 +1,110 @@
+name: WF0 Windows MSVC build
+
+on:
+  push:
+    branches:
+      - codex/wf0-windows-vst3-factory-census-v7
+    paths:
+      - .github/workflows/wf0-windows-msvc-build.yml
+      - .gitignore
+      - CMakeLists.txt
+      - cmake/WF0DependencyLock.cmake
+      - docs/WF0_WINDOWS_BUILD_PLANE_LOCK.md
+      - tools/wf0-factory-census/README.md
+      - tools/wf0-factory-census/artifacts.py
+      - tools/wf0-factory-census/build.py
+      - tools/wf0-factory-census/common.py
+      - tools/wf0-factory-census/environment.py
+      - tools/wf0-factory-census/evidence.py
+      - tools/wf0-factory-census/negative_tests.py
+      - tools/wf0-factory-census/normalize.py
+      - tools/wf0-factory-census/run.py
+      - tools/wf0-factory-census/supervise.py
+      - tools/wf0-factory-census/verify.py
+      - windows-factory-probe/CMakeLists.txt
+      - windows-factory-probe/include/linux_vst_bridge/wf0_probe/census.h
+      - windows-factory-probe/include/linux_vst_bridge/wf0_probe/events.h
+      - windows-factory-probe/source/factory_census.cpp
+      - windows-factory-probe/source/factory_census.h
+      - windows-factory-probe/source/main.cpp
+      - windows-factory-probe/source/win32_module.cpp
+      - windows-factory-probe/source/win32_module.h
+      - windows-fixtures/wf0/CMakeLists.txt
+      - windows-fixtures/wf0/source/fault_fixture.cpp
+
+permissions:
+  contents: read
+
+jobs:
+  build_and_upload:
+    name: Exact Windows 2022 MSVC producer
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out exact pushed source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select Visual Studio 2022 Enterprise
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -products Microsoft.VisualStudio.Product.Enterprise -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio 2022 Enterprise was not found' }
+          "WF0_VS_INSTALLATION=$installation" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Acquire exact official VST3 SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}\wf0-vst3sdk"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build and verify two exact roots
+        shell: cmd
+        run: |
+          call "%WF0_VS_INSTALLATION%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 -winsdk=10.0.19041.0
+          if errorlevel 1 exit /b %errorlevel%
+          python tools\wf0-factory-census\build.py workflow-build --sdk-root "%RUNNER_TEMP%\wf0-vst3sdk" --transaction-root "%RUNNER_TEMP%\wf0-build-transaction" --output "%RUNNER_TEMP%\wf0-envelope" --source-commit "%GITHUB_SHA%"
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Upload exact three-file envelope
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: wf0-windows-build-${{ github.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}\wf0-envelope\wf0-payload.zip
+            ${{ runner.temp }}\wf0-envelope\WF0_WINDOWS_BUILD_RECEIPT.json
+            ${{ runner.temp }}\wf0-envelope\WF0_WINDOWS_BUILD_RECEIPT.sha256
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: false
+
+      - name: Capture bounded upload result
+        shell: pwsh
+        env:
+          WF0_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          WF0_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          WF0_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:WF0_ARTIFACT_ID -notmatch '^[1-9][0-9]*$') { throw 'artifact ID is malformed' }
+          if ($env:WF0_ARTIFACT_DIGEST -notmatch '^[0-9a-f]{64}$') { throw 'upload artifact digest is malformed' }
+          $expectedHumanUrl = "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/${{ github.run_id }}/artifacts/$env:WF0_ARTIFACT_ID"
+          if ($env:WF0_ARTIFACT_URL -ne $expectedHumanUrl) { throw 'upload artifact URL differs' }
+          $canonicalRestDigest = "sha256:$env:WF0_ARTIFACT_DIGEST"
+          $uploadResult = @(
+            "artifact-id=$env:WF0_ARTIFACT_ID"
+            "artifact-name=wf0-windows-build-${{ github.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}"
+            "artifact-human-url=$env:WF0_ARTIFACT_URL"
+            "artifact-digest-bare=$env:WF0_ARTIFACT_DIGEST"
+            "artifact-digest-rest-form=$canonicalRestDigest"
+          )
+          Write-Output ($uploadResult -join "`n")
+          $uploadResult | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
