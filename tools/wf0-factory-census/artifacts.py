@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exact Mac custody and offline source/artifact/evidence handoff admission for WC0."""
+"""Exact Mac custody and offline source/artifact/evidence handoff admission for WA0."""
 
 from __future__ import annotations
 
@@ -248,7 +248,7 @@ def verify_payload(payload: pathlib.Path, extraction: pathlib.Path,
         or source.get("branch") != EXPECTED_BRANCH
         or source.get("ref") != EXPECTED_REF
         or source.get("implementation_source_schema") != SOURCE_SCHEMA
-        or source.get("implementation_source_record_count") != 19
+        or source.get("implementation_source_record_count") != 17
         or source.get("implementation_source_manifest_sha256")
         != expected_source_manifest_sha256
         or source_manifest_sha256(source_manifest_value) != expected_source_manifest_sha256
@@ -317,7 +317,7 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
     run = _gh_json(f"/repos/{REPOSITORY}/actions/runs/{run_id}")
     run_attempt = str(run.get("run_attempt"))
     expected_name = (
-        f"wc0-windows-build-{source_commit}-run-{run_id}-attempt-{run_attempt}"
+        f"wa0-windows-build-{source_commit}-run-{run_id}-attempt-{run_attempt}"
     )
     run_path = str(run.get("path", "")).split("@", 1)[0]
     if (
@@ -370,7 +370,7 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
         wrapper_sha != digest_identity["upload_artifact_digest_bare"]
         or wrapper_sha != digest_identity["rest_hex"]
     ):
-        fail("WC0_BUILD_CUSTODY_BLOCKED: raw wrapper digest differs from Actions digest")
+        fail("WA0_BUILD_CUSTODY_BLOCKED: raw wrapper digest differs from Actions digest")
     inner = stage / "inner"
     safe_extract(
         wrapper, inner,
@@ -397,7 +397,7 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
             "ref": EXPECTED_REF,
             "implementation_source_manifest": {
                 "schema": SOURCE_SCHEMA,
-                "record_count": 19,
+                "record_count": 17,
                 "sha256": local_source_sha,
             },
         }
@@ -439,7 +439,7 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
             "commit": source_commit, "tree": local_source_tree,
             "parent": BASIS_COMMIT, "branch": EXPECTED_BRANCH,
             "ref": EXPECTED_REF, "schema": SOURCE_SCHEMA,
-            "record_count": 19, "manifest_sha256": local_source_sha,
+            "record_count": 17, "manifest_sha256": local_source_sha,
         },
         "artifact": {
             "id": artifact_id, "name": expected_name, "url": api_url,
@@ -515,8 +515,8 @@ def create_source_handoff(source_commit: str, stage: pathlib.Path) -> dict[str, 
     if stage.exists() or stage.is_symlink():
         fail("source handoff stage already exists")
     stage.mkdir(parents=True)
-    advertised_ref = f"refs/handoff/wc0-source/{source_commit}"
-    bundle_name = f"wc0-execution-source-{source_commit}.bundle"
+    advertised_ref = f"refs/handoff/wa0-source/{source_commit}"
+    bundle_name = f"wa0-execution-source-{source_commit}.bundle"
     bundle = stage / bundle_name
     temporary = pathlib.Path(tempfile.mkdtemp(prefix=".wf0-source-bare-", dir=stage.parent))
     try:
@@ -542,7 +542,7 @@ def create_source_handoff(source_commit: str, stage: pathlib.Path) -> dict[str, 
     receipt = {
         "schema": SOURCE_HANDOFF_SCHEMA,
         "repository": REPOSITORY,
-        "wc0_authority": {
+        "wa0_authority": {
             "design_authority_commit": AUTHORITY_MERGE_COMMIT,
             "design_authority_tree": AUTHORITY_MERGE_TREE,
             "implementation_basis_commit": BASIS_COMMIT,
@@ -562,17 +562,17 @@ def create_source_handoff(source_commit: str, stage: pathlib.Path) -> dict[str, 
             "self_contained": True, "prerequisite_count": 0,
         },
     }
-    receipt_path = stage / "WC0_SOURCE_HANDOFF_RECEIPT.json"
+    receipt_path = stage / "WA0_SOURCE_HANDOFF_RECEIPT.json"
     write_atomic(receipt_path, canonical_json(receipt))
     digest = sha256_file(receipt_path)
     write_atomic(
-        stage / "WC0_SOURCE_HANDOFF_RECEIPT.sha256",
-        f"{digest}  WC0_SOURCE_HANDOFF_RECEIPT.json\n".encode(),
+        stage / "WA0_SOURCE_HANDOFF_RECEIPT.sha256",
+        f"{digest}  WA0_SOURCE_HANDOFF_RECEIPT.json\n".encode(),
     )
     names = sorted(item.name for item in stage.iterdir())
     if names != sorted([
-        bundle_name, "WC0_SOURCE_HANDOFF_RECEIPT.json",
-        "WC0_SOURCE_HANDOFF_RECEIPT.sha256",
+        bundle_name, "WA0_SOURCE_HANDOFF_RECEIPT.json",
+        "WA0_SOURCE_HANDOFF_RECEIPT.sha256",
     ]):
         fail("source handoff stage roster differs")
     return receipt
@@ -582,11 +582,11 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
     """Verify an already imported fixed ref/worktree and publish its private bundle custody."""
     if not re.fullmatch(r"[0-9a-f]{40}", source_commit):
         fail("source handoff commit is malformed")
-    expected_bundle = f"wc0-execution-source-{source_commit}.bundle"
+    expected_bundle = f"wa0-execution-source-{source_commit}.bundle"
     expected_names = {
         expected_bundle,
-        "WC0_SOURCE_HANDOFF_RECEIPT.json",
-        "WC0_SOURCE_HANDOFF_RECEIPT.sha256",
+        "WA0_SOURCE_HANDOFF_RECEIPT.json",
+        "WA0_SOURCE_HANDOFF_RECEIPT.sha256",
     }
     if (
         not handoff.is_dir()
@@ -596,15 +596,15 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
     ):
         fail("Deck source handoff envelope differs")
 
-    receipt_path = handoff / "WC0_SOURCE_HANDOFF_RECEIPT.json"
+    receipt_path = handoff / "WA0_SOURCE_HANDOFF_RECEIPT.json"
     receipt_sha256 = verify_hash_sidecar(
-        handoff / "WC0_SOURCE_HANDOFF_RECEIPT.sha256", receipt_path
+        handoff / "WA0_SOURCE_HANDOFF_RECEIPT.sha256", receipt_path
     )
     receipt = read_canonical_json(receipt_path, SOURCE_HANDOFF_SCHEMA)
     bundle = handoff / expected_bundle
-    advertised_ref = f"refs/handoff/wc0-source/{source_commit}"
+    advertised_ref = f"refs/handoff/wa0-source/{source_commit}"
     implementation = receipt.get("implementation_source", {})
-    authority = receipt.get("wc0_authority", {})
+    authority = receipt.get("wa0_authority", {})
     bundle_identity = receipt.get("bundle", {})
     if (
         receipt.get("repository") != REPOSITORY
@@ -620,7 +620,7 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
         or implementation.get("ref") != EXPECTED_REF
         or implementation.get("manifest_schema")
         != SOURCE_SCHEMA
-        or implementation.get("manifest_record_count") != 19
+        or implementation.get("manifest_record_count") != 17
         or not re.fullmatch(
             r"[0-9a-f]{40}", str(implementation.get("tree", ""))
         )
@@ -668,7 +668,7 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
         cwd=root, check=False,
     )
     if ancestor.returncode != 0:
-        fail("Deck source bundle omits required WC0 authority history")
+        fail("Deck source bundle omits required WA0 authority history")
     reproduced = verify_execution_source(
         source_commit, implementation["tree"], implementation["manifest_sha256"]
     )
@@ -681,7 +681,7 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
     require_contained(target, parent, "Deck persistent source handoff")
     if target.exists() or target.is_symlink():
         fail("Deck persistent source handoff already exists; adoption is prohibited")
-    staging = parent / f".wc0-source-import-{os.urandom(16).hex()}"
+    staging = parent / f".wa0-source-import-{os.urandom(16).hex()}"
     staging.mkdir(mode=0o700)
     for name in sorted(expected_names):
         shutil.copy2(handoff / name, staging / name)
@@ -691,7 +691,7 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
     os.replace(staging, target)
     target.chmod(0o555)
     return {
-        "schema": "linux-vst-bridge-wc0-deck-source-admission/v1",
+        "schema": "linux-vst-bridge-wa0-deck-source-admission/v1",
         "implementation_source": {
             "commit": source_commit,
             "tree": implementation["tree"],
@@ -754,7 +754,7 @@ def import_artifact(handoff: pathlib.Path, source_commit: str,
         "branch": EXPECTED_BRANCH,
         "ref": EXPECTED_REF,
         "schema": SOURCE_SCHEMA,
-        "record_count": 19,
+        "record_count": 17,
         "manifest_sha256": source_manifest_digest,
     }
     custody_digest = normalize_artifact_digests(
@@ -771,7 +771,7 @@ def import_artifact(handoff: pathlib.Path, source_commit: str,
             "ref": EXPECTED_REF,
             "implementation_source_manifest": {
                 "schema": SOURCE_SCHEMA,
-                "record_count": 19,
+                "record_count": 17,
                 "sha256": source_manifest_digest,
             },
         }
@@ -841,6 +841,10 @@ def verify_evidence_packet(root: pathlib.Path) -> list[dict[str, Any]]:
     observed = sorted(item.name for item in root.iterdir())
     if observed != sorted(EVIDENCE_FILES):
         fail(f"evidence packet roster differs: {observed}")
+    # Evidence owns the one canonical schema/value allow-list.  Import lazily
+    # so artifact custody remains independent of evidence rendering.
+    from evidence import validate_evidence_allowlist
+    validate_evidence_allowlist(root)
     records: list[dict[str, Any]] = []
     prohibited = re.compile(
         rb"(?:/home/|/Users/|192\.168\.|BEGIN (?:RSA |OPENSSH )?PRIVATE KEY|"
@@ -890,38 +894,38 @@ def create_evidence_handoff(packet: pathlib.Path, destination: pathlib.Path,
         "raw_process_identifiers_retained": False,
         "compiled_binaries_retained": False,
     }
-    write_atomic(destination / "WC0_EVIDENCE_HANDOFF_RECEIPT.json", canonical_json(receipt))
-    digest = sha256_file(destination / "WC0_EVIDENCE_HANDOFF_RECEIPT.json")
+    write_atomic(destination / "WA0_EVIDENCE_HANDOFF_RECEIPT.json", canonical_json(receipt))
+    digest = sha256_file(destination / "WA0_EVIDENCE_HANDOFF_RECEIPT.json")
     write_atomic(
-        destination / "WC0_EVIDENCE_HANDOFF_RECEIPT.sha256",
-        f"{digest}  WC0_EVIDENCE_HANDOFF_RECEIPT.json\n".encode(),
+        destination / "WA0_EVIDENCE_HANDOFF_RECEIPT.sha256",
+        f"{digest}  WA0_EVIDENCE_HANDOFF_RECEIPT.json\n".encode(),
     )
     return receipt
 
 
 def verify_evidence_handoff(root: pathlib.Path) -> dict[str, Any]:
     expected = {
-        "packet", "WC0_EVIDENCE_HANDOFF_RECEIPT.json",
-        "WC0_EVIDENCE_HANDOFF_RECEIPT.sha256",
+        "packet", "WA0_EVIDENCE_HANDOFF_RECEIPT.json",
+        "WA0_EVIDENCE_HANDOFF_RECEIPT.sha256",
     }
     if not root.is_dir() or root.is_symlink() or {item.name for item in root.iterdir()} != expected:
         fail("evidence handoff roster differs")
-    receipt_path = root / "WC0_EVIDENCE_HANDOFF_RECEIPT.json"
-    verify_hash_sidecar(root / "WC0_EVIDENCE_HANDOFF_RECEIPT.sha256", receipt_path)
+    receipt_path = root / "WA0_EVIDENCE_HANDOFF_RECEIPT.json"
+    verify_hash_sidecar(root / "WA0_EVIDENCE_HANDOFF_RECEIPT.sha256", receipt_path)
     receipt = read_canonical_json(receipt_path, EVIDENCE_HANDOFF_SCHEMA)
     packet = root / "packet"
     records = verify_evidence_packet(packet)
     retained = read_canonical_json(
         packet / "BUILD_MANIFEST.json",
-        "linux-vst-bridge-wc0-retained-build-manifest/v1",
+        "linux-vst-bridge-wa0-retained-build-manifest/v1",
     )
     component = read_canonical_json(
         packet / "COMPONENT_SESSION.json",
-        "linux-vst-bridge-wc0-component-session/v1",
+        "linux-vst-bridge-wa0-component-regression/v1",
     )
-    callbacks = read_canonical_json(
-        packet / "CALLBACK_LEDGER.json",
-        "linux-vst-bridge-wc0-callback-ledger/v1",
+    audio = read_canonical_json(
+        packet / "AUDIO_PROCESSOR_LEASE.json",
+        "linux-vst-bridge-wa0-audio-processor-lease/v1",
     )
     implementation = receipt.get("implementation_source", {})
     source_commit = implementation.get("commit")
@@ -948,7 +952,7 @@ def verify_evidence_handoff(root: pathlib.Path) -> dict[str, Any]:
             "branch": EXPECTED_BRANCH,
             "ref": EXPECTED_REF,
             "schema": SOURCE_SCHEMA,
-            "record_count": 19,
+            "record_count": 17,
             "manifest_sha256": source_digest,
         }
         or retained.get("implementation_source_manifest") != reproduced
@@ -976,11 +980,12 @@ def verify_evidence_handoff(root: pathlib.Path) -> dict[str, Any]:
         )
         or receipt.get("component_session_sha256")
         != sha256_bytes(canonical_json(component))
-        or receipt.get("callback_ledger_sha256")
-        != sha256_bytes(canonical_json(callbacks))
+        or receipt.get("audio_processor_lease_sha256")
+        != sha256_bytes(canonical_json(audio))
+        or receipt.get("interface_quiescence") is not True
         or receipt.get("object_quiescence") is not True
         or receipt.get("clean_in_process_shutdown") is not True
-        or receipt.get("proof_row_count") != 29
+        or receipt.get("proof_row_count") != 20
         or receipt.get("protected_state_equal") is not True
         or receipt.get("no_deck_github", {}).get("github_operations") != 0
     ):
@@ -1049,5 +1054,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print(f"WC0_ERROR: {error}", file=os.sys.stderr, flush=True)
+        print(f"WA0_ERROR: {error}", file=os.sys.stderr, flush=True)
         raise

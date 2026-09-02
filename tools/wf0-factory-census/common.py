@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Closed identities and fail-closed primitives shared by the WC0 harness."""
+"""Closed identities and fail-closed primitives shared by the WA0 harness."""
 
 from __future__ import annotations
 
@@ -16,18 +16,31 @@ from typing import Any, Iterable, Sequence
 
 
 REPOSITORY = "kasselvania/Linux-VST-bridge"
-BASIS_COMMIT = "333b66f6aa689f01bb5c025b587ab7e469780524"
-BASIS_TREE = "d9aaae75d384c7b29313adde1a71049635615366"
+BASIS_COMMIT = "47aeb7dcbaaec271292408fb9bbe0f2e4f9d00a9"
+BASIS_TREE = "2dc9d64fc296670469b2c5b8ca0dccff59f45c01"
 AUTHORITY_MERGE_COMMIT = BASIS_COMMIT
 AUTHORITY_MERGE_TREE = BASIS_TREE
-DESIGN_COMMIT = "064db624056f0fdf4daeda3b5ae394ab6210bee2"
-DESIGN_TREE = "6d7baf83e29704e803a76106c36d346cdbf7be03"
-DESIGN_BLOB = "df31b8467af9dcd97bc06b6afdf5b4b8d6be7018"
-DESIGN_SHA256 = "ca68cde6f68b02320e3c950b445aca9db99fdac1301fa7dfb50d510f83c7d78c"
-REVIEW_BLOB = "6a8e83b657a951eb55d18266af64f0336439b3aa"
-REVIEW_GITHUB_ID = "5092052158"
-APPROVAL_BLOB = "b02e62816ee3f22167e190a459a9ced902080f5b"
-EXPECTED_BRANCH = "codex/wc0-windows-vst3-processor-component-admission"
+DESIGN_COMMIT = "0d5a41936c171f5d01d01b4c933875a1cfbe724a"
+DESIGN_TREE = "787f1adf99e6083c3c90fa73996f6c151d2de50c"
+DESIGN_BLOB = "d927c6dae430ffe7a811193e3d9119e573cfe316"
+DESIGN_SHA256 = "eb5bd8f3aa439944f5933ecc9f0c4bcb90d46b3657499b365d11a82c0e2858ac"
+REVIEW_GITHUB_ID = "5094205619"
+APPROVAL_BLOB = "6817fe032bfdcee487f4dfb10caf22cb6686a9fa"
+ACCEPTED_WC0_IMPLEMENTATION_MERGE = "cb831c38e1be88f4bb6a0ab6f2fca2d94164891b"
+ACCEPTED_WC0_SOURCE_COMMIT = "9c0096930df86fc5b171cdebec40b306a198316a"
+ACCEPTED_WC0_SOURCE_TREE = "e60286740a3aff7589e0dc9bb3b278e68a23374e"
+ACCEPTED_WC0_EVIDENCE_COMMIT = "77bb40dbf35e19fd93b9f79b5286a43d56b9cc21"
+ACCEPTED_WC0_EVIDENCE_TREE = "43fab0b6341e2549775b7f4223965031521ff338"
+ACCEPTED_WC0_SOURCE_MANIFEST_SHA256 = (
+    "38699a1d2026cb1078a569dc1997122b0111c78e608f294777dcf4afc49c8b25"
+)
+ACCEPTED_WC0_SCANNER_SHA256 = (
+    "51b899b7936921b24265ead9ff12180f14249d49b532ead9a18414559f5f83f7"
+)
+ACCEPTED_WC0_ARTIFACT_MANIFEST_SHA256 = (
+    "25bd47471f01ef57b06b3c8232bb6cc7e40c767f281c30186fa5426130f8ae82"
+)
+EXPECTED_BRANCH = "codex/wa0-windows-vst3-audio-processor-interface-admission"
 EXPECTED_REF = f"refs/heads/{EXPECTED_BRANCH}"
 WORKFLOW_PATH = ".github/workflows/wf0-windows-msvc-build.yml"
 SDK_COMMIT = "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
@@ -80,6 +93,9 @@ SDK_SOURCE_BLOBS = {
     "pluginterfaces/vst/ivstcomponent.h":
         ("e20ef5f429349bdccf55367d45051fcdb0ff97c5",
          "cc587e34c009388d4187948c14a651df1481a01920abe895023094ca5b13faee"),
+    "pluginterfaces/vst/ivstaudioprocessor.h":
+        ("2a5428ceb3fd532a1e509a4a6a6dae4cda5191a3",
+         "6289b19c8300fb381da7688414fae52d5ca139371f910830532204b860bd6549"),
     "base/source/fobject.h":
         ("6d092acfcc7bf3be91f8f00bcb3e6c27184d53eb",
          "6c8ef34413eed9fabbc61befaa40b213bbec4fe9cd7195738297caaaf1001767"),
@@ -98,6 +114,9 @@ SDK_SOURCE_BLOBS = {
     "public.sdk/source/vst/vstaudioeffect.h":
         ("818cc4f3357c15c6f9a5ba649dbc70e87ced688f",
          "d61a3f92770bcab1b6dfafd49ea9935de8576ab92e251569c5bc2756835c35d9"),
+    "public.sdk/source/vst/vstaudioeffect.cpp":
+        ("2c3535be777ec777c5f066e42807092168019310",
+         "997ff3d44bb9927def01d26c23a2aa11331d974921ee4a78b02e7345449e705b"),
     "public.sdk/source/vst/hosting/hostclasses.cpp":
         ("fd0e12498e7f9035e6d9f23c154cf50adfd8a6ab",
          "f9fbcd410d09ea3352342fdcb645e6a9dd1a424ff5b42430287fd4885a063c1d"),
@@ -123,13 +142,13 @@ RUNNER_VERSION = "1787334450 proton-11.0-2-x86_64"
 RUNNER_BUILD_ID = "24867889"
 NEUTRAL_APP_ID = "0"
 
-SOURCE_SCHEMA = "linux-vst-bridge-wc0-implementation-source/v1"
+SOURCE_SCHEMA = "linux-vst-bridge-wa0-implementation-source/v1"
 WINDOWS_BUILD_SCHEMA = "linux-vst-bridge-wf0-windows-build/v1"
 ARTIFACT_SCHEMA = "linux-vst-bridge-wf0-artifact-manifest/v1"
 BUNDLE_SCHEMA = "linux-vst-bridge-wf0-bundle-manifest/v1"
 MAC_CUSTODY_SCHEMA = "linux-vst-bridge-wf0-mac-artifact-custody/v1"
-SOURCE_HANDOFF_SCHEMA = "linux-vst-bridge-wc0-source-handoff/v1"
-EVIDENCE_HANDOFF_SCHEMA = "linux-vst-bridge-wc0-evidence-handoff/v1"
+SOURCE_HANDOFF_SCHEMA = "linux-vst-bridge-wa0-source-handoff/v1"
+EVIDENCE_HANDOFF_SCHEMA = "linux-vst-bridge-wa0-evidence-handoff/v1"
 MARKER_SCHEMA = "linux-vst-bridge-wf0-scan-environment/v1"
 SOURCE_PATHS = (
     ".github/workflows/wf0-windows-msvc-build.yml",
@@ -144,8 +163,6 @@ SOURCE_PATHS = (
     "tools/wf0-factory-census/run.py",
     "tools/wf0-factory-census/supervise.py",
     "tools/wf0-factory-census/verify.py",
-    "windows-factory-probe/CMakeLists.txt",
-    "windows-factory-probe/include/linux_vst_bridge/wf0_probe/events.h",
     "windows-factory-probe/source/component_instance_session.cpp",
     "windows-factory-probe/source/component_instance_session.h",
     "windows-factory-probe/source/main.cpp",
@@ -154,18 +171,15 @@ SOURCE_PATHS = (
 )
 EVIDENCE_FILES = (
     "BASIS.md", "BUILD.md", "BUILD_MANIFEST.json", "ENVIRONMENT.md",
-    "LAUNCH_AND_PROCESS.md", "COMPONENT_SESSION.json", "CALLBACK_LEDGER.json",
+    "LAUNCH_AND_PROCESS.md", "AUDIO_PROCESSOR_LEASE.json",
+    "COMPONENT_SESSION.json",
     "STAGE_TIMELINE.json", "NEGATIVE_TESTS.md", "PRESERVATION.md", "FINDINGS.md",
     "SANITIZATION.md", "fixture.json", "hashes.sha256",
 )
 FAULT_TARGETS = (
-    "wc0-create-failure-null", "wc0-create-success-null",
-    "wc0-create-failure-nonnull", "wc0-controller-id-failure",
-    "wc0-controller-id-mismatch", "wc0-initialize-failure",
-    "wc0-initialize-hang", "wc0-initialize-crash", "wc0-terminate-failure",
-    "wc0-terminate-hang", "wc0-terminate-crash", "wc0-release-nonzero",
-    "wc0-release-hang", "wc0-release-crash", "wc0-host-object-request",
-    "wc0-host-reference-leak",
+    "wa0-query-failure-null", "wa0-query-success-null",
+    "wa0-query-failure-nonnull", "wa0-query-hang", "wa0-query-crash",
+    "wa0-release-unexpected-count", "wa0-release-hang", "wa0-release-crash",
 )
 
 
@@ -245,11 +259,11 @@ def artifact_cache_parent() -> pathlib.Path:
 
 
 def source_handoff_parent() -> pathlib.Path:
-    return real_home() / ".local/share/linux-vst-bridge/handoffs/wc0/source/by-commit"
+    return real_home() / ".local/share/linux-vst-bridge/handoffs/wa0/source/by-commit"
 
 
 def execution_worktree_parent() -> pathlib.Path:
-    return real_home() / ".local/share/linux-vst-bridge/worktrees/wc0"
+    return real_home() / ".local/share/linux-vst-bridge/worktrees/wa0"
 
 
 def environment_parent() -> pathlib.Path:
@@ -297,9 +311,9 @@ def source_manifest_sha256(value: dict[str, Any]) -> str:
     if (
         value.get("schema") != SOURCE_SCHEMA
         or not re.fullmatch(r"[0-9a-f]{40}", str(value.get("commit", "")))
-        or value.get("record_count") != 19
+        or value.get("record_count") != 17
         or not isinstance(records, list)
-        or len(records) != 19
+        or len(records) != 17
         or [item.get("path") for item in records if isinstance(item, dict)]
         != list(SOURCE_PATHS)
     ):
@@ -337,8 +351,8 @@ def require_clean_source(source_commit: str, *, treeish: str = "HEAD",
     if detached is True and branch:
         fail(f"Deck execution worktree is not detached: {branch}")
     if detached is False and branch != EXPECTED_BRANCH:
-        fail(f"wrong WC0 branch: {branch}")
-    # SOURCE_PATHS is the exact WC0 change envelope, not the complete set of
+        fail(f"wrong WA0 branch: {branch}")
+    # SOURCE_PATHS is the exact WA0 change envelope, not the complete set of
     # inherited WF0 files that remains present below these directories.  Keep
     # that inherited surface fail-closed by requiring its path/mode/blob map to
     # remain byte-identical to the accepted implementation basis.

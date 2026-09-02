@@ -1,4 +1,5 @@
 #include "pluginterfaces/base/ipluginbase.h"
+#include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsthostapplication.h"
 
@@ -10,6 +11,17 @@
 
 #ifndef WF0_FAULT_KIND
 #error WF0_FAULT_KIND must be defined
+#endif
+
+#ifdef WA0_FAULT_KIND
+constexpr int kWa0QueryFailureNull = 0;
+constexpr int kWa0QuerySuccessNull = 1;
+constexpr int kWa0QueryFailureNonnull = 2;
+constexpr int kWa0QueryHang = 3;
+constexpr int kWa0QueryCrash = 4;
+constexpr int kWa0ReleaseUnexpectedCount = 5;
+constexpr int kWa0ReleaseHang = 6;
+constexpr int kWa0ReleaseCrash = 7;
 #endif
 
 namespace {
@@ -94,8 +106,16 @@ void forbidden_method_tripwire() {
     if (marker != INVALID_HANDLE_VALUE) CloseHandle(marker);
 }
 
+void forbidden_audio_processor_method_tripwire() {
+    HANDLE marker = CreateFileW(
+        L"C:\\wf0\\session\\forbidden-audio-processor-method.marker",
+        GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (marker != INVALID_HANDLE_VALUE) CloseHandle(marker);
+}
+
 #ifdef WC0_FAULT_KIND
-class FaultComponent final : public Steinberg::Vst::IComponent {
+class FaultComponent final : public Steinberg::Vst::IComponent,
+                             public Steinberg::Vst::IAudioProcessor {
 public:
     FaultComponent()
         : references_(WC0_FAULT_KIND == kWc0ReleaseNonzero ? 2 : 1) {}
@@ -114,6 +134,25 @@ public:
             addRef();
             return Steinberg::kResultOk;
         }
+#ifdef WA0_FAULT_KIND
+        if (Steinberg::FUnknownPrivate::iidEqual(
+                iid, INLINE_UID_OF(Steinberg::Vst::IAudioProcessor))) {
+            if (WA0_FAULT_KIND == kWa0QueryHang) hang_forever();
+            if (WA0_FAULT_KIND == kWa0QueryCrash) crash_now();
+            if (WA0_FAULT_KIND == kWa0QueryFailureNull)
+                return Steinberg::kNoInterface;
+            if (WA0_FAULT_KIND == kWa0QuerySuccessNull)
+                return Steinberg::kResultOk;
+            if (audio_lease_outstanding_)
+                return Steinberg::kInvalidArgument;
+            *object = static_cast<Steinberg::Vst::IAudioProcessor*>(this);
+            addRef();
+            audio_lease_outstanding_ = true;
+            return WA0_FAULT_KIND == kWa0QueryFailureNonnull
+                ? Steinberg::kNoInterface
+                : Steinberg::kResultOk;
+        }
+#endif
         return Steinberg::kNoInterface;
     }
 
@@ -122,6 +161,14 @@ public:
     }
 
     Steinberg::uint32 PLUGIN_API release() override {
+#ifdef WA0_FAULT_KIND
+        if (audio_lease_outstanding_) {
+            if (WA0_FAULT_KIND == kWa0ReleaseHang) hang_forever();
+            if (WA0_FAULT_KIND == kWa0ReleaseCrash) crash_now();
+            audio_lease_outstanding_ = false;
+            if (WA0_FAULT_KIND == kWa0ReleaseUnexpectedCount) return 2;
+        }
+#endif
         if (WC0_FAULT_KIND == kWc0ReleaseHang) hang_forever();
         if (WC0_FAULT_KIND == kWc0ReleaseCrash) crash_now();
         const long remaining = --references_;
@@ -220,12 +267,58 @@ public:
         return Steinberg::kNotImplemented;
     }
 
+    Steinberg::tresult PLUGIN_API setBusArrangements(
+        Steinberg::Vst::SpeakerArrangement*, Steinberg::int32,
+        Steinberg::Vst::SpeakerArrangement*, Steinberg::int32) override {
+        forbidden_audio_processor_method_tripwire();
+        return Steinberg::kNotImplemented;
+    }
+
+    Steinberg::tresult PLUGIN_API getBusArrangement(
+        Steinberg::Vst::BusDirection, Steinberg::int32,
+        Steinberg::Vst::SpeakerArrangement&) override {
+        forbidden_audio_processor_method_tripwire();
+        return Steinberg::kNotImplemented;
+    }
+
+    Steinberg::tresult PLUGIN_API canProcessSampleSize(Steinberg::int32) override {
+        forbidden_audio_processor_method_tripwire();
+        return Steinberg::kNotImplemented;
+    }
+
+    Steinberg::uint32 PLUGIN_API getLatencySamples() override {
+        forbidden_audio_processor_method_tripwire();
+        return 0;
+    }
+
+    Steinberg::tresult PLUGIN_API setupProcessing(
+        Steinberg::Vst::ProcessSetup&) override {
+        forbidden_audio_processor_method_tripwire();
+        return Steinberg::kNotImplemented;
+    }
+
+    Steinberg::tresult PLUGIN_API setProcessing(Steinberg::TBool) override {
+        forbidden_audio_processor_method_tripwire();
+        return Steinberg::kNotImplemented;
+    }
+
+    Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData&) override {
+        forbidden_audio_processor_method_tripwire();
+        return Steinberg::kNotImplemented;
+    }
+
+    Steinberg::uint32 PLUGIN_API getTailSamples() override {
+        forbidden_audio_processor_method_tripwire();
+        return 0;
+    }
+
 private:
     ~FaultComponent() = default;
 
     std::atomic<long> references_;
     Steinberg::FUnknown* context_{nullptr};
     bool initialized_{false};
+    bool audio_lease_outstanding_{false};
 };
 #endif
 

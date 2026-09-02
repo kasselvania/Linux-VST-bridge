@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Deterministic and bounded live negative proofs for the WC0 lifecycle owners."""
+"""Deterministic and bounded live negative proofs for the WA0 lease owner."""
 
 from __future__ import annotations
 
 import secrets
 import pathlib
+import re
 import shutil
 import stat
 import struct
@@ -26,38 +27,33 @@ from common import (
     protected_snapshot, runner_root, write_atomic,
 )
 from environment import ScanEnvironment, create_environment, retire_environment
+from evidence import evidence_allowlist_regression
 from normalize import decode_field
 from supervise import (
     ADAPTER_OPERATION_PREFIX, EXPECTED_ADAPTER_OPERATIONS, IN_FLIGHT_BLOCKER,
     OPERATIONS, StreamState, adapter_operation_ledger, root_identity_continuity,
     supervise, supervise_adapter, topology_role_census,
 )
-from verify import parse_pe, scanner_component_call_surface
+from verify import (
+    audio_method_verifier_regression, parse_pe, scanner_component_call_surface,
+)
 
 
 EXPECTED = {
-    "wc0-create-failure-null": "WC0_COMPONENT_CREATE_BLOCKED",
-    "wc0-create-success-null": "WC0_COMPONENT_CREATE_BLOCKED",
-    "wc0-create-failure-nonnull": "WC0_COMPONENT_CREATE_BLOCKED",
-    "wc0-controller-id-failure": "WC0_CONTROLLER_ID_BLOCKED",
-    "wc0-controller-id-mismatch": "WC0_CONTROLLER_ID_MISMATCH",
-    "wc0-initialize-failure": "WC0_COMPONENT_INITIALIZE_BLOCKED",
-    "wc0-initialize-hang": "WC0_COMPONENT_INITIALIZE_BLOCKED",
-    "wc0-initialize-crash": "WC0_COMPONENT_INITIALIZE_BLOCKED",
-    "wc0-terminate-failure": "WC0_COMPONENT_TERMINATE_BLOCKED",
-    "wc0-terminate-hang": "WC0_COMPONENT_TERMINATE_BLOCKED",
-    "wc0-terminate-crash": "WC0_COMPONENT_TERMINATE_BLOCKED",
-    "wc0-release-nonzero": "WC0_COMPONENT_RELEASE_BLOCKED",
-    "wc0-release-hang": "WC0_COMPONENT_RELEASE_BLOCKED",
-    "wc0-release-crash": "WC0_COMPONENT_RELEASE_BLOCKED",
-    "wc0-host-object-request": "WC0_HOST_CONTEXT_BLOCKED",
-    "wc0-host-reference-leak": "WC0_HOST_CONTEXT_BLOCKED",
+    "wa0-query-failure-null": "WA0_INTERFACE_QUERY_BLOCKED",
+    "wa0-query-success-null": "WA0_INTERFACE_QUERY_INCONSISTENT",
+    "wa0-query-failure-nonnull": "WA0_INTERFACE_QUERY_INCONSISTENT",
+    "wa0-query-hang": "WA0_INTERFACE_QUERY_BLOCKED",
+    "wa0-query-crash": "WA0_INTERFACE_QUERY_BLOCKED",
+    "wa0-release-unexpected-count": "WA0_INTERFACE_RELEASE_BLOCKED",
+    "wa0-release-hang": "WA0_INTERFACE_RELEASE_BLOCKED",
+    "wa0-release-crash": "WA0_INTERFACE_RELEASE_BLOCKED",
 }
 
 
 def deterministic_tests(source_root) -> dict[str, Any]:
-    if set(IN_FLIGHT_BLOCKER) != OPERATIONS or len(OPERATIONS) != 20:
-        fail("closed call-operation mapping is not exactly 20 total functions")
+    if set(IN_FLIGHT_BLOCKER) != OPERATIONS or len(OPERATIONS) != 22:
+        fail("closed call-operation mapping is not exactly 22 total functions")
     if tuple(EXPECTED_ADAPTER_OPERATIONS) != tuple([
         "load_library", "init_dll", "get_plugin_factory", "get_factory_info",
         "query_factory_2", "query_factory_3", "count_classes",
@@ -65,9 +61,10 @@ def deterministic_tests(source_root) -> dict[str, Any]:
         "release_factory_3", "release_factory_2", "release_factory_base",
         "exit_dll", "free_library", "create_component",
         "get_controller_class_id", "initialize_component",
+        "query_audio_processor", "release_audio_processor",
         "terminate_component", "release_component",
     ]):
-        fail("loader-adapter operation roster differs from the exact WC0 contract")
+        fail("loader-adapter operation roster differs from the exact WA0 contract")
     call_surface = scanner_component_call_surface(source_root)
     source = (source_root / "windows-factory-probe/source/win32_module.cpp").read_text(
         encoding="utf-8"
@@ -110,19 +107,24 @@ def deterministic_tests(source_root) -> dict[str, Any]:
         ("create_component", "WC0_COMPONENT_CREATE_BLOCKED"),
         ("get_controller_class_id", "WC0_CONTROLLER_ID_BLOCKED"),
         ("initialize_component", "WC0_COMPONENT_INITIALIZE_BLOCKED"),
+        ("query_audio_processor", "WA0_INTERFACE_QUERY_BLOCKED"),
+        ("release_audio_processor", "WA0_INTERFACE_RELEASE_BLOCKED"),
         ("terminate_component", "WC0_COMPONENT_TERMINATE_BLOCKED"),
         ("release_component", "WC0_COMPONENT_RELEASE_BLOCKED"),
     ):
         candidate = StreamState()
         candidate.accept({
             "event": "call_started", "sequence": 1, "operation": operation,
-            "interface": "IPluginFactory" if operation == "create_component"
-                         else "IComponent",
+            "interface": (
+                "IPluginFactory" if operation == "create_component"
+                else "IAudioProcessor" if operation == "release_audio_processor"
+                else "IComponent"
+            ),
             "ordinal": None, "tier": None,
             "object_role": "again_processor_component",
         })
         if candidate.in_flight is None or IN_FLIGHT_BLOCKER[operation] != blocker:
-            fail(f"unmatched WC0 operation attribution differs: {operation}")
+            fail(f"unmatched WA0 operation attribution differs: {operation}")
         unmatched[operation] = blocker
     framed_adapter_stderr = (
         b"runtime startup diagnostic\n"
@@ -252,33 +254,69 @@ def deterministic_tests(source_root) -> dict[str, Any]:
     component_source = (
         source_root / "windows-factory-probe/source/component_instance_session.cpp"
     ).read_text(encoding="utf-8")
+    component_header = (
+        source_root / "windows-factory-probe/source/component_instance_session.h"
+    ).read_text(encoding="utf-8")
     main_source = (
         source_root / "windows-factory-probe/source/main.cpp"
     ).read_text(encoding="utf-8")
-    state_names = (
-        "component_absent", "component_create_in_flight", "component_created",
-        "controller_id_in_flight", "controller_id_verified", "host_context_ready",
-        "component_initialize_in_flight", "component_initialized",
-        "component_terminate_in_flight", "component_terminated",
-        "component_release_in_flight", "component_released",
-        "component_retirement_incomplete",
+    audio_state_names = (
+        "audio_processor_absent", "audio_processor_query_in_flight",
+        "audio_processor_query_returned_without_lease",
+        "audio_processor_lease_acquired", "audio_processor_release_in_flight",
+        "audio_processor_lease_retired", "audio_processor_retirement_incomplete",
+        "audio_processor_ownership_unknown",
     )
-    if any(component_source.count(f'"{name}"') < 1 for name in state_names):
-        fail("component source does not retain all thirteen stable lifecycle states")
+    if any(component_source.count(f'"{name}"') < 1 for name in audio_state_names):
+        fail("component source does not retain all eight audio-lease states")
     if (
         component_source.count("component->release()") != 1
+        or component_source.count("component_.queryInterface(requested, &output)") != 1
+        or component_source.count("interface_->release()") != 1
+        or "audio_release_matches_component_baseline(result.release_result)" not in component_source
+        or "audio_release_matches_component_baseline(0)" not in component_source
+        or "audio_release_matches_component_baseline(2)" not in component_source
+        or "result.audio_processor.audio_interface_quiescence" not in component_source
         or "result.release_result == 0" not in component_source
         or "result.host_reference_returned_to_baseline" not in component_source
         or "callbacks.close()" not in component_source
         or "closed_ = true" not in component_source
-        or main_source.count("not_attempted_object_quiescence_unproved") != 1
+        or main_source.count("not_attempted_audio_interface_quiescence_unproved") != 1
+        or main_source.count("terminate_component") < 2
+        or main_source.count("release_component") < 2
         or "if (factory != nullptr &&\n            (!component_session_ran || component.object_quiescence))"
            not in main_source
     ):
-        fail("object-quiescence or single-release source law differs")
+        fail("audio-interface quiescence or single-release source law differs")
+    release_baseline_assertions = (
+        "static_assert(audio_release_matches_component_baseline(1));",
+        "static_assert(!audio_release_matches_component_baseline(0));",
+        "static_assert(!audio_release_matches_component_baseline(2));",
+        "static_assert(!audio_release_matches_component_baseline(0xffffffffu));",
+    )
+    if (
+        re.search(
+            r"constexpr\s+bool\s+audio_release_matches_component_baseline\s*\("
+            r"\s*Steinberg::uint32\s+value\s*\)\s*noexcept\s*\{\s*"
+            r"return\s+value\s*==\s*1\s*;\s*\}",
+            component_header,
+        ) is None
+        or any(assertion not in component_header
+               for assertion in release_baseline_assertions)
+    ):
+        fail("production release-baseline helper/static assertions differ")
+    release_baseline_regression = {
+        "production_helper": "audio_release_matches_component_baseline",
+        "expected_component_owner_baseline": 1,
+        "accepted_counts": [1],
+        "rejected_counts": [0, 2, 0xffffffff],
+        "static_asserts_bound_to_production_helper": True,
+    }
 
     checkout_regression = eol_checkout_regression()
     digest_regression = artifact_digest_regression()
+    audio_method_regression = audio_method_verifier_regression()
+    allowlist_regression = evidence_allowlist_regression()
     build_environment = build_command_environment({})
     if (
         EXPECTED_AGAIN_MODULE_SHA256
@@ -290,21 +328,24 @@ def deterministic_tests(source_root) -> dict[str, Any]:
     ):
         fail("exact AGain or serial MSVC build contract differs")
     cases = [
-        "closed_operation_mapping_20_of_20", "completion_tuple_validation",
+        "closed_operation_mapping_22_of_22", "completion_tuple_validation",
         "sequence_gap_rejection", "second_completion_rejection",
         "relative_module_path_rejection", "default_search_flag_lock",
-        "non_null_hfile_prohibited", "exact_five_call_component_surface",
+        "non_null_hfile_prohibited", "exact_seven_call_component_surface",
         "unload_failure_adapter_mapping_compiled",
         "runtime_entrypoint_exec_identity_continuity",
         "runtime_root_included_in_topology_role_census",
         "closed_sdk_encoding_label_mapping",
         "controlled_git_checkout_eol_regression",
         "typed_actions_digest_regression",
-        "five_wc0_unmatched_operation_attributions",
-        "thirteen_state_lifecycle_lock",
-        "single_component_release_call_site",
+        "seven_component_and_audio_unmatched_attributions",
+        "eight_state_audio_lease_lifecycle_lock",
+        "single_audio_query_and_release_call_sites",
         "external_callback_sink_explicitly_closed",
-        "object_quiescence_shutdown_gate",
+        "audio_interface_quiescence_shutdown_gate",
+        "production_release_baseline_zero_and_multi_reference_rejection",
+        "receiver_independent_audio_method_mutation_rejection",
+        "evidence_schema_value_allowlist_mutation_rejection",
         "exact_again_fixture_and_serial_msvc_build_lock",
     ]
     return {
@@ -315,6 +356,9 @@ def deterministic_tests(source_root) -> dict[str, Any]:
         "unmatched_operation_blockers": unmatched,
         "checkout_regression": checkout_regression,
         "artifact_digest_regression": digest_regression,
+        "audio_method_verifier_regression": audio_method_regression,
+        "evidence_allowlist_regression": allowlist_regression,
+        "release_baseline_regression": release_baseline_regression,
         "exact_again_module_sha256": EXPECTED_AGAIN_MODULE_SHA256,
         "msbuild_max_cpu_count": int(MSBUILD_MAX_CPU_COUNT),
         "msvc_post_options": MSVC_POST_OPTIONS,
@@ -519,53 +563,46 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
     before_all = protected_snapshot()
     source_verifier()
     deterministic = deterministic_tests(source_root)
-
-    direct_cases = (
-        ("again-unknown-processor", "unknown-processor"),
-        ("again-unsupported-interface", "unsupported-interface"),
-    )
     exercises = [
-        (name, "again", component_case, "WC0_COMPONENT_CREATE_BLOCKED")
-        for name, component_case in direct_cases
-    ] + [
         (fixture, fixture, "exact-again", EXPECTED[fixture])
         for fixture in FAULT_TARGETS
     ]
     abnormal_operations = {
-        "wc0-initialize-hang": ("initialize_component", "call_timeout"),
-        "wc0-initialize-crash": (
-            "initialize_component", "abnormal_termination_in_flight",
+        "wa0-query-hang": ("query_audio_processor", "call_timeout"),
+        "wa0-query-crash": (
+            "query_audio_processor", "abnormal_termination_in_flight",
         ),
-        "wc0-terminate-hang": ("terminate_component", "call_timeout"),
-        "wc0-terminate-crash": (
-            "terminate_component", "abnormal_termination_in_flight",
-        ),
-        "wc0-release-hang": ("release_component", "call_timeout"),
-        "wc0-release-crash": (
-            "release_component", "abnormal_termination_in_flight",
+        "wa0-release-hang": ("release_audio_processor", "call_timeout"),
+        "wa0-release-crash": (
+            "release_audio_processor", "abnormal_termination_in_flight",
         ),
     }
     suppression_cases = {
-        "wc0-release-nonzero", "wc0-host-reference-leak",
+        "wa0-release-unexpected-count",
         *abnormal_operations,
     }
     results = []
     for index, (name, fixture, component_case, expected) in enumerate(exercises, 1):
-        print(f"WC0 negative {index}/{len(exercises)}: {name}", flush=True)
+        print(f"WA0 negative {index}/{len(exercises)}: {name}", flush=True)
         source_verifier()
         process_guard()
         environment = create_environment(secrets.token_hex(16), build, fixture=fixture)
         retirement = None
+        result_record = None
         try:
             receipt = supervise(environment, component_case=component_case)
             if receipt["blocker"] != expected:
                 fail(f"{name} blocker differs: expected {expected}, got {receipt['blocker']}")
             if receipt["classification"] == "scanner_completed":
                 fail(f"{name} unexpectedly completed")
-            marker = environment.session / "forbidden-component-method.marker"
-            marker_absent = not marker.exists()
-            if not marker_absent:
-                fail(f"{name} invoked an out-of-scope component method")
+            component_marker_absent = not (
+                environment.session / "forbidden-component-method.marker"
+            ).exists()
+            audio_marker_absent = not (
+                environment.session / "forbidden-audio-processor-method.marker"
+            ).exists()
+            if not component_marker_absent or not audio_marker_absent:
+                fail(f"{name} invoked an out-of-scope component/audio method")
             operations = [
                 item["operation"] for item in receipt["records"]
                 if item.get("event") == "call_started"
@@ -574,8 +611,13 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
                 item["state"] for item in receipt["records"]
                 if item.get("event") == "lifecycle"
             ]
-            if operations.count("create_component") != 1:
-                fail(f"{name} did not retain exactly one component-create attempt")
+            for inherited in (
+                "create_component", "get_controller_class_id", "initialize_component",
+            ):
+                if operations.count(inherited) != 1:
+                    fail(f"{name} did not retain the accepted WC0 prefix: {inherited}")
+            if operations.count("query_audio_processor") != 1:
+                fail(f"{name} did not retain exactly one interface-query attempt")
             session_records = [
                 item.get("component_session") for item in receipt["records"]
                 if item.get("event") == "lifecycle"
@@ -587,20 +629,21 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
                 if (
                     receipt["last_in_flight_operation"] != expected_in_flight
                     or receipt["classification"] != expected_classification
+                    or receipt["audio_processor_observer_state"] !=
+                        "audio_processor_ownership_unknown"
+                    or receipt["audio_interface_quiescence"] is not False
                     or session_records
                 ):
                     fail(f"{name} timeout/crash attribution differs")
                 start_index = operations.index(expected_in_flight)
                 prohibited_later = {
+                    "release_audio_processor",
                     "terminate_component", "release_component",
                     "release_factory_3", "release_factory_2",
                     "release_factory_base", "exit_dll", "free_library",
                 }
-                if expected_in_flight == "terminate_component":
-                    prohibited_later.discard("terminate_component")
-                elif expected_in_flight == "release_component":
-                    prohibited_later.discard("terminate_component")
-                    prohibited_later.discard("release_component")
+                if expected_in_flight == "release_audio_processor":
+                    prohibited_later.discard("release_audio_processor")
                 if any(value in prohibited_later for value in operations[start_index + 1:]):
                     fail(f"{name} emitted an in-process call after its unmatched operation")
             else:
@@ -609,67 +652,66 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
                 session = session_records[0]
                 if not isinstance(session, dict) or session.get("primary_blocker") != expected:
                     fail(f"{name} component-session primary failure differs")
-
-                if name in {"again-unknown-processor", "again-unsupported-interface",
-                            "wc0-create-failure-null", "wc0-create-success-null"}:
-                    if any(operation in operations for operation in (
-                        "get_controller_class_id", "initialize_component",
-                        "terminate_component", "release_component",
-                    )):
-                        fail(f"{name} called a component method after a null create result")
-                if name == "wc0-create-failure-nonnull" and (
-                    operations.count("release_component") != 1
-                    or any(operation in operations for operation in (
-                        "get_controller_class_id", "initialize_component",
-                        "terminate_component",
-                    ))
+                lease = session.get("audio_processor_lease", {})
+                query = lease.get("query", {})
+                release = lease.get("release", {})
+                if (
+                    lease.get("requested_interface") !=
+                        "Steinberg::Vst::IAudioProcessor"
+                    or lease.get("requested_iid_raw_tuid_hex") !=
+                        "993F0442DAB73C45A569E79D9AAEC33D"
+                    or query.get("output_zero_initialized") is not True
                 ):
-                    fail("failure/non-null create cleanup differs")
-                if name in {"wc0-controller-id-failure", "wc0-controller-id-mismatch"} and (
-                    "initialize_component" in operations
-                    or "terminate_component" in operations
-                    or operations.count("release_component") != 1
+                    fail(f"{name} exact query identity/output initialization differs")
+                if (
+                    receipt["audio_processor_observer_state"] != lease.get("state")
+                    or receipt["audio_interface_quiescence"] is not
+                        lease.get("audio_interface_quiescence")
                 ):
-                    fail(f"{name} controller-ID cleanup differs")
-                if name == "wc0-initialize-failure" and (
-                    "terminate_component" in operations
-                    or operations.count("release_component") != 1
-                ):
-                    fail("initialize-return failure cleanup differs")
-                if name == "wc0-terminate-failure" and (
-                    operations.count("terminate_component") != 1
-                    or operations.count("release_component") != 1
-                    or operations.index("release_component") <
-                       operations.index("terminate_component")
-                ):
-                    fail("terminate-return failure precedence/cleanup differs")
-                if name == "wc0-release-nonzero" and (
-                    session.get("state") != "component_retirement_incomplete"
-                    or session.get("release", {}).get("reference_count") != 1
-                    or operations.count("release_component") != 1
-                ):
-                    fail("ordinary nonzero component release state differs")
-                if name == "wc0-host-reference-leak" and (
-                    session.get("host", {}).get("reference_returned_to_baseline") is not False
-                    or session.get("host", {}).get("owner_release_result") != 1
-                ):
-                    fail("host-reference-leak physical state differs")
-                if name == "wc0-host-object-request":
-                    requests = [
-                        item for item in receipt["records"]
-                        if item.get("event") == "host_callback"
-                        and item.get("operation") == "createInstance"
-                    ]
-                    if len(requests) != 1 or (
-                        requests[0].get("result_u32_hex") != "00000001"
-                        or requests[0].get("output_null") is not True
+                    fail(f"{name} supervisor/closed-session lease state differs")
+                if name in {"wa0-query-failure-null", "wa0-query-success-null"}:
+                    if (
+                        lease.get("state") !=
+                            "audio_processor_query_returned_without_lease"
+                        or query.get("output_nonnull") is not False
+                        or lease.get("lease_acquired") is not False
+                        or release.get("attempted") is not False
+                        or lease.get("audio_interface_quiescence") is not True
+                        or operations.count("terminate_component") != 1
+                        or operations.count("release_component") != 1
                     ):
-                        fail("unexpected host-object request did not fail closed")
+                        fail(f"{name} null-output ownership or WC0 cleanup differs")
+                elif name == "wa0-query-failure-nonnull":
+                    if (
+                        lease.get("state") != "audio_processor_lease_retired"
+                        or query.get("output_nonnull") is not True
+                        or query.get("tuple_consistent") is not False
+                        or lease.get("lease_acquired") is not True
+                        or operations.count("release_audio_processor") != 1
+                        or release.get("reference_count") != 1
+                        or lease.get("audio_interface_quiescence") is not True
+                        or operations.count("terminate_component") != 1
+                        or operations.count("release_component") != 1
+                    ):
+                        fail("failure/non-null interface ownership cleanup differs")
+                elif name == "wa0-release-unexpected-count":
+                    if (
+                        lease.get("state") !=
+                            "audio_processor_retirement_incomplete"
+                        or release.get("reference_count") != 2
+                        or lease.get("audio_interface_quiescence") is not False
+                        or operations.count("release_audio_processor") != 1
+                        or any(operation in operations for operation in (
+                            "terminate_component", "release_component",
+                        ))
+                    ):
+                        fail("unexpected audio-interface release state differs")
 
             expected_suppression = name in suppression_cases
             shutdown = receipt.get("inherited_shutdown", {})
             dispositions = shutdown.get("operations", {})
             if set(dispositions) != {
+                "terminate_component", "release_component",
                 "release_factory_3", "release_factory_2", "release_factory_base",
                 "exit_dll", "free_library",
             }:
@@ -677,13 +719,13 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
             if expected_suppression:
                 if (
                     any(value.get("disposition") !=
-                        "not_attempted_object_quiescence_unproved"
+                        "not_attempted_audio_interface_quiescence_unproved"
                         for value in dispositions.values())
                     or shutdown.get("clean_in_process_shutdown") is not False
                     or shutdown.get("physical_containment_only") is not True
                     or any(operation in operations for operation in dispositions)
                 ):
-                    fail(f"{name} crossed the object-quiescence shutdown gate")
+                    fail(f"{name} crossed the audio-interface quiescence gate")
             elif (
                 any(value.get("disposition") != "completed"
                     for value in dispositions.values())
@@ -691,38 +733,56 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
                 or shutdown.get("physical_containment_only") is not False
             ):
                 fail(f"{name} did not complete its permitted inherited shutdown")
+            if any(
+                receipt["call_counts"].get(operation) != operations.count(operation)
+                for operation in OPERATIONS
+            ):
+                fail(f"{name} retained call-count ledger differs")
 
-            results.append({
+            session = session_records[0] if session_records else None
+            lease = (
+                session.get("audio_processor_lease", {})
+                if isinstance(session, dict) else {}
+            )
+            result_record = {
                 "exercise": name, "fixture": fixture,
                 "component_case": component_case,
                 "expected_blocker": expected,
                 "observed_blocker": receipt["blocker"],
                 "classification": receipt["classification"],
                 "last_in_flight_operation": receipt["last_in_flight_operation"],
-                "forbidden_method_marker_absent": marker_absent,
+                "audio_processor_observer_state":
+                    receipt["audio_processor_observer_state"],
+                "audio_interface_quiescence":
+                    receipt["audio_interface_quiescence"],
+                "component_session_closed": session is not None,
+                "audio_processor_lease": lease if lease else None,
+                "call_counts": receipt["call_counts"],
+                "forbidden_component_method_marker_absent": component_marker_absent,
+                "forbidden_audio_processor_method_marker_absent": audio_marker_absent,
                 "inherited_shutdown": receipt["inherited_shutdown"],
                 "cleanup": receipt["cleanup"],
-            })
+            }
         finally:
             retirement = retire_environment(environment)
         process_guard()
         if not retirement["stage_absent"]:
             fail("negative stage retirement did not reach exact absence")
+        if result_record is None:
+            fail(f"{name} produced no retained negative result")
+        result_record["environment_retired"] = True
+        results.append(result_record)
     after_all = protected_snapshot()
     if after_all != before_all:
         fail("protected state differs after negative suite")
     return {
-        "schema": "linux-vst-bridge-wc0-negative-tests/v1",
+        "schema": "linux-vst-bridge-wa0-negative-tests/v1",
         "deterministic": deterministic,
-        "inherited_archive_negative_suite": "not_run_focused_wc0_only",
-        "loader_adapter_runtime_exercise": "not_run_focused_wc0_only",
-        "direct_again_results": results[:2],
-        "live_fault_results": results[2:],
-        "direct_again_roster_complete": [
-            item["exercise"] for item in results[:2]
-        ] == [item[0] for item in direct_cases],
+        "inherited_wf0_wc0_negative_suites": "not_run_focused_wa0_only",
+        "loader_adapter_runtime_exercise": "not_run_focused_wa0_only",
+        "live_fault_results": results,
         "live_fault_roster_complete": [
-            item["fixture"] for item in results[2:]
+            item["fixture"] for item in results
         ] == list(FAULT_TARGETS),
         "focused_exercise_count": len(results),
         "protected_state_equal": True,

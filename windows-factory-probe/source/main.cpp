@@ -25,8 +25,9 @@ int main() {
         "release_factory_3", "release_factory_2", "release_factory_base",
         "exit_dll", "free_library", "create_component",
         "get_controller_class_id", "initialize_component",
+        "query_audio_processor", "release_audio_processor",
         "terminate_component", "release_component"};
-    if (sizeof(operations) / sizeof(operations[0]) != 20 ||
+    if (sizeof(operations) / sizeof(operations[0]) != 22 ||
         !linux_vst_bridge::wf0::run_component_owner_regressions()) return 1;
     linux_vst_bridge::wf0::EventWriter events(4096);
     linux_vst_bridge::wf0::ModuleBinding binding;
@@ -96,10 +97,8 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
         !is_lower_hex(result["--module-sha256"], 64) ||
         !is_lower_hex(result["--bundle-manifest-sha256"], 64) ||
         result["--max-classes"] != "256" || result["--stdout-cap"] != "1048576" ||
-        result["--mode"] != "wc0-component-admission" ||
-        (result["--component-case"] != "exact-again" &&
-         result["--component-case"] != "unknown-processor" &&
-         result["--component-case"] != "unsupported-interface")) {
+        result["--mode"] != "wa0-audio-processor-interface-admission" ||
+        result["--component-case"] != "exact-again") {
         throw std::runtime_error("argument value mismatch");
     }
     const std::string suffix = result["--session"] + ".ready";
@@ -192,9 +191,20 @@ wf0::ComponentCase component_case(const std::string& value) {
 }
 
 void suppressed_shutdown(wf0::EventWriter& events,
-                         const wf0::FactoryCensusResult& census) {
+                         const wf0::FactoryCensusResult& census,
+                         bool audio_interface_quiescence_unproved) {
     const std::string disposition =
-        ",\"disposition\":\"not_attempted_object_quiescence_unproved\"";
+        std::string(",\"disposition\":\"") +
+        (audio_interface_quiescence_unproved
+             ? "not_attempted_audio_interface_quiescence_unproved"
+             : "not_attempted_object_quiescence_unproved") +
+        "\"";
+    if (audio_interface_quiescence_unproved) {
+        events.lifecycle("inherited_shutdown_suppressed",
+                         ",\"operation\":\"terminate_component\"" + disposition);
+        events.lifecycle("inherited_shutdown_suppressed",
+                         ",\"operation\":\"release_component\"" + disposition);
+    }
     if (census.factory3 != nullptr)
         events.lifecycle("inherited_shutdown_suppressed",
                          ",\"operation\":\"release_factory_3\"" + disposition);
@@ -282,7 +292,10 @@ int main(int argc, char** argv) {
         if (!component_session_ran || component.object_quiescence) {
             primary = wf0::exit_and_unload(module, events, primary);
         } else {
-            suppressed_shutdown(events, census);
+            suppressed_shutdown(
+                events, census,
+                component.audio_processor_session_ran &&
+                    !component.audio_processor.audio_interface_quiescence);
         }
         if (primary != 0) return primary;
 
@@ -296,7 +309,9 @@ int main(int argc, char** argv) {
             ",\"succeeded\":" + bool_json(module.unload_succeeded) + "}" +
             wf0::census_json_fields(census.census) + component.json_fields() +
             ",\"create_instance_called\":true" +
-            ",\"controller_instance_created\":false";
+            ",\"controller_instance_created\":false" +
+            ",\"audio_processor_interface_queried\":true" +
+            ",\"audio_processor_method_called\":false";
         events.final_lifecycle("scanner_completed", fields);
         return 0;
     } catch (const std::exception&) {

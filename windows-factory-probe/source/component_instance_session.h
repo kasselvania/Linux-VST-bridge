@@ -3,6 +3,7 @@
 #include "linux_vst_bridge/wf0_probe/events.h"
 
 #include "pluginterfaces/base/ipluginbase.h"
+#include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsthostapplication.h"
 
@@ -36,6 +37,17 @@ enum class ComponentState {
     component_release_in_flight,
     component_released,
     component_retirement_incomplete,
+};
+
+enum class AudioProcessorLeaseState {
+    audio_processor_absent,
+    audio_processor_query_in_flight,
+    audio_processor_query_returned_without_lease,
+    audio_processor_lease_acquired,
+    audio_processor_release_in_flight,
+    audio_processor_lease_retired,
+    audio_processor_retirement_incomplete,
+    audio_processor_ownership_unknown,
 };
 
 struct HostCallbackRecord {
@@ -122,6 +134,43 @@ private:
     volatile LONG references_{1};
 };
 
+struct AudioProcessorLeaseResult {
+    AudioProcessorLeaseState state{
+        AudioProcessorLeaseState::audio_processor_absent};
+    int primary_exit{0};
+    std::array<Steinberg::int8, 16> requested_iid{};
+    bool query_output_zero_initialized{false};
+    bool query_attempted{false};
+    Steinberg::tresult query_result{Steinberg::kResultFalse};
+    bool query_output_nonnull{false};
+    bool query_tuple_consistent{false};
+    bool lease_acquired{false};
+    bool release_attempted{false};
+    bool release_returned_ordinary{false};
+    Steinberg::uint32 release_result{0};
+    bool pointer_cleared{false};
+    bool call_in_flight{false};
+    bool callback_ledger_unchanged{false};
+    bool audio_interface_quiescence{true};
+
+    std::string json_fields() const;
+};
+
+class AudioProcessorInterfaceLease final {
+public:
+    AudioProcessorInterfaceLease(Steinberg::Vst::IComponent& component,
+                                 HostCallbackSink& callbacks,
+                                 EventWriter& events) noexcept;
+
+    AudioProcessorLeaseResult acquire_and_retire();
+
+private:
+    Steinberg::Vst::IComponent& component_;
+    HostCallbackSink& callbacks_;
+    EventWriter& events_;
+    Steinberg::Vst::IAudioProcessor* interface_{nullptr};
+};
+
 struct ComponentAdmissionResult {
     ComponentState state{ComponentState::component_absent};
     int primary_exit{0};
@@ -156,6 +205,8 @@ struct ComponentAdmissionResult {
     bool component_pointer_cleared{false};
     bool component_call_in_flight{false};
     bool callback_ledger_closed{false};
+    bool audio_processor_session_ran{false};
+    AudioProcessorLeaseResult audio_processor;
     bool object_quiescence{false};
     bool inherited_shutdown_permitted{false};
     std::unique_ptr<HostCallbackSink> callbacks;
@@ -168,6 +219,15 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
                                           ComponentCase component_case);
 
 const char* component_state_name(ComponentState state) noexcept;
+const char* audio_processor_state_name(AudioProcessorLeaseState state) noexcept;
+constexpr bool audio_release_matches_component_baseline(
+    Steinberg::uint32 value) noexcept {
+    return value == 1;
+}
+static_assert(audio_release_matches_component_baseline(1));
+static_assert(!audio_release_matches_component_baseline(0));
+static_assert(!audio_release_matches_component_baseline(2));
+static_assert(!audio_release_matches_component_baseline(0xffffffffu));
 bool run_component_owner_regressions() noexcept;
 
 } // namespace linux_vst_bridge::wf0
