@@ -16,6 +16,9 @@ constexpr int kHostContextBlocked = 86;
 constexpr int kInitializeBlocked = 87;
 constexpr int kTerminateBlocked = 88;
 constexpr int kReleaseBlocked = 89;
+constexpr int kAudioProcessorQueryBlocked = 90;
+constexpr int kAudioProcessorQueryInconsistent = 91;
+constexpr int kAudioProcessorReleaseBlocked = 92;
 
 const Steinberg::TUID kAgainProcessor =
     INLINE_UID(0x84E8DE5F, 0x92554F53, 0x96FAE413, 0x3C935A18);
@@ -56,6 +59,10 @@ const char* blocker_name(int value) noexcept {
         case kInitializeBlocked: return "WC0_COMPONENT_INITIALIZE_BLOCKED";
         case kTerminateBlocked: return "WC0_COMPONENT_TERMINATE_BLOCKED";
         case kReleaseBlocked: return "WC0_COMPONENT_RELEASE_BLOCKED";
+        case kAudioProcessorQueryBlocked: return "WA0_INTERFACE_QUERY_BLOCKED";
+        case kAudioProcessorQueryInconsistent:
+            return "WA0_INTERFACE_QUERY_INCONSISTENT";
+        case kAudioProcessorReleaseBlocked: return "WA0_INTERFACE_RELEASE_BLOCKED";
         default: return nullptr;
     }
 }
@@ -72,6 +79,13 @@ void state_event(ComponentAdmissionResult& result, ComponentState state,
 
 bool create_tuple_consistent(Steinberg::tresult result, const void* output) noexcept {
     return (result == Steinberg::kResultOk) == (output != nullptr);
+}
+
+void audio_state_event(AudioProcessorLeaseResult& result,
+                       AudioProcessorLeaseState state, EventWriter& events,
+                       const std::string& fields = {}) {
+    result.state = state;
+    events.lifecycle(audio_processor_state_name(state), fields);
 }
 
 } // namespace
@@ -97,6 +111,28 @@ const char* component_state_name(ComponentState state) noexcept {
             return "component_retirement_incomplete";
     }
     return "component_absent";
+}
+
+const char* audio_processor_state_name(AudioProcessorLeaseState state) noexcept {
+    switch (state) {
+        case AudioProcessorLeaseState::audio_processor_absent:
+            return "audio_processor_absent";
+        case AudioProcessorLeaseState::audio_processor_query_in_flight:
+            return "audio_processor_query_in_flight";
+        case AudioProcessorLeaseState::audio_processor_query_returned_without_lease:
+            return "audio_processor_query_returned_without_lease";
+        case AudioProcessorLeaseState::audio_processor_lease_acquired:
+            return "audio_processor_lease_acquired";
+        case AudioProcessorLeaseState::audio_processor_release_in_flight:
+            return "audio_processor_release_in_flight";
+        case AudioProcessorLeaseState::audio_processor_lease_retired:
+            return "audio_processor_lease_retired";
+        case AudioProcessorLeaseState::audio_processor_retirement_incomplete:
+            return "audio_processor_retirement_incomplete";
+        case AudioProcessorLeaseState::audio_processor_ownership_unknown:
+            return "audio_processor_ownership_unknown";
+    }
+    return "audio_processor_ownership_unknown";
 }
 
 HostCallbackSink::HostCallbackSink(EventWriter* events, DWORD scanner_thread) noexcept
@@ -292,6 +328,173 @@ Steinberg::tresult PLUGIN_API MinimalHostApplication::createInstance(
     return Steinberg::kResultFalse;
 }
 
+AudioProcessorInterfaceLease::AudioProcessorInterfaceLease(
+    Steinberg::Vst::IComponent& component, HostCallbackSink& callbacks,
+    EventWriter& events) noexcept
+    : component_(component), callbacks_(callbacks), events_(events) {}
+
+AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire() {
+    AudioProcessorLeaseResult result;
+    const Steinberg::int8* requested =
+        INLINE_UID_OF(Steinberg::Vst::IAudioProcessor);
+    std::memcpy(result.requested_iid.data(), requested, 16);
+
+    void* output = nullptr;
+    result.query_output_zero_initialized = true;
+    result.audio_interface_quiescence = false;
+    const std::size_t callbacks_before = callbacks_.size();
+    audio_state_event(
+        result, AudioProcessorLeaseState::audio_processor_query_in_flight,
+        events_,
+        ",\"requested_iid_raw_tuid_hex\":\"" + tuid_hex(requested) + "\"");
+    result.call_in_flight = true;
+    const auto query_attempt = events_.call_started(
+        "query_audio_processor", "IComponent", -1, nullptr,
+        ",\"object_role\":\"again_processor_component\""
+        ",\"requested_interface\":\"Steinberg::Vst::IAudioProcessor\""
+        ",\"requested_iid_raw_tuid_hex\":\"" + tuid_hex(requested) + "\"");
+    callbacks_.begin_plugin_call(query_attempt, "query_audio_processor");
+    result.query_attempted = true;
+    result.query_result = component_.queryInterface(requested, &output);
+    callbacks_.end_plugin_call();
+    interface_ = static_cast<Steinberg::Vst::IAudioProcessor*>(output);
+    result.query_output_nonnull = interface_ != nullptr;
+    result.query_tuple_consistent =
+        create_tuple_consistent(result.query_result, interface_);
+    events_.call_completed(
+        query_attempt, "query_audio_processor", "IComponent", "tresult",
+        ",\"result_u32_hex\":\"" +
+            u32_hex(static_cast<Steinberg::uint32>(result.query_result)) +
+            "\",\"output_nonnull\":" + bool_json(result.query_output_nonnull),
+        -1, nullptr,
+        ",\"object_role\":\"again_processor_component\""
+        ",\"requested_interface\":\"Steinberg::Vst::IAudioProcessor\"");
+    result.call_in_flight = false;
+
+    if (interface_ == nullptr) {
+        result.pointer_cleared = true;
+        result.audio_interface_quiescence = true;
+        audio_state_event(
+            result,
+            AudioProcessorLeaseState::audio_processor_query_returned_without_lease,
+            events_,
+            ",\"result_u32_hex\":\"" +
+                u32_hex(static_cast<Steinberg::uint32>(result.query_result)) +
+                "\",\"tuple_consistent\":" +
+                bool_json(result.query_tuple_consistent));
+        latch(result.primary_exit,
+              result.query_result == Steinberg::kResultOk
+                  ? kAudioProcessorQueryInconsistent
+                  : kAudioProcessorQueryBlocked);
+    } else {
+        result.lease_acquired = true;
+        audio_state_event(
+            result, AudioProcessorLeaseState::audio_processor_lease_acquired,
+            events_,
+            ",\"query_result_u32_hex\":\"" +
+                u32_hex(static_cast<Steinberg::uint32>(result.query_result)) +
+                "\",\"tuple_consistent\":" +
+                bool_json(result.query_tuple_consistent));
+        if (result.query_result != Steinberg::kResultOk)
+            latch(result.primary_exit, kAudioProcessorQueryInconsistent);
+
+        audio_state_event(
+            result, AudioProcessorLeaseState::audio_processor_release_in_flight,
+            events_);
+        result.call_in_flight = true;
+        const auto release_attempt = events_.call_started(
+            "release_audio_processor", "IAudioProcessor", -1, nullptr,
+            ",\"object_role\":\"again_audio_processor_interface\"");
+        callbacks_.begin_plugin_call(release_attempt, "release_audio_processor");
+        result.release_attempted = true;
+        result.release_result = interface_->release();
+        callbacks_.end_plugin_call();
+        result.release_returned_ordinary = true;
+        events_.call_completed(
+            release_attempt, "release_audio_processor", "IAudioProcessor",
+            "reference_count",
+            ",\"u32_result\":" + std::to_string(result.release_result),
+            -1, nullptr,
+            ",\"object_role\":\"again_audio_processor_interface\"");
+        result.call_in_flight = false;
+        interface_ = nullptr;
+        result.pointer_cleared = true;
+        if (audio_release_matches_component_baseline(result.release_result)) {
+            result.audio_interface_quiescence = true;
+            audio_state_event(
+                result, AudioProcessorLeaseState::audio_processor_lease_retired,
+                events_,
+                ",\"component_owner_reference_baseline\":1"
+                ",\"pointer_cleared\":true");
+        } else {
+            latch(result.primary_exit, kAudioProcessorReleaseBlocked);
+            audio_state_event(
+                result,
+                AudioProcessorLeaseState::audio_processor_retirement_incomplete,
+                events_,
+                ",\"release_reference_count\":" +
+                    std::to_string(result.release_result) +
+                    ",\"pointer_cleared\":true");
+        }
+    }
+
+    result.callback_ledger_unchanged =
+        callbacks_.size() == callbacks_before && callbacks_.healthy();
+    if (!result.callback_ledger_unchanged) {
+        result.audio_interface_quiescence = false;
+        latch(result.primary_exit,
+              result.release_attempted ? kAudioProcessorReleaseBlocked
+                                       : kAudioProcessorQueryBlocked);
+    }
+    events_.lifecycle(
+        result.audio_interface_quiescence
+            ? "audio_interface_quiescence_proved"
+            : "audio_interface_quiescence_unproved",
+        ",\"audio_interface_quiescence\":" +
+            bool_json(result.audio_interface_quiescence) +
+            ",\"audio_processor_state\":\"" +
+            audio_processor_state_name(result.state) + "\"" +
+            ",\"callback_ledger_unchanged\":" +
+            bool_json(result.callback_ledger_unchanged) +
+            ",\"primary_blocker\":" +
+            (blocker_name(result.primary_exit) == nullptr
+                 ? std::string("null")
+                 : std::string("\"") + blocker_name(result.primary_exit) + "\""));
+    return result;
+}
+
+std::string AudioProcessorLeaseResult::json_fields() const {
+    const char* blocker = blocker_name(primary_exit);
+    return
+        ",\"audio_processor_lease\":{"
+        "\"state\":\"" + std::string(audio_processor_state_name(state)) + "\"" +
+        ",\"primary_blocker\":" +
+        (blocker == nullptr ? std::string("null")
+                            : std::string("\"") + blocker + "\"") +
+        ",\"requested_interface\":\"Steinberg::Vst::IAudioProcessor\"" +
+        ",\"requested_iid_raw_tuid_hex\":\"" +
+        tuid_hex(requested_iid.data()) + "\"" +
+        ",\"query\":{"
+        "\"output_zero_initialized\":" +
+        bool_json(query_output_zero_initialized) +
+        ",\"attempted\":" + bool_json(query_attempted) +
+        ",\"result_u32_hex\":\"" +
+        u32_hex(static_cast<Steinberg::uint32>(query_result)) + "\"" +
+        ",\"output_nonnull\":" + bool_json(query_output_nonnull) +
+        ",\"tuple_consistent\":" + bool_json(query_tuple_consistent) + "}" +
+        ",\"lease_acquired\":" + bool_json(lease_acquired) +
+        ",\"release\":{"
+        "\"attempted\":" + bool_json(release_attempted) +
+        ",\"returned_ordinary\":" + bool_json(release_returned_ordinary) +
+        ",\"reference_count\":" + std::to_string(release_result) + "}" +
+        ",\"pointer_cleared\":" + bool_json(pointer_cleared) +
+        ",\"call_in_flight\":" + bool_json(call_in_flight) +
+        ",\"callback_ledger_unchanged\":" +
+        bool_json(callback_ledger_unchanged) +
+        ",\"audio_interface_quiescence\":" +
+        bool_json(audio_interface_quiescence) + "}";
+}
+
 std::string ComponentAdmissionResult::json_fields() const {
     std::string callback_records = "[";
     if (callbacks != nullptr) {
@@ -395,6 +598,9 @@ std::string ComponentAdmissionResult::json_fields() const {
         ",\"records\":" + callback_records + "}" +
         ",\"component_call_in_flight\":" + bool_json(component_call_in_flight) +
         ",\"callback_ledger_closed\":" + bool_json(callback_ledger_closed) +
+        ",\"audio_processor_session_ran\":" +
+        bool_json(audio_processor_session_ran) +
+        audio_processor.json_fields() +
         ",\"object_quiescence\":" + bool_json(object_quiescence) +
         ",\"inherited_shutdown_permitted\":" +
         bool_json(inherited_shutdown_permitted) + "}";
@@ -537,6 +743,19 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
     }
 
     if (result.initialize_succeeded && component != nullptr) {
+        result.audio_processor_session_ran = true;
+        AudioProcessorInterfaceLease lease(*component, callbacks, events);
+        result.audio_processor = lease.acquire_and_retire();
+        latch(result.primary_exit, result.audio_processor.primary_exit);
+    }
+
+    const bool audio_retirement_permitted =
+        !result.initialize_succeeded ||
+        (result.audio_processor_session_ran &&
+         result.audio_processor.audio_interface_quiescence);
+
+    if (result.initialize_succeeded && component != nullptr &&
+        audio_retirement_permitted) {
         state_event(result, ComponentState::component_terminate_in_flight, events);
         result.component_call_in_flight = true;
         const auto terminate_attempt = events.call_started(
@@ -572,7 +791,7 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
         }
     }
 
-    if (component != nullptr) {
+    if (component != nullptr && audio_retirement_permitted) {
         state_event(result, ComponentState::component_release_in_flight, events);
         result.component_call_in_flight = true;
         const auto release_attempt = events.call_started(
@@ -599,7 +818,7 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
         }
     }
 
-    if (host != nullptr) {
+    if (host != nullptr && audio_retirement_permitted) {
         result.host_reference_returned_to_baseline =
             result.initialize_succeeded
                 ? (result.terminate_returned_ordinary &&
@@ -622,7 +841,7 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
         callbacks.end_owner_call();
         if (result.host_owner_release_result != 0 || !callbacks.healthy())
             latch(result.primary_exit, kHostContextBlocked);
-    } else {
+    } else if (host == nullptr) {
         result.host_reference_returned_to_baseline = true;
     }
 
@@ -639,7 +858,8 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
         (result.terminate_attempted && result.terminate_returned_ordinary);
     result.object_quiescence = component_retired && host_retired &&
         initialized_path_exact && !result.component_call_in_flight &&
-        !callbacks.callback_in_flight() && result.callback_ledger_closed;
+        !callbacks.callback_in_flight() && result.callback_ledger_closed &&
+        result.audio_processor.audio_interface_quiescence;
     result.inherited_shutdown_permitted = result.object_quiescence;
     events.lifecycle(
         result.object_quiescence ? "object_quiescence_proved"
@@ -690,12 +910,44 @@ bool run_component_owner_regressions() noexcept {
             if (std::strcmp(component_state_name(states[index]), names[index]) != 0)
                 return false;
         }
+        static constexpr AudioProcessorLeaseState audio_states[] = {
+            AudioProcessorLeaseState::audio_processor_absent,
+            AudioProcessorLeaseState::audio_processor_query_in_flight,
+            AudioProcessorLeaseState::audio_processor_query_returned_without_lease,
+            AudioProcessorLeaseState::audio_processor_lease_acquired,
+            AudioProcessorLeaseState::audio_processor_release_in_flight,
+            AudioProcessorLeaseState::audio_processor_lease_retired,
+            AudioProcessorLeaseState::audio_processor_retirement_incomplete,
+            AudioProcessorLeaseState::audio_processor_ownership_unknown,
+        };
+        static constexpr const char* audio_names[] = {
+            "audio_processor_absent",
+            "audio_processor_query_in_flight",
+            "audio_processor_query_returned_without_lease",
+            "audio_processor_lease_acquired",
+            "audio_processor_release_in_flight",
+            "audio_processor_lease_retired",
+            "audio_processor_retirement_incomplete",
+            "audio_processor_ownership_unknown",
+        };
+        static_assert(sizeof(audio_states) / sizeof(audio_states[0]) == 8);
+        for (std::size_t index = 0; index < 8; ++index) {
+            if (std::strcmp(audio_processor_state_name(audio_states[index]),
+                            audio_names[index]) != 0)
+                return false;
+        }
         if (!create_tuple_consistent(Steinberg::kResultOk,
                                      reinterpret_cast<void*>(1)) ||
             !create_tuple_consistent(Steinberg::kResultFalse, nullptr) ||
             create_tuple_consistent(Steinberg::kResultOk, nullptr) ||
             create_tuple_consistent(Steinberg::kResultFalse,
                                     reinterpret_cast<void*>(1)))
+            return false;
+        if (!audio_release_matches_component_baseline(1) ||
+            audio_release_matches_component_baseline(0) ||
+            audio_release_matches_component_baseline(2) ||
+            audio_release_matches_component_baseline(
+                (std::numeric_limits<Steinberg::uint32>::max)()))
             return false;
 
         HostCallbackSink sink(nullptr, GetCurrentThreadId());
@@ -734,6 +986,9 @@ bool run_component_owner_regressions() noexcept {
         int primary = kControllerIdMismatch;
         latch(primary, kReleaseBlocked);
         if (primary != kControllerIdMismatch) return false;
+        int audio_primary = kAudioProcessorQueryInconsistent;
+        latch(audio_primary, kAudioProcessorReleaseBlocked);
+        if (audio_primary != kAudioProcessorQueryInconsistent) return false;
         sink.begin_owner_call();
         const auto final = host->release();
         host = nullptr;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent PE, manifest, archive, source-surface, and build checks for WC0."""
+"""Independent PE, manifest, archive, source-surface, and build checks for WA0."""
 
 from __future__ import annotations
 
@@ -289,7 +289,7 @@ def compare_builds(a: pathlib.Path, b: pathlib.Path) -> dict[str, Any]:
 
 
 def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
-    """Require the five-call WC0 plug-in surface and reject adjacent capabilities."""
+    """Require the five inherited plus two WA0 calls and reject audio methods."""
     root = source_root / "windows-factory-probe"
     texts = {
         path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
@@ -303,31 +303,77 @@ def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
         "initialize_component": r"\bcomponent\s*->\s*initialize\s*\(",
         "terminate_component": r"\bcomponent\s*->\s*terminate\s*\(",
         "release_component": r"\bcomponent\s*->\s*release\s*\(",
+        "query_audio_processor": r"\bcomponent_\s*\.\s*queryInterface\s*\(",
+        "release_audio_processor": r"\binterface_\s*->\s*release\s*\(",
     }
     counts = {
         name: len(re.findall(pattern, component))
         for name, pattern in expected.items()
     }
     if counts != {name: 1 for name in expected}:
-        fail(f"WC0 plug-in call surface differs: {counts}")
+        fail(f"WA0 plug-in call surface differs: {counts}")
     forbidden_calls = (
         "setIoMode", "getBusCount", "getBusInfo", "getRoutingInfo",
-        "activateBus", "setActive", "setState", "getState", "setProcessing",
-        "setupProcessing", "process", "connect", "disconnect", "notify",
+        "activateBus", "setActive", "setState", "getState", "setBusArrangements",
+        "getBusArrangement", "canProcessSampleSize", "getLatencySamples",
+        "setProcessing", "setupProcessing", "process", "getTailSamples",
+        "connect", "disconnect", "notify",
         "createView", "setComponentHandler",
     )
+    production = "\n".join(
+        text for path, text in texts.items()
+        if path.startswith("source/")
+    )
     for operation in forbidden_calls:
-        if re.search(rf"\bcomponent\s*->\s*{operation}\s*\(", component):
-            fail(f"WC0 scanner calls an out-of-scope component method: {operation}")
+        if re.search(rf"(?:->|\.)\s*{operation}\s*\(", production):
+            fail(f"WA0 scanner calls an out-of-scope plug-in method: {operation}")
     combined = "\n".join(texts.values())
-    for interface in ("IEditController", "IAudioProcessor", "IConnectionPoint"):
+    for interface in ("IEditController", "IConnectionPoint"):
         if interface in combined:
-            fail(f"WC0 scanner names an out-of-scope interface: {interface}")
+            fail(f"WA0 scanner names an out-of-scope interface: {interface}")
+    if (
+        "AudioProcessorInterfaceLease" not in combined
+        or "42043F99B7DA453CA569E79D9AAEC33D" in combined
+        or "audio_processor_ownership_unknown" not in combined
+    ):
+        fail("WA0 one-owner or eight-state interface boundary differs")
     return {
-        "closed_plugin_operation_count": 5,
+        "closed_plugin_operation_count": 7,
+        "new_audio_interface_operation_count": 2,
         "operation_call_counts": counts,
         "controller_creation_absent": True,
+        "audio_processor_method_calls_absent": True,
         "audio_bus_parameter_state_processing_editor_calls_absent": True,
+    }
+
+
+def audio_method_verifier_regression() -> dict[str, Any]:
+    forbidden = (
+        "setBusArrangements", "getBusArrangement", "canProcessSampleSize",
+        "getLatencySamples", "setupProcessing", "setProcessing", "process",
+        "getTailSamples",
+    )
+    pattern = re.compile(
+        rf"(?:->|\.)\s*(?:{'|'.join(forbidden)})\s*\("
+    )
+    rejected = (
+        "interface_->process(context)",
+        "adjusted . canProcessSampleSize(value)",
+        "lease->getTailSamples()",
+    )
+    accepted = (
+        "audio_processor_method_called = false",
+        "process_guard()",
+        "getTailSamples",
+    )
+    if any(pattern.search(value) is None for value in rejected):
+        fail("receiver-independent audio-method regression missed a call")
+    if any(pattern.search(value) is not None for value in accepted):
+        fail("receiver-independent audio-method regression rejected non-call text")
+    return {
+        "mutated_call_samples_rejected": len(rejected),
+        "non_call_samples_accepted": len(accepted),
+        "receiver_independent": True,
     }
 
 

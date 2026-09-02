@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded Runtime 4 / Proton 11 supervision for one marker-bound WC0 scan."""
+"""Bounded Runtime 4 / Proton 11 supervision for one marker-bound WA0 scan."""
 
 from __future__ import annotations
 
@@ -47,6 +47,7 @@ EXPECTED_ADAPTER_OPERATIONS = (
     "release_factory_3", "release_factory_2", "release_factory_base",
     "exit_dll", "free_library",
     "create_component", "get_controller_class_id", "initialize_component",
+    "query_audio_processor", "release_audio_processor",
     "terminate_component", "release_component",
 )
 
@@ -56,18 +57,25 @@ OPERATIONS = {
     "get_class_info_2", "get_class_info_1", "release_factory_3", "release_factory_2",
     "release_factory_base", "exit_dll", "free_library",
     "create_component", "get_controller_class_id", "initialize_component",
+    "query_audio_processor", "release_audio_processor",
     "terminate_component", "release_component",
 }
 INTERFACES = {
     None, "IPluginFactory", "IPluginFactory2", "IPluginFactory3", "IComponent",
+    "IAudioProcessor",
 }
 TIERS = {None, "factory_3_unicode", "factory_2", "factory_1"}
 HOST_CALLBACKS = {"queryInterface", "addRef", "release", "getName", "createInstance"}
 COMPONENT_OPERATIONS = {
     "create_component", "get_controller_class_id", "initialize_component",
+    "query_audio_processor", "release_audio_processor",
     "terminate_component", "release_component",
 }
+AUDIO_INTERFACE_OPERATIONS = {
+    "query_audio_processor", "release_audio_processor",
+}
 INHERITED_SHUTDOWN_OPERATIONS = (
+    "terminate_component", "release_component",
     "release_factory_3", "release_factory_2", "release_factory_base",
     "exit_dll", "free_library",
 )
@@ -92,6 +100,8 @@ IN_FLIGHT_BLOCKER = {
     "initialize_component": "WC0_COMPONENT_INITIALIZE_BLOCKED",
     "terminate_component": "WC0_COMPONENT_TERMINATE_BLOCKED",
     "release_component": "WC0_COMPONENT_RELEASE_BLOCKED",
+    "query_audio_processor": "WA0_INTERFACE_QUERY_BLOCKED",
+    "release_audio_processor": "WA0_INTERFACE_RELEASE_BLOCKED",
 }
 EXIT_BLOCKER = {
     64: "WF0_SCANNER_LAUNCH_BLOCKED", 65: "WF0_PROCESS_IDENTITY_BLOCKED",
@@ -109,6 +119,9 @@ EXIT_BLOCKER = {
     87: "WC0_COMPONENT_INITIALIZE_BLOCKED",
     88: "WC0_COMPONENT_TERMINATE_BLOCKED",
     89: "WC0_COMPONENT_RELEASE_BLOCKED",
+    90: "WA0_INTERFACE_QUERY_BLOCKED",
+    91: "WA0_INTERFACE_QUERY_INCONSISTENT",
+    92: "WA0_INTERFACE_RELEASE_BLOCKED",
 }
 
 
@@ -145,7 +158,7 @@ def handshake(environment: ScanEnvironment, session: str,
         f"bundle_manifest_sha256={marker['bundle_manifest']['sha256']}\n"
         "implementation_source_manifest_sha256="
         f"{marker['implementation_source_manifest_sha256']}\n"
-        "mode=wc0-component-admission\n"
+        "mode=wa0-audio-processor-interface-admission\n"
         f"component_case={component_case}\n"
         "run_ordinal=1\n"
     ).encode()
@@ -153,10 +166,8 @@ def handshake(environment: ScanEnvironment, session: str,
 
 def command_vector(environment: ScanEnvironment, session: str,
                    component_case: str) -> list[str]:
-    if component_case not in {
-        "exact-again", "unknown-processor", "unsupported-interface"
-    }:
-        fail("component case is outside the closed WC0 command contract")
+    if component_case != "exact-again":
+        fail("component case is outside the closed WA0 command contract")
     marker = environment.marker
     return [
         str(runtime_root() / "_v2-entry-point"), "--verb=run", "--",
@@ -172,7 +183,7 @@ def command_vector(environment: ScanEnvironment, session: str,
         "--ready", f"C:\\wf0\\session\\{session}.ready",
         "--gate", f"C:\\wf0\\session\\{session}.gate",
         "--max-classes", "256", "--stdout-cap", "1048576",
-        "--mode", "wc0-component-admission",
+        "--mode", "wa0-audio-processor-interface-admission",
         "--component-case", component_case,
     ]
 
@@ -398,7 +409,7 @@ class StreamState:
                 self.class_started_at = None
         elif event == "host_callback":
             if record.get("operation") not in HOST_CALLBACKS:
-                fail("host callback operation is outside the closed WC0 contract")
+                fail("host callback operation is outside the closed WA0 contract")
             if record.get("thread_role") != "scanner_main_thread":
                 fail("host callback thread role differs")
             origin = record.get("origin")
@@ -549,9 +560,9 @@ def supervise_adapter(environment: ScanEnvironment) -> dict[str, Any]:
     if after != before or verify_runner_identity() != runner_identity:
         fail("protected state or runner changed during loader-adapter execution")
     return {
-        "schema": "linux-vst-bridge-wc0-loader-adapter/v1",
+        "schema": "linux-vst-bridge-wa0-loader-adapter/v1",
         "classification": "adapter_completed",
-        "closed_operation_count": 20,
+        "closed_operation_count": 22,
         "free_library_false_mapped": True,
         "paired_completion_valid": True,
         "runtime_role_observed": True,
@@ -712,6 +723,33 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     component_abnormal = (
         in_flight is not None and in_flight.get("operation") in COMPONENT_OPERATIONS
     )
+    audio_interface_abnormal = (
+        in_flight is not None
+        and in_flight.get("operation") in AUDIO_INTERFACE_OPERATIONS
+    )
+    closed_component_sessions = [
+        record.get("component_session") for record in streams.records
+        if record.get("event") == "lifecycle"
+        and record.get("state") == "component_session_closed"
+        and isinstance(record.get("component_session"), dict)
+    ]
+    closed_component_session = (
+        closed_component_sessions[-1] if closed_component_sessions else None
+    )
+    if audio_interface_abnormal:
+        audio_processor_observer_state = "audio_processor_ownership_unknown"
+        audio_interface_quiescence = False
+    elif closed_component_session is not None:
+        closed_audio = closed_component_session.get("audio_processor_lease", {})
+        audio_processor_observer_state = closed_audio.get(
+            "state", "audio_processor_absent"
+        )
+        audio_interface_quiescence = closed_audio.get(
+            "audio_interface_quiescence", False
+        )
+    else:
+        audio_processor_observer_state = "audio_processor_absent"
+        audio_interface_quiescence = True
     shutdown_dispositions: dict[str, dict[str, str]] = {}
     for operation in INHERITED_SHUTDOWN_OPERATIONS:
         if operation in started_operations:
@@ -720,13 +758,18 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
                 else "attempted_without_ordinary_return"
             )
             source = "scanner_call_ledger"
-        elif scanner_suppressed.get(operation) == (
-            "not_attempted_object_quiescence_unproved"
-        ):
-            disposition = "not_attempted_object_quiescence_unproved"
+        elif scanner_suppressed.get(operation) in {
+            "not_attempted_object_quiescence_unproved",
+            "not_attempted_audio_interface_quiescence_unproved",
+        }:
+            disposition = scanner_suppressed[operation]
             source = "scanner_suppression_record"
         elif component_abnormal:
-            disposition = "not_attempted_object_quiescence_unproved"
+            disposition = (
+                "not_attempted_audio_interface_quiescence_unproved"
+                if audio_interface_abnormal
+                else "not_attempted_object_quiescence_unproved"
+            )
             source = "supervisor_unmatched_component_call"
         else:
             disposition = "not_attempted_prior_stage"
@@ -748,7 +791,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     )
 
     return {
-        "schema": "linux-vst-bridge-wc0-supervised-run/v1",
+        "schema": "linux-vst-bridge-wa0-supervised-run/v1",
         "run_id": environment.run_id, "fixture": environment.marker["fixture"],
         "session_binding_sha256": sha256_bytes(expected), "records": streams.records,
         "stdout_sha256": hashlib.sha256(streams.stdout).hexdigest(),
@@ -757,6 +800,12 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
         "classification": classification, "blocker": blocker,
         "last_lifecycle": last_state,
         "last_in_flight_operation": None if in_flight is None else in_flight["operation"],
+        "audio_processor_observer_state": audio_processor_observer_state,
+        "audio_interface_quiescence": audio_interface_quiescence,
+        "call_counts": {
+            operation: started_operations.count(operation)
+            for operation in sorted(OPERATIONS)
+        },
         "component_case": component_case,
         "inherited_shutdown": {
             "operations": shutdown_dispositions,
@@ -764,8 +813,10 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             "physical_containment_only": (
                 component_abnormal
                 or any(
-                    value["disposition"] ==
-                    "not_attempted_object_quiescence_unproved"
+                    value["disposition"] in {
+                        "not_attempted_object_quiescence_unproved",
+                        "not_attempted_audio_interface_quiescence_unproved",
+                    }
                     for value in shutdown_dispositions.values()
                 )
             ),

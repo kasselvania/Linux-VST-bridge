@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deck-only dependency-ordered WC0 execution and evidence transaction."""
+"""Deck-only dependency-ordered WA0 execution and evidence transaction."""
 
 from __future__ import annotations
 
@@ -17,10 +17,14 @@ from artifacts import (
     verify_execution_source, verify_hash_sidecar,
 )
 from common import (
+    ACCEPTED_WC0_ARTIFACT_MANIFEST_SHA256, ACCEPTED_WC0_EVIDENCE_COMMIT,
+    ACCEPTED_WC0_EVIDENCE_TREE, ACCEPTED_WC0_IMPLEMENTATION_MERGE,
+    ACCEPTED_WC0_SCANNER_SHA256, ACCEPTED_WC0_SOURCE_COMMIT,
+    ACCEPTED_WC0_SOURCE_MANIFEST_SHA256, ACCEPTED_WC0_SOURCE_TREE,
     APPROVAL_BLOB, AUTHORITY_MERGE_COMMIT, AUTHORITY_MERGE_TREE, BASIS_COMMIT,
     BASIS_TREE, BUNDLE_SCHEMA, DESIGN_BLOB, DESIGN_COMMIT, DESIGN_SHA256,
     DESIGN_TREE, EVIDENCE_FILES, EXPECTED_BRANCH, EXPECTED_REF, FAULT_TARGETS,
-    MAC_CUSTODY_SCHEMA, REPOSITORY, REVIEW_BLOB, REVIEW_GITHUB_ID, RUNNER_DIGEST,
+    MAC_CUSTODY_SCHEMA, REPOSITORY, REVIEW_GITHUB_ID, RUNNER_DIGEST,
     SOURCE_HANDOFF_SCHEMA, SOURCE_SCHEMA, WINDOWS_BUILD_SCHEMA,
     artifact_cache_parent, canonical_json, command_text, deck_fixture_identity,
     fail, process_guard, protected_snapshot, repo_root,
@@ -31,7 +35,7 @@ from common import (
 from environment import create_environment, retire_environment, verify_artifact_cache
 from evidence import render_packet, validate_packet
 from negative_tests import run_negative_suite
-from normalize import normalize_component_positive
+from normalize import normalize_wa0_positive
 from supervise import supervise
 
 
@@ -60,13 +64,13 @@ def _source_handoff(source_commit: str, source_tree: str,
     root = source_handoff_parent() / source_commit
     if not root.is_dir() or root.is_symlink():
         fail("persistent source handoff root is absent or unsafe")
-    receipt_path = root / "WC0_SOURCE_HANDOFF_RECEIPT.json"
-    verify_hash_sidecar(root / "WC0_SOURCE_HANDOFF_RECEIPT.sha256", receipt_path)
+    receipt_path = root / "WA0_SOURCE_HANDOFF_RECEIPT.json"
+    verify_hash_sidecar(root / "WA0_SOURCE_HANDOFF_RECEIPT.sha256", receipt_path)
     receipt = read_canonical_json(receipt_path, SOURCE_HANDOFF_SCHEMA)
     bundle = root / receipt.get("bundle", {}).get("name", "")
-    advertised = f"refs/handoff/wc0-source/{source_commit}"
+    advertised = f"refs/handoff/wa0-source/{source_commit}"
     implementation = receipt.get("implementation_source", {})
-    authority = receipt.get("wc0_authority", {})
+    authority = receipt.get("wa0_authority", {})
     bundle_identity = receipt.get("bundle", {})
     if (
         receipt.get("repository") != REPOSITORY
@@ -83,12 +87,12 @@ def _source_handoff(source_commit: str, source_tree: str,
             "branch": EXPECTED_BRANCH,
             "ref": EXPECTED_REF,
             "manifest_schema": SOURCE_SCHEMA,
-            "manifest_record_count": 19,
+            "manifest_record_count": 17,
             "manifest_sha256": source_manifest_digest,
         }
         or not bundle.is_file() or bundle.is_symlink()
         or bundle_identity != {
-            "name": f"wc0-execution-source-{source_commit}.bundle",
+            "name": f"wa0-execution-source-{source_commit}.bundle",
             "advertised_ref": advertised,
             "sha256": sha256_file(bundle),
             "size": bundle.stat().st_size,
@@ -132,7 +136,7 @@ def load_build(source_commit: str, artifact_digest: str) -> dict[str, Any]:
         "branch": EXPECTED_BRANCH,
         "ref": EXPECTED_REF,
         "schema": SOURCE_SCHEMA,
-        "record_count": 19,
+        "record_count": 17,
         "manifest_sha256": source_digest,
     }
     if (
@@ -143,7 +147,7 @@ def load_build(source_commit: str, artifact_digest: str) -> dict[str, Any]:
             "branch": EXPECTED_BRANCH,
             "ref": EXPECTED_REF,
             "implementation_source_schema": SOURCE_SCHEMA,
-            "implementation_source_record_count": 19,
+            "implementation_source_record_count": 17,
             "implementation_source_manifest": source,
             "implementation_source_manifest_sha256": source_digest,
         }
@@ -156,7 +160,7 @@ def load_build(source_commit: str, artifact_digest: str) -> dict[str, Any]:
             "ref": EXPECTED_REF,
             "implementation_source_manifest": {
                 "schema": SOURCE_SCHEMA,
-                "record_count": 19,
+                "record_count": 17,
                 "sha256": source_digest,
             },
         }
@@ -194,6 +198,19 @@ def load_build(source_commit: str, artifact_digest: str) -> dict[str, Any]:
 
 def verify_authority() -> dict[str, Any]:
     root = repo_root()
+    wc0_retained = read_canonical_json(
+        root / "evidence/wc0-windows-vst3-processor-component-admission"
+        / "BUILD_MANIFEST.json",
+        "linux-vst-bridge-wc0-retained-build-manifest/v1",
+    )
+    wc0_scanner = next(
+        (
+            item.get("sha256")
+            for item in wc0_retained.get("artifact_manifest", {}).get("records", [])
+            if item.get("path") == "bin/wf0-factory-probe.exe"
+        ),
+        None,
+    )
     observed = {
         "basis_commit": BASIS_COMMIT,
         "basis_tree": command_text(
@@ -208,20 +225,39 @@ def verify_authority() -> dict[str, Any]:
             ["git", "rev-parse", f"{DESIGN_COMMIT}^{{tree}}"], cwd=root
         ),
         "design_blob": command_text(
-            ["git", "rev-parse", "HEAD:docs/slices/WC0/IMPLEMENTATION_DESIGN.md"],
-            cwd=root,
-        ),
-        "review_blob": command_text(
-            ["git", "rev-parse", "HEAD:docs/slices/WC0/ADVERSARIAL_DESIGN_REVIEW.md"],
+            ["git", "rev-parse", "HEAD:docs/slices/WA0/IMPLEMENTATION_DESIGN.md"],
             cwd=root,
         ),
         "approval_blob": command_text(
-            ["git", "rev-parse", "HEAD:docs/slices/WC0/DESIGN_APPROVAL.md"],
+            ["git", "rev-parse", "HEAD:docs/slices/WA0/DESIGN_APPROVAL.md"],
             cwd=root,
         ),
         "design_sha256": sha256_file(
-            root / "docs/slices/WC0/IMPLEMENTATION_DESIGN.md"
+            root / "docs/slices/WA0/IMPLEMENTATION_DESIGN.md"
         ),
+        "accepted_wc0": {
+            "implementation_merge": ACCEPTED_WC0_IMPLEMENTATION_MERGE,
+            "implementation_merge_tree": command_text(
+                ["git", "rev-parse", f"{ACCEPTED_WC0_IMPLEMENTATION_MERGE}^{{tree}}"],
+                cwd=root,
+            ),
+            "source_commit": ACCEPTED_WC0_SOURCE_COMMIT,
+            "source_tree": command_text(
+                ["git", "rev-parse", f"{ACCEPTED_WC0_SOURCE_COMMIT}^{{tree}}"],
+                cwd=root,
+            ),
+            "evidence_commit": ACCEPTED_WC0_EVIDENCE_COMMIT,
+            "evidence_tree": command_text(
+                ["git", "rev-parse", f"{ACCEPTED_WC0_EVIDENCE_COMMIT}^{{tree}}"],
+                cwd=root,
+            ),
+            "source_manifest_sha256":
+                wc0_retained.get("implementation_source_manifest_sha256"),
+            "scanner_sha256": wc0_scanner,
+            "artifact_manifest_sha256": wc0_retained.get(
+                "deck_admission", {}
+            ).get("artifact_cache_manifest_sha256"),
+        },
     }
     if observed != {
         "basis_commit": BASIS_COMMIT,
@@ -231,25 +267,36 @@ def verify_authority() -> dict[str, Any]:
         "design_commit": DESIGN_COMMIT,
         "design_tree": DESIGN_TREE,
         "design_blob": DESIGN_BLOB,
-        "review_blob": REVIEW_BLOB,
         "approval_blob": APPROVAL_BLOB,
         "design_sha256": DESIGN_SHA256,
+        "accepted_wc0": {
+            "implementation_merge": ACCEPTED_WC0_IMPLEMENTATION_MERGE,
+            "implementation_merge_tree": ACCEPTED_WC0_EVIDENCE_TREE,
+            "source_commit": ACCEPTED_WC0_SOURCE_COMMIT,
+            "source_tree": ACCEPTED_WC0_SOURCE_TREE,
+            "evidence_commit": ACCEPTED_WC0_EVIDENCE_COMMIT,
+            "evidence_tree": ACCEPTED_WC0_EVIDENCE_TREE,
+            "source_manifest_sha256": ACCEPTED_WC0_SOURCE_MANIFEST_SHA256,
+            "scanner_sha256": ACCEPTED_WC0_SCANNER_SHA256,
+            "artifact_manifest_sha256":
+                ACCEPTED_WC0_ARTIFACT_MANIFEST_SHA256,
+        },
     }:
-        fail(f"WC0 implementation authority differs: {observed}")
+        fail(f"WA0 implementation authority differs: {observed}")
     current_slice = (root / "CURRENT_SLICE.md").read_text(encoding="utf-8")
     approval = (
-        root / "docs/slices/WC0/DESIGN_APPROVAL.md"
+        root / "docs/slices/WA0/DESIGN_APPROVAL.md"
     ).read_text(encoding="utf-8")
     if (
         "status: active_implementation_slice" not in current_slice
         or "authority_phase: implementation" not in current_slice
         or "implementation_authorized: true" not in current_slice
-        or f"v2_review: {REVIEW_GITHUB_ID} / DESIGN_CLEAR" not in current_slice
-        or f"v2_adversarial_review_github_id: {REVIEW_GITHUB_ID}" not in approval
-        or "v2_adversarial_review_result: DESIGN_CLEAR" not in approval
+        or f"design_review: {REVIEW_GITHUB_ID} / DESIGN_CLEAR" not in current_slice
+        or f"adversarial_review_github_id: {REVIEW_GITHUB_ID}" not in approval
+        or "adversarial_review_result: DESIGN_CLEAR" not in approval
         or "implementation_authorized: true" not in approval
     ):
-        fail("WC0 implementation authority readback is absent")
+        fail("WA0 implementation authority readback is absent")
     return observed
 
 
@@ -292,8 +339,11 @@ def run_positive(build: dict[str, Any]) -> dict[str, Any]:
     environment = create_environment(secrets.token_hex(16), build, fixture="again")
     try:
         result = supervise(environment)
-        if (environment.session / "forbidden-component-method.marker").exists():
-            fail("positive run invoked a component method beyond the WC0 ceiling")
+        if (
+            (environment.session / "forbidden-component-method.marker").exists()
+            or (environment.session / "forbidden-audio-processor-method.marker").exists()
+        ):
+            fail("positive run invoked a method beyond the WA0 ceiling")
         if result["classification"] != "scanner_completed" or result["blocker"] is not None:
             fail(f"positive AGain run did not complete: {result['classification']}")
     finally:
@@ -306,7 +356,7 @@ def run_positive(build: dict[str, Any]) -> dict[str, Any]:
 def receipt_root(build: dict[str, Any]) -> pathlib.Path:
     return (
         pathlib.Path.home()
-        / ".local/share/linux-vst-bridge/handoffs/wc0/execution/by-source"
+        / ".local/share/linux-vst-bridge/handoffs/wa0/execution/by-source"
         / build["source_commit"]
         / build["artifact_manifest_sha256"]
     )
@@ -319,7 +369,7 @@ def _write_receipt(root: pathlib.Path, name: str, value: dict[str, Any]) -> None
 def run_all(build: dict[str, Any], evidence_handoff: pathlib.Path) -> dict[str, Any]:
     receipts = receipt_root(build)
     if receipts.exists() or receipts.is_symlink():
-        fail("WC0 execution receipt root already exists; reuse or repair is prohibited")
+        fail("WA0 execution receipt root already exists; reuse or repair is prohibited")
     receipts.mkdir(parents=True)
     initial = preflight(build)
     _write_receipt(receipts, "preflight.json", initial)
@@ -331,20 +381,20 @@ def run_all(build: dict[str, Any], evidence_handoff: pathlib.Path) -> dict[str, 
     _write_receipt(receipts, "positive.json", positive)
 
     reverify(build)
-    component_session, callback_ledger, timeline = normalize_component_positive(
+    audio_processor_lease, component_session, timeline = normalize_wa0_positive(
         positive, build
     )
     final_protected = protected_snapshot()
     if final_protected != initial["protected_snapshot"]:
-        fail("protected state differs across the complete WC0 execution transaction")
+        fail("protected state differs across the complete WA0 execution transaction")
     reverify(build)
     render_packet(
-        build["source_commit"], build, negative, positive, component_session,
-        callback_ledger, timeline, initial,
+        build["source_commit"], build, negative, positive, audio_processor_lease,
+        component_session, timeline, initial,
     )
     validate_packet(build["source_commit"], treeish=build["source_commit"])
     records = verify_evidence_packet(
-        repo_root() / "evidence/wc0-windows-vst3-processor-component-admission"
+        repo_root() / "evidence/wa0-windows-vst3-audio-processor-interface-admission"
     )
     artifact = build["mac_custody"]["artifact"]
     handoff_identity = {
@@ -352,7 +402,7 @@ def run_all(build: dict[str, Any], evidence_handoff: pathlib.Path) -> dict[str, 
             "commit": build["source_commit"], "tree": build["source_tree"],
             "parent": BASIS_COMMIT, "branch": EXPECTED_BRANCH,
             "ref": EXPECTED_REF, "schema": SOURCE_SCHEMA,
-            "record_count": 19,
+            "record_count": 17,
             "manifest_sha256": build["implementation_source_manifest_sha256"],
         },
         "source_handoff": {
@@ -363,7 +413,7 @@ def run_all(build: dict[str, Any], evidence_handoff: pathlib.Path) -> dict[str, 
             "receipt_sha256": sha256_bytes(
                 canonical_json(build["source_handoff"])
             ),
-            "deck_local_ref": f"refs/handoff/wc0-source/{build['source_commit']}",
+            "deck_local_ref": f"refs/handoff/wa0-source/{build['source_commit']}",
             "detached_worktree_commit": build["source_commit"],
             "detached_worktree_clean": True,
         },
@@ -394,15 +444,18 @@ def run_all(build: dict[str, Any], evidence_handoff: pathlib.Path) -> dict[str, 
         "component_session_sha256": sha256_bytes(
             canonical_json(component_session)
         ),
-        "callback_ledger_sha256": sha256_bytes(canonical_json(callback_ledger)),
+        "audio_processor_lease_sha256": sha256_bytes(
+            canonical_json(audio_processor_lease)
+        ),
+        "interface_quiescence": True,
         "object_quiescence": True,
         "clean_in_process_shutdown": True,
-        "proof_row_count": 29,
+        "proof_row_count": 20,
         "no_deck_github": initial["no_deck_github"],
         "protected_state_equal": True,
     }
     handoff = create_evidence_handoff(
-        repo_root() / "evidence/wc0-windows-vst3-processor-component-admission",
+        repo_root() / "evidence/wa0-windows-vst3-audio-processor-interface-admission",
         evidence_handoff,
         handoff_identity,
     )
@@ -413,7 +466,7 @@ def run_all(build: dict[str, Any], evidence_handoff: pathlib.Path) -> dict[str, 
             ".local/share/linux-vst-bridge/environments"
         ).iterdir()
     ):
-        fail("WC0 stage root remains after evidence handoff")
+        fail("WA0 stage root remains after evidence handoff")
     return {
         "source_commit": build["source_commit"],
         "artifact_manifest_sha256": build["artifact_manifest_sha256"],
@@ -454,5 +507,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print(f"WC0_ERROR: {error}", file=sys.stderr, flush=True)
+        print(f"WA0_ERROR: {error}", file=sys.stderr, flush=True)
         raise

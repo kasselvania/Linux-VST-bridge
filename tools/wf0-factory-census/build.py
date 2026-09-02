@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WindowsBuildPlane acquisition, comparison, and WC0 envelope publication."""
+"""WindowsBuildPlane acquisition, comparison, and WA0 envelope publication."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ EXPECTED_AGAIN_MODULE_SHA256 = (
 MSBUILD_MAX_CPU_COUNT = "1"
 MSVC_POST_OPTIONS = "/MP1"
 BUILD_TARGETS = (
-    "wf0-factory-probe", "wf0-loader-adapter-tests", "wc0-fault-fixtures", "again",
+    "wf0-factory-probe", "wf0-loader-adapter-tests", "wa0-fault-fixtures", "again",
 )
 SDK_LICENSES = {
     "LICENSE.txt": "licenses/vst3sdk.txt",
@@ -580,7 +580,7 @@ def configure_and_build(root: pathlib.Path, sdk: pathlib.Path) -> tuple[pathlib.
     _build_command([
         "cmake", "--build", str(repository_build), "--config", CONFIGURATION,
         "--target", "wf0-factory-probe", "wf0-loader-adapter-tests",
-        "wc0-fault-fixtures", "--", f"/m:{MSBUILD_MAX_CPU_COUNT}",
+        "wa0-fault-fixtures", "--", f"/m:{MSBUILD_MAX_CPU_COUNT}",
     ])
     verify_sdk(sdk)
     _build_command([
@@ -642,7 +642,7 @@ def assemble(repository_build: pathlib.Path, again_build: pathlib.Path,
         _copy_regular(unique_file(repository_build, f"{target}.dll"), destination / relative)
         roles[relative] = "approved_fault_module"
     # The accepted immutable environment owner stages its adapter transaction with
-    # this historical carrier path. WC0 copies one focused module there only as
+    # this historical carrier path. WA0 copies one focused module there only as
     # verified inert payload; the adapter never loads it and no WF0 fixture is built.
     carrier = "fixtures/wf0-no-entry.dll"
     _copy_regular(
@@ -848,7 +848,7 @@ def build_workflow(source_commit: str, sdk: pathlib.Path,
             "msbuild_max_cpu_count": int(MSBUILD_MAX_CPU_COUNT),
             "msvc_post_options": MSVC_POST_OPTIONS,
             "pre_manifest_comparison": preliminary,
-            "wc0_component_call_surface": call_surface,
+            "wa0_interface_call_surface": call_surface,
         },
     }
     core_data = canonical_json(core)
@@ -931,8 +931,8 @@ def build_workflow(source_commit: str, sdk: pathlib.Path,
         },
         "tool_receipts": {"cl_bv_sha256": sha256_bytes(cl_bv)},
         "explicit_nonclaims": [
-            "no_windows_runtime_proof", "no_windows_class_instantiation", "no_proton",
-            "no_bitwig", "no_serum", "no_release_build",
+            "no_windows_runtime_proof", "no_windows_binary_execution", "no_proton",
+            "no_iaudioprocessor_method", "no_bitwig", "no_serum", "no_release_build",
             "no_reproducible_runner_image_claim",
         ],
     }
