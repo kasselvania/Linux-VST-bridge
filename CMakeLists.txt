@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
+cmake_policy(SET CMP0091 NEW)
 
 project(
     LinuxVstBridgeHP0
@@ -8,6 +9,51 @@ project(
 )
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+option(WF0_BUILD_ONLY "Build only the authorized WF0 Windows probe and fault fixtures" OFF)
+
+if(WF0_BUILD_ONLY)
+    if(NOT WIN32 OR NOT MSVC)
+        message(FATAL_ERROR "WF0 requires the approved native Windows MSVC build plane")
+    endif()
+    if(NOT CMAKE_GENERATOR STREQUAL "Visual Studio 17 2022")
+        message(FATAL_ERROR "WF0 requires the Visual Studio 17 2022 generator")
+    endif()
+    if(NOT CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+        message(FATAL_ERROR "WF0 requires generator platform x64")
+    endif()
+    if(NOT CMAKE_VS_PLATFORM_TOOLSET STREQUAL "v143")
+        message(FATAL_ERROR "WF0 requires platform toolset v143")
+    endif()
+    if(NOT CMAKE_SYSTEM_VERSION STREQUAL "10.0.19041.0")
+        message(FATAL_ERROR "WF0 requires Windows SDK 10.0.19041.0")
+    endif()
+    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(FATAL_ERROR "WF0 requires an x64 compiler")
+    endif()
+
+    include(WF0DependencyLock)
+    wf0_verify_vst3_sdk("${WF0_VST3_SDK_ROOT}")
+
+    set(CMAKE_CXX_STANDARD 20)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    set(FETCHCONTENT_FULLY_DISCONNECTED ON CACHE BOOL "No configure-time downloads" FORCE)
+    set(SMTG_USE_STATIC_CRT ON CACHE BOOL "Use the approved static MSVC runtime" FORCE)
+    set(SMTG_ENABLE_VST3_PLUGIN_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SMTG_ENABLE_VST3_HOSTING_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SMTG_ENABLE_VSTGUI_SUPPORT OFF CACHE BOOL "" FORCE)
+    set(SMTG_CREATE_BUNDLE_FOR_WINDOWS OFF CACHE BOOL "" FORCE)
+    set(SMTG_CREATE_PLUGIN_LINK OFF CACHE BOOL "" FORCE)
+    set(SMTG_RUN_VST_VALIDATOR OFF CACHE BOOL "" FORCE)
+    set(SMTG_CREATE_MODULE_INFO OFF CACHE BOOL "" FORCE)
+
+    add_subdirectory("${WF0_VST3_SDK_ROOT}" "${CMAKE_BINARY_DIR}/vst3sdk" EXCLUDE_FROM_ALL)
+    add_subdirectory(windows-factory-probe)
+    add_subdirectory(windows-fixtures/wf0)
+    return()
+endif()
 
 include(HP0ToolchainGuard)
 hp0_require_freedesktop_sdk()
