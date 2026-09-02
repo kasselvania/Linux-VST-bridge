@@ -11,7 +11,8 @@ target: main
 selection_basis_commit: 1f4b946178319887950bdb764114543a1a7b845b
 selection_basis_tree: 75b91e9f4d8b059aef76abeb9ff6518cf0c310bc
 design_gate: required
-design_revision: pending
+design_revision: wc0-design-v1
+design_status: proposed_for_adversarial_review
 design_card: docs/slices/WC0/IMPLEMENTATION_DESIGN.md
 implementation_branch: not_created
 successor_selection_authorized: false
