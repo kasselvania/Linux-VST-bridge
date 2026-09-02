@@ -21,9 +21,17 @@ v5_approval_blob: aabf50ae545a4a4a3d7efddc4abec00d04dfc452
 stopped_implementation_basis_commit: 67026ad7160a584cbf9cdb4bf0db7b8dbfa60136
 stopped_implementation_basis_tree: 2021dfcbf000d934a462d40efef6bbe7b54e0862
 mandatory_stop_result: RETURN_TO_DESIGN_GATE
-design_revision: wf0-design-v6
+v6_design_commit: 1e14eb8c318263b7307fe8e07aae13628402e0c1
+v6_design_tree: 63f9ce1edfe663848e2a4832c7facad881b83aac
+v6_design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V6.md
+v6_design_blob: e153943a302e3f9b38c74c9048f70a1d65c7b238
+v6_design_sha256: c6835b31ac8b2cf2f0fb1dee7634ef16f133387c0bffba8bf6671447175cd737
+v6_review_path: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW_V6.md
+v6_github_review_id: 5084539680
+v6_review_result: DESIGN_REPAIR_REQUIRED
+design_revision: wf0-design-v7
 design_status: proposed_for_adversarial_review
-design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V6.md
+design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V7.md
 reconciliation: docs/slices/WF0/WINDOWS_BUILD_PLANE_RECONCILIATION.md
 implementation_authorized: false
 successor_selection_authorized: false
@@ -31,11 +39,16 @@ successor_selection_authorized: false
 
 WF0 returned to the design gate after the exact V5 MinGW/AGain route exposed a
 material build-owner mismatch. V5 remains immutable historical authority for
-the stopped attempt; it does not authorize the V6 Windows/MSVC build plane.
+the stopped attempt; it does not authorize the supported Windows/MSVC build
+plane.
 
-No implementation resumes until the exact V6 design receives fresh independent
-review, separate operator approval, an approval receipt, authority merge, and
-exact `main` commit/tree readback.
+The exact immutable V6 design received `DESIGN_REPAIR_REQUIRED` in GitHub
+technical-lead review `5084539680`. V7 repairs only its two P1 custody gaps:
+mandatory attestation unavailable for the actual private/user repository and
+the missing exact implementation-source handoff to the Deck. No implementation
+resumes until the exact V7 design receives fresh independent review, separate
+operator approval, an approval receipt, authority merge, and exact `main`
+commit/tree readback.
 
 ## Primary claim
 
@@ -47,8 +60,8 @@ exact `main` commit/tree readback.
 > expected three-class census, unloads cleanly, and leaves the accepted WR0
 > environment and every protected fixture unchanged.
 
-The claim and ceiling are unchanged. Only build and artifact custody are being
-redesigned.
+The claim and ceiling are unchanged. V7 repairs only private Actions artifact
+custody and exact execution-source custody.
 
 ## Valid mandatory stop
 
@@ -101,16 +114,17 @@ Mac custody:
   archive ref pushed: no
 ```
 
-The future V6 implementation does not merge, rebase, or wholesale cherry-pick
-this commit. It begins from exact merged V6 authority and reconstructs each
-audited reusable path under the V6 card.
+The future V7 implementation does not merge, rebase, or wholesale cherry-pick
+this commit. It begins from exact merged V7 authority and reconstructs each
+audited reusable path under the V7 card.
 
 ## Selected three-plane correction
 
 ```text
 MacControlPlane
-    -> Git, GitHub, branches, PRs, exact run/artifact download,
-       provenance verification, SSH transfer, evidence publication
+    -> private GitHub repository, branches, PRs, exact run/artifact-ID API,
+       raw wrapper/hash custody, exact source Git bundle,
+       SSH transfer, evidence publication
 
 WindowsBuildPlane
     -> GitHub-hosted `windows-2022`
@@ -118,9 +132,11 @@ WindowsBuildPlane
     -> Windows SDK 10.0.19041.0
     -> Visual Studio 17 2022 generator
     -> exact SDK acquisition, two clean builds, PE checks,
-       canonical manifest, bundle and provenance
+       canonical manifest, three-file envelope and one artifact upload
 
 SteamDeckExecutionPlane
+    -> exact source-bundle verification, fixed local ref,
+       clean detached execution worktree and per-run source manifest
     -> local content-addressed artifact verification/import
     -> Runtime 4 / Proton 11 execution
     -> held-gate, negative and positive proofs
@@ -132,7 +148,12 @@ dependency. The hosted label is not durable build identity; every accepted run
 must bind the actual runner image, Windows, Visual Studio, MSVC, Windows SDK,
 CMake, generator, workflow, source, and artifact identities.
 
-## Proposed V6 implementation boundary
+The exact repository posture is `kasselvania/Linux-VST-bridge`, visibility
+`private`, owner type `User`. GitHub artifact attestation, Enterprise Cloud,
+repository visibility/ownership change, organizational migration, replacement
+signing, release signing, and code signing are not WF0 prerequisites or claims.
+
+## Proposed V7 implementation boundary
 
 ```text
 tracked paths: 40
@@ -141,16 +162,18 @@ evidence paths: 14
 implementation-source schema: linux-vst-bridge-wf0-implementation-source/v1
 windows-build schema: linux-vst-bridge-wf0-windows-build/v1
 artifact-manifest schema: linux-vst-bridge-wf0-artifact-manifest/v1
+Mac artifact-custody schema: linux-vst-bridge-wf0-mac-artifact-custody/v1
+source-handoff schema: linux-vst-bridge-wf0-source-handoff/v1
 evidence-handoff schema: linux-vst-bridge-wf0-evidence-handoff/v1
-proof-matrix rows: 53
-blocked results: 28
-material operations: 22
+proof-matrix rows: 62
+blocked results: 29
+material operations: 25
 owners: 14
 ```
 
 These are proposed design values, not implementation permission. The exact
 paths, schemas, proofs, blockers, handoff contracts, and stop law are owned by
-`docs/slices/WF0/IMPLEMENTATION_DESIGN_V6.md`.
+`docs/slices/WF0/IMPLEMENTATION_DESIGN_V7.md`.
 
 ## Protected state
 
@@ -179,10 +202,11 @@ is not promoted to current `6.1` behavioral acceptance.
 ## Current no-implementation posture
 
 This phase authorizes only the completed source preservation, bounded read-only
-failure investigation, V6 design record, local design commit, and draft design
-PR through the Mac. It does not authorize a workflow run, Windows build,
-another MinGW attempt, SDK/VSTGUI patch, artifact implementation, Proton/Wine/
-scanner/validator/Bitwig/Serum workload, WR0 mutation, V6 approval receipt,
+failure investigation, supplied V6 review record, V7 design repair, one local
+design-repair commit, and draft design PR update through the Mac. It does not
+authorize a workflow run, Windows build, another MinGW attempt, SDK/VSTGUI
+patch, artifact implementation, Proton/Wine/
+scanner/validator/Bitwig/Serum workload, WR0 mutation, V7 approval receipt,
 merge, or successor slice.
 
 ```text
