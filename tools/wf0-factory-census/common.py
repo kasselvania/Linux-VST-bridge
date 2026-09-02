@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Closed identities and fail-closed primitives shared by the WF0 harness."""
+"""Closed identities and fail-closed primitives shared by the WC0 harness."""
 
 from __future__ import annotations
 
@@ -16,17 +16,18 @@ from typing import Any, Iterable, Sequence
 
 
 REPOSITORY = "kasselvania/Linux-VST-bridge"
-BASIS_COMMIT = "ce049eb410d4cff91de13fdb8bf4f0a3c4b03ece"
-BASIS_TREE = "2a782b5bdba4021dcbfeb5d2df5d9ff165936542"
-AUTHORITY_MERGE_COMMIT = "17646ff1cd5342d58ecf9346e26fad6f963f8a6a"
-AUTHORITY_MERGE_TREE = "45b2858318d57cfad74dbfe18c8d410932306e6d"
-DESIGN_COMMIT = "1d13fefc60ad6c2c49e384cd30631f60be2a3de2"
-DESIGN_TREE = "752b885643c730378ceefab99c7d7ec9277fdf56"
-DESIGN_BLOB = "3c8ac56cfaa8c95cb99fa327b392ed447453a87b"
-DESIGN_SHA256 = "844d646509933516ff60eeb2c6213cd1c2e89a8d22b5c986ac986fb104a19d77"
-REVIEW_BLOB = "36f6f7579f3e31e2d52a8d8e86b2950f56eaec90"
-APPROVAL_BLOB = "f10bf084de447be468254aed82237e2ecbbdad42"
-EXPECTED_BRANCH = "codex/wf0-windows-vst3-factory-census-v7"
+BASIS_COMMIT = "333b66f6aa689f01bb5c025b587ab7e469780524"
+BASIS_TREE = "d9aaae75d384c7b29313adde1a71049635615366"
+AUTHORITY_MERGE_COMMIT = BASIS_COMMIT
+AUTHORITY_MERGE_TREE = BASIS_TREE
+DESIGN_COMMIT = "064db624056f0fdf4daeda3b5ae394ab6210bee2"
+DESIGN_TREE = "6d7baf83e29704e803a76106c36d346cdbf7be03"
+DESIGN_BLOB = "df31b8467af9dcd97bc06b6afdf5b4b8d6be7018"
+DESIGN_SHA256 = "ca68cde6f68b02320e3c950b445aca9db99fdac1301fa7dfb50d510f83c7d78c"
+REVIEW_BLOB = "6a8e83b657a951eb55d18266af64f0336439b3aa"
+REVIEW_GITHUB_ID = "5092052158"
+APPROVAL_BLOB = "b02e62816ee3f22167e190a459a9ced902080f5b"
+EXPECTED_BRANCH = "codex/wc0-windows-vst3-processor-component-admission"
 EXPECTED_REF = f"refs/heads/{EXPECTED_BRANCH}"
 WORKFLOW_PATH = ".github/workflows/wf0-windows-msvc-build.yml"
 SDK_COMMIT = "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
@@ -64,8 +65,50 @@ SDK_SOURCE_BLOBS = {
     "public.sdk/samples/vst/again/CMakeLists.txt":
         ("f2616195f4f0b92b55ade45ac2fa448a4674ec79",
          "b3b6865609cfe50338f210cc90b7f6d137204b145e05e01402baac19f95abc89"),
+    "pluginterfaces/base/ipluginbase.h":
+        ("859424bfc7f14b61df4b209a85c09d413513127a",
+         "e10e9a4b9b0811c392af5758542e1f72875b56ebe7e1673d5075bc1160d9fd0b"),
+    "pluginterfaces/base/funknown.h":
+        ("3f6de83b104484e09097411417b37bcd28a46a1c",
+         "e0d9609224fe15491c9ccd1463d964c303f1d5a6149fabf849e87f2c14be1951"),
+    "pluginterfaces/base/smartpointer.h":
+        ("ca64ae8f6260abc4225869bcb55ef6b27f3f3abf",
+         "f690163a2d5fa71e76cce1909ae719561031b897f79342ddf38190b2ed9613b3"),
+    "pluginterfaces/vst/ivsthostapplication.h":
+        ("1818efe85a6674bf706fd8f8040e28cb329fbe27",
+         "b7ef5b02f24c103e952e18b3e974e97b3c23d19c870a46c7c3aad36af8832332"),
+    "pluginterfaces/vst/ivstcomponent.h":
+        ("e20ef5f429349bdccf55367d45051fcdb0ff97c5",
+         "cc587e34c009388d4187948c14a651df1481a01920abe895023094ca5b13faee"),
+    "base/source/fobject.h":
+        ("6d092acfcc7bf3be91f8f00bcb3e6c27184d53eb",
+         "6c8ef34413eed9fabbc61befaa40b213bbec4fe9cd7195738297caaaf1001767"),
+    "base/source/fobject.cpp":
+        ("a1da6cfffb23eb77d53d39da9429709f246955e6",
+         "07ced0bc6398ea2d6d364e787d8cb7f09d8d8052af5b3e219e3df2b62341f54f"),
+    "public.sdk/source/main/pluginfactory.cpp":
+        ("a50c5000c1215ced5ae920a07c12153edb9b2498",
+         "81dc1e6b5619ef1f22b83eb7243aa45d3ec7c54dd5b9fd42a32310bf40658f11"),
+    "public.sdk/source/vst/vstcomponentbase.cpp":
+        ("ccfde59797185b8a793b4a5bff2246c711faa18a",
+         "00f279150eb1cccaa78a5e6c62fbbf19b6149e7af531c90c1482102162b4b7ab"),
+    "public.sdk/source/vst/vstcomponent.cpp":
+        ("d1dced4a441d35b73717da26eea0ada97406a874",
+         "e9d8e5b4e25d319e378b8c8d547f34a3aa01f733c9ed3b60ddbe4c73237d7968"),
+    "public.sdk/source/vst/vstaudioeffect.h":
+        ("818cc4f3357c15c6f9a5ba649dbc70e87ced688f",
+         "d61a3f92770bcab1b6dfafd49ea9935de8576ab92e251569c5bc2756835c35d9"),
+    "public.sdk/source/vst/hosting/hostclasses.cpp":
+        ("fd0e12498e7f9035e6d9f23c154cf50adfd8a6ab",
+         "f9fbcd410d09ea3352342fdcb645e6a9dd1a424ff5b42430287fd4885a063c1d"),
 }
 SDK_POSITIVE_FIXTURE_BLOBS = {
+    "public.sdk/samples/vst/again/source/again.h":
+        ("061c0d4afb5f59410e75681d9998871f32fb1e72",
+         "304b289e902c302928e2a3ebdc117eeef6af2781855445712f515301d4295e23"),
+    "public.sdk/samples/vst/again/source/again.cpp":
+        ("4676454679e37f188b99c2ec6e6def6b825da173",
+         "05ff84588eac6ced18f26bba4e98632b28a2b5ee9d8c00340139fcc6b0efb00b"),
     "public.sdk/samples/vst/again/source/againentry.cpp":
         ("13b920b4b7a74137301bf213cf048e96e82861d4",
          "1cf23e867418578b4676a6298386d8eedaf463846d5ef8128389635731f72708"),
@@ -80,25 +123,21 @@ RUNNER_VERSION = "1787334450 proton-11.0-2-x86_64"
 RUNNER_BUILD_ID = "24867889"
 NEUTRAL_APP_ID = "0"
 
-SOURCE_SCHEMA = "linux-vst-bridge-wf0-implementation-source/v1"
+SOURCE_SCHEMA = "linux-vst-bridge-wc0-implementation-source/v1"
 WINDOWS_BUILD_SCHEMA = "linux-vst-bridge-wf0-windows-build/v1"
 ARTIFACT_SCHEMA = "linux-vst-bridge-wf0-artifact-manifest/v1"
 BUNDLE_SCHEMA = "linux-vst-bridge-wf0-bundle-manifest/v1"
 MAC_CUSTODY_SCHEMA = "linux-vst-bridge-wf0-mac-artifact-custody/v1"
-SOURCE_HANDOFF_SCHEMA = "linux-vst-bridge-wf0-source-handoff/v1"
-EVIDENCE_HANDOFF_SCHEMA = "linux-vst-bridge-wf0-evidence-handoff/v1"
+SOURCE_HANDOFF_SCHEMA = "linux-vst-bridge-wc0-source-handoff/v1"
+EVIDENCE_HANDOFF_SCHEMA = "linux-vst-bridge-wc0-evidence-handoff/v1"
 MARKER_SCHEMA = "linux-vst-bridge-wf0-scan-environment/v1"
 SOURCE_PATHS = (
     ".github/workflows/wf0-windows-msvc-build.yml",
-    ".gitignore",
-    "CMakeLists.txt",
     "cmake/WF0DependencyLock.cmake",
-    "docs/WF0_WINDOWS_BUILD_PLANE_LOCK.md",
     "tools/wf0-factory-census/README.md",
     "tools/wf0-factory-census/artifacts.py",
     "tools/wf0-factory-census/build.py",
     "tools/wf0-factory-census/common.py",
-    "tools/wf0-factory-census/environment.py",
     "tools/wf0-factory-census/evidence.py",
     "tools/wf0-factory-census/negative_tests.py",
     "tools/wf0-factory-census/normalize.py",
@@ -106,29 +145,27 @@ SOURCE_PATHS = (
     "tools/wf0-factory-census/supervise.py",
     "tools/wf0-factory-census/verify.py",
     "windows-factory-probe/CMakeLists.txt",
-    "windows-factory-probe/include/linux_vst_bridge/wf0_probe/census.h",
     "windows-factory-probe/include/linux_vst_bridge/wf0_probe/events.h",
-    "windows-factory-probe/source/factory_census.cpp",
-    "windows-factory-probe/source/factory_census.h",
+    "windows-factory-probe/source/component_instance_session.cpp",
+    "windows-factory-probe/source/component_instance_session.h",
     "windows-factory-probe/source/main.cpp",
-    "windows-factory-probe/source/win32_module.cpp",
-    "windows-factory-probe/source/win32_module.h",
     "windows-fixtures/wf0/CMakeLists.txt",
     "windows-fixtures/wf0/source/fault_fixture.cpp",
 )
 EVIDENCE_FILES = (
-    "BASIS.md", "TOOLCHAIN.md", "BUILD.md", "BUILD_MANIFEST.json", "ENVIRONMENT.md",
-    "LAUNCH_AND_PROCESS.md", "STAGE_TIMELINE.json", "CENSUS.json", "NEGATIVE_TESTS.md",
-    "PRESERVATION.md", "FINDINGS.md", "SANITIZATION.md", "fixture.json", "hashes.sha256",
+    "BASIS.md", "BUILD.md", "BUILD_MANIFEST.json", "ENVIRONMENT.md",
+    "LAUNCH_AND_PROCESS.md", "COMPONENT_SESSION.json", "CALLBACK_LEDGER.json",
+    "STAGE_TIMELINE.json", "NEGATIVE_TESTS.md", "PRESERVATION.md", "FINDINGS.md",
+    "SANITIZATION.md", "fixture.json", "hashes.sha256",
 )
 FAULT_TARGETS = (
-    "wf0-missing-factory", "wf0-null-factory", "wf0-no-entry", "wf0-factory1-only",
-    "wf0-factory2-only", "wf0-factory3-fallback", "wf0-init-false",
-    "wf0-factory-info-false", "wf0-count-negative", "wf0-count-excessive",
-    "wf0-class-info-false", "wf0-duplicate-class-id", "wf0-hang-entry",
-    "wf0-hang-factory", "wf0-hang-class", "wf0-crash-entry", "wf0-crash-factory",
-    "wf0-crash-class", "wf0-hang-release", "wf0-crash-release", "wf0-exit-false",
-    "wf0-create-instance-tripwire",
+    "wc0-create-failure-null", "wc0-create-success-null",
+    "wc0-create-failure-nonnull", "wc0-controller-id-failure",
+    "wc0-controller-id-mismatch", "wc0-initialize-failure",
+    "wc0-initialize-hang", "wc0-initialize-crash", "wc0-terminate-failure",
+    "wc0-terminate-hang", "wc0-terminate-crash", "wc0-release-nonzero",
+    "wc0-release-hang", "wc0-release-crash", "wc0-host-object-request",
+    "wc0-host-reference-leak",
 )
 
 
@@ -208,11 +245,11 @@ def artifact_cache_parent() -> pathlib.Path:
 
 
 def source_handoff_parent() -> pathlib.Path:
-    return real_home() / ".local/share/linux-vst-bridge/handoffs/wf0/source/by-commit"
+    return real_home() / ".local/share/linux-vst-bridge/handoffs/wc0/source/by-commit"
 
 
 def execution_worktree_parent() -> pathlib.Path:
-    return real_home() / ".local/share/linux-vst-bridge/worktrees/wf0"
+    return real_home() / ".local/share/linux-vst-bridge/worktrees/wc0"
 
 
 def environment_parent() -> pathlib.Path:
@@ -260,9 +297,9 @@ def source_manifest_sha256(value: dict[str, Any]) -> str:
     if (
         value.get("schema") != SOURCE_SCHEMA
         or not re.fullmatch(r"[0-9a-f]{40}", str(value.get("commit", "")))
-        or value.get("record_count") != 26
+        or value.get("record_count") != 19
         or not isinstance(records, list)
-        or len(records) != 26
+        or len(records) != 19
         or [item.get("path") for item in records if isinstance(item, dict)]
         != list(SOURCE_PATHS)
     ):
@@ -300,13 +337,34 @@ def require_clean_source(source_commit: str, *, treeish: str = "HEAD",
     if detached is True and branch:
         fail(f"Deck execution worktree is not detached: {branch}")
     if detached is False and branch != EXPECTED_BRANCH:
-        fail(f"wrong WF0 branch: {branch}")
-    governed = set(SOURCE_PATHS)
-    tracked = set(command_text(["git", "ls-tree", "-r", "--name-only", treeish], cwd=root).splitlines())
-    for prefix in ("windows-factory-probe/", "windows-fixtures/wf0/", "tools/wf0-factory-census/"):
-        extras = {item for item in tracked if item.startswith(prefix)} - governed
-        if extras:
-            fail(f"unexpected governed source: {sorted(extras)}")
+        fail(f"wrong WC0 branch: {branch}")
+    # SOURCE_PATHS is the exact WC0 change envelope, not the complete set of
+    # inherited WF0 files that remains present below these directories.  Keep
+    # that inherited surface fail-closed by requiring its path/mode/blob map to
+    # remain byte-identical to the accepted implementation basis.
+    inherited_prefixes = (
+        "windows-factory-probe/",
+        "windows-fixtures/wf0/",
+        "tools/wf0-factory-census/",
+    )
+
+    def governed_tree(value: str) -> dict[str, tuple[str, str]]:
+        rows: dict[str, tuple[str, str]] = {}
+        listing = command_text(
+            ["git", "ls-tree", "-r", value, "--", *inherited_prefixes],
+            cwd=root,
+        )
+        for line in listing.splitlines():
+            metadata, path = line.split("\t", 1)
+            mode, kind, blob = metadata.split()
+            if kind != "blob":
+                fail(f"governed inherited object is not a blob: {path}")
+            if path not in SOURCE_PATHS:
+                rows[path] = (mode, blob)
+        return rows
+
+    if governed_tree(treeish) != governed_tree(BASIS_COMMIT):
+        fail("inherited WF0 source path/mode/blob identity differs from the basis")
     return source_manifest(source_commit, treeish=treeish, root=root)
 
 

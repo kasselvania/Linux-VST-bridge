@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WindowsBuildPlane acquisition, two-build comparison, and WF0 envelope publication."""
+"""WindowsBuildPlane acquisition, comparison, and WC0 envelope publication."""
 
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ from typing import Any, Iterable, Sequence
 sys.dont_write_bytecode = True
 
 from common import (
-    ARTIFACT_SCHEMA, BASIS_COMMIT, BASIS_TREE, EXPECTED_REF, FAULT_TARGETS,
-    REPOSITORY, SDK_COMMIT, SDK_POSITIVE_FIXTURE_BLOBS, SDK_REMOTES,
+    ARTIFACT_SCHEMA, BASIS_COMMIT, BASIS_TREE, EXPECTED_BRANCH, EXPECTED_REF,
+    FAULT_TARGETS, REPOSITORY, SDK_COMMIT, SDK_POSITIVE_FIXTURE_BLOBS, SDK_REMOTES,
     SDK_SOURCE_BLOBS, SDK_SUBMODULES,
     SDK_TREE, WINDOWS_BUILD_SCHEMA, WORKFLOW_PATH, canonical_json, command,
     command_text, fail, repo_root, require_clean_source, sha256_bytes,
@@ -28,7 +28,7 @@ from common import (
 )
 from verify import (
     artifact_file_records, artifact_manifest, compare_builds,
-    scanner_has_no_instantiation_call, verify_pe,
+    scanner_component_call_surface, verify_pe,
 )
 
 
@@ -38,8 +38,13 @@ TOOLSET = "v143"
 WINDOWS_SDK = "10.0.19041.0"
 CONFIGURATION = "Release"
 SOURCE_DATE_EPOCH = "1788314715"
+EXPECTED_AGAIN_MODULE_SHA256 = (
+    "60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f"
+)
+MSBUILD_MAX_CPU_COUNT = "1"
+MSVC_POST_OPTIONS = "/MP1"
 BUILD_TARGETS = (
-    "wf0-factory-probe", "wf0-loader-adapter-tests", "wf0-fault-fixtures", "again",
+    "wf0-factory-probe", "wf0-loader-adapter-tests", "wc0-fault-fixtures", "again",
 )
 SDK_LICENSES = {
     "LICENSE.txt": "licenses/vst3sdk.txt",
@@ -526,11 +531,16 @@ def cmake_contract_args(build_root: str) -> list[str]:
     ]
 
 
-def _build_command(argv: Sequence[str], *, timeout: float = 1800.0) -> None:
-    environment = dict(os.environ)
+def build_command_environment(
+    base: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Return the closed build environment, including serial compiler control."""
+    environment = dict(os.environ if base is None else base)
     environment.update({
         "CL": "",
-        "_CL_": "",
+        # The pinned SDK adds an unbounded /MP option. Appending /MP1 through
+        # _CL_ makes compilation order independent of hosted-runner CPU policy.
+        "_CL_": MSVC_POST_OPTIONS,
         "LINK": "",
         "_LINK_": "",
         "SOURCE_DATE_EPOCH": SOURCE_DATE_EPOCH,
@@ -548,6 +558,11 @@ def _build_command(argv: Sequence[str], *, timeout: float = 1800.0) -> None:
         "GIT_CONFIG_KEY_1": "https.proxy",
         "GIT_CONFIG_VALUE_1": "http://127.0.0.1:9",
     })
+    return environment
+
+
+def _build_command(argv: Sequence[str], *, timeout: float = 1800.0) -> None:
+    environment = build_command_environment()
     command(argv, env=environment, timeout=timeout)
 
 
@@ -565,7 +580,7 @@ def configure_and_build(root: pathlib.Path, sdk: pathlib.Path) -> tuple[pathlib.
     _build_command([
         "cmake", "--build", str(repository_build), "--config", CONFIGURATION,
         "--target", "wf0-factory-probe", "wf0-loader-adapter-tests",
-        "wf0-fault-fixtures", "--", "/m:2",
+        "wc0-fault-fixtures", "--", f"/m:{MSBUILD_MAX_CPU_COUNT}",
     ])
     verify_sdk(sdk)
     _build_command([
@@ -581,7 +596,7 @@ def configure_and_build(root: pathlib.Path, sdk: pathlib.Path) -> tuple[pathlib.
     ])
     _build_command([
         "cmake", "--build", str(again_build), "--config", CONFIGURATION,
-        "--target", "again", "--", "/m:2",
+        "--target", "again", "--", f"/m:{MSBUILD_MAX_CPU_COUNT}",
     ])
     verify_sdk(sdk)
     return repository_build, again_build
@@ -626,6 +641,15 @@ def assemble(repository_build: pathlib.Path, again_build: pathlib.Path,
         relative = f"fixtures/{target}.dll"
         _copy_regular(unique_file(repository_build, f"{target}.dll"), destination / relative)
         roles[relative] = "approved_fault_module"
+    # The accepted immutable environment owner stages its adapter transaction with
+    # this historical carrier path. WC0 copies one focused module there only as
+    # verified inert payload; the adapter never loads it and no WF0 fixture is built.
+    carrier = "fixtures/wf0-no-entry.dll"
+    _copy_regular(
+        destination / f"fixtures/{FAULT_TARGETS[0]}.dll",
+        destination / carrier,
+    )
+    roles[carrier] = "adapter_environment_carrier"
 
     module_matches = [
         item for item in again_build.rglob("again.vst3")
@@ -634,6 +658,12 @@ def assemble(repository_build: pathlib.Path, again_build: pathlib.Path,
     ]
     if len(module_matches) != 1:
         fail(f"exact AGain module is not unique: {[str(item) for item in module_matches]}")
+    observed_again_sha256 = sha256_file(module_matches[0])
+    if observed_again_sha256 != EXPECTED_AGAIN_MODULE_SHA256:
+        fail(
+            "exact accepted AGain module SHA-256 differs: "
+            f"{observed_again_sha256}"
+        )
     bundle = module_matches[0].parents[2]
     _copy_tree_regular(bundle, destination / "again.vst3")
     for item in sorted((destination / "again.vst3").rglob("*")):
@@ -678,17 +708,21 @@ def verify_assembled(root: pathlib.Path, roles: dict[str, str]) -> list[dict[str
     })
     for target in FAULT_TARGETS:
         path = root / f"fixtures/{target}.dll"
-        required = set() if target == "wf0-missing-factory" else {"GetPluginFactory"}
-        forbidden = {"GetPluginFactory"} if target == "wf0-missing-factory" else set()
-        if target == "wf0-no-entry":
-            forbidden |= {"InitDll", "ExitDll"}
-        else:
-            required |= {"InitDll", "ExitDll"}
+        required = {"GetPluginFactory", "InitDll", "ExitDll"}
+        forbidden: set[str] = set()
         pe.append({
             "path": f"fixtures/{target}.dll",
             **verify_pe(path, dumpbin(path), required_exports=required,
                         forbidden_exports=forbidden),
         })
+    carrier = root / "fixtures/wf0-no-entry.dll"
+    pe.append({
+        "path": "fixtures/wf0-no-entry.dll",
+        **verify_pe(
+            carrier, dumpbin(carrier),
+            required_exports={"GetPluginFactory", "InitDll", "ExitDll"},
+        ),
+    })
     again = root / "again.vst3/Contents/x86_64-win/again.vst3"
     pe.append({
         "path": "again.vst3/Contents/x86_64-win/again.vst3",
@@ -748,8 +782,7 @@ def deterministic_zip(source: pathlib.Path, destination: pathlib.Path) -> None:
 def build_workflow(source_commit: str, sdk: pathlib.Path,
                    transaction: pathlib.Path, output: pathlib.Path) -> dict[str, Any]:
     source, source_digest, source_tree, workflow_blob = source_identity(source_commit)
-    if not scanner_has_no_instantiation_call(repo_root()):
-        fail("scanner contains a class-instantiation call expression")
+    call_surface = scanner_component_call_surface(repo_root())
     sdk_identity = verify_sdk(sdk)
     sdk_identity["checkout_regression"] = eol_checkout_regression()
     observed, cl_bv = toolchain_identity()
@@ -791,6 +824,11 @@ def build_workflow(source_commit: str, sdk: pathlib.Path,
         "source": {
             "commit": source_commit,
             "tree": source_tree,
+            "parent": BASIS_COMMIT,
+            "branch": EXPECTED_BRANCH,
+            "ref": EXPECTED_REF,
+            "implementation_source_schema": source["schema"],
+            "implementation_source_record_count": source["record_count"],
             "implementation_source_manifest": source,
             "implementation_source_manifest_sha256": source_digest,
         },
@@ -807,7 +845,10 @@ def build_workflow(source_commit: str, sdk: pathlib.Path,
             "deterministic_build_root_mapping": "C:\\wf0\\build",
             "source_date_epoch": SOURCE_DATE_EPOCH,
             "pdb_embedded_path": "%_PDB%",
+            "msbuild_max_cpu_count": int(MSBUILD_MAX_CPU_COUNT),
+            "msvc_post_options": MSVC_POST_OPTIONS,
             "pre_manifest_comparison": preliminary,
+            "wc0_component_call_surface": call_surface,
         },
     }
     core_data = canonical_json(core)
@@ -827,7 +868,7 @@ def build_workflow(source_commit: str, sdk: pathlib.Path,
         {"path": item["path"], "size": item["size"], "sha256": item["sha256"]}
         for item in manifest_a["records"]
         if item["role"] in {"scanner_executable", "loader_adapter_executable",
-                            "approved_fault_module"}
+                            "approved_fault_module", "adapter_environment_carrier"}
     ]
     again_roster = [
         {"path": item["path"], "size": item["size"], "sha256": item["sha256"]}
@@ -847,6 +888,9 @@ def build_workflow(source_commit: str, sdk: pathlib.Path,
         "source": {
             "commit": source_commit,
             "tree": source_tree,
+            "parent": BASIS_COMMIT,
+            "branch": EXPECTED_BRANCH,
+            "ref": EXPECTED_REF,
             "implementation_source_manifest": {
                 "schema": source["schema"],
                 "record_count": source["record_count"],
@@ -866,6 +910,8 @@ def build_workflow(source_commit: str, sdk: pathlib.Path,
             "deterministic_build_root_mapping": "C:\\wf0\\build",
             "source_date_epoch": SOURCE_DATE_EPOCH,
             "pdb_embedded_path": "%_PDB%",
+            "msbuild_max_cpu_count": int(MSBUILD_MAX_CPU_COUNT),
+            "msvc_post_options": MSVC_POST_OPTIONS,
             "build_a": {"artifact_manifest_sha256": digest_a},
             "build_b": {"artifact_manifest_sha256": digest_b},
             "comparison": {
@@ -885,7 +931,7 @@ def build_workflow(source_commit: str, sdk: pathlib.Path,
         },
         "tool_receipts": {"cl_bv_sha256": sha256_bytes(cl_bv)},
         "explicit_nonclaims": [
-            "no_windows_runtime_proof", "no_class_instantiation", "no_proton",
+            "no_windows_runtime_proof", "no_windows_class_instantiation", "no_proton",
             "no_bitwig", "no_serum", "no_release_build",
             "no_reproducible_runner_image_claim",
         ],

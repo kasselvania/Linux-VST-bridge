@@ -1,5 +1,6 @@
 #ifdef WF0_LOADER_ADAPTER_TEST
 
+#include "component_instance_session.h"
 #include "win32_module.h"
 
 #include <windows.h>
@@ -22,8 +23,11 @@ int main() {
         "query_factory_2", "query_factory_3", "count_classes",
         "get_class_info_unicode", "get_class_info_2", "get_class_info_1",
         "release_factory_3", "release_factory_2", "release_factory_base",
-        "exit_dll", "free_library"};
-    if (sizeof(operations) / sizeof(operations[0]) != 15) return 1;
+        "exit_dll", "free_library", "create_component",
+        "get_controller_class_id", "initialize_component",
+        "terminate_component", "release_component"};
+    if (sizeof(operations) / sizeof(operations[0]) != 20 ||
+        !linux_vst_bridge::wf0::run_component_owner_regressions()) return 1;
     linux_vst_bridge::wf0::EventWriter events(4096);
     linux_vst_bridge::wf0::ModuleBinding binding;
     binding.module = reinterpret_cast<HMODULE>(static_cast<std::uintptr_t>(1));
@@ -45,6 +49,7 @@ int main() {
 
 #else
 
+#include "component_instance_session.h"
 #include "factory_census.h"
 #include "win32_module.h"
 
@@ -77,10 +82,10 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
     static constexpr const char* ordered[] = {
         "--session", "--scanner-sha256", "--implementation-source-manifest-sha256",
         "--module", "--module-sha256", "--bundle-manifest-sha256", "--ready",
-        "--gate", "--max-classes", "--stdout-cap"};
-    if (argc != 21) throw std::runtime_error("wrong argument count");
+        "--gate", "--max-classes", "--stdout-cap", "--mode", "--component-case"};
+    if (argc != 25) throw std::runtime_error("wrong argument count");
     std::map<std::string, std::string> result;
-    for (int index = 0; index < 10; ++index) {
+    for (int index = 0; index < 12; ++index) {
         if (std::string(argv[index * 2 + 1]) != ordered[index])
             throw std::runtime_error("argument order mismatch");
         result.emplace(ordered[index], argv[index * 2 + 2]);
@@ -90,7 +95,11 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
         !is_lower_hex(result["--implementation-source-manifest-sha256"], 64) ||
         !is_lower_hex(result["--module-sha256"], 64) ||
         !is_lower_hex(result["--bundle-manifest-sha256"], 64) ||
-        result["--max-classes"] != "256" || result["--stdout-cap"] != "1048576") {
+        result["--max-classes"] != "256" || result["--stdout-cap"] != "1048576" ||
+        result["--mode"] != "wc0-component-admission" ||
+        (result["--component-case"] != "exact-again" &&
+         result["--component-case"] != "unknown-processor" &&
+         result["--component-case"] != "unsupported-interface")) {
         throw std::runtime_error("argument value mismatch");
     }
     const std::string suffix = result["--session"] + ".ready";
@@ -117,6 +126,8 @@ std::string handshake(const std::map<std::string, std::string>& args) {
            "bundle_manifest_sha256=" + args.at("--bundle-manifest-sha256") + "\n" +
            "implementation_source_manifest_sha256=" +
                args.at("--implementation-source-manifest-sha256") + "\n" +
+           "mode=" + args.at("--mode") + "\n" +
+           "component_case=" + args.at("--component-case") + "\n" +
            "run_ordinal=1\n";
 }
 
@@ -172,6 +183,33 @@ void wait_for_gate(const std::wstring& gate, const std::string& expected) {
 
 std::string bool_json(bool value) { return value ? "true" : "false"; }
 
+wf0::ComponentCase component_case(const std::string& value) {
+    if (value == "exact-again") return wf0::ComponentCase::exact_again;
+    if (value == "unknown-processor") return wf0::ComponentCase::unknown_processor;
+    if (value == "unsupported-interface")
+        return wf0::ComponentCase::unsupported_interface;
+    throw std::runtime_error("component case is outside the closed contract");
+}
+
+void suppressed_shutdown(wf0::EventWriter& events,
+                         const wf0::FactoryCensusResult& census) {
+    const std::string disposition =
+        ",\"disposition\":\"not_attempted_object_quiescence_unproved\"";
+    if (census.factory3 != nullptr)
+        events.lifecycle("inherited_shutdown_suppressed",
+                         ",\"operation\":\"release_factory_3\"" + disposition);
+    if (census.factory2 != nullptr)
+        events.lifecycle("inherited_shutdown_suppressed",
+                         ",\"operation\":\"release_factory_2\"" + disposition);
+    if (census.base_acquired)
+        events.lifecycle("inherited_shutdown_suppressed",
+                         ",\"operation\":\"release_factory_base\"" + disposition);
+    events.lifecycle("inherited_shutdown_suppressed",
+                     ",\"operation\":\"exit_dll\"" + disposition);
+    events.lifecycle("inherited_shutdown_suppressed",
+                     ",\"operation\":\"free_library\"" + disposition);
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -198,6 +236,8 @@ int main(int argc, char** argv) {
                 args.at("--bundle-manifest-sha256") +
                 "\",\"implementation_source_manifest_sha256\":\"" +
                 args.at("--implementation-source-manifest-sha256") +
+                "\",\"mode\":\"" + args.at("--mode") +
+                "\",\"component_case\":\"" + args.at("--component-case") +
                 "\",\"run_ordinal\":1");
         wait_for_gate(gate_path, binding);
         if (wf0::sha256_file(module_path) != args.at("--module-sha256")) return 65;
@@ -209,6 +249,8 @@ int main(int argc, char** argv) {
 
         Steinberg::IPluginFactory* factory = nullptr;
         wf0::FactoryCensusResult census;
+        wf0::ComponentAdmissionResult component;
+        bool component_session_ran = false;
         if (primary == 0) {
             events.lifecycle("factory_get_started");
             const auto attempt = events.call_started("get_plugin_factory", nullptr);
@@ -225,10 +267,23 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (factory != nullptr) {
+        if (factory != nullptr && primary == 0) {
+            component = wf0::admit_component(
+                factory, events, component_case(args.at("--component-case")));
+            component_session_ran = true;
+            events.final_lifecycle("component_session_closed", component.json_fields());
+            if (component.primary_exit != 0) primary = component.primary_exit;
+        }
+
+        if (factory != nullptr &&
+            (!component_session_ran || component.object_quiescence)) {
             primary = wf0::release_factory_interfaces(factory, census, events, primary);
         }
-        primary = wf0::exit_and_unload(module, events, primary);
+        if (!component_session_ran || component.object_quiescence) {
+            primary = wf0::exit_and_unload(module, events, primary);
+        } else {
+            suppressed_shutdown(events, census);
+        }
         if (primary != 0) return primary;
 
         const std::string fields =
@@ -239,7 +294,9 @@ int main(int argc, char** argv) {
             ",\"result\":" + bool_json(module.exit_result) +
             "},\"module_unload\":{\"attempted\":" + bool_json(module.unload_attempted) +
             ",\"succeeded\":" + bool_json(module.unload_succeeded) + "}" +
-            wf0::census_json_fields(census.census) + ",\"create_instance_called\":false";
+            wf0::census_json_fields(census.census) + component.json_fields() +
+            ",\"create_instance_called\":true" +
+            ",\"controller_instance_created\":false";
         events.final_lifecycle("scanner_completed", fields);
         return 0;
     } catch (const std::exception&) {

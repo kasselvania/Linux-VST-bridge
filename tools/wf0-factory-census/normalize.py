@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Strictly normalize the successful raw AGain record into the retained census schema."""
+"""Strictly normalize the positive WC0 component session and callback ledger."""
 
 from __future__ import annotations
 
@@ -10,23 +10,30 @@ from typing import Any
 from common import canonical_json, fail, sha256_bytes
 
 
-CENSUS_SCHEMA = "linux-vst-bridge-wf0-factory-census/v1"
-TIMELINE_SCHEMA = "linux-vst-bridge-wf0-stage-timeline/v1"
+COMPONENT_SESSION_SCHEMA = "linux-vst-bridge-wc0-component-session/v1"
+CALLBACK_LEDGER_SCHEMA = "linux-vst-bridge-wc0-callback-ledger/v1"
+TIMELINE_SCHEMA = "linux-vst-bridge-wc0-stage-timeline/v1"
 EXPECTED_LIFECYCLE = [
     "scanner_started", "readiness_announced", "supervisor_gate_accepted",
     "module_open_started", "module_opened", "module_entry_succeeded",
     "factory_export_found", "factory_get_started", "factory_obtained",
     "factory_info_obtained", "factory_interface_versions_recorded",
     "class_count_obtained", "class_enumeration_in_progress",
-    "class_enumeration_complete", "module_exit_succeeded", "module_unloaded",
-    "scanner_completed",
+    "class_enumeration_complete", "component_create_in_flight",
+    "component_created", "controller_id_in_flight", "controller_id_verified",
+    "host_context_ready", "component_initialize_in_flight",
+    "component_initialized", "component_terminate_in_flight",
+    "component_terminated", "component_release_in_flight", "component_released",
+    "object_quiescence_proved", "component_session_closed",
+    "module_exit_succeeded", "module_unloaded", "scanner_completed",
 ]
 EXPECTED_CALLS = [
     "load_library", "init_dll", "get_plugin_factory", "get_factory_info",
     "query_factory_2", "query_factory_3", "count_classes",
     "get_class_info_unicode", "get_class_info_unicode", "get_class_info_unicode",
-    "release_factory_3", "release_factory_2", "release_factory_base", "exit_dll",
-    "free_library",
+    "create_component", "get_controller_class_id", "initialize_component",
+    "terminate_component", "release_component", "release_factory_3",
+    "release_factory_2", "release_factory_base", "exit_dll", "free_library",
 ]
 EXPECTED_CLASSES = [
     ("84E8DE5F92554F5396FAE4133C935A18", "AGain VST3", "Audio Module Class", "Fx", 1),
@@ -84,134 +91,278 @@ def sanitized_timeline(run: dict[str, Any]) -> dict[str, Any]:
             item = {"event": "lifecycle", "sequence": record["sequence"],
                     "state": record["state"]}
             if "class_count" in record: item["class_count"] = record["class_count"]
-        else:
+            for key in ("operation", "disposition", "object_quiescence",
+                        "component_state", "primary_blocker"):
+                if key in record: item[key] = record[key]
+        elif record["event"] in {"call_started", "call_completed"}:
             item = {key: record.get(key) for key in (
                 "event", "sequence", "attempt_sequence", "operation", "interface",
                 "ordinal", "tier", "return_kind") if key in record}
             for key in ("result_u32_hex", "win32_error_u32_hex", "i32_result",
-                        "u32_result", "bool_result"):
+                        "u32_result", "bool_result", "output_nonnull",
+                        "host_reference_count", "object_role",
+                        "processor_cid_raw_tuid_hex", "requested_iid_raw_tuid_hex",
+                        "controller_cid_raw_tuid_hex"):
                 if key in record: item[key] = record[key]
+        else:
+            item = {key: record.get(key) for key in (
+                "event", "sequence", "operation", "origin",
+                "enclosing_attempt_sequence", "enclosing_operation", "thread_role",
+                "reference_count", "result_u32_hex", "output_null",
+                "cid_raw_tuid_hex", "iid_raw_tuid_hex") if key in record}
         timeline.append(item)
     return {"schema": TIMELINE_SCHEMA, "positive": timeline}
 
 
-def normalize_positive(run: dict[str, Any], build: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def normalize_component_positive(
+    run: dict[str, Any], build: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Normalize the exact AGain processor lifecycle without widening its surface."""
     if (run.get("classification"), run.get("blocker"), run.get("raw_exit"),
-        run.get("last_in_flight_operation")) != ("scanner_completed", None, 0, None):
-        fail("positive run did not terminate as a complete scanner success")
-    records = run["records"]
+        run.get("last_in_flight_operation"), run.get("component_case")) != (
+            "scanner_completed", None, 0, None, "exact-again"
+        ):
+        fail("positive WC0 run did not terminate as one complete exact component session")
+    records = run.get("records")
+    if not isinstance(records, list) or not records:
+        fail("positive WC0 event stream is absent")
     lifecycle = [item["state"] for item in records if item.get("event") == "lifecycle"]
     if lifecycle != EXPECTED_LIFECYCLE:
-        fail(f"positive lifecycle differs from V5: {lifecycle}")
+        fail(f"positive WC0 lifecycle differs: {lifecycle}")
     starts = [item for item in records if item.get("event") == "call_started"]
     completes = [item for item in records if item.get("event") == "call_completed"]
-    if [item["operation"] for item in starts] != EXPECTED_CALLS or len(completes) != 15:
-        fail("positive call-attempt ordering/count differs from V5")
-    final = records[-1]
-    if final.get("state") != "scanner_completed" or final.get("create_instance_called") is not False:
-        fail("positive final record is absent or claims class instantiation")
-    if final.get("class_count") != 3 or len(final.get("classes", [])) != 3:
-        fail("AGain class census is not exactly three records")
+    if [item.get("operation") for item in starts] != EXPECTED_CALLS:
+        fail("positive WC0 call-attempt order differs")
+    if len(completes) != len(EXPECTED_CALLS):
+        fail("positive WC0 call-completion count differs")
+    for start, complete in zip(starts, completes):
+        if (
+            complete.get("attempt_sequence") != start.get("sequence")
+            or complete.get("operation") != start.get("operation")
+            or complete.get("interface") != start.get("interface")
+        ):
+            fail("positive WC0 call completion does not pair to its attempt")
 
+    final = records[-1]
+    raw_session = final.get("component_session")
+    if (
+        final.get("event") != "lifecycle"
+        or final.get("state") != "scanner_completed"
+        or final.get("create_instance_called") is not True
+        or final.get("controller_instance_created") is not False
+        or not isinstance(raw_session, dict)
+    ):
+        fail("positive WC0 final record is absent or crosses the claim ceiling")
+    expected_processor_raw = "5FDEE8845592534F96FAE4133C935A18"
+    expected_component_iid_raw = "31FF31E8D5F20143928EBBEE25697802"
+    expected_controller_raw = "655B9DD3AFD7FA42843F4AC841EB04F0"
+    create = raw_session.get("create", {})
+    controller = raw_session.get("controller_id", {})
+    initialize = raw_session.get("initialize", {})
+    terminate = raw_session.get("terminate", {})
+    release = raw_session.get("release", {})
+    host = raw_session.get("host", {})
+    callbacks_raw = raw_session.get("callbacks", {})
+    if (
+        raw_session.get("state") != "component_released"
+        or raw_session.get("primary_blocker") is not None
+        or raw_session.get("processor_cid_raw_tuid_hex") != expected_processor_raw
+        or raw_session.get("requested_iid_raw_tuid_hex") != expected_component_iid_raw
+        or create != {
+            "attempted": True, "result_u32_hex": "00000000",
+            "output_nonnull": True, "tuple_consistent": True,
+        }
+        or controller != {
+            "attempted": True, "buffer_zero_initialized": True,
+            "result_u32_hex": "00000000", "raw_tuid_hex": expected_controller_raw,
+            "matches_expected": True,
+        }
+        or initialize != {
+            "attempted": True, "result_u32_hex": "00000000", "succeeded": True,
+        }
+        or terminate != {
+            "attempted": True, "returned_ordinary": True,
+            "result_u32_hex": "00000000",
+        }
+        or release != {
+            "attempted": True, "returned_ordinary": True, "reference_count": 0,
+            "pointer_cleared": True,
+        }
+        or host != {
+            "created": True, "name": "Linux VST Bridge WC0",
+            "reference_baseline": 1, "reference_after_initialize": 2,
+            "reference_after_terminate": 1,
+            "reference_returned_to_baseline": True,
+            "owner_release_attempted": True,
+            "owner_release_result": 0,
+        }
+        or raw_session.get("component_call_in_flight") is not False
+        or raw_session.get("callback_ledger_closed") is not True
+        or raw_session.get("object_quiescence") is not True
+        or raw_session.get("inherited_shutdown_permitted") is not True
+    ):
+        fail("positive AGain component lifecycle or reference sequence differs")
+
+    callback_records = callbacks_raw.get("records")
+    expected_callback_shape = [
+        ("addRef", "component", "initialize_component", 2),
+        ("release", "component", "terminate_component", 1),
+        ("release", "owner_local", None, 0),
+    ]
+    if (
+        callbacks_raw.get("capacity") != 64
+        or callbacks_raw.get("record_count") != 3
+        or callbacks_raw.get("closed") is not True
+        or callbacks_raw.get("overflowed") is not False
+        or callbacks_raw.get("output_failed") is not False
+        or callbacks_raw.get("wrong_thread") is not False
+        or callbacks_raw.get("unexpected_object_request") is not False
+        or callbacks_raw.get("callback_in_flight") is not False
+        or not isinstance(callback_records, list)
+        or len(callback_records) != 3
+    ):
+        fail("positive AGain callback ledger closure differs")
+    for raw, expected in zip(callback_records, expected_callback_shape):
+        operation, origin, enclosing, count = expected
+        if (
+            raw.get("operation") != operation
+            or raw.get("origin") != origin
+            or raw.get("enclosing_operation") != enclosing
+            or raw.get("reference_count") != count
+            or (origin == "component") != isinstance(
+                raw.get("enclosing_attempt_sequence"), int
+            )
+        ):
+            fail("positive AGain callback reference sequence differs")
+    callback_events = [item for item in records if item.get("event") == "host_callback"]
+    if len(callback_events) != 3:
+        fail("positive event stream callback count differs")
+    for event, retained in zip(callback_events, callback_records):
+        for key in ("operation", "origin", "enclosing_attempt_sequence",
+                    "enclosing_operation", "reference_count"):
+            if event.get(key) != retained.get(key):
+                fail("retained callback ledger differs from synchronously flushed events")
+
+    if final.get("class_count") != 3 or len(final.get("classes", [])) != 3:
+        fail("inherited AGain census regression is not the exact three-class roster")
     factory = final.get("factory", {})
     vendor = decode_field(factory.get("vendor_hex"), "utf8", 64)
     url = decode_field(factory.get("url_hex"), "utf8", 256)
     email = decode_field(factory.get("email_hex"), "utf8", 128)
     if (vendor["text"], url["text"], email["text"], factory.get("flags_i32")) != (
         "Steinberg Media Technologies", "http://www.steinberg.net",
-        "mailto:info@steinberg.de", 16):
-        fail("AGain factory metadata differs from the pinned source expectation")
-
-    classes = []
-    seen = set()
+        "mailto:info@steinberg.de", 16
+    ):
+        fail("inherited AGain factory metadata regression differs")
+    class_ids = []
     for ordinal, raw in enumerate(final["classes"]):
-        if raw.get("ordinal") != ordinal:
-            fail("AGain class ordinal is not contiguous")
         raw_id = raw.get("raw_tuid_hex")
-        if raw_id in seen: fail("duplicate raw TUID")
-        seen.add(raw_id)
         class_id = logical_fuid(raw_id)
-        category = decode_field(raw.get("category_hex"), "utf8", 32)
         encoding = "utf16le" if raw.get("tier") == "IPluginFactory3.PClassInfoW" else "utf8"
-        name = decode_field(raw.get("name_hex"), encoding, 64)
-        subcategories = decode_field(raw.get("subcategories_hex"), "utf8", 128)
-        vendor_exposed = decode_field(raw.get("vendor_hex"), encoding, 64)
-        version = decode_field(raw.get("version_hex"), encoding, 64)
-        sdk_version = decode_field(raw.get("sdk_version_hex"), encoding, 64)
+        name = decode_field(raw.get("name_hex"), encoding, 64)["text"]
+        category = decode_field(raw.get("category_hex"), "utf8", 32)["text"]
         expected = EXPECTED_CLASSES[ordinal]
-        if (class_id, name["text"], category["text"], subcategories["text"],
-            raw.get("class_flags_u32"), raw.get("cardinality")) != (
-            expected[0], expected[1], expected[2], expected[3], expected[4], 2147483647):
-            fail(f"AGain class {ordinal} differs from pinned exact order/metadata")
-        if version["text"] != "3.8.1.0" or sdk_version["text"] != "VST 3.8.1":
-            fail("AGain class version identity differs")
-        classes.append({
-            "ordinal": ordinal, "class_id": class_id, "class_id_raw_tuid_hex": raw_id,
-            "cardinality": raw["cardinality"], "category": category, "name": name,
-            "class_info_tier": raw["tier"], "tier_attempts": raw["tier_attempts"],
-            "class_flags_if_exposed": _flags(raw["class_flags_u32"], {1: "kDistributable"}),
-            "subcategories_if_exposed": subcategories,
-            "vendor_if_exposed": vendor_exposed, "version_if_exposed": version,
-            "sdk_version_if_exposed": sdk_version,
+        if (class_id, name, category) != expected[:3]:
+            fail("inherited AGain ordered class regression differs")
+        class_ids.append({
+            "ordinal": ordinal, "logical_class_id": class_id,
+            "raw_windows_tuid": raw_id, "name": name, "category": category,
         })
 
     timeline = sanitized_timeline(run)
-    timeline_sha = sha256_bytes(canonical_json(timeline))
+    callback_ledger = {
+        "schema": CALLBACK_LEDGER_SCHEMA,
+        "host_name": "Linux VST Bridge WC0",
+        "capacity": 64,
+        "record_count": 3,
+        "records": callback_records,
+        "component_originated_sequence": [2, 1],
+        "owner_final_release": 0,
+        "closed": True,
+        "overflowed": False,
+        "output_failed": False,
+        "wrong_thread": False,
+        "unexpected_host_object_request": False,
+    }
     source = build["implementation_source_manifest"]
     scanner_record = next(item for item in build["artifact_set"]["records"]
                           if item["path"] == "bin/wf0-factory-probe.exe")
-    toolchain_sha = sha256_bytes(canonical_json(build["toolchain"]))
-    bundle = build["again_bundle_manifest"]
-    census = {
-        "schema": CENSUS_SCHEMA,
-        "scanner_build_identity": {
-            "source_manifest_sha256": build["implementation_source_manifest_sha256"],
-            "pe_sha256": scanner_record["sha256"], "toolchain_lock_sha256": toolchain_sha,
-        },
+    component_session = {
+        "schema": COMPONENT_SESSION_SCHEMA,
         "implementation_source_identity": {
-            "schema": source["schema"], "commit": source["commit"], "record_count": 26,
+            "schema": source["schema"], "commit": source["commit"],
+            "tree": build["source_tree"], "record_count": 19,
             "manifest_sha256": build["implementation_source_manifest_sha256"],
         },
-        "reference_fixture_identity": {
-            "sdk_root_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
-            "again_entry_blob": "13b920b4b7a74137301bf213cf048e96e82861d4",
-            "again_cid_blob": "d32d1640ea187e718baba9cbb039d3a436d53cce",
-            "build_manifest_sha256": bundle["sha256"],
+        "scanner_sha256": scanner_record["sha256"],
+        "module_sha256": next(
+            item["sha256"] for item in build["again_bundle_manifest"]["records"]
+            if item["path"] == "Contents/x86_64-win/again.vst3"
+        ),
+        "processor": {
+            "logical_cid": logical_fuid(expected_processor_raw),
+            "raw_windows_tuid": expected_processor_raw,
+            "requested_interface": "Steinberg::Vst::IComponent",
+            "requested_interface_logical_iid": logical_fuid(expected_component_iid_raw),
+            "requested_interface_raw_windows_tuid": expected_component_iid_raw,
         },
-        "module_digest": run["protected_snapshot"] and
-            next(item["sha256"] for item in bundle["records"]
-                 if item["path"] == "Contents/x86_64-win/again.vst3"),
-        "module_bundle_identity": {"schema": bundle["schema"], "sha256": bundle["sha256"],
-                                   "binary_safe_path": bundle["binary_safe_path"]},
-        "dll_search_contract": {"set_default_dll_directories_flags_u32_hex": "00000800",
-                                "load_library_ex_flags_u32_hex": "00000900",
-                                "absolute_module_path": True, "hfile_null": True},
-        "module_entry_presence_and_result": final["module_entry"],
-        "factory_interface_support": {
-            "IPluginFactory": {"supported": True, "source": "GetPluginFactory"},
-            "IPluginFactory2": {"supported": final["factory2_supported"],
-                                "query_result_u32_hex": final["factory2_query_u32_hex"]},
-            "IPluginFactory3": {"supported": final["factory3_supported"],
-                                "query_result_u32_hex": final["factory3_query_u32_hex"]},
+        "controller": {
+            "logical_cid": logical_fuid(expected_controller_raw),
+            "raw_windows_tuid": expected_controller_raw,
+            "result_u32_hex": controller["result_u32_hex"],
+            "queried_before_initialize": True,
+            "complete_output_zero_initialized": True,
+            "matched": True,
         },
-        "factory_vendor": vendor, "factory_url": url, "factory_email": email,
-        "factory_flags": _flags(factory["flags_i32"], {1: "kClassesDiscardable",
-                                                        2: "kLicenseCheck",
-                                                        8: "kComponentNonDiscardable",
-                                                        16: "kUnicode"}),
-        "class_count": 3, "classes": classes,
-        "module_exit_presence_and_result": final["module_exit"],
-        "module_unload_result": final["module_unload"],
-        "call_event_contract": {"closed_operation_count": 15, "started_count": 15,
-                                "completed_count": 15, "last_in_flight_operation": None},
-        "create_instance_called": False,
-        "scanner_exit": {"code_u32_hex": "00000000", "classification": "scanner_completed",
-                         "last_stage": "scanner_completed"},
-        "stage_timeline_sha256": timeline_sha,
-        "explicit_nonclaims": ["no_class_instantiation", "no_audio", "no_gui", "no_bitwig",
-                               "no_serum"],
+        "create": create,
+        "initialize": initialize,
+        "terminate": terminate,
+        "component_release": release,
+        "host_reference_sequence": [1, 2, 1, 0],
+        "component_state": "component_released",
+        "object_quiescence": {
+            "value": True,
+            "facts": {
+                "initialize_succeeded": True,
+                "terminate_attempted_once_and_returned_ordinary": True,
+                "component_release_returned_zero": True,
+                "component_call_in_flight": False,
+                "component_pointer_cleared": True,
+                "host_reference_returned_to_baseline": True,
+                "host_owner_final_release_returned_zero": True,
+                "host_callback_in_flight": False,
+                "callback_ledger_closed": True,
+            },
+        },
+        "inherited_wf0_regression": {
+            "factory_vendor": vendor["text"],
+            "ordered_class_census": class_ids,
+            "factory_release_order": [
+                "release_factory_3", "release_factory_2", "release_factory_base"
+            ],
+            "module_exit": final.get("module_exit"),
+            "module_unload": final.get("module_unload"),
+            "clean_in_process_shutdown": True,
+        },
+        "call_attribution": {
+            "closed_operation_count": 20,
+            "new_operation_count": 5,
+            "started_count": 20,
+            "completed_count": 20,
+            "last_in_flight_operation": None,
+        },
+        "controller_instance_created": False,
+        "forbidden_component_method_called": False,
+        "explicit_nonclaims": [
+            "no_controller_creation", "no_connection_point", "no_audio_processor_census",
+            "no_bus_host_call", "no_parameter_host_call", "no_state_host_call",
+            "no_processing", "no_audio", "no_events", "no_editor", "no_bitwig",
+            "no_serum", "no_proxy", "no_ipc",
+        ],
+        "stage_timeline_sha256": sha256_bytes(canonical_json(timeline)),
+        "callback_ledger_sha256": sha256_bytes(canonical_json(callback_ledger)),
     }
-    return census, timeline
+    return component_session, callback_ledger, timeline
 
 
 if __name__ == "__main__":

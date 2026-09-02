@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded Runtime 4 / Proton 11 supervision for one marker-bound WF0 scan."""
+"""Bounded Runtime 4 / Proton 11 supervision for one marker-bound WC0 scan."""
 
 from __future__ import annotations
 
@@ -46,6 +46,8 @@ EXPECTED_ADAPTER_OPERATIONS = (
     "get_class_info_unicode", "get_class_info_2", "get_class_info_1",
     "release_factory_3", "release_factory_2", "release_factory_base",
     "exit_dll", "free_library",
+    "create_component", "get_controller_class_id", "initialize_component",
+    "terminate_component", "release_component",
 )
 
 OPERATIONS = {
@@ -53,9 +55,22 @@ OPERATIONS = {
     "query_factory_2", "query_factory_3", "count_classes", "get_class_info_unicode",
     "get_class_info_2", "get_class_info_1", "release_factory_3", "release_factory_2",
     "release_factory_base", "exit_dll", "free_library",
+    "create_component", "get_controller_class_id", "initialize_component",
+    "terminate_component", "release_component",
 }
-INTERFACES = {None, "IPluginFactory", "IPluginFactory2", "IPluginFactory3"}
+INTERFACES = {
+    None, "IPluginFactory", "IPluginFactory2", "IPluginFactory3", "IComponent",
+}
 TIERS = {None, "factory_3_unicode", "factory_2", "factory_1"}
+HOST_CALLBACKS = {"queryInterface", "addRef", "release", "getName", "createInstance"}
+COMPONENT_OPERATIONS = {
+    "create_component", "get_controller_class_id", "initialize_component",
+    "terminate_component", "release_component",
+}
+INHERITED_SHUTDOWN_OPERATIONS = (
+    "release_factory_3", "release_factory_2", "release_factory_base",
+    "exit_dll", "free_library",
+)
 IN_FLIGHT_BLOCKER = {
     "load_library": "WF0_MODULE_OPEN_BLOCKED",
     "init_dll": "WF0_MODULE_ENTRY_BLOCKED",
@@ -72,6 +87,11 @@ IN_FLIGHT_BLOCKER = {
     "release_factory_base": "WF0_FACTORY_RELEASE_BLOCKED",
     "exit_dll": "WF0_MODULE_EXIT_BLOCKED",
     "free_library": "WF0_MODULE_UNLOAD_BLOCKED",
+    "create_component": "WC0_COMPONENT_CREATE_BLOCKED",
+    "get_controller_class_id": "WC0_CONTROLLER_ID_BLOCKED",
+    "initialize_component": "WC0_COMPONENT_INITIALIZE_BLOCKED",
+    "terminate_component": "WC0_COMPONENT_TERMINATE_BLOCKED",
+    "release_component": "WC0_COMPONENT_RELEASE_BLOCKED",
 }
 EXIT_BLOCKER = {
     64: "WF0_SCANNER_LAUNCH_BLOCKED", 65: "WF0_PROCESS_IDENTITY_BLOCKED",
@@ -82,6 +102,13 @@ EXIT_BLOCKER = {
     78: "WF0_OUTPUT_NORMALIZATION_BLOCKED", 79: "WF0_MODULE_EXIT_BLOCKED",
     80: "WF0_MODULE_UNLOAD_BLOCKED", 81: "WF0_FACTORY_RELEASE_BLOCKED",
     82: "WF0_SCANNER_LAUNCH_BLOCKED",
+    83: "WC0_COMPONENT_CREATE_BLOCKED",
+    84: "WC0_CONTROLLER_ID_BLOCKED",
+    85: "WC0_CONTROLLER_ID_MISMATCH",
+    86: "WC0_HOST_CONTEXT_BLOCKED",
+    87: "WC0_COMPONENT_INITIALIZE_BLOCKED",
+    88: "WC0_COMPONENT_TERMINATE_BLOCKED",
+    89: "WC0_COMPONENT_RELEASE_BLOCKED",
 }
 
 
@@ -107,7 +134,8 @@ def controlled_environment(environment: ScanEnvironment) -> dict[str, str]:
     return values
 
 
-def handshake(environment: ScanEnvironment, session: str) -> bytes:
+def handshake(environment: ScanEnvironment, session: str,
+              component_case: str) -> bytes:
     marker = environment.marker
     return (
         "schema=linux-vst-bridge-wf0-handshake/v1\n"
@@ -117,11 +145,18 @@ def handshake(environment: ScanEnvironment, session: str) -> bytes:
         f"bundle_manifest_sha256={marker['bundle_manifest']['sha256']}\n"
         "implementation_source_manifest_sha256="
         f"{marker['implementation_source_manifest_sha256']}\n"
+        "mode=wc0-component-admission\n"
+        f"component_case={component_case}\n"
         "run_ordinal=1\n"
     ).encode()
 
 
-def command_vector(environment: ScanEnvironment, session: str) -> list[str]:
+def command_vector(environment: ScanEnvironment, session: str,
+                   component_case: str) -> list[str]:
+    if component_case not in {
+        "exact-again", "unknown-processor", "unsupported-interface"
+    }:
+        fail("component case is outside the closed WC0 command contract")
     marker = environment.marker
     return [
         str(runtime_root() / "_v2-entry-point"), "--verb=run", "--",
@@ -137,6 +172,8 @@ def command_vector(environment: ScanEnvironment, session: str) -> list[str]:
         "--ready", f"C:\\wf0\\session\\{session}.ready",
         "--gate", f"C:\\wf0\\session\\{session}.gate",
         "--max-classes", "256", "--stdout-cap", "1048576",
+        "--mode", "wc0-component-admission",
+        "--component-case", component_case,
     ]
 
 
@@ -309,6 +346,7 @@ class StreamState:
         self.in_flight: dict[str, Any] | None = None
         self.in_flight_at: float | None = None
         self.class_started_at: float | None = None
+        self.host_callback_count = 0
 
     def feed(self, name: str, data: bytes) -> None:
         target = self.stdout if name == "stdout" else self.stderr
@@ -358,6 +396,35 @@ class StreamState:
                 self.class_started_at = time.monotonic()
             if record.get("state") == "class_enumeration_complete":
                 self.class_started_at = None
+        elif event == "host_callback":
+            if record.get("operation") not in HOST_CALLBACKS:
+                fail("host callback operation is outside the closed WC0 contract")
+            if record.get("thread_role") != "scanner_main_thread":
+                fail("host callback thread role differs")
+            origin = record.get("origin")
+            if origin == "component":
+                if (
+                    self.in_flight is None
+                    or record.get("enclosing_attempt_sequence")
+                    != self.in_flight.get("sequence")
+                    or record.get("enclosing_operation")
+                    != self.in_flight.get("operation")
+                    or self.in_flight.get("operation")
+                    not in {"initialize_component", "terminate_component"}
+                ):
+                    fail("component host callback attribution differs")
+            elif origin == "owner_local":
+                if (
+                    self.in_flight is not None
+                    or record.get("enclosing_attempt_sequence") is not None
+                    or record.get("enclosing_operation") is not None
+                ):
+                    fail("local host-owner callback attribution differs")
+            else:
+                fail("host callback origin is outside the closed WC0 contract")
+            self.host_callback_count += 1
+            if self.host_callback_count > 64:
+                fail("host callback ledger exceeds its fixed bound")
         else:
             fail("scanner event kind is outside the closed contract")
         self.records.append(record)
@@ -482,9 +549,9 @@ def supervise_adapter(environment: ScanEnvironment) -> dict[str, Any]:
     if after != before or verify_runner_identity() != runner_identity:
         fail("protected state or runner changed during loader-adapter execution")
     return {
-        "schema": "linux-vst-bridge-wf0-loader-adapter/v1",
+        "schema": "linux-vst-bridge-wc0-loader-adapter/v1",
         "classification": "adapter_completed",
-        "closed_operation_count": 15,
+        "closed_operation_count": 20,
         "free_library_false_mapped": True,
         "paired_completion_valid": True,
         "runtime_role_observed": True,
@@ -499,7 +566,8 @@ def supervise_adapter(environment: ScanEnvironment) -> dict[str, Any]:
     }
 
 
-def supervise(environment: ScanEnvironment, *, hold_gate: bool = False) -> dict[str, Any]:
+def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
+              component_case: str = "exact-again") -> dict[str, Any]:
     verify_environment(environment)
     runner_identity = verify_runner_identity()
     session = secrets.token_hex(16)
@@ -507,9 +575,9 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False) -> dict[
     gate = environment.session / f"{session}.gate"
     if ready.exists() or gate.exists():
         fail("handshake artifacts exist before spawn")
-    expected = handshake(environment, session)
+    expected = handshake(environment, session, component_case)
     before = protected_snapshot()
-    command_line = command_vector(environment, session)
+    command_line = command_vector(environment, session, component_case)
     spawn_command_vector_sha256 = sha256_bytes(canonical_json(command_line))
     started = time.monotonic()
     root = subprocess.Popen(command_line, env=controlled_environment(environment),
@@ -627,8 +695,60 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False) -> dict[
         blocker = EXIT_BLOCKER.get(raw_exit, "WF0_SCANNER_LAUNCH_BLOCKED")
         classification = "scanner_blocked"
 
+    started_operations = [
+        record.get("operation") for record in streams.records
+        if record.get("event") == "call_started"
+    ]
+    completed_operations = [
+        record.get("operation") for record in streams.records
+        if record.get("event") == "call_completed"
+    ]
+    scanner_suppressed = {
+        record.get("operation"): record.get("disposition")
+        for record in streams.records
+        if record.get("event") == "lifecycle"
+        and record.get("state") == "inherited_shutdown_suppressed"
+    }
+    component_abnormal = (
+        in_flight is not None and in_flight.get("operation") in COMPONENT_OPERATIONS
+    )
+    shutdown_dispositions: dict[str, dict[str, str]] = {}
+    for operation in INHERITED_SHUTDOWN_OPERATIONS:
+        if operation in started_operations:
+            disposition = (
+                "completed" if operation in completed_operations
+                else "attempted_without_ordinary_return"
+            )
+            source = "scanner_call_ledger"
+        elif scanner_suppressed.get(operation) == (
+            "not_attempted_object_quiescence_unproved"
+        ):
+            disposition = "not_attempted_object_quiescence_unproved"
+            source = "scanner_suppression_record"
+        elif component_abnormal:
+            disposition = "not_attempted_object_quiescence_unproved"
+            source = "supervisor_unmatched_component_call"
+        else:
+            disposition = "not_attempted_prior_stage"
+            source = "supervisor_call_ledger_absence"
+        shutdown_dispositions[operation] = {
+            "disposition": disposition,
+            "source": source,
+        }
+    clean_in_process_shutdown = (
+        all(
+            value["disposition"] == "completed"
+            for value in shutdown_dispositions.values()
+        )
+        and any(
+            record.get("event") == "lifecycle"
+            and record.get("state") == "module_unloaded"
+            for record in streams.records
+        )
+    )
+
     return {
-        "schema": "linux-vst-bridge-wf0-supervised-run/v1",
+        "schema": "linux-vst-bridge-wc0-supervised-run/v1",
         "run_id": environment.run_id, "fixture": environment.marker["fixture"],
         "session_binding_sha256": sha256_bytes(expected), "records": streams.records,
         "stdout_sha256": hashlib.sha256(streams.stdout).hexdigest(),
@@ -637,6 +757,19 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False) -> dict[
         "classification": classification, "blocker": blocker,
         "last_lifecycle": last_state,
         "last_in_flight_operation": None if in_flight is None else in_flight["operation"],
+        "component_case": component_case,
+        "inherited_shutdown": {
+            "operations": shutdown_dispositions,
+            "clean_in_process_shutdown": clean_in_process_shutdown,
+            "physical_containment_only": (
+                component_abnormal
+                or any(
+                    value["disposition"] ==
+                    "not_attempted_object_quiescence_unproved"
+                    for value in shutdown_dispositions.values()
+                )
+            ),
+        },
         "topology": topology_receipt, "held_gate": held_receipt,
         "cleanup": cleanup, "protected_snapshot": before,
         "runner_identity": runner_identity,

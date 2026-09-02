@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exact Mac custody and offline source/artifact/evidence handoff admission for WF0."""
+"""Exact Mac custody and offline source/artifact/evidence handoff admission for WC0."""
 
 from __future__ import annotations
 
@@ -23,10 +23,10 @@ from common import (
     ARTIFACT_SCHEMA, AUTHORITY_MERGE_COMMIT, AUTHORITY_MERGE_TREE, BASIS_COMMIT,
     BASIS_TREE, EVIDENCE_FILES, EVIDENCE_HANDOFF_SCHEMA, EXPECTED_BRANCH,
     EXPECTED_REF, MAC_CUSTODY_SCHEMA, REPOSITORY, SOURCE_HANDOFF_SCHEMA,
-    SOURCE_PATHS, WINDOWS_BUILD_SCHEMA, WORKFLOW_PATH, artifact_cache_parent,
+    SOURCE_PATHS, SOURCE_SCHEMA, WINDOWS_BUILD_SCHEMA, WORKFLOW_PATH, artifact_cache_parent,
     canonical_json, command, command_text, execution_worktree_parent, fail,
     repo_root, require_clean_source, require_contained, sha256_bytes, sha256_file,
-    source_handoff_parent, source_manifest_sha256, write_atomic,
+    source_handoff_parent, source_manifest, source_manifest_sha256, write_atomic,
 )
 
 
@@ -37,6 +37,7 @@ MAX_ENTRIES = 256
 MAX_PATH_BYTES = 240
 ALLOWED_ROLES = {
     "scanner_executable", "loader_adapter_executable", "approved_fault_module",
+    "adapter_environment_carrier",
     "positive_fixture_module", "positive_fixture_resource",
     "required_runtime_dependency", "build_identity_core", "required_license_notice",
 }
@@ -202,6 +203,7 @@ def verify_hash_sidecar(sidecar: pathlib.Path, target: pathlib.Path) -> str:
 
 def verify_payload(payload: pathlib.Path, extraction: pathlib.Path,
                    expected_source_commit: str,
+                   expected_source_tree: str,
                    expected_source_manifest_sha256: str) -> dict[str, Any]:
     safe_extract(payload, extraction)
     manifest_path = extraction / "ARTIFACT_MANIFEST.json"
@@ -241,6 +243,12 @@ def verify_payload(payload: pathlib.Path, extraction: pathlib.Path,
     source_manifest_value = source.get("implementation_source_manifest")
     if (
         source.get("commit") != expected_source_commit
+        or source.get("tree") != expected_source_tree
+        or source.get("parent") != BASIS_COMMIT
+        or source.get("branch") != EXPECTED_BRANCH
+        or source.get("ref") != EXPECTED_REF
+        or source.get("implementation_source_schema") != SOURCE_SCHEMA
+        or source.get("implementation_source_record_count") != 19
         or source.get("implementation_source_manifest_sha256")
         != expected_source_manifest_sha256
         or source_manifest_sha256(source_manifest_value) != expected_source_manifest_sha256
@@ -293,6 +301,9 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
         fail("run ID or artifact ID is malformed")
     local_source = require_clean_source(source_commit, detached=False)
     local_source_sha = source_manifest_sha256(local_source)
+    local_source_tree = command_text(
+        ["git", "rev-parse", f"{source_commit}^{{tree}}"], cwd=repo_root()
+    )
     if stage.exists() or stage.is_symlink():
         fail("Mac custody stage already exists")
     stage.mkdir(parents=True)
@@ -306,7 +317,7 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
     run = _gh_json(f"/repos/{REPOSITORY}/actions/runs/{run_id}")
     run_attempt = str(run.get("run_attempt"))
     expected_name = (
-        f"wf0-windows-build-{source_commit}-run-{run_id}-attempt-{run_attempt}"
+        f"wc0-windows-build-{source_commit}-run-{run_id}-attempt-{run_attempt}"
     )
     run_path = str(run.get("path", "")).split("@", 1)[0]
     if (
@@ -359,7 +370,7 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
         wrapper_sha != digest_identity["upload_artifact_digest_bare"]
         or wrapper_sha != digest_identity["rest_hex"]
     ):
-        fail("WF0_BUILD_CUSTODY_BLOCKED: raw wrapper digest differs from Actions digest")
+        fail("WC0_BUILD_CUSTODY_BLOCKED: raw wrapper digest differs from Actions digest")
     inner = stage / "inner"
     safe_extract(
         wrapper, inner,
@@ -378,9 +389,18 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
         ["git", "rev-parse", f"{source_commit}:{WORKFLOW_PATH}"], cwd=repo_root()
     )
     if (
-        build_receipt.get("source", {}).get("commit") != source_commit
-        or build_receipt.get("source", {}).get("implementation_source_manifest", {}).get("sha256")
-        != local_source_sha
+        build_receipt.get("source") != {
+            "commit": source_commit,
+            "tree": local_source_tree,
+            "parent": BASIS_COMMIT,
+            "branch": EXPECTED_BRANCH,
+            "ref": EXPECTED_REF,
+            "implementation_source_manifest": {
+                "schema": SOURCE_SCHEMA,
+                "record_count": 19,
+                "sha256": local_source_sha,
+            },
+        }
         or build_receipt.get("workflow", {}).get("run_id") != run_id
         or build_receipt.get("workflow", {}).get("run_attempt") != run_attempt
         or build_receipt.get("workflow", {}).get("git_blob") != workflow_blob
@@ -393,7 +413,7 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
         fail("payload archive hash differs from the Windows receipt")
     payload_check = stage / "payload-check"
     payload_identity = verify_payload(
-        payload, payload_check, source_commit, local_source_sha
+        payload, payload_check, source_commit, local_source_tree, local_source_sha
     )
     if (
         payload_identity["manifest_sha256"]
@@ -414,6 +434,12 @@ def mac_custody(run_id: str, artifact_id: str, source_commit: str,
             "path": WORKFLOW_PATH, "git_blob": workflow_blob, "event": "push",
             "head_branch": EXPECTED_BRANCH, "head_sha": source_commit,
             "run_id": run_id, "run_attempt": run_attempt, "conclusion": "success",
+        },
+        "implementation_source": {
+            "commit": source_commit, "tree": local_source_tree,
+            "parent": BASIS_COMMIT, "branch": EXPECTED_BRANCH,
+            "ref": EXPECTED_REF, "schema": SOURCE_SCHEMA,
+            "record_count": 19, "manifest_sha256": local_source_sha,
         },
         "artifact": {
             "id": artifact_id, "name": expected_name, "url": api_url,
@@ -489,8 +515,8 @@ def create_source_handoff(source_commit: str, stage: pathlib.Path) -> dict[str, 
     if stage.exists() or stage.is_symlink():
         fail("source handoff stage already exists")
     stage.mkdir(parents=True)
-    advertised_ref = f"refs/handoff/wf0-v7-source/{source_commit}"
-    bundle_name = f"wf0-v7-execution-source-{source_commit}.bundle"
+    advertised_ref = f"refs/handoff/wc0-source/{source_commit}"
+    bundle_name = f"wc0-execution-source-{source_commit}.bundle"
     bundle = stage / bundle_name
     temporary = pathlib.Path(tempfile.mkdtemp(prefix=".wf0-source-bare-", dir=stage.parent))
     try:
@@ -516,11 +542,11 @@ def create_source_handoff(source_commit: str, stage: pathlib.Path) -> dict[str, 
     receipt = {
         "schema": SOURCE_HANDOFF_SCHEMA,
         "repository": REPOSITORY,
-        "v7_authority": {
-            "design_authority_merge_commit": AUTHORITY_MERGE_COMMIT,
-            "design_authority_merge_tree": AUTHORITY_MERGE_TREE,
-            "authority_readback_commit": BASIS_COMMIT,
-            "authority_readback_tree": BASIS_TREE,
+        "wc0_authority": {
+            "design_authority_commit": AUTHORITY_MERGE_COMMIT,
+            "design_authority_tree": AUTHORITY_MERGE_TREE,
+            "implementation_basis_commit": BASIS_COMMIT,
+            "implementation_basis_tree": BASIS_TREE,
         },
         "implementation_source": {
             "commit": source_commit, "tree": tree, "parent": parent,
@@ -536,17 +562,17 @@ def create_source_handoff(source_commit: str, stage: pathlib.Path) -> dict[str, 
             "self_contained": True, "prerequisite_count": 0,
         },
     }
-    receipt_path = stage / "WF0_SOURCE_HANDOFF_RECEIPT.json"
+    receipt_path = stage / "WC0_SOURCE_HANDOFF_RECEIPT.json"
     write_atomic(receipt_path, canonical_json(receipt))
     digest = sha256_file(receipt_path)
     write_atomic(
-        stage / "WF0_SOURCE_HANDOFF_RECEIPT.sha256",
-        f"{digest}  WF0_SOURCE_HANDOFF_RECEIPT.json\n".encode(),
+        stage / "WC0_SOURCE_HANDOFF_RECEIPT.sha256",
+        f"{digest}  WC0_SOURCE_HANDOFF_RECEIPT.json\n".encode(),
     )
     names = sorted(item.name for item in stage.iterdir())
     if names != sorted([
-        bundle_name, "WF0_SOURCE_HANDOFF_RECEIPT.json",
-        "WF0_SOURCE_HANDOFF_RECEIPT.sha256",
+        bundle_name, "WC0_SOURCE_HANDOFF_RECEIPT.json",
+        "WC0_SOURCE_HANDOFF_RECEIPT.sha256",
     ]):
         fail("source handoff stage roster differs")
     return receipt
@@ -556,11 +582,11 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
     """Verify an already imported fixed ref/worktree and publish its private bundle custody."""
     if not re.fullmatch(r"[0-9a-f]{40}", source_commit):
         fail("source handoff commit is malformed")
-    expected_bundle = f"wf0-v7-execution-source-{source_commit}.bundle"
+    expected_bundle = f"wc0-execution-source-{source_commit}.bundle"
     expected_names = {
         expected_bundle,
-        "WF0_SOURCE_HANDOFF_RECEIPT.json",
-        "WF0_SOURCE_HANDOFF_RECEIPT.sha256",
+        "WC0_SOURCE_HANDOFF_RECEIPT.json",
+        "WC0_SOURCE_HANDOFF_RECEIPT.sha256",
     }
     if (
         not handoff.is_dir()
@@ -570,31 +596,31 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
     ):
         fail("Deck source handoff envelope differs")
 
-    receipt_path = handoff / "WF0_SOURCE_HANDOFF_RECEIPT.json"
+    receipt_path = handoff / "WC0_SOURCE_HANDOFF_RECEIPT.json"
     receipt_sha256 = verify_hash_sidecar(
-        handoff / "WF0_SOURCE_HANDOFF_RECEIPT.sha256", receipt_path
+        handoff / "WC0_SOURCE_HANDOFF_RECEIPT.sha256", receipt_path
     )
     receipt = read_canonical_json(receipt_path, SOURCE_HANDOFF_SCHEMA)
     bundle = handoff / expected_bundle
-    advertised_ref = f"refs/handoff/wf0-v7-source/{source_commit}"
+    advertised_ref = f"refs/handoff/wc0-source/{source_commit}"
     implementation = receipt.get("implementation_source", {})
-    authority = receipt.get("v7_authority", {})
+    authority = receipt.get("wc0_authority", {})
     bundle_identity = receipt.get("bundle", {})
     if (
         receipt.get("repository") != REPOSITORY
         or authority != {
-            "design_authority_merge_commit": AUTHORITY_MERGE_COMMIT,
-            "design_authority_merge_tree": AUTHORITY_MERGE_TREE,
-            "authority_readback_commit": BASIS_COMMIT,
-            "authority_readback_tree": BASIS_TREE,
+            "design_authority_commit": AUTHORITY_MERGE_COMMIT,
+            "design_authority_tree": AUTHORITY_MERGE_TREE,
+            "implementation_basis_commit": BASIS_COMMIT,
+            "implementation_basis_tree": BASIS_TREE,
         }
         or implementation.get("commit") != source_commit
         or implementation.get("parent") != BASIS_COMMIT
         or implementation.get("branch") != EXPECTED_BRANCH
         or implementation.get("ref") != EXPECTED_REF
         or implementation.get("manifest_schema")
-        != "linux-vst-bridge-wf0-implementation-source/v1"
-        or implementation.get("manifest_record_count") != 26
+        != SOURCE_SCHEMA
+        or implementation.get("manifest_record_count") != 19
         or not re.fullmatch(
             r"[0-9a-f]{40}", str(implementation.get("tree", ""))
         )
@@ -642,7 +668,7 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
         cwd=root, check=False,
     )
     if ancestor.returncode != 0:
-        fail("Deck source bundle omits required V7 authority history")
+        fail("Deck source bundle omits required WC0 authority history")
     reproduced = verify_execution_source(
         source_commit, implementation["tree"], implementation["manifest_sha256"]
     )
@@ -655,7 +681,7 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
     require_contained(target, parent, "Deck persistent source handoff")
     if target.exists() or target.is_symlink():
         fail("Deck persistent source handoff already exists; adoption is prohibited")
-    staging = parent / f".wf0-source-import-{os.urandom(16).hex()}"
+    staging = parent / f".wc0-source-import-{os.urandom(16).hex()}"
     staging.mkdir(mode=0o700)
     for name in sorted(expected_names):
         shutil.copy2(handoff / name, staging / name)
@@ -665,7 +691,7 @@ def import_source_handoff(handoff: pathlib.Path, source_commit: str) -> dict[str
     os.replace(staging, target)
     target.chmod(0o555)
     return {
-        "schema": "linux-vst-bridge-wf0-deck-source-admission/v1",
+        "schema": "linux-vst-bridge-wc0-deck-source-admission/v1",
         "implementation_source": {
             "commit": source_commit,
             "tree": implementation["tree"],
@@ -718,15 +744,38 @@ def import_artifact(handoff: pathlib.Path, source_commit: str,
     custody_path = handoff / "WF0_MAC_ARTIFACT_CUSTODY_RECEIPT.json"
     custody = read_canonical_json(custody_path, MAC_CUSTODY_SCHEMA)
     custody_artifact = custody.get("artifact", {})
+    source_tree = command_text(
+        ["git", "rev-parse", f"{source_commit}^{{tree}}"], cwd=repo_root()
+    )
+    expected_source = {
+        "commit": source_commit,
+        "tree": source_tree,
+        "parent": BASIS_COMMIT,
+        "branch": EXPECTED_BRANCH,
+        "ref": EXPECTED_REF,
+        "schema": SOURCE_SCHEMA,
+        "record_count": 19,
+        "manifest_sha256": source_manifest_digest,
+    }
     custody_digest = normalize_artifact_digests(
         str(custody_artifact.get("upload_artifact_digest_bare")),
         str(custody_artifact.get("rest_artifact_digest")),
     )
     payload = handoff / "wf0-payload.zip"
     if (
-        build_receipt.get("source", {}).get("commit") != source_commit
-        or build_receipt.get("source", {}).get("implementation_source_manifest", {}).get("sha256")
-        != source_manifest_digest
+        build_receipt.get("source") != {
+            "commit": source_commit,
+            "tree": source_tree,
+            "parent": BASIS_COMMIT,
+            "branch": EXPECTED_BRANCH,
+            "ref": EXPECTED_REF,
+            "implementation_source_manifest": {
+                "schema": SOURCE_SCHEMA,
+                "record_count": 19,
+                "sha256": source_manifest_digest,
+            },
+        }
+        or custody.get("implementation_source") != expected_source
         or custody.get("workflow", {}).get("head_sha") != source_commit
         or custody.get("inner_envelope", {}).get("build_receipt_sha256") != receipt_sha
         or custody.get("inner_envelope", {}).get("payload_archive_sha256")
@@ -743,7 +792,7 @@ def import_artifact(handoff: pathlib.Path, source_commit: str,
     parent.mkdir(parents=True, exist_ok=True)
     extraction = parent / f".wf0-artifact-import-{os.urandom(16).hex()}"
     payload_identity = verify_payload(
-        payload, extraction, source_commit, source_manifest_digest
+        payload, extraction, source_commit, source_tree, source_manifest_digest
     )
     digest = payload_identity["manifest_sha256"]
     if (
@@ -841,33 +890,101 @@ def create_evidence_handoff(packet: pathlib.Path, destination: pathlib.Path,
         "raw_process_identifiers_retained": False,
         "compiled_binaries_retained": False,
     }
-    write_atomic(destination / "WF0_EVIDENCE_HANDOFF_RECEIPT.json", canonical_json(receipt))
-    digest = sha256_file(destination / "WF0_EVIDENCE_HANDOFF_RECEIPT.json")
+    write_atomic(destination / "WC0_EVIDENCE_HANDOFF_RECEIPT.json", canonical_json(receipt))
+    digest = sha256_file(destination / "WC0_EVIDENCE_HANDOFF_RECEIPT.json")
     write_atomic(
-        destination / "WF0_EVIDENCE_HANDOFF_RECEIPT.sha256",
-        f"{digest}  WF0_EVIDENCE_HANDOFF_RECEIPT.json\n".encode(),
+        destination / "WC0_EVIDENCE_HANDOFF_RECEIPT.sha256",
+        f"{digest}  WC0_EVIDENCE_HANDOFF_RECEIPT.json\n".encode(),
     )
     return receipt
 
 
 def verify_evidence_handoff(root: pathlib.Path) -> dict[str, Any]:
     expected = {
-        "packet", "WF0_EVIDENCE_HANDOFF_RECEIPT.json",
-        "WF0_EVIDENCE_HANDOFF_RECEIPT.sha256",
+        "packet", "WC0_EVIDENCE_HANDOFF_RECEIPT.json",
+        "WC0_EVIDENCE_HANDOFF_RECEIPT.sha256",
     }
     if not root.is_dir() or root.is_symlink() or {item.name for item in root.iterdir()} != expected:
         fail("evidence handoff roster differs")
-    receipt_path = root / "WF0_EVIDENCE_HANDOFF_RECEIPT.json"
-    verify_hash_sidecar(root / "WF0_EVIDENCE_HANDOFF_RECEIPT.sha256", receipt_path)
+    receipt_path = root / "WC0_EVIDENCE_HANDOFF_RECEIPT.json"
+    verify_hash_sidecar(root / "WC0_EVIDENCE_HANDOFF_RECEIPT.sha256", receipt_path)
     receipt = read_canonical_json(receipt_path, EVIDENCE_HANDOFF_SCHEMA)
-    records = verify_evidence_packet(root / "packet")
+    packet = root / "packet"
+    records = verify_evidence_packet(packet)
+    retained = read_canonical_json(
+        packet / "BUILD_MANIFEST.json",
+        "linux-vst-bridge-wc0-retained-build-manifest/v1",
+    )
+    component = read_canonical_json(
+        packet / "COMPONENT_SESSION.json",
+        "linux-vst-bridge-wc0-component-session/v1",
+    )
+    callbacks = read_canonical_json(
+        packet / "CALLBACK_LEDGER.json",
+        "linux-vst-bridge-wc0-callback-ledger/v1",
+    )
+    implementation = receipt.get("implementation_source", {})
+    source_commit = implementation.get("commit")
+    if not isinstance(source_commit, str):
+        fail("evidence handoff source commit is absent")
+    reproduced = source_manifest(source_commit, treeish=source_commit)
+    source_digest = source_manifest_sha256(reproduced)
+    source_tree = command_text(
+        ["git", "rev-parse", f"{source_commit}^{{tree}}"], cwd=repo_root()
+    )
+    retained_build = retained.get("windows_build_receipt", {})
+    retained_custody = retained.get("mac_artifact_custody_receipt", {})
+    retained_source_handoff = retained.get("source_handoff_receipt", {})
+    artifact_custody = receipt.get("artifact_custody", {})
     if (
         receipt.get("evidence", {}).get("record_count") != 14
         or receipt.get("evidence", {}).get("records") != records
         or receipt.get("evidence", {}).get("aggregate_manifest_sha256")
         != sha256_bytes(canonical_json(records))
+        or implementation != {
+            "commit": source_commit,
+            "tree": source_tree,
+            "parent": BASIS_COMMIT,
+            "branch": EXPECTED_BRANCH,
+            "ref": EXPECTED_REF,
+            "schema": SOURCE_SCHEMA,
+            "record_count": 19,
+            "manifest_sha256": source_digest,
+        }
+        or retained.get("implementation_source_manifest") != reproduced
+        or retained.get("implementation_source_manifest_sha256") != source_digest
+        or retained.get("implementation_source_tree") != source_tree
+        or receipt.get("source_handoff", {}).get("schema")
+        != SOURCE_HANDOFF_SCHEMA
+        or receipt.get("source_handoff", {}).get("bundle_name")
+        != retained_source_handoff.get("bundle", {}).get("name")
+        or receipt.get("source_handoff", {}).get("bundle_sha256")
+        != retained_source_handoff.get("bundle", {}).get("sha256")
+        or receipt.get("source_handoff", {}).get("advertised_ref")
+        != retained_source_handoff.get("bundle", {}).get("advertised_ref")
+        or receipt.get("windows_build", {}).get("receipt_sha256")
+        != sha256_bytes(canonical_json(retained_build))
+        or artifact_custody.get("receipt_sha256")
+        != sha256_bytes(canonical_json(retained_custody))
+        or artifact_custody.get("artifact_id")
+        != retained_custody.get("artifact", {}).get("id")
+        or artifact_custody.get("artifact_name")
+        != retained_custody.get("artifact", {}).get("name")
+        or artifact_custody.get("artifact_manifest_sha256")
+        != retained.get("deck_admission", {}).get(
+            "artifact_cache_manifest_sha256"
+        )
+        or receipt.get("component_session_sha256")
+        != sha256_bytes(canonical_json(component))
+        or receipt.get("callback_ledger_sha256")
+        != sha256_bytes(canonical_json(callbacks))
+        or receipt.get("object_quiescence") is not True
+        or receipt.get("clean_in_process_shutdown") is not True
+        or receipt.get("proof_row_count") != 29
+        or receipt.get("protected_state_equal") is not True
+        or receipt.get("no_deck_github", {}).get("github_operations") != 0
     ):
-        fail("evidence handoff receipt differs from packet")
+        fail("evidence handoff source/build/artifact/Deck/packet join differs")
     return receipt
 
 
@@ -932,5 +1049,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print(f"WF0_ERROR: {error}", file=os.sys.stderr, flush=True)
+        print(f"WC0_ERROR: {error}", file=os.sys.stderr, flush=True)
         raise

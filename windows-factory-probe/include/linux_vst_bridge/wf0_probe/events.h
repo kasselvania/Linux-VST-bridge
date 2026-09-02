@@ -23,27 +23,34 @@ public:
     }
 
     unsigned long long call_started(const char* operation, const char* interface_name,
-                                    int ordinal = -1, const char* tier = nullptr) {
+                                    int ordinal = -1, const char* tier = nullptr,
+                                    const std::string& fields = {}) {
         const auto attempt = sequence_ + 1;
         write("{\"event\":\"call_started\",\"sequence\":" + next() +
               ",\"operation\":\"" + operation + "\",\"interface\":" +
               quoted_or_null(interface_name) + ",\"ordinal\":" +
               (ordinal < 0 ? "null" : std::to_string(ordinal)) + ",\"tier\":" +
-              quoted_or_null(tier) + "}");
+              quoted_or_null(tier) + fields + "}");
         return attempt;
     }
 
     void call_completed(unsigned long long attempt, const char* operation,
                         const char* interface_name, const char* return_kind,
                         const std::string& result_fields = {}, int ordinal = -1,
-                        const char* tier = nullptr) {
+                        const char* tier = nullptr,
+                        const std::string& fields = {}) {
         write("{\"event\":\"call_completed\",\"sequence\":" + next() +
               ",\"attempt_sequence\":" + std::to_string(attempt) +
               ",\"operation\":\"" + operation + "\",\"interface\":" +
               quoted_or_null(interface_name) + ",\"ordinal\":" +
               (ordinal < 0 ? "null" : std::to_string(ordinal)) + ",\"tier\":" +
               quoted_or_null(tier) + ",\"return_kind\":\"" + return_kind + "\"" +
-              result_fields + "}");
+              result_fields + fields + "}");
+    }
+
+    void host_callback(const char* operation, const std::string& fields) {
+        write("{\"event\":\"host_callback\",\"sequence\":" + next() +
+              ",\"operation\":\"" + operation + "\"" + fields + "}");
     }
 
 private:

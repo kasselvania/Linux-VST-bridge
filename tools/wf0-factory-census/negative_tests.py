@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic and bounded live negative proofs for every WF0 stage owner."""
+"""Deterministic and bounded live negative proofs for the WC0 lifecycle owners."""
 
 from __future__ import annotations
 
@@ -13,8 +13,14 @@ import warnings
 import zipfile
 from typing import Any
 
-from artifacts import MAX_ENTRY_BYTES, MAX_ZIP_BYTES, _safe_relative, zip_census
-from build import eol_checkout_regression
+from artifacts import (
+    MAX_ENTRY_BYTES, MAX_ZIP_BYTES, _safe_relative,
+    artifact_digest_regression, zip_census,
+)
+from build import (
+    EXPECTED_AGAIN_MODULE_SHA256, MSBUILD_MAX_CPU_COUNT, MSVC_POST_OPTIONS,
+    build_command_environment, eol_checkout_regression,
+)
 from common import (
     FAULT_TARGETS, canonical_json, environment_parent, fail, process_guard,
     protected_snapshot, runner_root, write_atomic,
@@ -26,40 +32,43 @@ from supervise import (
     OPERATIONS, StreamState, adapter_operation_ledger, root_identity_continuity,
     supervise, supervise_adapter, topology_role_census,
 )
-from verify import parse_pe, scanner_has_no_instantiation_call
+from verify import parse_pe, scanner_component_call_surface
 
 
 EXPECTED = {
-    "wf0-missing-factory": "WF0_FACTORY_GET_BLOCKED",
-    "wf0-null-factory": "WF0_FACTORY_GET_BLOCKED",
-    "wf0-no-entry": None,
-    "wf0-factory1-only": None,
-    "wf0-factory2-only": None,
-    "wf0-factory3-fallback": None,
-    "wf0-init-false": "WF0_MODULE_ENTRY_BLOCKED",
-    "wf0-factory-info-false": "WF0_FACTORY_INFO_BLOCKED",
-    "wf0-count-negative": "WF0_CLASS_ENUMERATION_BLOCKED",
-    "wf0-count-excessive": "WF0_CLASS_ENUMERATION_BLOCKED",
-    "wf0-class-info-false": "WF0_CLASS_ENUMERATION_BLOCKED",
-    "wf0-duplicate-class-id": "WF0_CLASS_ENUMERATION_BLOCKED",
-    "wf0-hang-entry": "WF0_MODULE_ENTRY_BLOCKED",
-    "wf0-hang-factory": "WF0_FACTORY_GET_BLOCKED",
-    "wf0-hang-class": "WF0_CLASS_ENUMERATION_BLOCKED",
-    "wf0-crash-entry": "WF0_MODULE_ENTRY_BLOCKED",
-    "wf0-crash-factory": "WF0_FACTORY_GET_BLOCKED",
-    "wf0-crash-class": "WF0_CLASS_ENUMERATION_BLOCKED",
-    "wf0-hang-release": "WF0_FACTORY_RELEASE_BLOCKED",
-    "wf0-crash-release": "WF0_FACTORY_RELEASE_BLOCKED",
-    "wf0-exit-false": "WF0_MODULE_EXIT_BLOCKED",
-    "wf0-create-instance-tripwire": None,
+    "wc0-create-failure-null": "WC0_COMPONENT_CREATE_BLOCKED",
+    "wc0-create-success-null": "WC0_COMPONENT_CREATE_BLOCKED",
+    "wc0-create-failure-nonnull": "WC0_COMPONENT_CREATE_BLOCKED",
+    "wc0-controller-id-failure": "WC0_CONTROLLER_ID_BLOCKED",
+    "wc0-controller-id-mismatch": "WC0_CONTROLLER_ID_MISMATCH",
+    "wc0-initialize-failure": "WC0_COMPONENT_INITIALIZE_BLOCKED",
+    "wc0-initialize-hang": "WC0_COMPONENT_INITIALIZE_BLOCKED",
+    "wc0-initialize-crash": "WC0_COMPONENT_INITIALIZE_BLOCKED",
+    "wc0-terminate-failure": "WC0_COMPONENT_TERMINATE_BLOCKED",
+    "wc0-terminate-hang": "WC0_COMPONENT_TERMINATE_BLOCKED",
+    "wc0-terminate-crash": "WC0_COMPONENT_TERMINATE_BLOCKED",
+    "wc0-release-nonzero": "WC0_COMPONENT_RELEASE_BLOCKED",
+    "wc0-release-hang": "WC0_COMPONENT_RELEASE_BLOCKED",
+    "wc0-release-crash": "WC0_COMPONENT_RELEASE_BLOCKED",
+    "wc0-host-object-request": "WC0_HOST_CONTEXT_BLOCKED",
+    "wc0-host-reference-leak": "WC0_HOST_CONTEXT_BLOCKED",
 }
 
 
 def deterministic_tests(source_root) -> dict[str, Any]:
-    if set(IN_FLIGHT_BLOCKER) != OPERATIONS or len(OPERATIONS) != 15:
-        fail("closed call-operation mapping is not exactly 15 total functions")
-    if not scanner_has_no_instantiation_call(source_root):
-        fail("scanner source contains an instantiation call expression")
+    if set(IN_FLIGHT_BLOCKER) != OPERATIONS or len(OPERATIONS) != 20:
+        fail("closed call-operation mapping is not exactly 20 total functions")
+    if tuple(EXPECTED_ADAPTER_OPERATIONS) != tuple([
+        "load_library", "init_dll", "get_plugin_factory", "get_factory_info",
+        "query_factory_2", "query_factory_3", "count_classes",
+        "get_class_info_unicode", "get_class_info_2", "get_class_info_1",
+        "release_factory_3", "release_factory_2", "release_factory_base",
+        "exit_dll", "free_library", "create_component",
+        "get_controller_class_id", "initialize_component",
+        "terminate_component", "release_component",
+    ]):
+        fail("loader-adapter operation roster differs from the exact WC0 contract")
+    call_surface = scanner_component_call_surface(source_root)
     source = (source_root / "windows-factory-probe/source/win32_module.cpp").read_text(
         encoding="utf-8"
     )
@@ -95,6 +104,26 @@ def deterministic_tests(source_root) -> dict[str, Any]:
             rejected += 1
     if rejected != 3:
         fail("deterministic malformed event adapters did not reject every case")
+
+    unmatched = {}
+    for operation, blocker in (
+        ("create_component", "WC0_COMPONENT_CREATE_BLOCKED"),
+        ("get_controller_class_id", "WC0_CONTROLLER_ID_BLOCKED"),
+        ("initialize_component", "WC0_COMPONENT_INITIALIZE_BLOCKED"),
+        ("terminate_component", "WC0_COMPONENT_TERMINATE_BLOCKED"),
+        ("release_component", "WC0_COMPONENT_RELEASE_BLOCKED"),
+    ):
+        candidate = StreamState()
+        candidate.accept({
+            "event": "call_started", "sequence": 1, "operation": operation,
+            "interface": "IPluginFactory" if operation == "create_component"
+                         else "IComponent",
+            "ordinal": None, "tier": None,
+            "object_role": "again_processor_component",
+        })
+        if candidate.in_flight is None or IN_FLIGHT_BLOCKER[operation] != blocker:
+            fail(f"unmatched WC0 operation attribution differs: {operation}")
+        unmatched[operation] = blocker
     framed_adapter_stderr = (
         b"runtime startup diagnostic\n"
         + b"".join(
@@ -220,23 +249,75 @@ def deterministic_tests(source_root) -> dict[str, Any]:
     )
     if unverified_runtime["runtime_role_observed"]:
         fail("topology regression accepted an unverified Runtime root")
+    component_source = (
+        source_root / "windows-factory-probe/source/component_instance_session.cpp"
+    ).read_text(encoding="utf-8")
+    main_source = (
+        source_root / "windows-factory-probe/source/main.cpp"
+    ).read_text(encoding="utf-8")
+    state_names = (
+        "component_absent", "component_create_in_flight", "component_created",
+        "controller_id_in_flight", "controller_id_verified", "host_context_ready",
+        "component_initialize_in_flight", "component_initialized",
+        "component_terminate_in_flight", "component_terminated",
+        "component_release_in_flight", "component_released",
+        "component_retirement_incomplete",
+    )
+    if any(component_source.count(f'"{name}"') < 1 for name in state_names):
+        fail("component source does not retain all thirteen stable lifecycle states")
+    if (
+        component_source.count("component->release()") != 1
+        or "result.release_result == 0" not in component_source
+        or "result.host_reference_returned_to_baseline" not in component_source
+        or "callbacks.close()" not in component_source
+        or "closed_ = true" not in component_source
+        or main_source.count("not_attempted_object_quiescence_unproved") != 1
+        or "if (factory != nullptr &&\n            (!component_session_ran || component.object_quiescence))"
+           not in main_source
+    ):
+        fail("object-quiescence or single-release source law differs")
+
     checkout_regression = eol_checkout_regression()
+    digest_regression = artifact_digest_regression()
+    build_environment = build_command_environment({})
+    if (
+        EXPECTED_AGAIN_MODULE_SHA256
+        != "60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f"
+        or MSBUILD_MAX_CPU_COUNT != "1"
+        or MSVC_POST_OPTIONS != "/MP1"
+        or build_environment.get("CL") != ""
+        or build_environment.get("_CL_") != "/MP1"
+    ):
+        fail("exact AGain or serial MSVC build contract differs")
     cases = [
-        "closed_operation_mapping_15_of_15", "completion_tuple_validation",
+        "closed_operation_mapping_20_of_20", "completion_tuple_validation",
         "sequence_gap_rejection", "second_completion_rejection",
         "relative_module_path_rejection", "default_search_flag_lock",
-        "non_null_hfile_prohibited", "source_token_instantiation_call_absent",
+        "non_null_hfile_prohibited", "exact_five_call_component_surface",
         "unload_failure_adapter_mapping_compiled",
         "runtime_entrypoint_exec_identity_continuity",
         "runtime_root_included_in_topology_role_census",
         "closed_sdk_encoding_label_mapping",
         "controlled_git_checkout_eol_regression",
+        "typed_actions_digest_regression",
+        "five_wc0_unmatched_operation_attributions",
+        "thirteen_state_lifecycle_lock",
+        "single_component_release_call_site",
+        "external_callback_sink_explicitly_closed",
+        "object_quiescence_shutdown_gate",
+        "exact_again_fixture_and_serial_msvc_build_lock",
     ]
     return {
         "cases": cases,
         "passed": len(cases),
         "failed": 0,
+        "component_call_surface": call_surface,
+        "unmatched_operation_blockers": unmatched,
         "checkout_regression": checkout_regression,
+        "artifact_digest_regression": digest_regression,
+        "exact_again_module_sha256": EXPECTED_AGAIN_MODULE_SHA256,
+        "msbuild_max_cpu_count": int(MSBUILD_MAX_CPU_COUNT),
+        "msvc_post_options": MSVC_POST_OPTIONS,
     }
 
 
@@ -405,13 +486,13 @@ def import_negative_tests(build: dict[str, Any]) -> dict[str, Any]:
         missing["artifact_manifest"] = dict(build["artifact_manifest"])
         missing["artifact_manifest"]["records"] = [
             item for item in build["artifact_manifest"]["records"]
-            if item["path"] != "fixtures/wf0-null-factory.dll"
+            if item["path"] != f"fixtures/{FAULT_TARGETS[0]}.dll"
         ]
         missing["artifact_manifest"]["record_count"] -= 1
         rejected(
             "missing_fixture",
             lambda: create_environment(secrets.token_hex(16), missing,
-                                       fixture="wf0-null-factory"),
+                                       fixture=FAULT_TARGETS[0]),
         )
 
     forged_run = secrets.token_hex(16)
@@ -437,34 +518,54 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
         fail("negative expectation roster differs from the fixed artifact roster")
     before_all = protected_snapshot()
     source_verifier()
-    adapter_environment = create_environment(secrets.token_hex(16), build, fixture="adapter")
-    try:
-        adapter = supervise_adapter(adapter_environment)
-    finally:
-        adapter_retirement = retire_environment(adapter_environment)
-    if not adapter_retirement["stage_absent"]:
-        fail("loader-adapter environment did not retire")
-    process_guard()
+    deterministic = deterministic_tests(source_root)
+
+    direct_cases = (
+        ("again-unknown-processor", "unknown-processor"),
+        ("again-unsupported-interface", "unsupported-interface"),
+    )
+    exercises = [
+        (name, "again", component_case, "WC0_COMPONENT_CREATE_BLOCKED")
+        for name, component_case in direct_cases
+    ] + [
+        (fixture, fixture, "exact-again", EXPECTED[fixture])
+        for fixture in FAULT_TARGETS
+    ]
+    abnormal_operations = {
+        "wc0-initialize-hang": ("initialize_component", "call_timeout"),
+        "wc0-initialize-crash": (
+            "initialize_component", "abnormal_termination_in_flight",
+        ),
+        "wc0-terminate-hang": ("terminate_component", "call_timeout"),
+        "wc0-terminate-crash": (
+            "terminate_component", "abnormal_termination_in_flight",
+        ),
+        "wc0-release-hang": ("release_component", "call_timeout"),
+        "wc0-release-crash": (
+            "release_component", "abnormal_termination_in_flight",
+        ),
+    }
+    suppression_cases = {
+        "wc0-release-nonzero", "wc0-host-reference-leak",
+        *abnormal_operations,
+    }
     results = []
-    for index, fixture in enumerate(FAULT_TARGETS, 1):
-        print(f"WF0 negative {index}/{len(FAULT_TARGETS)}: {fixture}", flush=True)
+    for index, (name, fixture, component_case, expected) in enumerate(exercises, 1):
+        print(f"WC0 negative {index}/{len(exercises)}: {name}", flush=True)
         source_verifier()
         process_guard()
         environment = create_environment(secrets.token_hex(16), build, fixture=fixture)
         retirement = None
         try:
-            receipt = supervise(environment)
-            expected = EXPECTED[fixture]
+            receipt = supervise(environment, component_case=component_case)
             if receipt["blocker"] != expected:
-                fail(f"{fixture} blocker differs: expected {expected}, got {receipt['blocker']}")
-            if expected is None and receipt["classification"] != "scanner_completed":
-                fail(f"{fixture} should complete its bounded census path")
-            if expected is not None and receipt["classification"] == "scanner_completed":
-                fail(f"{fixture} unexpectedly completed")
-            marker = environment.session / "create-instance-tripwire.marker"
+                fail(f"{name} blocker differs: expected {expected}, got {receipt['blocker']}")
+            if receipt["classification"] == "scanner_completed":
+                fail(f"{name} unexpectedly completed")
+            marker = environment.session / "forbidden-component-method.marker"
             marker_absent = not marker.exists()
-            if fixture == "wf0-create-instance-tripwire" and not marker_absent:
-                fail("create-instance tripwire marker was created")
+            if not marker_absent:
+                fail(f"{name} invoked an out-of-scope component method")
             operations = [
                 item["operation"] for item in receipt["records"]
                 if item.get("event") == "call_started"
@@ -473,56 +574,133 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
                 item["state"] for item in receipt["records"]
                 if item.get("event") == "lifecycle"
             ]
-            if fixture == "wf0-missing-factory" and (
-                "init_dll" in operations
-                or "factory_export_missing" not in lifecycle
-                or operations[-2:] != ["exit_dll", "free_library"]
+            if operations.count("create_component") != 1:
+                fail(f"{name} did not retain exactly one component-create attempt")
+            session_records = [
+                item.get("component_session") for item in receipt["records"]
+                if item.get("event") == "lifecycle"
+                and item.get("state") == "component_session_closed"
+            ]
+            abnormal = abnormal_operations.get(name)
+            if abnormal is not None:
+                expected_in_flight, expected_classification = abnormal
+                if (
+                    receipt["last_in_flight_operation"] != expected_in_flight
+                    or receipt["classification"] != expected_classification
+                    or session_records
+                ):
+                    fail(f"{name} timeout/crash attribution differs")
+                start_index = operations.index(expected_in_flight)
+                prohibited_later = {
+                    "terminate_component", "release_component",
+                    "release_factory_3", "release_factory_2",
+                    "release_factory_base", "exit_dll", "free_library",
+                }
+                if expected_in_flight == "terminate_component":
+                    prohibited_later.discard("terminate_component")
+                elif expected_in_flight == "release_component":
+                    prohibited_later.discard("terminate_component")
+                    prohibited_later.discard("release_component")
+                if any(value in prohibited_later for value in operations[start_index + 1:]):
+                    fail(f"{name} emitted an in-process call after its unmatched operation")
+            else:
+                if receipt["classification"] != "scanner_blocked" or len(session_records) != 1:
+                    fail(f"{name} ordinary blocked lifecycle did not close exactly once")
+                session = session_records[0]
+                if not isinstance(session, dict) or session.get("primary_blocker") != expected:
+                    fail(f"{name} component-session primary failure differs")
+
+                if name in {"again-unknown-processor", "again-unsupported-interface",
+                            "wc0-create-failure-null", "wc0-create-success-null"}:
+                    if any(operation in operations for operation in (
+                        "get_controller_class_id", "initialize_component",
+                        "terminate_component", "release_component",
+                    )):
+                        fail(f"{name} called a component method after a null create result")
+                if name == "wc0-create-failure-nonnull" and (
+                    operations.count("release_component") != 1
+                    or any(operation in operations for operation in (
+                        "get_controller_class_id", "initialize_component",
+                        "terminate_component",
+                    ))
+                ):
+                    fail("failure/non-null create cleanup differs")
+                if name in {"wc0-controller-id-failure", "wc0-controller-id-mismatch"} and (
+                    "initialize_component" in operations
+                    or "terminate_component" in operations
+                    or operations.count("release_component") != 1
+                ):
+                    fail(f"{name} controller-ID cleanup differs")
+                if name == "wc0-initialize-failure" and (
+                    "terminate_component" in operations
+                    or operations.count("release_component") != 1
+                ):
+                    fail("initialize-return failure cleanup differs")
+                if name == "wc0-terminate-failure" and (
+                    operations.count("terminate_component") != 1
+                    or operations.count("release_component") != 1
+                    or operations.index("release_component") <
+                       operations.index("terminate_component")
+                ):
+                    fail("terminate-return failure precedence/cleanup differs")
+                if name == "wc0-release-nonzero" and (
+                    session.get("state") != "component_retirement_incomplete"
+                    or session.get("release", {}).get("reference_count") != 1
+                    or operations.count("release_component") != 1
+                ):
+                    fail("ordinary nonzero component release state differs")
+                if name == "wc0-host-reference-leak" and (
+                    session.get("host", {}).get("reference_returned_to_baseline") is not False
+                    or session.get("host", {}).get("owner_release_result") != 1
+                ):
+                    fail("host-reference-leak physical state differs")
+                if name == "wc0-host-object-request":
+                    requests = [
+                        item for item in receipt["records"]
+                        if item.get("event") == "host_callback"
+                        and item.get("operation") == "createInstance"
+                    ]
+                    if len(requests) != 1 or (
+                        requests[0].get("result_u32_hex") != "00000001"
+                        or requests[0].get("output_null") is not True
+                    ):
+                        fail("unexpected host-object request did not fail closed")
+
+            expected_suppression = name in suppression_cases
+            shutdown = receipt.get("inherited_shutdown", {})
+            dispositions = shutdown.get("operations", {})
+            if set(dispositions) != {
+                "release_factory_3", "release_factory_2", "release_factory_base",
+                "exit_dll", "free_library",
+            }:
+                fail(f"{name} inherited shutdown disposition roster differs")
+            if expected_suppression:
+                if (
+                    any(value.get("disposition") !=
+                        "not_attempted_object_quiescence_unproved"
+                        for value in dispositions.values())
+                    or shutdown.get("clean_in_process_shutdown") is not False
+                    or shutdown.get("physical_containment_only") is not True
+                    or any(operation in operations for operation in dispositions)
+                ):
+                    fail(f"{name} crossed the object-quiescence shutdown gate")
+            elif (
+                any(value.get("disposition") != "completed"
+                    for value in dispositions.values())
+                or shutdown.get("clean_in_process_shutdown") is not True
+                or shutdown.get("physical_containment_only") is not False
             ):
-                fail("missing-factory ownership/cleanup timeline differs")
-            if fixture == "wf0-no-entry" and (
-                "module_entry_absent" not in lifecycle
-                or "module_exit_absent" not in lifecycle
-            ):
-                fail("optional entry/exit absence timeline differs")
-            expected_in_flight = {
-                "wf0-hang-entry": "init_dll",
-                "wf0-crash-entry": "init_dll",
-                "wf0-hang-factory": "get_plugin_factory",
-                "wf0-crash-factory": "get_plugin_factory",
-                "wf0-hang-class": "get_class_info_unicode",
-                "wf0-crash-class": "get_class_info_unicode",
-                "wf0-hang-release": "release_factory_3",
-                "wf0-crash-release": "release_factory_3",
-            }.get(fixture)
-            if expected_in_flight is not None and (
-                receipt["last_in_flight_operation"] != expected_in_flight
-            ):
-                fail(f"{fixture} call attribution differs")
-            expected_release_order = {
-                "wf0-no-entry": [
-                    "release_factory_3", "release_factory_2", "release_factory_base"
-                ],
-                "wf0-factory1-only": ["release_factory_base"],
-                "wf0-factory2-only": ["release_factory_2", "release_factory_base"],
-                "wf0-factory3-fallback": [
-                    "release_factory_3", "release_factory_2", "release_factory_base"
-                ],
-                "wf0-create-instance-tripwire": [
-                    "release_factory_3", "release_factory_2", "release_factory_base"
-                ],
-            }.get(fixture)
-            if expected_release_order is not None:
-                release_operations = [
-                    value for value in operations if value.startswith("release_factory_")
-                ]
-                if release_operations != expected_release_order:
-                    fail(f"{fixture} reverse release order differs")
+                fail(f"{name} did not complete its permitted inherited shutdown")
+
             results.append({
-                "fixture": fixture, "expected_blocker": expected,
+                "exercise": name, "fixture": fixture,
+                "component_case": component_case,
+                "expected_blocker": expected,
                 "observed_blocker": receipt["blocker"],
                 "classification": receipt["classification"],
                 "last_in_flight_operation": receipt["last_in_flight_operation"],
-                "raw_exit": receipt["raw_exit"], "tripwire_marker_absent": marker_absent,
+                "forbidden_method_marker_absent": marker_absent,
+                "inherited_shutdown": receipt["inherited_shutdown"],
                 "cleanup": receipt["cleanup"],
             })
         finally:
@@ -534,12 +712,19 @@ def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> d
     if after_all != before_all:
         fail("protected state differs after negative suite")
     return {
-        "schema": "linux-vst-bridge-wf0-negative-tests/v1",
-        "import_negatives": import_negative_tests(build),
-        "deterministic": deterministic_tests(source_root),
-        "loader_adapter": adapter,
-        "live_fault_results": results,
-        "live_fault_roster_complete": [item["fixture"] for item in results] == list(FAULT_TARGETS),
+        "schema": "linux-vst-bridge-wc0-negative-tests/v1",
+        "deterministic": deterministic,
+        "inherited_archive_negative_suite": "not_run_focused_wc0_only",
+        "loader_adapter_runtime_exercise": "not_run_focused_wc0_only",
+        "direct_again_results": results[:2],
+        "live_fault_results": results[2:],
+        "direct_again_roster_complete": [
+            item["exercise"] for item in results[:2]
+        ] == [item[0] for item in direct_cases],
+        "live_fault_roster_complete": [
+            item["fixture"] for item in results[2:]
+        ] == list(FAULT_TARGETS),
+        "focused_exercise_count": len(results),
         "protected_state_equal": True,
     }
 
