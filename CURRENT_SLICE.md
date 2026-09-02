@@ -3,69 +3,78 @@
 ## Status
 
 ```text
-status: active_design_amendment
-authority_phase: reconnaissance_and_design
-implementation_authorized: false
+status: active_implementation_slice
+authority_phase: implementation
+implementation_authorized: true
 slice: WF0
 target: main
 selection_basis_commit: 745ca63bdd8641ade85cb9a024c1dc842681192d
 selection_basis_tree: 275521adff574f165bb2b3e883c2ec909bae4c66
-v5_amendment_basis_commit: 15523c69567d24b256cb3c65cb6f06bfa07854be
-v5_amendment_basis_tree: a6e2fc8c7a564f50e9033094fde847387478de62
-v5_design_commit: 6fc3632a04fdba9b8fc20794205e97881c4313f9
-v5_design_tree: 0e6b666b28edf6be510d9d29dfa501b5460312bc
-v5_design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V5.md
-v5_design_blob: 74fd8dc5616bf6a5bca45753503947681b35cfaf
-v5_review_blob: 8abbbdaf60fc00e00eb0a036fe9463ab4da35984
-v5_approval_blob: aabf50ae545a4a4a3d7efddc4abec00d04dfc452
-stopped_implementation_basis_commit: 67026ad7160a584cbf9cdb4bf0db7b8dbfa60136
-stopped_implementation_basis_tree: 2021dfcbf000d934a462d40efef6bbe7b54e0862
+stopped_v5_implementation_basis_commit: 67026ad7160a584cbf9cdb4bf0db7b8dbfa60136
+stopped_v5_implementation_basis_tree: 2021dfcbf000d934a462d40efef6bbe7b54e0862
 mandatory_stop_result: RETURN_TO_DESIGN_GATE
 v6_design_commit: 1e14eb8c318263b7307fe8e07aae13628402e0c1
 v6_design_tree: 63f9ce1edfe663848e2a4832c7facad881b83aac
-v6_design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V6.md
 v6_design_blob: e153943a302e3f9b38c74c9048f70a1d65c7b238
-v6_design_sha256: c6835b31ac8b2cf2f0fb1dee7634ef16f133387c0bffba8bf6671447175cd737
-v6_review_path: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW_V6.md
-v6_github_review_id: 5084539680
+v6_review_github_id: 5084539680
 v6_review_result: DESIGN_REPAIR_REQUIRED
 design_revision: wf0-design-v7
-design_status: proposed_for_adversarial_review
+design_commit: 1d13fefc60ad6c2c49e384cd30631f60be2a3de2
+design_tree: 752b885643c730378ceefab99c7d7ec9277fdf56
 design_card: docs/slices/WF0/IMPLEMENTATION_DESIGN_V7.md
-reconciliation: docs/slices/WF0/WINDOWS_BUILD_PLANE_RECONCILIATION.md
-implementation_authorized: false
+design_card_git_blob: 3c8ac56cfaa8c95cb99fa327b392ed447453a87b
+design_card_sha256: 844d646509933516ff60eeb2c6213cd1c2e89a8d22b5c986ac986fb104a19d77
+adversarial_review: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW_V7.md
+adversarial_review_git_blob: 962ba4ba031bcec79cb57ae234985ee962bb16ce
+adversarial_review_github_id: 5084789559
+adversarial_review_result: DESIGN_CLEAR
+design_approval: docs/slices/WF0/DESIGN_APPROVAL_V7.md
+design_approval_git_blob: 95e1a19cc965044ae9176d202abb799e36506176
+design_authority_pr: #21
+design_authority_merge_commit: pending_exact_merge_readback
+design_authority_merge_tree: pending_exact_merge_readback
+authority_readback_required: true
+implementation_branch: codex/wf0-windows-vst3-factory-census-v7
+implementation_branch_state: not_created_until_exact_authority_readback
+implementation_basis_rule: exact_current_main_after_authority_readback_merges
 successor_selection_authorized: false
 ```
 
-WF0 returned to the design gate after the exact V5 MinGW/AGain route exposed a
-material build-owner mismatch. V5 remains immutable historical authority for
-the stopped attempt; it does not authorize the supported Windows/MSVC build
-plane.
-
-The exact immutable V6 design received `DESIGN_REPAIR_REQUIRED` in GitHub
-technical-lead review `5084539680`. V7 repairs only its two P1 custody gaps:
-mandatory attestation unavailable for the actual private/user repository and
-the missing exact implementation-source handoff to the Deck. No implementation
-resumes until the exact V7 design receives fresh independent review, separate
-operator approval, an approval receipt, authority merge, and exact `main`
-commit/tree readback.
+The immutable V7 design is technically clear and separately approved. This card authorizes implementation only after the V7 authority is merged and its exact merge commit/tree are recorded through a post-merge authority readback. The implementation branch must begin from the exact resulting `main`; it may not begin from the stopped V5 basis, the V6/V7 design branch, or the preserved provisional MinGW commit.
 
 ## Primary claim
 
-> On the exact accepted Steam Deck fixture, a repository-owned supervised
-> Windows x86_64 factory probe, built against the pinned official VST3 SDK and
-> executed through the accepted Runtime 4 / Proton 11 lane in a disposable
-> WF0-owned scan environment, loads the exact pinned AGain VST3 bundle, obtains
-> its plug-in factory, retains deterministic factory metadata and the complete
-> expected three-class census, unloads cleanly, and leaves the accepted WR0
-> environment and every protected fixture unchanged.
+> On the exact accepted Steam Deck fixture, a repository-owned supervised Windows x86_64 factory probe, built against the pinned official VST3 SDK and executed through the accepted Runtime 4 / Proton 11 lane in a disposable WF0-owned scan environment, loads the exact pinned AGain VST3 bundle, obtains its plug-in factory, retains deterministic factory metadata and the complete expected three-class census, unloads cleanly, and leaves the accepted WR0 environment and every protected fixture unchanged.
 
-The claim and ceiling are unchanged. V7 repairs only private Actions artifact
-custody and exact execution-source custody.
+The claim is not accepted until an exact V7 implementation head passes the approved proof matrix, independent pre-PR audit, technical-lead exact-head review, and merge.
 
-## Valid mandatory stop
+## Approved V7 authority
 
-The pinned upstream source establishes:
+```text
+immutable design:
+  path: docs/slices/WF0/IMPLEMENTATION_DESIGN_V7.md
+  revision: wf0-design-v7
+  commit: 1d13fefc60ad6c2c49e384cd30631f60be2a3de2
+  tree: 752b885643c730378ceefab99c7d7ec9277fdf56
+  Git blob: 3c8ac56cfaa8c95cb99fa327b392ed447453a87b
+  SHA-256: 844d646509933516ff60eeb2c6213cd1c2e89a8d22b5c986ac986fb104a19d77
+
+independent review:
+  path: docs/slices/WF0/ADVERSARIAL_DESIGN_REVIEW_V7.md
+  Git blob: 962ba4ba031bcec79cb57ae234985ee962bb16ce
+  GitHub review: 5084789559
+  result: DESIGN_CLEAR
+
+approval receipt:
+  path: docs/slices/WF0/DESIGN_APPROVAL_V7.md
+  Git blob: 95e1a19cc965044ae9176d202abb799e36506176
+```
+
+The V6 design and review remain immutable history. V7 supersedes V6 only for the actual private-repository artifact-custody boundary and the exact Mac-to-Deck implementation-source handoff. The scanner, factory, process, Runtime/Proton, evidence, and claim-ceiling laws inherited from V5/V6 remain binding.
+
+## Valid mandatory stop and preserved source
+
+The stopped V5 implementation correctly found:
 
 ```text
 SMTG VSTGUI integration forces VSTGUI_STANDALONE=ON
@@ -74,121 +83,142 @@ SMTG VSTGUI integration forces VSTGUI_STANDALONE=ON
     -> CMake: No SOURCES given to target: vstgui_standalone
 ```
 
-Pinned AGain returns when VSTGUI support is disabled and links
-`vstgui_support` when enabled. Patching the SDK/VSTGUI, copying upstream source,
-inventing a replacement target, or rewriting AGain would change the approved
-fixture/build owner. The stop was correct.
-
-The exact installed MinGW posture is:
-
-```text
-installed_exact_but_not_selected_for_wf0_again
-```
-
-This does not claim that MinGW is generally unusable for every future Windows
-utility.
-
-## Preserved provisional source
+The provisional source remains salvage material only:
 
 ```text
 commit: 5b166f4902af5e1e3b9c2287512f1f8f099c51d0
 parent: 67026ad7160a584cbf9cdb4bf0db7b8dbfa60136
 tree: fb6a14a78bcab6dd11b5720a725e9df841714743
-source/configuration delta: exactly 26 paths
-evidence delta: 0 paths
-status: salvage material only
-
-archive ref:
-  refs/archive/wf0-minwg-provisional-5b166f
-
-bundle:
-  <DECK_HOME>/.local/share/linux-vst-bridge/handoffs/
-    wf0-minwg-provisional-5b166f.bundle
-  SHA-256: c442d429ff20447d616c62c4273bbefaedbe4b28cd4631e3fc5683c4bb2d1143
-  git bundle verify: passed
-  advertised ref/commit: exact
-
-Mac custody:
-  same bundle imported under the same local archive ref
-  SHA-256, commit, parent, tree, and path delta: exact
-  archive ref pushed: no
+source/configuration paths: 26
+evidence paths: 0
+bundle SHA-256: c442d429ff20447d616c62c4273bbefaedbe4b28cd4631e3fc5683c4bb2d1143
+status: preserved_unaccepted_salvage_material
 ```
 
-The future V7 implementation does not merge, rebase, or wholesale cherry-pick
-this commit. It begins from exact merged V7 authority and reconstructs each
-audited reusable path under the V7 card.
+It may be audited path by path as a source reference. It may not be merged, rebased, wholesale cherry-picked, or treated as accepted implementation authority. No MinGW retry or SDK/VSTGUI patch is authorized.
 
-## Selected three-plane correction
+## Exact three-plane implementation boundary
 
 ```text
 MacControlPlane
-    -> private GitHub repository, branches, PRs, exact run/artifact-ID API,
-       raw wrapper/hash custody, exact source Git bundle,
-       SSH transfer, evidence publication
+    -> private GitHub repository and branch authority
+    -> exact implementation-source commit and manifest
+    -> exact private Actions run and artifact-ID custody
+    -> exact self-contained source Git bundle
+    -> ordinary SSH source/artifact handoff
+    -> evidence retrieval and Git publication
 
 WindowsBuildPlane
-    -> GitHub-hosted `windows-2022`
+    -> GitHub-hosted windows-2022
     -> Visual Studio 2022 / v143 / x64
     -> Windows SDK 10.0.19041.0
-    -> Visual Studio 17 2022 generator
-    -> exact SDK acquisition, two clean builds, PE checks,
-       canonical manifest, three-file envelope and one artifact upload
+    -> exact pinned VST3 SDK and submodules
+    -> two clean MSVC builds
+    -> PE/import/export/dependency verification
+    -> one exact private Actions artifact
 
 SteamDeckExecutionPlane
-    -> exact source-bundle verification, fixed local ref,
-       clean detached execution worktree and per-run source manifest
-    -> local content-addressed artifact verification/import
+    -> exact source-bundle verification and local handoff ref
+    -> clean detached execution worktree at exact source commit
+    -> exact 26-record source manifest before every run
+    -> exact content-addressed artifact import
     -> Runtime 4 / Proton 11 execution
-    -> held-gate, negative and positive proofs
-    -> cleanup, sanitized evidence, SSH return
+    -> held-gate, negative-family, and positive AGain proofs
+    -> cleanup, protected-state equality, and bounded evidence return
 ```
 
-The Deck has no normal WF0 GitHub login, API, artifact-download, push, or PR
-dependency. The hosted label is not durable build identity; every accepted run
-must bind the actual runner image, Windows, Visual Studio, MSVC, Windows SDK,
-CMake, generator, workflow, source, and artifact identities.
+The Deck has no normal WF0 GitHub login, fetch, push, API, pull-request, or Actions-artifact-download dependency.
 
-The exact repository posture is `kasselvania/Linux-VST-bridge`, visibility
-`private`, owner type `User`. GitHub artifact attestation, Enterprise Cloud,
-repository visibility/ownership change, organizational migration, replacement
-signing, release signing, and code signing are not WF0 prerequisites or claims.
+## Private Actions artifact custody
 
-## Proposed V7 implementation boundary
+The exact repository posture is:
 
 ```text
-tracked paths: 40
-implementation/configuration paths: 26
-evidence paths: 14
-implementation-source schema: linux-vst-bridge-wf0-implementation-source/v1
-windows-build schema: linux-vst-bridge-wf0-windows-build/v1
-artifact-manifest schema: linux-vst-bridge-wf0-artifact-manifest/v1
-Mac artifact-custody schema: linux-vst-bridge-wf0-mac-artifact-custody/v1
-source-handoff schema: linux-vst-bridge-wf0-source-handoff/v1
-evidence-handoff schema: linux-vst-bridge-wf0-evidence-handoff/v1
-proof-matrix rows: 62
-blocked results: 29
-material operations: 25
-owners: 14
+repository: kasselvania/Linux-VST-bridge
+visibility: private
+owner type: User
 ```
 
-These are proposed design values, not implementation permission. The exact
-paths, schemas, proofs, blockers, handoff contracts, and stop law are owned by
-`docs/slices/WF0/IMPLEMENTATION_DESIGN_V7.md`.
+GitHub artifact attestation, GitHub Enterprise Cloud, repository visibility or ownership changes, Sigstore, replacement signing, code signing, and release signing are not required or claimed.
+
+The Mac custody route must bind:
+
+```text
+exact repository
+exact workflow path and Git blob
+exact implementation head SHA and source-manifest digest
+exact workflow run ID and attempt
+exact artifact ID, name, size, digest, run and head identity
+raw exact-artifact-ID API download
+exact three-file inner envelope
+build-receipt hash
+payload hash
+artifact-manifest hash
+credential-free Mac custody receipt
+Mac/Deck transfer equality
+```
+
+The upload action's human-facing artifact URL and the REST artifact object's API URL are distinct typed values and must not be compared as identical strings. They are joined by exact artifact ID, repository, run, head SHA, name, and digest. The Mac custody receipt's `url` field is the REST API artifact URL.
+
+## Exact implementation-source handoff
+
+The Mac must create a self-contained, one-ref Git bundle for the exact implementation-source commit and bind it through:
+
+```text
+schema: linux-vst-bridge-wf0-source-handoff/v1
+advertised ref: refs/handoff/wf0-v7-source/<implementation-commit>
+Deck local ref: refs/handoff/wf0-v7-source/<implementation-commit>
+Deck execution worktree:
+  <HOME>/.local/share/linux-vst-bridge/worktrees/wf0/<implementation-commit>/
+```
+
+The source bundle, handoff receipt, Windows build receipt, artifact manifest, Mac custody receipt, Deck worktree, runtime receipts, evidence handoff, and final evidence commit must all name one exact implementation commit and one exact 26-record source-manifest digest.
+
+Every Deck execution occurs from the clean detached worktree. Individually copied scripts, the provisional MinGW worktree, a dirty checkout, or a GitHub-fetched Deck source are not authority.
+
+## Binding scanner and execution laws
+
+1. Every ordinary return from all 15 closed call operations must be followed immediately by its paired synchronously flushed `call_completed` record before any later lifecycle event or call attempt.
+2. Required `GetPluginFactory` is resolved and checked before optional `InitDll`. A missing export never resolves or invokes `InitDll`.
+3. With a present export, optional entry handling completes, its lifecycle result is published, then `factory_export_found` is published. Only an entry-absent or entry-succeeded branch invokes the retained factory export.
+4. Factory-release, `ExitDll`, `FreeLibrary`, and process-cleanup failures remain secondary to the first primary stage failure.
+5. No class-instantiation operation exists in the command, scanner event enum, or retained schema. `createInstance` is never called.
+6. Scanner readiness and exact process identity must be established before the supervisor releases the module-load gate.
+7. The first exact Runtime 4 / Proton 11 scanner launch owns any disposable-prefix initialization. No separate bootstrap workload is authorized.
+
+## Approved implementation boundary
+
+```text
+owners: 14
+material operations: 25
+proof-matrix rows: 62
+blocked results: 29
+implementation/configuration paths: 26
+evidence paths: 14
+total tracked implementation paths: 40
+```
+
+The exact path rosters and schemas are owned by `docs/slices/WF0/IMPLEMENTATION_DESIGN_V7.md`. The implementation must contain one clean 26-path source commit followed by one 14-path evidence-only commit. A forty-first tracked path or source change after build/runtime proof is a material stop unless the exact design already classifies it as an ordinary repair within the approved envelope.
 
 ## Protected state
 
-The accepted WR0 environment identity
-`d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4`,
-Runtime 4 / Proton 11 identity
-`2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`,
-SteamOS read-only posture, `.wine`, Steam compatdata, historical SR0/HP0/HP1/
-WR0/WR0A source/evidence, current Bitwig `6.1` installation and configuration,
-Serum/vendor material, unrelated worktrees, and every path outside the design
-envelope are protected.
+The following remain protected:
+
+- accepted WR0 environment and receipts;
+- Runtime 4 / Proton 11 assets and digest `2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`;
+- accepted WR0 environment identity `d3ed38d7ed53e9a5973cbf22fc504f2479dbdd15616fe1bfc1d5e1cd0bf5f4c4`;
+- SteamOS read-only posture;
+- `.wine` and Steam compatdata;
+- historical SR0/HP0/HP1/WR0/WR0A source and evidence;
+- current Bitwig 6.1 application/runtime/scope/shadow/override/permission projection;
+- Serum and all vendor material;
+- unrelated repositories and worktrees;
+- every tracked path outside the exact 40-path envelope.
 
 Bitwig remains unlaunched protected state only:
 
 ```text
+version: 6.1
 application commit: 8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231
 runtime commit: bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8
 user override SHA-256: 1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e
@@ -196,22 +226,50 @@ system override SHA-256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991
 permission-output SHA-256: c7f5a34dce104cc3d347dcaf89e135cc5ad73b891101d7587f78423858ad5c73
 ```
 
-Historical Bitwig `6.0.11` evidence stays truthful for its original fixture and
-is not promoted to current `6.1` behavioral acceptance.
+No Bitwig 6.1 behavior is claimed.
 
-## Current no-implementation posture
+## Material-discovery stop law
 
-This phase authorizes only the completed source preservation, bounded read-only
-failure investigation, supplied V6 review record, V7 design repair, one local
-design-repair commit, and draft design PR update through the Mac. It does not
-authorize a workflow run, Windows build, another MinGW attempt, SDK/VSTGUI
-patch, artifact implementation, Proton/Wine/
-scanner/validator/Bitwig/Serum workload, WR0 mutation, V7 approval receipt,
-merge, or successor slice.
+Implementation returns to the design gate if it requires:
+
+- a build plane other than the approved Windows 2022 / MSVC route;
+- an SDK or VSTGUI patch, copied upstream source, replacement target, or different positive fixture;
+- mandatory artifact attestation or another signing system;
+- Deck GitHub authentication or API access;
+- a source route other than the approved self-contained Git bundle and exact local handoff ref;
+- mutation or reuse of the accepted WR0 environment;
+- a separate bootstrap workload;
+- class instantiation or a new unapproved factory-call operation;
+- a materially different Runtime/Proton process topology;
+- Bitwig execution or historical-evidence rewrite;
+- IPC, native proxy, audio, GUI, Serum, authorization, packaging, manager, broker, registry, release signing, or distribution ownership;
+- a changed primary claim, owner model, proof ownership, path envelope, fixture, security posture, or claim ceiling.
+
+An ordinary workflow, build, scanner, transfer, importer, supervisor, or evidence defect inside the approved owners and 40 paths is repaired in the implementation branch and does not by itself authorize another design revision.
+
+## Claim ceiling and nonclaims
+
+WF0 ends after:
 
 ```text
-RETURN_TO_DESIGN_GATE retained
-design_status=proposed_for_adversarial_review
-implementation_authorized=false
-successor_selection_authorized=false
+exact Windows module load
+    -> required GetPluginFactory
+    -> factory metadata and interface support
+    -> exact ordered three-class census
+    -> reverse-order factory release
+    -> optional ExitDll
+    -> FreeLibrary
+    -> exact process cleanup and environment retirement
 ```
+
+WF0 does not establish class instantiation, component/controller lifecycle, connections, host context, buses, parameters, events, state, processing, audio, timing, automation, presets, GUI, native proxy publication, IPC, Bitwig behavior, Serum behavior, authorization, packaging, cryptographic provenance, signing, distribution, a permanent build service, or general VST3/Windows/Linux compatibility.
+
+## Next lawful action
+
+1. Merge the exact V7 design/review/approval authority.
+2. Record the actual merge commit/tree through a separate authority readback.
+3. Create `codex/wf0-windows-vst3-factory-census-v7` from that exact post-readback `main` basis.
+4. Issue the bounded V7 implementation handoff.
+5. Leave implementation unaccepted until independent pre-PR audit, technical-lead review, and merge.
+
+No successor slice or status closure is authorized.
