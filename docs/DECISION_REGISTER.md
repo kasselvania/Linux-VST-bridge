@@ -185,7 +185,7 @@ Need proof of typed coverage, bounded parsing, recursion, thread affinity, multi
 
 ### O-004 — Flatpak broker placement
 
-Options:
+Options include:
 
 - all runtime pieces inside the DAW sandbox;
 - narrow host broker;
@@ -216,7 +216,7 @@ Before implementing additional C++ shells, inspect current permissive bindings a
 
 ### O-009 — Editor beyond detached mode
 
-Candidates:
+Candidates include:
 
 - X11/XWayland embedding;
 - native presentation using newer VST3 rendering/input interfaces where supported;
@@ -254,3 +254,21 @@ Select only after Serum reveals which architectural assumptions need counter-pre
 **Claim ceiling:** WR0A proves repository/live-state reconciliation only. It does not prove Windows VST3 factory loading or hosting, Serum authorization or operation, Bitwig scanning of a Windows plug-in, audio, parameters, state transport, GUI/editor behavior, IPC, shared memory, real-time safety, packaging, Steam-independent distribution, another DAW, or general Linux compatibility.
 
 **Successor:** None selected. The next product slice must be chosen through `docs/prompts/CHOOSE_NEXT_SLICE.md` from the post-closure `main` commit and tree.
+
+## Accepted Windows VST3 boundary rulings
+
+### D-023 — Supervised Windows VST3 factory boundary accepted
+
+**Decision:** WF0 establishes the first exact Windows VST3 object-model boundary on the accepted Steam Deck fixture. A repository-owned supervised Windows x86_64 probe, built from one exact source identity through the supported Windows Server 2022 / Visual Studio 2022 / MSVC lane, loaded the pinned official AGain VST3 through the accepted Runtime 4 / Proton 11 route, obtained its factory, retained exact factory metadata and the complete ordered three-class census, released every acquired factory interface, called the applicable module exit, unloaded cleanly, drained its owned processes, retired its disposable environments, and preserved protected state.
+
+**Accepted implementation:** Immutable design `wf0-design-v7`, commit `1d13fefc60ad6c2c49e384cd30631f60be2a3de2`, tree `752b885643c730378ceefab99c7d7ec9277fdf56`, design blob `3c8ac56cfaa8c95cb99fa327b392ed447453a87b`, SHA-256 `844d646509933516ff60eeb2c6213cd1c2e89a8d22b5c986ac986fb104a19d77`; design review `5084789559`; design-authority merge `17646ff1cd5342d58ecf9346e26fad6f963f8a6a`; authority-readback basis `ce049eb410d4cff91de13fdb8bf4f0a3c4b03ece` / tree `2a782b5bdba4021dcbfeb5d2df5d9ff165936542`; implementation PR #25; source commit `8b76ab886fd75079c72e3f820781beb5d1b36ae9` / tree `829aae74e221a169ccfbb46387004b5edb04ba37`; reviewed evidence head `0096010a36ebf31a36149064d64059142ce7cfed` / tree `58401f5b9d3caab9ffe53155fb2f0517d1801427`; technical-lead review `5090768080`; merge `e694cc84344394553c4a3eff6b13f34226b368ae` / tree `58401f5b9d3caab9ffe53155fb2f0517d1801427`.
+
+**Accepted build and custody:** The canonical 26-record source-manifest digest is `03c3c017f7d6eb357ae657e992ef3c3988932f6870ac3a18192dfd9e343ee05f`. Accepted workflow run `33601279364` used `windows-2022`, Visual Studio Enterprise `17.14.37614.0`, MSVC `19.44.35228`, linker `14.44.35228.0`, toolset `v143`, Windows SDK `10.0.19041.0`, and CMake `3.31.6`. Two distinct Release roots produced a byte-identical 48-path comparison. The scanner SHA-256 is `36643c2447811b52e1ad1455eb47e0ced9b5f5bf03849f9625d80979d7c5798f`; the AGain module SHA-256 is `60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f`; artifact-manifest identity is `217d38dddb5e8ae4ee6b60245cc03b3174710cf2692e2e6e1a4c4ea1c04b7684`; exact Actions artifact ID is `9835459546`; its upload, REST, and raw-wrapper digest bytes join at `7ccb8f53aee02748d98abaa641a53e479ebd6f1d7b8bf381c1c2f11644d44d53`. These establish exact custody, not trusted-builder, provenance, signing, or release claims.
+
+**Accepted runtime proof:** A 15-second held gate prevented module loading. The complete 22-module negative family assigned exact module-entry, factory, class-enumeration, release, exit, and unload failures, including crash and timeout attribution. The positive run completed all 15 paired calls, retained `create_instance_called=false`, observed `IPluginFactory`, `IPluginFactory2`, and `IPluginFactory3`, and returned this exact factory order: `84E8DE5F92554F5396FAE4133C935A18` (`AGain VST3`), `D39D5B65D7AF42FA843F4AC841EB04F0` (`AGain VST3Controller`), and `41347FD6FED64094AFBB12B7DBA1D441` (`AGain SideChain VST3`). Reverse release returned `2`, `1`, and `0`; `ExitDll` and `FreeLibrary` succeeded; all owned descendants drained; every disposable environment retired; the accepted WR0 environment and Bitwig 6.1 protected projection remained exact; and the Deck performed no GitHub operation.
+
+**Architecture consequence:** The Mac-control / supported-Windows-build / Steam-Deck-execution split is accepted as the exact WF0 proof topology. It demonstrates that Windows artifacts and exact implementation source can reach a rootless SteamOS execution fixture without making the Deck a GitHub or Windows-build authority. It does not yet select the final product build, distribution, broker, proxy, or runner architecture.
+
+**Claim ceiling:** WF0 ends before class instantiation. It does not establish component/controller lifecycle, host context, connection points, buses, parameters, events, state, processing, audio, timing, automation, presets, GUI/editor behavior, native proxy publication, IPC, shared memory, Bitwig hosting of a Windows plug-in, Serum operation or authorization, packaging, signing, release suitability, product-runner selection, another plug-in, another DAW, or general Windows VST3/Linux compatibility.
+
+**Successor:** None selected. The next bounded product slice must be chosen through `docs/prompts/CHOOSE_NEXT_SLICE.md` from the post-closure `main` commit and tree.
