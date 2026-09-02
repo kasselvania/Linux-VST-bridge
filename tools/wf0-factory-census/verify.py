@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent PE, manifest, archive, and two-build checks for WF0."""
+"""Independent PE, manifest, archive, source-surface, and build checks for WC0."""
 
 from __future__ import annotations
 
@@ -288,14 +288,47 @@ def compare_builds(a: pathlib.Path, b: pathlib.Path) -> dict[str, Any]:
     }
 
 
-def scanner_has_no_instantiation_call(source_root: pathlib.Path) -> bool:
-    token = re.compile(r"(?:->|\.)\s*createInstance\s*\(")
-    for path in sorted((source_root / "windows-factory-probe").rglob("*")):
-        if path.is_file() and path.suffix in {".cpp", ".h"} and token.search(
-            path.read_text(encoding="utf-8")
-        ):
-            return False
-    return True
+def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
+    """Require the five-call WC0 plug-in surface and reject adjacent capabilities."""
+    root = source_root / "windows-factory-probe"
+    texts = {
+        path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.suffix in {".cpp", ".h"}
+    }
+    component = texts.get("source/component_instance_session.cpp", "")
+    expected = {
+        "create_component": r"\bfactory\s*->\s*createInstance\s*\(",
+        "get_controller_class_id": r"\bcomponent\s*->\s*getControllerClassId\s*\(",
+        "initialize_component": r"\bcomponent\s*->\s*initialize\s*\(",
+        "terminate_component": r"\bcomponent\s*->\s*terminate\s*\(",
+        "release_component": r"\bcomponent\s*->\s*release\s*\(",
+    }
+    counts = {
+        name: len(re.findall(pattern, component))
+        for name, pattern in expected.items()
+    }
+    if counts != {name: 1 for name in expected}:
+        fail(f"WC0 plug-in call surface differs: {counts}")
+    forbidden_calls = (
+        "setIoMode", "getBusCount", "getBusInfo", "getRoutingInfo",
+        "activateBus", "setActive", "setState", "getState", "setProcessing",
+        "setupProcessing", "process", "connect", "disconnect", "notify",
+        "createView", "setComponentHandler",
+    )
+    for operation in forbidden_calls:
+        if re.search(rf"\bcomponent\s*->\s*{operation}\s*\(", component):
+            fail(f"WC0 scanner calls an out-of-scope component method: {operation}")
+    combined = "\n".join(texts.values())
+    for interface in ("IEditController", "IAudioProcessor", "IConnectionPoint"):
+        if interface in combined:
+            fail(f"WC0 scanner names an out-of-scope interface: {interface}")
+    return {
+        "closed_plugin_operation_count": 5,
+        "operation_call_counts": counts,
+        "controller_creation_absent": True,
+        "audio_bus_parameter_state_processing_editor_calls_absent": True,
+    }
 
 
 if __name__ == "__main__":

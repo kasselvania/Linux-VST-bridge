@@ -1,20 +1,16 @@
-name: WF0 Windows MSVC build
+name: WC0 Windows MSVC build
 
 on:
   push:
     branches:
-      - codex/wf0-windows-vst3-factory-census-v7
+      - codex/wc0-windows-vst3-processor-component-admission
     paths:
       - .github/workflows/wf0-windows-msvc-build.yml
-      - .gitignore
-      - CMakeLists.txt
       - cmake/WF0DependencyLock.cmake
-      - docs/WF0_WINDOWS_BUILD_PLANE_LOCK.md
       - tools/wf0-factory-census/README.md
       - tools/wf0-factory-census/artifacts.py
       - tools/wf0-factory-census/build.py
       - tools/wf0-factory-census/common.py
-      - tools/wf0-factory-census/environment.py
       - tools/wf0-factory-census/evidence.py
       - tools/wf0-factory-census/negative_tests.py
       - tools/wf0-factory-census/normalize.py
@@ -22,13 +18,10 @@ on:
       - tools/wf0-factory-census/supervise.py
       - tools/wf0-factory-census/verify.py
       - windows-factory-probe/CMakeLists.txt
-      - windows-factory-probe/include/linux_vst_bridge/wf0_probe/census.h
       - windows-factory-probe/include/linux_vst_bridge/wf0_probe/events.h
-      - windows-factory-probe/source/factory_census.cpp
-      - windows-factory-probe/source/factory_census.h
+      - windows-factory-probe/source/component_instance_session.cpp
+      - windows-factory-probe/source/component_instance_session.h
       - windows-factory-probe/source/main.cpp
-      - windows-factory-probe/source/win32_module.cpp
-      - windows-factory-probe/source/win32_module.h
       - windows-fixtures/wf0/CMakeLists.txt
       - windows-fixtures/wf0/source/fault_fixture.cpp
 
@@ -77,7 +70,7 @@ jobs:
         id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: wf0-windows-build-${{ github.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          name: wc0-windows-build-${{ github.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}\wf0-envelope\wf0-payload.zip
             ${{ runner.temp }}\wf0-envelope\WF0_WINDOWS_BUILD_RECEIPT.json
@@ -101,7 +94,7 @@ jobs:
           $canonicalRestDigest = "sha256:$env:WF0_ARTIFACT_DIGEST"
           $uploadResult = @(
             "artifact-id=$env:WF0_ARTIFACT_ID"
-            "artifact-name=wf0-windows-build-${{ github.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}"
+            "artifact-name=wc0-windows-build-${{ github.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}"
             "artifact-human-url=$env:WF0_ARTIFACT_URL"
             "artifact-digest-bare=$env:WF0_ARTIFACT_DIGEST"
             "artifact-digest-rest-form=$canonicalRestDigest"

@@ -40,3 +40,41 @@ foreach(target IN LISTS WF0_FAULT_TARGETS)
 endforeach()
 
 add_custom_target(wf0-fault-fixtures DEPENDS ${WF0_FAULT_TARGETS})
+
+set(WC0_FAULT_TARGETS
+    wc0-create-failure-null
+    wc0-create-success-null
+    wc0-create-failure-nonnull
+    wc0-controller-id-failure
+    wc0-controller-id-mismatch
+    wc0-initialize-failure
+    wc0-initialize-hang
+    wc0-initialize-crash
+    wc0-terminate-failure
+    wc0-terminate-hang
+    wc0-terminate-crash
+    wc0-release-nonzero
+    wc0-release-hang
+    wc0-release-crash
+    wc0-host-object-request
+    wc0-host-reference-leak)
+
+set(wc0_fault_kind 0)
+foreach(target IN LISTS WC0_FAULT_TARGETS)
+    add_library(${target} SHARED source/fault_fixture.cpp)
+    target_include_directories(${target} PRIVATE "${WF0_VST3_SDK_ROOT}")
+    target_compile_definitions(${target} PRIVATE
+        WF0_FAULT_KIND=255 WC0_FAULT_KIND=${wc0_fault_kind}
+        UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(${target} PRIVATE /W4 /permissive- /Brepro)
+    target_link_options(${target} PRIVATE /Brepro /INCREMENTAL:NO)
+    target_link_libraries(${target} PRIVATE pluginterfaces)
+    set_target_properties(${target} PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "${target}"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/fixtures"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/fixtures")
+    math(EXPR wc0_fault_kind "${wc0_fault_kind} + 1")
+endforeach()
+
+add_custom_target(wc0-fault-fixtures DEPENDS ${WC0_FAULT_TARGETS})
