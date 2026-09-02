@@ -1,231 +1,162 @@
-# Current Slice: WA0 — Windows VST3 Audio-Processor Interface Admission
+# Current Slice: None Selected
 
 ## Status
 
 ```text
-status: active_implementation_slice
-authority_phase: implementation
-implementation_authorized: true
-slice: WA0
-target: main
-selection_basis_commit: 68f52e5b9678d87b13547d3bb37078a0e6a1255c
-selection_basis_tree: 776a01340eca9ec456b9c063cf9201d31bd9f3e3
-selection_receipt: docs/slices/WA0/SLICE_SELECTION.md
-design_gate: required
-design_revision: wa0-design-v1
-design_status: approved_for_implementation
-design_card: docs/slices/WA0/IMPLEMENTATION_DESIGN.md
-design_commit: 0d5a41936c171f5d01d01b4c933875a1cfbe724a
-design_tree: 787f1adf99e6083c3c90fa73996f6c151d2de50c
-design_blob: d927c6dae430ffe7a811193e3d9119e573cfe316
-design_sha256: eb5bd8f3aa439944f5933ecc9f0c4bcb90d46b3657499b365d11a82c0e2858ac
-design_review: 5094205619 / DESIGN_CLEAR
-design_approval: docs/slices/WA0/DESIGN_APPROVAL.md
-design_branch: codex/wa0-windows-vst3-audio-processor-interface-design
-implementation_branch: codex/wa0-windows-vst3-audio-processor-interface-admission
-implementation_basis: exact design-authority merge commit and tree after readback
+status: no_active_slice
+authority_phase: no_active_slice
+implementation_authorized: false
+last accepted slice: WA0 — Windows VST3 Audio-Processor Interface Admission
 successor_selection_authorized: false
 ```
 
-## Primary claim
+No bus, processing-setup, audio, controller, connection-point, state, parameter, editor, native-proxy, IPC, Serum, Bitwig-hosting, authorization, packaging, runner-selection, or broader compatibility slice is selected or implied.
 
-> On the exact accepted Steam Deck fixture, the existing initialized AGain processor component exposes the mandatory `Steinberg::Vst::IAudioProcessor` interface through the exact interface query, the repository-owned Windows host acquires and retires exactly one such interface reference without calling any audio-processor method, and the accepted WC0 component, factory, module, process, environment, and protected-state shutdown remains exact.
-
-## Exact new boundary
+## Last accepted slice
 
 ```text
-accepted WC0 initialized AGain IComponent
-    -> query exact IAudioProcessor IID
-    -> verify result and output-pointer consistency
-    -> own exactly one acquired IAudioProcessor reference
-    -> release that reference exactly once to the component-owner baseline
-    -> continue accepted WC0 terminate, component release, factory release,
-       module exit, unload, process drainage, and environment retirement
+slice: WA0 — Windows VST3 Audio-Processor Interface Admission
+design revision: wa0-design-v1
+design commit: 0d5a41936c171f5d01d01b4c933875a1cfbe724a
+design tree: 787f1adf99e6083c3c90fa73996f6c151d2de50c
+design card blob: d927c6dae430ffe7a811193e3d9119e573cfe316
+design card SHA-256: eb5bd8f3aa439944f5933ecc9f0c4bcb90d46b3657499b365d11a82c0e2858ac
+design review: 5094205619 / DESIGN_CLEAR
+design-authority merge: 47aeb7dcbaaec271292408fb9bbe0f2e4f9d00a9
+design-authority tree: 2dc9d64fc296670469b2c5b8ca0dccff59f45c01
+implementation basis: 47aeb7dcbaaec271292408fb9bbe0f2e4f9d00a9
+implementation basis tree: 2dc9d64fc296670469b2c5b8ca0dccff59f45c01
+implementation PR: #32
+source commit: 24b7e6da7e29a5bd358097a6b89c5c59b747c413
+source tree: d7c43098a14d86bf36b9c428e3836e1eb5353613
+source-manifest SHA-256: 499a7e4879c1b1194f0f6d852e93f49cb914e994fdfc0a794474236cf7757a91
+reviewed evidence head: 99478005e9f2675036100486c87952b76d411f84
+reviewed evidence tree: 56e861611d0a0fdfeeafac517e40f8bb7ea9bb8f
+technical-lead review: 5096090726 / WA0_CLEAR
+implementation merge: 5d084ba5032dc8a7ce93be51e7d75dfd0d37ee22
+implementation merge tree: 56e861611d0a0fdfeeafac517e40f8bb7ea9bb8f
 ```
 
-WA0 owns only the processor-interface lease. It does not call an `IAudioProcessor` method and does not create the edit controller.
+## Accepted WA0 claim
 
-## Why this is the next product edge
+On the exact accepted Steam Deck fixture, the existing initialized AGain processor component exposed the mandatory `Steinberg::Vst::IAudioProcessor` interface through the exact interface query. The repository-owned Windows host acquired and retired exactly one such interface reference without calling any audio-processor method, then completed the accepted WC0 component, factory, module, process, environment, and protected-state shutdown.
 
-WC0 proved that the exact AGain processor class can be created as one initialized `IComponent` under the accepted Runtime 4 / Proton 11 path. The immediate unresolved processor-side question is whether that same live object exposes the mandatory audio-processing interface that a later host must use.
-
-This slice stops at interface admission and balanced ownership. It does not combine interface discovery with bus negotiation, processing setup, audio buffers, controller creation, connection points, IPC, or Bitwig integration.
-
-## Implementation authority
-
-The immutable `wa0-design-v1` card, technical-lead review `5094205619 /
-DESIGN_CLEAR`, and [design approval receipt](docs/slices/WA0/DESIGN_APPROVAL.md)
-authorize only the selected interface-admission implementation.
-
-The approved implementation envelope is exactly:
-
-- one new owner: `AudioProcessorInterfaceLease`;
-- eight closed lifecycle states;
-- two new plug-in call operations: `query_audio_processor` and
-  `release_audio_processor`;
-- four query result/output ownership cases;
-- one exact audio-interface quiescence gate;
-- eight focused negative fixtures;
-- 20 focused proof rows and 12 blocked results;
-- 17 source/configuration paths and fourteen evidence paths, 31 total.
-
-The implementation source commit must be a direct child of the exact merged
-design-authority readback basis and bind the frozen 17-record
-`linux-vst-bridge-wa0-implementation-source/v1` manifest.
-
-## Required lifecycle constraint
-
-The intended positive ordering is bounded to:
+Accepted identities and results include:
 
 ```text
-WC0 component initialized
-    -> query IAudioProcessor
-    -> retain one interface lease
-    -> release IAudioProcessor back to component-owner baseline
-    -> WC0 terminate
-    -> WC0 component release to zero
-    -> inherited factory/module shutdown
-```
+accepted Windows workflow run:
+  33689659595 / attempt 2
 
-A materially different ownership or ordering requirement discovered during reconnaissance must be returned for review rather than silently expanded.
+Actions artifact:
+  ID 9869994854
+  raw wrapper SHA-256 81f3d431a0cb00c4cc121799818ce5ac1b8487dfde583d03eb48b98adda7bf3b
 
-## Accepted infrastructure reused without redesign
+artifact-manifest SHA-256:
+  028228c6a8cc638b4aaf1f477b317359a22eb1dd84e90a12193bb3c5d9159070
 
-WA0 consumes the accepted WC0 and WF0 mechanisms as prerequisites:
-
-- supported Windows Server 2022 / Visual Studio 2022 / MSVC build plane;
-- exact source and Actions-artifact custody on the Mac;
-- ordinary SSH handoff to the rootless Steam Deck;
-- clean detached Deck execution worktree;
-- content-addressed artifact admission;
-- Runtime 4 / Proton 11 launch and process supervision;
-- disposable environment ownership and retirement;
-- exact AGain module and factory census;
-- WC0 processor creation, host context, initialization, termination, release, object-quiescence gate, and inherited shutdown.
-
-These mechanisms receive exact identity preflight and only the bounded regression needed by WA0. They are not successor-slice design subjects.
-
-## Authorized execution boundary
-
-Implementation may build the bounded changed Windows source through the
-accepted Windows Server 2022 / Visual Studio 2022 / MSVC workflow, perform
-exact Mac custody, transfer the exact source and artifact through the accepted
-ordinary SSH lane, and execute the nine designed WA0 exercises through the
-accepted Runtime 4 / Proton 11 route.
-
-Every source, build, artifact, handoff, Deck worktree, execution, and evidence
-identity must join the same exact WA0 source commit and 17-record manifest.
-The Steam Deck performs no GitHub operation. Bitwig 6.1 remains protected and
-unlaunched.
-
-No `IAudioProcessor` method is authorized. A material change to the owner,
-lifecycle, fixture, claim, infrastructure, path envelope, or proof strategy
-returns to the design gate.
-
-## Exact fixture
-
-```text
-selection basis commit:
-68f52e5b9678d87b13547d3bb37078a0e6a1255c
-
-selection basis tree:
-776a01340eca9ec456b9c063cf9201d31bd9f3e3
-
-accepted WC0 implementation merge:
-cb831c38e1be88f4bb6a0ab6f2fca2d94164891b
-
-accepted WC0 source commit:
-9c0096930df86fc5b171cdebec40b306a198316a
-
-accepted WC0 evidence head:
-77bb40dbf35e19fd93b9f79b5286a43d56b9cc21
-
-accepted WC0 source-manifest SHA-256:
-38699a1d2026cb1078a569dc1997122b0111c78e608f294777dcf4afc49c8b25
-
-accepted WC0 scanner SHA-256:
-51b899b7936921b24265ead9ff12180f14249d49b532ead9a18414559f5f83f7
-
-accepted WC0 artifact-manifest/cache SHA-256:
-25bd47471f01ef57b06b3c8232bb6cc7e40c767f281c30186fa5426130f8ae82
-
-Runtime 4 / Proton 11 digest:
-2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
+scanner SHA-256:
+  6ba5dab82d03cc2f736adc5c5d65b585b5673bdf0871ce445af8b59ba0a06122
 
 AGain module SHA-256:
-60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f
+  60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f
 
-processor class ID:
-84E8DE5F92554F5396FAE4133C935A18
+IAudioProcessor logical IID:
+  42043F99B7DA453CA569E79D9AAEC33D
 
-processor raw Windows TUID:
-5FDEE8845592534F96FAE4133C935A18
+IAudioProcessor raw Windows TUID:
+  993F0442DAB73C45A569E79D9AAEC33D
 
-accepted component interface:
-Steinberg::Vst::IComponent
-logical IID: E831FF31F2D54301928EBBEE25697802
-raw Windows TUID: 31FF31E8D5F20143928EBBEE25697802
+positive query:
+  kResultOk / non-null / tuple consistent
 
-candidate audio-processor interface:
-Steinberg::Vst::IAudioProcessor
-logical IID: 42043F99B7DA453CA569E79D9AAEC33D
-raw Windows TUID: 993F0442DAB73C45A569E79D9AAEC33D
+IAudioProcessor release:
+  1, exact component-owner reference baseline
 
-Bitwig:
-6.1, protected and unlaunched
+interface quiescence:
+  true
+
+WC0 host reference sequence:
+  1 -> 2 -> 1 -> 0
+
+final IComponent release:
+  0
+
+WA0 call attribution:
+  2 started / 2 completed / no WA0 call in flight
+
+focused proof matrix:
+  20 / 20 passed
+
+Runtime 4 / Proton 11 digest:
+  2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547
 ```
 
-## Anti-distraction law
+The eight focused negative fixtures assigned exact query and release failures. Failure/non-null output became owned cleanup state and was released exactly once. Query or release timeout/crash, unmatched completion, and unexpected release count suppressed WC0 termination, component/factory release, `ExitDll`, and `FreeLibrary`; accepted process containment proved physical retirement only. All nine live exercises reached zero descendants and exact disposable-environment retirement. The Deck performed no GitHub operation, and WR0, Runtime/Proton, SteamOS read-only posture, and Bitwig 6.1 protected state remained exact.
 
-WA0 may not redesign or re-prove:
+## Current accepted product frontier
 
-- GitHub authentication or Steam Deck credential persistence;
-- Windows build or artifact-custody architecture;
-- Mac-to-Deck transfer;
-- SteamOS persistence;
-- Runtime or Proton selection;
-- process-supervisor architecture;
-- the factory census;
-- the WC0 component and host-context lifecycle;
-- Bitwig installation or behavior.
-
-WA0 may not absorb:
-
-- any `IAudioProcessor` method call, including `setBusArrangements`, `getBusArrangement`, `canProcessSampleSize`, `getLatencySamples`, `setupProcessing`, `setProcessing`, `process`, or `getTailSamples`;
-- edit-controller creation or initialization;
-- `IConnectionPoint` pairing;
-- component bus enumeration or activation;
-- parameters or state;
-- audio, events, timing, automation, or presets;
-- GUI/editor behavior;
-- native Linux proxy, C ABI, IPC, or shared memory;
-- Bitwig execution;
-- Serum execution or authorization;
-- packaging, signing, release, or product-runner selection.
-
-A need for any of those owners is a material discovery and returns WA0 to the design gate.
-
-## Approved implementation path envelope
-
-The implementation branch may change exactly the 17 source/configuration paths
-and fourteen evidence paths frozen in `wa0-design-v1`. Completion has exactly
-two substantive commits above the merged authority basis:
+The project now proves this exact sequence on the accepted fixture:
 
 ```text
-one source commit: 17 source/configuration paths, zero evidence
-one evidence commit: 14 evidence paths, zero source changes
+native Linux VST3 build, publication, and Bitwig admission
+    -> controlled Runtime 4 / Proton 11 Windows execution
+    -> supported Windows/MSVC artifact build and Mac-to-Deck custody
+    -> Windows VST3 module open and factory acquisition
+    -> exact ordered factory class census
+    -> exact AGain processor creation as IComponent
+    -> exact controller-class-ID readback
+    -> minimal host-context initialization
+    -> exact IAudioProcessor interface query
+    -> one balanced audio-processor interface lease
+    -> component termination and final release
+    -> host reference retirement
+    -> object-quiescence gate
+    -> reverse factory release, module exit, unload, and zero-process retirement
 ```
 
-A need for a 32nd tracked implementation path is a material design discovery.
+The first unproved product boundary begins after processor-interface admission. No `IAudioProcessor` method has been called; no bus arrangement, sample-size capability, processing setup, processing, audio/event path, edit-controller object, processor/controller connection, native proxy, C ABI, or IPC has been established.
+
+Bitwig 6.1 remains current protected state only. WA0 makes no Bitwig 6.1 Windows-plug-in-hosting claim.
+
+## Mandatory execution-cost constraint before another product slice
+
+WA0 also exposed an accepted development-system defect that it did not repair:
+
+```text
+floating windows-2022 runner image
+    -> identical pinned source can rebuild the accepted AGain fixture to different bytes
+
+non-build evidence-renderer change
+    -> whole implementation source identity changes
+    -> complete Windows acceptance build, artifact custody, source handoff,
+       Deck admission, live proof, and evidence transaction become invalidated
+```
+
+A tiny two-call product slice consequently consumed repeated six-to-seven-minute acceptance builds and repeated cross-plane ceremony. Retrying until GitHub allocates an older runner image is not an acceptable development model.
+
+The next successor analysis must treat developer wall-clock cost, agent/token cost, invalidation granularity, and manual cross-plane choreography as first-class architecture requirements. It must prioritize a bounded proof-pipeline paydown before selecting another VST3 product capability. That paydown must preserve the accepted technical guard while addressing at least:
+
+- a build-input identity distinct from non-build orchestration/evidence source;
+- content-addressed reuse of immutable accepted fixtures rather than rebuilding them on every slice;
+- a cheap development-validation lane distinct from the final two-root acceptance producer;
+- one repository-owned Mac-to-Windows-to-Deck orchestration entry point;
+- deterministic owner/state cases kept out of live Proton execution unless they establish genuinely new live-runtime uncertainty;
+- explicit source freeze before expensive external proof begins.
+
+This constraint does not select or activate a successor slice. It constrains the next technical-lead selection analysis.
 
 ## Next lawful action
 
-Merge this exact approved design authority into `main`, read back the resulting
-commit and tree, create
-`codex/wa0-windows-vst3-audio-processor-interface-admission` from that exact
-basis, and implement only the immutable `wa0-design-v1` claim and 31-path
-envelope.
+Run the analysis-only successor-selection process in:
 
-A material design discovery returns WA0 to the design gate. Ordinary defects
-inside the approved lease owner, existing event/supervisor path, focused fault
-fixture, normalizer, or evidence renderer are implementation repairs.
+```text
+docs/prompts/CHOOSE_NEXT_SLICE.md
+```
+
+against the exact current `main` commit and tree after this status closure merges.
+
+The selection analysis must account for the mandatory execution-cost constraint above. It may recommend one bounded paydown slice and emit an operator approval sentence. It may not edit the repository, activate a slice, or implement a design-gated successor.
+
+## Explicit nonclaims
+
+WA0 does not prove any `IAudioProcessor` method, bus arrangement or enumeration, sample-size capability, latency/tail behavior, processing setup, `setProcessing`, `process`, audio/events, timing, automation, parameters, state, edit-controller creation or initialization, processor/controller connection, `IConnectionPoint`, GUI/editor behavior, native Linux proxy publication, C ABI, IPC, shared memory, Bitwig hosting of a Windows plug-in, Serum operation or authorization, packaging, signing, deterministic hosted-runner behavior, release suitability, product-runner selection, another plug-in, another DAW, or general Windows VST3/Linux compatibility.
