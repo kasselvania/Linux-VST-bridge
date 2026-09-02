@@ -3,9 +3,9 @@
 ## Status
 
 ```text
-status: active_design_slice
-authority_phase: reconnaissance_and_design
-implementation_authorized: false
+status: active_implementation_slice
+authority_phase: implementation
+implementation_authorized: true
 slice: WA0
 target: main
 selection_basis_commit: 68f52e5b9678d87b13547d3bb37078a0e6a1255c
@@ -13,13 +13,17 @@ selection_basis_tree: 776a01340eca9ec456b9c063cf9201d31bd9f3e3
 selection_receipt: docs/slices/WA0/SLICE_SELECTION.md
 design_gate: required
 design_revision: wa0-design-v1
-design_status: proposed_for_adversarial_review
+design_status: approved_for_implementation
 design_card: docs/slices/WA0/IMPLEMENTATION_DESIGN.md
+design_commit: 0d5a41936c171f5d01d01b4c933875a1cfbe724a
+design_tree: 787f1adf99e6083c3c90fa73996f6c151d2de50c
 design_blob: d927c6dae430ffe7a811193e3d9119e573cfe316
 design_sha256: eb5bd8f3aa439944f5933ecc9f0c4bcb90d46b3657499b365d11a82c0e2858ac
+design_review: 5094205619 / DESIGN_CLEAR
 design_approval: docs/slices/WA0/DESIGN_APPROVAL.md
 design_branch: codex/wa0-windows-vst3-audio-processor-interface-design
-implementation_branch: not_authorized
+implementation_branch: codex/wa0-windows-vst3-audio-processor-interface-admission
+implementation_basis: exact design-authority merge commit and tree after readback
 successor_selection_authorized: false
 ```
 
@@ -47,24 +51,27 @@ WC0 proved that the exact AGain processor class can be created as one initialize
 
 This slice stops at interface admission and balanced ownership. It does not combine interface discovery with bus negotiation, processing setup, audio buffers, controller creation, connection points, IPC, or Bitwig integration.
 
-## Design authority
+## Implementation authority
 
-This approval authorizes read-only reconnaissance and one implementation-design revision only.
+The immutable `wa0-design-v1` card, technical-lead review `5094205619 /
+DESIGN_CLEAR`, and [design approval receipt](docs/slices/WA0/DESIGN_APPROVAL.md)
+authorize only the selected interface-admission implementation.
 
-The design must define, at minimum:
+The approved implementation envelope is exactly:
 
-- the exact owner of the acquired `IAudioProcessor` reference;
-- the exact query point within the accepted WC0 lifecycle;
-- the result/output-pointer consistency law;
-- the exact logical IID and raw Windows TUID representation;
-- the reference-count and release law;
-- the extension to WC0 object quiescence requiring the audio-processor lease to be absent before component termination and retirement continue;
-- deterministic attribution for an unmatched query or release call;
-- the minimum focused fault family needed to distinguish query failure, inconsistent result/output, and incomplete interface retirement;
-- retained evidence and explicit claim ceiling;
-- the exact source/configuration and evidence path envelopes.
+- one new owner: `AudioProcessorInterfaceLease`;
+- eight closed lifecycle states;
+- two new plug-in call operations: `query_audio_processor` and
+  `release_audio_processor`;
+- four query result/output ownership cases;
+- one exact audio-interface quiescence gate;
+- eight focused negative fixtures;
+- 20 focused proof rows and 12 blocked results;
+- 17 source/configuration paths and fourteen evidence paths, 31 total.
 
-The design must not use pointer-address equality as interface identity. Multiple-interface C++ objects may return adjusted interface pointers. Identity must be established through the exact IID, ordinary result, non-null output contract, balanced reference ownership, and final object retirement.
+The implementation source commit must be a direct child of the exact merged
+design-authority readback basis and bind the frozen 17-record
+`linux-vst-bridge-wa0-implementation-source/v1` manifest.
 
 ## Required lifecycle constraint
 
@@ -98,16 +105,22 @@ WA0 consumes the accepted WC0 and WF0 mechanisms as prerequisites:
 
 These mechanisms receive exact identity preflight and only the bounded regression needed by WA0. They are not successor-slice design subjects.
 
-## Read-only reconnaissance permitted
+## Authorized execution boundary
 
-The design agent may inspect:
+Implementation may build the bounded changed Windows source through the
+accepted Windows Server 2022 / Visual Studio 2022 / MSVC workflow, perform
+exact Mac custody, transfer the exact source and artifact through the accepted
+ordinary SSH lane, and execute the nine designed WA0 exercises through the
+accepted Runtime 4 / Proton 11 route.
 
-- repository authority, accepted WC0 source, and WC0 retained evidence;
-- the exact pinned official VST3 SDK and recursive submodule sources already identified by the repository;
-- official interface definitions and AGain inheritance/query-interface implementation relevant to `IAudioProcessor`;
-- existing source and evidence schemas necessary to specify a bounded extension.
+Every source, build, artifact, handoff, Deck worktree, execution, and evidence
+identity must join the same exact WA0 source commit and 17-record manifest.
+The Steam Deck performs no GitHub operation. Bitwig 6.1 remains protected and
+unlaunched.
 
-No build, workflow run, artifact download, source handoff, Steam Deck command, Runtime/Proton launch, Bitwig launch, Serum inspection, environment creation, or external fixture mutation is authorized during design.
+No `IAudioProcessor` method is authorized. A material change to the owner,
+lifecycle, fixture, claim, infrastructure, path envelope, or proof strategy
+returns to the design gate.
 
 ## Exact fixture
 
@@ -192,26 +205,27 @@ WA0 may not absorb:
 
 A need for any of those owners is a material discovery and returns WA0 to the design gate.
 
-## Allowed design paths
+## Approved implementation path envelope
 
-The cumulative reconnaissance-and-design branch is limited to:
+The implementation branch may change exactly the 17 source/configuration paths
+and fourteen evidence paths frozen in `wa0-design-v1`. Completion has exactly
+two substantive commits above the merged authority basis:
 
 ```text
-CURRENT_SLICE.md
-docs/slices/WA0/SLICE_SELECTION.md
-docs/slices/WA0/IMPLEMENTATION_DESIGN.md
+one source commit: 17 source/configuration paths, zero evidence
+one evidence commit: 14 evidence paths, zero source changes
 ```
 
-A later independent adversarial review may add its separately authorized review record. No product source, workflow, fixture, tool, evidence, or governance path is authorized by this selection.
+A need for a 32nd tracked implementation path is a material design discovery.
 
 ## Next lawful action
 
-From the exact activation head, perform read-only reconnaissance and write one bounded `wa0-design-v1` implementation design at:
+Merge this exact approved design authority into `main`, read back the resulting
+commit and tree, create
+`codex/wa0-windows-vst3-audio-processor-interface-admission` from that exact
+basis, and implement only the immutable `wa0-design-v1` claim and 31-path
+envelope.
 
-```text
-docs/slices/WA0/IMPLEMENTATION_DESIGN.md
-```
-
-Update `CURRENT_SLICE.md` only to bind the resulting design commit, tree, blob, SHA-256, revision, and review-required status. Open one draft design PR targeting `main`.
-
-Implementation remains unauthorized. A fresh independent adversarial design review and a separate exact operator approval are required before any implementation branch, build, workflow, Deck operation, or runtime workload.
+A material design discovery returns WA0 to the design gate. Ordinary defects
+inside the approved lease owner, existing event/supervisor path, focused fault
+fixture, normalizer, or evidence renderer are implementation repairs.
