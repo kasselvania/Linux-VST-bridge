@@ -1,793 +1,1173 @@
 #!/usr/bin/env python3
-"""Deterministic and bounded live negative proofs for the WA0 lease owner."""
+"""Deterministic DX0 identity, admission, invalidation, and recovery proofs."""
 
 from __future__ import annotations
 
-import secrets
+import ast
+import copy
+import json
 import pathlib
-import re
-import shutil
-import stat
-import struct
 import tempfile
-import warnings
-import zipfile
 from typing import Any
 
 from artifacts import (
-    MAX_ENTRY_BYTES, MAX_ZIP_BYTES, _safe_relative,
-    artifact_digest_regression, zip_census,
-)
-from build import (
-    EXPECTED_AGAIN_MODULE_SHA256, MSBUILD_MAX_CPU_COUNT, MSVC_POST_OPTIONS,
-    build_command_environment, eol_checkout_regression,
+    accepted_fixture_identity, accepted_fixture_identity_sha256,
+    create_source_handoff, verify_source_handoff,
 )
 from common import (
-    FAULT_TARGETS, canonical_json, environment_parent, fail, process_guard,
-    protected_snapshot, runner_root, write_atomic,
+    DX0_AGAIN_BUNDLE_MANIFEST_SHA256, DX0_AGAIN_MODULE_SHA256,
+    DX0_COMPLETE_SOURCE_SCHEMA, DX0_DECK_EXECUTION_PATHS,
+    DX0_EVIDENCE_RENDERER_SCHEMA, DX0_PLAN_ID, DX0_REF, DX0_RENDERER_PATHS,
+    DX0_RESULT_SCHEMA, DX0_SOURCE_PATHS, DX0_TRANSACTION_SCHEMA,
+    DX0_TRANSACTION_STATE_SCHEMA, DX0_WINDOWS_BUILD_PATHS,
+    RUNNER_DIGEST, canonical_json, dx0_closed_plan, dx0_complete_source,
+    dx0_deck_execution_input, dx0_evidence_renderer, dx0_identity_sha256,
+    dx0_source_role, dx0_validate_plan, dx0_windows_build_input, fail,
+    sha256_bytes,
 )
-from environment import ScanEnvironment, create_environment, retire_environment
-from evidence import evidence_allowlist_regression
-from normalize import decode_field
-from supervise import (
-    ADAPTER_OPERATION_PREFIX, EXPECTED_ADAPTER_OPERATIONS, IN_FLIGHT_BLOCKER,
-    OPERATIONS, StreamState, adapter_operation_ledger, root_identity_continuity,
-    supervise, supervise_adapter, topology_role_census,
+from evidence import (
+    publish_packet, render_packet, result_admission_receipt, validate_packet,
+    validate_result,
 )
-from verify import (
-    audio_method_verifier_regression, parse_pe, scanner_component_call_surface,
-)
+from run import validate_retained_result, validate_retained_result_file
+from verify import audio_method_verifier_regression, scanner_component_call_surface
 
 
-EXPECTED = {
-    "wa0-query-failure-null": "WA0_INTERFACE_QUERY_BLOCKED",
-    "wa0-query-success-null": "WA0_INTERFACE_QUERY_INCONSISTENT",
-    "wa0-query-failure-nonnull": "WA0_INTERFACE_QUERY_INCONSISTENT",
-    "wa0-query-hang": "WA0_INTERFACE_QUERY_BLOCKED",
-    "wa0-query-crash": "WA0_INTERFACE_QUERY_BLOCKED",
-    "wa0-release-unexpected-count": "WA0_INTERFACE_RELEASE_BLOCKED",
-    "wa0-release-hang": "WA0_INTERFACE_RELEASE_BLOCKED",
-    "wa0-release-crash": "WA0_INTERFACE_RELEASE_BLOCKED",
+def _replace_blob(value: dict[str, Any], path: str, blob: str = "f" * 40) -> dict[str, Any]:
+    changed = copy.deepcopy(value)
+    records = changed.get("records", [])
+    found = 0
+    for record in records:
+        if record.get("path") == path:
+            record["git_blob"] = blob
+            found += 1
+    if found != 1:
+        fail(f"DX0 deterministic mutation path is not in identity: {path}")
+    return changed
+
+
+def _role(seed: str) -> dict[str, Any]:
+    return {
+        "identity_sha256": seed * 64, "commit": seed * 40, "tree": seed * 40,
+        "parent": "0" * 40, "ref": DX0_REF,
+        "manifest_sha256": seed * 64,
+    }
+
+
+def synthetic_valid_result(plan_sha: str, *,
+                           producer_role: dict[str, Any] | None = None,
+                           execution_role: dict[str, Any] | None = None) -> dict[str, Any]:
+    producer_source = producer_role or _role("1")
+    execution_source = execution_role or _role("2")
+    positive = {
+        "query_result_u32_hex": "00000000", "query_output_nonnull": True,
+        "query_tuple_consistent": True, "interface_release_reference_count": 1,
+        "audio_processor_method_called": False, "fixture": "AGain VST3",
+        "interface_logical_iid": "42043F99B7DA453CA569E79D9AAEC33D",
+        "interface_raw_windows_tuid": "993F0442DAB73C45A569E79D9AAEC33D",
+    }
+    calls = {"paired_call_ledger": True, "started_count": 22,
+             "completed_count": 22, "last_in_flight_operation": None,
+             "query_audio_processor_count": 1, "release_audio_processor_count": 1,
+             "ledger_overflowed": False}
+    quiescence = {"interface_quiescence": True, "object_quiescence": True}
+    shutdown = {"component_release_reference_count": 0,
+                "reverse_factory_release": True, "exit_dll": True,
+                "free_library": True, "scanner_completed": True,
+                "clean_in_process_shutdown": True}
+    cleanup = {"owned_descendant_count": 0, "process_group_empty": True,
+               "environment_retired": True, "stage_absent": True}
+    protected = {"pre_sha256": "a" * 64, "post_sha256": "a" * 64,
+                 "equal": True, "comparison_completed": True}
+    execution_input_sha = "b" * 64
+    return {
+        "schema": DX0_RESULT_SCHEMA, "operation_nonce": "c" * 32,
+        "artifact_producer_source": producer_source,
+        "deck_execution_source": execution_source,
+        "execution_input": {
+            "identity_sha256": execution_input_sha,
+            "schema": "linux-vst-bridge-dx0-deck-execution-input/v1",
+            "proof_plan_sha256": plan_sha, "runtime_proton_sha256": RUNNER_DIGEST,
+            "source_handoff_ref":
+                f"refs/handoff/dx0-source/{execution_source['commit']}",
+            "detached_worktree_commit": execution_source["commit"],
+            "host_artifact_manifest_sha256": "d" * 64,
+            "accepted_fixture_identity_sha256": "e" * 64,
+        },
+        "host_artifact": {
+            "windows_build_input_sha256": "f" * 64, "workflow_run_id": 1,
+            "run_attempt": 1, "artifact_id": 1, "manifest_sha256": "d" * 64,
+            "build_receipt_sha256": "1" * 64, "mac_custody_receipt_sha256": "2" * 64,
+        },
+        "accepted_fixture": {
+            "identity_sha256": "e" * 64,
+            "bundle_manifest_sha256": DX0_AGAIN_BUNDLE_MANIFEST_SHA256,
+            "module_sha256": DX0_AGAIN_MODULE_SHA256,
+            "mac_store_receipt_sha256": "3" * 64,
+            "deck_store_receipt_sha256": "3" * 64,
+        },
+        "source_handoff": {
+            "bundle_sha256": "4" * 64, "receipt_sha256": "5" * 64,
+            "advertised_ref":
+                f"refs/handoff/dx0-source/{execution_source['commit']}",
+            "worktree_commit": execution_source["commit"], "worktree_clean": True,
+        },
+        "closed_plan": {
+            "plan_id": DX0_PLAN_ID, "sha256": plan_sha,
+            "expected_result": "wa0-positive-interface-lease-complete-v1",
+            "live_exercise_ceiling": 1,
+        },
+        "original_observation": {
+            "run_id": "6" * 32, "phase_nonce": "7" * 32,
+            "event_stream_sha256": "8" * 64,
+            "completion_disposition": "completed",
+            "started_utc": "2026-09-02T00:00:00Z",
+            "completed_utc": "2026-09-02T00:01:00Z",
+        },
+        "positive_result": positive, "call_facts": calls,
+        "quiescence": quiescence, "shutdown": shutdown,
+        "cleanup": cleanup, "protected_state": protected,
+        "integrity": {
+            "positive_result_sha256": sha256_bytes(canonical_json(positive)),
+            "call_facts_sha256": sha256_bytes(canonical_json(calls)),
+            "quiescence_sha256": sha256_bytes(canonical_json(quiescence)),
+            "shutdown_sha256": sha256_bytes(canonical_json(shutdown)),
+            "cleanup_sha256": sha256_bytes(canonical_json(cleanup)),
+            "protected_state_sha256": sha256_bytes(canonical_json(protected)),
+        },
+    }
+
+
+DX0_TEST_OPERATIONS = {
+    "derive_identities", "plan_external_work", "freeze_source", "verify_fixture",
+    "reuse_or_produce_host", "custody_host_artifact", "create_source_handoff",
+    "transfer_and_admit_deck_inputs", "execute_deck_batch",
+    "retrieve_and_retain_result", "render_and_validate_evidence",
+    "close_transaction",
 }
 
 
-def deterministic_tests(source_root) -> dict[str, Any]:
-    if set(IN_FLIGHT_BLOCKER) != OPERATIONS or len(OPERATIONS) != 22:
-        fail("closed call-operation mapping is not exactly 22 total functions")
-    if tuple(EXPECTED_ADAPTER_OPERATIONS) != tuple([
-        "load_library", "init_dll", "get_plugin_factory", "get_factory_info",
-        "query_factory_2", "query_factory_3", "count_classes",
-        "get_class_info_unicode", "get_class_info_2", "get_class_info_1",
-        "release_factory_3", "release_factory_2", "release_factory_base",
-        "exit_dll", "free_library", "create_component",
-        "get_controller_class_id", "initialize_component",
-        "query_audio_processor", "release_audio_processor",
-        "terminate_component", "release_component",
-    ]):
-        fail("loader-adapter operation roster differs from the exact WA0 contract")
+def _phase_receipt(name: str, inputs: dict[str, Any], outputs: dict[str, Any],
+                   *, nonce: str = "9" * 32,
+                   disposition: str = "completed") -> dict[str, Any]:
+    return {
+        "phase": name, "phase_nonce": nonce, "disposition": disposition,
+        "input_sha256": sha256_bytes(canonical_json(inputs)),
+        "inputs": inputs, "outputs": outputs,
+    }
+
+
+def synthetic_original_state(result: dict[str, Any]) -> dict[str, Any]:
+    phases = {
+        name: _phase_receipt(name, {}, {}) for name in DX0_TEST_OPERATIONS
+    }
+    execute_inputs = {
+        "deck_execution_input_sha256": result["execution_input"]["identity_sha256"],
+        "proof_plan_sha256": result["closed_plan"]["sha256"],
+        "phase_nonce": result["original_observation"]["phase_nonce"],
+    }
+    phases["execute_deck_batch"] = _phase_receipt(
+        "execute_deck_batch", execute_inputs,
+        {"retained_result_sha256": sha256_bytes(canonical_json(result))},
+        nonce=result["original_observation"]["phase_nonce"],
+    )
+    phases["retrieve_and_retain_result"] = _phase_receipt(
+        "retrieve_and_retain_result", {}, {
+            "retained_result_sha256": sha256_bytes(canonical_json(result)),
+        },
+    )
+    phases["transfer_and_admit_deck_inputs"] = _phase_receipt(
+        "transfer_and_admit_deck_inputs", {}, {
+            "source_ref": result["source_handoff"]["advertised_ref"],
+            "detached_worktree_commit": result["deck_execution_source"]["commit"],
+            "deck_github_operations": 0,
+        }, disposition="reused",
+    )
+    return {
+        "schema": DX0_TRANSACTION_STATE_SCHEMA,
+        "operation_nonce": result["operation_nonce"],
+        "transaction_key": sha256_bytes(canonical_json({
+            "source": result["deck_execution_source"],
+            "plan_sha256": result["closed_plan"]["sha256"],
+        })),
+        "state": "transaction_complete",
+        "source": result["deck_execution_source"],
+        "plan_sha256": result["closed_plan"]["sha256"],
+        "created_utc": "2026-09-02T00:00:00Z",
+        "run_invocation_count": 1,
+        "phases": phases,
+        "effect_counts": {
+            "windows_builds": 0, "artifact_downloads": 0,
+            "custody_operations": 0, "artifact_transfers": 0,
+            "source_transfers": 1, "deck_executions": 1,
+            "evidence_renders": 1,
+        },
+    }
+
+
+def _expect_rejected(value: dict[str, Any]) -> bool:
+    try:
+        validate_result(value)
+    except RuntimeError:
+        return True
+    return False
+
+
+def _malformed_result_mutations() -> dict[str, Any]:
+    return {
+        "missing_cleanup": lambda item: item.pop("cleanup"),
+        "failed_query": lambda item: item["positive_result"].update(
+            query_result_u32_hex="80004002"
+        ),
+        "nonzero_descendants": lambda item: item["cleanup"].update(
+            owned_descendant_count=1
+        ),
+        "environment_not_retired": lambda item: item["cleanup"].update(
+            environment_retired=False
+        ),
+        "protected_mismatch": lambda item: item["protected_state"].update(
+            equal=False
+        ),
+        "wrong_type": lambda item: item["host_artifact"].update(artifact_id="1"),
+        "boolean_integer": lambda item: item["shutdown"].update(
+            component_release_reference_count=False
+        ),
+        "invalid_timestamp": lambda item: item["original_observation"].update(
+            completed_utc="not-a-time"
+        ),
+        "wrong_handoff_ref": lambda item: item["source_handoff"].update(
+            advertised_ref="refs/handoff/dx0-source/" + "0" * 40
+        ),
+        "wrong_detached_worktree": lambda item: item["execution_input"].update(
+            detached_worktree_commit="0" * 40
+        ),
+    }
+
+
+def _validator_rejects(validator: Any, value: dict[str, Any]) -> bool:
+    try:
+        validator(value)
+    except RuntimeError:
+        return True
+    return False
+
+
+def _repo_python_path(node: ast.AST) -> pathlib.PurePosixPath | None:
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id == "repo_root" and not node.args
+            and not node.keywords):
+        return pathlib.PurePosixPath(".")
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return pathlib.PurePosixPath(node.value)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        left = _repo_python_path(node.left)
+        right = _repo_python_path(node.right)
+        if left is not None and right is not None:
+            return left / right
+    return None
+
+
+def deck_execution_import_closure(source_root: pathlib.Path) -> tuple[str, ...]:
+    """Resolve the actual local imports and repository Python executions."""
+    module_root = source_root / "tools/wf0-factory-census"
+    local_modules = {
+        path.stem: path.relative_to(source_root)
+        for path in module_root.glob("*.py")
+        if path.is_file() and not path.is_symlink()
+    }
+    entry = pathlib.PurePosixPath("tools/wf0-factory-census/run.py")
+    queue = [entry]
+    closure: set[pathlib.PurePosixPath] = set()
+    while queue:
+        relative = queue.pop(0)
+        if relative in closure:
+            continue
+        path = source_root / relative
+        if (not path.is_file() or path.is_symlink()
+                or path.suffix != ".py"):
+            fail(f"DX0 Deck import-closure path is unsafe: {relative}")
+        closure.add(relative)
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(relative))
+        imported_names: set[str] = set()
+        assignments: dict[str, pathlib.PurePosixPath] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported_names.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported_names.add(node.module.split(".", 1)[0])
+            elif (isinstance(node, ast.Assign) and len(node.targets) == 1
+                  and isinstance(node.targets[0], ast.Name)):
+                selected = _repo_python_path(node.value)
+                if (selected is not None and selected.suffix == ".py"
+                        and not selected.is_absolute() and ".." not in selected.parts):
+                    assignments[node.targets[0].id] = selected
+        for name in sorted(imported_names):
+            imported = local_modules.get(name)
+            if imported is not None and imported not in closure:
+                queue.append(imported)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not node.args:
+                continue
+            called = (
+                node.func.id if isinstance(node.func, ast.Name)
+                else node.func.attr if isinstance(node.func, ast.Attribute)
+                else ""
+            )
+            if called not in {"command", "Popen", "run"}:
+                continue
+            for nested in ast.walk(node.args[0]):
+                if isinstance(nested, ast.Name) and nested.id in assignments:
+                    executed = assignments[nested.id]
+                    if executed not in closure:
+                        queue.append(executed)
+    return tuple(sorted(str(path) for path in closure))
+
+
+class FakeGitHub:
+    def __init__(self, source: str, nonce: str) -> None:
+        self.source = source
+        self.nonce = nonce
+
+    def json(self, route: str) -> dict[str, Any]:
+        return {"workflow_runs": [{"id": 73, "head_sha": self.source,
+                                   "event": "workflow_dispatch",
+                                   "display_title": f"DX0 host fixture nonce {self.nonce}"}]}
+
+
+class SettlingRunGitHub:
+    def __init__(self, source: str, nonce: str, build_input_sha256: str) -> None:
+        self.source = source
+        self.nonce = nonce
+        self.build_input_sha256 = build_input_sha256
+        self.calls = 0
+
+    def json(self, route: str) -> dict[str, Any]:
+        self.calls += 1
+        settled = self.calls > 1
+        return {
+            "id": 73, "event": "workflow_dispatch",
+            "head_branch": "codex/dx0-split-build-identity-proof-transaction",
+            "head_sha": self.source,
+            "path": ".github/workflows/wf0-windows-msvc-build.yml",
+            "display_title": (
+                f"DX0 host {self.build_input_sha256} nonce {self.nonce}"
+                if settled else "temporarily unsettled"
+            ),
+            "repository": {"full_name": "kasselvania/Linux-VST-bridge"},
+            "run_attempt": 1, "status": "queued", "conclusion": None,
+        }
+
+
+class NeverCompletesGitHub:
+    def __init__(self, source: str, nonce: str, build_input_sha256: str) -> None:
+        self.source = source
+        self.nonce = nonce
+        self.build_input_sha256 = build_input_sha256
+        self.calls = 0
+
+    def json(self, route: str) -> dict[str, Any]:
+        self.calls += 1
+        return {
+            "id": 74, "event": "workflow_dispatch",
+            "head_branch": "codex/dx0-split-build-identity-proof-transaction",
+            "head_sha": self.source,
+            "path": ".github/workflows/wf0-windows-msvc-build.yml",
+            "display_title": (
+                f"DX0 host {self.build_input_sha256} nonce {self.nonce}"
+            ),
+            "repository": {"full_name": "kasselvania/Linux-VST-bridge"},
+            "run_attempt": 1, "status": "queued", "conclusion": None,
+        }
+
+
+def deterministic_tests(source_root: pathlib.Path, *, source_commit: str,
+                        driver_class: type[Any], result_recovery: Any,
+                        store_join_validator: Any,
+                        observation_state_validator: Any,
+                        execution_writer_recovery: Any,
+                        deck_result_recorder: Any,
+                        transaction_keys: set[str],
+                        seed_fixture_acquirer: Any) -> dict[str, Any]:
+    current = dx0_complete_source(source_commit)
+    if current["record_count"] != 10 or tuple(record["path"] for record in current["records"]) != DX0_SOURCE_PATHS:
+        fail("DX0 deterministic source-roster proof failed")
+    build = dx0_windows_build_input(source_commit)
+    plan = dx0_closed_plan(DX0_PLAN_ID)
+    plan_sha = dx0_identity_sha256(plan)
+    fixture_sha = accepted_fixture_identity_sha256()
+    deck = dx0_deck_execution_input(source_commit, "9" * 64, fixture_sha, plan_sha)
+    renderer = dx0_evidence_renderer(source_commit)
+    import_closure = deck_execution_import_closure(source_root)
+    if (import_closure != DX0_DECK_EXECUTION_PATHS
+            or "tools/wf0-factory-census/evidence.py" in import_closure):
+        fail("DX0 transitive Deck import closure differs")
+
+    historical_a = dx0_windows_build_input("4a5ff302acc4927142003e29bd401368920b275b")
+    historical_b = dx0_windows_build_input("24b7e6da7e29a5bd358097a6b89c5c59b747c413")
+    if historical_a != historical_b:
+        fail("DX0 historical evidence-only sources do not reproduce one build identity")
+
+    complete_renderer = _replace_blob(current, "tools/wf0-factory-census/evidence.py")
+    renderer_changed = _replace_blob(renderer, "tools/wf0-factory-census/evidence.py")
+    if (dx0_identity_sha256(complete_renderer) == dx0_identity_sha256(current)
+            or dx0_identity_sha256(renderer_changed) == dx0_identity_sha256(renderer)
+            or "tools/wf0-factory-census/evidence.py" in DX0_WINDOWS_BUILD_PATHS
+            or "tools/wf0-factory-census/evidence.py" in DX0_DECK_EXECUTION_PATHS):
+        fail("DX0 renderer-only invalidation classification failed")
+
+    complete_driver = _replace_blob(current, "tools/host-proof.py")
+    if (dx0_identity_sha256(complete_driver) == dx0_identity_sha256(current)
+            or "tools/host-proof.py" in DX0_WINDOWS_BUILD_PATHS
+            or "tools/host-proof.py" in DX0_DECK_EXECUTION_PATHS
+            or "tools/host-proof.py" in DX0_RENDERER_PATHS):
+        fail("DX0 Mac-driver-only invalidation classification failed")
+
+    deck_changed = _replace_blob(deck, "tools/wf0-factory-census/run.py")
+    if (dx0_identity_sha256(deck_changed) == dx0_identity_sha256(deck)
+            or "tools/wf0-factory-census/run.py" in DX0_WINDOWS_BUILD_PATHS):
+        fail("DX0 Deck-only invalidation classification failed")
+    build_changed = _replace_blob(build, ".github/workflows/wf0-windows-msvc-build.yml")
+    if dx0_identity_sha256(build_changed) == dx0_identity_sha256(build):
+        fail("DX0 Windows-build invalidation classification failed")
+
+    fixture = accepted_fixture_identity()
     call_surface = scanner_component_call_surface(source_root)
-    source = (source_root / "windows-factory-probe/source/win32_module.cpp").read_text(
+    audio_method_regression = audio_method_verifier_regression()
+    workflow_text = (source_root / ".github/workflows/wf0-windows-msvc-build.yml").read_text(
         encoding="utf-8"
     )
-    required_fragments = (
-        "SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)",
-        "LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR |",
-        "LOAD_LIBRARY_SEARCH_SYSTEM32",
-        "LoadLibraryExW(path.c_str(), nullptr,",
+    build_text = (source_root / "tools/wf0-factory-census/build.py").read_text(
+        encoding="utf-8"
     )
-    if any(fragment not in source for fragment in required_fragments):
-        fail("production loader source does not retain the exact DLL-search contract")
-    stream = StreamState()
-    stream.accept({
-        "event": "call_started", "sequence": 1, "operation": "free_library",
-        "interface": None, "ordinal": None, "tier": None,
-    })
-    stream.accept({
-        "event": "call_completed", "sequence": 2, "attempt_sequence": 1,
-        "operation": "free_library", "interface": None, "ordinal": None,
-        "tier": None, "return_kind": "win32_error",
-    })
-    rejected = 0
-    for malformed in (
-        {"event": "call_completed", "sequence": 1, "attempt_sequence": 0,
-         "operation": "free_library", "interface": None, "ordinal": None, "tier": None},
-        {"event": "lifecycle", "sequence": 2, "state": "module_unloaded"},
-        {"event": "unknown", "sequence": 1},
-    ):
-        candidate = StreamState()
+    dx0_build_body = build_text.split("def build_dx0_workflow", 1)[1].split(
+        "\ndef build_workflow", 1
+    )[0]
+    if (fixture["bundle_manifest"]["sha256"] != DX0_AGAIN_BUNDLE_MANIFEST_SHA256
+            or build["build_contract"]["targets"] != ["wf0-factory-probe"]
+            or build["build_contract"]["again_built"] is not False
+            or "\n  push:" in workflow_text
+            or "python tools\\wf0-factory-census\\build.py dx0-workflow-build" not in workflow_text
+            or "configure_and_build(" in dx0_build_body
+            or "configure_and_build_host(transaction / \"a\", sdk)" not in dx0_build_body
+            or "configure_and_build_host(transaction / \"b\", sdk)" not in dx0_build_body
+            or call_surface["audio_processor_method_calls_absent"] is not True
+            or audio_method_regression["receiver_independent"] is not True):
+        fail("DX0 accepted fixture/host-only producer contract failed")
+
+    current_role = dx0_source_role(current)
+    valid = synthetic_valid_result(plan_sha, execution_role=current_role)
+    validate_result(valid)
+    validate_retained_result(valid)
+    malformed_mutations = _malformed_result_mutations()
+    parity_rejected: list[str] = []
+    for name, mutate in malformed_mutations.items():
+        candidate = copy.deepcopy(valid)
+        mutate(candidate)
+        mac_rejected = _validator_rejects(validate_result, candidate)
+        deck_rejected = _validator_rejects(validate_retained_result, candidate)
+        if mac_rejected != deck_rejected or not mac_rejected:
+            fail(f"DX0 Deck/Mac result-validator parity differs: {name}")
+        parity_rejected.append(name)
+    with tempfile.TemporaryDirectory(prefix="dx0-validator-parity-") as temporary:
+        result_path = pathlib.Path(temporary) / "DX0_TRANSACTION_RESULT.json"
+        result_path.write_bytes(canonical_json(valid))
+        sidecar = result_path.with_suffix(result_path.suffix + ".sha256")
+        sidecar.write_bytes(
+            f"{sha256_bytes(result_path.read_bytes())}  {result_path.name}\n".encode()
+        )
+        if (validate_retained_result_file(result_path) != valid):
+            fail("DX0 Deck retained-result-file validator rejected valid input")
+        from evidence import validate_result_file as mac_validate_result_file
+        if mac_validate_result_file(result_path) != valid:
+            fail("DX0 Mac retained-result-file validator rejected valid input")
+        sidecar.write_text("0" * 64 + f"  {result_path.name}\n", encoding="utf-8")
+        file_rejections = []
+        for validator in (validate_retained_result_file, mac_validate_result_file):
+            try:
+                validator(result_path)
+            except RuntimeError:
+                file_rejections.append(True)
+        if file_rejections != [True, True]:
+            fail("DX0 Deck/Mac result-sidecar rejection parity differs")
+        result_path.write_text(
+            json.dumps(valid, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        sidecar.write_bytes(
+            f"{sha256_bytes(result_path.read_bytes())}  {result_path.name}\n".encode()
+        )
+        canonical_rejections = []
+        for validator in (validate_retained_result_file, mac_validate_result_file):
+            try:
+                validator(result_path)
+            except RuntimeError:
+                canonical_rejections.append(True)
+        if canonical_rejections != [True, True]:
+            fail("DX0 Deck/Mac canonical-result rejection parity differs")
+    consumer = _role("3")
+    admission = result_admission_receipt(valid, consumer_source=consumer, renderer=renderer)
+    if (admission["artifact_producer_source"] == admission["deck_execution_source"]
+            or admission["deck_execution_source"] == admission["evidence_consumer_source"]
+            or admission["fresh_deck_execution_for_consumer"] is not False):
+        fail("DX0 distinct P/E/C result admission failed")
+
+    with tempfile.TemporaryDirectory(prefix="dx0-state-test-") as temporary:
+        driver = driver_class(source_commit, DX0_PLAN_ID, proof_root=pathlib.Path(temporary) / "transactions")
+        nonce = "a" * 32
+        recovered = driver._reconcile_run(FakeGitHub(source_commit, nonce), nonce)
+        if recovered != 73:
+            fail("DX0 lost-dispatch-ack reconciliation failed")
+        settling = SettlingRunGitHub(
+            source_commit, nonce, dx0_identity_sha256(build)
+        )
+        settled_run, settled_identity = driver._read_exact_run(
+            settling, 73, nonce, attempts=2, delay_seconds=0,
+        )
+        if (settling.calls != 2 or settled_run["id"] != 73
+                or settled_identity["id"] != 73):
+            fail("DX0 accepted-run metadata-settling recovery failed")
+        clock_value = [0.0]
+
+        def clock() -> float:
+            return clock_value[0]
+
+        def sleeper(seconds: float) -> None:
+            clock_value[0] += seconds
+
+        never = NeverCompletesGitHub(
+            source_commit, nonce, dx0_identity_sha256(build)
+        )
+        if driver._wait_for_run(
+                never, 74, nonce, timeout_seconds=2.0, poll_seconds=1.0,
+                clock=clock, sleeper=sleeper) is not None or never.calls != 3:
+            fail("DX0 bounded workflow-completion wait proof failed")
+        driver.record_run_invocation()
+        driver.record_run_invocation()
+        if driver.state["run_invocation_count"] != 2:
+            fail("DX0 run-invocation ledger proof failed")
+        original_derive = copy.deepcopy(driver.state["phases"]["derive_identities"])
+        driver.phase("derive_identities", "reused", inputs={"replacement": True},
+                     outputs={"replacement": True})
+        if driver.state["phases"]["derive_identities"] != original_derive:
+            fail("DX0 completed phase provenance was rewritten")
+        driver.set_state("source_frozen")
+        driver.set_state("planned")
+        if driver.state["state"] != "source_frozen":
+            fail("DX0 transaction state regressed during resume")
+        lock_parent = pathlib.Path(temporary) / "locks"
+        lock = driver_class.acquire_single_writer(lock_parent, "key", {"intent": "one"})
+        duplicate_rejected = False
         try:
-            candidate.accept(malformed)
-        except Exception:
-            rejected += 1
-    if rejected != 3:
-        fail("deterministic malformed event adapters did not reject every case")
-
-    unmatched = {}
-    for operation, blocker in (
-        ("create_component", "WC0_COMPONENT_CREATE_BLOCKED"),
-        ("get_controller_class_id", "WC0_CONTROLLER_ID_BLOCKED"),
-        ("initialize_component", "WC0_COMPONENT_INITIALIZE_BLOCKED"),
-        ("query_audio_processor", "WA0_INTERFACE_QUERY_BLOCKED"),
-        ("release_audio_processor", "WA0_INTERFACE_RELEASE_BLOCKED"),
-        ("terminate_component", "WC0_COMPONENT_TERMINATE_BLOCKED"),
-        ("release_component", "WC0_COMPONENT_RELEASE_BLOCKED"),
-    ):
-        candidate = StreamState()
-        candidate.accept({
-            "event": "call_started", "sequence": 1, "operation": operation,
-            "interface": (
-                "IPluginFactory" if operation == "create_component"
-                else "IAudioProcessor" if operation == "release_audio_processor"
-                else "IComponent"
-            ),
-            "ordinal": None, "tier": None,
-            "object_role": "again_processor_component",
-        })
-        if candidate.in_flight is None or IN_FLIGHT_BLOCKER[operation] != blocker:
-            fail(f"unmatched WA0 operation attribution differs: {operation}")
-        unmatched[operation] = blocker
-    framed_adapter_stderr = (
-        b"runtime startup diagnostic\n"
-        + b"".join(
-            f"{ADAPTER_OPERATION_PREFIX}{operation}\n".encode("ascii")
-            for operation in EXPECTED_ADAPTER_OPERATIONS
-        )
-        + b"runtime shutdown diagnostic\n"
-    )
-    adapter_operations, runtime_line_count = adapter_operation_ledger(
-        framed_adapter_stderr
-    )
-    if (
-        adapter_operations != list(EXPECTED_ADAPTER_OPERATIONS)
-        or runtime_line_count != 2
-    ):
-        fail("loader adapter owned-ledger framing regression differs")
-    try:
-        adapter_operation_ledger(
-            f"{ADAPTER_OPERATION_PREFIX}unknown_operation\n".encode("ascii")
-        )
-    except Exception:
-        pass
-    else:
-        fail("loader adapter accepted an unknown owned operation record")
-    unicode_name = "AGain VST3"
-    normalized_unicode = decode_field(
-        unicode_name.encode("utf-16-le").hex(), "utf16le", 64
-    )
-    if (
-        normalized_unicode["text"] != unicode_name
-        or normalized_unicode["source_encoding"] != "utf16le"
-    ):
-        fail("closed UTF-16LE field-label mapping regression differs")
-    try:
-        decode_field("4100", "utf-16-le", 64)
-    except Exception:
-        pass
-    else:
-        fail("normalizer accepted a codec name outside the closed field labels")
-    initial_root = {
-        "pid": 100, "pgrp": 100, "session": 100, "start_ticks": 700,
-        "cmdline": "/runtime/_v2-entry-point --verb=run",
-    }
-    exec_root = {
-        **initial_root,
-        "cmdline": "/runtime/run --verb=run",
-    }
-    continuity = root_identity_continuity(100, initial_root, exec_root)
-    if (
-        not continuity["runtime_root_start_identity_revalidated"]
-        or not continuity["runtime_root_session_revalidated"]
-        or not continuity["runtime_root_process_group_revalidated"]
-        or not continuity["runtime_entrypoint_exec_transition_observed"]
-    ):
-        fail("Runtime entry-point exec continuity regression differs")
-    rejected_identity_changes = 0
-    for key, value in (
-        ("pid", 101), ("start_ticks", 701), ("pgrp", 101), ("session", 101)
-    ):
-        changed = {**exec_root, key: value}
-        try:
-            root_identity_continuity(100, initial_root, changed)
-        except Exception:
-            rejected_identity_changes += 1
-    if rejected_identity_changes != 4:
-        fail("Runtime root identity regression accepted a prohibited change")
-    topology_roles = topology_role_census(
-        {
-            **exec_root,
-            "cmdline": (
-                f"{runner_root()}/proton runinprefix "
-                "C:\\wf0\\bin\\wf0-factory-probe.exe "
-                "--session exact-session"
-            ),
-        },
-        [
-            {
-                "pid": 102,
-                "cmdline": (
-                    "/usr/bin/python3 proton runinprefix "
-                    "C:\\wf0\\bin\\wf0-factory-probe.exe "
-                    "--session exact-session"
-                ),
-            },
-            {
-                "pid": 103,
-                "cmdline": (
-                    "/usr/lib/wine/wine64 "
-                    "C:\\wf0\\bin\\wf0-factory-probe.exe "
-                    "--session exact-session"
-                ),
-            },
-            {
-                "pid": 104,
-                "cmdline": (
-                    "C:\\windows\\system32\\services.exe "
-                    "C:\\wf0\\bin\\wf0-factory-probe.exe "
-                    "--session exact-session"
-                ),
-            },
-            {
-                "pid": 105,
-                "cmdline": (
-                    "C:\\wf0\\bin\\wf0-factory-probe.exe "
-                    "--session exact-session"
-                ),
-            },
-        ],
-        "exact-session",
-        runtime_root_identity_revalidated=True,
-    )
-    if topology_roles != {
-        "observed_identity_count": 5,
-        "runtime_role_observed": True,
-        "proton_role_observed": True,
-        "scanner_role_count": 1,
-        "runtime_root_included_in_role_census": True,
-    }:
-        fail("exact scanner argv topology regression differs")
-    unverified_runtime = topology_role_census(
-        exec_root, [], "exact-session",
-        runtime_root_identity_revalidated=False,
-    )
-    if unverified_runtime["runtime_role_observed"]:
-        fail("topology regression accepted an unverified Runtime root")
-    component_source = (
-        source_root / "windows-factory-probe/source/component_instance_session.cpp"
-    ).read_text(encoding="utf-8")
-    component_header = (
-        source_root / "windows-factory-probe/source/component_instance_session.h"
-    ).read_text(encoding="utf-8")
-    main_source = (
-        source_root / "windows-factory-probe/source/main.cpp"
-    ).read_text(encoding="utf-8")
-    audio_state_names = (
-        "audio_processor_absent", "audio_processor_query_in_flight",
-        "audio_processor_query_returned_without_lease",
-        "audio_processor_lease_acquired", "audio_processor_release_in_flight",
-        "audio_processor_lease_retired", "audio_processor_retirement_incomplete",
-        "audio_processor_ownership_unknown",
-    )
-    if any(component_source.count(f'"{name}"') < 1 for name in audio_state_names):
-        fail("component source does not retain all eight audio-lease states")
-    if (
-        component_source.count("component->release()") != 1
-        or component_source.count("component_.queryInterface(requested, &output)") != 1
-        or component_source.count("interface_->release()") != 1
-        or "audio_release_matches_component_baseline(result.release_result)" not in component_source
-        or "audio_release_matches_component_baseline(0)" not in component_source
-        or "audio_release_matches_component_baseline(2)" not in component_source
-        or "result.audio_processor.audio_interface_quiescence" not in component_source
-        or "result.release_result == 0" not in component_source
-        or "result.host_reference_returned_to_baseline" not in component_source
-        or "callbacks.close()" not in component_source
-        or "closed_ = true" not in component_source
-        or main_source.count("not_attempted_audio_interface_quiescence_unproved") != 1
-        or main_source.count("terminate_component") < 2
-        or main_source.count("release_component") < 2
-        or "if (factory != nullptr &&\n            (!component_session_ran || component.object_quiescence))"
-           not in main_source
-    ):
-        fail("audio-interface quiescence or single-release source law differs")
-    release_baseline_assertions = (
-        "static_assert(audio_release_matches_component_baseline(1));",
-        "static_assert(!audio_release_matches_component_baseline(0));",
-        "static_assert(!audio_release_matches_component_baseline(2));",
-        "static_assert(!audio_release_matches_component_baseline(0xffffffffu));",
-    )
-    if (
-        re.search(
-            r"constexpr\s+bool\s+audio_release_matches_component_baseline\s*\("
-            r"\s*Steinberg::uint32\s+value\s*\)\s*noexcept\s*\{\s*"
-            r"return\s+value\s*==\s*1\s*;\s*\}",
-            component_header,
-        ) is None
-        or any(assertion not in component_header
-               for assertion in release_baseline_assertions)
-    ):
-        fail("production release-baseline helper/static assertions differ")
-    release_baseline_regression = {
-        "production_helper": "audio_release_matches_component_baseline",
-        "expected_component_owner_baseline": 1,
-        "accepted_counts": [1],
-        "rejected_counts": [0, 2, 0xffffffff],
-        "static_asserts_bound_to_production_helper": True,
-    }
-
-    checkout_regression = eol_checkout_regression()
-    digest_regression = artifact_digest_regression()
-    audio_method_regression = audio_method_verifier_regression()
-    allowlist_regression = evidence_allowlist_regression()
-    build_environment = build_command_environment({})
-    if (
-        EXPECTED_AGAIN_MODULE_SHA256
-        != "60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f"
-        or MSBUILD_MAX_CPU_COUNT != "1"
-        or MSVC_POST_OPTIONS != "/MP1"
-        or build_environment.get("CL") != ""
-        or build_environment.get("_CL_") != "/MP1"
-    ):
-        fail("exact AGain or serial MSVC build contract differs")
-    cases = [
-        "closed_operation_mapping_22_of_22", "completion_tuple_validation",
-        "sequence_gap_rejection", "second_completion_rejection",
-        "relative_module_path_rejection", "default_search_flag_lock",
-        "non_null_hfile_prohibited", "exact_seven_call_component_surface",
-        "unload_failure_adapter_mapping_compiled",
-        "runtime_entrypoint_exec_identity_continuity",
-        "runtime_root_included_in_topology_role_census",
-        "closed_sdk_encoding_label_mapping",
-        "controlled_git_checkout_eol_regression",
-        "typed_actions_digest_regression",
-        "seven_component_and_audio_unmatched_attributions",
-        "eight_state_audio_lease_lifecycle_lock",
-        "single_audio_query_and_release_call_sites",
-        "external_callback_sink_explicitly_closed",
-        "audio_interface_quiescence_shutdown_gate",
-        "production_release_baseline_zero_and_multi_reference_rejection",
-        "receiver_independent_audio_method_mutation_rejection",
-        "evidence_schema_value_allowlist_mutation_rejection",
-        "exact_again_fixture_and_serial_msvc_build_lock",
-    ]
-    return {
-        "cases": cases,
-        "passed": len(cases),
-        "failed": 0,
-        "component_call_surface": call_surface,
-        "unmatched_operation_blockers": unmatched,
-        "checkout_regression": checkout_regression,
-        "artifact_digest_regression": digest_regression,
-        "audio_method_verifier_regression": audio_method_regression,
-        "evidence_allowlist_regression": allowlist_regression,
-        "release_baseline_regression": release_baseline_regression,
-        "exact_again_module_sha256": EXPECTED_AGAIN_MODULE_SHA256,
-        "msbuild_max_cpu_count": int(MSBUILD_MAX_CPU_COUNT),
-        "msvc_post_options": MSVC_POST_OPTIONS,
-    }
-
-
-def import_negative_tests(build: dict[str, Any]) -> dict[str, Any]:
-    passed: list[str] = []
-
-    def rejected(name: str, operation) -> None:
-        try:
-            operation()
-        except Exception:
-            passed.append(name)
-            return
-        fail(f"deterministic import negative was accepted: {name}")
-
-    with tempfile.TemporaryDirectory(prefix="wf0-import-negatives-") as temporary:
-        root = pathlib.Path(temporary)
-
-        def one_zip(name: str, entry: str, *, mode: int = 0,
-                    compression: int = zipfile.ZIP_STORED) -> pathlib.Path:
-            path = root / name
-            with zipfile.ZipFile(path, "w") as archive:
-                info = zipfile.ZipInfo(entry)
-                info.compress_type = compression
-                info.create_system = 3
-                info.external_attr = mode << 16
-                archive.writestr(info, b"x")
-            return path
-
-        rejected("archive_traversal", lambda: zip_census(
-            one_zip("traversal.zip", "../escape"), None
-        ))
-        rejected("archive_absolute", lambda: zip_census(
-            one_zip("absolute.zip", "/escape"), None
-        ))
-        rejected("archive_unc", lambda: zip_census(
-            one_zip("unc.zip", "//server/share"), None
-        ))
-        rejected("archive_drive", lambda: zip_census(
-            one_zip("drive.zip", "C:/escape"), None
-        ))
-        rejected("archive_alternate_data_stream", lambda: zip_census(
-            one_zip("ads.zip", "file:stream"), None
-        ))
-        rejected("archive_backslash", lambda: zip_census(
-            one_zip("backslash.zip", "a\\b"), None
-        ))
-        rejected("archive_dot_component", lambda: zip_census(
-            one_zip("dot.zip", "a/./b"), None
-        ))
-        rejected("archive_empty_component", lambda: zip_census(
-            one_zip("empty-component.zip", "a//b"), None
-        ))
-        rejected("archive_nul", lambda: _safe_relative("a\0b"))
-        rejected("archive_path_length", lambda: zip_census(
-            one_zip("long-path.zip", "a" * 241), None
-        ))
-        rejected("archive_symlink", lambda: zip_census(
-            one_zip("symlink.zip", "link", mode=stat.S_IFLNK | 0o777), None
-        ))
-        rejected("archive_device", lambda: zip_census(
-            one_zip("device.zip", "device", mode=stat.S_IFCHR | 0o600), None
-        ))
-        case_zip = root / "case.zip"
-        with zipfile.ZipFile(case_zip, "w") as archive:
-            archive.writestr("A.dll", b"a")
-            archive.writestr("a.dll", b"b")
-        rejected("archive_case_collision", lambda: zip_census(case_zip, None))
-        exact_zip = root / "duplicate.zip"
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UserWarning)
-            with zipfile.ZipFile(exact_zip, "w") as archive:
-                archive.writestr("same", b"a")
-                archive.writestr("same", b"b")
-        rejected("archive_duplicate", lambda: zip_census(exact_zip, None))
-        normalization_zip = root / "normalization.zip"
-        with zipfile.ZipFile(normalization_zip, "w") as archive:
-            archive.writestr("\N{LATIN SMALL LETTER E WITH ACUTE}", b"a")
-            archive.writestr("e\N{COMBINING ACUTE ACCENT}", b"b")
-        rejected(
-            "archive_unicode_normalization_collision",
-            lambda: zip_census(normalization_zip, None),
-        )
-        directory_zip = root / "directory.zip"
-        with zipfile.ZipFile(directory_zip, "w") as archive:
-            archive.writestr("directory/", b"")
-        rejected("archive_directory_entry", lambda: zip_census(directory_zip, None))
-        many_zip = root / "many.zip"
-        with zipfile.ZipFile(many_zip, "w") as archive:
-            for index in range(257):
-                archive.writestr(f"{index:03d}", b"")
-        rejected("archive_entry_count", lambda: zip_census(many_zip, None))
-        empty_zip = root / "empty.zip"
-        with zipfile.ZipFile(empty_zip, "w"):
-            pass
-        rejected("archive_empty", lambda: zip_census(empty_zip, None))
-
-        oversized_archive = root / "oversized-archive.zip"
-        with oversized_archive.open("wb") as handle:
-            handle.truncate(MAX_ZIP_BYTES + 1)
-        rejected(
-            "archive_container_size",
-            lambda: zip_census(oversized_archive, None),
+            driver_class.acquire_single_writer(lock_parent, "key", {"intent": "two"})
+        except RuntimeError:
+            duplicate_rejected = True
+        if not duplicate_rejected:
+            fail("DX0 duplicate driver single-writer proof failed")
+        driver_class.retire_single_writer(
+            lock, publication_valid=True, expected_intent={"intent": "one"}
         )
 
-        def patched_zip(name: str, *, flag: int | None = None,
-                        method: int | None = None,
-                        size: int | None = None) -> pathlib.Path:
-            path = one_zip(name, "entry")
-            data = bytearray(path.read_bytes())
-            local = data.index(b"PK\x03\x04")
-            central = data.index(b"PK\x01\x02")
-            if flag is not None:
-                struct.pack_into("<H", data, local + 6, flag)
-                struct.pack_into("<H", data, central + 8, flag)
-            if method is not None:
-                struct.pack_into("<H", data, local + 8, method)
-                struct.pack_into("<H", data, central + 10, method)
-            if size is not None:
-                struct.pack_into("<I", data, local + 22, size)
-                struct.pack_into("<I", data, central + 24, size)
-            path.write_bytes(data)
-            return path
+        late_publication = {"identity": "accepted"}
+        publication_reads = [None, late_publication]
 
-        rejected(
-            "archive_encrypted",
-            lambda: zip_census(patched_zip("encrypted.zip", flag=1), None),
-        )
-        rejected(
-            "archive_unsupported_compression",
-            lambda: zip_census(patched_zip("compression.zip", method=99), None),
-        )
-        rejected(
-            "archive_single_entry_size",
-            lambda: zip_census(
-                patched_zip("large-entry.zip", size=MAX_ENTRY_BYTES + 1), None
-            ),
-        )
+        def read_late_publication() -> dict[str, str] | None:
+            return publication_reads.pop(0)
 
-        wrong_machine = root / "wrong-machine.dll"
-        wrong_machine.write_bytes(b"MZ" + b"\0" * 510)
-        rejected("wrong_pe_architecture", lambda: parse_pe(wrong_machine))
-
-        scanner_record = next(
-            item for item in build["artifact_manifest"]["records"]
-            if item["path"] == "bin/wf0-factory-probe.exe"
-        )
-        changed = root / "changed-scanner.exe"
-        changed.write_bytes(
-            (pathlib.Path(build["artifact_root"]) / scanner_record["path"]).read_bytes()
-            + b"x"
-        )
-        if changed.stat().st_size == scanner_record["size"] or (
-            __import__("hashlib").sha256(changed.read_bytes()).hexdigest()
-            == scanner_record["sha256"]
-        ):
-            fail("wrong scanner hash fixture did not differ")
-        passed.append("wrong_scanner_hash")
-
-        source = dict(build["implementation_source_manifest"])
-        source["commit"] = "0" * 40
-        if source == build["implementation_source_manifest"]:
-            fail("stale source identity fixture did not differ")
-        passed.append("stale_source_identity")
-
-        missing = dict(build)
-        missing["artifact_manifest"] = dict(build["artifact_manifest"])
-        missing["artifact_manifest"]["records"] = [
-            item for item in build["artifact_manifest"]["records"]
-            if item["path"] != f"fixtures/{FAULT_TARGETS[0]}.dll"
-        ]
-        missing["artifact_manifest"]["record_count"] -= 1
-        rejected(
-            "missing_fixture",
-            lambda: create_environment(secrets.token_hex(16), missing,
-                                       fixture=FAULT_TARGETS[0]),
-        )
-
-    forged_run = secrets.token_hex(16)
-    forged_root = environment_parent() / f".wf0-factory-census.stage-{forged_run}"
-    if forged_root.exists() or forged_root.is_symlink():
-        fail("forged-marker negative stage unexpectedly exists")
-    forged_root.mkdir(mode=0o700)
-    forged_marker = {"schema": "linux-vst-bridge-wf0-forged-owner/v1"}
-    write_atomic(forged_root / ".wf0-owner.json", canonical_json(forged_marker))
-    forged = ScanEnvironment(forged_run, forged_root, forged_marker)
-    rejected("forged_environment_marker", lambda: retire_environment(forged))
-    if not forged_root.is_dir():
-        fail("forged environment was not preserved after refusal")
-    shutil.rmtree(forged_root)
-    if forged_root.exists() or forged_root.is_symlink():
-        fail("negative-fixture owner could not retire its own forged test object")
-
-    return {"cases": passed, "passed": len(passed), "failed": 0}
-
-
-def run_negative_suite(build: dict[str, Any], source_root, source_verifier) -> dict[str, Any]:
-    if tuple(EXPECTED) != FAULT_TARGETS:
-        fail("negative expectation roster differs from the fixed artifact roster")
-    before_all = protected_snapshot()
-    source_verifier()
-    deterministic = deterministic_tests(source_root)
-    exercises = [
-        (fixture, fixture, "exact-again", EXPECTED[fixture])
-        for fixture in FAULT_TARGETS
-    ]
-    abnormal_operations = {
-        "wa0-query-hang": ("query_audio_processor", "call_timeout"),
-        "wa0-query-crash": (
-            "query_audio_processor", "abnormal_termination_in_flight",
-        ),
-        "wa0-release-hang": ("release_audio_processor", "call_timeout"),
-        "wa0-release-crash": (
-            "release_audio_processor", "abnormal_termination_in_flight",
-        ),
-    }
-    suppression_cases = {
-        "wa0-release-unexpected-count",
-        *abnormal_operations,
-    }
-    results = []
-    for index, (name, fixture, component_case, expected) in enumerate(exercises, 1):
-        print(f"WA0 negative {index}/{len(exercises)}: {name}", flush=True)
-        source_verifier()
-        process_guard()
-        environment = create_environment(secrets.token_hex(16), build, fixture=fixture)
-        retirement = None
-        result_record = None
-        try:
-            receipt = supervise(environment, component_case=component_case)
-            if receipt["blocker"] != expected:
-                fail(f"{name} blocker differs: expected {expected}, got {receipt['blocker']}")
-            if receipt["classification"] == "scanner_completed":
-                fail(f"{name} unexpectedly completed")
-            component_marker_absent = not (
-                environment.session / "forbidden-component-method.marker"
-            ).exists()
-            audio_marker_absent = not (
-                environment.session / "forbidden-audio-processor-method.marker"
-            ).exists()
-            if not component_marker_absent or not audio_marker_absent:
-                fail(f"{name} invoked an out-of-scope component/audio method")
-            operations = [
-                item["operation"] for item in receipt["records"]
-                if item.get("event") == "call_started"
-            ]
-            lifecycle = [
-                item["state"] for item in receipt["records"]
-                if item.get("event") == "lifecycle"
-            ]
-            for inherited in (
-                "create_component", "get_controller_class_id", "initialize_component",
-            ):
-                if operations.count(inherited) != 1:
-                    fail(f"{name} did not retain the accepted WC0 prefix: {inherited}")
-            if operations.count("query_audio_processor") != 1:
-                fail(f"{name} did not retain exactly one interface-query attempt")
-            session_records = [
-                item.get("component_session") for item in receipt["records"]
-                if item.get("event") == "lifecycle"
-                and item.get("state") == "component_session_closed"
-            ]
-            abnormal = abnormal_operations.get(name)
-            if abnormal is not None:
-                expected_in_flight, expected_classification = abnormal
-                if (
-                    receipt["last_in_flight_operation"] != expected_in_flight
-                    or receipt["classification"] != expected_classification
-                    or receipt["audio_processor_observer_state"] !=
-                        "audio_processor_ownership_unknown"
-                    or receipt["audio_interface_quiescence"] is not False
-                    or session_records
-                ):
-                    fail(f"{name} timeout/crash attribution differs")
-                start_index = operations.index(expected_in_flight)
-                prohibited_later = {
-                    "release_audio_processor",
-                    "terminate_component", "release_component",
-                    "release_factory_3", "release_factory_2",
-                    "release_factory_base", "exit_dll", "free_library",
-                }
-                if expected_in_flight == "release_audio_processor":
-                    prohibited_later.discard("release_audio_processor")
-                if any(value in prohibited_later for value in operations[start_index + 1:]):
-                    fail(f"{name} emitted an in-process call after its unmatched operation")
-            else:
-                if receipt["classification"] != "scanner_blocked" or len(session_records) != 1:
-                    fail(f"{name} ordinary blocked lifecycle did not close exactly once")
-                session = session_records[0]
-                if not isinstance(session, dict) or session.get("primary_blocker") != expected:
-                    fail(f"{name} component-session primary failure differs")
-                lease = session.get("audio_processor_lease", {})
-                query = lease.get("query", {})
-                release = lease.get("release", {})
-                if (
-                    lease.get("requested_interface") !=
-                        "Steinberg::Vst::IAudioProcessor"
-                    or lease.get("requested_iid_raw_tuid_hex") !=
-                        "993F0442DAB73C45A569E79D9AAEC33D"
-                    or query.get("output_zero_initialized") is not True
-                ):
-                    fail(f"{name} exact query identity/output initialization differs")
-                if (
-                    receipt["audio_processor_observer_state"] != lease.get("state")
-                    or receipt["audio_interface_quiescence"] is not
-                        lease.get("audio_interface_quiescence")
-                ):
-                    fail(f"{name} supervisor/closed-session lease state differs")
-                if name in {"wa0-query-failure-null", "wa0-query-success-null"}:
-                    if (
-                        lease.get("state") !=
-                            "audio_processor_query_returned_without_lease"
-                        or query.get("output_nonnull") is not False
-                        or lease.get("lease_acquired") is not False
-                        or release.get("attempted") is not False
-                        or lease.get("audio_interface_quiescence") is not True
-                        or operations.count("terminate_component") != 1
-                        or operations.count("release_component") != 1
-                    ):
-                        fail(f"{name} null-output ownership or WC0 cleanup differs")
-                elif name == "wa0-query-failure-nonnull":
-                    if (
-                        lease.get("state") != "audio_processor_lease_retired"
-                        or query.get("output_nonnull") is not True
-                        or query.get("tuple_consistent") is not False
-                        or lease.get("lease_acquired") is not True
-                        or operations.count("release_audio_processor") != 1
-                        or release.get("reference_count") != 1
-                        or lease.get("audio_interface_quiescence") is not True
-                        or operations.count("terminate_component") != 1
-                        or operations.count("release_component") != 1
-                    ):
-                        fail("failure/non-null interface ownership cleanup differs")
-                elif name == "wa0-release-unexpected-count":
-                    if (
-                        lease.get("state") !=
-                            "audio_processor_retirement_incomplete"
-                        or release.get("reference_count") != 2
-                        or lease.get("audio_interface_quiescence") is not False
-                        or operations.count("release_audio_processor") != 1
-                        or any(operation in operations for operation in (
-                            "terminate_component", "release_component",
-                        ))
-                    ):
-                        fail("unexpected audio-interface release state differs")
-
-            expected_suppression = name in suppression_cases
-            shutdown = receipt.get("inherited_shutdown", {})
-            dispositions = shutdown.get("operations", {})
-            if set(dispositions) != {
-                "terminate_component", "release_component",
-                "release_factory_3", "release_factory_2", "release_factory_base",
-                "exit_dll", "free_library",
-            }:
-                fail(f"{name} inherited shutdown disposition roster differs")
-            if expected_suppression:
-                if (
-                    any(value.get("disposition") !=
-                        "not_attempted_audio_interface_quiescence_unproved"
-                        for value in dispositions.values())
-                    or shutdown.get("clean_in_process_shutdown") is not False
-                    or shutdown.get("physical_containment_only") is not True
-                    or any(operation in operations for operation in dispositions)
-                ):
-                    fail(f"{name} crossed the audio-interface quiescence gate")
-            elif (
-                any(value.get("disposition") != "completed"
-                    for value in dispositions.values())
-                or shutdown.get("clean_in_process_shutdown") is not True
-                or shutdown.get("physical_containment_only") is not False
-            ):
-                fail(f"{name} did not complete its permitted inherited shutdown")
-            if any(
-                receipt["call_counts"].get(operation) != operations.count(operation)
-                for operation in OPERATIONS
-            ):
-                fail(f"{name} retained call-count ledger differs")
-
-            session = session_records[0] if session_records else None
-            lease = (
-                session.get("audio_processor_lease", {})
-                if isinstance(session, dict) else {}
+        guarded_lock, observed_publication, may_start = (
+            driver_class.acquire_after_publication_recheck(
+                lock_parent, "late-key", {"intent": "same-input"},
+                read_late_publication,
             )
-            result_record = {
-                "exercise": name, "fixture": fixture,
-                "component_case": component_case,
-                "expected_blocker": expected,
-                "observed_blocker": receipt["blocker"],
-                "classification": receipt["classification"],
-                "last_in_flight_operation": receipt["last_in_flight_operation"],
-                "audio_processor_observer_state":
-                    receipt["audio_processor_observer_state"],
-                "audio_interface_quiescence":
-                    receipt["audio_interface_quiescence"],
-                "component_session_closed": session is not None,
-                "audio_processor_lease": lease if lease else None,
-                "call_counts": receipt["call_counts"],
-                "forbidden_component_method_marker_absent": component_marker_absent,
-                "forbidden_audio_processor_method_marker_absent": audio_marker_absent,
-                "inherited_shutdown": receipt["inherited_shutdown"],
-                "cleanup": receipt["cleanup"],
-            }
-        finally:
-            retirement = retire_environment(environment)
-        process_guard()
-        if not retirement["stage_absent"]:
-            fail("negative stage retirement did not reach exact absence")
-        if result_record is None:
-            fail(f"{name} produced no retained negative result")
-        result_record["environment_retired"] = True
-        results.append(result_record)
-    after_all = protected_snapshot()
-    if after_all != before_all:
-        fail("protected state differs after negative suite")
-    return {
-        "schema": "linux-vst-bridge-wa0-negative-tests/v1",
-        "deterministic": deterministic,
-        "inherited_wf0_wc0_negative_suites": "not_run_focused_wa0_only",
-        "loader_adapter_runtime_exercise": "not_run_focused_wa0_only",
-        "live_fault_results": results,
-        "live_fault_roster_complete": [
-            item["fixture"] for item in results
-        ] == list(FAULT_TARGETS),
-        "focused_exercise_count": len(results),
-        "protected_state_equal": True,
+        )
+        if (guarded_lock is None
+                or observed_publication != late_publication
+                or may_start is not False
+                or not (lock_parent / "late-key").exists()):
+            fail("DX0 post-lock publication recheck proof failed")
+        driver_class.retire_single_writer(
+            guarded_lock, publication_valid=True,
+            expected_intent={"intent": "same-input"},
+        )
+
+        remote = pathlib.Path(temporary) / "remote-result"
+        remote.mkdir()
+        remote_result = remote / "DX0_TRANSACTION_RESULT.json"
+        remote_result.write_bytes(canonical_json(valid))
+        remote_sidecar = remote / "DX0_TRANSACTION_RESULT.json.sha256"
+        remote_sidecar.write_bytes(
+            f"{sha256_bytes(canonical_json(valid))}  DX0_TRANSACTION_RESULT.json\n".encode()
+        )
+
+        class CompletedDeckWithLostAck:
+            fetch_count = 0
+
+            @staticmethod
+            def run(script: str) -> bytes:
+                return b"present"
+
+            def fetch(self, source: str, destination: pathlib.Path,
+                      *, timeout: float = 300.0) -> None:
+                self.fetch_count += 1
+                selected = remote_sidecar if source.endswith(".sha256") else remote_result
+                destination.write_bytes(selected.read_bytes())
+
+        deck = CompletedDeckWithLostAck()
+        recovered_result = result_recovery(
+            deck, valid["execution_input"]["identity_sha256"], plan_sha,
+            result_parent=pathlib.Path(temporary) / "recovered-results",
+        )
+        if (recovered_result is None or recovered_result["result"] != valid
+                or deck.fetch_count != 2):
+            fail("DX0 completed-Deck lost-ack retrieval proof failed")
+
+        class InterruptedResultTransfer(CompletedDeckWithLostAck):
+            def __init__(self, fail_after_sidecar_write: bool) -> None:
+                self.fetch_count = 0
+                self.fail_after_sidecar_write = fail_after_sidecar_write
+
+            def fetch(self, source: str, destination: pathlib.Path,
+                      *, timeout: float = 300.0) -> None:
+                self.fetch_count += 1
+                selected = remote_sidecar if source.endswith(".sha256") else remote_result
+                destination.write_bytes(selected.read_bytes())
+                if (self.fetch_count == 1 and not self.fail_after_sidecar_write
+                        or self.fetch_count == 2 and self.fail_after_sidecar_write):
+                    raise RuntimeError("injected retained-result transfer interruption")
+
+        partial_parent = pathlib.Path(temporary) / "partial-transfer-results"
+        partial = InterruptedResultTransfer(False)
+        try:
+            result_recovery(
+                partial, valid["execution_input"]["identity_sha256"], plan_sha,
+                result_parent=partial_parent,
+            )
+        except RuntimeError:
+            pass
+        else:
+            fail("DX0 interrupted result-file transfer was not injected")
+        retry_partial = CompletedDeckWithLostAck()
+        resumed_partial = result_recovery(
+            retry_partial, valid["execution_input"]["identity_sha256"], plan_sha,
+            result_parent=partial_parent,
+        )
+        quarantines = [
+            path for path in partial_parent.iterdir()
+            if path.name.startswith(
+                ".dx0-result-retrieval-"
+                + valid["execution_input"]["identity_sha256"] + ".partial-"
+            )
+        ]
+        if (resumed_partial is None or resumed_partial["result"] != valid
+                or retry_partial.fetch_count != 2 or len(quarantines) != 1
+                or not (quarantines[0] / "DX0_TRANSACTION_RESULT.json").is_file()):
+            fail("DX0 partial result-file transfer recovery failed")
+
+        complete_stage_parent = pathlib.Path(temporary) / "complete-stage-results"
+        complete_stage = InterruptedResultTransfer(True)
+        try:
+            result_recovery(
+                complete_stage, valid["execution_input"]["identity_sha256"],
+                plan_sha, result_parent=complete_stage_parent,
+            )
+        except RuntimeError:
+            pass
+        else:
+            fail("DX0 interrupted sidecar acknowledgement was not injected")
+        recover_without_fetch = CompletedDeckWithLostAck()
+        resumed_complete = result_recovery(
+            recover_without_fetch, valid["execution_input"]["identity_sha256"],
+            plan_sha, result_parent=complete_stage_parent,
+        )
+        if (resumed_complete is None or resumed_complete["result"] != valid
+                or resumed_complete["disposition"] != "recovered_complete_stage"
+                or recover_without_fetch.fetch_count != 0):
+            fail("DX0 complete retrieval-stage acknowledgement recovery failed")
+
+        symlink_parent = pathlib.Path(temporary) / "symlink-results"
+        symlink_parent.mkdir()
+        (symlink_parent / valid["execution_input"]["identity_sha256"]).symlink_to(remote)
+        symlink_rejected = False
+        try:
+            result_recovery(
+                deck, valid["execution_input"]["identity_sha256"], plan_sha,
+                result_parent=symlink_parent,
+            )
+        except RuntimeError:
+            symlink_rejected = True
+        if not symlink_rejected:
+            fail("DX0 retained-result symlink rejection proof failed")
+
+    synthetic_host = {
+        "build_receipt": {
+            "windows_build_input": {
+                "sha256": valid["host_artifact"]["windows_build_input_sha256"]
+            },
+            "workflow": {
+                "run_id": valid["host_artifact"]["workflow_run_id"],
+                "run_attempt": valid["host_artifact"]["run_attempt"],
+            },
+        },
+        "custody": {
+            "artifact": {"id": valid["host_artifact"]["artifact_id"]},
+            "producer_source": valid["artifact_producer_source"],
+        },
+        "manifest_sha256": valid["host_artifact"]["manifest_sha256"],
+        "build_receipt_sha256": valid["host_artifact"]["build_receipt_sha256"],
+        "custody_sha256": valid["host_artifact"]["mac_custody_receipt_sha256"],
     }
+    synthetic_fixture = {
+        "identity_sha256": valid["accepted_fixture"]["identity_sha256"],
+        "identity": {"bundle_manifest": {"records": [{
+            "path": "Contents/x86_64-win/again.vst3",
+            "sha256": DX0_AGAIN_MODULE_SHA256,
+        }]}},
+        "receipt_sha256": valid["accepted_fixture"]["mac_store_receipt_sha256"],
+    }
+    synthetic_handoff = {
+        "receipt": {
+            "implementation_source": valid["deck_execution_source"],
+            "bundle": {
+                "sha256": valid["source_handoff"]["bundle_sha256"],
+                "advertised_ref": valid["source_handoff"]["advertised_ref"],
+            },
+        },
+        "receipt_sha256": valid["source_handoff"]["receipt_sha256"],
+    }
+
+    with tempfile.TemporaryDirectory(prefix="dx0-host-publication-recovery-") as temporary:
+        recovery_root = pathlib.Path(temporary)
+        host_driver = driver_class(
+            source_commit, DX0_PLAN_ID,
+            proof_root=recovery_root / "transactions",
+        )
+        host_driver.set_state("source_frozen")
+        host_driver.set_state("fixture_verified")
+        cached_host = copy.deepcopy(synthetic_host)
+        cached_host["build_receipt"]["windows_build_input"]["sha256"] = (
+            host_driver.build_input_sha
+        )
+        cached_host["custody"]["producer_source"] = current_role
+        phase_nonce = "d" * 32
+        host_intent = {
+            "windows_build_input_sha256": host_driver.build_input_sha,
+            "host_mode": "host_only", "source_sha": source_commit,
+            "phase_nonce": phase_nonce,
+            "operation_nonce": host_driver.state["operation_nonce"],
+        }
+        host_lock_parent = recovery_root / "host-locks"
+        host_lock = driver_class.acquire_single_writer(
+            host_lock_parent,
+            f"{host_driver.build_input_sha}-host_only",
+            host_intent,
+        )
+        host_driver.phase(
+            "reuse_or_produce_host", "in_flight", inputs=host_intent,
+            outputs={"run_id": 1}, phase_nonce=phase_nonce,
+        )
+        original_set_state = host_driver.set_state
+
+        def interrupt_before_lock_retirement(_state: str) -> None:
+            raise RuntimeError("injected post-publication recovery interruption")
+
+        host_driver.set_state = interrupt_before_lock_retirement
+        try:
+            host_driver._retain_cached_host(
+                cached_host, lock_parent=host_lock_parent
+            )
+        except RuntimeError:
+            pass
+        else:
+            fail("DX0 host publication recovery interruption was not injected")
+        if (not host_lock.exists()
+                or host_driver.state["phases"]["reuse_or_produce_host"]
+                    ["disposition"] != "completed"
+                or host_driver.state["phases"]["custody_host_artifact"]
+                    ["disposition"] != "completed"):
+            fail("DX0 host lock retired before durable phase publication")
+        host_driver.set_state = original_set_state
+        recovered_host = host_driver._retain_cached_host(
+            cached_host, lock_parent=host_lock_parent
+        )
+        if (recovered_host != cached_host or host_lock.exists()
+                or host_driver.state["state"] != "host_artifact_verified"
+                or host_driver.effect_counts["windows_builds"] != 0):
+            fail("DX0 completed host publication recovery started duplicate work")
+
+    store_join_validator(
+        valid, synthetic_host, synthetic_fixture,
+        verified_handoff=synthetic_handoff,
+    )
+    original_state = synthetic_original_state(valid)
+    observation_state_validator(valid, original_state)
+    retained_state = copy.deepcopy(original_state)
+    retained_state["state"] = "transaction_result_retained"
+    retained_state["phases"].pop("render_and_validate_evidence")
+    retained_state["phases"].pop("close_transaction")
+    retained_state["effect_counts"]["evidence_renders"] = 0
+    retained_projection = observation_state_validator(
+        valid, retained_state, require_complete=False
+    )
+    if (retained_projection.get("ledger_disposition")
+            != "result_retained_before_consumer_render"
+            or retained_projection.get("phase_count") != 10
+            or retained_projection.get("effect_counts", {}).get("evidence_renders") != 0):
+        fail("DX0 retained-result evidence-recovery ledger proof failed")
+    invalid_retained_state = copy.deepcopy(retained_state)
+    invalid_retained_state["effect_counts"]["evidence_renders"] = 1
+    try:
+        observation_state_validator(
+            valid, invalid_retained_state, require_complete=False
+        )
+    except RuntimeError:
+        pass
+    else:
+        fail("DX0 retained-result evidence-recovery mismatch was accepted")
+    ledger_mutations = {
+        "missing_phase": lambda state: state["phases"].pop("close_transaction"),
+        "wrong_execute_input": lambda state: state["phases"]["execute_deck_batch"]
+            ["inputs"].update(deck_execution_input_sha256="0" * 64),
+        "wrong_execute_nonce": lambda state: state["phases"]["execute_deck_batch"]
+            .update(phase_nonce="0" * 32),
+        "wrong_execute_result": lambda state: state["phases"]["execute_deck_batch"]
+            ["outputs"].update(retained_result_sha256="0" * 64),
+        "reused_execute": lambda state: state["phases"]["execute_deck_batch"]
+            .update(disposition="reused"),
+        "incomplete_state": lambda state: state.update(state="evidence_rendered"),
+    }
+    rejected_ledgers: list[str] = []
+    for name, mutate in ledger_mutations.items():
+        candidate = copy.deepcopy(original_state)
+        mutate(candidate)
+        if name == "wrong_execute_input":
+            receipt = candidate["phases"]["execute_deck_batch"]
+            receipt["input_sha256"] = sha256_bytes(canonical_json(receipt["inputs"]))
+        try:
+            observation_state_validator(valid, candidate)
+        except RuntimeError:
+            rejected_ledgers.append(name)
+    if rejected_ledgers != list(ledger_mutations):
+        fail("DX0 original observation ledger-join rejection proof failed")
+    mutated_handoff = copy.deepcopy(valid)
+    mutated_handoff["source_handoff"]["bundle_sha256"] = "a" * 64
+    handoff_mutation_rejected = False
+    try:
+        store_join_validator(
+            mutated_handoff, synthetic_host, synthetic_fixture,
+            verified_handoff=synthetic_handoff,
+        )
+    except RuntimeError:
+        handoff_mutation_rejected = True
+    if not handoff_mutation_rejected:
+        fail("DX0 source-handoff custody mutation proof failed")
+    mutated_detached = copy.deepcopy(valid)
+    mutated_detached["execution_input"]["detached_worktree_commit"] = "0" * 40
+    detached_join_rejected = False
+    try:
+        store_join_validator(
+            mutated_detached, synthetic_host, synthetic_fixture,
+            verified_handoff=synthetic_handoff,
+        )
+    except RuntimeError:
+        detached_join_rejected = True
+    if not detached_join_rejected:
+        fail("DX0 detached-worktree/source-handoff join proof failed")
+
+    plan_rejections = 0
+    for mutation in (
+        {**plan, "extra": True}, {**plan, "plan_id": "/tmp/plan"},
+        {**plan, "live_deck_batch": "sh -c anything"},
+        {**plan, "evidence_renderer": {"hook": "run"}},
+    ):
+        try:
+            dx0_validate_plan(mutation)
+        except RuntimeError:
+            plan_rejections += 1
+    if plan_rejections != 4:
+        fail("DX0 closed-plan rejection proof failed")
+
+    rejected = []
+    for name, mutate in malformed_mutations.items():
+        candidate = copy.deepcopy(valid)
+        mutate(candidate)
+        if _expect_rejected(candidate):
+            rejected.append(name)
+    if (rejected != list(malformed_mutations)
+            or parity_rejected != rejected):
+        fail("DX0 incomplete/failed cached-result rejection proof failed")
+
+    mutated_execution_source = copy.deepcopy(valid)
+    mutated_execution_source["deck_execution_source"]["tree"] = "0" * 40
+    execution_source_mutation_rejected = False
+    try:
+        store_join_validator(
+            mutated_execution_source, synthetic_host, synthetic_fixture,
+            verified_handoff=synthetic_handoff,
+        )
+    except RuntimeError:
+        execution_source_mutation_rejected = True
+    if not execution_source_mutation_rejected:
+        fail("DX0 execution-source identity mutation proof failed")
+
+    with tempfile.TemporaryDirectory(prefix="dx0-production-recovery-") as temporary:
+        recovery_root = pathlib.Path(temporary)
+        recovery_driver = driver_class(
+            source_commit, DX0_PLAN_ID,
+            proof_root=recovery_root / "transactions",
+        )
+        recovered_value = synthetic_valid_result(
+            plan_sha, execution_role=current_role
+        )
+        recovered_value["operation_nonce"] = recovery_driver.state["operation_nonce"]
+        execute_nonce = "e" * 32
+        recovered_value["original_observation"]["phase_nonce"] = execute_nonce
+        execution_sha = recovered_value["execution_input"]["identity_sha256"]
+        for state in (
+                "source_frozen", "fixture_verified", "host_artifact_verified",
+                "handoff_admitted"):
+            recovery_driver.set_state(state)
+        execute_inputs = {
+            "deck_execution_input_sha256": execution_sha,
+            "proof_plan_sha256": plan_sha,
+            "phase_nonce": execute_nonce,
+        }
+        recovery_driver.phase(
+            "execute_deck_batch", "prepared", inputs=execute_inputs,
+            outputs=None, phase_nonce=execute_nonce,
+        )
+        recovery_driver.effect_counts["deck_executions"] = 1
+        recovery_driver.save()
+        recovery_driver.set_state("deck_batch_in_flight")
+        lock_parent = recovery_root / "execution-locks"
+        lock_intent = {
+            "deck_execution_input_sha256": execution_sha,
+            "proof_plan_sha256": plan_sha,
+            "operation_nonce": recovery_driver.state["operation_nonce"],
+        }
+        lock_key = f"{execution_sha}-{plan_sha}"
+        stale_lock = driver_class.acquire_single_writer(
+            lock_parent, lock_key, lock_intent
+        )
+        recovery_calls = [0]
+
+        def recover_completed_publication() -> dict[str, Any]:
+            recovery_calls[0] += 1
+            return recovered_value
+
+        returned_intent, returned_lock, publication, may_start = (
+            execution_writer_recovery(
+                recovery_driver, execution_sha, lambda: None,
+                recover_completed_publication, lock_parent=lock_parent,
+            )
+        )
+        recovered_handoff = {
+            "receipt": {
+                "implementation_source": recovered_value["deck_execution_source"],
+                "bundle": {
+                    "sha256": recovered_value["source_handoff"]["bundle_sha256"],
+                    "advertised_ref": recovered_value["source_handoff"]["advertised_ref"],
+                },
+            },
+            "receipt_sha256": recovered_value["source_handoff"]["receipt_sha256"],
+        }
+        validate_result(publication)
+        store_join_validator(
+            publication, synthetic_host, synthetic_fixture,
+            verified_handoff=recovered_handoff,
+        )
+        effect_count_before_recovery = recovery_driver.effect_counts["deck_executions"]
+        deck_result_recorder(recovery_driver, publication, execution_sha)
+        if (returned_intent != lock_intent or returned_lock != stale_lock
+                or may_start is not False or recovery_calls != [1]
+                or not stale_lock.exists()
+                or recovery_driver.state["state"] != "transaction_result_retained"
+                or recovery_driver.state["phases"]["execute_deck_batch"]
+                    ["disposition"] != "completed"
+                or recovery_driver.state["phases"]["execute_deck_batch"]
+                    ["inputs"] != execute_inputs
+                or recovery_driver.state["phases"]["execute_deck_batch"]
+                    ["phase_nonce"] != execute_nonce
+                or recovery_driver.effect_counts["deck_executions"]
+                    != effect_count_before_recovery):
+            fail("DX0 production lost-Deck-ack recovery ordering failed")
+        driver_class.retire_single_writer(
+            stale_lock, publication_valid=True, expected_intent=lock_intent
+        )
+        if stale_lock.exists():
+            fail("DX0 admitted stale Deck lock retirement failed")
+
+    with tempfile.TemporaryDirectory(prefix="dx0-seed-reuse-") as temporary:
+        store = pathlib.Path(temporary) / "verified-store"
+        store.mkdir()
+        calls = {"verify": 0, "github": 0}
+
+        def verify_existing(selected: pathlib.Path) -> dict[str, Any]:
+            calls["verify"] += 1
+            if selected != store:
+                fail("DX0 fixture reuse selected another store")
+            return {"root": str(store), "disposition": "reused"}
+
+        def forbidden_github() -> Any:
+            calls["github"] += 1
+            fail("DX0 verified fixture reuse contacted GitHub")
+
+        fixture_value, fixture_disposition = seed_fixture_acquirer(
+            store=store, verify_store=verify_existing,
+            github_factory=forbidden_github,
+        )
+        if (fixture_value.get("root") != str(store)
+                or fixture_disposition != "reused_verified_mac_store"
+                or calls != {"verify": 1, "github": 0}):
+            fail("DX0 fixture seed reuse-before-download proof failed")
+        corrupt_blocked = False
+
+        def reject_corrupt(_selected: pathlib.Path) -> dict[str, Any]:
+            fail("synthetic corrupt fixture store")
+
+        try:
+            seed_fixture_acquirer(
+                store=store, verify_store=reject_corrupt,
+                github_factory=forbidden_github,
+            )
+        except RuntimeError:
+            corrupt_blocked = True
+        if not corrupt_blocked or calls["github"] != 0:
+            fail("DX0 corrupt fixture store fail-closed proof failed")
+
+    with tempfile.TemporaryDirectory(prefix="dx0-handoff-proof-") as handoff_temp:
+        handoff_stage = pathlib.Path(handoff_temp) / "source-handoff"
+        created_handoff = create_source_handoff(source_commit, handoff_stage)
+        verified_real_handoff = verify_source_handoff(handoff_stage, source_commit)
+        if (verified_real_handoff["receipt_sha256"]
+                != created_handoff["receipt_sha256"]
+                or verified_real_handoff["receipt"]["implementation_source"]
+                != current_role):
+            fail("DX0 self-contained source-handoff verification proof failed")
+
+    with tempfile.TemporaryDirectory(prefix="dx0-render-test-") as temporary:
+        output = pathlib.Path(temporary) / "packet"
+        rows = [{"row": index, "result": "PASS", "validation": "deterministic",
+                 "claim": f"row {index}"} for index in range(1, 15)]
+        transaction = {
+            "transaction_result": valid, "proof_rows": rows,
+            "costs": {"manual_commands": 1, "manually_copied_identifiers": 0,
+                      "windows_builds": 0, "artifact_downloads": 0,
+                      "custody_operations": 0, "artifact_transfers": 0,
+                      "source_transfers": 0, "deck_executions": 0,
+                      "evidence_renders": 1, "phase_timings_observed": False,
+                      "reused_phases": [], "performed_phases": []},
+            "evidence_consumer_source": consumer, "evidence_renderer": renderer,
+            "result_admission": admission, "proof_plan": plan,
+            "windows_build_input": {"schema": build["schema"],
+                                    "sha256": dx0_identity_sha256(build), "record_count": 17},
+            "phase_dispositions": {"render": "reused"},
+            "fixture_seeding": {"performed_separately": True,
+                                "ordinary_run_seeded_fixture": False},
+            "invalidation_results": {"renderer_only_external_effects": 0},
+        }
+        render_packet(output, transaction)
+        validate_packet(output)
+        render_packet(output, transaction)
+        validate_packet(output)
+        published = pathlib.Path(temporary) / "published-packet"
+        publish_packet(output, published, staging_parent=pathlib.Path(temporary))
+        publish_packet(output, published, staging_parent=pathlib.Path(temporary))
+        validate_packet(published)
+        if any(path.name.startswith(".dx0-evidence-render-")
+               for path in pathlib.Path(temporary).iterdir()):
+            fail("DX0 atomic evidence staging retirement proof failed")
+        if any(path.name.startswith(".dx0-evidence-publish-")
+               for path in pathlib.Path(temporary).iterdir()):
+            fail("DX0 atomic evidence publication retirement proof failed")
+
+    for boundary in ("manifest", "sidecar"):
+        with tempfile.TemporaryDirectory(
+                prefix=f"dx0-finalize-{boundary}-") as temporary:
+            final_driver = driver_class(
+                source_commit, DX0_PLAN_ID,
+                proof_root=pathlib.Path(temporary) / "transactions",
+            )
+            final_result = synthetic_valid_result(
+                plan_sha, execution_role=current_role
+            )
+            final_result["operation_nonce"] = final_driver.state["operation_nonce"]
+            final_state = synthetic_original_state(final_result)
+            final_state["operation_nonce"] = final_driver.state["operation_nonce"]
+            final_state["transaction_key"] = final_driver.transaction_key
+            final_state["source"] = final_driver.source_role
+            final_state["state"] = "evidence_rendered"
+            final_driver.state = final_state
+            final_driver.effect_counts = final_state["effect_counts"]
+            final_driver.save()
+            identity = {
+                "schema": DX0_TRANSACTION_SCHEMA,
+                "operation_nonce": final_driver.state["operation_nonce"],
+                "artifact_producer_source": final_result["artifact_producer_source"],
+                "deck_execution_source": final_result["deck_execution_source"],
+                "evidence_consumer_source": final_driver.source_role,
+                "windows_build_input": {"sha256": final_driver.build_input_sha},
+                "host_artifact": final_result["host_artifact"],
+                "accepted_fixture": final_result["accepted_fixture"],
+                "deck_execution_input": final_result["execution_input"],
+                "proof_plan": {"sha256": final_driver.plan_sha},
+                "transaction_result": {
+                    "sha256": sha256_bytes(canonical_json(final_result))
+                },
+                "evidence_renderer": {"sha256": final_driver.renderer_sha},
+                "phase_receipts": final_driver.state["phases"],
+            }
+            failed = False
+            try:
+                final_driver.finalize_transaction(
+                    identity, _test_fail_after=boundary
+                )
+            except RuntimeError:
+                failed = True
+            manifest = final_driver.root / "DX0_TRANSACTION.json"
+            sidecar = final_driver.root / "DX0_TRANSACTION.sha256"
+            if (not failed or final_driver.state["state"] != "evidence_rendered"
+                    or not manifest.is_file()
+                    or (boundary == "manifest" and sidecar.exists())
+                    or (boundary == "sidecar" and not sidecar.is_file())):
+                fail(f"DX0 {boundary}-boundary finalization fault proof failed")
+            final_driver.finalize_transaction(identity)
+            retained_identity = json.loads(manifest.read_text(encoding="utf-8"))
+            if (final_driver.state["state"] != "transaction_complete"
+                    or set(retained_identity) != transaction_keys
+                    or sidecar.read_text(encoding="utf-8")
+                    != f"{sha256_bytes(manifest.read_bytes())}  DX0_TRANSACTION.json\n"):
+                fail(f"DX0 {boundary}-boundary finalization recovery failed")
+
+    invalidation = {
+        "historical_build_identity_equal": True,
+        "renderer_only": {"build_invalidated": False, "deck_invalidated": False,
+                          "renderer_invalidated": True, "external_effects": 0},
+        "mac_driver_only": {"build_invalidated": False, "deck_invalidated": False,
+                            "external_effects": 0},
+        "deck_code": {"build_invalidated": False, "deck_invalidated": True},
+        "host_code": {"build_invalidated": True},
+        "lost_dispatch_ack_duplicate_builds": 0,
+        "lost_deck_ack_duplicate_executions": 0,
+        "duplicate_driver_expensive_operations": 0,
+        "invalid_cached_results_rejected": rejected,
+        "deck_import_closure": {
+            "entry_point": "tools/wf0-factory-census/run.py",
+            "paths": list(import_closure),
+            "all_paths_identity_bound": True,
+            "evidence_module_imported": False,
+        },
+        "result_validator_parity": {
+            "valid_result_accepted": True,
+            "malformed_cases_rejected": parity_rejected,
+            "sidecar_mismatch_rejected": True,
+            "noncanonical_json_rejected": True,
+        },
+    }
+    return {"schema": "linux-vst-bridge-dx0-deterministic-proof/v1",
+            "proof_row_count": 14, "all_passed": True,
+            "invalidation_results": invalidation,
+            "external_effects": {"github": 0, "ssh": 0, "proton": 0},
+            "synthetic_rows": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14],
+            "live_rows_deferred": [11, 13]}
 
 
 if __name__ == "__main__":
-    raise SystemExit("negative_tests.py is a library; run run.py")
+    raise SystemExit("negative_tests.py is invoked by tools/host-proof.py")

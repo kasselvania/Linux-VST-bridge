@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Deck-only dependency-ordered WA0 execution and evidence transaction."""
+"""Deck-side DX0 positive batch with durable pre-acknowledgement publication."""
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
+import os
 import pathlib
+import re
 import secrets
 import sys
 from typing import Any
@@ -13,492 +16,600 @@ from typing import Any
 sys.dont_write_bytecode = True
 
 from artifacts import (
-    create_evidence_handoff, read_canonical_json, verify_evidence_packet,
-    verify_execution_source, verify_hash_sidecar,
+    read_canonical_json, verify_fixture_store, verify_hash_sidecar,
+    verify_host_store, verify_source_handoff,
 )
 from common import (
-    ACCEPTED_WC0_ARTIFACT_MANIFEST_SHA256, ACCEPTED_WC0_EVIDENCE_COMMIT,
-    ACCEPTED_WC0_EVIDENCE_TREE, ACCEPTED_WC0_IMPLEMENTATION_MERGE,
-    ACCEPTED_WC0_SCANNER_SHA256, ACCEPTED_WC0_SOURCE_COMMIT,
-    ACCEPTED_WC0_SOURCE_MANIFEST_SHA256, ACCEPTED_WC0_SOURCE_TREE,
-    APPROVAL_BLOB, AUTHORITY_MERGE_COMMIT, AUTHORITY_MERGE_TREE, BASIS_COMMIT,
-    BASIS_TREE, BUNDLE_SCHEMA, DESIGN_BLOB, DESIGN_COMMIT, DESIGN_SHA256,
-    DESIGN_TREE, EVIDENCE_FILES, EXPECTED_BRANCH, EXPECTED_REF, FAULT_TARGETS,
-    MAC_CUSTODY_SCHEMA, REPOSITORY, REVIEW_GITHUB_ID, RUNNER_DIGEST,
-    SOURCE_HANDOFF_SCHEMA, SOURCE_SCHEMA, WINDOWS_BUILD_SCHEMA,
-    artifact_cache_parent, canonical_json, command_text, deck_fixture_identity,
-    fail, process_guard, protected_snapshot, repo_root,
-    sha256_bytes, sha256_file,
-    source_handoff_parent, source_manifest_sha256, verify_runner_identity,
-    write_atomic,
+    DX0_AGAIN_BUNDLE_MANIFEST_SHA256, DX0_AGAIN_MODULE_SHA256,
+    DX0_DECK_EXECUTION_INPUT_SCHEMA, DX0_PLAN_ID, DX0_REF, DX0_RESULT_SCHEMA,
+    RUNNER_DIGEST, canonical_json, deck_fixture_identity,
+    dx0_closed_plan, dx0_complete_source, dx0_deck_execution_input,
+    dx0_deck_fixture_parent, dx0_deck_host_artifact_parent,
+    dx0_deck_result_parent, dx0_deck_source_parent, dx0_identity_sha256,
+    dx0_require_frozen_source, dx0_source_role, fail, parse_json_no_duplicates,
+    process_guard, protected_snapshot, repo_root, sha256_bytes, sha256_file,
+    verify_runner_identity, write_atomic,
 )
-from environment import create_environment, retire_environment, verify_artifact_cache
-from evidence import render_packet, validate_packet
-from negative_tests import run_negative_suite
+from environment import create_dx0_environment, retire_environment
 from normalize import normalize_wa0_positive
 from supervise import supervise
 
 
-def _bundle_identity(manifest: dict[str, Any]) -> dict[str, Any]:
-    records = [
-        {
-            "path": item["path"][len("again.vst3/"):],
-            "size": item["size"],
-            "sha256": item["sha256"],
-        }
-        for item in manifest["records"]
-        if item["path"].startswith("again.vst3/")
-    ]
-    records.sort(key=lambda item: item["path"].encode())
-    value = {
-        "schema": BUNDLE_SCHEMA,
-        "binary_safe_path": "again.vst3/Contents/x86_64-win/again.vst3",
-        "records": records,
-    }
-    value["sha256"] = sha256_bytes(canonical_json(value))
+DECK_RESULT_KEYS = {
+    "schema", "operation_nonce", "artifact_producer_source",
+    "deck_execution_source", "execution_input", "host_artifact",
+    "accepted_fixture", "source_handoff", "closed_plan",
+    "original_observation", "positive_result", "call_facts", "quiescence",
+    "shutdown", "cleanup", "protected_state", "integrity",
+}
+DECK_SOURCE_KEYS = {
+    "identity_sha256", "commit", "tree", "parent", "ref", "manifest_sha256",
+}
+DECK_HEX40 = re.compile(r"[0-9a-f]{40}")
+DECK_HEX64 = re.compile(r"[0-9a-f]{64}")
+DECK_HEX32 = re.compile(r"[0-9a-f]{32}")
+
+
+def _deck_keys(value: Any, expected: set[str], label: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != expected:
+        fail(f"DX0 {label} key roster differs")
     return value
 
 
-def _source_handoff(source_commit: str, source_tree: str,
-                    source_manifest_digest: str) -> dict[str, Any]:
-    root = source_handoff_parent() / source_commit
-    if not root.is_dir() or root.is_symlink():
-        fail("persistent source handoff root is absent or unsafe")
-    receipt_path = root / "WA0_SOURCE_HANDOFF_RECEIPT.json"
-    verify_hash_sidecar(root / "WA0_SOURCE_HANDOFF_RECEIPT.sha256", receipt_path)
-    receipt = read_canonical_json(receipt_path, SOURCE_HANDOFF_SCHEMA)
-    bundle = root / receipt.get("bundle", {}).get("name", "")
-    advertised = f"refs/handoff/wa0-source/{source_commit}"
-    implementation = receipt.get("implementation_source", {})
-    authority = receipt.get("wa0_authority", {})
-    bundle_identity = receipt.get("bundle", {})
-    if (
-        receipt.get("repository") != REPOSITORY
-        or authority != {
-            "design_authority_commit": AUTHORITY_MERGE_COMMIT,
-            "design_authority_tree": AUTHORITY_MERGE_TREE,
-            "implementation_basis_commit": BASIS_COMMIT,
-            "implementation_basis_tree": BASIS_TREE,
-        }
-        or implementation != {
-            "commit": source_commit,
-            "tree": source_tree,
-            "parent": BASIS_COMMIT,
-            "branch": EXPECTED_BRANCH,
-            "ref": EXPECTED_REF,
-            "manifest_schema": SOURCE_SCHEMA,
-            "manifest_record_count": 17,
-            "manifest_sha256": source_manifest_digest,
-        }
-        or not bundle.is_file() or bundle.is_symlink()
-        or bundle_identity != {
-            "name": f"wa0-execution-source-{source_commit}.bundle",
-            "advertised_ref": advertised,
-            "sha256": sha256_file(bundle),
-            "size": bundle.stat().st_size,
-            "max_size_bytes": 134217728,
-            "git_bundle_verify": "passed",
-            "self_contained": True,
-            "prerequisite_count": 0,
-        }
-        or command_text(["git", "rev-parse", advertised], cwd=repo_root())
-        != source_commit
-    ):
-        fail("persistent source handoff/ref/worktree join differs")
-    return receipt
+def _deck_hex(value: Any, pattern: re.Pattern[str], label: str) -> str:
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+        fail(f"DX0 {label} is malformed")
+    return value
 
 
-def load_build(source_commit: str, artifact_digest: str) -> dict[str, Any]:
-    root = artifact_cache_parent() / artifact_digest
-    manifest = read_canonical_json(root / "ARTIFACT_MANIFEST.json")
-    if sha256_file(root / "ARTIFACT_MANIFEST.json") != artifact_digest:
-        fail("artifact cache manifest path/digest differs")
-    core = read_canonical_json(
-        root / "BUILD_IDENTITY_CORE.json",
-        "linux-vst-bridge-wf0-build-identity-core/v1",
-    )
-    receipt = read_canonical_json(
-        root / "WF0_WINDOWS_BUILD_RECEIPT.json", WINDOWS_BUILD_SCHEMA
-    )
-    custody = read_canonical_json(
-        root / "WF0_MAC_ARTIFACT_CUSTODY_RECEIPT.json",
-        MAC_CUSTODY_SCHEMA,
-    )
-    source = core.get("source", {}).get("implementation_source_manifest")
-    source_digest = core.get("source", {}).get(
-        "implementation_source_manifest_sha256"
-    )
-    source_tree = core.get("source", {}).get("tree")
-    source_identity = {
-        "commit": source_commit,
-        "tree": source_tree,
-        "parent": BASIS_COMMIT,
-        "branch": EXPECTED_BRANCH,
-        "ref": EXPECTED_REF,
-        "schema": SOURCE_SCHEMA,
-        "record_count": 17,
-        "manifest_sha256": source_digest,
-    }
-    if (
-        core.get("source") != {
-            "commit": source_commit,
-            "tree": source_tree,
-            "parent": BASIS_COMMIT,
-            "branch": EXPECTED_BRANCH,
-            "ref": EXPECTED_REF,
-            "implementation_source_schema": SOURCE_SCHEMA,
-            "implementation_source_record_count": 17,
-            "implementation_source_manifest": source,
-            "implementation_source_manifest_sha256": source_digest,
-        }
-        or source_manifest_sha256(source) != source_digest
-        or receipt.get("source") != {
-            "commit": source_commit,
-            "tree": source_tree,
-            "parent": BASIS_COMMIT,
-            "branch": EXPECTED_BRANCH,
-            "ref": EXPECTED_REF,
-            "implementation_source_manifest": {
-                "schema": SOURCE_SCHEMA,
-                "record_count": 17,
-                "sha256": source_digest,
-            },
-        }
-        or custody.get("implementation_source") != source_identity
-        or receipt.get("artifacts", {}).get("artifact_manifest_sha256")
-        != artifact_digest
-        or custody.get("inner_envelope", {}).get("artifact_manifest_sha256")
-        != artifact_digest
-    ):
-        fail("source/build/artifact/custody identity join differs")
-    verify_execution_source(source_commit, source_tree, source_digest)
-    handoff = _source_handoff(source_commit, source_tree, source_digest)
-    build = {
-        "source_commit": source_commit,
-        "source_tree": source_tree,
-        "implementation_source_manifest": source,
-        "implementation_source_manifest_sha256": source_digest,
-        "artifact_root": str(root),
-        "artifact_manifest": manifest,
-        "artifact_manifest_sha256": artifact_digest,
-        "artifact_set": {"id": artifact_digest, "records": manifest["records"]},
-        "again_bundle_manifest": _bundle_identity(manifest),
-        "fault_targets": [*FAULT_TARGETS, "wf0-no-entry"],
-        "build_identity_core": core,
-        "build_receipt": receipt,
-        "mac_custody": custody,
-        "source_handoff": handoff,
-        "toolchain": receipt["toolchain"],
-        "sdk": receipt["vst3_sdk"],
-        "builds": {"comparison": receipt["build"]["comparison"]},
-    }
-    verify_artifact_cache(build)
-    return build
+def _deck_positive_int(value: Any, label: str) -> int:
+    if type(value) is not int or value <= 0:
+        fail(f"DX0 {label} is not a positive JSON integer")
+    return value
 
 
-def verify_authority() -> dict[str, Any]:
-    root = repo_root()
-    wc0_retained = read_canonical_json(
-        root / "evidence/wc0-windows-vst3-processor-component-admission"
-        / "BUILD_MANIFEST.json",
-        "linux-vst-bridge-wc0-retained-build-manifest/v1",
-    )
-    wc0_scanner = next(
-        (
-            item.get("sha256")
-            for item in wc0_retained.get("artifact_manifest", {}).get("records", [])
-            if item.get("path") == "bin/wf0-factory-probe.exe"
-        ),
-        None,
-    )
-    observed = {
-        "basis_commit": BASIS_COMMIT,
-        "basis_tree": command_text(
-            ["git", "rev-parse", f"{BASIS_COMMIT}^{{tree}}"], cwd=root
-        ),
-        "authority_merge_commit": AUTHORITY_MERGE_COMMIT,
-        "authority_merge_tree": command_text(
-            ["git", "rev-parse", f"{AUTHORITY_MERGE_COMMIT}^{{tree}}"], cwd=root
-        ),
-        "design_commit": DESIGN_COMMIT,
-        "design_tree": command_text(
-            ["git", "rev-parse", f"{DESIGN_COMMIT}^{{tree}}"], cwd=root
-        ),
-        "design_blob": command_text(
-            ["git", "rev-parse", "HEAD:docs/slices/WA0/IMPLEMENTATION_DESIGN.md"],
-            cwd=root,
-        ),
-        "approval_blob": command_text(
-            ["git", "rev-parse", "HEAD:docs/slices/WA0/DESIGN_APPROVAL.md"],
-            cwd=root,
-        ),
-        "design_sha256": sha256_file(
-            root / "docs/slices/WA0/IMPLEMENTATION_DESIGN.md"
-        ),
-        "accepted_wc0": {
-            "implementation_merge": ACCEPTED_WC0_IMPLEMENTATION_MERGE,
-            "implementation_merge_tree": command_text(
-                ["git", "rev-parse", f"{ACCEPTED_WC0_IMPLEMENTATION_MERGE}^{{tree}}"],
-                cwd=root,
-            ),
-            "source_commit": ACCEPTED_WC0_SOURCE_COMMIT,
-            "source_tree": command_text(
-                ["git", "rev-parse", f"{ACCEPTED_WC0_SOURCE_COMMIT}^{{tree}}"],
-                cwd=root,
-            ),
-            "evidence_commit": ACCEPTED_WC0_EVIDENCE_COMMIT,
-            "evidence_tree": command_text(
-                ["git", "rev-parse", f"{ACCEPTED_WC0_EVIDENCE_COMMIT}^{{tree}}"],
-                cwd=root,
-            ),
-            "source_manifest_sha256":
-                wc0_retained.get("implementation_source_manifest_sha256"),
-            "scanner_sha256": wc0_scanner,
-            "artifact_manifest_sha256": wc0_retained.get(
-                "deck_admission", {}
-            ).get("artifact_cache_manifest_sha256"),
-        },
-    }
-    if observed != {
-        "basis_commit": BASIS_COMMIT,
-        "basis_tree": BASIS_TREE,
-        "authority_merge_commit": AUTHORITY_MERGE_COMMIT,
-        "authority_merge_tree": AUTHORITY_MERGE_TREE,
-        "design_commit": DESIGN_COMMIT,
-        "design_tree": DESIGN_TREE,
-        "design_blob": DESIGN_BLOB,
-        "approval_blob": APPROVAL_BLOB,
-        "design_sha256": DESIGN_SHA256,
-        "accepted_wc0": {
-            "implementation_merge": ACCEPTED_WC0_IMPLEMENTATION_MERGE,
-            "implementation_merge_tree": ACCEPTED_WC0_EVIDENCE_TREE,
-            "source_commit": ACCEPTED_WC0_SOURCE_COMMIT,
-            "source_tree": ACCEPTED_WC0_SOURCE_TREE,
-            "evidence_commit": ACCEPTED_WC0_EVIDENCE_COMMIT,
-            "evidence_tree": ACCEPTED_WC0_EVIDENCE_TREE,
-            "source_manifest_sha256": ACCEPTED_WC0_SOURCE_MANIFEST_SHA256,
-            "scanner_sha256": ACCEPTED_WC0_SCANNER_SHA256,
-            "artifact_manifest_sha256":
-                ACCEPTED_WC0_ARTIFACT_MANIFEST_SHA256,
-        },
-    }:
-        fail(f"WA0 implementation authority differs: {observed}")
-    current_slice = (root / "CURRENT_SLICE.md").read_text(encoding="utf-8")
-    approval = (
-        root / "docs/slices/WA0/DESIGN_APPROVAL.md"
-    ).read_text(encoding="utf-8")
-    if (
-        "status: active_implementation_slice" not in current_slice
-        or "authority_phase: implementation" not in current_slice
-        or "implementation_authorized: true" not in current_slice
-        or f"design_review: {REVIEW_GITHUB_ID} / DESIGN_CLEAR" not in current_slice
-        or f"adversarial_review_github_id: {REVIEW_GITHUB_ID}" not in approval
-        or "adversarial_review_result: DESIGN_CLEAR" not in approval
-        or "implementation_authorized: true" not in approval
-    ):
-        fail("WA0 implementation authority readback is absent")
-    return observed
+def _deck_typed_exact(value: dict[str, Any], expected: dict[str, Any],
+                      label: str) -> None:
+    if set(value) != set(expected):
+        fail(f"DX0 {label} key roster differs")
+    for key, expected_value in expected.items():
+        observed = value[key]
+        if type(observed) is not type(expected_value) or observed != expected_value:
+            fail(f"DX0 {label} differs: {key}")
 
 
-def reverify(build: dict[str, Any]) -> None:
-    verify_execution_source(
-        build["source_commit"], build["source_tree"],
-        build["implementation_source_manifest_sha256"],
-    )
-    verify_artifact_cache(build)
-    verify_runner_identity()
-    protected_snapshot()
-    process_guard()
-
-
-def preflight(build: dict[str, Any]) -> dict[str, Any]:
-    if sys.executable != "/usr/bin/python3":
-        fail(f"Deck execution requires /usr/bin/python3; observed {sys.executable}")
-    authority = verify_authority()
-    fixture = deck_fixture_identity()
-    reverify(build)
-    return {
-        "authority": authority,
-        "fixture": fixture,
-        "runner": verify_runner_identity(),
-        "source_commit": build["source_commit"],
-        "source_tree": build["source_tree"],
-        "source_manifest_sha256": build["implementation_source_manifest_sha256"],
-        "artifact_manifest_sha256": build["artifact_manifest_sha256"],
-        "protected_snapshot": protected_snapshot(),
-        "no_deck_github": {
-            "github_operations": 0,
-            "github_credentials_received": False,
-            "ssh_agent_forwarded": False,
-        },
-    }
-
-
-def run_positive(build: dict[str, Any]) -> dict[str, Any]:
-    reverify(build)
-    environment = create_environment(secrets.token_hex(16), build, fixture="again")
+def _deck_timestamp(value: Any, label: str) -> dt.datetime:
+    if (not isinstance(value, str)
+            or re.fullmatch(
+                r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z",
+                value,
+            ) is None):
+        fail(f"DX0 {label} is malformed")
     try:
-        result = supervise(environment)
-        if (
-            (environment.session / "forbidden-component-method.marker").exists()
-            or (environment.session / "forbidden-audio-processor-method.marker").exists()
-        ):
-            fail("positive run invoked a method beyond the WA0 ceiling")
-        if result["classification"] != "scanner_completed" or result["blocker"] is not None:
-            fail(f"positive AGain run did not complete: {result['classification']}")
-    finally:
-        retirement = retire_environment(environment)
-    result["retirement"] = retirement
-    process_guard()
+        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        fail(f"DX0 {label} is invalid")
+
+
+def _deck_source(value: Any, label: str) -> dict[str, Any]:
+    source = _deck_keys(value, DECK_SOURCE_KEYS, label)
+    _deck_hex(source["identity_sha256"], DECK_HEX64, f"{label} identity")
+    _deck_hex(source["commit"], DECK_HEX40, f"{label} commit")
+    _deck_hex(source["tree"], DECK_HEX40, f"{label} tree")
+    _deck_hex(source["parent"], DECK_HEX40, f"{label} parent")
+    _deck_hex(source["manifest_sha256"], DECK_HEX64, f"{label} manifest")
+    if source["ref"] != DX0_REF:
+        fail(f"DX0 {label} ref is malformed")
+    return source
+
+
+def validate_retained_result(
+        value: Any, *, expected_execution_input_sha256: str | None = None,
+        expected_plan_sha256: str | None = None) -> dict[str, Any]:
+    """Deck-local strict admission for one retained DX0 positive result."""
+    result = _deck_keys(value, DECK_RESULT_KEYS, "transaction result")
+    if result["schema"] != DX0_RESULT_SCHEMA:
+        fail("DX0 transaction-result schema differs")
+    _deck_hex(result["operation_nonce"], DECK_HEX32, "operation nonce")
+    _deck_source(result["artifact_producer_source"], "artifact producer source")
+    _deck_source(result["deck_execution_source"], "Deck execution source")
+
+    execution = _deck_keys(result["execution_input"], {
+        "identity_sha256", "schema", "proof_plan_sha256", "runtime_proton_sha256",
+        "source_handoff_ref", "detached_worktree_commit",
+        "host_artifact_manifest_sha256", "accepted_fixture_identity_sha256",
+    }, "execution input")
+    if execution["schema"] != DX0_DECK_EXECUTION_INPUT_SCHEMA:
+        fail("DX0 Deck-execution-input schema differs")
+    for key in (
+            "identity_sha256", "proof_plan_sha256", "runtime_proton_sha256",
+            "host_artifact_manifest_sha256", "accepted_fixture_identity_sha256"):
+        _deck_hex(execution[key], DECK_HEX64, f"execution input {key}")
+    _deck_hex(
+        execution["detached_worktree_commit"], DECK_HEX40,
+        "execution worktree commit",
+    )
+    if execution["runtime_proton_sha256"] != RUNNER_DIGEST:
+        fail("DX0 result Runtime/Proton identity differs")
+    if (expected_execution_input_sha256 is not None
+            and execution["identity_sha256"] != expected_execution_input_sha256):
+        fail("DX0 cached result execution-input identity differs")
+    if (expected_plan_sha256 is not None
+            and execution["proof_plan_sha256"] != expected_plan_sha256):
+        fail("DX0 cached result proof-plan identity differs")
+
+    host = _deck_keys(result["host_artifact"], {
+        "windows_build_input_sha256", "workflow_run_id", "run_attempt", "artifact_id",
+        "manifest_sha256", "build_receipt_sha256", "mac_custody_receipt_sha256",
+    }, "host artifact")
+    for key in ("workflow_run_id", "run_attempt", "artifact_id"):
+        _deck_positive_int(host[key], f"host artifact {key}")
+    for key in (
+            "windows_build_input_sha256", "manifest_sha256",
+            "build_receipt_sha256", "mac_custody_receipt_sha256"):
+        _deck_hex(host[key], DECK_HEX64, f"host artifact {key}")
+    if host["manifest_sha256"] != execution["host_artifact_manifest_sha256"]:
+        fail("DX0 result host manifest/execution-input join differs")
+
+    fixture = _deck_keys(result["accepted_fixture"], {
+        "identity_sha256", "bundle_manifest_sha256", "module_sha256",
+        "mac_store_receipt_sha256", "deck_store_receipt_sha256",
+    }, "accepted fixture")
+    for key in fixture:
+        _deck_hex(fixture[key], DECK_HEX64, f"accepted fixture {key}")
+    if (fixture["bundle_manifest_sha256"] != DX0_AGAIN_BUNDLE_MANIFEST_SHA256
+            or fixture["module_sha256"] != DX0_AGAIN_MODULE_SHA256
+            or fixture["identity_sha256"]
+            != execution["accepted_fixture_identity_sha256"]):
+        fail("DX0 accepted fixture/result join differs")
+
+    handoff = _deck_keys(result["source_handoff"], {
+        "bundle_sha256", "receipt_sha256", "advertised_ref", "worktree_commit",
+        "worktree_clean",
+    }, "source handoff")
+    _deck_hex(handoff["bundle_sha256"], DECK_HEX64, "source bundle")
+    _deck_hex(handoff["receipt_sha256"], DECK_HEX64, "source handoff receipt")
+    _deck_hex(handoff["worktree_commit"], DECK_HEX40, "source handoff worktree")
+    if (handoff["worktree_clean"] is not True
+            or handoff["worktree_commit"]
+            != result["deck_execution_source"]["commit"]
+            or execution["detached_worktree_commit"]
+            != result["deck_execution_source"]["commit"]
+            or execution["detached_worktree_commit"] != handoff["worktree_commit"]
+            or handoff["advertised_ref"] != execution["source_handoff_ref"]
+            or handoff["advertised_ref"] != (
+                "refs/handoff/dx0-source/"
+                + result["deck_execution_source"]["commit"])):
+        fail("DX0 source handoff/execution-source join differs")
+
+    plan = _deck_keys(result["closed_plan"], {
+        "plan_id", "sha256", "expected_result", "live_exercise_ceiling",
+    }, "closed plan")
+    _deck_hex(plan["sha256"], DECK_HEX64, "proof plan")
+    if (plan["plan_id"] != DX0_PLAN_ID
+            or plan["sha256"] != execution["proof_plan_sha256"]
+            or plan["expected_result"]
+            != "wa0-positive-interface-lease-complete-v1"
+            or type(plan["live_exercise_ceiling"]) is not int
+            or plan["live_exercise_ceiling"] != 1):
+        fail("DX0 retained closed plan differs")
+
+    observation = _deck_keys(result["original_observation"], {
+        "run_id", "phase_nonce", "event_stream_sha256", "completion_disposition",
+        "started_utc", "completed_utc",
+    }, "original observation")
+    _deck_hex(observation["run_id"], DECK_HEX32, "Deck observation run ID")
+    _deck_hex(observation["phase_nonce"], DECK_HEX32, "Deck phase nonce")
+    _deck_hex(observation["event_stream_sha256"], DECK_HEX64, "event stream")
+    started = _deck_timestamp(observation["started_utc"], "observation start")
+    completed = _deck_timestamp(
+        observation["completed_utc"], "observation completion"
+    )
+    if (observation["completion_disposition"] != "completed"
+            or completed < started):
+        fail("DX0 original observation is incomplete")
+
+    positive = _deck_keys(result["positive_result"], {
+        "query_result_u32_hex", "query_output_nonnull", "query_tuple_consistent",
+        "interface_release_reference_count", "audio_processor_method_called",
+        "fixture", "interface_logical_iid", "interface_raw_windows_tuid",
+    }, "positive result")
+    _deck_typed_exact(positive, {
+        "query_result_u32_hex": "00000000", "query_output_nonnull": True,
+        "query_tuple_consistent": True, "interface_release_reference_count": 1,
+        "audio_processor_method_called": False, "fixture": "AGain VST3",
+        "interface_logical_iid": "42043F99B7DA453CA569E79D9AAEC33D",
+        "interface_raw_windows_tuid": "993F0442DAB73C45A569E79D9AAEC33D",
+    }, "cached positive result")
+
+    calls = _deck_keys(result["call_facts"], {
+        "paired_call_ledger", "started_count", "completed_count",
+        "last_in_flight_operation", "query_audio_processor_count",
+        "release_audio_processor_count", "ledger_overflowed",
+    }, "call facts")
+    _deck_typed_exact(calls, {
+        "paired_call_ledger": True, "started_count": 22, "completed_count": 22,
+        "last_in_flight_operation": None, "query_audio_processor_count": 1,
+        "release_audio_processor_count": 1, "ledger_overflowed": False,
+    }, "cached call ledger")
+    quiescence = _deck_keys(
+        result["quiescence"], {"interface_quiescence", "object_quiescence"},
+        "quiescence",
+    )
+    _deck_typed_exact(
+        quiescence, {"interface_quiescence": True, "object_quiescence": True},
+        "cached quiescence",
+    )
+    shutdown = _deck_keys(result["shutdown"], {
+        "component_release_reference_count", "reverse_factory_release", "exit_dll",
+        "free_library", "scanner_completed", "clean_in_process_shutdown",
+    }, "shutdown")
+    _deck_typed_exact(shutdown, {
+        "component_release_reference_count": 0, "reverse_factory_release": True,
+        "exit_dll": True, "free_library": True, "scanner_completed": True,
+        "clean_in_process_shutdown": True,
+    }, "cached in-process shutdown")
+    cleanup = _deck_keys(result["cleanup"], {
+        "owned_descendant_count", "process_group_empty", "environment_retired",
+        "stage_absent",
+    }, "cleanup")
+    _deck_typed_exact(cleanup, {
+        "owned_descendant_count": 0, "process_group_empty": True,
+        "environment_retired": True, "stage_absent": True,
+    }, "cached physical cleanup")
+    protected = _deck_keys(result["protected_state"], {
+        "pre_sha256", "post_sha256", "equal", "comparison_completed",
+    }, "protected state")
+    _deck_hex(protected["pre_sha256"], DECK_HEX64, "protected pre-state")
+    _deck_hex(protected["post_sha256"], DECK_HEX64, "protected post-state")
+    if (protected["equal"] is not True
+            or protected["comparison_completed"] is not True
+            or protected["pre_sha256"] != protected["post_sha256"]):
+        fail("DX0 cached protected-state comparison is incomplete")
+
+    integrity = _deck_keys(result["integrity"], {
+        "positive_result_sha256", "call_facts_sha256", "quiescence_sha256",
+        "shutdown_sha256", "cleanup_sha256", "protected_state_sha256",
+    }, "integrity")
+    projections = {
+        "positive_result_sha256": positive,
+        "call_facts_sha256": calls,
+        "quiescence_sha256": quiescence,
+        "shutdown_sha256": shutdown,
+        "cleanup_sha256": cleanup,
+        "protected_state_sha256": protected,
+    }
+    for key, projection in projections.items():
+        _deck_hex(integrity[key], DECK_HEX64, f"integrity {key}")
+        if integrity[key] != sha256_bytes(canonical_json(projection)):
+            fail(f"DX0 cached result integrity differs: {key}")
     return result
 
 
-def receipt_root(build: dict[str, Any]) -> pathlib.Path:
-    return (
-        pathlib.Path.home()
-        / ".local/share/linux-vst-bridge/handoffs/wa0/execution/by-source"
-        / build["source_commit"]
-        / build["artifact_manifest_sha256"]
+def validate_retained_result_file(
+        path: pathlib.Path, *, expected_execution_input_sha256: str | None = None,
+        expected_plan_sha256: str | None = None) -> dict[str, Any]:
+    """Deck-local canonical JSON and external-sidecar admission."""
+    if (not path.is_file() or path.is_symlink()
+            or path.stat().st_size > 2 * 1024 * 1024):
+        fail("DX0 retained result is absent or unsafe")
+    sidecar = path.with_suffix(path.suffix + ".sha256")
+    if (not sidecar.is_file() or sidecar.is_symlink()
+            or sidecar.stat().st_size > 256):
+        fail("DX0 retained result sidecar is absent or unsafe")
+    if sidecar.read_bytes() != f"{sha256_file(path)}  {path.name}\n".encode():
+        fail("DX0 retained result sidecar differs")
+    data = path.read_bytes()
+    value = parse_json_no_duplicates(data, "DX0 retained result")
+    if canonical_json(value) != data:
+        fail("DX0 retained result is not canonical")
+    return validate_retained_result(
+        value,
+        expected_execution_input_sha256=expected_execution_input_sha256,
+        expected_plan_sha256=expected_plan_sha256,
     )
 
 
-def _write_receipt(root: pathlib.Path, name: str, value: dict[str, Any]) -> None:
-    write_atomic(root / name, canonical_json(value))
+def _utc() -> str:
+    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def run_all(build: dict[str, Any], evidence_handoff: pathlib.Path) -> dict[str, Any]:
-    receipts = receipt_root(build)
-    if receipts.exists() or receipts.is_symlink():
-        fail("WA0 execution receipt root already exists; reuse or repair is prohibited")
-    receipts.mkdir(parents=True)
-    initial = preflight(build)
-    _write_receipt(receipts, "preflight.json", initial)
+def _protected_digest(value: dict[str, Any]) -> str:
+    return sha256_bytes(canonical_json(value))
 
-    negative = run_negative_suite(build, repo_root(), lambda: reverify(build))
-    _write_receipt(receipts, "negative.json", negative)
 
-    positive = run_positive(build)
-    _write_receipt(receipts, "positive.json", positive)
-
-    reverify(build)
-    audio_processor_lease, component_session, timeline = normalize_wa0_positive(
-        positive, build
-    )
-    final_protected = protected_snapshot()
-    if final_protected != initial["protected_snapshot"]:
-        fail("protected state differs across the complete WA0 execution transaction")
-    reverify(build)
-    render_packet(
-        build["source_commit"], build, negative, positive, audio_processor_lease,
-        component_session, timeline, initial,
-    )
-    validate_packet(build["source_commit"], treeish=build["source_commit"])
-    records = verify_evidence_packet(
-        repo_root() / "evidence/wa0-windows-vst3-audio-processor-interface-admission"
-    )
-    artifact = build["mac_custody"]["artifact"]
-    handoff_identity = {
-        "implementation_source": {
-            "commit": build["source_commit"], "tree": build["source_tree"],
-            "parent": BASIS_COMMIT, "branch": EXPECTED_BRANCH,
-            "ref": EXPECTED_REF, "schema": SOURCE_SCHEMA,
-            "record_count": 17,
-            "manifest_sha256": build["implementation_source_manifest_sha256"],
-        },
-        "source_handoff": {
-            "schema": SOURCE_HANDOFF_SCHEMA,
-            "bundle_name": build["source_handoff"]["bundle"]["name"],
-            "bundle_sha256": build["source_handoff"]["bundle"]["sha256"],
-            "advertised_ref": build["source_handoff"]["bundle"]["advertised_ref"],
-            "receipt_sha256": sha256_bytes(
-                canonical_json(build["source_handoff"])
-            ),
-            "deck_local_ref": f"refs/handoff/wa0-source/{build['source_commit']}",
-            "detached_worktree_commit": build["source_commit"],
-            "detached_worktree_clean": True,
-        },
-        "windows_build": {
-            "schema": WINDOWS_BUILD_SCHEMA,
-            "workflow_run_id": build["build_receipt"]["workflow"]["run_id"],
-            "workflow_run_attempt": build["build_receipt"]["workflow"]["run_attempt"],
-            "receipt_sha256": sha256_bytes(canonical_json(build["build_receipt"])),
-        },
-        "artifact_custody": {
-            "schema": MAC_CUSTODY_SCHEMA,
-            "artifact_id": artifact["id"], "artifact_name": artifact["name"],
-            "upload_artifact_digest_bare":
-                artifact["upload_artifact_digest_bare"],
-            "rest_artifact_digest": artifact["rest_artifact_digest"],
-            "raw_wrapper_sha256": artifact["raw_wrapper_sha256"],
-            "receipt_sha256": sha256_bytes(canonical_json(build["mac_custody"])),
-            "artifact_manifest_sha256": build["artifact_manifest_sha256"],
-            "payload_archive_sha256":
-                build["build_receipt"]["artifacts"]["payload_archive_sha256"],
-            "artifact_cache_manifest_sha256": build["artifact_manifest_sha256"],
-        },
-        "runtime_proton_digest": RUNNER_DIGEST,
-        "exercise_receipt_sha256": {
-            "negative": sha256_bytes(canonical_json(negative)),
-            "positive": sha256_bytes(canonical_json(positive)),
-        },
-        "component_session_sha256": sha256_bytes(
-            canonical_json(component_session)
-        ),
-        "audio_processor_lease_sha256": sha256_bytes(
-            canonical_json(audio_processor_lease)
-        ),
-        "interface_quiescence": True,
-        "object_quiescence": True,
-        "clean_in_process_shutdown": True,
-        "proof_row_count": 20,
-        "no_deck_github": initial["no_deck_github"],
-        "protected_state_equal": True,
+def _load_intent(path: pathlib.Path) -> dict[str, Any]:
+    value = read_canonical_json(path, "linux-vst-bridge-dx0-deck-intent/v1")
+    expected = {
+        "schema", "operation_nonce", "phase_nonce", "execution_source",
+        "deck_execution_input", "deck_execution_input_sha256", "proof_plan", "proof_plan_sha256",
+        "host_artifact_manifest_sha256", "accepted_fixture_identity_sha256",
+        "source_handoff_receipt_sha256",
     }
-    handoff = create_evidence_handoff(
-        repo_root() / "evidence/wa0-windows-vst3-audio-processor-interface-admission",
-        evidence_handoff,
-        handoff_identity,
-    )
-    process_guard()
-    if any(
-        item.name.startswith(".wf0-factory-census.stage-")
-        for item in pathlib.Path.home().joinpath(
-            ".local/share/linux-vst-bridge/environments"
-        ).iterdir()
-    ):
-        fail("WA0 stage root remains after evidence handoff")
+    if set(value) != expected:
+        fail("DX0 Deck intent key roster differs")
+    if (not re.fullmatch(r"[0-9a-f]{32}", str(value["operation_nonce"]))
+            or not re.fullmatch(r"[0-9a-f]{32}", str(value["phase_nonce"]))):
+        fail("DX0 Deck intent nonce differs")
+    return value
+
+
+def _build_for_normalizer(source: dict[str, Any], host: dict[str, Any],
+                          fixture: dict[str, Any]) -> dict[str, Any]:
     return {
-        "source_commit": build["source_commit"],
-        "artifact_manifest_sha256": build["artifact_manifest_sha256"],
-        "evidence_record_count": len(records),
-        "evidence_handoff": handoff,
-        "protected_state_equal": True,
-        "no_deck_github": initial["no_deck_github"],
+        "implementation_source_manifest": {
+            "schema": source["schema"], "commit": source["commit"],
+            "record_count": source["record_count"], "records": source["records"],
+        },
+        "implementation_source_manifest_sha256": dx0_source_role(source)["manifest_sha256"],
+        "source_tree": source["tree"],
+        "artifact_set": {"records": host["manifest"]["records"]},
+        "again_bundle_manifest": fixture["identity"]["bundle_manifest"],
     }
+
+
+def _publish_result(result: dict[str, Any], execution_input_sha: str) -> pathlib.Path:
+    validate_retained_result(
+        result, expected_execution_input_sha256=execution_input_sha,
+        expected_plan_sha256=result["closed_plan"]["sha256"],
+    )
+    parent = dx0_deck_result_parent()
+    parent.mkdir(parents=True, exist_ok=True)
+    if parent.is_symlink():
+        fail("DX0 Deck result parent is a symlink")
+    target = parent / execution_input_sha
+    if target.is_symlink():
+        fail("DX0 Deck result root is a symlink")
+    if target.exists():
+        if not target.is_dir():
+            fail("DX0 Deck result root is unsafe")
+        existing = target / "DX0_TRANSACTION_RESULT.json"
+        accepted = validate_retained_result_file(
+            existing, expected_execution_input_sha256=execution_input_sha,
+            expected_plan_sha256=result["closed_plan"]["sha256"],
+        )
+        if accepted != result:
+            fail("DX0 Deck result publication conflicts with retained result")
+        return existing
+    stage = parent / f".dx0-result-stage-{execution_input_sha}"
+    if stage.exists() or stage.is_symlink():
+        fail("DX0 Deck result publication outcome is unresolved")
+    stage.mkdir(mode=0o700)
+    path = stage / "DX0_TRANSACTION_RESULT.json"
+    write_atomic(path, canonical_json(result), 0o400)
+    digest = sha256_file(path)
+    write_atomic(stage / "DX0_TRANSACTION_RESULT.json.sha256",
+                 f"{digest}  DX0_TRANSACTION_RESULT.json\n".encode(), 0o400)
+    stage.chmod(0o500)
+    os.replace(stage, target)
+    validate_retained_result_file(
+        target / path.name,
+        expected_execution_input_sha256=execution_input_sha,
+        expected_plan_sha256=result["closed_plan"]["sha256"],
+    )
+    return target / path.name
+
+
+def execute(intent_path: pathlib.Path) -> dict[str, Any]:
+    if sys.executable != "/usr/bin/python3":
+        fail(f"DX0 Deck execution requires /usr/bin/python3; observed {sys.executable}")
+    intent = _load_intent(intent_path)
+    source_commit = intent["execution_source"]["commit"]
+    source = dx0_require_frozen_source(source_commit, detached=True)
+    source_role = dx0_source_role(source)
+    if source_role != intent["execution_source"]:
+        fail("DX0 Deck execution source differs from intent")
+    plan = dx0_closed_plan(DX0_PLAN_ID)
+    plan_sha = dx0_identity_sha256(plan)
+    if plan != intent["proof_plan"] or plan_sha != intent["proof_plan_sha256"]:
+        fail("DX0 Deck closed plan differs from intent")
+
+    handoff_root = dx0_deck_source_parent() / source_commit
+    handoff = verify_source_handoff(handoff_root, source_commit)
+    if handoff["receipt_sha256"] != intent["source_handoff_receipt_sha256"]:
+        fail("DX0 Deck source-handoff receipt differs from intent")
+    host_root = dx0_deck_host_artifact_parent() / intent["host_artifact_manifest_sha256"]
+    build_input_sha = read_canonical_json(
+        host_root / "DX0_WINDOWS_HOST_BUILD_RECEIPT.json"
+    )["windows_build_input"]["sha256"]
+    host = verify_host_store(host_root, build_input_sha)
+    fixture_root = dx0_deck_fixture_parent() / DX0_AGAIN_BUNDLE_MANIFEST_SHA256
+    fixture = verify_fixture_store(fixture_root)
+    if fixture["identity_sha256"] != intent["accepted_fixture_identity_sha256"]:
+        fail("DX0 Deck accepted fixture identity differs from intent")
+    deck_input = dx0_deck_execution_input(
+        source_commit, host["manifest_sha256"], fixture["identity_sha256"], plan_sha
+    )
+    deck_input_sha = dx0_identity_sha256(deck_input)
+    if (deck_input != intent["deck_execution_input"]
+            or deck_input_sha != intent["deck_execution_input_sha256"]):
+        fail("DX0 Deck execution-input readback differs")
+    result_parent = dx0_deck_result_parent()
+    if result_parent.is_symlink():
+        fail("DX0_DECK_TRANSACTION_BLOCKED: retained result parent is a symlink")
+    result_path = result_parent / deck_input_sha / "DX0_TRANSACTION_RESULT.json"
+    if result_path.parent.is_symlink():
+        fail("DX0_DECK_TRANSACTION_BLOCKED: retained result root is a symlink")
+    if result_path.exists():
+        retained = validate_retained_result_file(
+            result_path, expected_execution_input_sha256=deck_input_sha,
+            expected_plan_sha256=plan_sha,
+        )
+        return {"disposition": "reused", "result_sha256": sha256_file(result_path),
+                "execution_input_sha256": deck_input_sha,
+                "operation_nonce": retained["operation_nonce"]}
+
+    lock_parent = dx0_deck_result_parent() / ".locks"
+    lock_parent.mkdir(parents=True, exist_ok=True)
+    lock = lock_parent / f"{deck_input_sha}-{plan_sha}"
+    try:
+        lock.mkdir(mode=0o700)
+    except FileExistsError:
+        fail("DX0_DECK_TRANSACTION_BLOCKED: execution single-writer outcome is unresolved")
+    write_atomic(lock / "prepared-intent.json", canonical_json(intent))
+    started_utc = _utc()
+    environment = None
+    try:
+        process_guard()
+        deck_fixture_identity()
+        runner = verify_runner_identity()
+        if runner["launch_critical_manifest_sha256"] != RUNNER_DIGEST:
+            fail("DX0 Runtime/Proton identity differs")
+        before = protected_snapshot()
+        environment = create_dx0_environment(
+            secrets.token_hex(16), host=host, fixture=fixture,
+            execution_source=source_role, deck_execution_input_sha256=deck_input_sha,
+        )
+        run = supervise(environment)
+        if (run.get("classification") != "scanner_completed" or run.get("blocker") is not None
+                or run.get("last_in_flight_operation") is not None
+                or run.get("cleanup") != {
+                    "owned_descendants_zero": True, "process_group_empty": True,
+                }):
+            fail("DX0_DECK_TRANSACTION_BLOCKED: positive WA0 batch did not complete")
+        audio, component, timeline = normalize_wa0_positive(
+            run, _build_for_normalizer(source, host, fixture)
+        )
+        retirement = retire_environment(environment)
+        environment = None
+        process_guard()
+        after = protected_snapshot()
+        if after != before:
+            fail("DX0 protected state differs after live positive batch")
+
+        custody = host["custody"]
+        build_receipt = host["build_receipt"]
+        positive = {
+            "query_result_u32_hex": audio["query"]["result_u32_hex"],
+            "query_output_nonnull": audio["query"]["output_nonnull"],
+            "query_tuple_consistent": audio["query"]["tuple_consistent"],
+            "interface_release_reference_count": audio["release"]["reference_count"],
+            "audio_processor_method_called": audio["audio_processor_method_called"],
+            "fixture": "AGain VST3",
+            "interface_logical_iid": audio["interface"]["logical_iid"],
+            "interface_raw_windows_tuid": audio["interface"]["raw_windows_tuid"],
+        }
+        calls = {
+            "paired_call_ledger": True,
+            "started_count": component["call_attribution"]["started_count"],
+            "completed_count": component["call_attribution"]["completed_count"],
+            "last_in_flight_operation": component["call_attribution"]["last_in_flight_operation"],
+            "query_audio_processor_count": run["call_counts"]["query_audio_processor"],
+            "release_audio_processor_count": run["call_counts"]["release_audio_processor"],
+            "ledger_overflowed": False,
+        }
+        quiescence = {
+            "interface_quiescence": audio["audio_interface_quiescence"],
+            "object_quiescence": component["object_quiescence"]["value"],
+        }
+        inherited = component["inherited_wf0_regression"]
+        shutdown = {
+            "component_release_reference_count": component["component_release"]["reference_count"],
+            "reverse_factory_release": inherited["factory_release_order"]
+            == ["release_factory_3", "release_factory_2", "release_factory_base"],
+            "exit_dll": inherited["module_exit"] == {"called": True, "present": True, "result": True},
+            "free_library": inherited["module_unload"] == {"attempted": True, "succeeded": True},
+            "scanner_completed": run["classification"] == "scanner_completed",
+            "clean_in_process_shutdown": inherited["clean_in_process_shutdown"],
+        }
+        cleanup = {
+            "owned_descendant_count": 0,
+            "process_group_empty": run["cleanup"]["process_group_empty"],
+            "environment_retired": retirement["environment_retired"],
+            "stage_absent": retirement["stage_absent"],
+        }
+        protected = {
+            "pre_sha256": _protected_digest(before),
+            "post_sha256": _protected_digest(after),
+            "equal": before == after,
+            "comparison_completed": True,
+        }
+        result = {
+            "schema": DX0_RESULT_SCHEMA,
+            "operation_nonce": intent["operation_nonce"],
+            "artifact_producer_source": custody["producer_source"],
+            "deck_execution_source": source_role,
+            "execution_input": {
+                "identity_sha256": deck_input_sha,
+                "schema": DX0_DECK_EXECUTION_INPUT_SCHEMA,
+                "proof_plan_sha256": plan_sha,
+                "runtime_proton_sha256": RUNNER_DIGEST,
+                "source_handoff_ref": handoff["receipt"]["bundle"]["advertised_ref"],
+                "detached_worktree_commit": source_commit,
+                "host_artifact_manifest_sha256": host["manifest_sha256"],
+                "accepted_fixture_identity_sha256": fixture["identity_sha256"],
+            },
+            "host_artifact": {
+                "windows_build_input_sha256": build_input_sha,
+                "workflow_run_id": build_receipt["workflow"]["run_id"],
+                "run_attempt": build_receipt["workflow"]["run_attempt"],
+                "artifact_id": custody["artifact"]["id"],
+                "manifest_sha256": host["manifest_sha256"],
+                "build_receipt_sha256": host["build_receipt_sha256"],
+                "mac_custody_receipt_sha256": host["custody_sha256"],
+            },
+            "accepted_fixture": {
+                "identity_sha256": fixture["identity_sha256"],
+                "bundle_manifest_sha256": DX0_AGAIN_BUNDLE_MANIFEST_SHA256,
+                "module_sha256": DX0_AGAIN_MODULE_SHA256,
+                "mac_store_receipt_sha256": fixture["receipt_sha256"],
+                "deck_store_receipt_sha256": fixture["receipt_sha256"],
+            },
+            "source_handoff": {
+                "bundle_sha256": handoff["receipt"]["bundle"]["sha256"],
+                "receipt_sha256": handoff["receipt_sha256"],
+                "advertised_ref": handoff["receipt"]["bundle"]["advertised_ref"],
+                "worktree_commit": source_commit, "worktree_clean": True,
+            },
+            "closed_plan": {
+                "plan_id": DX0_PLAN_ID, "sha256": plan_sha,
+                "expected_result": "wa0-positive-interface-lease-complete-v1",
+                "live_exercise_ceiling": 1,
+            },
+            "original_observation": {
+                "run_id": run["run_id"], "phase_nonce": intent["phase_nonce"],
+                "event_stream_sha256": sha256_bytes(canonical_json(timeline)),
+                "completion_disposition": "completed", "started_utc": started_utc,
+                "completed_utc": _utc(),
+            },
+            "positive_result": positive, "call_facts": calls,
+            "quiescence": quiescence, "shutdown": shutdown,
+            "cleanup": cleanup, "protected_state": protected,
+            "integrity": {
+                "positive_result_sha256": sha256_bytes(canonical_json(positive)),
+                "call_facts_sha256": sha256_bytes(canonical_json(calls)),
+                "quiescence_sha256": sha256_bytes(canonical_json(quiescence)),
+                "shutdown_sha256": sha256_bytes(canonical_json(shutdown)),
+                "cleanup_sha256": sha256_bytes(canonical_json(cleanup)),
+                "protected_state_sha256": sha256_bytes(canonical_json(protected)),
+            },
+        }
+        path = _publish_result(result, deck_input_sha)
+        write_atomic(lock / "completion.json", canonical_json({
+            "disposition": "completed", "result_sha256": sha256_file(path),
+            "execution_input_sha256": deck_input_sha,
+        }))
+        return {"disposition": "completed", "result_sha256": sha256_file(path),
+                "execution_input_sha256": deck_input_sha,
+                "operation_nonce": intent["operation_nonce"]}
+    finally:
+        if environment is not None:
+            retire_environment(environment)
+        # A completed publication makes this lock stale and safe to retire. On
+        # every other path it is preserved as an unresolved-outcome marker.
+        if result_path.exists() and lock.exists():
+            for child in lock.iterdir():
+                child.unlink()
+            lock.rmdir()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "phase", choices=("preflight", "validate", "all")
-    )
-    parser.add_argument("--source-commit", required=True)
-    parser.add_argument("--artifact-manifest-sha256", required=True)
-    parser.add_argument("--evidence-handoff", type=pathlib.Path)
+    sub = parser.add_subparsers(dest="operation", required=True)
+    execute_parser = sub.add_parser("execute")
+    execute_parser.add_argument("--intent", type=pathlib.Path, required=True)
     args = parser.parse_args()
-    build = load_build(args.source_commit, args.artifact_manifest_sha256)
-
-    if args.phase == "preflight":
-        result = preflight(build)
-    elif args.phase == "validate":
-        validate_packet(args.source_commit, treeish=args.source_commit)
-        result = {"evidence_packet": "valid"}
-    elif args.phase == "all":
-        if args.evidence_handoff is None:
-            fail("all requires --evidence-handoff")
-        result = run_all(build, args.evidence_handoff.resolve())
-    else:
-        fail("individual mutating phases are intentionally available only through one fresh all transaction")
+    result = execute(args.intent.resolve())
     print(json.dumps(result, sort_keys=True))
     return 0
 
@@ -507,5 +618,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print(f"WA0_ERROR: {error}", file=sys.stderr, flush=True)
+        print(f"DX0_ERROR: {error}", file=sys.stderr, flush=True)
         raise

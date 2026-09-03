@@ -195,6 +195,21 @@ def canonical_json(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode() + b"\n"
 
 
+def parse_json_no_duplicates(data: bytes, label: str) -> Any:
+    def object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                fail(f"{label} contains a duplicate JSON key")
+            value[key] = item
+        return value
+
+    try:
+        return json.loads(data, object_pairs_hook=object_pairs)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        fail(f"{label} is malformed JSON")
+
+
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
@@ -604,3 +619,370 @@ def protected_snapshot() -> dict[str, Any]:
                 "marker_hashes": wr0_hashes},
         "historical_tree_projection_sha256": sha256_bytes(current),
     }
+
+
+# DX0 keeps the accepted WA0 execution primitives above intact and adds narrow
+# identity domains around them.  These constants are deliberately separate
+# from the historical WA0 constants: a complete implementation source, a
+# Windows producer input, a Deck execution input, and an evidence renderer are
+# different facts.
+DX0_BASIS_COMMIT = "404966e6bfcd6403a1abb9ed8005210e93d9ad02"
+DX0_BASIS_TREE = "dde8536b89c4b2e48dc9af5b28b64a86b5f2fa91"
+DX0_BRANCH = "codex/dx0-split-build-identity-proof-transaction"
+DX0_REF = f"refs/heads/{DX0_BRANCH}"
+DX0_DESIGN_COMMIT = "f27695862f9287b225af739264169c2ca3f407ad"
+DX0_DESIGN_BLOB = "5dd758d681f9712de02ab4c45d58d3d815aef53a"
+DX0_DESIGN_SHA256 = "85de95acfe171678c0efedbbdc6aebdc0ff134a716dfd8d29f52feed9c53df6c"
+DX0_REVIEW_ID = "5096747625"
+DX0_APPROVAL_BLOB = "95bf313087f9e6ec0fd93d28d0ba796b1578f94c"
+DX0_REVIEW_HISTORY_BLOB = "43b451cb665c20602e79a092c87f4731356c831c"
+
+DX0_COMPLETE_SOURCE_SCHEMA = "linux-vst-bridge-dx0-complete-source/v1"
+DX0_WINDOWS_BUILD_INPUT_SCHEMA = "linux-vst-bridge-dx0-windows-build-input/v1"
+DX0_ACCEPTED_FIXTURE_SCHEMA = "linux-vst-bridge-dx0-accepted-fixture/v1"
+DX0_DECK_EXECUTION_INPUT_SCHEMA = "linux-vst-bridge-dx0-deck-execution-input/v1"
+DX0_EVIDENCE_RENDERER_SCHEMA = "linux-vst-bridge-dx0-evidence-renderer/v1"
+DX0_TRANSACTION_SCHEMA = "linux-vst-bridge-dx0-proof-transaction/v1"
+DX0_TRANSACTION_STATE_SCHEMA = "linux-vst-bridge-dx0-transaction-state/v1"
+DX0_PLAN_SCHEMA = "linux-vst-bridge-dx0-proof-plan/v1"
+DX0_RESULT_SCHEMA = "linux-vst-bridge-dx0-transaction-result/v1"
+DX0_HOST_BUILD_SCHEMA = "linux-vst-bridge-dx0-windows-host-build/v1"
+DX0_HOST_ARTIFACT_SCHEMA = "linux-vst-bridge-dx0-windows-host-artifact/v1"
+DX0_MAC_HOST_CUSTODY_SCHEMA = "linux-vst-bridge-dx0-mac-host-custody/v1"
+DX0_SOURCE_HANDOFF_SCHEMA = "linux-vst-bridge-dx0-source-handoff/v1"
+DX0_PACKET_SCHEMA = "linux-vst-bridge-dx0-evidence-packet/v1"
+DX0_RETAINED_TRANSACTION_SCHEMA = "linux-vst-bridge-dx0-retained-transaction/v1"
+DX0_COST_SCHEMA = "linux-vst-bridge-dx0-cost-and-invalidation/v1"
+
+DX0_SOURCE_PATHS = (
+    ".github/workflows/wf0-windows-msvc-build.yml",
+    "tools/host-proof.py",
+    "tools/wf0-factory-census/README.md",
+    "tools/wf0-factory-census/artifacts.py",
+    "tools/wf0-factory-census/build.py",
+    "tools/wf0-factory-census/common.py",
+    "tools/wf0-factory-census/environment.py",
+    "tools/wf0-factory-census/evidence.py",
+    "tools/wf0-factory-census/negative_tests.py",
+    "tools/wf0-factory-census/run.py",
+)
+DX0_WINDOWS_BUILD_PATHS = (
+    ".github/workflows/wf0-windows-msvc-build.yml",
+    "CMakeLists.txt",
+    "cmake/WF0DependencyLock.cmake",
+    "tools/wf0-factory-census/build.py",
+    "tools/wf0-factory-census/common.py",
+    "tools/wf0-factory-census/verify.py",
+    "windows-factory-probe/CMakeLists.txt",
+    "windows-factory-probe/include/linux_vst_bridge/wf0_probe/census.h",
+    "windows-factory-probe/include/linux_vst_bridge/wf0_probe/events.h",
+    "windows-factory-probe/source/component_instance_session.cpp",
+    "windows-factory-probe/source/component_instance_session.h",
+    "windows-factory-probe/source/factory_census.cpp",
+    "windows-factory-probe/source/factory_census.h",
+    "windows-factory-probe/source/main.cpp",
+    "windows-factory-probe/source/win32_module.cpp",
+    "windows-factory-probe/source/win32_module.h",
+    "windows-fixtures/wf0/CMakeLists.txt",
+)
+DX0_DECK_EXECUTION_PATHS = (
+    "tools/wf0-factory-census/artifacts.py",
+    "tools/wf0-factory-census/common.py",
+    "tools/wf0-factory-census/environment.py",
+    "tools/wf0-factory-census/normalize.py",
+    "tools/wf0-factory-census/run.py",
+    "tools/wf0-factory-census/supervise.py",
+    "tools/wr0-proton-bootstrap/launch.py",
+)
+DX0_RENDERER_PATHS = (
+    "tools/wf0-factory-census/common.py",
+    "tools/wf0-factory-census/evidence.py",
+)
+DX0_EVIDENCE_PATHS = (
+    "evidence/dx0-split-build-identity-proof-transaction/BASIS.md",
+    "evidence/dx0-split-build-identity-proof-transaction/COST_AND_INVALIDATION.json",
+    "evidence/dx0-split-build-identity-proof-transaction/FINDINGS.md",
+    "evidence/dx0-split-build-identity-proof-transaction/TRANSACTION.json",
+    "evidence/dx0-split-build-identity-proof-transaction/hashes.sha256",
+)
+
+DX0_PLAN_ID = "wa0-positive-regression-v1"
+DX0_ACCEPTED_FIXTURE_ID = "wa0-again-accepted-v1"
+DX0_HOST_MODE = "host_only"
+DX0_AGAIN_MODULE_SHA256 = (
+    "60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f"
+)
+DX0_AGAIN_BUNDLE_MANIFEST_SHA256 = (
+    "bfaa1dce4d2e189f89cee41493838824efe647e361e81436676b7b3a86ff5164"
+)
+DX0_ACCEPTED_WA0_ARTIFACT_ID = 9869994854
+DX0_ACCEPTED_WA0_RUN_ID = 33689659595
+DX0_ACCEPTED_WA0_RUN_ATTEMPT = 2
+DX0_ACCEPTED_WA0_PRODUCER = "24b7e6da7e29a5bd358097a6b89c5c59b747c413"
+DX0_ACCEPTED_WA0_ARTIFACT_MANIFEST_SHA256 = (
+    "028228c6a8cc638b4aaf1f477b317359a22eb1dd84e90a12193bb3c5d9159070"
+)
+DX0_ACCEPTED_WA0_WRAPPER_SHA256 = (
+    "81f3d431a0cb00c4cc121799818ce5ac1b8487dfde583d03eb48b98adda7bf3b"
+)
+DX0_ACCEPTED_WA0_PAYLOAD_SHA256 = (
+    "a9397ed53a070522230e6b75ce045e0aedaa3c0e73736cb8a901f203f09ef17c"
+)
+DX0_ACCEPTED_WA0_BUILD_RECEIPT_SHA256 = (
+    "fdf9aabcfcf7eaefcedb50bd15d54f3a93c2babe7525aeb18515b3f13d67fe1e"
+)
+DX0_ACCEPTED_WA0_CUSTODY_RECEIPT_SHA256 = (
+    "9d282701cde6f4576452044d58a13ab7380c19e4b0a5ccca0f950e0ebfcdef23"
+)
+DX0_CHECKOUT_ACTION = "11bd71901bbe5b1630ceea73d27597364c9af683"
+DX0_UPLOAD_ACTION = "ea165f8d65b6e75b540449e92b4886f43607fa02"
+
+
+def _require_closed_sorted(paths: Sequence[str], label: str) -> None:
+    if list(paths) != sorted(paths, key=lambda value: value.encode("utf-8")):
+        fail(f"{label} is not raw-UTF-8 sorted")
+    if len(paths) != len(set(paths)):
+        fail(f"{label} contains duplicates")
+
+
+for _dx0_paths, _dx0_label in (
+    (DX0_SOURCE_PATHS, "DX0 complete-source roster"),
+    (DX0_WINDOWS_BUILD_PATHS, "DX0 Windows-build roster"),
+    (DX0_DECK_EXECUTION_PATHS, "DX0 Deck-execution roster"),
+    (DX0_RENDERER_PATHS, "DX0 evidence-renderer roster"),
+    (DX0_EVIDENCE_PATHS, "DX0 evidence roster"),
+):
+    _require_closed_sorted(_dx0_paths, _dx0_label)
+
+
+def dx0_records(commit: str, paths: Sequence[str], *,
+                root: pathlib.Path | None = None) -> list[dict[str, str]]:
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        fail("DX0 source commit is malformed")
+    repository = root or repo_root()
+    records = [
+        {"path": path, "git_mode": mode, "git_blob": blob}
+        for path in paths
+        for mode, blob in [git_blob(commit, path, repository)]
+    ]
+    _require_closed_sorted([record["path"] for record in records], "DX0 records")
+    return records
+
+
+def dx0_record_manifest_sha256(schema: str, records: list[dict[str, str]]) -> str:
+    return sha256_bytes(canonical_json({
+        "schema": schema,
+        "record_count": len(records),
+        "records": records,
+    }))
+
+
+def dx0_complete_source(commit: str, *, root: pathlib.Path | None = None,
+                        strict: bool = True) -> dict[str, Any]:
+    repository = root or repo_root()
+    records = dx0_records(commit, DX0_SOURCE_PATHS, root=repository)
+    parent = command_text(["git", "rev-parse", f"{commit}^"], cwd=repository)
+    tree = command_text(["git", "rev-parse", f"{commit}^{{tree}}"], cwd=repository)
+    value = {
+        "schema": DX0_COMPLETE_SOURCE_SCHEMA,
+        "commit": commit,
+        "tree": tree,
+        "parent": parent,
+        "ref": DX0_REF,
+        "record_count": len(records),
+        "records": records,
+    }
+    if strict:
+        if parent != DX0_BASIS_COMMIT:
+            fail("DX0 source is not one direct child of the approved basis")
+        basis_tree = command_text(
+            ["git", "rev-parse", f"{DX0_BASIS_COMMIT}^{{tree}}"], cwd=repository
+        )
+        changed = command_text(
+            ["git", "diff", "--name-only", DX0_BASIS_COMMIT, commit], cwd=repository
+        ).splitlines()
+        if basis_tree != DX0_BASIS_TREE or changed != list(DX0_SOURCE_PATHS):
+            fail(f"DX0 source basis or ten-path envelope differs: {changed}")
+    return value
+
+
+def dx0_complete_source_sha256(value: dict[str, Any]) -> str:
+    if (
+        set(value) != {"schema", "commit", "tree", "parent", "ref",
+                       "record_count", "records"}
+        or value.get("schema") != DX0_COMPLETE_SOURCE_SCHEMA
+        or value.get("record_count") != 10
+        or not isinstance(value.get("records"), list)
+        or [item.get("path") for item in value["records"]] != list(DX0_SOURCE_PATHS)
+    ):
+        fail("DX0 complete-source identity shape differs")
+    return sha256_bytes(canonical_json(value))
+
+
+def dx0_require_frozen_source(commit: str, *, detached: bool | None = False) -> dict[str, Any]:
+    root = repo_root()
+    if command_text(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root):
+        fail("DX0 source worktree is not clean")
+    if command_text(["git", "rev-parse", "HEAD"], cwd=root) != commit:
+        fail("DX0 worktree HEAD differs from the requested source")
+    branch = command_text(["git", "branch", "--show-current"], cwd=root)
+    if detached is True and branch:
+        fail("DX0 Deck worktree is not detached")
+    if detached is False and branch != DX0_BRANCH:
+        fail(f"DX0 implementation branch differs: {branch}")
+    return dx0_complete_source(commit)
+
+
+def dx0_windows_build_input(commit: str, *, root: pathlib.Path | None = None) -> dict[str, Any]:
+    repository = root or repo_root()
+    records = dx0_records(commit, DX0_WINDOWS_BUILD_PATHS, root=repository)
+    return {
+        "schema": DX0_WINDOWS_BUILD_INPUT_SCHEMA,
+        "repository": REPOSITORY,
+        "record_count": len(records),
+        "records": records,
+        "sdk": {
+            "root_commit": SDK_COMMIT,
+            "root_tree": SDK_TREE,
+            "submodules": [
+                {"path": path, "commit": SDK_SUBMODULES[path]}
+                for path in sorted(SDK_SUBMODULES, key=lambda value: value.encode())
+            ],
+            "source_patch_count": 0,
+            "checkout": {"core.autocrlf": "false", "core.eol": "lf"},
+        },
+        "build_contract": {
+            "runner_label": "windows-2022",
+            "visual_studio": "2022 Enterprise",
+            "toolset": "v143",
+            "architecture": "x64",
+            "windows_sdk": "10.0.19041.0",
+            "generator": "Visual Studio 17 2022",
+            "configuration": "Release",
+            "msvc_runtime": "MultiThreaded",
+            "roots": 2,
+            "targets": ["wf0-factory-probe"],
+            "host_mode": DX0_HOST_MODE,
+            "again_built": False,
+            "fault_targets_built": False,
+        },
+        "action_commits": {
+            "actions/checkout": DX0_CHECKOUT_ACTION,
+            "actions/upload-artifact": DX0_UPLOAD_ACTION,
+        },
+    }
+
+
+def dx0_identity_sha256(value: dict[str, Any]) -> str:
+    return sha256_bytes(canonical_json(value))
+
+
+def dx0_closed_plan(plan_id: str) -> dict[str, Any]:
+    if plan_id != DX0_PLAN_ID:
+        fail("DX0 plan identifier is outside the closed plan registry")
+    return {
+        "schema": DX0_PLAN_SCHEMA,
+        "plan_id": DX0_PLAN_ID,
+        "accepted_fixture_id": DX0_ACCEPTED_FIXTURE_ID,
+        "host_mode": DX0_HOST_MODE,
+        "deterministic_validation_set": "dx0-fourteen-row-v1",
+        "live_deck_batch": "wa0-positive-only-v1",
+        "expected_result": "wa0-positive-interface-lease-complete-v1",
+        "evidence_renderer": "dx0-five-file-renderer-v1",
+    }
+
+
+def dx0_validate_plan(value: Any) -> dict[str, Any]:
+    expected = dx0_closed_plan(DX0_PLAN_ID)
+    if not isinstance(value, dict) or value != expected:
+        fail("DX0 closed proof plan differs")
+    return value
+
+
+def dx0_deck_execution_input(commit: str, host_manifest_sha256: str,
+                             fixture_identity_sha256: str,
+                             plan_sha256: str,
+                             *, root: pathlib.Path | None = None) -> dict[str, Any]:
+    for label, digest in (
+        ("host artifact manifest", host_manifest_sha256),
+        ("accepted fixture identity", fixture_identity_sha256),
+        ("proof plan", plan_sha256),
+    ):
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            fail(f"DX0 {label} digest is malformed")
+    records = dx0_records(commit, DX0_DECK_EXECUTION_PATHS, root=root)
+    return {
+        "schema": DX0_DECK_EXECUTION_INPUT_SCHEMA,
+        "host_artifact_manifest_sha256": host_manifest_sha256,
+        "accepted_fixture_identity_sha256": fixture_identity_sha256,
+        "proof_plan_sha256": plan_sha256,
+        "runtime_proton_sha256": RUNNER_DIGEST,
+        "record_count": len(records),
+        "records": records,
+    }
+
+
+def dx0_evidence_renderer(commit: str, *, root: pathlib.Path | None = None) -> dict[str, Any]:
+    records = dx0_records(commit, DX0_RENDERER_PATHS, root=root)
+    return {
+        "schema": DX0_EVIDENCE_RENDERER_SCHEMA,
+        "record_count": len(records),
+        "records": records,
+        "evidence_schema": DX0_PACKET_SCHEMA,
+        "evidence_paths": list(DX0_EVIDENCE_PATHS),
+    }
+
+
+def dx0_source_role(value: dict[str, Any]) -> dict[str, Any]:
+    identity_sha = dx0_complete_source_sha256(value)
+    record_sha = dx0_record_manifest_sha256(
+        DX0_COMPLETE_SOURCE_SCHEMA, value["records"]
+    )
+    return {
+        "identity_sha256": identity_sha,
+        "commit": value["commit"],
+        "tree": value["tree"],
+        "parent": value["parent"],
+        "ref": value["ref"],
+        "manifest_sha256": record_sha,
+    }
+
+
+def dx0_mac_proof_root() -> pathlib.Path:
+    return real_home() / "Library/Application Support/Linux VST Bridge/proof"
+
+
+def dx0_mac_fixture_parent() -> pathlib.Path:
+    return dx0_mac_proof_root() / "fixtures/by-manifest"
+
+
+def dx0_mac_host_artifact_parent() -> pathlib.Path:
+    return dx0_mac_proof_root() / "host-artifacts/by-manifest"
+
+
+def dx0_mac_transaction_parent() -> pathlib.Path:
+    return dx0_mac_proof_root() / "transactions/by-id"
+
+
+def dx0_mac_result_parent() -> pathlib.Path:
+    return dx0_mac_proof_root() / "results/by-execution-input"
+
+
+def dx0_deck_fixture_parent() -> pathlib.Path:
+    return real_home() / ".local/share/linux-vst-bridge/fixtures/by-manifest"
+
+
+def dx0_deck_host_artifact_parent() -> pathlib.Path:
+    return real_home() / ".local/share/linux-vst-bridge/host-artifacts/by-manifest"
+
+
+def dx0_deck_result_parent() -> pathlib.Path:
+    return real_home() / ".local/share/linux-vst-bridge/proof/results/by-execution-input"
+
+
+def dx0_deck_source_parent() -> pathlib.Path:
+    return real_home() / ".local/share/linux-vst-bridge/handoffs/dx0/source/by-commit"
+
+
+def dx0_deck_worktree_parent() -> pathlib.Path:
+    return real_home() / ".local/share/linux-vst-bridge/worktrees/dx0"
