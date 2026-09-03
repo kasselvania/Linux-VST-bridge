@@ -12,9 +12,11 @@ selection_basis_commit: 859422be75f65da4dd7dc51394b84470ad594358
 selection_basis_tree: 7b9a721f3e691974dd1720c20d9ef030932978a9
 selection_receipt: docs/slices/DX0/SLICE_SELECTION.md
 design_gate: required
-design_revision: unapproved
-design_status: selected_for_reconnaissance_and_design
+design_revision: dx0-design-v1
+design_status: proposed_for_adversarial_review
 design_card: docs/slices/DX0/IMPLEMENTATION_DESIGN.md
+design_blob: b71024010e828fba9acc5c9a2f82546a5bb6e6c9
+design_sha256: de40a98822bc7ea4fda8684047f77007177626e5b8a49cdfeda7bed2d845682e
 design_branch: codex/dx0-split-build-identity-proof-transaction-design
 successor_selection_authorized: false
 ```
