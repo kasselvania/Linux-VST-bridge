@@ -65,3 +65,23 @@ process/environment cleanup, result publication and retrieval, resume, and
 concurrent driver invocation.
 
 Additional reconnaissance required: false.
+
+## V2 technical-lead disposition — DESIGN_CLEAR
+
+```yaml
+reviewed_revision: dx0-design-v2
+reviewed_design_commit: f27695862f9287b225af739264169c2ca3f407ad
+reviewed_design_tree: e08455a23a0891d09bc89fbf0ee50164bbecb7a4
+reviewed_design_blob: 5dd758d681f9712de02ab4c45d58d3d815aef53a
+reviewed_design_sha256: 85de95acfe171678c0efedbbdc6aebdc0ff134a716dfd8d29f52feed9c53df6c
+github_review_id: 5096747625
+review_result: DESIGN_CLEAR
+r1: resolved
+r2: resolved
+```
+
+The exact-head review is retained at https://github.com/kasselvania/Linux-VST-bridge/pull/34#pullrequestreview-5096747625 . V2 closes strict cached-result admission and truthful P/E/C provenance, acyclic hashing, persisted remote intent, lost-acknowledgement recovery, and single-writer exclusion. It requires no further design revision, implementation-path expansion, additional live exercise, or broad proof replay.
+
+The three-owner, six-domain, ten-state, twelve-operation, fourteen-proof-row, ten-blocker, ten-source/five-evidence boundary remains intact. One-time fixture seeding is separate; at most one acceptance producer and one live positive Deck exercise are authorized. The proposed cost reductions are implementation acceptance obligations, not already measured savings.
+
+This review supplied technical clearance, not operator approval. The subsequently supplied exact operator approval is retained separately in `DESIGN_APPROVAL.md`; current implementation authority is owned by that receipt and `CURRENT_SLICE.md`. Historical V1 review text above is unchanged.
