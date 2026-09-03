@@ -7,12 +7,13 @@ import ast
 import copy
 import json
 import pathlib
+import re
 import tempfile
 from typing import Any
 
 from artifacts import (
     accepted_fixture_identity, accepted_fixture_identity_sha256,
-    create_source_handoff, verify_source_handoff,
+    create_source_handoff, verify_fixture_store, verify_source_handoff,
 )
 from common import (
     DX0_AGAIN_BUNDLE_MANIFEST_SHA256, DX0_AGAIN_MODULE_SHA256,
@@ -27,7 +28,7 @@ from common import (
 )
 from evidence import (
     publish_packet, render_packet, result_admission_receipt, validate_packet,
-    validate_result,
+    validate_pc0_packet_value, validate_result,
 )
 from run import validate_retained_result, validate_retained_result_file
 from verify import audio_method_verifier_regression, scanner_component_call_surface
@@ -1171,3 +1172,1052 @@ def deterministic_tests(source_root: pathlib.Path, *, source_commit: str,
 
 if __name__ == "__main__":
     raise SystemExit("negative_tests.py is invoked by tools/host-proof.py")
+
+
+PC0_NATIVE_HARNESS = r'''
+#include "component_instance_session.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <limits>
+using namespace Steinberg;
+using namespace Steinberg::Vst;
+using namespace linux_vst_bridge::wf0;
+int fault = 0, calls = 0;
+#define UNUSED_RESULT(name, args) tresult PLUGIN_API name args override { std::abort(); }
+#define UNKNOWN_METHODS \
+ UNUSED_RESULT(queryInterface, (const TUID, void**)) \
+ uint32 PLUGIN_API addRef() override { std::abort(); } \
+ uint32 PLUGIN_API release() override { std::abort(); }
+struct Component final : IComponent {
+ UNKNOWN_METHODS
+ UNUSED_RESULT(initialize, (FUnknown*))
+ UNUSED_RESULT(terminate, ())
+ UNUSED_RESULT(getControllerClassId, (TUID))
+ UNUSED_RESULT(setIoMode, (IoMode))
+ UNUSED_RESULT(getRoutingInfo, (RoutingInfo&, RoutingInfo&))
+ UNUSED_RESULT(activateBus, (MediaType, BusDirection, int32, TBool))
+ UNUSED_RESULT(setActive, (TBool))
+ UNUSED_RESULT(setState, (IBStream*))
+ UNUSED_RESULT(getState, (IBStream*))
+ int32 PLUGIN_API getBusCount(MediaType media, BusDirection direction) override {
+   ++calls;
+   if (fault == 1) return -1;
+   if (fault == 2) return 33;
+   if (fault == 3) return 32;
+   return media == kEvent && direction == kOutput ? 0 : 1;
+ }
+ tresult PLUGIN_API getBusInfo(MediaType media, BusDirection direction, int32 index, BusInfo& out) override {
+   ++calls;
+   const unsigned char* bytes = reinterpret_cast<const unsigned char*>(&out);
+   for (std::size_t i = 0; i < sizeof(out); ++i) if (bytes[i] != 0) std::abort();
+   if (fault == 4) return kResultFalse;
+   if (index != 0) std::abort();
+   out.mediaType = fault == 5 ? 99 : media;
+   out.direction = fault == 6 ? 99 : direction;
+   out.channelCount = fault == 9 ? 0 : (media == kAudio ? 2 : 1);
+   out.busType = fault == 10 ? 99 : kMain;
+   out.flags = fault == 11 ? 4 : (fault == 12 && media == kEvent ? 3 : 1);
+   const char* name = media == kEvent ? "Event In" : direction == kInput ? "Stereo In" : "Stereo Out";
+   for (std::size_t i = 0; name[i]; ++i) out.name[i] = name[i];
+   if (fault == 7) for (auto& unit : out.name) unit = 'a';
+   if (fault == 8) out.name[0] = static_cast<TChar>(0xd800);
+   if (fault == 17) out.name[0] = 0;
+   if (fault == 18) { out.name[0] = static_cast<TChar>(0xd83d); out.name[1] = static_cast<TChar>(0xde00); out.name[2] = 0; }
+   return kResultTrue;
+ }
+};
+struct Audio final : IAudioProcessor {
+ UNKNOWN_METHODS
+ UNUSED_RESULT(setBusArrangements, (SpeakerArrangement*, int32, SpeakerArrangement*, int32))
+ UNUSED_RESULT(setupProcessing, (ProcessSetup&))
+ UNUSED_RESULT(setProcessing, (TBool))
+ UNUSED_RESULT(process, (ProcessData&))
+ uint32 PLUGIN_API getLatencySamples() override { std::abort(); }
+ uint32 PLUGIN_API getTailSamples() override { std::abort(); }
+ tresult PLUGIN_API getBusArrangement(BusDirection, int32 index, SpeakerArrangement& out) override {
+   ++calls;
+   if (out != 0 || index != 0) std::abort();
+   out = fault == 14 ? 1 : 3;
+   return fault == 13 ? kResultFalse : kResultTrue;
+ }
+ tresult PLUGIN_API canProcessSampleSize(int32 size) override {
+   ++calls;
+   if (size != kSample32 && size != kSample64) std::abort();
+   return fault == 15 ? kResultFalse : fault == 16 ? kInvalidArgument : kResultTrue;
+ }
+};
+int main(int argc, char** argv) {
+ if (argc != 3) return 2;
+ if (scanner_output_failure_exit(true, 0) != 99 ||
+     scanner_output_failure_exit(true, 93) != 93 ||
+     scanner_output_failure_exit(true, 97) != 97 ||
+     scanner_output_failure_exit(false, 0) != 82) std::abort();
+ fault = std::atoi(argv[1]);
+ std::size_t overflow = std::numeric_limits<std::size_t>::max();
+ if (PreSetupProcessingContractCensus::checked_count(1, overflow)) std::abort();
+ Component component; Audio audio;
+ EventWriter writer(static_cast<std::size_t>(std::strtoull(argv[2], nullptr, 10)));
+ PreSetupProcessingContractCensus census(component, audio, writer);
+ int result = 0;
+ try { result = census.run(); } catch (int code) { result = code; }
+ std::fprintf(stderr, "{\"result\":%d,\"calls\":%d,\"complete\":%s}\n", result, calls, census.contract().empty() ? "false" : "true");
+ return 0;
+}
+'''
+
+
+def pc0_native_owner_tests(root: pathlib.Path) -> dict[str, Any]:
+    """Native deterministic interface doubles exercise the actual C++ borrower.
+
+    This is not a Windows artifact or a plug-in module. No real plug-in is loaded.
+    Only the Windows thread/refcount primitives unused by this borrower are shimmed.
+    """
+    import subprocess
+    from common import command_text, SDK_SUBMODULES, sdk_root, write_atomic
+    from common import pc0_validate_contract
+    from supervise import StreamState, IN_FLIGHT_BLOCKER
+    candidates = [sdk_root(), *sorted(pathlib.Path("/private/tmp").glob("pc0-sdk-read.*"))]
+    sdk = None
+    for candidate in candidates:
+        if not (candidate / "pluginterfaces/base/funknown.h").is_file():
+            continue
+        if all(command_text(["git", "rev-parse", "HEAD"], cwd=candidate / sub) == SDK_SUBMODULES[sub]
+               and not command_text(["git", "status", "--porcelain"], cwd=candidate / sub)
+               for sub in ("pluginterfaces", "public.sdk")):
+            sdk = candidate
+            break
+    if sdk is None:
+        fail("PC0_EVIDENCE_BLOCKED: exact local SDK headers unavailable for owner tests")
+    with tempfile.TemporaryDirectory(prefix="pc0-native-owner-") as temporary:
+        stage = pathlib.Path(temporary)
+        write_atomic(stage / "windows.h", b"#pragma once\n#include <cstdint>\nusing DWORD=std::uint32_t; using LONG=std::int32_t;\ninline DWORD GetCurrentThreadId(){return 1;}\ninline LONG InterlockedIncrement(volatile LONG* p){return __sync_add_and_fetch(p,1);}\ninline LONG InterlockedDecrement(volatile LONG* p){return __sync_sub_and_fetch(p,1);}\n")
+        write_atomic(stage / "owner-test.cpp", PC0_NATIVE_HARNESS.encode())
+        compile_result = subprocess.run([
+            "/usr/bin/clang++", "-std=c++20", "-ffunction-sections", "-fdata-sections",
+            "-Wl,-dead_strip", "-I" + str(stage), "-I" + str(sdk),
+            "-I" + str(root / "windows-factory-probe/include"),
+            "-I" + str(root / "windows-factory-probe/source"),
+            str(stage / "owner-test.cpp"),
+            str(root / "windows-factory-probe/source/component_instance_session.cpp"),
+            "-o", str(stage / "owner-test"),
+        ], capture_output=True, timeout=60, check=False)
+        if compile_result.returncode:
+            fail("PC0 native owner test compilation failed: " + compile_result.stderr.decode()[-4000:])
+
+        def execute(fault: int, cap: int = 1048576) -> tuple[dict[str, Any], list[dict[str, Any]], bytes]:
+            returned = subprocess.run([str(stage / "owner-test"), str(fault), str(cap)],
+                                      capture_output=True, timeout=5, check=False)
+            if returned.returncode:
+                fail("PC0 native owner called a prohibited method or failed")
+            facts = json.loads(returned.stderr)
+            records = [json.loads(line) for line in returned.stdout.splitlines()]
+            stream = StreamState()
+            for record in records:
+                stream.accept(record)
+            return facts, records, returned.stdout
+
+        positive, records, raw = execute(0)
+        if positive != {"result": 0, "calls": 11, "complete": True}:
+            fail("PC0 native positive owner sequence failed")
+        contract = pc0_validate_contract(records[-1]["processing_contract"])
+        negative_cases = {1: (93, 1), 2: (93, 1), 3: (93, 3), 4: (94, 5),
+                          5: (94, 5), 6: (94, 5), 7: (94, 5), 8: (94, 5),
+                          9: (94, 5), 10: (94, 5), 11: (94, 5), 12: (94, 7),
+                          13: (95, 8), 14: (95, 8), 16: (96, 10)}
+        for fault, (code, count) in negative_cases.items():
+            facts, _, _ = execute(fault)
+            if facts != {"result": code, "calls": count, "complete": False}:
+                fail(f"PC0 production owner failure attribution differs: {fault}: {facts}")
+        for fault in (15, 17, 18):
+            facts, special, _ = execute(fault)
+            if facts["result"] != 0:
+                fail("PC0 valid false/empty/UTF-16 boundary rejected")
+            pc0_validate_contract(special[-1]["processing_contract"], exact_again=False)
+        # Actual EventWriter capacity faults, not a second writer model.
+        lines = raw.splitlines(keepends=True)
+        facts, starts_failed, _ = execute(0, len(lines[0]) - 1)
+        if (facts != {"result": 99, "calls": 0, "complete": False}
+                or starts_failed
+                or any(record.get("state", "").endswith("_in_flight")
+                       for record in starts_failed)):
+            fail("PC0 failed-start publication falsely attempted a plug-in call")
+        facts, completion_failed, _ = execute(0, len(lines[0]))
+        if facts != {"result": 99, "calls": 1, "complete": False} or completion_failed[-1]["event"] != "call_started":
+            fail("PC0 failed-completion publication did not leave exact unmatched call")
+        if any(record.get("event") == "lifecycle"
+               and record.get("state", "").endswith("_in_flight") for record in records):
+            fail("PC0 emitted an unbound in-flight lifecycle record")
+        ordinary, failed_records, failed_raw = execute(1)
+        facts, _, _ = execute(1, len(failed_raw) - len(failed_raw.splitlines(keepends=True)[-1]))
+        if facts["result"] != 93:
+            fail("PC0 output failure erased earlier primary count blocker")
+        for operation in ("get_bus_count", "get_bus_info", "get_bus_arrangement", "can_process_sample_size"):
+            stream = StreamState()
+            for record in records:
+                stream.accept(record)
+                if record.get("event") == "call_started" and record.get("operation") == operation:
+                    break
+            if not stream.in_flight or IN_FLIGHT_BLOCKER[operation] not in {
+                    "PC0_BUS_COUNT_BLOCKED", "PC0_BUS_INFO_BLOCKED",
+                    "PC0_BUS_ARRANGEMENT_BLOCKED", "PC0_SAMPLE_FORMAT_BLOCKED"}:
+                fail("PC0 injected unmatched operation attribution failed")
+        return {"production_owner_cases": len(negative_cases) + 7,
+                "native_not_windows_or_live": True, "contract": contract,
+                "positive_records": records, "writer_boundary_passed": True,
+                "unmatched_operations": 4}
+
+
+def _pc0_mutation_identities(root: pathlib.Path, source_commit: str) -> dict[str, Any]:
+    """Actual Git object derivation in a private temporary repository."""
+    from common import (PC0_BASIS_COMMIT, PC0_PLAN_ID, command, command_text,
+                        pc0_expected_contract)
+    import os
+    import subprocess
+    result = {}
+    with tempfile.TemporaryDirectory(prefix="pc0-identity-mutations-") as temporary:
+        repository = pathlib.Path(temporary) / "repository.git"
+        command(["git", "clone", "--bare", "--shared", str(root), str(repository)])
+        for label, path in (
+            ("original", None), ("renderer", "tools/wf0-factory-census/evidence.py"),
+            ("mac", "tools/host-proof.py"), ("deck", "tools/wf0-factory-census/run.py"),
+            ("host", "windows-factory-probe/source/component_instance_session.cpp"),
+        ):
+            commit = source_commit
+            if path is not None:
+                command(["git", "read-tree", source_commit], cwd=repository)
+                original = command(["git", "show", f"{source_commit}:{path}"],
+                                   cwd=repository).stdout
+                separator = b"" if original.endswith(b"\n") else b"\n"
+                mutated = (original + separator
+                           + f"# deterministic {label}-only identity mutation\n".encode())
+                blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=repository,
+                    input=mutated, capture_output=True, check=True).stdout.decode().strip()
+                command(["git", "update-index", "--add", "--cacheinfo", "100644", blob, path], cwd=repository)
+                tree = command_text(["git", "write-tree"], cwd=repository)
+                environment = {**os.environ,
+                    "GIT_AUTHOR_DATE": "2000-01-01T00:00:00Z",
+                    "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"}
+                commit = command_text(["git", "-c", "user.name=PC0 Test",
+                    "-c", "user.email=test@example.invalid", "commit-tree", tree,
+                    "-p", PC0_BASIS_COMMIT, "-m", "Synthetic PC0 invalidation test"],
+                    cwd=repository, env=environment)
+            source = dx0_complete_source(commit, root=repository)
+            plan = dx0_closed_plan(PC0_PLAN_ID)
+            result[label] = {
+                "source": source, "role": dx0_source_role(source),
+                "build": dx0_windows_build_input(commit, root=repository),
+                "deck": dx0_deck_execution_input(commit, "a" * 64, "b" * 64,
+                    dx0_identity_sha256(plan), root=repository),
+                "renderer": dx0_evidence_renderer(commit, root=repository, plan_id=PC0_PLAN_ID),
+            }
+    return result
+
+
+def _pc0_materialize_renderer_consumer(root: pathlib.Path, source_commit: str,
+                                       parent: pathlib.Path) -> dict[str, Any]:
+    """Create one runnable renderer-only C and its isolated exact checkout."""
+    from common import (PC0_BASIS_COMMIT, PC0_PLAN_ID, PC0_REF, command,
+                        command_text)
+    import os
+    import subprocess
+    repository = parent / "renderer.git"
+    checkout = parent / "renderer-consumer"
+    command(["git", "clone", "--bare", "--shared", str(root), str(repository)])
+    path = "tools/wf0-factory-census/evidence.py"
+    command(["git", "read-tree", source_commit], cwd=repository)
+    original = command(["git", "show", f"{source_commit}:{path}"], cwd=repository).stdout
+    separator = b"" if original.endswith(b"\n") else b"\n"
+    mutated = original + separator + b"# deterministic renderer-only identity mutation\n"
+    blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=repository,
+        input=mutated, capture_output=True, check=True).stdout.decode().strip()
+    command(["git", "update-index", "--add", "--cacheinfo", "100644", blob, path],
+            cwd=repository)
+    tree = command_text(["git", "write-tree"], cwd=repository)
+    environment = {**os.environ,
+        "GIT_AUTHOR_DATE": "2000-01-01T00:00:00Z",
+        "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z"}
+    commit = command_text(["git", "-c", "user.name=PC0 Test",
+        "-c", "user.email=test@example.invalid", "commit-tree", tree,
+        "-p", PC0_BASIS_COMMIT, "-m", "Synthetic PC0 renderer-only consumer"],
+        cwd=repository, env=environment)
+    branch = PC0_REF.removeprefix("refs/heads/")
+    command(["git", "update-ref", PC0_REF, commit], cwd=repository)
+    command(["git", "symbolic-ref", "HEAD", PC0_REF], cwd=repository)
+    command(["git", "clone", "--no-local", str(repository), str(checkout)])
+    if (command_text(["git", "rev-parse", "HEAD"], cwd=checkout) != commit
+            or command_text(["git", "branch", "--show-current"], cwd=checkout) != branch
+            or command_text(["git", "status", "--porcelain=v1", "--untracked-files=all"],
+                            cwd=checkout)):
+        fail("PC0 synthetic renderer consumer checkout differs")
+    source = dx0_complete_source(commit, root=checkout)
+    return {"checkout": checkout, "source": source, "role": dx0_source_role(source),
+            "build": dx0_windows_build_input(commit, root=checkout),
+            "deck": dx0_deck_execution_input(commit, "a" * 64, "b" * 64,
+                dx0_identity_sha256(dx0_closed_plan(PC0_PLAN_ID)), root=checkout),
+            "renderer": dx0_evidence_renderer(commit, root=checkout, plan_id=PC0_PLAN_ID)}
+
+
+def pc0_synthetic_result(root: pathlib.Path, plan_sha: str, role: dict[str, Any],
+                          owner_records: list[dict[str, Any]], contract: dict[str, Any]) -> dict[str, Any]:
+    from common import PC0_RESULT_SCHEMA, PC0_PLAN_ID, PC0_OPERATIONS
+    result = synthetic_valid_result(plan_sha, execution_role=role)
+    result["schema"] = PC0_RESULT_SCHEMA
+    result["closed_plan"].update(plan_id=PC0_PLAN_ID, expected_result="pc0-pre-setup-contract-complete-v1")
+    result["positive_result"].update(audio_processor_method_called=True, processing_contract=contract)
+    accepted = json.loads((root /
+        "evidence/wa0-windows-vst3-audio-processor-interface-admission/STAGE_TIMELINE.json"
+    ).read_bytes())["positive"]
+    inherited = [copy.deepcopy(record) for record in accepted
+                 if record.get("event") in {"call_started", "call_completed"}]
+    if len(inherited) != 44:
+        fail("PC0 deterministic accepted WA0 call fixture differs")
+    new_calls = [copy.deepcopy(record) for record in owner_records
+                 if record.get("event") in {"call_started", "call_completed"}]
+    if len(new_calls) != 22:
+        fail("PC0 deterministic production-owner call fixture differs")
+    ledger: list[dict[str, Any]] = []
+    sequence = 0
+    for inherited_index in range(22):
+        segment = inherited[inherited_index * 2:inherited_index * 2 + 2]
+        for record in segment:
+            sequence += 1
+            record["sequence"] = sequence
+            if record["event"] == "call_completed":
+                record["attempt_sequence"] = sequence - 1
+            ledger.append(record)
+        if inherited_index == 13:
+            for record in new_calls:
+                sequence += 1
+                record["sequence"] = sequence
+                if record["event"] == "call_completed":
+                    record["attempt_sequence"] = sequence - 1
+                ledger.append(record)
+    result["call_facts"].update(started_count=33, completed_count=33,
+        pc0_operation_counts=dict(zip(PC0_OPERATIONS, (4, 3, 2, 2))), ledger=ledger)
+    for key in result["integrity"]:
+        result["integrity"][key] = sha256_bytes(canonical_json(result[key.removesuffix("_sha256")]))
+    return result
+
+
+def pc0_deterministic_tests(root: pathlib.Path, source_commit: str, driver_class: Any) -> dict[str, Any]:
+    import subprocess
+    from common import (PC0_PLAN_ID, PC0_SOURCE_PATHS, PC0_EVIDENCE_PATHS,
+                        PC0_OPERATIONS, PC0_PROOF_CLAIMS, write_atomic,
+                        pc0_validate_contract)
+    from normalize import normalize_pc0_census, validate_wa0_event_order
+    from unittest.mock import patch
+    import sys
+    host_module = sys.modules[driver_class.__module__]
+    closure = deck_execution_import_closure(root)
+    if closure != tuple(DX0_DECK_EXECUTION_PATHS) or "tools/wf0-factory-census/evidence.py" in closure:
+        fail("PC0 Deck import closure differs from the seven-record identity")
+    source = dx0_complete_source(source_commit)
+    if [item["path"] for item in source["records"]] != list(PC0_SOURCE_PATHS):
+        fail("PC0 source envelope differs")
+    for path in (*PC0_SOURCE_PATHS,):
+        if path.endswith(".py"):
+            ast.parse((root / path).read_text(), filename=path)
+    scanner_component_call_surface(root)
+    workflow = (root / ".github/workflows/wf0-windows-msvc-build.yml").read_text()
+    if ("\n  push:" in workflow or "workflow_dispatch:" not in workflow
+            or "refs/heads/codex/pc0-windows-vst3-pre-setup-processing-contract" not in workflow
+            or "dx0-workflow-build" not in workflow or "persist-credentials: false" not in workflow
+            or len(re.findall(r"uses: [^\n]+@[0-9a-f]{40}", workflow)) != 2):
+        fail("PC0 workflow closed dispatch structure differs")
+    owner = pc0_native_owner_tests(root)
+    main_source = (root / "windows-factory-probe/source/main.cpp").read_text()
+    component_primary = main_source.find(
+        "if (component.primary_exit != 0) primary = component.primary_exit;")
+    primary_latched = main_source.find(
+        "if (first_primary == 0) first_primary = primary;", component_primary)
+    session_published = main_source.find(
+        'events.final_lifecycle("component_session_closed"', component_primary)
+    exception_owner = main_source.find(
+        "return wf0::scanner_output_failure_exit(pc0_mode, first_primary);")
+    if min(component_primary, primary_latched, session_published, exception_owner) < 0 or not (
+            component_primary < primary_latched < session_published < exception_owner):
+        fail("PC0 scanner integration can erase the first primary on output failure")
+    normalize_pc0_census(owner["positive_records"], owner["contract"])
+    accepted_stream = json.loads((root /
+        "evidence/wa0-windows-vst3-audio-processor-interface-admission/STAGE_TIMELINE.json"
+    ).read_bytes())["positive"]
+    release_position = next(
+        index for index, record in enumerate(accepted_stream)
+        if record.get("event") == "lifecycle"
+        and record.get("state") == "audio_processor_release_in_flight"
+    )
+    integrated_stream = (
+        copy.deepcopy(accepted_stream[:release_position])
+        + copy.deepcopy(owner["positive_records"])
+        + copy.deepcopy(accepted_stream[release_position:])
+    )
+    latest_started: int | None = None
+    for sequence, record in enumerate(integrated_stream, 1):
+        record["sequence"] = sequence
+        if record.get("event") == "call_started":
+            latest_started = sequence
+        elif record.get("event") == "call_completed":
+            record["attempt_sequence"] = latest_started
+            latest_started = None
+    validate_wa0_event_order(integrated_stream, pre_setup=True)
+    obsolete_lifecycle = copy.deepcopy(integrated_stream)
+    first_pc0 = next(index for index, record in enumerate(obsolete_lifecycle)
+                     if record.get("operation") == "get_bus_count")
+    obsolete_lifecycle.insert(first_pc0, {
+        "event": "lifecycle", "state": "bus_count_in_flight", "sequence": 0,
+    })
+    if not _validator_rejects(
+            lambda value: validate_wa0_event_order(value, pre_setup=True),
+            obsolete_lifecycle):
+        fail("PC0 normalizer admitted a lifecycle write between durable call boundaries")
+    contract_mutations = {
+        "duplicate_bus": lambda value: value["buses"].append(copy.deepcopy(value["buses"][0])),
+        "reordered_bus": lambda value: value["buses"].__setitem__(slice(0, 2),
+            [value["buses"][1], value["buses"][0]]),
+        "extra_count_domain": lambda value: value["counts"].append(copy.deepcopy(value["counts"][0])),
+        "count_roster_mismatch": lambda value: value["counts"][0].update(count=2),
+        "extra_sample_size": lambda value: value["sample_sizes"].append(copy.deepcopy(value["sample_sizes"][0])),
+    }
+    for label, mutate in contract_mutations.items():
+        changed = copy.deepcopy(owner["contract"]); mutate(changed)
+        if not _validator_rejects(pc0_validate_contract, changed):
+            fail(f"PC0 contract admitted {label}")
+    for index in range(11):
+        records = copy.deepcopy(owner["positive_records"])
+        target = [record for record in records if record["event"] == "call_completed"][index]
+        records.remove(target)
+        if not _validator_rejects(lambda value: normalize_pc0_census(value, owner["contract"]), records):
+            fail("PC0 normalizer admitted a missing completion")
+    identities = _pc0_mutation_identities(root, source_commit)
+    base = identities["original"]
+    for label, expected in (("renderer", (False, False, True)), ("mac", (False, False, False)),
+                            ("deck", (False, True, False)), ("host", (True, False, False))):
+        observed = tuple(identities[label][key] != base[key] for key in ("build", "deck", "renderer"))
+        if observed != expected or identities[label]["source"] == base["source"]:
+            fail(f"PC0 exact Git invalidation differs for {label}")
+    plan = dx0_closed_plan(PC0_PLAN_ID)
+    plan_sha = dx0_identity_sha256(plan)
+    valid = pc0_synthetic_result(root, plan_sha, base["role"], owner["positive_records"], owner["contract"])
+    validate_result(valid); validate_retained_result(valid)
+    malformed = _malformed_result_mutations()
+    malformed.update({
+        "consumer_in_private": lambda value: value.update(evidence_consumer_source=base["role"]),
+        "missing_contract": lambda value: value["positive_result"].pop("processing_contract"),
+        "wrong_call_count": lambda value: value["call_facts"].update(started_count=32),
+        "unpaired_coordinate": lambda value: value["call_facts"]["ledger"][29].update(direction="kOutput"),
+        "incomplete_contract": lambda value: value["positive_result"]["processing_contract"].update(complete=False),
+        "extra_latency": lambda value: value["positive_result"]["processing_contract"].update(latency=0),
+    })
+    for label, mutate in malformed.items():
+        value = copy.deepcopy(valid); mutate(value)
+        if not all(_validator_rejects(validator, value) for validator in (validate_result, validate_retained_result)):
+            fail(f"PC0 strict result validator parity failed: {label}")
+    for label, indexes in {"duplicate_call": (29, 27), "reordered_calls": (28, 30)}.items():
+        value = copy.deepcopy(valid)
+        if label == "duplicate_call":
+            value["call_facts"]["ledger"][indexes[0]]["operation"] = \
+                value["call_facts"]["ledger"][indexes[1]]["operation"]
+        else:
+            value["call_facts"]["ledger"][indexes[0]:indexes[1] + 2] = \
+                value["call_facts"]["ledger"][indexes[1]:indexes[1] + 2] + \
+                value["call_facts"]["ledger"][indexes[0]:indexes[0] + 2]
+        if not all(_validator_rejects(validator, value)
+                   for validator in (validate_result, validate_retained_result)):
+            fail(f"PC0 call ledger admitted {label}")
+    from supervise import classify_observed_outcome, pc0_session_is_unclosed
+    started = {"event": "call_started", "operation": "get_bus_info", "sequence": 1,
+               "interface": "IComponent", "ordinal": None, "tier": None,
+               "media_type": "kAudio", "direction": "kInput", "index": 0}
+    blocked = {"event": "lifecycle", "state": "pre_setup_census_blocked",
+               "primary_blocker": "PC0_BUS_INFO_BLOCKED", "sequence": 2}
+    classification_cases = (
+        ({"raw_exit": -9, "timed_out": True, "in_flight": started,
+          "records": [started]}, "PC0_BUS_INFO_BLOCKED", None),
+        ({"raw_exit": -9, "timed_out": True,
+          "in_flight": dict(started, operation="release_audio_processor"),
+          "records": [started, blocked]}, "PC0_BUS_INFO_BLOCKED", None),
+        ({"raw_exit": 99, "timed_out": False, "in_flight": started,
+          "records": [started]}, "PC0_CONTRACT_INCOMPLETE", None),
+        ({"raw_exit": 99, "timed_out": False, "in_flight": None,
+          "records": []}, "PC0_EVIDENCE_BLOCKED", None),
+        ({"raw_exit": 0, "timed_out": False, "in_flight": None,
+          "records": [], "last_state": "scanner_completed", "cleanup_failed": True},
+         "PC0_PROCESS_CLEANUP_BLOCKED", None),
+        ({"raw_exit": 94, "timed_out": False, "in_flight": None,
+          "records": [blocked], "cleanup_failed": True},
+         "PC0_BUS_INFO_BLOCKED", "PC0_PROCESS_CLEANUP_BLOCKED"),
+    )
+    for arguments, primary, secondary in classification_cases:
+        options = {"last_state": None, "gated": True, "hold_gate": False,
+                   "cleanup_failed": False, **arguments}
+        outcome = classify_observed_outcome(
+            mode="pc0-pre-setup-processing-contract", **options)
+        if outcome["blocker"] != primary or outcome["secondary_cleanup_blocker"] != secondary:
+            fail("PC0 supervisor failure precedence differs")
+    if not pc0_session_is_unclosed("pc0-pre-setup-processing-contract", [started], None):
+        fail("PC0 unmatched census call did not suppress inherited shutdown")
+    # Exercise the real supervision exception/finally boundary. A stream failure
+    # followed by failed physical containment must return a typed result; it
+    # must not resume the first exception and let run.py retire a live stage.
+    import supervise as supervise_module
+    from types import SimpleNamespace
+
+    class _Selector:
+        def register(self, *args: Any) -> None:
+            pass
+        def close(self) -> None:
+            pass
+
+    fake_root = SimpleNamespace(pid=12345, stdout=object(), stderr=object(),
+                                returncode=None)
+    fake_environment = SimpleNamespace(
+        session=pathlib.Path(tempfile.mkdtemp(prefix="pc0-supervisor-session-")),
+        run_id="a" * 32, marker={"fixture": "again"})
+    try:
+        with patch.object(supervise_module, "verify_environment"), \
+                patch.object(supervise_module, "verify_runner_identity",
+                             return_value={"identity": "synthetic"}), \
+                patch.object(supervise_module, "handshake", return_value=b"binding"), \
+                patch.object(supervise_module, "protected_snapshot", return_value={}), \
+                patch.object(supervise_module, "command_vector", return_value=["synthetic"]), \
+                patch.object(supervise_module, "controlled_environment", return_value={}), \
+                patch.object(supervise_module.subprocess, "Popen", return_value=fake_root), \
+                patch.object(supervise_module, "process_identity",
+                             return_value={"pid": 12345, "start_ticks": 1}), \
+                patch.object(supervise_module.selectors, "DefaultSelector", return_value=_Selector()), \
+                patch.object(supervise_module, "pump",
+                             side_effect=RuntimeError("synthetic stream failure")), \
+                patch.object(supervise_module, "cleanup_process",
+                             side_effect=RuntimeError("synthetic containment failure")):
+            compound = supervise_module.supervise(
+                fake_environment, mode="pc0-pre-setup-processing-contract")
+        if (compound["blocker"] != "PC0_EVIDENCE_BLOCKED"
+                or compound["secondary_cleanup_blocker"] != "PC0_PROCESS_CLEANUP_BLOCKED"
+                or compound["cleanup"] != {
+                    "owned_descendants_zero": False, "process_group_empty": False}):
+            fail("PC0 compound supervision/containment failure was not preserved")
+        with patch.object(supervise_module, "verify_environment"), \
+                patch.object(supervise_module, "verify_runner_identity",
+                             return_value={"identity": "synthetic"}), \
+                patch.object(supervise_module, "handshake", return_value=b"binding"), \
+                patch.object(supervise_module, "protected_snapshot", return_value={}), \
+                patch.object(supervise_module, "command_vector", return_value=["synthetic"]), \
+                patch.object(supervise_module, "controlled_environment", return_value={}), \
+                patch.object(supervise_module.subprocess, "Popen", return_value=fake_root), \
+                patch.object(supervise_module, "process_identity",
+                             return_value={"pid": 12345, "start_ticks": 1}), \
+                patch.object(supervise_module.selectors, "DefaultSelector", return_value=_Selector()), \
+                patch.object(supervise_module, "pump",
+                             side_effect=RuntimeError("synthetic stream failure")), \
+                patch.object(supervise_module, "cleanup_process", return_value={
+                    "owned_descendants_zero": True, "process_group_empty": True}):
+            single = supervise_module.supervise(
+                fake_environment, mode="pc0-pre-setup-processing-contract")
+        if (single["blocker"] != "PC0_EVIDENCE_BLOCKED"
+                or single["secondary_cleanup_blocker"] is not None
+                or single["cleanup"] != {
+                    "owned_descendants_zero": True, "process_group_empty": True}
+                or single["inherited_shutdown"]["physical_containment_only"] is not True):
+            fail("PC0 supervision failure with successful containment was untyped")
+
+        def semantic_stream_failure(selector: Any, streams: Any, timeout: float) -> None:
+            streams.records.append(blocked)
+            raise RuntimeError("synthetic stream failure after durable primary")
+
+        with patch.object(supervise_module, "verify_environment"), \
+                patch.object(supervise_module, "verify_runner_identity",
+                             return_value={"identity": "synthetic"}), \
+                patch.object(supervise_module, "handshake", return_value=b"binding"), \
+                patch.object(supervise_module, "protected_snapshot", return_value={}), \
+                patch.object(supervise_module, "command_vector", return_value=["synthetic"]), \
+                patch.object(supervise_module, "controlled_environment", return_value={}), \
+                patch.object(supervise_module.subprocess, "Popen", return_value=fake_root), \
+                patch.object(supervise_module, "process_identity",
+                             return_value={"pid": 12345, "start_ticks": 1}), \
+                patch.object(supervise_module.selectors, "DefaultSelector", return_value=_Selector()), \
+                patch.object(supervise_module, "pump", side_effect=semantic_stream_failure), \
+                patch.object(supervise_module, "cleanup_process", return_value={
+                    "owned_descendants_zero": True, "process_group_empty": True}):
+            semantic = supervise_module.supervise(
+                fake_environment, mode="pc0-pre-setup-processing-contract")
+        if (semantic["blocker"] != "PC0_BUS_INFO_BLOCKED"
+                or semantic["secondary_cleanup_blocker"] is not None):
+            fail("PC0 durable semantic primary was erased by supervision failure")
+    finally:
+        fake_environment.session.rmdir()
+    effects = {"github": 0, "ssh": 0, "proton": 0}
+    def forbidden(*args: Any, **kwargs: Any) -> None:
+        effects["github"] += 1
+        fail("PC0 deterministic test attempted external work")
+    with tempfile.TemporaryDirectory(prefix="pc0-planner-test-") as temporary:
+        stage = pathlib.Path(temporary)
+        driver = driver_class(source_commit, PC0_PLAN_ID, proof_root=stage / "transactions", github_factory=forbidden)
+        # Actual single-writer recovery: both missing acknowledgements and duplicate invocation.
+        intent = {"input": "a" * 64, "nonce": "b" * 32}
+        lock, publication, may_start = driver.acquire_after_publication_recheck(stage / "locks", "phase", intent, lambda: None)
+        if not may_start or publication is not None: fail("PC0 cache-miss planner failed")
+        recovered = driver.acquire_after_publication_recheck(stage / "locks", "phase", intent, lambda: None, lambda: valid)
+        duplicate = driver.acquire_after_publication_recheck(stage / "locks", "phase", intent, lambda: None, lambda: None)
+        if recovered[1] != valid or recovered[2] or duplicate[2]: fail("PC0 lost-ack recovery duplicated work")
+        budget_root = stage / "budget"
+        spent_root = budget_root / "spent"
+        spent_root.mkdir(parents=True)
+        spent = synthetic_original_state(valid)
+        write_atomic(spent_root / "DX0_TRANSACTION_STATE.json", canonical_json(spent))
+        budget_driver = driver_class(source_commit, PC0_PLAN_ID,
+                                     proof_root=budget_root, github_factory=forbidden)
+        if not _validator_rejects(budget_driver.require_pc0_budget, "deck_executions"):
+            fail("PC0 spent live budget admitted another Deck transaction")
+        host_driver_source = (root / "tools/host-proof.py").read_text()
+        early_budget = host_driver_source.find('driver.require_pc0_budget("deck_executions")',
+                                               host_driver_source.find("def run_transaction"))
+        handoff = host_driver_source.find("_source_handoff_and_admission(driver, ssh)",
+                                          host_driver_source.find("def run_transaction"))
+        if early_budget < 0 or handoff < 0 or early_budget > handoff:
+            fail("PC0 live budget is not checked before handoff and transfer")
+        supervisor_source = (root / "tools/wf0-factory-census/supervise.py").read_text()
+        supervisor_start = supervisor_source.find("def supervise(")
+        containment_return = supervisor_source.find("if cleanup_error is not None:", supervisor_start)
+        later_validation = supervisor_source.find("if streams.pending:", supervisor_start)
+        if containment_return < 0 or later_validation < 0 or containment_return > later_validation:
+            fail("PC0 cleanup failure is not returned before later validation")
+        adapter = object.__new__(host_module.SSHAdapter)
+        adapter.destination = "deck@synthetic.invalid"
+        from common import PC0_BLOCKED_OUTCOMES
+        if PC0_BLOCKED_OUTCOMES != frozenset({
+                "PC0_DESIGN_PREFLIGHT_BLOCKED", "PC0_DESIGN_SCOPE_BLOCKED",
+                "PC0_BUS_COUNT_BLOCKED", "PC0_BUS_INFO_BLOCKED",
+                "PC0_BUS_ARRANGEMENT_BLOCKED", "PC0_SAMPLE_FORMAT_BLOCKED",
+                "PC0_CONTRACT_INCOMPLETE", "PC0_PROCESS_CLEANUP_BLOCKED",
+                "PC0_EVIDENCE_BLOCKED", "RETURN_TO_DESIGN_GATE"}):
+            fail("PC0 remote blocked taxonomy differs")
+        from run import pc0_compose_failure
+        primary = pc0_compose_failure(
+            RuntimeError("PC0_BUS_INFO_BLOCKED: synthetic semantic failure"),
+            retirement_failed=True,
+        )
+        if (primary is None
+                or str(primary) != (
+                    "PC0_BUS_INFO_BLOCKED: positive batch did not complete; "
+                    "secondary=PC0_PROCESS_CLEANUP_BLOCKED")):
+            fail("PC0 environment-retirement failure erased the semantic primary")
+        cleanup_only = pc0_compose_failure(None, retirement_failed=True)
+        if (cleanup_only is None
+                or not str(cleanup_only).startswith("PC0_PROCESS_CLEANUP_BLOCKED:")):
+            fail("PC0 environment-retirement failure lacks its exact owner")
+        evidence_only = pc0_compose_failure(RuntimeError("synthetic untyped failure"))
+        if (evidence_only is None
+                or not str(evidence_only).startswith("PC0_EVIDENCE_BLOCKED:")):
+            fail("PC0 untyped Deck failure was not fail-closed")
+        remote_failure = subprocess.CompletedProcess(
+            args=[], returncode=94, stdout=b"",
+            stderr=b"DX0_ERROR: PC0_BUS_INFO_BLOCKED: synthetic failure\n")
+        with patch.object(host_module.subprocess, "run", return_value=remote_failure):
+            try:
+                adapter.run("synthetic")
+            except host_module.RemoteDeckBlocked as error:
+                if error.blocker != "PC0_BUS_INFO_BLOCKED":
+                    fail("PC0 remote blocker identity changed")
+            else:
+                fail("PC0 exact remote blocker was collapsed into handoff failure")
+        recovery_driver = driver_class(
+            source_commit, PC0_PLAN_ID, proof_root=stage / "known-blocker-recovery",
+            github_factory=forbidden,
+        )
+        recovery_nonce = "9" * 32
+        recovery_inputs = {
+            "deck_execution_input_sha256": "8" * 64,
+            "proof_plan_sha256": recovery_driver.plan_sha,
+            "phase_nonce": recovery_nonce,
+        }
+        recovery_driver.phase(
+            "execute_deck_batch", "prepared", inputs=recovery_inputs,
+            outputs=None, phase_nonce=recovery_nonce,
+        )
+        admit_called = False
+
+        def failed_recovery() -> dict[str, Any] | None:
+            raise RuntimeError("synthetic secondary SSH recovery failure")
+
+        def forbidden_admission(_value: dict[str, Any]) -> dict[str, Any]:
+            nonlocal admit_called
+            admit_called = True
+            return _value
+
+        try:
+            host_module._recover_after_known_deck_blocker(
+                recovery_driver, "PC0_BUS_INFO_BLOCKED", recovery_inputs,
+                recovery_nonce, failed_recovery, forbidden_admission,
+            )
+        except RuntimeError as error:
+            if str(error) != "PC0_BUS_INFO_BLOCKED":
+                fail("PC0 known remote blocker was erased by failed recovery")
+        else:
+            fail("PC0 known remote blocker recovery did not fail closed")
+        if (admit_called
+                or recovery_driver.state["phases"]["execute_deck_batch"] != {
+                    "phase": "execute_deck_batch", "phase_nonce": recovery_nonce,
+                    "disposition": "failed",
+                    "input_sha256": sha256_bytes(canonical_json(recovery_inputs)),
+                    "inputs": recovery_inputs,
+                    "outputs": {"blocker": "PC0_BUS_INFO_BLOCKED"},
+                }):
+            fail("PC0 failed recovery did not retain the exact Deck primary")
+        unknown_driver = driver_class(
+            source_commit, PC0_PLAN_ID, proof_root=stage / "unknown-outcome-recovery",
+            github_factory=forbidden,
+        )
+        unknown_nonce = "7" * 32
+        unknown_inputs = {
+            "deck_execution_input_sha256": "6" * 64,
+            "proof_plan_sha256": unknown_driver.plan_sha,
+            "phase_nonce": unknown_nonce,
+        }
+        unknown_driver.phase(
+            "execute_deck_batch", "prepared", inputs=unknown_inputs,
+            outputs=None, phase_nonce=unknown_nonce,
+        )
+        recovery_reads = 0
+
+        def one_successful_recovery() -> dict[str, Any] | None:
+            nonlocal recovery_reads
+            recovery_reads += 1
+            if recovery_reads > 1:
+                raise RuntimeError("synthetic second recovery transport failure")
+            return {"result": valid}
+
+        admitted = host_module._recover_after_unknown_deck_outcome(
+            unknown_driver, unknown_inputs, unknown_nonce,
+            one_successful_recovery, lambda value: value["result"],
+        )
+        if admitted != valid or recovery_reads != 1:
+            fail("PC0 lost acknowledgement performed a duplicate recovery read")
+        path = stage / "DX0_TRANSACTION_RESULT.json"
+        write_atomic(path, canonical_json(valid)); write_atomic(path.with_suffix(".json.sha256"),
+            f"{sha256_bytes(canonical_json(valid))}  {path.name}\n".encode())
+        from evidence import validate_result_file
+        validate_result_file(path); validate_retained_result_file(path)
+        write_atomic(path.with_suffix(".json.sha256"), b"wrong\n")
+        for validator in (validate_result_file, validate_retained_result_file):
+            if not _validator_rejects(validator, path): fail("PC0 sidecar mismatch admitted")
+        renderer = base["renderer"]
+        counts = {key: 0 for key in ("windows_builds", "artifact_downloads", "custody_operations",
+                                     "artifact_transfers", "source_transfers", "deck_executions")}
+        invalidation = {
+            "synthetic_git_mutations": True, "renderer_only_external_effects": 0,
+            "deck_import_closure": list(closure), "result_validator_parity_cases": len(malformed),
+            "production_owner_cases": owner["production_owner_cases"],
+            "missing_completions_rejected": 11, "writer_boundary_passed": True,
+            "renderer_only": {"build": False, "deck": False, "renderer": True},
+            "mac_only": {"build": False, "deck": False},
+            "deck_only": {"build": False, "deck": True}, "host_only": {"build": True},
+            "lost_ack_and_duplicate_work": 0,
+        }
+        proof_rows = [
+            {"row": row, "result": "PASS",
+             "validation": "deterministic" if row in {1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15} else "live",
+             "claim": PC0_PROOF_CLAIMS[row - 1]}
+            for row in range(1, 17)
+        ]
+        transaction = {
+            "transaction_result": valid, "evidence_consumer_source": base["role"],
+            "evidence_renderer": renderer,
+            "result_admission": result_admission_receipt(valid, consumer_source=base["role"], renderer=renderer),
+            "windows_build_input": {"schema": base["build"]["schema"],
+                                    "sha256": valid["host_artifact"]["windows_build_input_sha256"], "record_count": 17},
+            "proof_rows": proof_rows,
+            "costs": {**counts, "evidence_renders": 1, "manual_commands": 1, "manually_copied_identifiers": 0},
+            "phase_dispositions": {
+                "derive_identities": "completed", "plan_external_work": "completed",
+                "freeze_source": "completed", "verify_fixture": "reused",
+                "reuse_or_produce_host": "reused", "custody_host_artifact": "reused",
+                "create_source_handoff": "reused",
+                "transfer_and_admit_deck_inputs": "reused",
+                "execute_deck_batch": "reused",
+                "retrieve_and_retain_result": "completed",
+                "render_and_validate_evidence": "completed", "close_transaction": "completed",
+            },
+            "invalidation_results": invalidation,
+            "renderer_only_reuse": {**counts, "evidence_renders": 1,
+                "actual_retained_observation_reused": True,
+                "consumer_mutation": "synthetic_renderer_only_Git_revision",
+                "observation_source": valid["deck_execution_source"]["commit"]},
+        }
+        render_packet(stage / "packet", transaction)
+        validate_packet(stage / "packet")
+        packet_path = stage / "packet/TRANSACTION.json"
+        packet = json.loads(packet_path.read_bytes())
+        packet["admitted_private_result_sha256"] = "0" * 64
+        packet["result_admission"]["retained_result_sha256"] = "0" * 64
+        packet["integrity"]["admitted_private_result_sha256"] = "0" * 64
+        if not _validator_rejects(
+                lambda value: validate_pc0_packet_value(value,
+                    json.loads((stage / "packet/COST_AND_INVALIDATION.json").read_bytes())),
+                packet):
+            fail("PC0 packet admitted a substituted private-result digest")
+        accepted_packet = json.loads(packet_path.read_bytes())
+        accepted_cost = json.loads((stage / "packet/COST_AND_INVALIDATION.json").read_bytes())
+        def corrupt_renderer_extra(packet: dict[str, Any], cost: dict[str, Any]) -> None:
+            packet["renderer"]["extra"] = "not-authorized"
+            packet["integrity"]["renderer_sha256"] = sha256_bytes(
+                canonical_json(packet["renderer"])
+            )
+
+        def corrupt_renderer_blob(packet: dict[str, Any], cost: dict[str, Any]) -> None:
+            packet["renderer"]["records"][0]["git_blob"] = "f" * 40
+            packet["integrity"]["renderer_sha256"] = sha256_bytes(
+                canonical_json(packet["renderer"])
+            )
+
+        packet_faults = {
+            "proof_row_stub": lambda packet, cost: packet["proof_rows"][0].pop("claim"),
+            "empty_phase_dispositions": lambda packet, cost: cost.update(phase_dispositions={}),
+            "empty_invalidation_cases": lambda packet, cost: cost.update(invalidation_cases={}),
+            "wrong_build_input_schema": lambda packet, cost:
+                packet["windows_build_input"].update(schema="attacker/v1"),
+            "renderer_extra_key_with_rehashed_projection": corrupt_renderer_extra,
+            "renderer_wrong_blob_with_rehashed_projection": corrupt_renderer_blob,
+            "unbounded_artifact_download_count": lambda packet, cost:
+                cost["external_effect_counts"].update(artifact_downloads=999),
+            "completed_transfer_relabelled_reused": lambda packet, cost:
+                cost["phase_dispositions"].update(
+                    create_source_handoff=(
+                        "reused" if cost["phase_dispositions"]["create_source_handoff"]
+                        == "completed" else "completed")),
+            "renderer_reuse_without_render": lambda packet, cost:
+                cost["renderer_only_reuse"].update(evidence_renders=0),
+        }
+        for label, mutate in packet_faults.items():
+            changed_packet, changed_cost = copy.deepcopy(accepted_packet), copy.deepcopy(accepted_cost)
+            mutate(changed_packet, changed_cost)
+            if not _validator_rejects(
+                    lambda values: validate_pc0_packet_value(values[0], values[1]),
+                    (changed_packet, changed_cost)):
+                fail(f"PC0 packet admitted {label}")
+        # Exercise the production renderer-reuse helper before any live result
+        # exists.  The injected stores retain the same exact schemas and joins;
+        # the helper must materialize and execute the actual renderer-only C.
+        reuse_result = copy.deepcopy(valid)
+        fixture_identity = accepted_fixture_identity()
+        fixture_sha = accepted_fixture_identity_sha256()
+        fixture = {"identity": fixture_identity, "identity_sha256": fixture_sha,
+                   "receipt_sha256": fixture_sha, "disposition": "reused"}
+        build_sha = dx0_identity_sha256(base["build"])
+        reuse_result["host_artifact"]["windows_build_input_sha256"] = build_sha
+        reuse_result["accepted_fixture"] = {
+            "identity_sha256": fixture_sha,
+            "bundle_manifest_sha256": DX0_AGAIN_BUNDLE_MANIFEST_SHA256,
+            "module_sha256": DX0_AGAIN_MODULE_SHA256,
+            "mac_store_receipt_sha256": fixture_sha,
+            "deck_store_receipt_sha256": fixture_sha,
+        }
+        execution_input = dx0_deck_execution_input(
+            source_commit, reuse_result["host_artifact"]["manifest_sha256"],
+            fixture_sha, plan_sha)
+        reuse_result["execution_input"]["identity_sha256"] = dx0_identity_sha256(
+            execution_input)
+        reuse_result["execution_input"]["accepted_fixture_identity_sha256"] = fixture_sha
+        host = {
+            "build_receipt": {
+                "windows_build_input": {"sha256": build_sha},
+                "workflow": {"run_id": reuse_result["host_artifact"]["workflow_run_id"],
+                             "run_attempt": reuse_result["host_artifact"]["run_attempt"]},
+            },
+            "custody": {
+                "artifact": {"id": reuse_result["host_artifact"]["artifact_id"]},
+                "producer_source": reuse_result["artifact_producer_source"],
+            },
+            "manifest_sha256": reuse_result["host_artifact"]["manifest_sha256"],
+            "build_receipt_sha256": reuse_result["host_artifact"]["build_receipt_sha256"],
+            "custody_sha256": reuse_result["host_artifact"]["mac_custody_receipt_sha256"],
+        }
+        verified_handoff = {
+            "receipt_sha256": reuse_result["source_handoff"]["receipt_sha256"],
+            "receipt": {
+                "implementation_source": reuse_result["deck_execution_source"],
+                "bundle": {
+                    "sha256": reuse_result["source_handoff"]["bundle_sha256"],
+                    "advertised_ref": reuse_result["source_handoff"]["advertised_ref"],
+                },
+            },
+        }
+        validate_result(reuse_result)
+        reuse_transaction = copy.deepcopy(transaction)
+        reuse_transaction["transaction_result"] = reuse_result
+        reuse_transaction["result_admission"] = result_admission_receipt(
+            reuse_result, consumer_source=base["role"], renderer=renderer)
+        reuse_transaction["windows_build_input"]["sha256"] = build_sha
+        reuse_receipt = pc0_renderer_reuse_proof(
+            reuse_result, driver, reuse_transaction, fixture_override=fixture,
+            host_override=host, verified_handoff=verified_handoff)
+        if (set(reuse_receipt) != {
+                "windows_builds", "artifact_downloads", "custody_operations",
+                "artifact_transfers", "source_transfers", "deck_executions",
+                "evidence_renders", "actual_retained_observation_reused",
+                "consumer_mutation", "observation_source"}
+                or any(reuse_receipt[key] for key in (
+                    "windows_builds", "artifact_downloads", "custody_operations",
+                    "artifact_transfers", "source_transfers", "deck_executions"))
+                or reuse_receipt["evidence_renders"] != 1):
+            fail("PC0 production renderer-only reuse proof differs")
+    if any(effects.values()): fail("PC0 deterministic suite made external effects")
+    return {"all_passed": True, "proof_row_count": 16,
+            "invalidation_results": invalidation, "external_effects": effects,
+            "renderer_only_production_path": True}
+
+
+def _pc0_renderer_consumer_worker(payload: dict[str, Any]) -> dict[str, Any]:
+    """Execute cache admission and rendering from the runnable consumer C checkout."""
+    import host_proof
+    from common import PC0_PLAN_ID
+    from unittest.mock import patch
+    result = payload["result"]
+    transaction = payload["transaction"]
+    host = payload["host"]
+    receipt = payload["reuse_receipt"]
+    validate_result(result)
+
+    def forbidden(*args: Any, **kwargs: Any) -> None:
+        fail("PC0 renderer-only correction attempted an external operation")
+
+    consumer = host_proof.ProofTransactionDriver(
+        payload["consumer_commit"], PC0_PLAN_ID,
+        proof_root=pathlib.Path(payload["proof_root"]), github_factory=forbidden)
+    consumer.phase("freeze_source", "completed", inputs={
+        "source_identity_sha256": consumer.source_role["identity_sha256"],
+        "remote_ref": consumer.source["ref"],
+    }, outputs={"remote_head": consumer.source_commit})
+    consumer.set_state("source_frozen")
+    consumer.phase("verify_fixture", "reused", inputs={
+        "bundle_manifest_sha256": result["accepted_fixture"]["bundle_manifest_sha256"],
+    }, outputs={"fixture_identity_sha256": result["accepted_fixture"]["identity_sha256"]})
+    consumer.set_state("fixture_verified")
+    with patch.object(consumer, "_matching_host_cache", return_value=host), \
+            patch.object(host_proof, "SSHAdapter", side_effect=forbidden):
+        consumer.reuse_or_produce_host()
+        intent, lock, publication, may_start = host_proof._reconcile_deck_execution_writer(
+            consumer, result["execution_input"]["identity_sha256"],
+            lambda: validate_result(result), forbidden,
+            lock_parent=pathlib.Path(payload["lock_root"]))
+        if may_start or publication != result or lock is not None:
+            fail("PC0 renderer correction selected new execution")
+        changed = copy.deepcopy(transaction)
+        changed["evidence_consumer_source"] = consumer.source_role
+        changed["evidence_renderer"] = consumer.renderer
+        changed["result_admission"] = result_admission_receipt(
+            result, consumer_source=consumer.source_role, renderer=consumer.renderer)
+        changed["renderer_only_reuse"] = receipt
+        changed["costs"] = {
+            **changed["costs"],
+            "windows_builds": 0, "artifact_downloads": 0,
+            "custody_operations": 0, "artifact_transfers": 0,
+            "source_transfers": 0, "deck_executions": 0,
+            "evidence_renders": 1,
+        }
+        changed["phase_dispositions"] = {
+            "derive_identities": "completed", "plan_external_work": "completed",
+            "freeze_source": "completed", "verify_fixture": "reused",
+            "reuse_or_produce_host": "reused", "custody_host_artifact": "reused",
+            "create_source_handoff": "reused",
+            "transfer_and_admit_deck_inputs": "reused",
+            "execute_deck_batch": "reused",
+            "retrieve_and_retain_result": "reused",
+            "render_and_validate_evidence": "completed", "close_transaction": "completed",
+        }
+        packet_root = pathlib.Path(payload["packet_root"])
+        render_packet(packet_root, changed)
+        validate_packet(packet_root)
+        packet = json.loads((packet_root / "TRANSACTION.json").read_bytes())
+        if (packet["artifact_producer_source"] != result["artifact_producer_source"]
+                or packet["deck_execution_source"] != result["deck_execution_source"]
+                or packet["evidence_consumer_source"] != consumer.source_role
+                or packet["renderer"] != consumer.renderer
+                or packet["observation_disposition"] != "reused_original_observation"
+                or packet["consumer_executed_on_deck"] is not False
+                or packet["consumer_deck_state_freshly_inspected"] is not False):
+            fail("PC0 rerender falsely relabelled the original observation")
+        if any(consumer.effect_counts[key] for key in (
+                "windows_builds", "artifact_downloads", "custody_operations",
+                "artifact_transfers", "source_transfers", "deck_executions")):
+            fail("PC0 renderer-only production path incurred external effects")
+    return receipt
+
+
+def pc0_renderer_reuse_proof(result: dict[str, Any], driver: Any,
+                              transaction: dict[str, Any], *,
+                              fixture_override: dict[str, Any] | None = None,
+                              host_override: dict[str, Any] | None = None,
+                              verified_handoff: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Run a real renderer-only C over the admitted original P/E observation."""
+    import os
+    import subprocess
+    import sys
+    from common import PC0_PLAN_ID, repo_root
+    module = sys.modules[type(driver).__module__]
+    validate_result(result)
+    fixture = fixture_override or verify_fixture_store()
+    host = host_override or driver._matching_host_cache()
+    if host is None:
+        fail("PC0_EVIDENCE_BLOCKED: live result host unavailable for local reuse proof")
+    module._validate_result_store_joins(
+        result, host, fixture, verified_handoff=verified_handoff)
+    zero_effects = {key: 0 for key in (
+        "windows_builds", "artifact_downloads", "custody_operations",
+        "artifact_transfers", "source_transfers", "deck_executions")}
+    receipt = {**zero_effects, "evidence_renders": 1,
+        "actual_retained_observation_reused": True,
+        "consumer_mutation": "synthetic_renderer_only_Git_revision",
+        "observation_source": result["deck_execution_source"]["commit"]}
+    with tempfile.TemporaryDirectory(prefix="pc0-retained-rerender-") as temporary:
+        stage = pathlib.Path(temporary)
+        consumer = _pc0_materialize_renderer_consumer(
+            repo_root(), driver.source_commit, stage)
+        if (consumer["build"] != driver.build_input
+                or consumer["deck"] != dx0_deck_execution_input(
+                    driver.source_commit, "a" * 64, "b" * 64,
+                    dx0_identity_sha256(dx0_closed_plan(PC0_PLAN_ID)))):
+            fail("PC0_EVIDENCE_BLOCKED: renderer mutation changed build or Deck input")
+        changed_input = dx0_deck_execution_input(
+            consumer["source"]["commit"], host["manifest_sha256"],
+            fixture["identity_sha256"], driver.plan_sha,
+            root=consumer["checkout"])
+        if dx0_identity_sha256(changed_input) != result["execution_input"]["identity_sha256"]:
+            fail("PC0_EVIDENCE_BLOCKED: renderer reuse execution-input join differs")
+        payload = {
+            "consumer_commit": consumer["source"]["commit"], "result": result,
+            "transaction": transaction, "host": host, "reuse_receipt": receipt,
+            "proof_root": str(stage / "consumer-transactions"),
+            "lock_root": str(stage / "locks"), "packet_root": str(stage / "packet"),
+        }
+        script = """\
+import importlib.util, json, pathlib, sys
+root = pathlib.Path.cwd()
+sys.path.insert(0, str(root / 'tools/wf0-factory-census'))
+spec = importlib.util.spec_from_file_location('host_proof', root / 'tools/host-proof.py')
+module = importlib.util.module_from_spec(spec)
+sys.modules['host_proof'] = module
+spec.loader.exec_module(module)
+from common import canonical_json
+from negative_tests import _pc0_renderer_consumer_worker
+value = json.loads(sys.stdin.buffer.read())
+sys.stdout.buffer.write(canonical_json(_pc0_renderer_consumer_worker(value)))
+"""
+        environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+        completed = subprocess.run(
+            [sys.executable, "-c", script], cwd=consumer["checkout"], env=environment,
+            input=canonical_json(payload), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=180, check=False)
+        if completed.returncode != 0:
+            diagnostic = completed.stderr.decode("utf-8", "replace")[-4000:]
+            fail(f"PC0 renderer-only consumer failed: {diagnostic}")
+        if json.loads(completed.stdout) != receipt:
+            fail("PC0 renderer-only consumer receipt differs")
+        # The exact runnable consumer C already validated this packet in its
+        # own checkout, where its synthetic commit is resolvable. The parent
+        # repository deliberately does not import that private test object.
+        packet = json.loads((stage / "packet/TRANSACTION.json").read_bytes())
+        if (packet["evidence_consumer_source"] != consumer["role"]
+                or packet["renderer"] != consumer["renderer"]):
+            fail("PC0 renderer-only packet was not produced by consumer C")
+    return receipt

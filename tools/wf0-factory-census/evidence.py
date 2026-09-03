@@ -10,13 +10,19 @@ import re
 import shutil
 import tempfile
 from typing import Any
+from common import (PC0_PACKET_SCHEMA, PC0_COST_SCHEMA, PC0_EVIDENCE_PATHS, PC0_PROOF_CLAIMS,
+                    PC0_DESIGN_BLOB, PC0_DESIGN_SHA256, PC0_BASIS_COMMIT)
 
 from common import (
+    PC0_REF, PC0_PLAN_ID, PC0_RESULT_SCHEMA, PC0_MODE, PC0_OPERATIONS,
+    pc0_validate_contract, pc0_validate_call_facts, dx0_closed_plan,
     DX0_AGAIN_BUNDLE_MANIFEST_SHA256, DX0_AGAIN_MODULE_SHA256,
     DX0_COST_SCHEMA, DX0_DECK_EXECUTION_INPUT_SCHEMA, DX0_EVIDENCE_PATHS,
     DX0_EVIDENCE_RENDERER_SCHEMA, DX0_PACKET_SCHEMA, DX0_PLAN_ID,
     DX0_PLAN_SCHEMA, DX0_REF, DX0_RESULT_SCHEMA, DX0_RETAINED_TRANSACTION_SCHEMA,
-    RUNNER_DIGEST, canonical_json, dx0_identity_sha256, fail,
+    DX0_WINDOWS_BUILD_INPUT_SCHEMA,
+    RUNNER_DIGEST, canonical_json, dx0_complete_source, dx0_evidence_renderer,
+    dx0_identity_sha256, dx0_source_role, fail,
     parse_json_no_duplicates, sha256_bytes,
     sha256_file, write_atomic,
 )
@@ -79,15 +85,32 @@ def _source(value: Any, label: str) -> dict[str, Any]:
     _hex(source["tree"], HEX40, f"{label} tree")
     _hex(source["parent"], HEX40, f"{label} parent")
     _hex(source["manifest_sha256"], HEX64, f"{label} manifest")
-    if source["ref"] != DX0_REF:
+    if source["ref"] not in {DX0_REF, PC0_REF}:
         fail(f"DX0 {label} ref is malformed")
     return source
+
+
+def _pc0_renderer(value: Any, consumer_source: dict[str, Any]) -> dict[str, Any]:
+    renderer = _keys(value, {
+        "schema", "record_count", "records", "evidence_schema", "evidence_paths",
+    }, "PC0 evidence renderer")
+    expected_source = dx0_source_role(dx0_complete_source(consumer_source["commit"]))
+    if canonical_json(consumer_source) != canonical_json(expected_source):
+        fail("PC0_EVIDENCE_BLOCKED: evidence consumer Git identity differs")
+    expected_renderer = dx0_evidence_renderer(
+        consumer_source["commit"], plan_id=PC0_PLAN_ID
+    )
+    if canonical_json(renderer) != canonical_json(expected_renderer):
+        fail("PC0_EVIDENCE_BLOCKED: renderer records do not belong to consumer C")
+    return renderer
 
 
 def validate_result(value: Any, *, expected_execution_input_sha256: str | None = None,
                     expected_plan_sha256: str | None = None) -> dict[str, Any]:
     result = _keys(value, RESULT_KEYS, "transaction result")
-    if result["schema"] != DX0_RESULT_SCHEMA:
+    pc0 = result["schema"] == PC0_RESULT_SCHEMA
+    expected_plan = dx0_closed_plan(PC0_PLAN_ID if pc0 else DX0_PLAN_ID)
+    if result["schema"] not in {DX0_RESULT_SCHEMA, PC0_RESULT_SCHEMA}:
         fail("DX0 transaction-result schema differs")
     _hex(result["operation_nonce"], HEX32, "operation nonce")
     _source(result["artifact_producer_source"], "artifact producer source")
@@ -155,12 +178,17 @@ def validate_result(value: Any, *, expected_execution_input_sha256: str | None =
         "plan_id", "sha256", "expected_result", "live_exercise_ceiling",
     }, "closed plan")
     _hex(plan["sha256"], HEX64, "proof plan")
-    if (plan["plan_id"] != DX0_PLAN_ID
+    if (plan["plan_id"] != expected_plan["plan_id"]
             or plan["sha256"] != execution["proof_plan_sha256"]
-            or plan["expected_result"] != "wa0-positive-interface-lease-complete-v1"
+            or plan["expected_result"] != expected_plan["expected_result"]
             or type(plan["live_exercise_ceiling"]) is not int
             or plan["live_exercise_ceiling"] != 1):
         fail("DX0 retained closed plan differs")
+
+    if plan["sha256"] != dx0_identity_sha256(expected_plan):
+        fail("PC0 retained plan digest differs")
+    if pc0 and result["deck_execution_source"]["ref"] != PC0_REF:
+        fail("PC0 original execution source branch differs")
 
     observation = _keys(result["original_observation"], {
         "run_id", "phase_nonce", "event_stream_sha256", "completion_disposition",
@@ -179,11 +207,13 @@ def validate_result(value: Any, *, expected_execution_input_sha256: str | None =
         "query_result_u32_hex", "query_output_nonnull", "query_tuple_consistent",
         "interface_release_reference_count", "audio_processor_method_called",
         "fixture", "interface_logical_iid", "interface_raw_windows_tuid",
-    }, "positive result")
-    _typed_exact(positive, {
+    } | ({"processing_contract"} if pc0 else set()), "positive result")
+    if pc0:
+        pc0_validate_contract(positive["processing_contract"])
+    _typed_exact({key: item for key, item in positive.items() if key != "processing_contract"}, {
         "query_result_u32_hex": "00000000", "query_output_nonnull": True,
         "query_tuple_consistent": True, "interface_release_reference_count": 1,
-        "audio_processor_method_called": False, "fixture": "AGain VST3",
+        "audio_processor_method_called": pc0, "fixture": "AGain VST3",
         "interface_logical_iid": "42043F99B7DA453CA569E79D9AAEC33D",
         "interface_raw_windows_tuid": "993F0442DAB73C45A569E79D9AAEC33D",
     }, "cached positive result")
@@ -192,9 +222,11 @@ def validate_result(value: Any, *, expected_execution_input_sha256: str | None =
         "paired_call_ledger", "started_count", "completed_count",
         "last_in_flight_operation", "query_audio_processor_count",
         "release_audio_processor_count", "ledger_overflowed",
-    }, "call facts")
-    _typed_exact(calls, {
-        "paired_call_ledger": True, "started_count": 22, "completed_count": 22,
+    } | ({"pc0_operation_counts", "ledger"} if pc0 else set()), "call facts")
+    if pc0:
+        pc0_validate_call_facts(calls)
+    _typed_exact({key: item for key, item in calls.items() if key not in {"pc0_operation_counts", "ledger"}}, {
+        "paired_call_ledger": True, "started_count": 33 if pc0 else 22, "completed_count": 33 if pc0 else 22,
         "last_in_flight_operation": None, "query_audio_processor_count": 1,
         "release_audio_processor_count": 1, "ledger_overflowed": False,
     }, "cached call ledger")
@@ -262,10 +294,27 @@ def validate_result_file(path: pathlib.Path, *, expected_execution_input_sha256:
 
 
 def result_admission_receipt(result: dict[str, Any], *, consumer_source: dict[str, Any],
-                             renderer: dict[str, Any]) -> dict[str, Any]:
+                             renderer: dict[str, Any], original_observation: bool = False) -> dict[str, Any]:
     validate_result(result)
     if renderer.get("schema") != DX0_EVIDENCE_RENDERER_SCHEMA:
         fail("DX0 evidence renderer identity differs")
+    if result["schema"] == PC0_RESULT_SCHEMA:
+        _source(consumer_source, "evidence consumer source")
+        _pc0_renderer(renderer, consumer_source)
+        if original_observation and consumer_source != result["deck_execution_source"]:
+            fail("PC0_EVIDENCE_BLOCKED: renderer or observation disposition differs")
+        return {
+            "schema": "linux-vst-bridge-dx0-result-admission/v1",
+            "private_result_schema": PC0_RESULT_SCHEMA,
+            "operation_nonce": result["operation_nonce"],
+            "retained_result_sha256": sha256_bytes(canonical_json(result)),
+            "execution_input_sha256": result["execution_input"]["identity_sha256"],
+            "plan_sha256": result["closed_plan"]["sha256"],
+            "predicate_result": "accepted",
+            "disposition": "original_observation" if original_observation else "reused_original_observation",
+            "fresh_deck_execution_for_consumer": original_observation,
+            "current_deck_state_inspected": original_observation,
+        }
     return {
         "schema": "linux-vst-bridge-dx0-result-admission/v1",
         "retained_result_sha256": sha256_bytes(canonical_json(result)),
@@ -289,6 +338,8 @@ def _render_packet_into(output: pathlib.Path,
     if output.exists() or output.is_symlink():
         fail("DX0 evidence staging output already exists")
     result = validate_result(transaction.get("transaction_result"))
+    if result["schema"] == PC0_RESULT_SCHEMA:
+        return _render_pc0_packet(output, transaction, result)
     rows = transaction.get("proof_rows")
     costs = transaction.get("costs")
     consumer = transaction.get("evidence_consumer_source")
@@ -421,7 +472,8 @@ def render_packet(output: pathlib.Path, transaction: dict[str, Any], *,
 
 def packet_identity(root: pathlib.Path) -> dict[str, Any]:
     validate_packet(root)
-    return {"schema": DX0_PACKET_SCHEMA, "record_count": 5,
+    retained = parse_json_no_duplicates((root / "TRANSACTION.json").read_bytes(), "packet")
+    return {"schema": PC0_PACKET_SCHEMA if retained.get("schema") == PC0_PACKET_SCHEMA else DX0_PACKET_SCHEMA, "record_count": 5,
             "packet_sha256": sha256_bytes(canonical_json([
                 {"path": name, "sha256": sha256_file(root / name)}
                 for name in sorted(path.name for path in root.iterdir())
@@ -493,12 +545,257 @@ def validate_packet(root: pathlib.Path) -> None:
     cost = parse_json_no_duplicates(
         (root / "COST_AND_INVALIDATION.json").read_bytes(), "DX0 cost ledger"
     )
+    if transaction.get("schema") == PC0_PACKET_SCHEMA:
+        if (canonical_json(transaction) != (root / "TRANSACTION.json").read_bytes()
+                or canonical_json(cost) != (root / "COST_AND_INVALIDATION.json").read_bytes()):
+            fail("PC0_EVIDENCE_BLOCKED: noncanonical packet")
+        validate_pc0_packet_value(transaction, cost)
+        return
     if (canonical_json(transaction) != (root / "TRANSACTION.json").read_bytes()
             or transaction.get("schema") != DX0_RETAINED_TRANSACTION_SCHEMA
             or transaction.get("proof_row_count") != 14
             or canonical_json(cost) != (root / "COST_AND_INVALIDATION.json").read_bytes()
             or cost.get("schema") != DX0_COST_SCHEMA):
         fail("DX0 evidence JSON/schema differs")
+
+
+PC0_PACKET_KEYS = {
+    "schema", "artifact_producer_source", "deck_execution_source", "evidence_consumer_source",
+    "observation_disposition", "consumer_executed_on_deck", "consumer_deck_state_freshly_inspected",
+    "admitted_private_result_sha256", "result_admission", "windows_build_input", "deck_execution_input",
+    "host_artifact", "accepted_fixture", "source_handoff", "closed_plan", "original_observation",
+    "processing_contract", "call_facts", "quiescence", "shutdown", "cleanup", "protected_state",
+    "proof_rows", "renderer", "integrity",
+}
+PC0_COST_KEYS = {"schema", "external_effect_counts", "phase_dispositions", "invalidation_cases",
+                 "renderer_only_reuse", "ordinary_driver_command_count", "manually_copied_identifier_count",
+                 "fixture_accounting"}
+
+
+def _pc0_integrity(value: dict[str, Any]) -> dict[str, str]:
+    projections = {key: value[key] for key in (
+        "processing_contract", "call_facts", "protected_state", "proof_rows", "renderer")}
+    projections["lifecycle_closure"] = {key: value[key] for key in ("quiescence", "shutdown", "cleanup")}
+    return {"admitted_private_result_sha256": value["admitted_private_result_sha256"],
+            **{key + "_sha256": sha256_bytes(canonical_json(projection))
+               for key, projection in projections.items()}}
+
+
+def validate_pc0_packet_value(packet: dict[str, Any], cost: dict[str, Any]) -> None:
+    _keys(packet, PC0_PACKET_KEYS, "PC0 evidence packet")
+    _keys(cost, PC0_COST_KEYS, "PC0 cost ledger")
+    if packet["schema"] != PC0_PACKET_SCHEMA or cost["schema"] != PC0_COST_SCHEMA:
+        fail("PC0_EVIDENCE_BLOCKED: evidence schemas differ")
+    for key in ("artifact_producer_source", "deck_execution_source", "evidence_consumer_source"):
+        _source(packet[key], key)
+    _pc0_renderer(packet["renderer"], packet["evidence_consumer_source"])
+    pc0_validate_contract(packet["processing_contract"])
+    pc0_validate_call_facts(packet["call_facts"])
+    if packet["integrity"] != _pc0_integrity(packet):
+        fail("PC0_EVIDENCE_BLOCKED: nested projection integrity differs")
+    _hex(packet["admitted_private_result_sha256"], HEX64, "private observation")
+    original = packet["observation_disposition"] == "original_observation"
+    if (packet["observation_disposition"] not in {"original_observation", "reused_original_observation"}
+            or packet["consumer_executed_on_deck"] is not original
+            or packet["consumer_deck_state_freshly_inspected"] is not original
+            or (original and packet["deck_execution_source"] != packet["evidence_consumer_source"])):
+        fail("PC0_EVIDENCE_BLOCKED: P/E/C observation claim differs")
+    expected_admission = {
+        "schema": "linux-vst-bridge-dx0-result-admission/v1", "private_result_schema": PC0_RESULT_SCHEMA,
+        "operation_nonce": packet["result_admission"].get("operation_nonce"),
+        "retained_result_sha256": packet["admitted_private_result_sha256"],
+        "execution_input_sha256": packet["deck_execution_input"]["identity_sha256"],
+        "plan_sha256": packet["closed_plan"]["sha256"], "predicate_result": "accepted",
+        "disposition": packet["observation_disposition"],
+        "fresh_deck_execution_for_consumer": original, "current_deck_state_inspected": original,
+    }
+    _hex(expected_admission["operation_nonce"], HEX32, "admitted operation nonce")
+    if canonical_json(packet["result_admission"]) != canonical_json(expected_admission):
+        fail("PC0_EVIDENCE_BLOCKED: strict admission receipt differs")
+    # Reconstruct and re-admit the exact private P/E object named by the packet.
+    # The operation nonce is retained in the admission receipt; positive query
+    # and release facts come from the already-validated closed call ledger.
+    ledger = packet["call_facts"]["ledger"]
+    query_start, query_completed = ledger[26], ledger[27]
+    release_completed = ledger[51]
+    private = {key: packet[key] for key in (
+        "artifact_producer_source", "deck_execution_source", "host_artifact",
+        "accepted_fixture", "source_handoff", "closed_plan", "original_observation",
+        "call_facts", "quiescence", "shutdown", "cleanup", "protected_state",
+    )}
+    private.update(schema=PC0_RESULT_SCHEMA,
+                   operation_nonce=expected_admission["operation_nonce"],
+                   execution_input=packet["deck_execution_input"],
+                   positive_result={
+                       "query_result_u32_hex": query_completed["result_u32_hex"],
+                       "query_output_nonnull": query_completed["output_nonnull"],
+                       "query_tuple_consistent": (
+                           query_completed["result_u32_hex"] == "00000000"
+                           and query_completed["output_nonnull"] is True),
+                       "interface_release_reference_count": release_completed["u32_result"],
+                       "audio_processor_method_called": any(
+                           value > 0 for value in packet["call_facts"]["pc0_operation_counts"].values()),
+                       "fixture": "AGain VST3",
+                       "interface_logical_iid": "42043F99B7DA453CA569E79D9AAEC33D",
+                       "interface_raw_windows_tuid": query_start["requested_iid_raw_tuid_hex"],
+                       "processing_contract": packet["processing_contract"],
+                   })
+    private["integrity"] = {key + "_sha256": sha256_bytes(canonical_json(private[key]))
+                            for key in ("positive_result", "call_facts", "quiescence", "shutdown", "cleanup", "protected_state")}
+    validate_result(private)
+    if sha256_bytes(canonical_json(private)) != packet["admitted_private_result_sha256"]:
+        fail("PC0_EVIDENCE_BLOCKED: packet does not reconstruct the admitted private result")
+    build = _keys(packet["windows_build_input"], {"schema", "sha256", "record_count"},
+                  "Windows build input projection")
+    if (build["schema"] != DX0_WINDOWS_BUILD_INPUT_SCHEMA
+            or type(build["record_count"]) is not int or build["record_count"] != 17
+            or build["sha256"] != packet["host_artifact"]["windows_build_input_sha256"]
+            or packet["renderer"]["schema"] != DX0_EVIDENCE_RENDERER_SCHEMA
+            or packet["renderer"]["record_count"] != 2
+            or packet["renderer"]["evidence_schema"] != PC0_PACKET_SCHEMA
+            or packet["renderer"]["evidence_paths"] != list(PC0_EVIDENCE_PATHS)):
+        fail("PC0_EVIDENCE_BLOCKED: build/renderer joins differ")
+    rows = packet["proof_rows"]
+    synthetic = {1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15}
+    if (type(rows) is not list or len(rows) != 16
+            or any(set(row) != {"row", "result", "validation", "claim"}
+                   or type(row["row"]) is not int or row["row"] != index
+                   or row["result"] != "PASS" or row["claim"] != PC0_PROOF_CLAIMS[index - 1]
+                   or row["validation"] != ("deterministic" if index in synthetic else "live")
+                   for index, row in enumerate(rows, 1))):
+        fail("PC0_EVIDENCE_BLOCKED: sixteen proof dispositions required")
+    effects = cost["external_effect_counts"]
+    effect_keys = {"windows_builds", "artifact_downloads", "custody_operations",
+                   "artifact_transfers", "source_transfers", "deck_executions", "evidence_renders"}
+    phase_keys = {"derive_identities", "plan_external_work", "freeze_source", "verify_fixture",
+                  "reuse_or_produce_host", "custody_host_artifact", "create_source_handoff",
+                  "transfer_and_admit_deck_inputs", "execute_deck_batch",
+                  "retrieve_and_retain_result", "render_and_validate_evidence", "close_transaction"}
+    invalidation_keys = {"synthetic_git_mutations", "renderer_only_external_effects",
+        "deck_import_closure", "result_validator_parity_cases", "production_owner_cases",
+        "missing_completions_rejected", "writer_boundary_passed", "renderer_only",
+        "mac_only", "deck_only", "host_only", "lost_ack_and_duplicate_work"}
+    reuse_keys = {"windows_builds", "artifact_downloads", "custody_operations",
+                  "artifact_transfers", "source_transfers", "deck_executions", "evidence_renders",
+                  "actual_retained_observation_reused", "consumer_mutation", "observation_source"}
+    phases = cost["phase_dispositions"]
+    expected_fixed_phases = {
+        "derive_identities": "completed",
+        "plan_external_work": "completed",
+        "freeze_source": "completed",
+        "verify_fixture": "reused",
+        "render_and_validate_evidence": "completed",
+        "close_transaction": "completed",
+    }
+    effect_phase = {
+        "windows_builds": "reuse_or_produce_host",
+        "artifact_downloads": "custody_host_artifact",
+        "custody_operations": "custody_host_artifact",
+        "source_transfers": "create_source_handoff",
+        "artifact_transfers": "transfer_and_admit_deck_inputs",
+        "deck_executions": "execute_deck_batch",
+    }
+    if (type(effects) is not dict or set(effects) != effect_keys
+            or any(type(n) is not int or n < 0 for n in effects.values())
+            or any(value > 1 for value in effects.values())
+            or effects.get("evidence_renders") != 1
+            or type(phases) is not dict
+            or set(phases) != phase_keys
+            or any(value not in {"completed", "reused"} for value in phases.values())
+            or any(phases.get(name) != disposition
+                   for name, disposition in expected_fixed_phases.items())
+            or any(effects[key] != (1 if phases.get(phase) == "completed" else 0)
+                   for key, phase in effect_phase.items())
+            or phases.get("retrieve_and_retain_result") != (
+                "completed" if packet["deck_execution_source"]
+                == packet["evidence_consumer_source"] else "reused")
+            or type(cost["invalidation_cases"]) is not dict
+            or set(cost["invalidation_cases"]) != invalidation_keys
+            or cost["invalidation_cases"].get("synthetic_git_mutations") is not True
+            or cost["invalidation_cases"].get("renderer_only_external_effects") != 0
+            or cost["invalidation_cases"].get("deck_import_closure") != [
+                "tools/wf0-factory-census/artifacts.py",
+                "tools/wf0-factory-census/common.py",
+                "tools/wf0-factory-census/environment.py",
+                "tools/wf0-factory-census/normalize.py",
+                "tools/wf0-factory-census/run.py",
+                "tools/wf0-factory-census/supervise.py",
+                "tools/wr0-proton-bootstrap/launch.py",
+            ]
+            or cost["invalidation_cases"].get("result_validator_parity_cases") != 16
+            or cost["invalidation_cases"].get("production_owner_cases") != 22
+            or cost["invalidation_cases"].get("missing_completions_rejected") != 11
+            or cost["invalidation_cases"].get("writer_boundary_passed") is not True
+            or cost["invalidation_cases"].get("renderer_only") != {
+                "build": False, "deck": False, "renderer": True}
+            or cost["invalidation_cases"].get("mac_only") != {"build": False, "deck": False}
+            or cost["invalidation_cases"].get("deck_only") != {"build": False, "deck": True}
+            or cost["invalidation_cases"].get("host_only") != {"build": True}
+            or cost["invalidation_cases"].get("lost_ack_and_duplicate_work") != 0
+            or set(cost["renderer_only_reuse"]) != reuse_keys
+            or cost["renderer_only_reuse"].get("actual_retained_observation_reused") is not True
+            or cost["renderer_only_reuse"].get("consumer_mutation") != "synthetic_renderer_only_Git_revision"
+            or cost["renderer_only_reuse"].get("observation_source") != packet["deck_execution_source"]["commit"]
+            or cost["renderer_only_reuse"].get("evidence_renders") != 1
+            or cost["ordinary_driver_command_count"] != 1 or type(cost["ordinary_driver_command_count"]) is not int
+            or cost["manually_copied_identifier_count"] != 0
+            or canonical_json(cost["fixture_accounting"]) != canonical_json({"again_builds": 0, "fixture_seeds": 0})
+            or any(cost["renderer_only_reuse"].get(key) != 0 for key in (
+                "windows_builds", "artifact_downloads", "custody_operations", "artifact_transfers", "source_transfers", "deck_executions"))):
+        fail("PC0_EVIDENCE_BLOCKED: cost ceiling/reuse differs")
+
+
+def _render_pc0_packet(output: pathlib.Path, transaction: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    admission = transaction["result_admission"]
+    consumer = transaction["evidence_consumer_source"]
+    renderer = transaction["evidence_renderer"]
+    original = admission.get("disposition") == "original_observation"
+    if admission != result_admission_receipt(result, consumer_source=consumer, renderer=renderer,
+                                              original_observation=original):
+        fail("PC0_EVIDENCE_BLOCKED: admission differs before render")
+    packet = {key: result[key] for key in (
+        "artifact_producer_source", "deck_execution_source", "host_artifact", "accepted_fixture", "source_handoff",
+        "closed_plan", "original_observation", "call_facts", "quiescence", "shutdown", "cleanup", "protected_state")}
+    packet.update({
+        "schema": PC0_PACKET_SCHEMA, "evidence_consumer_source": consumer,
+        "observation_disposition": admission["disposition"],
+        "consumer_executed_on_deck": original, "consumer_deck_state_freshly_inspected": original,
+        "admitted_private_result_sha256": admission["retained_result_sha256"], "result_admission": admission,
+        "windows_build_input": transaction["windows_build_input"], "deck_execution_input": result["execution_input"],
+        "processing_contract": result["positive_result"]["processing_contract"],
+        "proof_rows": transaction["proof_rows"], "renderer": renderer,
+    })
+    packet["integrity"] = _pc0_integrity(packet)
+    costs = transaction["costs"]
+    cost = {
+        "schema": PC0_COST_SCHEMA,
+        "external_effect_counts": {key: costs[key] for key in ("windows_builds", "artifact_downloads", "custody_operations",
+            "artifact_transfers", "source_transfers", "deck_executions", "evidence_renders")},
+        "phase_dispositions": transaction["phase_dispositions"],
+        "invalidation_cases": transaction["invalidation_results"],
+        "renderer_only_reuse": transaction["renderer_only_reuse"],
+        "ordinary_driver_command_count": costs["manual_commands"], "manually_copied_identifier_count": costs["manually_copied_identifiers"],
+        "fixture_accounting": {"again_builds": 0, "fixture_seeds": 0},
+    }
+    validate_pc0_packet_value(packet, cost)
+    output.mkdir(parents=True)
+    write_atomic(output / "TRANSACTION.json", canonical_json(packet))
+    write_atomic(output / "COST_AND_INVALIDATION.json", canonical_json(cost))
+    write_atomic(output / "BASIS.md", _markdown("PC0 basis", [
+        f"Approved pc0-design-v2: blob `{PC0_DESIGN_BLOB}`, SHA-256 `{PC0_DESIGN_SHA256}`; basis `{PC0_BASIS_COMMIT}`.",
+        f"Producer P `{packet['artifact_producer_source']['commit']}`; original execution E `{packet['deck_execution_source']['commit']}`; consumer C `{consumer['commit']}`.",
+        f"Observation disposition: `{admission['disposition']}`. Original private result: `{admission['retained_result_sha256']}`.",
+        "One Initialized-state read-only census; accepted AGain, interface ownership and infrastructure reused.",
+    ]))
+    write_atomic(output / "FINDINGS.md", _markdown("PC0 findings", [
+        "AGain reports Stereo In and Stereo Out, two channels each, kStereo; Event In, one channel; no event output. All three buses are main/default-active, not control-voltage. Both sample sizes are supported.",
+        "Eleven PC0 calls extend the accepted lifecycle to 33 paired calls. Interface release returns 1; component release returns 0. Quiescence, factory/module shutdown, zero descendants, environment retirement and the original protected-state equality are retained machine-readably in TRANSACTION.json.",
+        "Deterministic failures use the production borrower and injected event streams, not live plug-ins. One positive Deck batch owns the original observation. A later renderer consumes that historical result and does not claim fresh Deck inspection.",
+        "No setup, latency, tail, activation, processing, audio/event buffers, controller, state, parameter, IPC, proxy, Bitwig, Serum, packaging, signing, runner-selection or general compatibility claim.",
+    ]))
+    names = ("BASIS.md", "COST_AND_INVALIDATION.json", "FINDINGS.md", "TRANSACTION.json")
+    write_atomic(output / "hashes.sha256", "".join(f"{sha256_file(output / name)}  {name}\n" for name in names).encode())
+    return packet_identity(output)
 
 
 if __name__ == "__main__":

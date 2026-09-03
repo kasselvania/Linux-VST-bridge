@@ -1,4 +1,4 @@
-name: DX0 Windows host acceptance producer
+name: PC0 Windows host acceptance producer
 
 run-name: DX0 host ${{ inputs.build_input_sha256 }} nonce ${{ inputs.phase_nonce }}
 
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       source_sha:
-        description: Exact frozen DX0 source commit
+        description: Exact frozen PC0 source commit for pc0-pre-setup-processing-contract-v1
         required: true
         type: string
       build_input_sha256:
@@ -50,7 +50,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($env:GITHUB_REPOSITORY -ne 'kasselvania/Linux-VST-bridge') { throw 'repository differs' }
           if ($env:GITHUB_EVENT_NAME -ne 'workflow_dispatch') { throw 'event differs' }
-          if ($env:GITHUB_REF -ne 'refs/heads/codex/dx0-split-build-identity-proof-transaction') { throw 'dispatch ref differs' }
+          if ($env:GITHUB_REF -ne 'refs/heads/codex/pc0-windows-vst3-pre-setup-processing-contract') { throw 'dispatch ref differs' }
           if ($env:GITHUB_SHA -ne $env:DX0_SOURCE_SHA) { throw 'dispatch source differs' }
           if ($env:DX0_SOURCE_SHA -notmatch '^[0-9a-f]{40}$') { throw 'source SHA is malformed' }
           if ($env:DX0_BUILD_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'build-input digest is malformed' }

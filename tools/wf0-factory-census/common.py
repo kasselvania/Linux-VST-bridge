@@ -755,6 +755,346 @@ for _dx0_paths, _dx0_label in (
     _require_closed_sorted(_dx0_paths, _dx0_label)
 
 
+PC0_BASIS_COMMIT = "1c0c31c4ab69a40303cd00b155ca30626323c451"
+PC0_BASIS_TREE = "192d2af4b5d83d94264510eab7c7729b5de1a9b5"
+PC0_BRANCH = "codex/pc0-windows-vst3-pre-setup-processing-contract"
+PC0_REF = "refs/heads/" + PC0_BRANCH
+PC0_PLAN_ID = "pc0-pre-setup-processing-contract-v1"
+PC0_MODE = "pc0-pre-setup-processing-contract"
+PC0_COMPLETE_SOURCE_SCHEMA = "linux-vst-bridge-pc0-complete-source/v1"
+PC0_RESULT_SCHEMA = "linux-vst-bridge-pc0-transaction-result/v1"
+PC0_PACKET_SCHEMA = "linux-vst-bridge-pc0-evidence-packet/v1"
+PC0_COST_SCHEMA = "linux-vst-bridge-pc0-cost-and-invalidation/v1"
+PC0_PROOF_CLAIMS = (
+    "exact PC0 authority and closed identity rosters",
+    "one borrowed PreSetupProcessingContractCensus owner",
+    "eleven new calls in canonical order, 33 paired lifecycle calls",
+    "bounded counts, aggregate caps and checked arithmetic",
+    "bounded BusInfo and strict UTF-16 normalization",
+    "speaker arrangement and channel consistency",
+    "true/false/unexpected sample-format classification",
+    "complete immutable pre-setup contract only",
+    "ordinary failure preserves primary and known ownership",
+    "unmatched-call and durable writer failure attribution",
+    "no unselected or state-mutating VST3 call",
+    "build, Deck, renderer and Mac identity invalidation",
+    "accepted fixture reused with zero AGain builds or seeds",
+    "one driver invocation and zero manually copied identifiers",
+    "strict P/E admission and C renderer reuse with zero external work",
+    "machine-readable evidence, quiescence, shutdown and protected-state closure",
+)
+PC0_CONTRACT_SCHEMA = "linux-vst-bridge-pc0-processing-contract/v1"
+PC0_DESIGN_COMMIT = "996ee557d33ea55d6acf7ef2242f703c2c63f262"
+PC0_DESIGN_BLOB = "ec0683fc66028239d7481640ba72e2dd9a060a2c"
+PC0_DESIGN_SHA256 = "20e653a6b1fad720ea5fc888a8d531bda44c338840f5eb96e488612d197de992"
+PC0_APPROVAL_BLOB = "7a7bccc08cca218249e8c9d43ed582027143343f"
+PC0_REVIEW_BLOB = "7444c490e620c16903e5a59b052376d8dcaef3e9"
+PC0_SOURCE_PATHS = (
+    ".github/workflows/wf0-windows-msvc-build.yml",
+    "tools/host-proof.py",
+    "tools/wf0-factory-census/artifacts.py",
+    "tools/wf0-factory-census/build.py",
+    "tools/wf0-factory-census/common.py",
+    "tools/wf0-factory-census/evidence.py",
+    "tools/wf0-factory-census/negative_tests.py",
+    "tools/wf0-factory-census/normalize.py",
+    "tools/wf0-factory-census/run.py",
+    "tools/wf0-factory-census/supervise.py",
+    "tools/wf0-factory-census/verify.py",
+    "windows-factory-probe/source/component_instance_session.cpp",
+    "windows-factory-probe/source/component_instance_session.h",
+    "windows-factory-probe/source/main.cpp",
+)
+PC0_EVIDENCE_ROOT = "evidence/pc0-windows-vst3-pre-setup-processing-contract"
+PC0_EVIDENCE_PATHS = tuple(PC0_EVIDENCE_ROOT + "/" + name for name in (
+    "BASIS.md", "COST_AND_INVALIDATION.json", "FINDINGS.md",
+    "TRANSACTION.json", "hashes.sha256",
+))
+PC0_OPERATIONS = (
+    "get_bus_count", "get_bus_info", "get_bus_arrangement", "can_process_sample_size",
+)
+PC0_BLOCKED_OUTCOMES = frozenset({
+    "PC0_DESIGN_PREFLIGHT_BLOCKED", "PC0_DESIGN_SCOPE_BLOCKED",
+    "PC0_BUS_COUNT_BLOCKED", "PC0_BUS_INFO_BLOCKED",
+    "PC0_BUS_ARRANGEMENT_BLOCKED", "PC0_SAMPLE_FORMAT_BLOCKED",
+    "PC0_CONTRACT_INCOMPLETE", "PC0_PROCESS_CLEANUP_BLOCKED",
+    "PC0_EVIDENCE_BLOCKED", "RETURN_TO_DESIGN_GATE",
+})
+PC0_CALL_COORDINATES = (
+    *({"operation": "get_bus_count", "media_type": media, "direction": direction}
+      for media in ("kAudio", "kEvent") for direction in ("kInput", "kOutput")),
+    *({"operation": "get_bus_info", "media_type": media, "direction": direction,
+       "index": 0} for media, direction in (
+           ("kAudio", "kInput"), ("kAudio", "kOutput"), ("kEvent", "kInput"))),
+    *({"operation": "get_bus_arrangement", "direction": direction, "audio_index": 0}
+      for direction in ("kInput", "kOutput")),
+    *({"operation": "can_process_sample_size", "symbolic_size": size}
+      for size in ("kSample32", "kSample64")),
+)
+
+
+def source_contract(*, parent: str | None = None, ref: str | None = None) -> dict[str, Any]:
+    """The two reviewed source domains; old producer identities stay old."""
+    pc0 = parent == PC0_BASIS_COMMIT or ref == PC0_REF
+    return {
+        "basis": PC0_BASIS_COMMIT if pc0 else DX0_BASIS_COMMIT,
+        "basis_tree": PC0_BASIS_TREE if pc0 else DX0_BASIS_TREE,
+        "branch": PC0_BRANCH if pc0 else DX0_BRANCH,
+        "ref": PC0_REF if pc0 else DX0_REF,
+        "paths": PC0_SOURCE_PATHS if pc0 else DX0_SOURCE_PATHS,
+        "schema": PC0_COMPLETE_SOURCE_SCHEMA if pc0 else DX0_COMPLETE_SOURCE_SCHEMA,
+        "plan_id": PC0_PLAN_ID if pc0 else DX0_PLAN_ID,
+    }
+
+
+def evidence_paths(plan_id: str) -> tuple[str, ...]:
+    dx0_closed_plan(plan_id)
+    return PC0_EVIDENCE_PATHS if plan_id == PC0_PLAN_ID else DX0_EVIDENCE_PATHS
+
+
+def source_authority(source: dict[str, Any]) -> dict[str, Any]:
+    pc0 = source["ref"] == PC0_REF
+    return {
+        "reviewed_design_commit": PC0_DESIGN_COMMIT if pc0 else DX0_DESIGN_COMMIT,
+        "design_blob": PC0_DESIGN_BLOB if pc0 else DX0_DESIGN_BLOB,
+        "design_sha256": PC0_DESIGN_SHA256 if pc0 else DX0_DESIGN_SHA256,
+        "technical_lead_review": 5105712590 if pc0 else DX0_REVIEW_ID,
+        "approval_blob": PC0_APPROVAL_BLOB if pc0 else DX0_APPROVAL_BLOB,
+    }
+
+
+def pc0_expected_contract() -> dict[str, Any]:
+    """Pinned-source expectation, never a substitute for an observed contract."""
+    return {
+        "schema": PC0_CONTRACT_SCHEMA, "lifecycle_state": "Initialized",
+        "counts": [dict(item, count=count) for item, count in zip(
+            ({key: value for key, value in item.items() if key != "operation"}
+             for item in PC0_CALL_COORDINATES[:4]), (1, 1, 1, 0))],
+        "buses": [{
+            "media_type": media, "direction": direction, "index": 0,
+            "name_utf8": name, "channel_count": channels, "bus_type": "kMain",
+            "flags_u32_hex": "00000001", "default_active": True, "control_voltage": False,
+            "speaker_arrangement": None if media == "kEvent" else {
+                "bits_u64_hex": "0000000000000003", "channel_count": 2,
+                "recognized_layout": "kStereo"},
+        } for media, direction, name, channels in (
+            ("kAudio", "kInput", "Stereo In", 2), ("kAudio", "kOutput", "Stereo Out", 2),
+            ("kEvent", "kInput", "Event In", 1))],
+        "sample_sizes": [{"symbolic_size": size, "tresult_i32": 0,
+                          "tresult_u32_hex": "00000000", "supported": True}
+                         for size in ("kSample32", "kSample64")],
+        "call_count": 11, "complete": True, "mutation_call_count": 0,
+    }
+
+
+def pc0_validate_contract(value: Any, *, exact_again: bool = True) -> dict[str, Any]:
+    """Strict bounded named-field admission shared by Deck and renderer."""
+    def keys(obj: Any, roster: set[str], label: str) -> None:
+        if type(obj) is not dict or set(obj) != roster:
+            fail(f"PC0_CONTRACT_INCOMPLETE: {label} keys differ")
+    def integer(obj: Any, lower: int, upper: int) -> bool:
+        return type(obj) is int and lower <= obj <= upper
+    keys(value, set(pc0_expected_contract()), "contract")
+    if (value["schema"] != PC0_CONTRACT_SCHEMA or value["lifecycle_state"] != "Initialized"
+            or value["complete"] is not True or type(value["mutation_call_count"]) is not int
+            or value["mutation_call_count"] != 0):
+        fail("PC0_CONTRACT_INCOMPLETE: lifecycle or completion differs")
+    counts = value["counts"]
+    if type(counts) is not list or len(counts) != 4:
+        fail("PC0_BUS_COUNT_BLOCKED: four count records required")
+    roster = []
+    total = 0
+    for count, coordinate in zip(counts, PC0_CALL_COORDINATES[:4]):
+        keys(count, {"media_type", "direction", "count"}, "count")
+        if any(count[key] != coordinate[key] for key in ("media_type", "direction")):
+            fail("PC0_BUS_COUNT_BLOCKED: count coordinates differ")
+        if not integer(count["count"], 0, 32) or count["count"] > 64 - total:
+            fail("PC0_BUS_COUNT_BLOCKED: count cap/checked sum failed")
+        total += count["count"]
+    # No implied result roster is constructed until all counts pass.
+    for count in counts:
+        roster.extend((count["media_type"], count["direction"], index)
+                      for index in range(count["count"]))
+    if type(value["buses"]) is not list or len(value["buses"]) != total:
+        fail("PC0_CONTRACT_INCOMPLETE: bus roster differs")
+    audio_count = 0
+    for bus, coordinate in zip(value["buses"], roster):
+        keys(bus, set(pc0_expected_contract()["buses"][0]), "bus")
+        media, direction, index = coordinate
+        if ((bus["media_type"], bus["direction"], bus["index"]) != coordinate
+                or type(bus["index"]) is not int
+                or not integer(bus["channel_count"], 1, 64 if media == "kAudio" else 16)
+                or bus["bus_type"] not in {"kMain", "kAux"}
+                or type(bus["flags_u32_hex"]) is not str
+                or re.fullmatch("[0-9a-f]{8}", bus["flags_u32_hex"]) is None):
+            fail("PC0_BUS_INFO_BLOCKED: coordinate or scalar invalid")
+        flags = int(bus["flags_u32_hex"], 16)
+        if (flags & ~3 or bus["default_active"] is not bool(flags & 1)
+                or bus["control_voltage"] is not bool(flags & 2)
+                or (media == "kEvent" and flags & 2)):
+            fail("PC0_BUS_INFO_BLOCKED: flag projection differs")
+        name = bus["name_utf8"]
+        try:
+            valid_name = (type(name) is str and "\0" not in name
+                          and len(name.encode("utf-16-le", "strict")) <= 254
+                          and len(name.encode("utf-8", "strict")) <= 508)
+        except UnicodeError:
+            valid_name = False
+        if not valid_name:
+            fail("PC0_BUS_INFO_BLOCKED: bounded UTF-16 name invalid")
+        arrangement = bus["speaker_arrangement"]
+        if media == "kEvent":
+            if arrangement is not None:
+                fail("PC0_BUS_ARRANGEMENT_BLOCKED: event arrangement forbidden")
+        else:
+            audio_count += 1
+            keys(arrangement, {"bits_u64_hex", "channel_count", "recognized_layout"}, "arrangement")
+            bits = arrangement["bits_u64_hex"]
+            if type(bits) is not str or re.fullmatch("[0-9a-f]{16}", bits) is None:
+                fail("PC0_BUS_ARRANGEMENT_BLOCKED: bitset malformed")
+            count = bin(int(bits, 16)).count("1")
+            if (not integer(arrangement["channel_count"], 1, 64)
+                    or count != arrangement["channel_count"] or count != bus["channel_count"]
+                    or arrangement["recognized_layout"] != ("kStereo" if int(bits, 16) == 3 else None)):
+                fail("PC0_BUS_ARRANGEMENT_BLOCKED: arrangement projection differs")
+    if type(value["sample_sizes"]) is not list or len(value["sample_sizes"]) != 2:
+        fail("PC0_SAMPLE_FORMAT_BLOCKED: sample roster differs")
+    for sample, size in zip(value["sample_sizes"], ("kSample32", "kSample64")):
+        keys(sample, {"symbolic_size", "tresult_i32", "tresult_u32_hex", "supported"}, "sample")
+        result = sample["tresult_i32"]
+        if (sample["symbolic_size"] != size or not integer(result, 0, 1)
+                or sample["tresult_u32_hex"] != f"{result:08x}"
+                or sample["supported"] is not (result == 0)):
+            fail("PC0_SAMPLE_FORMAT_BLOCKED: sample result projection differs")
+    if not integer(value["call_count"], 6, 134) or value["call_count"] != 6 + total + audio_count:
+        fail("PC0_CONTRACT_INCOMPLETE: call count differs")
+    if exact_again and canonical_json(value) != canonical_json(pc0_expected_contract()):
+        fail("PC0_CONTRACT_INCOMPLETE: exact AGain pre-setup contract differs")
+    return value
+
+
+def pc0_validate_call_facts(facts: dict[str, Any]) -> None:
+    expected = [
+        "load_library", "init_dll", "get_plugin_factory", "get_factory_info",
+        "query_factory_2", "query_factory_3", "count_classes",
+        "get_class_info_unicode", "get_class_info_unicode", "get_class_info_unicode",
+        "create_component", "get_controller_class_id", "initialize_component",
+        "query_audio_processor", *[item["operation"] for item in PC0_CALL_COORDINATES],
+        "release_audio_processor", "terminate_component", "release_component",
+        "release_factory_3", "release_factory_2", "release_factory_base", "exit_dll", "free_library",
+    ]
+    counts = facts.get("pc0_operation_counts")
+    if canonical_json(counts) != canonical_json(dict(zip(PC0_OPERATIONS, (4, 3, 2, 2)))):
+        fail("PC0_CONTRACT_INCOMPLETE: operation counts differ")
+    ledger = facts.get("ledger")
+    if type(ledger) is not list or len(ledger) != 66:
+        fail("PC0_CONTRACT_INCOMPLETE: full paired call ledger absent")
+    inherited = [
+        (None, {}, {"return_kind": "handle_nonnull", "win32_error_u32_hex": "00000000"}),
+        (None, {}, {"return_kind": "bool", "bool_result": True}),
+        (None, {}, {"return_kind": "pointer_nonnull"}),
+        ("IPluginFactory", {}, {"return_kind": "tresult", "result_u32_hex": "00000000"}),
+        ("IPluginFactory", {}, {"return_kind": "tresult", "result_u32_hex": "00000000"}),
+        ("IPluginFactory", {}, {"return_kind": "tresult", "result_u32_hex": "00000000"}),
+        ("IPluginFactory", {}, {"return_kind": "i32", "i32_result": 3}),
+        ("IPluginFactory3", {"ordinal": 0, "tier": "factory_3_unicode"},
+         {"return_kind": "tresult", "result_u32_hex": "00000000"}),
+        ("IPluginFactory3", {"ordinal": 1, "tier": "factory_3_unicode"},
+         {"return_kind": "tresult", "result_u32_hex": "00000000"}),
+        ("IPluginFactory3", {"ordinal": 2, "tier": "factory_3_unicode"},
+         {"return_kind": "tresult", "result_u32_hex": "00000000"}),
+        ("IPluginFactory", {
+            "object_role": "again_processor_component",
+            "processor_cid_raw_tuid_hex": "5FDEE8845592534F96FAE4133C935A18",
+            "requested_iid_raw_tuid_hex": "31FF31E8D5F20143928EBBEE25697802",
+        }, {"return_kind": "tresult", "result_u32_hex": "00000000",
+            "output_nonnull": True, "object_role": "again_processor_component"}),
+        ("IComponent", {"object_role": "again_processor_component"}, {
+            "return_kind": "tresult", "result_u32_hex": "00000000",
+            "controller_cid_raw_tuid_hex": "655B9DD3AFD7FA42843F4AC841EB04F0",
+            "object_role": "again_processor_component",
+        }),
+        ("IComponent", {"object_role": "again_processor_component"}, {
+            "return_kind": "tresult", "result_u32_hex": "00000000",
+            "host_reference_count": 2, "object_role": "again_processor_component",
+        }),
+        ("IComponent", {
+            "object_role": "again_processor_component",
+            "requested_interface": "Steinberg::Vst::IAudioProcessor",
+            "requested_iid_raw_tuid_hex": "993F0442DAB73C45A569E79D9AAEC33D",
+        }, {"return_kind": "tresult", "result_u32_hex": "00000000",
+            "output_nonnull": True, "object_role": "again_processor_component",
+            "requested_interface": "Steinberg::Vst::IAudioProcessor"}),
+        ("IAudioProcessor", {"object_role": "again_audio_processor_interface"}, {
+            "return_kind": "reference_count", "u32_result": 1,
+            "object_role": "again_audio_processor_interface",
+        }),
+        ("IComponent", {"object_role": "again_processor_component"}, {
+            "return_kind": "tresult", "result_u32_hex": "00000000",
+            "host_reference_count": 1, "object_role": "again_processor_component",
+        }),
+        ("IComponent", {"object_role": "again_processor_component"}, {
+            "return_kind": "reference_count", "u32_result": 0,
+            "object_role": "again_processor_component",
+        }),
+        ("IPluginFactory3", {}, {"return_kind": "u32", "u32_result": 2}),
+        ("IPluginFactory2", {}, {"return_kind": "u32", "u32_result": 1}),
+        ("IPluginFactory", {}, {"return_kind": "u32", "u32_result": 0}),
+        (None, {}, {"return_kind": "bool", "bool_result": True}),
+        (None, {}, {"return_kind": "bool_true", "win32_error_u32_hex": "00000000"}),
+    ]
+    # PC0's eleven calls are inserted after the inherited query and before the
+    # inherited audio-interface release.  These positions map the closed
+    # 33-call ledger back to the 22-call accepted WC0/WA0 ledger.
+    inherited_indexes = [*range(14), *range(25, 33)]
+    inherited_by_full_index = dict(zip(inherited_indexes, inherited))
+    previous = 0
+    new_index = 0
+    for index, operation in enumerate(expected):
+        start, end = ledger[index * 2:index * 2 + 2]
+        for record in (start, end):
+            if (type(record) is not dict
+                    or type(record.get("sequence")) is not int
+                    or not previous < record["sequence"] <= 2048
+                    or record.get("operation") != operation):
+                fail("PC0_CONTRACT_INCOMPLETE: call record order or shape differs")
+            previous = record["sequence"]
+        if (start.get("event") != "call_started" or end.get("event") != "call_completed"
+                or type(end.get("attempt_sequence")) is not int
+                or end["attempt_sequence"] != start["sequence"]
+                or any(end.get(key) != start.get(key) for key in ("interface", "ordinal", "tier"))):
+            fail("PC0_CONTRACT_INCOMPLETE: call pairing differs")
+        common_start = {"event": "call_started", "sequence": start["sequence"],
+                        "operation": operation, "interface": start.get("interface"),
+                        "ordinal": start.get("ordinal"), "tier": start.get("tier")}
+        common_end = {"event": "call_completed", "sequence": end["sequence"],
+                      "attempt_sequence": start["sequence"], "operation": operation,
+                      "interface": end.get("interface"), "ordinal": end.get("ordinal"),
+                      "tier": end.get("tier")}
+        if operation in PC0_OPERATIONS:
+            coordinate = PC0_CALL_COORDINATES[new_index]
+            fields = {key: item for key, item in coordinate.items() if key != "operation"}
+            interface = "IComponent" if operation in {"get_bus_count", "get_bus_info"} else "IAudioProcessor"
+            expected_start = dict(common_start, interface=interface, **fields)
+            expected_end = dict(common_end, interface=interface, **fields,
+                                return_kind="int32" if operation == "get_bus_count" else "tresult")
+            if end["sequence"] != start["sequence"] + 1:
+                fail("PC0_CONTRACT_INCOMPLETE: completion was not immediate")
+            if new_index < 4:
+                expected_end["i32_result"] = (1, 1, 1, 0)[new_index]
+            else:
+                expected_end["result_u32_hex"] = "00000000"
+            if start != expected_start or end != expected_end:
+                fail("PC0_CONTRACT_INCOMPLETE: fixed PC0 call fact differs")
+            new_index += 1
+        else:
+            interface, start_fields, end_fields = inherited_by_full_index[index]
+            expected_start = dict(common_start, interface=interface, **start_fields)
+            expected_end = dict(common_end, interface=interface, **end_fields)
+            if start != expected_start or end != expected_end:
+                fail("PC0_CONTRACT_INCOMPLETE: inherited positive call fact differs")
+
+
 def dx0_records(commit: str, paths: Sequence[str], *,
                 root: pathlib.Path | None = None) -> list[dict[str, str]]:
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
@@ -780,40 +1120,57 @@ def dx0_record_manifest_sha256(schema: str, records: list[dict[str, str]]) -> st
 def dx0_complete_source(commit: str, *, root: pathlib.Path | None = None,
                         strict: bool = True) -> dict[str, Any]:
     repository = root or repo_root()
-    records = dx0_records(commit, DX0_SOURCE_PATHS, root=repository)
     parent = command_text(["git", "rev-parse", f"{commit}^"], cwd=repository)
+    contract = source_contract(parent=parent)
+    records = dx0_records(commit, contract["paths"], root=repository)
     tree = command_text(["git", "rev-parse", f"{commit}^{{tree}}"], cwd=repository)
     value = {
-        "schema": DX0_COMPLETE_SOURCE_SCHEMA,
+        "schema": contract["schema"],
         "commit": commit,
         "tree": tree,
         "parent": parent,
-        "ref": DX0_REF,
+        "ref": contract["ref"],
         "record_count": len(records),
         "records": records,
     }
     if strict:
-        if parent != DX0_BASIS_COMMIT:
+        if parent != contract["basis"] or command_text(
+            ["git", "rev-list", "--parents", "-n", "1", commit], cwd=repository
+        ).split() != [commit, parent]:
             fail("DX0 source is not one direct child of the approved basis")
         basis_tree = command_text(
-            ["git", "rev-parse", f"{DX0_BASIS_COMMIT}^{{tree}}"], cwd=repository
+            ["git", "rev-parse", f"{parent}^{{tree}}"], cwd=repository
         )
         changed = command_text(
-            ["git", "diff", "--name-only", DX0_BASIS_COMMIT, commit], cwd=repository
+            ["git", "diff", "--name-only", parent, commit], cwd=repository
         ).splitlines()
-        if basis_tree != DX0_BASIS_TREE or changed != list(DX0_SOURCE_PATHS):
+        if basis_tree != contract["basis_tree"] or changed != list(contract["paths"]):
             fail(f"DX0 source basis or ten-path envelope differs: {changed}")
+        if value["ref"] == PC0_REF:
+            for path, expected in (
+                ("docs/slices/PC0/IMPLEMENTATION_DESIGN.md", PC0_DESIGN_BLOB),
+                ("docs/slices/PC0/DESIGN_APPROVAL.md", PC0_APPROVAL_BLOB),
+                ("docs/slices/PC0/ADVERSARIAL_DESIGN_REVIEW.md", PC0_REVIEW_BLOB),
+            ):
+                if git_blob(commit, path, repository) != ("100644", expected):
+                    fail("PC0_DESIGN_PREFLIGHT_BLOCKED: authority blob differs")
+            design = command(["git", "cat-file", "blob", PC0_DESIGN_BLOB], cwd=repository).stdout
+            if sha256_bytes(design) != PC0_DESIGN_SHA256:
+                fail("PC0_DESIGN_PREFLIGHT_BLOCKED: design bytes differ")
+            command(["git", "merge-base", "--is-ancestor", PC0_DESIGN_COMMIT, parent], cwd=repository)
     return value
 
 
 def dx0_complete_source_sha256(value: dict[str, Any]) -> str:
+    contract = source_contract(ref=value.get("ref"))
     if (
         set(value) != {"schema", "commit", "tree", "parent", "ref",
                        "record_count", "records"}
-        or value.get("schema") != DX0_COMPLETE_SOURCE_SCHEMA
-        or value.get("record_count") != 10
+        or value.get("schema") != contract["schema"]
+        or type(value.get("record_count")) is not int
+        or value.get("record_count") != len(contract["paths"])
         or not isinstance(value.get("records"), list)
-        or [item.get("path") for item in value["records"]] != list(DX0_SOURCE_PATHS)
+        or [item.get("path") for item in value["records"]] != list(contract["paths"])
     ):
         fail("DX0 complete-source identity shape differs")
     return sha256_bytes(canonical_json(value))
@@ -828,9 +1185,10 @@ def dx0_require_frozen_source(commit: str, *, detached: bool | None = False) -> 
     branch = command_text(["git", "branch", "--show-current"], cwd=root)
     if detached is True and branch:
         fail("DX0 Deck worktree is not detached")
-    if detached is False and branch != DX0_BRANCH:
+    source = dx0_complete_source(commit)
+    if detached is False and "refs/heads/" + branch != source["ref"]:
         fail(f"DX0 implementation branch differs: {branch}")
-    return dx0_complete_source(commit)
+    return source
 
 
 def dx0_windows_build_input(commit: str, *, root: pathlib.Path | None = None) -> dict[str, Any]:
@@ -878,6 +1236,16 @@ def dx0_identity_sha256(value: dict[str, Any]) -> str:
 
 
 def dx0_closed_plan(plan_id: str) -> dict[str, Any]:
+    if plan_id == PC0_PLAN_ID:
+        return {
+            "schema": DX0_PLAN_SCHEMA, "plan_id": PC0_PLAN_ID,
+            "accepted_fixture_id": DX0_ACCEPTED_FIXTURE_ID,
+            "host_mode": DX0_HOST_MODE,
+            "deterministic_validation_set": "pc0-pre-setup-deterministic-v1",
+            "live_deck_batch": "pc0-positive-only-v1",
+            "expected_result": "pc0-pre-setup-contract-complete-v1",
+            "evidence_renderer": "pc0-five-file-renderer-v1",
+        }
     if plan_id != DX0_PLAN_ID:
         fail("DX0 plan identifier is outside the closed plan registry")
     return {
@@ -893,7 +1261,7 @@ def dx0_closed_plan(plan_id: str) -> dict[str, Any]:
 
 
 def dx0_validate_plan(value: Any) -> dict[str, Any]:
-    expected = dx0_closed_plan(DX0_PLAN_ID)
+    expected = dx0_closed_plan(value.get("plan_id") if isinstance(value, dict) else "")
     if not isinstance(value, dict) or value != expected:
         fail("DX0 closed proof plan differs")
     return value
@@ -922,21 +1290,22 @@ def dx0_deck_execution_input(commit: str, host_manifest_sha256: str,
     }
 
 
-def dx0_evidence_renderer(commit: str, *, root: pathlib.Path | None = None) -> dict[str, Any]:
+def dx0_evidence_renderer(commit: str, *, root: pathlib.Path | None = None,
+                          plan_id: str = DX0_PLAN_ID) -> dict[str, Any]:
     records = dx0_records(commit, DX0_RENDERER_PATHS, root=root)
     return {
         "schema": DX0_EVIDENCE_RENDERER_SCHEMA,
         "record_count": len(records),
         "records": records,
-        "evidence_schema": DX0_PACKET_SCHEMA,
-        "evidence_paths": list(DX0_EVIDENCE_PATHS),
+        "evidence_schema": PC0_PACKET_SCHEMA if plan_id == PC0_PLAN_ID else DX0_PACKET_SCHEMA,
+        "evidence_paths": list(evidence_paths(plan_id)),
     }
 
 
 def dx0_source_role(value: dict[str, Any]) -> dict[str, Any]:
     identity_sha = dx0_complete_source_sha256(value)
     record_sha = dx0_record_manifest_sha256(
-        DX0_COMPLETE_SOURCE_SCHEMA, value["records"]
+        value["schema"], value["records"]
     )
     return {
         "identity_sha256": identity_sha,

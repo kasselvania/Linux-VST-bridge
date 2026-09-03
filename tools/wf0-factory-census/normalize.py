@@ -8,6 +8,7 @@ import re
 from typing import Any
 
 from common import canonical_json, fail, sha256_bytes
+from common import PC0_CALL_COORDINATES, PC0_OPERATIONS, pc0_validate_contract
 
 
 AUDIO_PROCESSOR_LEASE_SCHEMA = "linux-vst-bridge-wa0-audio-processor-lease/v1"
@@ -109,7 +110,8 @@ def sanitized_timeline(run: dict[str, Any]) -> dict[str, Any]:
                         "u32_result", "bool_result", "output_nonnull",
                         "host_reference_count", "object_role",
                         "processor_cid_raw_tuid_hex", "requested_iid_raw_tuid_hex",
-                        "controller_cid_raw_tuid_hex", "requested_interface"):
+                        "controller_cid_raw_tuid_hex", "requested_interface",
+                        "media_type", "direction", "index", "audio_index", "symbolic_size"):
                 if key in record: item[key] = record[key]
         else:
             item = {key: record.get(key) for key in (
@@ -121,8 +123,43 @@ def sanitized_timeline(run: dict[str, Any]) -> dict[str, Any]:
     return {"schema": TIMELINE_SCHEMA, "positive": timeline}
 
 
+def validate_wa0_event_order(
+    records: list[dict[str, Any]], *, pre_setup: bool = False
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Validate the exact durable lifecycle and paired plug-in call order."""
+    lifecycle = [item["state"] for item in records if item.get("event") == "lifecycle"]
+    expected_lifecycle = list(EXPECTED_LIFECYCLE)
+    expected_calls = list(EXPECTED_CALLS)
+    if pre_setup:
+        position = expected_lifecycle.index("audio_processor_release_in_flight")
+        # The three in-flight state variants are internal owner states. The
+        # durable call_started record is the sole external in-flight authority;
+        # no lifecycle write may intervene between it and the VST3 call.
+        expected_lifecycle[position:position] = [
+            "bus_counts_validated", "bus_info_complete",
+            "speaker_arrangements_complete", "pre_setup_contract_complete",
+        ]
+        expected_calls[14:14] = [item["operation"] for item in PC0_CALL_COORDINATES]
+    if lifecycle != expected_lifecycle:
+        fail(f"positive WA0 lifecycle differs: {lifecycle}")
+    starts = [item for item in records if item.get("event") == "call_started"]
+    completes = [item for item in records if item.get("event") == "call_completed"]
+    if [item.get("operation") for item in starts] != expected_calls:
+        fail("positive WA0 call-attempt order differs")
+    if len(completes) != len(expected_calls):
+        fail("positive WA0 call-completion count differs")
+    for start, complete in zip(starts, completes):
+        if (
+            complete.get("attempt_sequence") != start.get("sequence")
+            or complete.get("operation") != start.get("operation")
+            or complete.get("interface") != start.get("interface")
+        ):
+            fail("positive WA0 call completion does not pair to its attempt")
+    return starts, completes
+
+
 def normalize_wa0_positive(
-    run: dict[str, Any], build: dict[str, Any]
+    run: dict[str, Any], build: dict[str, Any], *, pre_setup: bool = False
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Normalize one exact AGain interface lease without calling its methods."""
     if (run.get("classification"), run.get("blocker"), run.get("raw_exit"),
@@ -133,22 +170,7 @@ def normalize_wa0_positive(
     records = run.get("records")
     if not isinstance(records, list) or not records:
         fail("positive WC0 event stream is absent")
-    lifecycle = [item["state"] for item in records if item.get("event") == "lifecycle"]
-    if lifecycle != EXPECTED_LIFECYCLE:
-        fail(f"positive WA0 lifecycle differs: {lifecycle}")
-    starts = [item for item in records if item.get("event") == "call_started"]
-    completes = [item for item in records if item.get("event") == "call_completed"]
-    if [item.get("operation") for item in starts] != EXPECTED_CALLS:
-        fail("positive WA0 call-attempt order differs")
-    if len(completes) != len(EXPECTED_CALLS):
-        fail("positive WA0 call-completion count differs")
-    for start, complete in zip(starts, completes):
-        if (
-            complete.get("attempt_sequence") != start.get("sequence")
-            or complete.get("operation") != start.get("operation")
-            or complete.get("interface") != start.get("interface")
-        ):
-            fail("positive WA0 call completion does not pair to its attempt")
+    validate_wa0_event_order(records, pre_setup=pre_setup)
 
     final = records[-1]
     raw_session = final.get("component_session")
@@ -158,7 +180,7 @@ def normalize_wa0_positive(
         or final.get("create_instance_called") is not True
         or final.get("controller_instance_created") is not False
         or final.get("audio_processor_interface_queried") is not True
-        or final.get("audio_processor_method_called") is not False
+        or final.get("audio_processor_method_called") is not pre_setup
         or not isinstance(raw_session, dict)
     ):
         fail("positive WA0 final record is absent or crosses the claim ceiling")
@@ -328,7 +350,7 @@ def normalize_wa0_positive(
     )
     source_identity = {
         "schema": source["schema"], "commit": source["commit"],
-        "tree": build["source_tree"], "record_count": 17,
+        "tree": build["source_tree"], "record_count": source["record_count"],
         "manifest_sha256": build["implementation_source_manifest_sha256"],
     }
     audio_processor_lease = {
@@ -435,8 +457,8 @@ def normalize_wa0_positive(
         "call_attribution": {
             "closed_operation_count": 22,
             "new_wa0_operation_count": 2,
-            "started_count": 22,
-            "completed_count": 22,
+            "started_count": len(expected_calls),
+            "completed_count": len(expected_calls),
             "last_in_flight_operation": None,
         },
         "controller_instance_created": False,
@@ -452,7 +474,40 @@ def normalize_wa0_positive(
         "stage_timeline_sha256": sha256_bytes(canonical_json(timeline)),
         "callback_ledger_sha256": sha256_bytes(canonical_json(callback_ledger)),
     }
+    if pre_setup:
+        contract = normalize_pc0_census(records, raw_session.get("processing_contract"))
+        audio_processor_lease["processing_contract"] = contract
+        for projection in (audio_processor_lease, component_session):
+            projection["audio_processor_method_called"] = True
+            projection["explicit_nonclaims"] = [claim for claim in projection["explicit_nonclaims"]
+                if claim not in {"no_audio_processor_method", "no_bus_host_call", "no_bus_access"}]
+        component_session["call_attribution"]["closed_operation_count"] = 33
     return audio_processor_lease, component_session, timeline
+
+
+def normalize_pc0_census(records: list[dict[str, Any]], value: Any) -> dict[str, Any]:
+    contract = pc0_validate_contract(value)
+    starts = [record for record in records if record.get("event") == "call_started"]
+    completes = [record for record in records if record.get("event") == "call_completed"]
+    closed = [record for record in records if record.get("state") == "pre_setup_contract_complete"]
+    if len(closed) != 1 or closed[0].get("processing_contract") != contract:
+        fail("PC0_CONTRACT_INCOMPLETE: immutable contract publication differs")
+    from supervise import pc0_coordinates
+    pc0_starts = [record for record in starts if record.get("operation") in PC0_OPERATIONS]
+    pc0_returns = [record for record in completes if record.get("operation") in PC0_OPERATIONS]
+    for index, (start, returned, coordinate) in enumerate(zip(pc0_starts, pc0_returns, PC0_CALL_COORDINATES)):
+        if dict(pc0_coordinates(start), operation=start["operation"]) != coordinate:
+            fail("PC0_CONTRACT_INCOMPLETE: positive coordinates differ")
+        if returned["sequence"] != start["sequence"] + 1 or pc0_coordinates(returned) != pc0_coordinates(start):
+            fail("PC0_CONTRACT_INCOMPLETE: synchronous completion differs")
+        if index < 4:
+            if type(returned.get("i32_result")) is not int or returned["i32_result"] != (1, 1, 1, 0)[index]:
+                fail("PC0_BUS_COUNT_BLOCKED: call/contract scalar join differs")
+        elif returned.get("result_u32_hex") != "00000000":
+            fail("PC0_CONTRACT_INCOMPLETE: ordinary positive result differs")
+    if len(pc0_starts) != 11 or len(pc0_returns) != 11:
+        fail("PC0_CONTRACT_INCOMPLETE: eleven paired calls required")
+    return contract
 
 
 if __name__ == "__main__":

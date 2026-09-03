@@ -20,6 +20,9 @@ from artifacts import (
     verify_host_store, verify_source_handoff,
 )
 from common import (
+    PC0_BLOCKED_OUTCOMES, PC0_REF, PC0_PLAN_ID, PC0_RESULT_SCHEMA, PC0_MODE,
+    PC0_OPERATIONS,
+    pc0_validate_contract, pc0_validate_call_facts, dx0_closed_plan,
     DX0_AGAIN_BUNDLE_MANIFEST_SHA256, DX0_AGAIN_MODULE_SHA256,
     DX0_DECK_EXECUTION_INPUT_SCHEMA, DX0_PLAN_ID, DX0_REF, DX0_RESULT_SCHEMA,
     RUNNER_DIGEST, canonical_json, deck_fixture_identity,
@@ -48,6 +51,25 @@ DECK_SOURCE_KEYS = {
 DECK_HEX40 = re.compile(r"[0-9a-f]{40}")
 DECK_HEX64 = re.compile(r"[0-9a-f]{64}")
 DECK_HEX32 = re.compile(r"[0-9a-f]{32}")
+
+
+def pc0_compose_failure(error: Exception | None,
+                        retirement_failed: bool = False) -> RuntimeError | None:
+    """Retain the first PC0 owner while recording later physical-cleanup failure."""
+    if error is None and not retirement_failed:
+        return None
+    if error is None:
+        return RuntimeError(
+            "PC0_PROCESS_CLEANUP_BLOCKED: environment retirement failed"
+        )
+    match = re.match(r"^([A-Z0-9_]+)(?::|$)", str(error))
+    blocker = match.group(1) if match and match.group(1) in PC0_BLOCKED_OUTCOMES else (
+        "PC0_EVIDENCE_BLOCKED"
+    )
+    message = f"{blocker}: positive batch did not complete"
+    if retirement_failed and blocker != "PC0_PROCESS_CLEANUP_BLOCKED":
+        message += "; secondary=PC0_PROCESS_CLEANUP_BLOCKED"
+    return RuntimeError(message)
 
 
 def _deck_keys(value: Any, expected: set[str], label: str) -> dict[str, Any]:
@@ -98,7 +120,7 @@ def _deck_source(value: Any, label: str) -> dict[str, Any]:
     _deck_hex(source["tree"], DECK_HEX40, f"{label} tree")
     _deck_hex(source["parent"], DECK_HEX40, f"{label} parent")
     _deck_hex(source["manifest_sha256"], DECK_HEX64, f"{label} manifest")
-    if source["ref"] != DX0_REF:
+    if source["ref"] not in {DX0_REF, PC0_REF}:
         fail(f"DX0 {label} ref is malformed")
     return source
 
@@ -108,7 +130,9 @@ def validate_retained_result(
         expected_plan_sha256: str | None = None) -> dict[str, Any]:
     """Deck-local strict admission for one retained DX0 positive result."""
     result = _deck_keys(value, DECK_RESULT_KEYS, "transaction result")
-    if result["schema"] != DX0_RESULT_SCHEMA:
+    pc0 = result["schema"] == PC0_RESULT_SCHEMA
+    expected_plan = dx0_closed_plan(PC0_PLAN_ID if pc0 else DX0_PLAN_ID)
+    if result["schema"] not in {DX0_RESULT_SCHEMA, PC0_RESULT_SCHEMA}:
         fail("DX0 transaction-result schema differs")
     _deck_hex(result["operation_nonce"], DECK_HEX32, "operation nonce")
     _deck_source(result["artifact_producer_source"], "artifact producer source")
@@ -186,13 +210,18 @@ def validate_retained_result(
         "plan_id", "sha256", "expected_result", "live_exercise_ceiling",
     }, "closed plan")
     _deck_hex(plan["sha256"], DECK_HEX64, "proof plan")
-    if (plan["plan_id"] != DX0_PLAN_ID
+    if (plan["plan_id"] != expected_plan["plan_id"]
             or plan["sha256"] != execution["proof_plan_sha256"]
             or plan["expected_result"]
-            != "wa0-positive-interface-lease-complete-v1"
+            != expected_plan["expected_result"]
             or type(plan["live_exercise_ceiling"]) is not int
             or plan["live_exercise_ceiling"] != 1):
         fail("DX0 retained closed plan differs")
+
+    if plan["sha256"] != dx0_identity_sha256(expected_plan):
+        fail("PC0 retained plan digest differs")
+    if pc0 and result["deck_execution_source"]["ref"] != PC0_REF:
+        fail("PC0 original execution source branch differs")
 
     observation = _deck_keys(result["original_observation"], {
         "run_id", "phase_nonce", "event_stream_sha256", "completion_disposition",
@@ -213,11 +242,13 @@ def validate_retained_result(
         "query_result_u32_hex", "query_output_nonnull", "query_tuple_consistent",
         "interface_release_reference_count", "audio_processor_method_called",
         "fixture", "interface_logical_iid", "interface_raw_windows_tuid",
-    }, "positive result")
-    _deck_typed_exact(positive, {
+    } | ({"processing_contract"} if pc0 else set()), "positive result")
+    if pc0:
+        pc0_validate_contract(positive["processing_contract"])
+    _deck_typed_exact({key: item for key, item in positive.items() if key != "processing_contract"}, {
         "query_result_u32_hex": "00000000", "query_output_nonnull": True,
         "query_tuple_consistent": True, "interface_release_reference_count": 1,
-        "audio_processor_method_called": False, "fixture": "AGain VST3",
+        "audio_processor_method_called": pc0, "fixture": "AGain VST3",
         "interface_logical_iid": "42043F99B7DA453CA569E79D9AAEC33D",
         "interface_raw_windows_tuid": "993F0442DAB73C45A569E79D9AAEC33D",
     }, "cached positive result")
@@ -226,9 +257,11 @@ def validate_retained_result(
         "paired_call_ledger", "started_count", "completed_count",
         "last_in_flight_operation", "query_audio_processor_count",
         "release_audio_processor_count", "ledger_overflowed",
-    }, "call facts")
-    _deck_typed_exact(calls, {
-        "paired_call_ledger": True, "started_count": 22, "completed_count": 22,
+    } | ({"pc0_operation_counts", "ledger"} if pc0 else set()), "call facts")
+    if pc0:
+        pc0_validate_call_facts(calls)
+    _deck_typed_exact({key: item for key, item in calls.items() if key not in {"pc0_operation_counts", "ledger"}}, {
+        "paired_call_ledger": True, "started_count": 33 if pc0 else 22, "completed_count": 33 if pc0 else 22,
         "last_in_flight_operation": None, "query_audio_processor_count": 1,
         "release_audio_processor_count": 1, "ledger_overflowed": False,
     }, "cached call ledger")
@@ -399,7 +432,8 @@ def execute(intent_path: pathlib.Path) -> dict[str, Any]:
     source_role = dx0_source_role(source)
     if source_role != intent["execution_source"]:
         fail("DX0 Deck execution source differs from intent")
-    plan = dx0_closed_plan(DX0_PLAN_ID)
+    plan = dx0_closed_plan(intent["proof_plan"].get("plan_id"))
+    pc0 = plan["plan_id"] == PC0_PLAN_ID
     plan_sha = dx0_identity_sha256(plan)
     if plan != intent["proof_plan"] or plan_sha != intent["proof_plan_sha256"]:
         fail("DX0 Deck closed plan differs from intent")
@@ -449,6 +483,7 @@ def execute(intent_path: pathlib.Path) -> dict[str, Any]:
     write_atomic(lock / "prepared-intent.json", canonical_json(intent))
     started_utc = _utc()
     environment = None
+    primary_error: RuntimeError | None = None
     try:
         process_guard()
         deck_fixture_identity()
@@ -460,18 +495,32 @@ def execute(intent_path: pathlib.Path) -> dict[str, Any]:
             secrets.token_hex(16), host=host, fixture=fixture,
             execution_source=source_role, deck_execution_input_sha256=deck_input_sha,
         )
-        run = supervise(environment)
+        run = supervise(environment, mode=PC0_MODE if pc0 else "wa0-audio-processor-interface-admission")
         if (run.get("classification") != "scanner_completed" or run.get("blocker") is not None
                 or run.get("last_in_flight_operation") is not None
                 or run.get("cleanup") != {
                     "owned_descendants_zero": True, "process_group_empty": True,
                 }):
-            fail("DX0_DECK_TRANSACTION_BLOCKED: positive WA0 batch did not complete")
+            if run.get("cleanup") != {
+                    "owned_descendants_zero": True, "process_group_empty": True,
+            }:
+                # Failed physical containment leaves the exact marker-bound
+                # environment intact for diagnosis.  Retiring files beneath a
+                # potentially live process would be neither cleanup nor proof.
+                environment = None
+            blocker = run.get("blocker") or (
+                "PC0_PROCESS_CLEANUP_BLOCKED" if pc0 and run.get("cleanup") != {
+                    "owned_descendants_zero": True, "process_group_empty": True,
+                } else "DX0_DECK_TRANSACTION_BLOCKED")
+            secondary = run.get("secondary_cleanup_blocker")
+            fail(f"{blocker}: positive batch did not complete"
+                 + ("; secondary=" + secondary if isinstance(secondary, str) else ""))
         audio, component, timeline = normalize_wa0_positive(
-            run, _build_for_normalizer(source, host, fixture)
+            run, _build_for_normalizer(source, host, fixture), pre_setup=pc0
         )
-        retirement = retire_environment(environment)
+        retiring_environment = environment
         environment = None
+        retirement = retire_environment(retiring_environment)
         process_guard()
         after = protected_snapshot()
         if after != before:
@@ -498,6 +547,11 @@ def execute(intent_path: pathlib.Path) -> dict[str, Any]:
             "release_audio_processor_count": run["call_counts"]["release_audio_processor"],
             "ledger_overflowed": False,
         }
+        if pc0:
+            positive["processing_contract"] = audio["processing_contract"]
+            calls["pc0_operation_counts"] = {op: run["call_counts"][op] for op in PC0_OPERATIONS}
+            calls["ledger"] = [record for record in timeline["positive"]
+                               if record.get("event") in {"call_started", "call_completed"}]
         quiescence = {
             "interface_quiescence": audio["audio_interface_quiescence"],
             "object_quiescence": component["object_quiescence"]["value"],
@@ -525,7 +579,7 @@ def execute(intent_path: pathlib.Path) -> dict[str, Any]:
             "comparison_completed": True,
         }
         result = {
-            "schema": DX0_RESULT_SCHEMA,
+            "schema": PC0_RESULT_SCHEMA if pc0 else DX0_RESULT_SCHEMA,
             "operation_nonce": intent["operation_nonce"],
             "artifact_producer_source": custody["producer_source"],
             "deck_execution_source": source_role,
@@ -562,8 +616,8 @@ def execute(intent_path: pathlib.Path) -> dict[str, Any]:
                 "worktree_commit": source_commit, "worktree_clean": True,
             },
             "closed_plan": {
-                "plan_id": DX0_PLAN_ID, "sha256": plan_sha,
-                "expected_result": "wa0-positive-interface-lease-complete-v1",
+                "plan_id": plan["plan_id"], "sha256": plan_sha,
+                "expected_result": plan["expected_result"],
                 "live_exercise_ceiling": 1,
             },
             "original_observation": {
@@ -592,15 +646,31 @@ def execute(intent_path: pathlib.Path) -> dict[str, Any]:
         return {"disposition": "completed", "result_sha256": sha256_file(path),
                 "execution_input_sha256": deck_input_sha,
                 "operation_nonce": intent["operation_nonce"]}
+    except Exception as error:
+        if not pc0:
+            raise
+        primary_error = pc0_compose_failure(error)
     finally:
         if environment is not None:
-            retire_environment(environment)
+            retiring_environment = environment
+            environment = None
+            try:
+                retire_environment(retiring_environment)
+            except Exception:
+                if not pc0:
+                    raise
+                primary_error = pc0_compose_failure(
+                    primary_error, retirement_failed=True
+                )
         # A completed publication makes this lock stale and safe to retire. On
         # every other path it is preserved as an unresolved-outcome marker.
         if result_path.exists() and lock.exists():
             for child in lock.iterdir():
                 child.unlink()
             lock.rmdir()
+    if primary_error is not None:
+        raise primary_error
+    fail("PC0_EVIDENCE_BLOCKED: positive batch ended without a result")
 
 
 def main() -> int:

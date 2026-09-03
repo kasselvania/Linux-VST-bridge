@@ -32,6 +32,9 @@ from artifacts import (  # noqa: E402
     verify_host_store, verify_source_handoff,
 )
 from common import (  # noqa: E402
+    PC0_BLOCKED_OUTCOMES, PC0_PLAN_ID, PC0_REF, PC0_RESULT_SCHEMA,
+    PC0_PROOF_CLAIMS,
+    evidence_paths, source_contract,
     DX0_ACCEPTED_WA0_ARTIFACT_ID, DX0_ACCEPTED_WA0_WRAPPER_SHA256,
     DX0_AGAIN_BUNDLE_MANIFEST_SHA256, DX0_BASIS_COMMIT, DX0_BRANCH,
     DX0_DECK_EXECUTION_INPUT_SCHEMA, DX0_EVIDENCE_PATHS, DX0_HOST_MODE,
@@ -92,10 +95,16 @@ DX0_TRANSACTION_KEYS = {
     "deck_execution_input", "proof_plan", "transaction_result",
     "evidence_renderer", "phase_receipts",
 }
-
-
 class RemoteOutcomeUnknown(RuntimeError):
     pass
+
+
+class RemoteDeckBlocked(RuntimeError):
+    """A completed Deck command reported one exact approved PC0 blocker."""
+
+    def __init__(self, blocker: str) -> None:
+        super().__init__(blocker)
+        self.blocker = blocker
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -118,7 +127,7 @@ def _load_driver_source(commit: str) -> tuple[dict[str, Any], list[tuple[str, st
     root = repo_root()
     if command_text(["git", "rev-parse", "HEAD"], cwd=root) != commit:
         fail("DX0 worktree HEAD differs from the requested source")
-    if command_text(["git", "branch", "--show-current"], cwd=root) != DX0_BRANCH:
+    if "refs/heads/" + command_text(["git", "branch", "--show-current"], cwd=root) != dx0_complete_source(commit)["ref"]:
         fail("DX0 implementation branch differs")
     raw = command(
         ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
@@ -179,7 +188,7 @@ class GitHubAdapter:
                  phase_nonce: str) -> dict[str, Any]:
         route = f"/repos/{REPOSITORY}/actions/workflows/{WORKFLOW_API_ID}/dispatches"
         body = {
-            "ref": DX0_BRANCH,
+            "ref": dx0_complete_source(source_sha)["ref"].removeprefix("refs/heads/"),
             "inputs": {
                 "source_sha": source_sha,
                 "build_input_sha256": build_input_sha256,
@@ -266,9 +275,13 @@ class ProofTransactionDriver:
         self.plan_sha = dx0_identity_sha256(self.plan)
         self.source, self._initial_status = _load_driver_source(source_commit)
         self.source_role = public_source(self.source)
+        self.branch = self.source["ref"].removeprefix("refs/heads/")
+        self.evidence_paths = evidence_paths(plan_id)
+        if source_contract(ref=self.source["ref"])["plan_id"] != plan_id:
+            fail("PC0_DESIGN_PREFLIGHT_BLOCKED: source/closed plan mismatch")
         self.build_input = dx0_windows_build_input(source_commit)
         self.build_input_sha = dx0_identity_sha256(self.build_input)
-        self.renderer = dx0_evidence_renderer(source_commit)
+        self.renderer = dx0_evidence_renderer(source_commit, plan_id=plan_id)
         self.renderer_sha = dx0_identity_sha256(self.renderer)
         self.github_factory = github_factory
         self.proof_root = proof_root or dx0_mac_transaction_parent()
@@ -298,14 +311,14 @@ class ProofTransactionDriver:
     def _admit_resumable_published_output(self) -> None:
         if not self._initial_status:
             return
-        expected = {path for path in DX0_EVIDENCE_PATHS}
+        expected = set(self.evidence_paths)
         observed = {path for status, path in self._initial_status if status == "??"}
         if (len(observed) != len(self._initial_status)
                 or observed != expected
                 or self.state.get("state") != "transaction_complete"):
             fail("DX0 source worktree is not clean")
         retained = self.root / "evidence-packet"
-        published = repo_root() / "evidence/dx0-split-build-identity-proof-transaction"
+        published = repo_root() / pathlib.PurePosixPath(self.evidence_paths[0]).parent
         if packet_identity(retained) != packet_identity(published):
             fail("DX0 published completion output differs from retained evidence")
         if any((retained / name).read_bytes() != (published / name).read_bytes()
@@ -394,6 +407,22 @@ class ProofTransactionDriver:
 
     def save(self) -> None:
         write_atomic(self.root / "DX0_TRANSACTION_STATE.json", canonical_json(self.state))
+
+    def require_pc0_budget(self, effect: str) -> None:
+        if self.plan["plan_id"] != PC0_PLAN_ID:
+            return
+        spent = 0
+        for path in self.proof_root.glob("*/DX0_TRANSACTION_STATE.json"):
+            value = parse_json_no_duplicates(path.read_bytes(), "PC0 prior transaction")
+            if canonical_json(value) != path.read_bytes():
+                fail("PC0_EVIDENCE_BLOCKED: noncanonical prior transaction")
+            if value.get("source", {}).get("ref") == PC0_REF:
+                count = value.get("effect_counts", {}).get(effect)
+                if type(count) is not int or count < 0:
+                    fail("PC0_EVIDENCE_BLOCKED: unresolved cost ledger")
+                spent += count
+        if spent != 0:
+            fail("RETURN_TO_DESIGN_GATE: PC0 single acceptance budget already reserved")
 
     def set_state(self, state: str) -> None:
         if state not in DX0_STATES:
@@ -582,7 +611,7 @@ class ProofTransactionDriver:
             fail("DX0 retained private evidence packet differs")
         publish_packet(
             retained_packet,
-            repo_root() / "evidence/dx0-split-build-identity-proof-transaction",
+            repo_root() / pathlib.PurePosixPath(self.evidence_paths[0]).parent,
             staging_parent=repo_root().parent,
         )
         return {
@@ -594,10 +623,13 @@ class ProofTransactionDriver:
             "result_sha256": value["transaction_result"]["sha256"],
             "evidence_packet_sha256": packet_sha,
             "effect_counts": dict(self.state["effect_counts"]),
-            "proof_row_count": 14,
+            "proof_row_count": 16 if self.plan["plan_id"] == PC0_PLAN_ID else 14,
         }
 
     def validate_local(self) -> dict[str, Any]:
+        if self.plan["plan_id"] == PC0_PLAN_ID:
+            from negative_tests import pc0_deterministic_tests
+            return pc0_deterministic_tests(repo_root(), self.source_commit, ProofTransactionDriver)
         from negative_tests import deterministic_tests
 
         result = deterministic_tests(repo_root(), source_commit=self.source_commit,
@@ -618,13 +650,13 @@ class ProofTransactionDriver:
 
     def freeze_source(self) -> None:
         dx0_require_frozen_source(self.source_commit, detached=False)
-        remote = command_text(["git", "ls-remote", "--heads", "origin", DX0_REF], cwd=repo_root())
+        remote = command_text(["git", "ls-remote", "--heads", "origin", self.source["ref"]], cwd=repo_root())
         fields = remote.split()
-        if fields != [self.source_commit, DX0_REF]:
+        if fields != [self.source_commit, self.source["ref"]]:
             fail(f"DX0_SOURCE_FREEZE_BLOCKED: remote source differs: {fields[:1]}")
         self.phase("freeze_source", "completed", inputs={
             "source_identity_sha256": self.source_role["identity_sha256"],
-            "remote_ref": DX0_REF,
+            "remote_ref": self.source["ref"],
         }, outputs={"remote_head": self.source_commit})
         self.set_state("source_frozen")
 
@@ -659,7 +691,7 @@ class ProofTransactionDriver:
             f"/repos/{REPOSITORY}/actions/workflows/{WORKFLOW_API_ID}"
         )
         ref = github.json(
-            f"/repos/{REPOSITORY}/git/ref/heads/{urllib.parse.quote(DX0_BRANCH, safe='')}"
+            f"/repos/{REPOSITORY}/git/ref/heads/{urllib.parse.quote(self.branch, safe='')}"
         )
         if (repository.get("full_name") != REPOSITORY
                 or repository.get("visibility") != "private"
@@ -673,7 +705,7 @@ class ProofTransactionDriver:
     def _reconcile_run(self, github: GitHubAdapter, phase_nonce: str) -> int:
         route = (f"/repos/{REPOSITORY}/actions/workflows/"
                  f"{WORKFLOW_API_ID}/runs?"
-                 f"branch={urllib.parse.quote(DX0_BRANCH)}&event=workflow_dispatch&per_page=100")
+                 f"branch={urllib.parse.quote(self.branch)}&event=workflow_dispatch&per_page=100")
         listing = github.json(route)
         matches = [run for run in listing.get("workflow_runs", [])
                    if run.get("head_sha") == self.source_commit
@@ -731,7 +763,7 @@ class ProofTransactionDriver:
         run_path = str(run.get("path", "")).split("@", 1)[0]
         expected_title = f"DX0 host {self.build_input_sha} nonce {phase_nonce}"
         if (run.get("event") != "workflow_dispatch"
-                or run.get("head_branch") != DX0_BRANCH
+                or run.get("head_branch") != self.branch
                 or run.get("head_sha") != self.source_commit
                 or run_path != WORKFLOW_PATH
                 or run.get("display_title") != expected_title
@@ -936,6 +968,7 @@ class ProofTransactionDriver:
                 # Reserve the one producer before crossing the remote boundary.
                 # A crash after this durable write can only reconcile; it can
                 # never redispatch from an ambiguous prepared intent.
+                self.require_pc0_budget("windows_builds")
                 self.effect_counts["windows_builds"] += 1
                 self.save()
                 try:
@@ -1062,6 +1095,12 @@ class SSHAdapter:
             timeout=timeout, check=False,
         )
         if result.returncode != 0:
+            diagnostic = result.stderr.decode("utf-8", "replace")[-16384:]
+            matches = [value for value in re.findall(
+                r"^DX0_ERROR: ([A-Z0-9_]+)(?::|$)", diagnostic, re.MULTILINE)
+                if value in PC0_BLOCKED_OUTCOMES]
+            if len(set(matches)) == 1:
+                raise RemoteDeckBlocked(matches[0])
             fail(f"DX0_HANDOFF_BLOCKED: private Deck command failed ({result.returncode})")
         return result.stdout
 
@@ -1329,6 +1368,9 @@ def _proof_rows(deterministic: dict[str, Any], *,
         "live supervision reaches zero residue and protected-state equality",
         "typed result admission rejects incomplete or failed cached facts",
     ]
+    pc0 = result["schema"] == PC0_RESULT_SCHEMA
+    if pc0:
+        descriptions = list(PC0_PROOF_CLAIMS)
     counts = original_observation_transaction.get("effect_counts")
     ledger_disposition = original_observation_transaction.get("ledger_disposition")
     expected_phase_count = {
@@ -1342,7 +1384,7 @@ def _proof_rows(deterministic: dict[str, Any], *,
         "evidence_rendered_before_consumer_closure": 1,
     }.get(ledger_disposition)
     if (deterministic.get("all_passed") is not True
-            or deterministic.get("proof_row_count") != 14
+            or deterministic.get("proof_row_count") != (16 if pc0 else 14)
             or original_observation_transaction.get("retained_private_state_available")
             is not True
             or original_observation_transaction.get("manual_commands") != 1
@@ -1362,7 +1404,7 @@ def _proof_rows(deterministic: dict[str, Any], *,
             or result["protected_state"]["equal"] is not True
             or result["protected_state"]["comparison_completed"] is not True):
         fail("DX0_EVIDENCE_BLOCKED: one-command live proof ledger differs")
-    synthetic = set(range(1, 11)) | {12, 14}
+    synthetic = {1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15} if pc0 else set(range(1, 11)) | {12, 14}
     return [
         {"row": index, "result": "PASS",
          "validation": "deterministic" if index in synthetic else "live",
@@ -1693,6 +1735,44 @@ def _record_deck_result(driver: ProofTransactionDriver,
     driver.set_state("transaction_result_retained")
 
 
+def _recover_after_known_deck_blocker(
+        driver: ProofTransactionDriver, blocker: str,
+        phase_inputs: dict[str, Any], phase_nonce: str,
+        recover: Callable[[], dict[str, Any] | None],
+        admit: Callable[[dict[str, Any]], dict[str, Any]],
+        ) -> dict[str, Any]:
+    """Preserve a durable Deck primary across optional result recovery."""
+    try:
+        recovered = recover()
+        if recovered is not None:
+            return admit(recovered)
+    except Exception:
+        # A recovery/custody error is secondary to the exact blocker already
+        # returned by the completed remote process.  Never collapse that
+        # primary into a generic handoff or transaction failure.
+        pass
+    driver.phase("execute_deck_batch", "failed", inputs=phase_inputs,
+                 outputs={"blocker": blocker}, phase_nonce=phase_nonce)
+    fail(blocker)
+
+
+def _recover_after_unknown_deck_outcome(
+        driver: ProofTransactionDriver, phase_inputs: dict[str, Any],
+        phase_nonce: str, recover: Callable[[], dict[str, Any] | None],
+        admit: Callable[[dict[str, Any]], dict[str, Any]],
+        ) -> dict[str, Any]:
+    """Perform one recovery read; never turn ambiguity into a second launch."""
+    try:
+        recovered = recover()
+        if recovered is not None:
+            return admit(recovered)
+    except Exception:
+        pass
+    driver.phase("execute_deck_batch", "outcome_unresolved", inputs=phase_inputs,
+                 outputs=None, phase_nonce=phase_nonce)
+    fail("DX0_DECK_TRANSACTION_BLOCKED: Deck outcome is unresolved; no duplicate launch permitted")
+
+
 def _run_or_retrieve_deck(driver: ProofTransactionDriver, ssh: SSHAdapter,
                           host: dict[str, Any], fixture: dict[str, Any],
                           handoff: dict[str, Any], deck_input: dict[str, Any],
@@ -1740,6 +1820,7 @@ def _run_or_retrieve_deck(driver: ProofTransactionDriver, ssh: SSHAdapter,
                     "phase_nonce": phase_nonce}
     driver.phase("execute_deck_batch", "prepared", inputs=phase_inputs,
                  outputs=None, phase_nonce=phase_nonce)
+    driver.require_pc0_budget("deck_executions")
     driver.effect_counts["deck_executions"] += 1
     driver.set_state("deck_batch_in_flight")
     remote_driver_lock_parent = (
@@ -1776,14 +1857,27 @@ def _run_or_retrieve_deck(driver: ProofTransactionDriver, ssh: SSHAdapter,
         "else exit $?; fi; "
         "else exit 73; fi"
     )
+
+    def admit_recovered_result(recovered: dict[str, Any]) -> dict[str, Any]:
+        _validate_result_store_joins(recovered["result"], host, fixture,
+                                     verified_handoff=handoff)
+        _record_deck_result(driver, recovered["result"], deck_input_sha)
+        return recovered["result"]
+
     try:
         ssh.run(command_line, timeout=900.0)
+    except RemoteDeckBlocked as error:
+        return _recover_after_known_deck_blocker(
+            driver, error.blocker, phase_inputs, phase_nonce,
+            lambda: _copy_result_to_mac(ssh, deck_input_sha, driver.plan_sha),
+            admit_recovered_result,
+        )
     except Exception:
-        recovered = _copy_result_to_mac(ssh, deck_input_sha, driver.plan_sha)
-        if recovered is None:
-            driver.phase("execute_deck_batch", "outcome_unresolved", inputs=phase_inputs,
-                         outputs=None, phase_nonce=phase_nonce)
-            fail("DX0_DECK_TRANSACTION_BLOCKED: Deck outcome is unresolved; no duplicate launch permitted")
+        return _recover_after_unknown_deck_outcome(
+            driver, phase_inputs, phase_nonce,
+            lambda: _copy_result_to_mac(ssh, deck_input_sha, driver.plan_sha),
+            admit_recovered_result,
+        )
     recovered = _copy_result_to_mac(ssh, deck_input_sha, driver.plan_sha)
     if recovered is None:
         driver.phase("execute_deck_batch", "outcome_unresolved", inputs=phase_inputs,
@@ -1906,6 +2000,10 @@ def run_transaction(driver: ProofTransactionDriver) -> dict[str, Any]:
         if not may_start_execution:
             fail("DX0_DECK_TRANSACTION_BLOCKED: persisted execution outcome is unresolved")
     if result is None:
+        # Reject an exhausted global PC0 live budget before source handoff or
+        # artifact transfer.  The durable per-transaction reservation remains
+        # immediately adjacent to the actual launch in _run_or_retrieve_deck.
+        driver.require_pc0_budget("deck_executions")
         ssh = get_ssh()
         handoff = _source_handoff_and_admission(driver, ssh)
         _admit_deck_inputs(driver, ssh, host, fixture, handoff, deck_input, deck_input_sha)
@@ -1932,7 +2030,9 @@ def run_transaction(driver: ProofTransactionDriver) -> dict[str, Any]:
             expected_intent=execution_intent,
         )
     admission = result_admission_receipt(
-        result, consumer_source=driver.source_role, renderer=driver.renderer
+        result, consumer_source=driver.source_role, renderer=driver.renderer,
+        original_observation=(driver.plan["plan_id"] == PC0_PLAN_ID and not reused_publication
+                              and result["operation_nonce"] == driver.state["operation_nonce"])
     )
     driver.phase("retrieve_and_retain_result", "completed" if result["deck_execution_source"] == driver.source_role else "reused",
                  inputs={"deck_execution_input_sha256": deck_input_sha},
@@ -1993,6 +2093,10 @@ def run_transaction(driver: ProofTransactionDriver) -> dict[str, Any]:
         "fixture_seeding": _fixture_seeding_receipt(),
         "invalidation_results": deterministic["invalidation_results"],
     }
+    if driver.plan["plan_id"] == PC0_PLAN_ID:
+        from negative_tests import pc0_renderer_reuse_proof
+        transaction["renderer_only_reuse"] = pc0_renderer_reuse_proof(
+            result, driver, transaction)
     packet = render_packet(output, transaction, staging_parent=driver.root)
     if not render_already_counted:
         driver.effect_counts["evidence_renders"] += 1
