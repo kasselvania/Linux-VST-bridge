@@ -1,44 +1,65 @@
-name: WA0 Windows MSVC build
+name: DX0 Windows host acceptance producer
+
+run-name: DX0 host ${{ inputs.build_input_sha256 }} nonce ${{ inputs.phase_nonce }}
 
 on:
-  push:
-    branches:
-      - codex/wa0-windows-vst3-audio-processor-interface-admission
-    paths:
-      - .github/workflows/wf0-windows-msvc-build.yml
-      - cmake/WF0DependencyLock.cmake
-      - tools/wf0-factory-census/README.md
-      - tools/wf0-factory-census/artifacts.py
-      - tools/wf0-factory-census/build.py
-      - tools/wf0-factory-census/common.py
-      - tools/wf0-factory-census/evidence.py
-      - tools/wf0-factory-census/negative_tests.py
-      - tools/wf0-factory-census/normalize.py
-      - tools/wf0-factory-census/run.py
-      - tools/wf0-factory-census/supervise.py
-      - tools/wf0-factory-census/verify.py
-      - windows-factory-probe/source/component_instance_session.cpp
-      - windows-factory-probe/source/component_instance_session.h
-      - windows-factory-probe/source/main.cpp
-      - windows-fixtures/wf0/CMakeLists.txt
-      - windows-fixtures/wf0/source/fault_fixture.cpp
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact frozen DX0 source commit
+        required: true
+        type: string
+      build_input_sha256:
+        description: Exact WindowsBuildInputIdentity digest
+        required: true
+        type: string
+      host_mode:
+        description: Closed host-only producer mode
+        required: true
+        type: string
+      phase_nonce:
+        description: Stable prepared-intent phase nonce
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   build_and_upload:
-    name: Exact Windows 2022 MSVC producer
+    name: Exact Windows 2022 MSVC host-only producer
     runs-on: windows-2022
     timeout-minutes: 90
 
     steps:
-      - name: Check out exact pushed source
+      - name: Check out exact frozen source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.source_sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify closed dispatch before acquisition
+        shell: pwsh
+        env:
+          DX0_SOURCE_SHA: ${{ inputs.source_sha }}
+          DX0_BUILD_INPUT_SHA256: ${{ inputs.build_input_sha256 }}
+          DX0_HOST_MODE: ${{ inputs.host_mode }}
+          DX0_PHASE_NONCE: ${{ inputs.phase_nonce }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REPOSITORY -ne 'kasselvania/Linux-VST-bridge') { throw 'repository differs' }
+          if ($env:GITHUB_EVENT_NAME -ne 'workflow_dispatch') { throw 'event differs' }
+          if ($env:GITHUB_REF -ne 'refs/heads/codex/dx0-split-build-identity-proof-transaction') { throw 'dispatch ref differs' }
+          if ($env:GITHUB_SHA -ne $env:DX0_SOURCE_SHA) { throw 'dispatch source differs' }
+          if ($env:DX0_SOURCE_SHA -notmatch '^[0-9a-f]{40}$') { throw 'source SHA is malformed' }
+          if ($env:DX0_BUILD_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'build-input digest is malformed' }
+          if ($env:DX0_HOST_MODE -ne 'host_only') { throw 'host mode differs' }
+          if ($env:DX0_PHASE_NONCE -notmatch '^[0-9a-f]{32}$') { throw 'phase nonce is malformed' }
+          if ((git status --porcelain=v1 --untracked-files=all)) { throw 'checkout is dirty' }
+          if ((git rev-parse HEAD) -ne $env:DX0_SOURCE_SHA) { throw 'checked-out commit differs' }
+          python -c "import pathlib,sys; sys.path.insert(0,str(pathlib.Path('tools/wf0-factory-census').resolve())); import common; source=common.dx0_complete_source('$env:DX0_SOURCE_SHA'); build=common.dx0_windows_build_input('$env:DX0_SOURCE_SHA'); assert common.dx0_identity_sha256(build) == '$env:DX0_BUILD_INPUT_SHA256'"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Select Visual Studio 2022 Enterprise
         shell: pwsh
@@ -53,49 +74,57 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}\wf0-vst3sdk"
+          python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}\dx0-vst3sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Build and verify two exact roots
+      - name: Build and verify two host-only roots
         shell: cmd
+        env:
+          DX0_SOURCE_SHA: ${{ inputs.source_sha }}
+          DX0_BUILD_INPUT_SHA256: ${{ inputs.build_input_sha256 }}
+          DX0_HOST_MODE: ${{ inputs.host_mode }}
+          DX0_PHASE_NONCE: ${{ inputs.phase_nonce }}
         run: |
           call "%WF0_VS_INSTALLATION%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 -winsdk=10.0.19041.0
           if errorlevel 1 exit /b %errorlevel%
-          python tools\wf0-factory-census\build.py workflow-build --sdk-root "%RUNNER_TEMP%\wf0-vst3sdk" --transaction-root "%RUNNER_TEMP%\wf0-build-transaction" --output "%RUNNER_TEMP%\wf0-envelope" --source-commit "%GITHUB_SHA%"
+          python tools\wf0-factory-census\build.py dx0-workflow-build --sdk-root "%RUNNER_TEMP%\dx0-vst3sdk" --transaction-root "%RUNNER_TEMP%\dx0-host-build" --output "%RUNNER_TEMP%\dx0-host-envelope" --source-commit "%DX0_SOURCE_SHA%"
           if errorlevel 1 exit /b %errorlevel%
 
-      - name: Upload exact three-file envelope
+      - name: Upload exact host-only envelope
         id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: wa0-windows-build-${{ github.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          name: dx0-windows-host-${{ inputs.build_input_sha256 }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}\wf0-envelope\wf0-payload.zip
-            ${{ runner.temp }}\wf0-envelope\WF0_WINDOWS_BUILD_RECEIPT.json
-            ${{ runner.temp }}\wf0-envelope\WF0_WINDOWS_BUILD_RECEIPT.sha256
+            ${{ runner.temp }}\dx0-host-envelope\dx0-host-payload.zip
+            ${{ runner.temp }}\dx0-host-envelope\DX0_WINDOWS_HOST_BUILD_RECEIPT.json
+            ${{ runner.temp }}\dx0-host-envelope\DX0_WINDOWS_HOST_BUILD_RECEIPT.sha256
           if-no-files-found: error
           compression-level: 0
           overwrite: false
 
-      - name: Capture bounded upload result
+      - name: Capture typed upload result
         shell: pwsh
         env:
-          WF0_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
-          WF0_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
-          WF0_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          DX0_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          DX0_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          DX0_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          DX0_BUILD_INPUT_SHA256: ${{ inputs.build_input_sha256 }}
+          DX0_PHASE_NONCE: ${{ inputs.phase_nonce }}
         run: |
           $ErrorActionPreference = 'Stop'
-          if ($env:WF0_ARTIFACT_ID -notmatch '^[1-9][0-9]*$') { throw 'artifact ID is malformed' }
-          if ($env:WF0_ARTIFACT_DIGEST -notmatch '^[0-9a-f]{64}$') { throw 'upload artifact digest is malformed' }
-          $expectedHumanUrl = "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/${{ github.run_id }}/artifacts/$env:WF0_ARTIFACT_ID"
-          if ($env:WF0_ARTIFACT_URL -ne $expectedHumanUrl) { throw 'upload artifact URL differs' }
-          $canonicalRestDigest = "sha256:$env:WF0_ARTIFACT_DIGEST"
-          $uploadResult = @(
-            "artifact-id=$env:WF0_ARTIFACT_ID"
-            "artifact-name=wa0-windows-build-${{ github.sha }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}"
-            "artifact-human-url=$env:WF0_ARTIFACT_URL"
-            "artifact-digest-bare=$env:WF0_ARTIFACT_DIGEST"
-            "artifact-digest-rest-form=$canonicalRestDigest"
-          )
-          Write-Output ($uploadResult -join "`n")
-          $uploadResult | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          if ($env:DX0_ARTIFACT_ID -notmatch '^[1-9][0-9]*$') { throw 'artifact ID is malformed' }
+          if ($env:DX0_ARTIFACT_DIGEST -notmatch '^[0-9a-f]{64}$') { throw 'upload artifact digest is malformed' }
+          $name = "dx0-windows-host-$env:DX0_BUILD_INPUT_SHA256-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}"
+          $expectedUrl = "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/${{ github.run_id }}/artifacts/$env:DX0_ARTIFACT_ID"
+          if ($env:DX0_ARTIFACT_URL -ne $expectedUrl) { throw 'upload artifact URL differs' }
+          $result = [ordered]@{
+            artifact_id = [int64]$env:DX0_ARTIFACT_ID
+            artifact_name = $name
+            artifact_human_url = $env:DX0_ARTIFACT_URL
+            artifact_digest_bare = $env:DX0_ARTIFACT_DIGEST
+            artifact_digest_rest_form = "sha256:$env:DX0_ARTIFACT_DIGEST"
+            phase_nonce = $env:DX0_PHASE_NONCE
+          } | ConvertTo-Json -Compress
+          Write-Output "DX0_UPLOAD_RESULT=$result"
+          "DX0_UPLOAD_RESULT=$result" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append

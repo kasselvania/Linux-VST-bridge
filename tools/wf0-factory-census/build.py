@@ -26,6 +26,11 @@ from common import (
     command_text, fail, repo_root, require_clean_source, sha256_bytes,
     sha256_file, source_manifest_sha256, write_atomic,
 )
+from common import (
+    DX0_BRANCH, DX0_HOST_ARTIFACT_SCHEMA, DX0_HOST_BUILD_SCHEMA, DX0_HOST_MODE,
+    DX0_REF, DX0_WINDOWS_BUILD_INPUT_SCHEMA, dx0_complete_source,
+    dx0_identity_sha256, dx0_source_role, dx0_windows_build_input,
+)
 from verify import (
     artifact_file_records, artifact_manifest, compare_builds,
     scanner_component_call_surface, verify_pe,
@@ -779,6 +784,218 @@ def deterministic_zip(source: pathlib.Path, destination: pathlib.Path) -> None:
                              compresslevel=9)
 
 
+def dx0_source_identity(source_commit: str) -> tuple[dict[str, Any], dict[str, Any], str]:
+    """Verify the dispatch checkout and reproduce both source identity domains."""
+    root = repo_root()
+    phase_nonce = os.environ.get("DX0_PHASE_NONCE", "")
+    if (
+        os.environ.get("GITHUB_REPOSITORY") != REPOSITORY
+        or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
+        or os.environ.get("GITHUB_REF") != DX0_REF
+        or os.environ.get("GITHUB_SHA") != source_commit
+        or os.environ.get("DX0_SOURCE_SHA") != source_commit
+        or os.environ.get("DX0_HOST_MODE") != DX0_HOST_MODE
+        or not re.fullmatch(r"[0-9a-f]{32}", phase_nonce)
+    ):
+        fail("DX0 workflow dispatch/source/mode/nonce identity differs")
+    if command_text(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root):
+        fail("DX0 Windows checkout is dirty")
+    source = dx0_complete_source(source_commit)
+    build_input = dx0_windows_build_input(source_commit)
+    digest = dx0_identity_sha256(build_input)
+    if (
+        os.environ.get("DX0_BUILD_INPUT_SHA256") != digest
+        or build_input.get("schema") != DX0_WINDOWS_BUILD_INPUT_SCHEMA
+        or build_input.get("record_count") != 17
+    ):
+        fail("DX0 Windows-build-input identity differs from dispatch")
+    workflow_blob = _git(root, "rev-parse", f"{source_commit}:{WORKFLOW_PATH}")
+    return source, build_input, workflow_blob
+
+
+def configure_and_build_host(root: pathlib.Path, sdk: pathlib.Path) -> pathlib.Path:
+    """Build only the repository-owned scanner in one clean root."""
+    _require_empty_new(root, "DX0 host build root")
+    repository_build = root / "repository"
+    assembled = root / "assembled"
+    assembled.mkdir()
+    _build_command([
+        "cmake", "-S", str(repo_root()), "-B", str(repository_build),
+        *cmake_contract_args(str(root)), f"-DWF0_VST3_SDK_ROOT:PATH={sdk}",
+        "-DWF0_BUILD_ONLY=ON",
+    ])
+    _build_command([
+        "cmake", "--build", str(repository_build), "--config", CONFIGURATION,
+        "--target", "wf0-factory-probe", "--", f"/m:{MSBUILD_MAX_CPU_COUNT}",
+    ])
+    verify_sdk(sdk)
+    return repository_build
+
+
+def assemble_host(repository_build: pathlib.Path, sdk: pathlib.Path,
+                  destination: pathlib.Path) -> dict[str, str]:
+    destination.mkdir(parents=True, exist_ok=False)
+    roles: dict[str, str] = {}
+    _copy_regular(unique_file(repository_build, "wf0-factory-probe.exe"),
+                  destination / "bin/wf0-factory-probe.exe")
+    roles["bin/wf0-factory-probe.exe"] = "scanner_executable"
+    for source_name, relative in SDK_LICENSES.items():
+        _copy_regular(sdk / source_name, destination / relative)
+        roles[relative] = "required_license_notice"
+    return roles
+
+
+def verify_host_assembled(root: pathlib.Path, roles: dict[str, str]) -> dict[str, Any]:
+    scanner = root / "bin/wf0-factory-probe.exe"
+    pe = verify_pe(scanner, dumpbin(scanner),
+                   forbidden_exports={"GetPluginFactory", "InitDll", "ExitDll"},
+                   executable=True)
+    if set(roles) != {
+        "bin/wf0-factory-probe.exe",
+        *SDK_LICENSES.values(),
+    }:
+        fail("DX0 host-only payload roster differs")
+    artifact_file_records(root, roles)
+    return {"path": "bin/wf0-factory-probe.exe", **pe}
+
+
+def write_host_manifest(root: pathlib.Path, roles: dict[str, str],
+                        build_input_sha256: str) -> tuple[dict[str, Any], str]:
+    records = artifact_file_records(root, roles)
+    value = {
+        "schema": DX0_HOST_ARTIFACT_SCHEMA,
+        "windows_build_input_sha256": build_input_sha256,
+        "build_identity_core_sha256": sha256_file(root / "DX0_BUILD_IDENTITY_CORE.json"),
+        "record_count": len(records),
+        "records": records,
+    }
+    data = canonical_json(value)
+    write_atomic(root / "DX0_HOST_ARTIFACT_MANIFEST.json", data, mode=0o444)
+    digest = sha256_bytes(data)
+    write_atomic(root / "DX0_HOST_ARTIFACT_MANIFEST.sha256",
+                 f"{digest}  DX0_HOST_ARTIFACT_MANIFEST.json\n".encode(), mode=0o444)
+    return value, digest
+
+
+def build_dx0_workflow(source_commit: str, sdk: pathlib.Path,
+                       transaction: pathlib.Path, output: pathlib.Path) -> dict[str, Any]:
+    source, build_input, workflow_blob = dx0_source_identity(source_commit)
+    build_input_sha = dx0_identity_sha256(build_input)
+    call_surface = scanner_component_call_surface(repo_root())
+    sdk_identity = verify_sdk(sdk)
+    sdk_identity["checkout_regression"] = eol_checkout_regression()
+    observed, cl_bv = toolchain_identity()
+    _require_empty_new(transaction, "DX0 Windows build transaction")
+    _require_empty_new(output, "DX0 Windows envelope output")
+
+    repository_a = configure_and_build_host(transaction / "a", sdk)
+    repository_b = configure_and_build_host(transaction / "b", sdk)
+    assembled_a = transaction / "payload-a"
+    assembled_b = transaction / "payload-b"
+    roles_a = assemble_host(repository_a, sdk, assembled_a)
+    roles_b = assemble_host(repository_b, sdk, assembled_b)
+    if roles_a != roles_b:
+        fail("DX0 A/B host role roster differs")
+    pe_a = verify_host_assembled(assembled_a, roles_a)
+    pe_b = verify_host_assembled(assembled_b, roles_b)
+    if {key: value for key, value in pe_a.items() if key != "dumpbin_sha256"} != {
+        key: value for key, value in pe_b.items() if key != "dumpbin_sha256"
+    }:
+        fail("DX0 A/B PE identity differs")
+    preliminary = compare_builds(assembled_a, assembled_b)
+
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    run_attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "")
+    phase_nonce = os.environ.get("DX0_PHASE_NONCE", "")
+    if (not re.fullmatch(r"[1-9][0-9]*", run_id)
+            or not re.fullmatch(r"[1-9][0-9]*", run_attempt)):
+        fail("DX0 workflow run ID/attempt is malformed")
+    producer = dx0_source_role(source)
+    workflow = {
+        "path": WORKFLOW_PATH, "git_blob": workflow_blob,
+        "event": "workflow_dispatch", "ref": DX0_REF,
+        "source_sha": source_commit, "host_mode": DX0_HOST_MODE,
+        "phase_nonce": phase_nonce, "run_id": int(run_id),
+        "run_attempt": int(run_attempt),
+    }
+    core = {
+        "schema": "linux-vst-bridge-dx0-build-identity-core/v1",
+        "repository": REPOSITORY, "producer_source": producer,
+        "windows_build_input": build_input,
+        "windows_build_input_sha256": build_input_sha,
+        "workflow": workflow, "runner": observed["runner"],
+        "toolchain": observed["toolchain"], "vst3_sdk": sdk_identity,
+        "build": {
+            "configuration": CONFIGURATION, "targets": ["wf0-factory-probe"],
+            "host_mode": DX0_HOST_MODE, "again_built": False,
+            "fault_targets_built": False, "adapter_built": False,
+            "msvc_runtime": "MultiThreaded", "roots_distinct": True,
+            "dependency_network_during_configure_build": False,
+            "deterministic_build_root_mapping": "C:\\wf0\\build",
+            "source_date_epoch": SOURCE_DATE_EPOCH, "pdb_embedded_path": "%_PDB%",
+            "msbuild_max_cpu_count": int(MSBUILD_MAX_CPU_COUNT),
+            "msvc_post_options": MSVC_POST_OPTIONS,
+            "pre_manifest_comparison": preliminary,
+            "wa0_interface_call_surface": call_surface,
+        },
+    }
+    core_data = canonical_json(core)
+    for assembled, roles in ((assembled_a, roles_a), (assembled_b, roles_b)):
+        write_atomic(assembled / "DX0_BUILD_IDENTITY_CORE.json", core_data, mode=0o444)
+        roles["DX0_BUILD_IDENTITY_CORE.json"] = "build_identity_core"
+    manifest_a, digest_a = write_host_manifest(assembled_a, roles_a, build_input_sha)
+    manifest_b, digest_b = write_host_manifest(assembled_b, roles_b, build_input_sha)
+    if manifest_a != manifest_b or digest_a != digest_b:
+        fail("DX0 A/B host manifests differ")
+    comparison = compare_builds(assembled_a, assembled_b)
+    payload = output / "dx0-host-payload.zip"
+    deterministic_zip(assembled_a, payload)
+    receipt = {
+        "schema": DX0_HOST_BUILD_SCHEMA,
+        "repository": REPOSITORY, "producer_source": producer,
+        "windows_build_input": {
+            "schema": DX0_WINDOWS_BUILD_INPUT_SCHEMA,
+            "sha256": build_input_sha, "record_count": 17,
+        },
+        "workflow": workflow, "runner": observed["runner"],
+        "toolchain": observed["toolchain"], "vst3_sdk": sdk_identity,
+        "build": {
+            "configuration": CONFIGURATION, "targets": ["wf0-factory-probe"],
+            "host_mode": DX0_HOST_MODE, "again_built": False,
+            "fault_targets_built": False, "adapter_built": False,
+            "roots_distinct": True, "comparison": comparison,
+            "cmake_options_sha256": sha256_bytes(canonical_json(
+                cmake_contract_args("<PHYSICAL_BUILD_ROOT>"))),
+        },
+        "artifact": {
+            "manifest_schema": DX0_HOST_ARTIFACT_SCHEMA,
+            "manifest_sha256": digest_a,
+            "payload_sha256": sha256_file(payload),
+            "pe_receipt": pe_a,
+            "record_count": manifest_a["record_count"],
+        },
+        "tool_receipts": {"cl_bv_sha256": sha256_bytes(cl_bv)},
+        "explicit_nonclaims": ["no_windows_runtime_proof", "no_fixture_build",
+                               "no_fault_build", "no_audio_processor_method",
+                               "no_immutable_runner_claim", "no_release_build"],
+    }
+    receipt_path = output / "DX0_WINDOWS_HOST_BUILD_RECEIPT.json"
+    write_atomic(receipt_path, canonical_json(receipt), mode=0o444)
+    receipt_sha = sha256_file(receipt_path)
+    write_atomic(output / "DX0_WINDOWS_HOST_BUILD_RECEIPT.sha256",
+                 f"{receipt_sha}  DX0_WINDOWS_HOST_BUILD_RECEIPT.json\n".encode(),
+                 mode=0o444)
+    if sorted(path.name for path in output.iterdir()) != [
+        "DX0_WINDOWS_HOST_BUILD_RECEIPT.json",
+        "DX0_WINDOWS_HOST_BUILD_RECEIPT.sha256",
+        "dx0-host-payload.zip",
+    ]:
+        fail("DX0 Windows three-file envelope differs")
+    if dx0_complete_source(source_commit) != source:
+        fail("DX0 source changed during Windows production")
+    return receipt
+
+
 def build_workflow(source_commit: str, sdk: pathlib.Path,
                    transaction: pathlib.Path, output: pathlib.Path) -> dict[str, Any]:
     source, source_digest, source_tree, workflow_blob = source_identity(source_commit)
@@ -965,11 +1182,11 @@ def main() -> int:
     verify = subparsers.add_parser("verify-sdk")
     verify.add_argument("--sdk-root", type=pathlib.Path, required=True)
     subparsers.add_parser("checkout-regression")
-    build = subparsers.add_parser("workflow-build")
-    build.add_argument("--sdk-root", type=pathlib.Path, required=True)
-    build.add_argument("--transaction-root", type=pathlib.Path, required=True)
-    build.add_argument("--output", type=pathlib.Path, required=True)
-    build.add_argument("--source-commit", required=True)
+    dx0_build = subparsers.add_parser("dx0-workflow-build")
+    dx0_build.add_argument("--sdk-root", type=pathlib.Path, required=True)
+    dx0_build.add_argument("--transaction-root", type=pathlib.Path, required=True)
+    dx0_build.add_argument("--output", type=pathlib.Path, required=True)
+    dx0_build.add_argument("--source-commit", required=True)
     args = parser.parse_args()
 
     if args.command_name == "acquire":
@@ -979,18 +1196,16 @@ def main() -> int:
     elif args.command_name == "checkout-regression":
         print(json.dumps(eol_checkout_regression(), sort_keys=True))
     else:
-        receipt = build_workflow(
-            args.source_commit,
-            args.sdk_root.resolve(),
-            args.transaction_root.resolve(),
-            args.output.resolve(),
+        receipt = build_dx0_workflow(
+            args.source_commit, args.sdk_root.resolve(),
+            args.transaction_root.resolve(), args.output.resolve(),
         )
         print(json.dumps({
             "schema": receipt["schema"],
-            "source_commit": receipt["source"]["commit"],
-            "artifact_manifest_sha256":
-                receipt["artifacts"]["artifact_manifest_sha256"],
-            "payload_archive_sha256": receipt["artifacts"]["payload_archive_sha256"],
+            "source_commit": receipt["producer_source"]["commit"],
+            "windows_build_input_sha256": receipt["windows_build_input"]["sha256"],
+            "host_artifact_manifest_sha256": receipt["artifact"]["manifest_sha256"],
+            "payload_sha256": receipt["artifact"]["payload_sha256"],
         }, sort_keys=True))
     return 0
 

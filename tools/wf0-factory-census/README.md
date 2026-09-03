@@ -1,41 +1,48 @@
-# WA0 audio-processor interface-admission harness
+# DX0 split-identity proof transaction
 
-This directory extends only the accepted WF0/WC0 mechanisms needed by the
-authorized WA0 proof transaction. The
-private one-job GitHub Actions workflow builds the repository-owned Windows
-x86_64 scanner, the bounded eight-module WA0 fault family, and the exact pinned SDK
-AGain fixture twice with Visual Studio 2022, MSVC v143, and Windows SDK
-10.0.19041.0. The authenticated Mac control plane admits the exact workflow
-artifact by numeric run and artifact ID, creates the self-contained source
-bundle, and transfers both independently verified handoffs. The Steam Deck
-imports only those exact bytes, supervises fresh Runtime 4 / Proton 11
-environments, and renders the fixed sanitized 14-file WA0 evidence packet.
+DX0 keeps the accepted WA0 Windows scanner, Runtime/Proton supervisor,
+disposable environment, normalization, cleanup, and protected-state owners.
+It separates complete source, Windows-build inputs, accepted AGain fixture,
+Deck execution inputs, and evidence-renderer identities so an evidence-only or
+Mac-only edit cannot select a new Windows build or live Deck execution.
 
-Plane entry points are deliberately separate:
+The ordinary interface is exactly:
 
 ```text
-python tools/wf0-factory-census/build.py acquire ...
-python tools/wf0-factory-census/artifacts.py mac-custody ...
-/usr/bin/python3 tools/wf0-factory-census/artifacts.py import-source-handoff ...
-/usr/bin/python3 tools/wf0-factory-census/run.py all ...
+python3 tools/host-proof.py run --source <commit> --plan wa0-positive-regression-v1
 ```
 
-Source and artifact admission are explicit stopped gates. The mutating Deck
-exercises then run as one fresh `all` transaction; before every exercise the
-harness reproduces the clean detached 17-record implementation-source identity
-and rehashes the content-addressed artifact set. Generated artifacts, handoffs,
-and raw process streams remain private and untracked. A source or workflow blob
-change invalidates every later receipt.
+The command derives every run, artifact, bundle, ref, worktree, cache, and
+receipt identity. It accepts a cached host/result only after complete typed
+validation, or invokes the single approved host-only producer and single
+positive Deck batch. It persists intent before each remote effect and resumes
+the same nonce after a lost acknowledgement. It never retries an unknown
+outcome, rebuilds AGain, uses a push-triggered workflow, or forwards GitHub or
+SSH-agent authority to the Deck.
 
-The scanner preserves the accepted WC0 lifecycle, then queries the initialized
-AGain component once for the exact `IAudioProcessor` IID. One
-`AudioProcessorInterfaceLease` owns any non-null output and releases it once to
-the component-owner reference baseline before WC0 termination may continue.
-Audio-interface quiescence gates every inherited component/factory/module
-shutdown call. The live negative set is exactly the eight focused WA0 fixtures;
-the complete WF0 and WC0 negative matrices are not replayed.
+One-time accepted-fixture seeding is a separate operator action:
 
-WA0 calls no `IAudioProcessor` method and does not create a controller or call
-bus, parameter, state, processing, audio, event, or editor methods. It never launches Bitwig or Serum. The accepted
-WR0 environment is read-only protected state and is neither adopted nor
-repaired. The Deck performs no GitHub operation.
+```text
+python3 tools/host-proof.py seed-fixture
+```
+
+That action downloads exact accepted WA0 artifact ID `9869994854` only when a
+verified retained local copy is unavailable, validates its complete custody
+chain, publishes the content-addressed private Mac store, and admits the same
+bytes to the Deck. Ordinary `run` verifies the store and fails closed; it does
+not silently seed or repair it.
+
+Cheap validation is available without GitHub, SSH, or Proton:
+
+```text
+python3 tools/host-proof.py validate --source <commit> --plan wa0-positive-regression-v1
+```
+
+The deterministic matrix exercises the production identity, planner, result
+admission, renderer, single-writer, and recovery owners with injected effects.
+Synthetic cases are retained as synthetic. Only the ordinary command's one
+accepted WA0 positive batch is live.
+
+DX0 adds no VST3 call or product capability. No `IAudioProcessor` method,
+controller, bus, parameter, state, processing, audio/event, GUI, proxy, IPC,
+Bitwig, Serum, packaging, signing, release, or immutable-runner claim is made.

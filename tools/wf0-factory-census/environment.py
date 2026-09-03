@@ -17,6 +17,7 @@ from common import (
     canonical_json, environment_parent, fail, require_contained, sha256_bytes,
     sha256_file, write_atomic,
 )
+from common import DX0_AGAIN_BUNDLE_MANIFEST_SHA256, dx0_identity_sha256
 
 
 @dataclass(frozen=True)
@@ -285,6 +286,71 @@ def retire_environment(environment: ScanEnvironment) -> dict[str, Any]:
         "run_id": environment.run_id,
         "fixture": environment.marker["fixture"],
     }
+
+
+def create_dx0_environment(run_id: str, *, host: dict[str, Any],
+                           fixture: dict[str, Any], execution_source: dict[str, Any],
+                           deck_execution_input_sha256: str) -> ScanEnvironment:
+    """Compose a verified host-only payload and accepted fixture in one stage."""
+    from artifacts import verify_fixture_store, verify_host_store
+
+    if not re.fullmatch(r"[0-9a-f]{32}", run_id):
+        fail("DX0 Deck run ID must be 32 lowercase hexadecimal characters")
+    host_root = pathlib.Path(host["root"])
+    fixture_root = pathlib.Path(fixture["root"])
+    verified_host = verify_host_store(
+        host_root, host["build_receipt"]["windows_build_input"]["sha256"]
+    )
+    verified_fixture = verify_fixture_store(fixture_root)
+    if (
+        verified_host["manifest_sha256"] != host["manifest_sha256"]
+        or verified_fixture["identity_sha256"] != fixture["identity_sha256"]
+        or verified_fixture["identity"]["bundle_manifest"]["sha256"]
+        != DX0_AGAIN_BUNDLE_MANIFEST_SHA256
+    ):
+        fail("DX0 environment host/fixture identity join differs")
+
+    parent = environment_parent()
+    parent.mkdir(parents=True, exist_ok=True)
+    root = parent / f".wf0-factory-census.stage-{run_id}"
+    require_contained(root, parent, "DX0 execution environment")
+    if root.exists() or root.is_symlink():
+        fail("DX0 execution environment already exists")
+    root.mkdir(mode=0o700)
+    for relative in (
+        "compatdata/pfx/drive_c/wf0/bin", "compatdata/pfx/drive_c/wf0/fixture",
+        "compatdata/pfx/drive_c/wf0/session", "runtime-var", "host-cache",
+        "host-config", "host-data", "host-tmp",
+    ):
+        (root / relative).mkdir(parents=True, mode=0o700, exist_ok=True)
+    wf0 = root / "compatdata/pfx/drive_c/wf0"
+    _copy_regular(host_root / "bin/wf0-factory-probe.exe",
+                  wf0 / "bin/wf0-factory-probe.exe")
+    bundle = wf0 / "fixture/again.vst3"
+    for record in verified_fixture["identity"]["bundle_manifest"]["records"]:
+        _copy_regular(fixture_root / "again.vst3" / record["path"],
+                      bundle / record["path"])
+    bundle_identity = _bundle_manifest(bundle)
+    if bundle_identity != verified_fixture["identity"]["bundle_manifest"]:
+        fail("DX0 staged accepted fixture manifest differs")
+    marker = {
+        "schema": MARKER_SCHEMA,
+        "run_id": run_id,
+        "fixture": "again",
+        "source_commit": execution_source["commit"],
+        "implementation_source_manifest_sha256": execution_source["manifest_sha256"],
+        "artifact_manifest_sha256": verified_host["manifest_sha256"],
+        "accepted_fixture_identity_sha256": verified_fixture["identity_sha256"],
+        "deck_execution_input_sha256": deck_execution_input_sha256,
+        "runner_identity_sha256": RUNNER_DIGEST,
+        "scanner_sha256": sha256_file(wf0 / "bin/wf0-factory-probe.exe"),
+        "module_sha256": sha256_file(bundle / "Contents/x86_64-win/again.vst3"),
+        "bundle_manifest": bundle_identity,
+    }
+    write_atomic(root / ".wf0-owner.json", canonical_json(marker))
+    environment = ScanEnvironment(run_id=run_id, root=root, marker=marker)
+    verify_environment(environment)
+    return environment
 
 
 if __name__ == "__main__":
