@@ -1,8 +1,8 @@
-# PC0 implementation design v1
+# PC0 implementation design v2
 
 ```yaml
 slice: PC0
-design_revision: pc0-design-v1
+design_revision: pc0-design-v2
 design_status: proposed_for_adversarial_review
 implementation_authorized: false
 owner_count: 1
@@ -18,6 +18,14 @@ expected_windows_acceptance_producers: 1
 expected_positive_deck_batches: 1
 renderer_only_external_effects: 0
 ```
+
+V2 supersedes V1 commit `f6938e7dd501a4c86a382243670d82d060d1b75a`,
+tree `bacf308af5a7c993e1da45059497fb392a3b8845`, design blob
+`0f2d1c26aea3d009ce93d1d5086b52ca03fc8ce1`, SHA-256
+`29db8b0f884407ba9ea75c80cab6ddd290908f2449d73e4502dd61347c490e86`.
+Independent technical-lead review `5105496167` returned
+`PC0_DESIGN_V1_REPAIR_REQUIRED`; its two bounded findings are retained in
+[the review history](ADVERSARIAL_DESIGN_REVIEW.md).
 
 ## 1. Authority, claim, and ceiling
 
@@ -61,10 +69,22 @@ Exact fixture identities are AGain module
 `bfaa1dce4d2e189f89cee41493838824efe647e361e81436676b7b3a86ff5164`,
 and Runtime/Proton digest
 `2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`.
-Accepted WA0 source/evidence are `24b7e6da7e29a5bd358097a6b89c5c59b747c413` /
-`99478005e9f2675036100486c87952b76d411f84`; accepted DX0 source/evidence are
-`be046dd2d44a7915ca408c01a06212639ccea51e` /
-`85840927f49c2ead5d42cfe0014f4771c9d03e76`.
+Accepted WA0 source is `24b7e6da7e29a5bd358097a6b89c5c59b747c413`,
+tree `d7c43098a14d86bf36b9c428e3836e1eb5353613`; its evidence is
+`99478005e9f2675036100486c87952b76d411f84`, tree
+`56e861611d0a0fdfeeafac517e40f8bb7ea9bb8f`, merged by
+`5d084ba5032dc8a7ce93be51e7d75dfd0d37ee22`. Accepted DX0 source is
+`be046dd2d44a7915ca408c01a06212639ccea51e`, tree
+`1322e4eb7b5bd54244bd2fa7fc83327ea6a0c183`; its evidence is
+`85840920844693f7611306492298817e16dd2a6c`, tree
+`35ddde4e56a810ab1ce44970313bf2f42e585908`, merged by
+`1f71487717eabdb3cd5285a4559df2ce2915c8d8`. Post-DX0 status closure is the
+selection basis `858c240b104e090aaed8bd23ace04fd9a0dfd20e`.
+
+Design and future implementation validation must resolve every named authority,
+source, evidence, merge, tree, and blob as a real Git object; compare its type,
+exact value, parent/tree relation, merge ancestry, and required containment to
+this card. A lexically valid 40- or 64-character string is never identity proof.
 
 Pinned SDK contracts permit all four selected methods on the Windows UI thread
 while Initialized. AGain creates `(1,1,1,0)` audio-in/audio-out/event-in/event-out
@@ -129,6 +149,15 @@ size `(kSample32|kSample64)`. Evidence retains symbolic values plus fixed-width
 numeric projections, never pointers, addresses, thread/process identifiers, or
 unbounded plug-in text. An unmatched start identifies its exact operation and
 coordinates.
+
+The durable writer is part of call attribution. If `call_started` cannot be
+written and flushed, the VST3 call has not been attempted and no in-flight call
+or return is invented. If the call returns but `call_completed` cannot be
+written and flushed, its scalar/output is unconsumable and the durable ledger
+remains unmatched at the exact operation/coordinates. No interface/component/
+factory release, `ExitDll`, `FreeLibrary`, or clean in-process retirement may
+then be claimed; accepted physical containment owns retirement. Writer failure
+is secondary to any earlier PC0 primary blocker and never erases it.
 
 ## 5. Count and output laws
 
@@ -221,7 +250,7 @@ the positive AGain batch.
 | Info failure, coordinate/enum/flag/channel/name defect | `PC0_BUS_INFO_BLOCKED`; output unconsumed. |
 | Arrangement failure or popcount mismatch | `PC0_BUS_ARRANGEMENT_BLOCKED`; contract incomplete. |
 | Sample result other than true/false | `PC0_SAMPLE_FORMAT_BLOCKED`; no support inference. |
-| Missing/reordered/extra completion | `PC0_CONTRACT_INCOMPLETE`; no immutable contract. |
+| Missing/reordered/extra completion, including a failed durable `call_completed` write after ordinary return | Returned output is unconsumable; exact unmatched coordinates remain; `PC0_CONTRACT_INCOMPLETE` and physical containment apply. |
 | Unmatched start, injected timeout, or crash | Exact in-flight coordinates retained; process containment only. |
 | Renderer-only source mutation | P/E retained for C; all external invocation counters remain zero. |
 
@@ -241,13 +270,13 @@ python3 tools/host-proof.py run --source <commit> --plan pc0-pre-setup-processin
 ```
 
 DX0 canonical JSON/hash, typed receipt, persisted intent/nonce, single-writer,
-lost-acknowledgement recovery, and P/E/C laws remain unchanged. PC0 adds
-`linux-vst-bridge-pc0-complete-source/v1` (14 records),
-`linux-vst-bridge-pc0-transaction-result/v1`, and
+lost-acknowledgement recovery, and distinct P/E/C laws remain unchanged. PC0
+uses the already-selected schemas `linux-vst-bridge-pc0-complete-source/v1`
+(14 records), `linux-vst-bridge-pc0-transaction-result/v1`, and
 `linux-vst-bridge-pc0-evidence-packet/v1`. It reuses the exact DX0 v1 Windows
 build-input, accepted-fixture, Deck-execution-input, evidence-renderer,
-proof-transaction, host artifact/custody, and source-handoff schemas; their
-validators become plan-aware without weakening accepted WA0/DX0 admission.
+proof-transaction, host artifact/custody, and source-handoff schema families;
+their validators become plan-aware without weakening accepted WA0/DX0 data.
 
 The future implementation branch/ref are frozen as
 `codex/pc0-windows-vst3-pre-setup-processing-contract` and
@@ -259,24 +288,87 @@ source-handoff wire identity remains schema
 `DX0_SOURCE_HANDOFF_RECEIPT.json` / `DX0_SOURCE_HANDOFF_RECEIPT.sha256`.
 These are derived by the driver, never copied by the operator.
 
-The PC0 result has the exact top-level keys `schema`, `operation_nonce`,
-`artifact_producer_source`, `deck_execution_source`, `execution_input`,
-`host_artifact`, `accepted_fixture`, `source_handoff`, `closed_plan`,
-`original_observation`, `positive_result`, `call_facts`, `quiescence`,
-`shutdown`, `cleanup`, `protected_state`, and `integrity`. `positive_result`
-contains the immutable processing contract and explicit no-mutation projection;
-`call_facts` contains the ordered coordinate ledger and counts. Existing
-subobjects retain the DX0 closed key/type contracts.
+### Private retained result: P/E original-observation truth
 
-The result predicate requires exact P producer, E execution, and C consumer
-roles; all narrower identity/receipt joins; canonical result plus sidecar;
-the accepted fixture; exact 11-call positive contract; census completion;
-WA0 interface release count 1; WC0 termination/component release count 0;
-clean factory/module shutdown; zero descendants; absent retired environment;
-equal completed protected projections; and no prohibited call. A schema name,
-filename, digest, or success flag alone never qualifies. C may differ for a
-renderer-only correction, but rendered evidence names E's historical
-observation and never claims fresh Deck inspection.
+The Deck publishes `linux-vst-bridge-pc0-transaction-result/v1`. Its exact
+top-level keys are `schema`, `operation_nonce`, `artifact_producer_source`,
+`deck_execution_source`, `execution_input`, `host_artifact`,
+`accepted_fixture`, `source_handoff`, `closed_plan`, `original_observation`,
+`positive_result`, `call_facts`, `quiescence`, `shutdown`, `cleanup`,
+`protected_state`, and `integrity`. `positive_result.processing_contract` is
+the immutable `linux-vst-bridge-pc0-processing-contract/v1` value.
+
+This private object binds the true artifact producer P and original Deck
+execution E. It contains no evidence-consumer C: C does not yet exist as an
+execution fact when the Deck publishes. Strict private-result admission
+requires canonical JSON plus external sidecar; exact P/E and Deck-input joins;
+host artifact, accepted fixture, handoff, and closed plan; complete original
+observation identity/timestamps; exact positive contract/calls; interface and
+object quiescence; clean shutdown; zero descendants and retired/absent
+environment; equal completed original protected-state comparison; and hashes
+of each bounded projection. A filename, schema, digest, or success flag alone
+never qualifies, and admission never rewrites P or E for a later consumer.
+
+### Tracked evidence packet: P/E/C projection
+
+After strict admission, C locally renders `TRANSACTION.json` as the complete
+`linux-vst-bridge-pc0-evidence-packet/v1` value. Its exact top-level key roster
+is:
+
+```text
+schema
+artifact_producer_source
+deck_execution_source
+evidence_consumer_source
+observation_disposition
+consumer_executed_on_deck
+consumer_deck_state_freshly_inspected
+admitted_private_result_sha256
+result_admission
+windows_build_input
+deck_execution_input
+host_artifact
+accepted_fixture
+source_handoff
+closed_plan
+original_observation
+processing_contract
+call_facts
+quiescence
+shutdown
+cleanup
+protected_state
+proof_rows
+renderer
+integrity
+```
+
+`observation_disposition` is exactly `original_observation` for the initial
+same-transaction rendering, otherwise `reused_original_observation`.
+`consumer_executed_on_deck` is true only when the admitted E observation
+actually executed the exact C source; `consumer_deck_state_freshly_inspected`
+is true only for the initial observation transaction, never for later reuse.
+A renderer-only correction may change C and renderer identity while preserving
+P/E; it must use the reuse disposition and both booleans are false.
+
+`result_admission` records the exact predicate/schema, pass result, admitted
+result digest, Deck-input digest, and plan digest. `original_observation`
+retains E's immutable observation ID and bounded timestamps from the admitted
+private result. `proof_rows` has exactly 16 unique row IDs and dispositions.
+`integrity` contains hashes of the admitted private result and named nested
+projections (`processing_contract`, `call_facts`, lifecycle closure,
+`protected_state`, `proof_rows`, and renderer), not a digest of the packet
+containing itself. Hash order is nested projections, private-result canonical
+bytes and external sidecar, evidence nested projections, evidence-packet
+canonical bytes, then the external evidence-file ledger; no object includes
+its own hash in its hashed contents.
+
+`COST_AND_INVALIDATION.json` uses the inherited DX0 cost-schema family and has
+only `schema`, `external_effect_counts`, `phase_dispositions`,
+`invalidation_cases`, `renderer_only_reuse`, `ordinary_driver_command_count`,
+`manually_copied_identifier_count`, and `fixture_accounting`. It owns no
+transaction, cleanup, or protected-state truth. `BASIS.md` and `FINDINGS.md`
+are human projections only.
 
 The accepted inherited ledger has 22 paired calls; PC0 adds exactly 11, so a
 positive retained result requires `started_count=completed_count=33`, no
@@ -386,9 +478,15 @@ The exact evidence roster is:
 evidence/pc0-windows-vst3-pre-setup-processing-contract/BASIS.md
 evidence/pc0-windows-vst3-pre-setup-processing-contract/COST_AND_INVALIDATION.json
 evidence/pc0-windows-vst3-pre-setup-processing-contract/FINDINGS.md
-evidence/pc0-windows-vst3-pre-setup-processing-contract/PROCESSING_CONTRACT.json
+evidence/pc0-windows-vst3-pre-setup-processing-contract/TRANSACTION.json
 evidence/pc0-windows-vst3-pre-setup-processing-contract/hashes.sha256
 ```
+
+`TRANSACTION.json` alone owns the complete machine-readable tracked packet;
+its exact `processing_contract` value nests the immutable contract schema.
+`hashes.sha256` hashes the other four tracked files in lexical path order and
+does not include itself. The evidence-renderer identity binds this exact roster
+and packet contract.
 
 ## 10. Cost ledger, proof matrix, and blockers
 
@@ -416,7 +514,7 @@ and one positive Deck batch. This is not a retry allowance.
 
 | # | Focused proof |
 |---:|---|
-| 1 | Exact authority, 14-source envelope, and all four narrower rosters reproduce. |
+| 1 | Every named Git authority resolves with its exact type and relationship; the 14-source envelope and all four narrower rosters reproduce. |
 | 2 | Sole owner borrows but never acquires an interface/process resource. |
 | 3 | AGain emits exactly the canonical 11-call sequence and paired records. |
 | 4 | Negative, capped, aggregate, and overflow count laws stop before iteration. |
@@ -425,13 +523,13 @@ and one positive Deck batch. This is not a retry allowance.
 | 7 | Sample-size true/false/other classification is exact; AGain is true/true. |
 | 8 | Only a closed immutable full roster reaches contract-complete. |
 | 9 | Each ordinary early failure preserves first blocker and permits only proven WA0 teardown. |
-| 10 | Unmatched/timeout/crash attribution names exact coordinates and uses physical containment. |
+| 10 | Unmatched/timeout/crash and durable writer-failure attribution names exact coordinates, makes returned output unconsumable where required, and uses physical containment without a clean-retirement claim. |
 | 11 | Static/event ledgers contain none of the prohibited setup, latency, tail, activation, or process calls. |
 | 12 | Build-, Deck-, renderer-, and Mac-only mutations select the exact DX0 phase set. |
 | 13 | Accepted AGain identity is reused with zero build and zero seed. |
 | 14 | The real closed plan completes through one driver command with zero copied identifiers. |
-| 15 | Admitted-result rerender changes C only and performs zero external effect. |
-| 16 | Positive result proves interface/component/factory/module closure, zero descendants/environment, and equal protected state. |
+| 15 | Strictly admitted private P/E result can be rendered for C; rerender changes C only, truthfully marks historical reuse, and performs zero external effect. |
+| 16 | `TRANSACTION.json` machine-readably proves all 16 dispositions, contract, interface/component/factory/module closure, zero descendants/environment, and equal protected state. |
 
 Exact blocked taxonomy (10): `PC0_DESIGN_PREFLIGHT_BLOCKED`,
 `PC0_DESIGN_SCOPE_BLOCKED`, `PC0_BUS_COUNT_BLOCKED`, `PC0_BUS_INFO_BLOCKED`,
@@ -452,9 +550,11 @@ fixture/claim, redesigned DX0 transaction, or another ownership domain.
 After future authority merge/readback, implementation topology is exactly one
 14-path source commit and one five-path evidence-only child. A fresh-context
 pre-PR audit must verify immutable authority, source/build/Deck/renderer
-rosters, transitive imports, canonical JSON/hash and P/E/C joins, 16 proof
-dispositions, actual effect counts, shutdown/cleanup/protected equality, exact
-two-commit topology, and no binaries, SDK source, secrets, private locations,
+rosters, transitive imports, canonical JSON/hash closure, private-result P/E
+truth without C, tracked-packet P/E/C truth, the exact `TRANSACTION.json` key
+roster, 16 proof dispositions, actual effect counts, writer-failure
+containment, shutdown/cleanup/protected equality, exact two-commit topology,
+and no binaries, SDK source, secrets, private locations,
 host/network/process/pointer identifiers, or proprietary state. Evidence is
 allow-listed UTF-8, bounded, NUL-free, and hashed. No approval or implementation
 is implied by this proposed card.
