@@ -1,4 +1,4 @@
-# Current Slice: PC0 — Windows VST3 Read-Only Processing Contract Census
+# Current Slice: PC0 — Windows VST3 Pre-Setup Processing Contract Census
 
 ## Status
 
@@ -10,7 +10,9 @@ slice: PC0
 target: main
 selection_basis_commit: 858c240b104e090aaed8bd23ace04fd9a0dfd20e
 selection_basis_tree: 8a560faf07b793de8faab91952ee6f34f15a1e73
+selection_revision: pc0-selection-v2
 selection_receipt: docs/slices/PC0/SLICE_SELECTION.md
+superseded_selection_commit: 5ec7ef4f2c5f19faffcf1f2b01656d698ac7cd7a
 design_gate: required
 design_revision: unapproved
 design_status: not_started
@@ -23,13 +25,15 @@ successor_selection_authorized: false
 
 ## Primary claim
 
-> On the exact accepted AGain lifecycle, the supervised Windows host performs one bounded read-only census of all audio/event buses, all existing `BusInfo` records, current audio speaker arrangements, `kSample32`/`kSample64` support, initial latency and initial tail, retains one exact normalized processing contract, and completes the accepted interface/component/factory/module shutdown without mutating processing state.
+> On the exact accepted AGain lifecycle, while the processor remains in the Initialized state, the supervised Windows host performs one bounded read-only census of all audio/event buses, all existing `BusInfo` records, current audio speaker arrangements, and `kSample32`/`kSample64` support, retains one exact normalized pre-setup processing contract, and completes the accepted interface/component/factory/module shutdown without mutating processing state.
 
-## Exact selection authority
+## Exact revised selection authority
 
-The operator explicitly selected PC0 from the post-DX0 no-active-slice basis and authorized only bounded reconnaissance and implementation-design work. This authority does not authorize implementation, a Windows build, fixture mutation, source or artifact handoff, Steam Deck contact, Runtime/Proton execution, Bitwig or Serum execution, or a successor slice.
+The original PC0 selection included `getLatencySamples` and `getTailSamples`. Bounded pinned-source reconnaissance established that both methods are legal only in the VST3 **Setup Done** state, while PC0 begins in **Initialized** and explicitly prohibits `setupProcessing`. The inherited AGain `setupProcessing` implementation mutates processing configuration. The design agent therefore correctly returned `PC0_MATERIAL_DESIGN_DISCOVERY` without changing the repository or contacting the fixture.
 
-The exact selection receipt is [`docs/slices/PC0/SLICE_SELECTION.md`](docs/slices/PC0/SLICE_SELECTION.md). Implementation remains blocked until one exact design revision has received independent adversarial review, technical-lead clearance, explicit operator approval, an approval receipt, and matching implementation authority here.
+The operator explicitly revised PC0 to the pre-setup claim above. The exact basis, accepted fixtures, DX0 reuse requirements, protected state, design gate, and `implementation_authorized: false` posture remain unchanged. This authority replaces the previous PC0 selection claim; it does not authorize implementation.
+
+The exact revised selection receipt is [`docs/slices/PC0/SLICE_SELECTION.md`](docs/slices/PC0/SLICE_SELECTION.md). Implementation remains blocked until one exact design revision has received independent adversarial review, technical-lead clearance, explicit operator approval, an approval receipt, and matching implementation authority here.
 
 ## Accepted boundaries consumed
 
@@ -48,18 +52,28 @@ DX0 is currently accepted for the closed `wa0-positive-regression-v1` plan. PC0 
 
 Design work is repository- and pinned-source-only. It may inspect the exact accepted implementation, evidence, design authority, pinned VST3 SDK contracts, and pinned AGain source needed to freeze:
 
-- one read-only processing-contract census owner;
+- one pre-setup processing-contract census owner;
 - exact operation order and call attribution;
 - output zero-initialization and result-consistency laws;
 - bus-count, bus-record, name, channel, enum, flag, and arrangement bounds;
-- exact `kSample32`/`kSample64`, latency, and tail interpretation;
+- exact `kSample32`/`kSample64` interpretation;
 - immutable normalized output and failure precedence;
 - accepted shutdown and physical-containment behavior;
 - one new closed DX0 proof plan and its build, Deck, and renderer identity rosters;
 - the smallest exact implementation and evidence path envelopes;
 - developer-cost acceptance proving no return to manual cross-plane operation.
 
-The candidate positive call surface to verify in design is four `getBusCount` calls, one `getBusInfo` per reported bus, one `getBusArrangement` per reported audio bus, two `canProcessSampleSize` calls, one `getLatencySamples`, and one `getTailSamples`. Source expectations are not implementation facts and must be checked before the design is frozen.
+The positive call surface to verify in design is:
+
+```text
+getBusCount:           4
+getBusInfo:            once per reported bus; expected AGain count 3
+getBusArrangement:     once per reported audio bus; expected AGain count 2
+canProcessSampleSize:  kSample32 and kSample64
+expected total:        11 calls
+```
+
+Source expectations are not implementation facts and must be checked before the design is frozen.
 
 The design must preserve these cost constraints unless a material discovery stops the slice:
 
@@ -81,7 +95,7 @@ A renderer-only correction after a valid retained PC0 observation must require z
 
 ## Absolute claim ceiling
 
-PC0 may design only read-only observation. It must not authorize or perform:
+PC0 may design only read-only observation in the Initialized state. It must not authorize or perform:
 
 - `setIoMode`;
 - `activateBus`;
@@ -90,6 +104,8 @@ PC0 may design only read-only observation. It must not authorize or perform:
 - `setupProcessing`;
 - `setProcessing`;
 - `process`;
+- `getLatencySamples`;
+- `getTailSamples`;
 - audio or event buffer allocation or transport;
 - parameter, automation, state, preset, controller, or connection-point work;
 - native proxy publication;
@@ -97,10 +113,12 @@ PC0 may design only read-only observation. It must not authorize or perform:
 - Bitwig or Serum execution;
 - packaging, signing, release suitability, product-runner selection, or general compatibility.
 
+Latency and tail are deliberately deferred to a separately selected Setup Done boundary that explicitly owns `setupProcessing` and its state mutation.
+
 ## Material-discovery stop law
 
-Stop and return to the design gate if truthful PC0 design requires a processing-state mutation, additional architectural owner, live negative family, changed accepted fixture, redesigned DX0 transaction architecture, broader claim, path envelope above the selected hard ceiling, or another independent uncertainty domain.
+Stop and return to the design gate if truthful PC0 design requires a processing-state mutation, an additional architectural owner, a live negative family, a changed accepted fixture, redesigned DX0 transaction architecture, broader claim, path envelope above the selected hard ceiling, or another independent uncertainty domain.
 
 ## Next action
 
-Perform bounded source reconnaissance and prepare `pc0-design-v1` for fresh independent adversarial review. Do not implement PC0 and do not create an implementation prompt or approval receipt.
+Perform bounded source reconnaissance and prepare `pc0-design-v1` for fresh independent adversarial review against this revised selection. Do not implement PC0 and do not create an implementation prompt or approval receipt.
