@@ -54,3 +54,60 @@ Two binding implementation clarifications require no V3:
 The reviewed implementation ceiling remains one `PreSetupProcessingContractCensus` owner, nine states, four selected operation types, eleven positive calls, sixteen proof rows, ten blockers, fourteen source/configuration paths, five evidence paths, at most one Windows producer, at most one positive Deck batch, zero live negative exercises, zero AGain rebuilds or fixture reseeds, one ordinary Mac command, and zero manually copied identifiers.
 
 `PC0_DESIGN_V2_CLEAR` is binding for implementation authority only when paired with the exact operator approval receipt and matching `CURRENT_SLICE.md`. No successor is selected by this review.
+
+## V3 design-repair review request
+
+```yaml
+proposed_revision: pc0-design-v3
+design_repair_basis_commit: 1c0c31c4ab69a40303cd00b155ca30626323c451
+design_repair_basis_tree: 192d2af4b5d83d94264510eab7c7729b5de1a9b5
+runtime_discovery_comment: 5533164226
+failed_source_commit: 7ac6095a488d0077fcc78fedc5abd870b5ffb1cb
+failed_source_tree: ad4230a713a2bb644476be8be9d374a1feb36b06
+failed_transaction_journal_sha256: 06473755eb7ccfa2529522bb29e3fb44a5a4a67ea38fd0e797d198939e1ed966
+operator_recovery_receipt_sha256: 870039310c0f6ee4d0bf4044d629e6f6e7d92d2f901b7b40a60f9724bb84f9e5
+review_status: pending_independent_adversarial_review
+required_clear_result: PC0_DESIGN_V3_CLEAR
+implementation_authorized_at_draft: false
+external_execution_authorized_at_draft: false
+```
+
+V3 does not reopen the reviewed product boundary. It responds only to the
+runtime discovery recorded in merged PR #37 comment `5533164226`: the Deck
+supervisor held a bounded failed-run value in memory, but `run.py` discarded it
+before the Mac could distinguish scanner exit 99 from a Python supervision
+failure.
+
+The independent reviewer must verify the exact proposed head and record its
+commit, tree, `IMPLEMENTATION_DESIGN.md` Git blob, and raw SHA-256. A clear
+review must answer all of these questions:
+
+1. Does the exact diagnostic roster distinguish
+   `raw_exit=99 / output_publication_failed` from
+   `supervision_failed / raw_exit nullable` without retaining raw streams or
+   adding a product owner?
+2. Is the two-file publication fail-closed, committed by the atomic sidecar,
+   validated before raise, and permanently non-authoritative for retry?
+3. Does Mac retrieval admit only the expected inner-lock pair and validate all
+   source/input/plan/nonce, record-sequence, blocker, cleanup, and hash joins?
+4. Does the corrective predicate admit only the named V2 failed transaction
+   plus one exact V3 transaction, rather than introducing a general
+   `deck_executions <= 2` rule?
+5. Are the V2 batch and authorized recovery preserved as unresolved historical
+   facts, with no retroactive failure classification?
+6. Are producer P, repaired execution E, and consumer C distinct and joined
+   through the unchanged WindowsBuildInputIdentity?
+7. Do the four repair paths remain outside the frozen seventeen-record Windows
+   roster, with `common.py` and `supervise.py` byte-identical?
+8. Does `linux-vst-bridge-pc0-cost-and-invalidation/v2` truthfully separate the
+   final corrective transaction from cumulative implementation history without
+   changing the eight-key top-level roster?
+9. Are the archive ref, force-with-lease replacement, one fourteen-path source
+   commit, and one five-path evidence child exact and reviewable?
+10. Do all owner/state/call/proof/blocker/path counts and all product nonclaims
+    remain unchanged?
+
+Any missing join, implicit retry, producer fallback, current remote-state claim,
+Windows-build-input drift, or hidden historical cost requires
+`PC0_DESIGN_V3_REPAIR_REQUIRED`. The review itself does not authorize
+implementation or a corrective Deck batch.
