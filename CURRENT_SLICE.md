@@ -14,9 +14,11 @@ selection_revision: pc0-selection-v2
 selection_receipt: docs/slices/PC0/SLICE_SELECTION.md
 superseded_selection_commit: 5ec7ef4f2c5f19faffcf1f2b01656d698ac7cd7a
 design_gate: required
-design_revision: unapproved
-design_status: not_started
+design_revision: pc0-design-v1
+design_status: proposed_for_adversarial_review
 design_card: docs/slices/PC0/IMPLEMENTATION_DESIGN.md
+design_card_git_blob: 0f2d1c26aea3d009ce93d1d5086b52ca03fc8ce1
+design_card_sha256: 29db8b0f884407ba9ea75c80cab6ddd290908f2449d73e4502dd61347c490e86
 reconnaissance_record: docs/slices/PC0/RECONNAISSANCE.md
 design_review_record: docs/slices/PC0/ADVERSARIAL_DESIGN_REVIEW.md
 design_branch: codex/pc0-windows-vst3-processing-contract-design
