@@ -3,9 +3,9 @@
 ## Status
 
 ```text
-status: active_design_slice
-authority_phase: reconnaissance_and_design
-implementation_authorized: false
+status: active_implementation_slice
+authority_phase: implementation
+implementation_authorized: true
 slice: PC0
 target: main
 selection_basis_commit: 858c240b104e090aaed8bd23ace04fd9a0dfd20e
@@ -15,7 +15,9 @@ selection_receipt: docs/slices/PC0/SLICE_SELECTION.md
 superseded_selection_commit: 5ec7ef4f2c5f19faffcf1f2b01656d698ac7cd7a
 design_gate: required
 design_revision: pc0-design-v2
-design_status: proposed_for_adversarial_review
+design_status: approved_for_implementation
+design_commit: 996ee557d33ea55d6acf7ef2242f703c2c63f262
+design_tree: bb1fe157bef42854812ebeb0b73b1a5332c93cf6
 design_card: docs/slices/PC0/IMPLEMENTATION_DESIGN.md
 design_card_git_blob: ec0683fc66028239d7481640ba72e2dd9a060a2c
 design_card_sha256: 20e653a6b1fad720ea5fc888a8d531bda44c338840f5eb96e488612d197de992
@@ -26,7 +28,14 @@ prior_design_sha256: 29db8b0f884407ba9ea75c80cab6ddd290908f2449d73e4502dd61347c4
 prior_design_review: 5105496167 / PC0_DESIGN_V1_REPAIR_REQUIRED
 reconnaissance_record: docs/slices/PC0/RECONNAISSANCE.md
 design_review_record: docs/slices/PC0/ADVERSARIAL_DESIGN_REVIEW.md
+design_review_blob: 7444c490e620c16903e5a59b052376d8dcaef3e9
+technical_lead_review_id: 5105712590
+technical_lead_review_result: PC0_DESIGN_V2_CLEAR
+design_approval: docs/slices/PC0/DESIGN_APPROVAL.md
+design_approval_blob: 7a7bccc08cca218249e8c9d43ed582027143343f
 design_branch: codex/pc0-windows-vst3-processing-contract-design
+implementation_branch: codex/pc0-windows-vst3-pre-setup-processing-contract
+implementation_basis: exact approved design-authority merge commit and tree, established by merged-PR and main readback before implementation
 successor_selection_authorized: false
 ```
 
@@ -34,75 +43,76 @@ successor_selection_authorized: false
 
 > On the exact accepted AGain lifecycle, while the processor remains in the Initialized state, the supervised Windows host performs one bounded read-only census of all audio/event buses, all existing `BusInfo` records, current audio speaker arrangements, and `kSample32`/`kSample64` support, retains one exact normalized pre-setup processing contract, and completes the accepted interface/component/factory/module shutdown without mutating processing state.
 
-## Exact revised selection authority
+## Exact implementation authority
 
-The original PC0 selection included `getLatencySamples` and `getTailSamples`. Bounded pinned-source reconnaissance established that both methods are legal only in the VST3 **Setup Done** state, while PC0 begins in **Initialized** and explicitly prohibits `setupProcessing`. The inherited AGain `setupProcessing` implementation mutates processing configuration. The design agent therefore correctly returned `PC0_MATERIAL_DESIGN_DISCOVERY` without changing the repository or contacting the fixture.
+The immutable [`pc0-design-v2`](docs/slices/PC0/IMPLEMENTATION_DESIGN.md), technical-lead review `5105712590 / PC0_DESIGN_V2_CLEAR`, retained [adversarial review history](docs/slices/PC0/ADVERSARIAL_DESIGN_REVIEW.md), and [operator approval receipt](docs/slices/PC0/DESIGN_APPROVAL.md) authorize this bounded implementation. The design card remains byte-identical to reviewed blob `ec0683fc66028239d7481640ba72e2dd9a060a2c`, SHA-256 `20e653a6b1fad720ea5fc888a8d531bda44c338840f5eb96e488612d197de992`.
 
-The operator explicitly revised PC0 to the pre-setup claim above. The exact basis, accepted fixtures, DX0 reuse requirements, protected state, design gate, and `implementation_authorized: false` posture remain unchanged. This authority replaces the previous PC0 selection claim; it does not authorize implementation.
+The approval binds both implementation clarifications from the technical-lead review:
 
-The exact revised selection receipt is [`docs/slices/PC0/SLICE_SELECTION.md`](docs/slices/PC0/SLICE_SELECTION.md). Implementation remains blocked until one exact design revision has received independent adversarial review, technical-lead clearance, explicit operator approval, an approval receipt, and matching implementation authority here.
+- `COST_AND_INVALIDATION.json` uses schema `linux-vst-bridge-pc0-cost-and-invalidation/v1`; incompatible PC0 keys are not published under the DX0 v1 label.
+- Failed durable `call_started` publication means no VST3 call occurred. With no earlier PC0 blocker it is `PC0_EVIDENCE_BLOCKED` and only accepted physical containment may be claimed; an earlier blocker remains primary.
 
 ## Accepted boundaries consumed
 
 PC0 begins from these accepted facts and must not redesign them:
 
 - WA0 owns one initialized AGain `IComponent`, one exact `IAudioProcessor` lease, balanced interface/component/host references, and clean factory/module retirement.
-- DX0 owns split Windows-build, accepted-fixture, Deck-execution, renderer, and complete-source identities for its closed proof transaction; successful retained observations survive Mac-only corrections.
+- DX0 owns split Windows-build, accepted-fixture, Deck-execution, renderer, and complete-source identities; accepted-fixture storage; one-command build/custody/handoff/Deck/evidence orchestration; retained-result admission; recovery; and renderer-only zero-external-work reuse.
+- Accepted DX0 source is `be046dd2d44a7915ca408c01a06212639ccea51e`, tree `1322e4eb7b5bd54244bd2fa7fc83327ea6a0c183`; accepted evidence is `85840920844693f7611306492298817e16dd2a6c`, tree `35ddde4e56a810ab1ce44970313bf2f42e585908`; implementation merge is `1f71487717eabdb3cd5285a4559df2ce2915c8d8`.
 - The accepted AGain module SHA-256 is `60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f`.
 - The accepted AGain bundle-manifest SHA-256 is `bfaa1dce4d2e189f89cee41493838824efe647e361e81436676b7b3a86ff5164`.
 - The accepted Runtime 4 / Proton 11 identity is `2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`.
 - The protected Bitwig 6.1 installation remains unlaunched and is not part of PC0 execution.
 
-DX0 is currently accepted for the closed `wa0-positive-regression-v1` plan. PC0 design must define one new reviewed closed plan and exact identity rosters while reusing the accepted transaction mechanisms. It must not copy the old manual workflow, custody, SSH, Deck-admission, or evidence choreography back into implementation instructions.
+Every authority, source, evidence, merge, tree, and blob identity named by the implementation must resolve as the exact Git object and relationship required by the approved design. Lexical hash shape is not identity proof.
 
-## Bounded reconnaissance-and-design authority
-
-Design work is repository- and pinned-source-only. It may inspect the exact accepted implementation, evidence, design authority, pinned VST3 SDK contracts, and pinned AGain source needed to freeze:
-
-- one pre-setup processing-contract census owner;
-- exact operation order and call attribution;
-- output zero-initialization and result-consistency laws;
-- bus-count, bus-record, name, channel, enum, flag, and arrangement bounds;
-- exact `kSample32`/`kSample64` interpretation;
-- immutable normalized output and failure precedence;
-- accepted shutdown and physical-containment behavior;
-- one new closed DX0 proof plan and its build, Deck, and renderer identity rosters;
-- the smallest exact implementation and evidence path envelopes;
-- developer-cost acceptance proving no return to manual cross-plane operation.
-
-The positive call surface to verify in design is:
+## Exact implementation envelope
 
 ```text
-getBusCount:           4
-getBusInfo:            once per reported bus; expected AGain count 3
-getBusArrangement:     once per reported audio bus; expected AGain count 2
-canProcessSampleSize:  kSample32 and kSample64
-expected total:        11 calls
+new architectural owners:          1
+stable owner states:                9
+unique PC0 VST3 operation types:    4
+expected positive PC0 calls:       11
+focused proof rows:                16
+blocked outcomes:                  10
+source/configuration changed paths: 14
+evidence changed paths:             5
+ordinary Mac driver commands:       1
+manually copied identifiers:        0
+Windows acceptance producers:       1 maximum
+accepted AGain rebuilds:             0
+accepted fixture reseeds:            0
+positive Deck batches:               1 maximum
+live negative exercises:             0
+Bitwig launches:                      0
+Serum launches:                       0
 ```
 
-Source expectations are not implementation facts and must be checked before the design is frozen.
+The ordinary closed plan is `pc0-pre-setup-processing-contract-v1`. The implementation must use the accepted DX0 transaction machinery rather than restoring manual GitHub workflow lookup, artifact custody, identifier copying, source bundles, SSH transfers, Deck refs/worktrees, Runtime/Proton invocation, result retrieval, or evidence placement.
 
-The design must preserve these cost constraints unless a material discovery stops the slice:
+The selected positive call surface is exactly four `getBusCount`, one `getBusInfo` per reported bus, one `getBusArrangement` per reported audio bus, and `canProcessSampleSize` for `kSample32` and `kSample64`. Expected AGain total is eleven calls. Source expectations are not acceptance facts until the authorized live positive transaction completes.
+
+## Evidence and provenance law
+
+The private `linux-vst-bridge-pc0-transaction-result/v1` object owns producer P, original Deck execution E, and the original live observation. It does not contain or require a later consumer C.
+
+The tracked `linux-vst-bridge-pc0-evidence-packet/v1` object in `TRANSACTION.json` separately binds P, E, and the current consumer C; strict private-result admission; observation disposition; whether C executed or freshly inspected Deck state; the nested immutable pre-setup processing contract; exact call facts; quiescence; shutdown; cleanup; protected-state comparison; all sixteen proof dispositions; renderer identity; and acyclic integrity.
+
+The five tracked evidence paths are exactly:
 
 ```text
-ordinary Mac driver commands:      1
-manually copied identifiers:       0
-Windows acceptance producers:      1 maximum
-accepted AGain rebuilds:            0
-accepted fixture reseeds:           0
-positive Deck batches:              1 maximum
-negative live exercises:            0
-Bitwig launches:                     0
-Serum launches:                      0
-source/configuration paths:          target 12–14; hard stop above 16
-evidence paths:                      target 5; hard stop above 6
+evidence/pc0-windows-vst3-pre-setup-processing-contract/BASIS.md
+evidence/pc0-windows-vst3-pre-setup-processing-contract/COST_AND_INVALIDATION.json
+evidence/pc0-windows-vst3-pre-setup-processing-contract/FINDINGS.md
+evidence/pc0-windows-vst3-pre-setup-processing-contract/TRANSACTION.json
+evidence/pc0-windows-vst3-pre-setup-processing-contract/hashes.sha256
 ```
 
-A renderer-only correction after a valid retained PC0 observation must require zero Windows builds, downloads, custody operations, transfers, and Deck executions.
+A renderer-only correction over an admitted result performs zero Windows builds, downloads, custody operations, transfers, or Deck executions and truthfully reports reuse of E's historical observation.
 
 ## Absolute claim ceiling
 
-PC0 may design only read-only observation in the Initialized state. It must not authorize or perform:
+PC0 may implement only read-only observation in the Initialized state. It must not call or prepare:
 
 - `setIoMode`;
 - `activateBus`;
@@ -118,14 +128,14 @@ PC0 may design only read-only observation in the Initialized state. It must not 
 - native proxy publication;
 - C ABI, IPC, shared memory, broker, or real-time behavior;
 - Bitwig or Serum execution;
-- packaging, signing, release suitability, product-runner selection, or general compatibility.
+- packaging, signing, release suitability, product-runner selection, another plug-in/DAW, or general compatibility.
 
-Latency and tail are deliberately deferred to a separately selected Setup Done boundary that explicitly owns `setupProcessing` and its state mutation.
+Latency and tail remain deliberately deferred to a separately selected Setup Done boundary that explicitly owns `setupProcessing` and its state mutation.
 
 ## Material-discovery stop law
 
-Stop and return to the design gate if truthful PC0 design requires a processing-state mutation, an additional architectural owner, a live negative family, a changed accepted fixture, redesigned DX0 transaction architecture, broader claim, path envelope above the selected hard ceiling, or another independent uncertainty domain.
+Stop and return to the design gate if truthful implementation requires a processing-state mutation, another architectural owner, another live negative family, a changed accepted fixture, redesigned DX0 transaction architecture, broader claim, more than the exact fourteen source or five evidence paths, a second Windows producer, a second positive Deck batch, or another independent uncertainty domain.
 
 ## Next action
 
-Submit `pc0-design-v2` for fresh independent adversarial review against this revised selection and the retained V1 review. Do not implement PC0 and do not create an implementation prompt or approval receipt.
+Merge the exact authority-finalization commit, read back the resulting `main` merge commit/tree, create the implementation branch from that exact merge, and implement only the approved `pc0-design-v2` envelope. No successor is authorized.

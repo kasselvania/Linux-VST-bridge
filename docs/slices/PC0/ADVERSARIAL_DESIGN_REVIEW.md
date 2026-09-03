@@ -1,4 +1,4 @@
-# PC0 V1 adversarial design review history
+# PC0 adversarial design review history
 
 ```yaml
 slice: PC0
@@ -13,56 +13,44 @@ github_review_id: 5105496167
 github_review_result: PC0_DESIGN_V1_REPAIR_REQUIRED
 review_authority: independent_technical_lead
 additional_reconnaissance_required: false
-implementation_authorized: false
+implementation_authorized_at_review: false
 ```
 
-This file materializes the supplied independent technical-lead review; it is
-not a self-review by the design author.
+## V1 findings
 
-## R1 — Accepted DX0 identity
+### R1 — Accepted DX0 identity
 
-**Violated invariant:** every cited authority and retained-evidence coordinate
-must resolve to the exact accepted Git object and relationship.
+V1 cited nonexistent DX0 evidence commit `85840927f49c2ead5d42cfe0014f4771c9d03e76`. V2 was required to bind the real accepted DX0 source `be046dd2d44a7915ca408c01a06212639ccea51e` / tree `1322e4eb7b5bd54244bd2fa7fc83327ea6a0c183`, evidence `85840920844693f7611306492298817e16dd2a6c` / tree `35ddde4e56a810ab1ce44970313bf2f42e585908`, merge `1f71487717eabdb3cd5285a4559df2ce2915c8d8`, and status closure `858c240b104e090aaed8bd23ace04fd9a0dfd20e`, with real Git-object and relationship validation.
 
-**False-acceptance condition:** V1 cited nonexistent DX0 evidence commit
-`85840927f49c2ead5d42cfe0014f4771c9d03e76`; lexical hash shape could therefore
-pass while the accepted evidence object was unresolvable.
+### R2 — Observation/result/evidence ownership
 
-**Required V2 repair:** bind DX0 source
-`be046dd2d44a7915ca408c01a06212639ccea51e`, tree
-`1322e4eb7b5bd54244bd2fa7fc83327ea6a0c183`; evidence
-`85840920844693f7611306492298817e16dd2a6c`, tree
-`35ddde4e56a810ab1ce44970313bf2f42e585908`; merge
-`1f71487717eabdb3cd5285a4559df2ce2915c8d8`; and status closure
-`858c240b104e090aaed8bd23ace04fd9a0dfd20e`. Require real Git-object and
-relationship resolution for every cited identity.
+V1 conflated the private original Deck observation with a later consumer projection. V2 was required to keep `linux-vst-bridge-pc0-transaction-result/v1` as producer-P/execution-E original-observation truth with no consumer C, while a separate tracked `linux-vst-bridge-pc0-evidence-packet/v1` in `TRANSACTION.json` binds P/E/C, strict admission, observation disposition, processing contract, calls, quiescence, shutdown, cleanup, protected state, proof rows, renderer identity, and acyclic integrity. The durable output-writer failure boundary was also required.
 
-**Adjacent operations reviewed:** selection/activation lineage, WA0/DX0
-source-evidence parentage, implementation merge containment, and current-main
-ancestry.
+Both V1 findings were bounded contract repairs. The primary claim, owner, state machine, call surface, proof count, path envelope, cost ceiling, and nonclaims remained sound.
 
-## R2 — Observation/result/evidence ownership
+## V2 exact-head review
 
-**Violated invariant:** a live observation and a later consumer projection are
-separate facts with separate owners and non-circular integrity.
+```yaml
+reviewed_revision: pc0-design-v2
+reviewed_design_commit: 996ee557d33ea55d6acf7ef2242f703c2c63f262
+reviewed_design_tree: bb1fe157bef42854812ebeb0b73b1a5332c93cf6
+reviewed_design_parent: f6938e7dd501a4c86a382243670d82d060d1b75a
+reviewed_design_path: docs/slices/PC0/IMPLEMENTATION_DESIGN.md
+reviewed_design_blob: ec0683fc66028239d7481640ba72e2dd9a060a2c
+reviewed_design_sha256: 20e653a6b1fad720ea5fc888a8d531bda44c338840f5eb96e488612d197de992
+github_review_id: 5105712590
+github_review_result: PC0_DESIGN_V2_CLEAR
+review_authority: independent_technical_lead
+implementation_authorized_at_review: false
+```
 
-**False-acceptance condition:** V1's private result key roster contained P/E but
-its predicate also required C, while no tracked machine-readable file owned the
-complete P/E/C, admission, call, quiescence, shutdown, cleanup, protected-state,
-and proof-row closure. Prose or a bus-contract-only JSON could falsely imply a
-complete transaction.
+V2 closes R1 by binding the exact accepted DX0 objects and requiring object/type/relationship resolution. V2 closes R2 by separating the private P/E observation from tracked P/E/C evidence, freezing the five-file evidence roster and `TRANSACTION.json` ownership, and making durable writer failure part of call attribution.
 
-**Required V2 repair:** keep the private
-`linux-vst-bridge-pc0-transaction-result/v1` as P/E original-observation truth;
-render a separate `linux-vst-bridge-pc0-evidence-packet/v1` binding P/E/C into
-`TRANSACTION.json`, with the processing contract nested, exact proof closure,
-and acyclic projection hashes. Restrict `COST_AND_INVALIDATION.json` to cost and
-invalidation. Freeze the durable output-writer failure boundary.
+Two binding implementation clarifications require no V3:
 
-**Adjacent operations reviewed:** Deck result publication, strict Mac
-admission, renderer-only reuse, consumer truthfulness, tracked hashes, and
-physical containment versus clean in-process shutdown.
+1. `COST_AND_INVALIDATION.json` uses schema `linux-vst-bridge-pc0-cost-and-invalidation/v1`; incompatible PC0 keys must not be published under the DX0 v1 label.
+2. If durable `call_started` publication fails with no earlier PC0 blocker, the primary result is `PC0_EVIDENCE_BLOCKED`; no VST3 call occurred and only accepted physical containment may be claimed. If an earlier PC0 blocker exists, writer failure remains secondary and does not erase it.
 
-Both findings are bounded design-contract repairs. The primary claim, owner,
-state machine, call surface, proof count, path envelope, cost ceiling, and
-nonclaims remain sound. Fresh independent review is required for V2.
+The reviewed implementation ceiling remains one `PreSetupProcessingContractCensus` owner, nine states, four selected operation types, eleven positive calls, sixteen proof rows, ten blockers, fourteen source/configuration paths, five evidence paths, at most one Windows producer, at most one positive Deck batch, zero live negative exercises, zero AGain rebuilds or fixture reseeds, one ordinary Mac command, and zero manually copied identifiers.
+
+`PC0_DESIGN_V2_CLEAR` is binding for implementation authority only when paired with the exact operator approval receipt and matching `CURRENT_SLICE.md`. No successor is selected by this review.
