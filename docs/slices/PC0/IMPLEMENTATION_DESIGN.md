@@ -75,6 +75,13 @@ V3 changes only durable failed-run publication, strict Mac admission, historical
 cost accounting, exact V3 source authority, and one corrective reservation.
 It adds no product behavior.
 
+Binding technical-lead review
+`5107795355 / PC0_DESIGN_V3_REPAIR_REQUIRED` accepts that direction and requires
+only a non-circular pre-evidence journal boundary, one read-only Deck safety
+preflight before corrective reservation, and an exact V3 design-card binding.
+This repaired draft answers those three findings; the review does not clear the
+design or authorize implementation.
+
 ## 2. Read-only failed-transaction reconnaissance
 
 The supplied local files were read without modification. Both are canonical
@@ -188,10 +195,10 @@ these four paths:
 
 | Path | Exact V3 responsibility |
 |---|---|
-| `tools/host-proof.py` | Admit V3 source authority, bind the exact historical receipts, apply the corrective predicate, prohibit every Windows/artifact fallback, retrieve and retain one failed diagnostic, and project truthful history. |
-| `tools/wf0-factory-census/run.py` | Admit V3 source authority on the Deck and atomically publish one validated private failed-run diagnostic in the existing execution lock before raising. |
-| `tools/wf0-factory-census/evidence.py` | Strictly validate the diagnostic/custody projection and render the revised cost schema with explicit corrective history after success. |
-| `tools/wf0-factory-census/negative_tests.py` | Prove both failure classes, diagnostic rejection, exact corrective admission, no third batch, producer prohibition, identity equality, and historical accounting without external work. |
+| `tools/host-proof.py` | Admit V3 source authority, bind the exact historical receipts, orchestrate and admit the read-only corrective Deck preflight, apply the corrective predicate, prohibit every Windows/artifact fallback, retrieve and retain one failed diagnostic, freeze the private pre-evidence journal snapshot after success, and project truthful history. |
+| `tools/wf0-factory-census/run.py` | Admit V3 source authority on the Deck, expose the bounded read-only corrective preflight, and atomically publish one validated private failed-run diagnostic in the existing execution lock before raising. |
+| `tools/wf0-factory-census/evidence.py` | Strictly validate the diagnostic/custody projection and the frozen corrective pre-evidence journal, then render the revised cost schema with explicit corrective history after success. |
+| `tools/wf0-factory-census/negative_tests.py` | Prove both failure classes, diagnostic rejection, read-only-preflight/reservation ordering, immutable-snapshot admission, exact corrective admission, no third batch, producer prohibition, identity equality, and historical accounting without external work. |
 
 `supervise.py` is sufficient and must remain byte-identical at Git blob
 `7bcd5f0ad93b0acf919af2ce9c17081d9ef1addb`. It already returns every fact
@@ -442,7 +449,151 @@ published on the success path.
 The historical V2 batch predates this schema and remains unresolved; no file
 may be synthesized for it.
 
-## 6. Mac retrieval, admission, and private custody
+## 6. Mac preflight, retrieval, admission, and private custody
+
+### Read-only corrective Deck safety preflight
+
+The same ordinary Mac driver command performs one exact current-safety
+preflight after the repaired V3 source handoff has been created and admitted
+and its Deck worktree has been proved detached and clean. It performs this
+preflight before writing either the local or remote current execution intent,
+before preparing `execute_deck_batch`, before persisting a corrective
+reservation or incrementing `deck_executions`, and before creating any current
+Mac or Deck execution lock, environment, result, diagnostic, or stage. The
+existing Mac execution-input single-writer lock is acquired only after this
+preflight succeeds and still before reservation; that coordination step
+creates no Deck effect.
+
+`host-proof.py` invokes one V3-only `corrective-preflight` operation in the
+repaired `run.py` from that exact detached worktree. The operation accepts only
+the candidate identities as bounded arguments, writes no input file, and
+returns one canonical JSON object on stdout. It calls only the existing
+read-only store validators, the already-designed narrow V3 source/handoff
+validators within `run.py`, `process_guard()`,
+`deck_fixture_identity()`, `verify_runner_identity()`, and
+`protected_snapshot()`, plus bounded read-only lock/result inspection. Its
+entry point cannot reach `write_atomic`, directory creation, environment
+creation/retirement, `supervise()`, result/diagnostic publication, or a
+Runtime/Proton launcher.
+It is a private proof-transaction helper, not a fifth VST3 operation type or a
+product state.
+
+The SSH command unsets `GH_TOKEN`, `GITHUB_TOKEN`, `GITHUB_PAT`, and
+`SSH_AUTH_SOCK`, sets `PYTHONDONTWRITEBYTECODE=1`, and invokes
+`/usr/bin/python3 -B`; bytecode or other worktree writes are forbidden. After
+the response, the Mac repeats exact HEAD, detached-branch, and full porcelain
+status checks and admits the receipt only if the worktree is still the expected
+commit, detached, and clean.
+
+The Mac duplicate-safe parses and independently validates the returned object,
+adds the local execution-lock and reservation-absence facts, and constructs the
+private embedded schema
+`linux-vst-bridge-pc0-corrective-deck-preflight/v1`. Its exact top-level roster
+is:
+
+```text
+schema
+operation_nonce
+execution_source
+execution_input_sha256
+proof_plan_sha256
+source_handoff
+worktree
+process_guard
+fixture
+runner_identity_sha256
+protected_snapshot_sha256
+stores
+historical_failed_transaction
+current_corrective_absence
+write_effect_counts
+```
+
+The closed nested rosters and values are:
+
+- `operation_nonce` is the current lowercase 32-hex transaction ID;
+  `execution_source` is the exact repaired V3 six-key source role, including
+  its unchanged PC0 ref; and `execution_input_sha256` and
+  `proof_plan_sha256` equal the exact candidate input and admitted plan;
+
+- `source_handoff`: `receipt_sha256`, `bundle_sha256`, and `advertised_ref`,
+  all equal to the exact admitted V3 handoff and bundle;
+- `worktree`: `commit`, `detached`, and `clean`, equal to the repaired source,
+  true, and true;
+- `process_guard`: `process_counts` and `prohibited_sibling_count`;
+  `process_counts` has exactly `bitwig`, `validator`, `wine`, `proton`,
+  `runtime`, `umu`, `yabridge`, and `wf0`, all zero, while the sibling count is
+  zero after rejecting every `.wr0-proton11.*` and
+  `.wf0-factory-census.stage-*` sibling recognized by the accepted guard;
+- `fixture`: `hardware`, `os`, `architecture`, `read_only_mode`,
+  `github_authority_absent`, and `forwarded_ssh_agent_absent`, equal to Steam
+  Deck Galileo, SteamOS 3.8.16, x86_64, enabled, true, and true;
+- `runner_identity_sha256`: exactly
+  `2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`;
+- `protected_snapshot_sha256`: the canonical digest of the full accepted
+  `protected_snapshot()` value, after that function has revalidated Bitwig
+  6.1, its exact install/runtime/override projection, the accepted WR0 retained
+  environment, and every protected historical source/evidence invariant;
+- `stores`: `host_artifact_manifest_sha256`, `producer_run_id`,
+  `producer_run_attempt`, `artifact_id`, `again_bundle_manifest_sha256`,
+  `accepted_fixture_identity_sha256`, `host_transfer_fallback_selected`, and
+  `fixture_transfer_fallback_selected`; the values are exactly
+  `d0e11c374b7b1cb99b357faaa109e9310edc265c159559bd59a2098148484e9c`,
+  33812659869, 1, 9915439437,
+  `bfaa1dce4d2e189f89cee41493838824efe647e361e81436676b7b3a86ff5164`,
+  `6c87be964d26a7ad06e7a4c69c5c5261d1046e9cfb0b17a225fd24c3e40d0ba6`,
+  false, and false after both current stores validate;
+- `historical_failed_transaction`: `transaction_id`,
+  `execution_input_sha256`, `expected_intent_sha256`, `intent`, `result`,
+  `result_sidecar`, `inner_lock`, `inner_prepared_intent_sha256`,
+  `outer_lock`, `outer_prepared_intent_sha256`, and
+  `contradictory_pc0_object_count`; the transaction and input are the admitted
+  V2 values, intent is `present_matched`, result and sidecar are `absent`, both
+  locks are `present_intent_matched`, both prepared-intent digests equal the
+  expected canonical intent digest, and the contradictory-object count is
+  zero;
+- `current_corrective_absence`: `execution_intent_absent`,
+  `reservation_absent`, `mac_execution_lock_absent`, `outer_lock_absent`,
+  `inner_lock_absent`,
+  `result_absent`, `result_sidecar_absent`, `diagnostic_absent`, and
+  `diagnostic_sidecar_absent`, all true for the exact candidate input/plan;
+  intent absence covers both the local and remote current intent paths;
+- `write_effect_counts`: `environment_creations`,
+  `execution_intent_publications`, `execution_lock_creations`,
+  `result_publications`, `diagnostic_publications`,
+  `protected_state_mutations`, `deck_execution_reservations`,
+  `deck_execution_count_increments`, and `proton_launches`, all zero.
+
+The remote stdout projection has exactly that top-level roster except
+`schema`; its `current_corrective_absence` omits the Mac-only
+  `reservation_absent` and `mac_execution_lock_absent` keys. The Mac rejects
+remote claims for those keys, verifies both local absences itself, and inserts
+them and the schema literal. It also verifies the current local intent/result
+absence. No unbounded process text, paths, credentials, or raw protected-state
+content enter the receipt.
+
+There is no in-object digest. The Mac hashes the canonical object and embeds
+both the object and `corrective_preflight_sha256` in the existing
+`transfer_and_admit_deck_inputs` phase output beside `source_ref`,
+`detached_worktree_commit`, and `deck_github_operations=0`; it then durably
+saves that existing phase and the `handoff_admitted` state. No new phase,
+product state, VST3 operation type, proof row, runtime blocker, tracked file,
+or remote receipt file is introduced. The receipt is valid only for the same
+driver invocation's immediately following predicate and reservation; an
+earlier or interrupted invocation's receipt cannot be used to reserve.
+
+Missing, unsafe, noncanonical, extra, mismatched, nonzero, or contradictory
+preflight facts return an already approved PC0 outward blocker or
+`RETURN_TO_DESIGN_GATE`, according to the existing precedence law. They leave
+the candidate intent absent, consume zero corrective reservations, do not
+increment `deck_executions`, and launch no Runtime/Proton process. Host or
+fixture store absence blocks; it never selects a transfer, rebuild, download,
+custody, seed, or fixture fallback.
+The V3 corrective path never calls the host/fixture `publish_tree` fallback;
+it performs read-only roster/hash verification against the existing Deck
+stores and blocks if either store is absent.
+
+### Failed-run retrieval and custody
 
 After the corrective remote command returns one exact PC0 blocker, the Mac
 driver first performs the existing success-result recovery. Only when no
@@ -477,6 +628,70 @@ unsafe, or multiple diagnostics result in `PC0_EVIDENCE_BLOCKED` followed by
 `RETURN_TO_DESIGN_GATE`. They never authorize another Deck launch. A valid
 failed diagnostic also ends V3's corrective authority permanently.
 
+### Immutable corrective pre-evidence journal boundary
+
+On corrective success, `host-proof.py` creates exactly this private pair at
+the root of the current Mac transaction:
+
+```text
+PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json
+PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json.sha256
+```
+
+The JSON is not a new schema. Its bytes are an exact byte-for-byte snapshot of
+the canonical `DX0_TRANSACTION_STATE.json` bytes under the existing
+transaction-state schema. It contains no snapshot digest or other new
+self-reference; `pre_evidence_journal_sha256` is introduced only by the later
+tracked corrective-history render. The snapshot is taken only after the
+corrective result has been strictly retained and admitted, the
+`retrieve_and_retain_result` phase has reached its terminal completed
+disposition, and all live effect counts and corrective-reservation facts have
+been durably saved. It is taken before constructing or rendering tracked
+evidence, before creating a `render_and_validate_evidence` phase receipt or the
+`evidence_rendered` state, and before `close_transaction` or final transaction
+completion.
+
+The corrective reservation remains durable in the existing
+`execute_deck_batch.inputs.corrective_reservation` object, whose exact keys are
+`kind`, `historical_transaction_id`, `reservation_ordinal`,
+`additional_positive_deck_batches_maximum`, and
+`corrective_preflight_sha256`. Their values are `v3_single_corrective`,
+`a14bcc65d15e9fbdf15810a658b2ee87`, 1, 1, and the exact admitted preflight
+digest. That input survives the phase's transition from `prepared` to
+`completed`; the same snapshot records `deck_executions=1`,
+`run_invocation_count=1`, the terminal result SHA, and every other current V3
+external effect.
+
+Snapshot publication first duplicate-safe parses the live journal, proves its
+bytes canonical, and validates the exact transaction/source/input/plan,
+preflight/reservation, execute-result, result-admission, phase, state, and
+effect joins. It then atomically writes the identical bytes and atomically
+writes this commit marker:
+
+```text
+<lowercase SHA-256><two spaces>PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json<LF>
+```
+
+An existing identical complete pair may be reused; a partial, symlinked,
+noncanonical, mismatched, early, late, or conflicting pair blocks. Before any
+tracked evidence is rendered, the driver and `evidence.py` strictly re-read
+the pair, verify the sidecar, and revalidate the same joins. At that moment the
+live journal must still be byte-identical to the snapshot. Later render,
+render-phase, evidence-state, close-phase, and finalization mutations change
+only `DX0_TRANSACTION_STATE.json`; the immutable snapshot is never rewritten
+and is no longer compared for byte equality to the completed live journal.
+
+Admission requires state `transaction_result_retained`; terminal
+`retrieve_and_retain_result`; an absent `render_and_validate_evidence` and
+`close_transaction`; `evidence_renders=0`; the exact retained result and
+result-admission object; and matching source, preflight, reservation, and effect
+facts. These laws reject a snapshot taken before result admission, one taken
+after render, any byte or sidecar mismatch, noncanonical bytes, divergent
+source/result/effect/reservation facts, and tracked evidence that substitutes
+the final live journal digest. The historical V2 `journal_sha256`
+`06473755eb7ccfa2529522bb29e3fb44a5a4a67ea38fd0e797d198939e1ed966`
+remains unchanged because that failed journal was already frozen.
+
 ## 7. Exact corrective-authority predicate
 
 V3 replaces the blanket “any prior PC0 Deck execution blocks forever” check
@@ -510,25 +725,36 @@ reserving the corrective batch, all of the following must be true:
    receipt `e2a06c...`. No producer, workflow dispatch, download, or custody
    fallback is selectable.
 9. After later explicit execution authority permits Deck contact, the existing
-   Deck host-artifact store and accepted AGain fixture store validate exactly.
+   Deck host-artifact store and accepted AGain fixture store validate exactly
+   in the current section 6 read-only preflight.
    Absence or mismatch blocks. No artifact transfer, fixture seed, or AGain
    build fallback is selectable.
-10. Future authorized readback finds no historical success result/sidecar and
+10. That same authorized preflight finds no historical success result/sidecar and
     resolves the expected historical intent and failure-lock objects without
     contradiction. This design makes no current remote-lock claim.
 11. Across the proof root there is exactly the one named historical
     transaction plus the current exact V3 transaction for this ref; no other
     PC0 Deck effect, corrective reservation, or completed corrective result
     exists.
-12. The current V3 transaction has no `execute_deck_batch` reservation or Deck
-    effect. The existing Mac execution-input single-writer lock is acquired
-    before the corrective reservation is persisted.
+12. The exact section 6 read-only preflight has completed successfully in this
+    driver invocation after repaired-source handoff/admission, and its
+    canonical receipt and digest are durable in
+    `transfer_and_admit_deck_inputs`. It proves the exact current source,
+    detached clean worktree, process/stage guard, fixture/authority posture,
+    runner, protected state, stores, historical locks, and current absence
+    facts. The current V3 transaction still has no `execute_deck_batch` phase,
+    corrective reservation, Deck effect, result, or diagnostic. Only now is
+    the existing Mac execution-input single-writer lock acquired with an exact
+    intent/publication recheck, before any corrective reservation is persisted.
 
 Only after all twelve predicates pass may the driver durably reserve one
-corrective execution. The current V3 journal increment and execute-phase
-`prepared` receipt are the reservation. The same-source transaction key,
-Mac single-writer lock, exact historical scan, and existing remote locks
-jointly prohibit duplicate launch. Once reserved, acknowledgement loss,
+corrective execution. The current V3 journal increment to `deck_executions=1`
+and execute-phase `prepared` receipt, including the immutable
+`corrective_reservation` input defined in section 6, are the reservation.
+Both are durable before launch; any surviving reservation fact is consumed
+even if interruption prevented its companion write. The same-source
+transaction key, Mac single-writer lock, exact historical scan, and existing
+remote locks jointly prohibit duplicate launch. Once reserved, acknowledgement loss,
 command failure, valid diagnostic, invalid diagnostic, or success all count as
 consumed. No V3 code path can authorize a third batch.
 
@@ -607,7 +833,7 @@ sub-rosters are:
 | `v2_failed_execution` | `transaction_id`, `journal_sha256`, `source`, `deck_execution_input_sha256`, `proof_plan_sha256`, `execute_phase_disposition`, `transaction_state`, `primary_blocker`, `failure_classification`, `local_result_disposition`, `remote_preflight`, `effect_counts`, `driver_invocation_count` |
 | `v2_operator_recovery` | `receipt_sha256`, `continuation_count`, `original_driver_invocation_count`, `original_failure_boundary`, `disposition`, `runtime_discovery_comment_id` |
 | `v3_corrective_authority` | `merge_commit`, `merge_tree`, `design_blob`, `design_sha256`, `review_id`, `approval_blob`, `prior_journal_sha256`, `prior_recovery_receipt_sha256`, `additional_positive_deck_batches_maximum`, `additional_windows_builds_maximum` |
-| `v3_corrective_execution` | `transaction_id`, `journal_sha256`, `execution_source`, `evidence_consumer_source`, `driver_invocation_count`, `reservation_count`, `effect_counts`, `result_sha256` |
+| `v3_corrective_execution` | `transaction_id`, `pre_evidence_journal_sha256`, `execution_source`, `evidence_consumer_source`, `driver_invocation_count`, `reservation_count`, `effect_counts`, `result_sha256` |
 
 Every `source` uses the existing six-key source role. Every `effect_counts`
 uses the existing seven effect keys. `remote_preflight` has exactly `result`,
@@ -624,10 +850,31 @@ corrective reservation; these values are not claims made by this draft.
 
 It binds both historical file hashes; V2 transaction/source/input/phase;
 unresolved classification; observed future lock preflight; producer
-run/artifact/build identity; each transaction's exact effect counts and
-journal hash; V2 driver invocation count; recovery continuation count; V3
-authority identities; V3 driver invocation and reservation count; repaired E;
-final C; and final result or failure-diagnostic disposition.
+run/artifact/build identity; each transaction's exact effect counts; the frozen
+V2 journal hash and the V3 immutable pre-evidence journal snapshot hash; V2
+driver invocation count; recovery continuation count; V3 authority identities;
+one V3 driver invocation and one corrective reservation; repaired execution E;
+final consumer C; and the retained success-result SHA-256.
+
+`v3_corrective_execution.transaction_id` is exactly the current V3
+`operation_nonce`. `pre_evidence_journal_sha256` is exclusively the digest of
+`PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json` admitted at the section 6 boundary.
+It is never labelled, validated, or substituted as the final mutable
+`DX0_TRANSACTION_STATE.json` digest. The execution source, consumer source,
+invocation count of 1, reservation count of 1, and result hash must join to that
+snapshot's source, result admission, execute phase, preflight receipt, and
+reservation input.
+
+The existing render projection remains acyclic: the snapshot records every
+actual pre-render effect, including `evidence_renders=0`.
+`v3_corrective_execution.effect_counts` and top-level `external_effect_counts`
+must be equal and copy the snapshot's six non-render effect values exactly;
+only `evidence_renders` is projected from 0 to 1 for this one local render.
+Successful render/close/finalization readback must prove that exact projection
+and no new live effect or invocation. A mismatch prevents acceptance without
+rewriting the snapshot or the rendered packet. Cumulative costs add the
+admitted V2 effects to this validated final V3 projection. No digest of a
+post-render live journal enters tracked corrective history.
 
 On a successful corrective batch, expected cumulative history is:
 
@@ -716,9 +963,9 @@ No seventeenth row is added.
 | 11 | Static and event ledgers contain no prohibited setup, latency, tail, activation, or processing call. |
 | 12 | Invalidation proves all Windows-build records and WindowsBuildInputIdentity remain exact while only the four non-Windows repair paths differ. |
 | 13 | Accepted AGain and host-artifact stores are reused with zero build, seed, producer, download, custody, or host-artifact transfer. |
-| 14 | One clean corrective driver command is distinguished from the admitted V2 driver and recovery history; the exact predicate admits one reservation only. |
+| 14 | One clean corrective driver command is distinguished from the admitted V2 driver and recovery history; exact current read-only Deck preflight succeeds before any corrective reservation, and the predicate admits one reservation only. |
 | 15 | Producer P from failed source joins repaired execution E through unchanged build identity; strict P/E result admission and C renderer reuse remain exact. |
-| 16 | Final machine-readable evidence proves cleanup/protected-state closure plus failed V2 disposition, corrective authority, two-batch cumulative history, and exact final costs. |
+| 16 | Final machine-readable evidence admits the immutable private pre-evidence journal snapshot and proves cleanup/protected-state closure plus failed V2 disposition, corrective authority, two-batch cumulative history, and exact final costs without a final mutable-journal digest. |
 
 Rows 3, 13, 14, and 16 require the later authorized positive observation.
 All other refinements are deterministic/static or combine deterministic
@@ -737,7 +984,28 @@ DAW execution:
   source/input/plan/nonces, altered call counts, multiple diagnostics, and
   symlinks are rejected;
 - the exact historical journal and receipt plus later V3 authority admit one
-  corrective reservation;
+  corrective reservation only after successful current read-only Deck
+  preflight;
+- the read-only preflight occurs after repaired-source/handoff/worktree
+  admission and before the execute phase is prepared, any Mac/Deck execution
+  lock or current intent is created, the reservation is persisted, or the
+  Deck execution count is incremented;
+- process/stage, fixture/authority, protected-state, runner, host/fixture-store,
+  historical-intent/lock, and current-result/reservation/diagnostic failures
+  consume zero corrective reservations and reach no Runtime/Proton launch;
+- no write path is reachable from `run.py corrective-preflight`: injected
+  traps for filesystem publication, directory creation, environment
+  creation/retirement, supervision, result/diagnostic publication, and budget
+  mutation are never reached; the emitted and embedded readback rosters are
+  exact and unknown keys are rejected;
+- a pre-evidence snapshot taken before strict result admission or completion
+  of `retrieve_and_retain_result`, or after render/close/finalization, is
+  rejected;
+- snapshot byte mismatch, noncanonical or duplicate-key JSON, sidecar
+  mismatch, changed transaction/source/result/effect/preflight/reservation
+  facts, and substitution of the final live journal digest are rejected;
+- later render/close/finalize writes leave the snapshot byte-identical, and
+  final costs differ from its effects only by the one validated local render;
 - no corrective authority blocks a second batch;
 - a consumed corrective reservation blocks a third batch, including after
   lost acknowledgement or failed diagnostic retrieval;

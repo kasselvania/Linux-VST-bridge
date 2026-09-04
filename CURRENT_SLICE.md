@@ -10,6 +10,10 @@ slice: PC0
 product_claim_revision: pc0-selection-v2
 design_revision: pc0-design-v3
 design_status: proposed_for_adversarial_review
+design_card: docs/slices/PC0/IMPLEMENTATION_DESIGN.md
+design_card_git_blob: b991e204681e56869a0977cad091c7de7345cbeb
+design_card_sha256: 4dcdce46f5f7d478fe2687c3d685418c4dd4b940804cb7a6744b890a6acff3cc
+v3_repair_review: 5107795355 / PC0_DESIGN_V3_REPAIR_REQUIRED
 target: main
 design_repair_basis_commit: 1c0c31c4ab69a40303cd00b155ca30626323c451
 design_repair_basis_tree: 192d2af4b5d83d94264510eab7c7729b5de1a9b5
@@ -42,9 +46,12 @@ The PC0 product claim is unchanged:
 
 V3 does not reopen the product design. It repairs only the proof-transaction
 failure-evidence boundary discovered by the first implementation attempt and
-designs one exact corrective authority. No corrective authority exists until
-an exact V3 design is independently cleared, explicitly approved by the
-operator, finalized as repository authority, and merged.
+designs one exact corrective authority. Binding review
+`5107795355 / PC0_DESIGN_V3_REPAIR_REQUIRED` requires an immutable
+pre-evidence journal snapshot, a current read-only Deck safety preflight before
+reservation, and this exact design-card binding. No corrective authority
+exists until an exact repaired V3 design is independently cleared, explicitly
+approved by the operator, finalized as repository authority, and merged.
 
 ## Retained V2 authority and runtime discovery
 
@@ -126,8 +133,8 @@ retrieval, or evidence render.
 
 ## Next action
 
-Submit exact pc0-design-v3 to independent adversarial review. A clear review
-must name the exact design head, tree, design blob, and raw SHA-256. Only a
-later explicit operator approval may authorize authority finalization. Until
-that merge and readback, implementation and the corrective Deck batch remain
-forbidden.
+Submit the repaired pc0-design-v3 exact head to fresh independent adversarial
+review. A clear review must name the exact design head, tree, design blob, and
+raw SHA-256. Only a later explicit operator approval may authorize authority
+finalization. Until that merge and readback, implementation and the corrective
+Deck batch remain forbidden.

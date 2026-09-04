@@ -111,3 +111,50 @@ Any missing join, implicit retry, producer fallback, current remote-state claim,
 Windows-build-input drift, or hidden historical cost requires
 `PC0_DESIGN_V3_REPAIR_REQUIRED`. The review itself does not authorize
 implementation or a corrective Deck batch.
+
+## V3 binding repair review
+
+```yaml
+reviewed_revision: pc0-design-v3
+reviewed_design_commit: 3abad98911792ece3320d0ec56fd526663db5f28
+reviewed_design_tree: d0a6442839e23c016fe75078a63468c2b64bcf29
+reviewed_design_parent: 1c0c31c4ab69a40303cd00b155ca30626323c451
+reviewed_design_path: docs/slices/PC0/IMPLEMENTATION_DESIGN.md
+reviewed_design_blob: 602f7270460b7076d9581d34f9a32842b83ba19d
+reviewed_design_sha256: 1dba18590f5a014240b8d15eaeeb69acd9bbab0d26346007b08c1e7724e5ea39
+github_review_id: 5107795355
+github_review_result: PC0_DESIGN_V3_REPAIR_REQUIRED
+review_authority: independent_technical_lead
+additional_reconnaissance_required: false
+implementation_authorized_at_review: false
+external_execution_authorized_at_review: false
+```
+
+The review accepts the V3 direction and requires exactly three bounded
+contract repairs:
+
+1. Replace the ambiguous corrective `journal_sha256` with an immutable private
+   `PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json` snapshot and sidecar, taken after
+   strict result admission and completion of `retrieve_and_retain_result` but
+   before render, close, or finalization. Tracked corrective history must use
+   `pre_evidence_journal_sha256` and must never claim it is the digest of the
+   final mutable journal.
+2. Require one exact current read-only Deck safety preflight after repaired
+   source handoff and detached-clean worktree admission but before any current
+   execution intent/lock, `execute_deck_batch` preparation, reservation,
+   Deck-count increment, environment, result, diagnostic, or Runtime/Proton
+   launch. Any failed process, stage, fixture, runner, protected-state, store,
+   historical-lock, or current-absence check consumes zero corrective budget.
+3. Bind the repaired V3 design-card path, Git blob, and raw SHA-256 in
+   `CURRENT_SLICE.md` without attempting the circular commit/tree binding.
+
+The authorized response is one direct repair commit above `3abad989...` that
+changes only `CURRENT_SLICE.md`, `IMPLEMENTATION_DESIGN.md`, and this review
+history. The repaired draft preserves the unchanged PC0 claim, one owner, nine
+states, four VST3 operation types, eleven positive calls, sixteen proof rows,
+ten runtime blockers, fourteen source/configuration paths, five tracked
+evidence paths, the four non-Windows repair paths, the exact
+WindowsBuildInputIdentity, zero further Windows/artifact work, and at most one
+predicate-bound corrective Deck reservation after later approval. It adds no
+live negative exercise and grants no implementation or external-execution
+authority. Fresh exact-head review remains required.
