@@ -1,19 +1,34 @@
-# Current Work: PX0/PX1 — Diagnostic and Acceptance Process Enforcement
+# Current Work: PX2 — Class-Aware Proof Transaction Core
 
 ## Authority
 
 ```yaml
-status: process_repair_enforced
-authority_phase: no_active_slice
+status: active_proof_harness_maintenance
+authority_phase: proof_harness_maintenance
 change_class: PROOF_HARNESS_MAINTENANCE
-process_repair_authorized: true
+maintenance_id: PX2
+maintenance_title: Class-Aware Proof Transaction Core
+repository: kasselvania/Linux-VST-bridge
+basis_commit: 98110016c1d50d578b2cf44d439830442f917b68
+basis_tree: 6e0964a6c506a743ce4fc229940f1e6ed982acc5
+maintenance_branch: codex/px2-class-aware-proof-backend
+maintenance_receipt: docs/maintenance/PX2_CLASS_AWARE_PROOF_BACKEND.md
+maintenance_review: docs/maintenance/PX2_MAINTENANCE_REVIEW.md
+maintenance_reviewed_authority_head: 665f98b507b779e8bbada97984ede37b674d48ba
+maintenance_review_record_git_blob: 367934660d456e5b27ac630a7a1ae636c2b87c9e
+maintenance_review_status: PROOF_HARNESS_MAINTENANCE_CLEAR
+maintenance_implementation_authorized: true
 product_implementation_authorized: false
 live_execution_authorized: false
 permitted_execution_class: none
+classified_backend_core_ready: false
 classified_backend_ready: false
-repository: kasselvania/Linux-VST-bridge
-process_repair_merge: 39cad26ca914c9b89a9f79a3d2c25aabd4c06f30
-maintenance_receipt: docs/maintenance/PX1_EXECUTION_CLASS_ENFORCEMENT.md
+diagnostic_campaign_authorized: false
+acceptance_candidate_authorized: false
+windows_workload_authorized: false
+deck_workload_authorized: false
+policy_core_ci_required: true
+main_protection_required: true
 accepted_product_frontier: WA0
 current_product_target: PC0
 pc0_status: suspended_after_inconclusive_acceptance_attempt
@@ -23,33 +38,52 @@ stopped_pc0_archive_ref: refs/heads/codex/archive/pc0-v3-stopped-309b8918
 successor_selection_authorized: false
 ```
 
-## Enforced posture
+## Operator ruling
 
-The human process now distinguishes product-contract change, proof-harness
-maintenance, and mechanical maintenance from read-only, diagnostic, and
-acceptance execution classes.
+The operator directed the technical leads to complete the process correction,
+inspect the detailed PX2 handoff, fix safe authority and documentation defects,
+and provide bounded engineering prompts. This authorizes repository-only PX2
+maintenance implementation after the retained focused review. It authorizes no
+product implementation and no live workload.
 
-The ordinary legacy live entry point is disabled. Cheap `plan` and `validate`
-operations remain available. No live diagnostic or acceptance operation can run
-until an exact authority names its class, source, closed plan, identity and
-budget and a class-aware backend durably retains those facts.
+## Maintenance claim
 
-## Mandatory development sequence
+PX2 will install one class-aware proof transaction core around closed plan
+adapters. The core must durably retain execution class, product contract, exact
+plan digest, execution identity, exact per-run source, acceptance eligibility,
+and the independently owned budget before workload launch. It must use real
+cross-process single-writer reservation, monotonic crash-recoverable state,
+structurally separate diagnostic and acceptance outputs, and bounded failure
+closure.
+
+PX2 does not add a live PC0 adapter and does not make any live plan executable.
+
+## Required sequence
 
 ```text
-approve the product contract once
-→ implement and validate locally
-→ use a bounded non-authoritative diagnostic campaign when needed
-→ repair the harness without reopening product design
-→ freeze one exact acceptance candidate
-→ run one strict acceptance transaction
-→ audit successful acceptance evidence only
+reviewed PX2 maintenance authority
+→ merge maintenance authority
+→ implement locally from the merged authority basis
+→ deterministic production-helper and multiprocess tests
+→ cheap Linux-only policy/core CI
+→ one non-draft maintenance implementation PR
+→ one exact-head technical-lead review
+→ merge
+→ configure main protection against direct/force/deletion bypass
 ```
 
-## PC0 disposition
+There is no product-slice selection, product-design revision, product approval,
+Windows producer, artifact transaction, Steam Deck contact, diagnostic batch,
+or acceptance batch in PX2.
 
-PC0 is suspended, not rejected. No stopped PC0 source or observation is
-acceptance eligible. The accepted product frontier remains WA0.
+## Completion posture
+
+After PX2 merges, the class-aware core may be marked ready, but live execution
+remains disabled until a later exact authority supplies one closed PC0 adapter,
+one `DiagnosticCampaignIdentity` or `AcceptanceCandidateIdentity`, and its
+separate budget.
+
+The accepted product frontier remains WA0.
 
 ## Operator frontier
 
@@ -57,7 +91,8 @@ acceptance eligible. The accepted product frontier remains WA0.
 classification: derived_non_authoritative_summary
 last_accepted_capability: WA0 — exact IAudioProcessor acquired and retired without invoking a method
 current_target: PC0 — initialized-state bus and sample-format contract
-current_state: process repaired and live execution hard-gated; PC0 suspended; no live authority
-next_step: implement a class-aware diagnostic backend through proof-harness maintenance before resuming PC0
-explicit_nonclaim: PC0 has not advanced the accepted product frontier
+current_state: PX2 maintenance authority reviewed and implementation-authorized; no product or live execution authorized
+next_step: merge PX2 authority, then implement the local-only class-aware transaction core from that exact basis
+next_product_step_after_px2: add one closed PC0 adapter and use a bounded non-authoritative diagnostic campaign before one fresh acceptance candidate
+explicit_nonclaim: PX2 adds no VST3 capability and PC0 has not advanced the accepted frontier
 ```
