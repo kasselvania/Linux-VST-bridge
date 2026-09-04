@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Execution-class policy for Linux VST Bridge proof tooling.
+"""Closed execution-class policy for Linux VST Bridge proof tooling.
 
-This module is intentionally independent from product/VST code. It turns the
-human authority in CURRENT_SLICE.md into a small, deterministic live-execution
-decision. It is an operability guard, not a security sandbox.
+The policy admits only the finite authority postures below and emits one exact
+canonical delegation. It is an operability guard around the proof harness,
+not a security sandbox and not product authority.
 """
 
 from __future__ import annotations
@@ -21,7 +21,8 @@ AUTHORITY_SCHEMA = "linux-vst-bridge-proof-execution-authority/v1"
 DELEGATION_SCHEMA = "linux-vst-bridge-proof-execution-delegation/v1"
 HEX40 = re.compile(r"[0-9a-f]{40}")
 HEX64 = re.compile(r"[0-9a-f]{64}")
-PLAN_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}")
+IDENTIFIER = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}")
+PLAN_ID = IDENTIFIER
 
 
 class PolicyError(RuntimeError):
@@ -32,6 +33,61 @@ class ExecutionClass(str, Enum):
     READ_ONLY_RECONCILIATION = "READ_ONLY_RECONCILIATION"
     DIAGNOSTIC_NON_AUTHORITATIVE = "DIAGNOSTIC_NON_AUTHORITATIVE"
     ACCEPTANCE_CANDIDATE = "ACCEPTANCE_CANDIDATE"
+
+
+# Adding a posture is an authority change, not an implementation convenience.
+LEGAL_AUTHORITY_POSTURES = frozenset({
+    (
+        "no_active_slice",
+        "no_active_slice",
+        "PROOF_HARNESS_MAINTENANCE",
+        False,
+        False,
+        "none",
+        True,
+        False,
+    ),
+    (
+        "active_proof_harness_maintenance",
+        "proof_harness_maintenance",
+        "PROOF_HARNESS_MAINTENANCE",
+        False,
+        False,
+        "none",
+        False,
+        False,
+    ),
+    (
+        "active_proof_harness_maintenance",
+        "proof_harness_maintenance",
+        "PROOF_HARNESS_MAINTENANCE",
+        False,
+        False,
+        "none",
+        True,
+        False,
+    ),
+    (
+        "active_diagnostic_campaign",
+        "proof_harness_maintenance",
+        "PROOF_HARNESS_MAINTENANCE",
+        False,
+        True,
+        ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE.value,
+        True,
+        True,
+    ),
+    (
+        "active_acceptance_candidate",
+        "implementation",
+        "PRODUCT_CONTRACT_CHANGE",
+        True,
+        True,
+        ExecutionClass.ACCEPTANCE_CANDIDATE.value,
+        True,
+        True,
+    ),
+})
 
 
 @dataclass(frozen=True)
@@ -72,12 +128,38 @@ class LiveRequest:
 
 
 def canonical_json(value: Any) -> bytes:
-    return (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return (json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+        allow_nan=False,
+    )
             + "\n").encode("utf-8")
 
 
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise PolicyError(f"canonical JSON contains duplicate key: {key}")
+        value[key] = item
+    return value
+
+
+def parse_canonical_json(raw: bytes, *, maximum: int = 64 * 1024) -> Any:
+    if not isinstance(raw, bytes) or not raw or len(raw) > maximum:
+        raise PolicyError("canonical JSON bytes are absent or outside the bound")
+    try:
+        value = json.loads(
+            raw.decode("utf-8", "strict"), object_pairs_hook=_reject_duplicate_pairs,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PolicyError("canonical JSON is malformed") from exc
+    if canonical_json(value) != raw:
+        raise PolicyError("JSON bytes are not canonical")
+    return value
 
 
 def parse_authority_document(raw: bytes, path: pathlib.Path) -> Authority:
@@ -115,7 +197,8 @@ def parse_authority_document(raw: bytes, path: pathlib.Path) -> Authority:
     required = {
         "status", "authority_phase", "change_class",
         "product_implementation_authorized", "live_execution_authorized",
-        "permitted_execution_class",
+        "permitted_execution_class", "classified_backend_core_ready",
+        "classified_backend_ready",
     }
     missing = sorted(required - set(fields))
     if missing:
@@ -136,17 +219,41 @@ def authority_status(authority: Authority) -> dict[str, Any]:
     closed = {"none", *(member.value for member in ExecutionClass)}
     if permitted not in closed:
         raise PolicyError("permitted_execution_class is outside the closed set")
+    product_authorized = authority.boolean("product_implementation_authorized")
+    live_authorized = authority.boolean("live_execution_authorized")
+    core_ready = authority.boolean("classified_backend_core_ready")
+    backend_ready = authority.boolean("classified_backend_ready")
+    posture = (
+        authority.fields["status"],
+        authority.fields["authority_phase"],
+        authority.fields["change_class"],
+        product_authorized,
+        live_authorized,
+        permitted,
+        core_ready,
+        backend_ready,
+    )
+    if posture not in LEGAL_AUTHORITY_POSTURES:
+        raise PolicyError("authority posture is outside the closed PX2 table")
     return {
         "schema": AUTHORITY_SCHEMA,
         "authority_sha256": authority.raw_sha256,
         "status": authority.fields["status"],
         "authority_phase": authority.fields["authority_phase"],
         "change_class": authority.fields["change_class"],
-        "product_implementation_authorized":
-            authority.boolean("product_implementation_authorized"),
-        "live_execution_authorized": authority.boolean("live_execution_authorized"),
+        "product_implementation_authorized": product_authorized,
+        "live_execution_authorized": live_authorized,
         "permitted_execution_class": permitted,
+        "classified_backend_core_ready": core_ready,
+        "classified_backend_ready": backend_ready,
     }
+
+
+def _required_live_field(authority: Authority, key: str, pattern: re.Pattern[str]) -> str:
+    value = authority.fields.get(key, "")
+    if pattern.fullmatch(value) is None:
+        raise PolicyError(f"authority field {key!r} has invalid shape")
+    return value
 
 
 def authorize_live_request(authority: Authority, request: LiveRequest) -> dict[str, Any]:
@@ -160,8 +267,20 @@ def authorize_live_request(authority: Authority, request: LiveRequest) -> dict[s
         raise PolicyError("LIVE_EXECUTION_FORBIDDEN: source commit differs from authority")
     if authority.fields.get("authorized_plan_id") != request.plan_id:
         raise PolicyError("LIVE_EXECUTION_FORBIDDEN: closed plan differs from authority")
-    if authority.fields.get("classified_backend_ready") != "true":
+    if status["classified_backend_core_ready"] is not True:
+        raise PolicyError("CLASSIFIED_BACKEND_REQUIRED: transaction core is not ready")
+    if status["classified_backend_ready"] is not True:
         raise PolicyError("CLASSIFIED_BACKEND_REQUIRED: live backend is not class-aware")
+
+    product_contract_identity = _required_live_field(
+        authority, "authorized_product_contract_identity", IDENTIFIER,
+    )
+    product_contract_sha256 = _required_live_field(
+        authority, "authorized_product_contract_sha256", HEX64,
+    )
+    plan_content_sha256 = _required_live_field(
+        authority, "authorized_plan_content_sha256", HEX64,
+    )
 
     if request.execution_class is ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE:
         identity_key = "diagnostic_campaign_identity"
@@ -188,6 +307,9 @@ def authorize_live_request(authority: Authority, request: LiveRequest) -> dict[s
         "execution_identity": request.execution_identity,
         "source_commit": request.source_commit,
         "plan_id": request.plan_id,
+        "product_contract_identity": product_contract_identity,
+        "product_contract_sha256": product_contract_sha256,
+        "plan_content_sha256": plan_content_sha256,
         "acceptance_eligible": acceptance_eligible,
         "batch_budget_maximum": maximum,
     }
@@ -198,8 +320,9 @@ def validate_delegation(
 ) -> dict[str, Any]:
     keys = {
         "schema", "authority_sha256", "execution_class", "execution_identity",
-        "source_commit", "plan_id", "acceptance_eligible",
-        "batch_budget_maximum",
+        "source_commit", "plan_id", "product_contract_identity",
+        "product_contract_sha256", "plan_content_sha256",
+        "acceptance_eligible", "batch_budget_maximum",
     }
     if not isinstance(value, Mapping) or set(value) != keys:
         raise PolicyError("delegation key roster differs")
@@ -219,3 +342,10 @@ def validate_delegation(
     if dict(value) != expected:
         raise PolicyError("delegation value differs from current authority")
     return expected
+
+
+def validate_canonical_delegation(authority: Authority, raw: bytes) -> dict[str, Any]:
+    value = parse_canonical_json(raw)
+    if not isinstance(value, Mapping):
+        raise PolicyError("delegation must be one canonical JSON object")
+    return validate_delegation(authority, value)
