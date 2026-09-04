@@ -54,3 +54,145 @@ Two binding implementation clarifications require no V3:
 The reviewed implementation ceiling remains one `PreSetupProcessingContractCensus` owner, nine states, four selected operation types, eleven positive calls, sixteen proof rows, ten blockers, fourteen source/configuration paths, five evidence paths, at most one Windows producer, at most one positive Deck batch, zero live negative exercises, zero AGain rebuilds or fixture reseeds, one ordinary Mac command, and zero manually copied identifiers.
 
 `PC0_DESIGN_V2_CLEAR` is binding for implementation authority only when paired with the exact operator approval receipt and matching `CURRENT_SLICE.md`. No successor is selected by this review.
+
+## V3 design-repair review request
+
+```yaml
+proposed_revision: pc0-design-v3
+design_repair_basis_commit: 1c0c31c4ab69a40303cd00b155ca30626323c451
+design_repair_basis_tree: 192d2af4b5d83d94264510eab7c7729b5de1a9b5
+runtime_discovery_comment: 5533164226
+failed_source_commit: 7ac6095a488d0077fcc78fedc5abd870b5ffb1cb
+failed_source_tree: ad4230a713a2bb644476be8be9d374a1feb36b06
+failed_transaction_journal_sha256: 06473755eb7ccfa2529522bb29e3fb44a5a4a67ea38fd0e797d198939e1ed966
+operator_recovery_receipt_sha256: 870039310c0f6ee4d0bf4044d629e6f6e7d92d2f901b7b40a60f9724bb84f9e5
+review_status: pending_independent_adversarial_review
+required_clear_result: PC0_DESIGN_V3_CLEAR
+implementation_authorized_at_draft: false
+external_execution_authorized_at_draft: false
+```
+
+V3 does not reopen the reviewed product boundary. It responds only to the
+runtime discovery recorded in merged PR #37 comment `5533164226`: the Deck
+supervisor held a bounded failed-run value in memory, but `run.py` discarded it
+before the Mac could distinguish scanner exit 99 from a Python supervision
+failure.
+
+The independent reviewer must verify the exact proposed head and record its
+commit, tree, `IMPLEMENTATION_DESIGN.md` Git blob, and raw SHA-256. A clear
+review must answer all of these questions:
+
+1. Does the exact diagnostic roster distinguish
+   `raw_exit=99 / output_publication_failed` from
+   `supervision_failed / raw_exit nullable` without retaining raw streams or
+   adding a product owner?
+2. Is the two-file publication fail-closed, committed by the atomic sidecar,
+   validated before raise, and permanently non-authoritative for retry?
+3. Does Mac retrieval admit only the expected inner-lock pair and validate all
+   source/input/plan/nonce, record-sequence, blocker, cleanup, and hash joins?
+4. Does the corrective predicate admit only the named V2 failed transaction
+   plus one exact V3 transaction, rather than introducing a general
+   `deck_executions <= 2` rule?
+5. Are the V2 batch and authorized recovery preserved as unresolved historical
+   facts, with no retroactive failure classification?
+6. Are producer P, repaired execution E, and consumer C distinct and joined
+   through the unchanged WindowsBuildInputIdentity?
+7. Do the four repair paths remain outside the frozen seventeen-record Windows
+   roster, with `common.py` and `supervise.py` byte-identical?
+8. Does `linux-vst-bridge-pc0-cost-and-invalidation/v2` truthfully separate the
+   final corrective transaction from cumulative implementation history without
+   changing the eight-key top-level roster?
+9. Are the archive ref, force-with-lease replacement, one fourteen-path source
+   commit, and one five-path evidence child exact and reviewable?
+10. Do all owner/state/call/proof/blocker/path counts and all product nonclaims
+    remain unchanged?
+
+Any missing join, implicit retry, producer fallback, current remote-state claim,
+Windows-build-input drift, or hidden historical cost requires
+`PC0_DESIGN_V3_REPAIR_REQUIRED`. The review itself does not authorize
+implementation or a corrective Deck batch.
+
+## V3 binding repair review
+
+```yaml
+reviewed_revision: pc0-design-v3
+reviewed_design_commit: 3abad98911792ece3320d0ec56fd526663db5f28
+reviewed_design_tree: d0a6442839e23c016fe75078a63468c2b64bcf29
+reviewed_design_parent: 1c0c31c4ab69a40303cd00b155ca30626323c451
+reviewed_design_path: docs/slices/PC0/IMPLEMENTATION_DESIGN.md
+reviewed_design_blob: 602f7270460b7076d9581d34f9a32842b83ba19d
+reviewed_design_sha256: 1dba18590f5a014240b8d15eaeeb69acd9bbab0d26346007b08c1e7724e5ea39
+github_review_id: 5107795355
+github_review_result: PC0_DESIGN_V3_REPAIR_REQUIRED
+review_authority: independent_technical_lead
+additional_reconnaissance_required: false
+implementation_authorized_at_review: false
+external_execution_authorized_at_review: false
+```
+
+The review accepts the V3 direction and requires exactly three bounded
+contract repairs:
+
+1. Replace the ambiguous corrective `journal_sha256` with an immutable private
+   `PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json` snapshot and sidecar, taken after
+   strict result admission and completion of `retrieve_and_retain_result` but
+   before render, close, or finalization. Tracked corrective history must use
+   `pre_evidence_journal_sha256` and must never claim it is the digest of the
+   final mutable journal.
+2. Require one exact current read-only Deck safety preflight after repaired
+   source handoff and detached-clean worktree admission but before any current
+   execution intent/lock, `execute_deck_batch` preparation, reservation,
+   Deck-count increment, environment, result, diagnostic, or Runtime/Proton
+   launch. Any failed process, stage, fixture, runner, protected-state, store,
+   historical-lock, or current-absence check consumes zero corrective budget.
+3. Bind the repaired V3 design-card path, Git blob, and raw SHA-256 in
+   `CURRENT_SLICE.md` without attempting the circular commit/tree binding.
+
+The authorized response is one direct repair commit above `3abad989...` that
+changes only `CURRENT_SLICE.md`, `IMPLEMENTATION_DESIGN.md`, and this review
+history. The repaired draft preserves the unchanged PC0 claim, one owner, nine
+states, four VST3 operation types, eleven positive calls, sixteen proof rows,
+ten runtime blockers, fourteen source/configuration paths, five tracked
+evidence paths, the four non-Windows repair paths, the exact
+WindowsBuildInputIdentity, zero further Windows/artifact work, and at most one
+predicate-bound corrective Deck reservation after later approval. It adds no
+live negative exercise and grants no implementation or external-execution
+authority. Fresh exact-head review remains required.
+
+## V3 exact-head clear review
+
+```yaml
+reviewed_revision: pc0-design-v3
+reviewed_design_commit: c2349780f9ed1aa6077b118be000cbab5aba698a
+reviewed_design_tree: c1a71eb2afb9c71f62ddc2cc3bd9a5b5baa4e4bd
+reviewed_design_parent: 3abad98911792ece3320d0ec56fd526663db5f28
+reviewed_design_path: docs/slices/PC0/IMPLEMENTATION_DESIGN.md
+reviewed_design_blob: b991e204681e56869a0977cad091c7de7345cbeb
+reviewed_design_sha256: 4dcdce46f5f7d478fe2687c3d685418c4dd4b940804cb7a6744b890a6acff3cc
+github_review_id: 5108043079
+github_review_result: PC0_DESIGN_V3_CLEAR
+review_authority: independent_technical_lead
+prior_repair_review_id: 5107795355
+prior_repair_review_result: PC0_DESIGN_V3_REPAIR_REQUIRED
+additional_reconnaissance_required: false
+implementation_authorized_at_review: false
+external_execution_authorized_at_review: false
+```
+
+Review `5108043079 / PC0_DESIGN_V3_CLEAR` closes all three findings from
+review `5107795355`: corrective history now binds the immutable private
+pre-evidence journal snapshot; the closed read-only Deck preflight precedes
+every current execution intent, lock, reservation, effect increment,
+environment, result, diagnostic, and Runtime/Proton launch; and
+`CURRENT_SLICE.md` binds the reviewed design-card blob and raw SHA-256 without
+a circular commit/tree identity.
+
+The clear review preserves the exact PC0 claim, one owner, nine product states,
+four VST3 operation types, eleven positive calls, sixteen proof rows, ten
+runtime blockers, fourteen source/configuration paths, five tracked evidence
+paths, and four non-Windows V3 repair paths. The seventeen-record Windows
+roster and WindowsBuildInputIdentity
+`575d3bd9183be1ec0fe0311cff48bc0107c4299a3355748c470e3d195d284849`
+remain frozen. Review clearance alone authorizes no implementation or external
+execution; exact operator approval and merged repository authority remain
+required.

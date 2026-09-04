@@ -1,10 +1,17 @@
-# PC0 implementation design v2
+# PC0 design revision v3 — Durable Failed-Batch Diagnostic and One Corrective Deck Batch
 
 ```yaml
 slice: PC0
-design_revision: pc0-design-v2
+design_revision: pc0-design-v3
 design_status: proposed_for_adversarial_review
 implementation_authorized: false
+product_claim_changed: false
+design_repair_basis_commit: 1c0c31c4ab69a40303cd00b155ca30626323c451
+design_repair_basis_tree: 192d2af4b5d83d94264510eab7c7729b5de1a9b5
+v2_design_blob: ec0683fc66028239d7481640ba72e2dd9a060a2c
+v2_design_sha256: 20e653a6b1fad720ea5fc888a8d531bda44c338840f5eb96e488612d197de992
+v2_review: 5105712590 / PC0_DESIGN_V2_CLEAR
+runtime_discovery: PR 37 comment 5533164226 / PC0_RUNTIME_DISCOVERY
 owner_count: 1
 stable_state_count: 9
 unique_call_operation_count: 4
@@ -13,32 +20,38 @@ proof_row_count: 16
 blocked_outcome_count: 10
 source_configuration_path_count: 14
 evidence_path_count: 5
-closed_plan: pc0-pre-setup-processing-contract-v1
-expected_windows_acceptance_producers: 1
-expected_positive_deck_batches: 1
-renderer_only_external_effects: 0
+additional_windows_builds: 0
+additional_workflow_dispatches: 0
+additional_positive_deck_batches: 1 maximum after later explicit authority
+live_negative_exercises: 0
 ```
 
-V2 supersedes V1 commit `f6938e7dd501a4c86a382243670d82d060d1b75a`,
-tree `bacf308af5a7c993e1da45059497fb392a3b8845`, design blob
-`0f2d1c26aea3d009ce93d1d5086b52ca03fc8ce1`, SHA-256
-`29db8b0f884407ba9ea75c80cab6ddd290908f2449d73e4502dd61347c490e86`.
-Independent technical-lead review `5105496167` returned
-`PC0_DESIGN_V1_REPAIR_REQUIRED`; its two bounded findings are retained in
-[the review history](ADVERSARIAL_DESIGN_REVIEW.md).
+V3 is a bounded amendment to immutable pc0-design-v2. The V2 card is Git blob
+`ec0683fc66028239d7481640ba72e2dd9a060a2c` with raw SHA-256
+`20e653a6b1fad720ea5fc888a8d531bda44c338840f5eb96e488612d197de992`.
+All V2 product, owner, lifecycle, normalization, call-order, shutdown, privacy,
+and nonclaim laws remain binding unless this card explicitly changes a
+proof-transaction failure-evidence or corrective-budget rule. An implementation
+preflight must read and hash both cards. This proposed card does not authorize
+implementation or live execution.
 
-## 1. Authority, claim, and ceiling
+## 1. Authority, unchanged claim, and sole repair purpose
 
-Selection basis is commit `858c240b104e090aaed8bd23ace04fd9a0dfd20e`,
-tree `8a560faf07b793de8faab91952ee6f34f15a1e73`. Original activation is
-`5ec7ef4f2c5f19faffcf1f2b01656d698ac7cd7a`, tree
-`fce2e4c4f65a90fcde6835e0cf4aba0169f81c2a`; revised selection authority is
-its child `f00824e196d2a71667d80a9cc622c03ea2cef403`, tree
-`d895a44b98264f47549d4187303b00e9e9f85982`. This card implements only the
-revised selection in [the selection receipt](SLICE_SELECTION.md), informed by
-[the bounded reconnaissance](RECONNAISSANCE.md).
+The design-repair basis is current remote `main` commit
+`1c0c31c4ab69a40303cd00b155ca30626323c451`, tree
+`192d2af4b5d83d94264510eab7c7729b5de1a9b5`. It contains the approved V2
+authority. Technical-lead review `5105712590` returned
+`PC0_DESIGN_V2_CLEAR` for exact V2 head
+`996ee557d33ea55d6acf7ef2242f703c2c63f262`, tree
+`bb1fe157bef42854812ebeb0b73b1a5332c93cf6`.
 
-Primary claim:
+Merged PR #37 comment `5533164226` is the runtime-discovery record. Failed
+implementation source is
+`7ac6095a488d0077fcc78fedc5abd870b5ffb1cb`, tree
+`ad4230a713a2bb644476be8be9d374a1feb36b06`, on
+`refs/heads/codex/pc0-windows-vst3-pre-setup-processing-contract`.
+
+The product claim remains exactly:
 
 > On the exact accepted AGain lifecycle, while the processor remains in the
 > Initialized state, the supervised Windows host performs one bounded read-only
@@ -47,432 +60,980 @@ Primary claim:
 > normalized pre-setup processing contract, and completes the accepted
 > interface/component/factory/module shutdown without mutating processing state.
 
-PC0 calls only `getBusCount`, `getBusInfo`, `getBusArrangement`, and
-`canProcessSampleSize`. It does not call or prepare `setIoMode`, `activateBus`,
-`setActive`, `setBusArrangements`, `setupProcessing`, `setProcessing`,
-`process`, `getLatencySamples`, `getTailSamples`, or allocate audio/event
-buffers, parameter queues, event lists, or process contexts. Controller,
-connection-point, state, parameter, automation, preset, proxy, C ABI, IPC,
-shared-memory, broker/service, real-time, GUI, Bitwig, Serum, packaging,
-signing, runner-selection, other plug-in/DAW, and general compatibility claims
-are outside PC0.
+Source inspection established one material failure-evidence gap:
 
-## 2. Accepted boundary and source result
+1. `supervise.py` returns `raw_exit=99` with
+   `classification=output_publication_failed` for scanner output/publication
+   failure.
+2. A Python supervision or output-stream exception returns
+   `classification=supervision_failed` and retains the observed `raw_exit`,
+   including null when no exit is observable.
+3. `run.py` currently discards that structured run before raising the blocker.
+4. The Mac therefore retained only `PC0_EVIDENCE_BLOCKED` for the spent batch.
 
-PC0 consumes, without redesign, WC0 component/host ownership and shutdown, WA0
-`IAudioProcessor` lease ownership and quiescence, and DX0 split identities,
-accepted-fixture store, custody/handoff, one-command transaction, retained-result
-admission, recovery, process/environment containment, and protected-state law.
-Exact fixture identities are AGain module
-`60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f`,
-14-record bundle manifest
-`bfaa1dce4d2e189f89cee41493838824efe647e361e81436676b7b3a86ff5164`,
-and Runtime/Proton digest
-`2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`.
-Accepted WA0 source is `24b7e6da7e29a5bd358097a6b89c5c59b747c413`,
-tree `d7c43098a14d86bf36b9c428e3836e1eb5353613`; its evidence is
-`99478005e9f2675036100486c87952b76d411f84`, tree
-`56e861611d0a0fdfeeafac517e40f8bb7ea9bb8f`, merged by
-`5d084ba5032dc8a7ce93be51e7d75dfd0d37ee22`. Accepted DX0 source is
-`be046dd2d44a7915ca408c01a06212639ccea51e`, tree
-`1322e4eb7b5bd54244bd2fa7fc83327ea6a0c183`; its evidence is
-`85840920844693f7611306492298817e16dd2a6c`, tree
-`35ddde4e56a810ab1ce44970313bf2f42e585908`, merged by
-`1f71487717eabdb3cd5285a4559df2ce2915c8d8`. Post-DX0 status closure is the
-selection basis `858c240b104e090aaed8bd23ace04fd9a0dfd20e`.
+V3 changes only durable failed-run publication, strict Mac admission, historical
+cost accounting, exact V3 source authority, and one corrective reservation.
+It adds no product behavior.
 
-Design and future implementation validation must resolve every named authority,
-source, evidence, merge, tree, and blob as a real Git object; compare its type,
-exact value, parent/tree relation, merge ancestry, and required containment to
-this card. A lexically valid 40- or 64-character string is never identity proof.
+Binding technical-lead review
+`5107795355 / PC0_DESIGN_V3_REPAIR_REQUIRED` accepts that direction and requires
+only a non-circular pre-evidence journal boundary, one read-only Deck safety
+preflight before corrective reservation, and an exact V3 design-card binding.
+This repaired draft answers those three findings; the review does not clear the
+design or authorize implementation.
 
-Pinned SDK contracts permit all four selected methods on the Windows UI thread
-while Initialized. AGain creates `(1,1,1,0)` audio-in/audio-out/event-in/event-out
-buses. Its three records are `Stereo In` / 2 / `kMain`, `Stereo Out` / 2 /
-`kMain`, and `Event In` / 1 / `kMain`; each has only `kDefaultActive` set.
-Both audio arrangements are `0x0000000000000003` (`kStereo`), and AGain
-returns `kResultTrue` for both selected sample sizes. These are source
-expectations until the authorized implementation is executed.
+## 2. Read-only failed-transaction reconnaissance
 
-## 3. Sole new owner and state machine
+The supplied local files were read without modification. Both are canonical
+JSON without duplicate keys.
 
-`PreSetupProcessingContractCensus` is the only new owner. It borrows the
-accepted initialized `IComponent`, live `IAudioProcessor`, and synchronous event
-writer. It owns fixed coordinates, bounded count/record storage, normalized
-bus/arrangement/sample-size results, first blocker, later cleanup dispositions,
-and immutable completion. It never owns an interface, component, host, factory,
-module, process, environment, buffer, controller, or transport.
+| Input | Raw SHA-256 | Bytes |
+|---|---|---:|
+| `DX0_TRANSACTION_STATE.json` | `06473755eb7ccfa2529522bb29e3fb44a5a4a67ea38fd0e797d198939e1ed966` | 6589 |
+| `PC0_OPERATOR_RECOVERY.json` | `870039310c0f6ee4d0bf4044d629e6f6e7d92d2f901b7b40a60f9724bb84f9e5` | 1256 |
 
-It lives in the existing component-session `.h/.cpp` pair. The accepted
-`AudioProcessorInterfaceLease` acquires the interface, invokes this borrower,
-then alone retires the lease. Nine closed states are:
+The exact admitted historical facts are:
 
-1. `pre_setup_census_absent`
-2. `bus_count_in_flight`
-3. `bus_counts_validated`
-4. `detail_call_in_flight`
-5. `bus_info_complete`
-6. `speaker_arrangements_complete`
-7. `sample_format_call_in_flight`
-8. `pre_setup_contract_complete`
-9. `pre_setup_census_blocked`
+- transaction/operation nonce
+  `a14bcc65d15e9fbdf15810a658b2ee87`;
+- source/ref/tree
+  `7ac6095a488d0077fcc78fedc5abd870b5ffb1cb` /
+  `refs/heads/codex/pc0-windows-vst3-pre-setup-processing-contract` /
+  `ad4230a713a2bb644476be8be9d374a1feb36b06`;
+- source parent `1c0c31c4ab69a40303cd00b155ca30626323c451`;
+- proof-plan digest
+  `501829c4bf88988afb13ad984d5220839b73315d1ba89c8ca2e77600e58dc248`;
+- failed DeckExecutionInputIdentity
+  `ae89ee61636074feac5c875bab9b8a9621e3a0c6f7fa83b6d33bc11b94e631a3`;
+- one recorded ordinary driver invocation;
+- one separately recorded operator-authorized recovery continuation, with
+  disposition `continuation_stopped`;
+- execute phase disposition `failed`, blocker `PC0_EVIDENCE_BLOCKED`, and
+  monotonic transaction state `deck_batch_in_flight`;
+- effects `windows_builds=1`, `artifact_downloads=1`,
+  `custody_operations=1`, `artifact_transfers=1`,
+  `source_transfers=1`, `deck_executions=1`, `evidence_renders=0`;
+- no local result directory, success JSON, or result sidecar for the failed
+  DeckExecutionInputIdentity at reconnaissance time.
 
-Every in-flight state also binds the exact operation and coordinates. An
-ordinary failure enters `pre_setup_census_blocked`; timeout/crash leaves the
-last call in flight because no return may be invented.
+Recovery authority provenance is the exact receipt hash and its recorded
+`operator_authorized_recovery_continuation_count=1`, corroborated by runtime
+discovery comment `5533164226`. The receipt contains no literal operator
+approval text; this design does not claim otherwise.
 
-## 4. Exact positive order and attribution
+The recovery receipt proves that, before its continuation, remote intent,
+result, result sidecar, driver lock, source handoff, and source worktree were
+absent. It does not prove their post-failure state. The journal proves a
+preserved failed transaction state; neither supplied file identifies the
+scanner/supervisor failure class or independently proves the current remote
+inner/outer lock state. V3 must retain:
 
-After accepted initialization and WA0 interface acquisition:
+```text
+historical_failure_classification: unresolved_v2_no_diagnostic
+historical_remote_lock_disposition: requires_future_authorized_readback
+```
 
-1. `get_bus_count`: `kAudio/kInput`, `kAudio/kOutput`, `kEvent/kInput`,
-   `kEvent/kOutput`.
-2. Validate all four counts before allocating or iterating.
-3. `get_bus_info` for every retained bus, ordered media `kAudio`, `kEvent`;
-   direction `kInput`, `kOutput`; then ascending index.
-4. `get_bus_arrangement` for every audio input then audio output, ascending
-   index.
-5. `can_process_sample_size` for `kSample32`, then `kSample64`.
-6. Freeze the contract, return to WA0, release the interface (expected count
-   1), terminate and release the component (expected count 0), then complete
-   accepted factory/module shutdown.
+No implementation may retroactively label the V2 failure
+`output_publication_failed` or `supervision_failed`.
 
-AGain therefore makes exactly 11 new calls: 4 + 3 + 2 + 2. Before each call,
-the accepted writer synchronously flushes `call_started`; after an ordinary
-return it immediately synchronously flushes paired `call_completed` before any
-lifecycle event or next call. All execute synchronously on the accepted scanner
-main/UI thread; no second call starts while one is in flight.
+The existing local host-artifact store validates against:
 
-Coordinates are closed enums and bounded integers: count `(media,direction)`,
-info `(media,direction,index)`, arrangement `(direction,audio_index)`, sample
-size `(kSample32|kSample64)`. Evidence retains symbolic values plus fixed-width
-numeric projections, never pointers, addresses, thread/process identifiers, or
-unbounded plug-in text. An unmatched start identifies its exact operation and
-coordinates.
+```text
+WindowsBuildInputIdentity:
+575d3bd9183be1ec0fe0311cff48bc0107c4299a3355748c470e3d195d284849
+workflow run / attempt: 33812659869 / 1
+artifact: 9915439437
+Actions artifact digest:
+sha256:a78f8118f1a0b856ad6483375cd3a20aa3118047425a9ed53ad9424cfb986940
+host artifact manifest:
+d0e11c374b7b1cb99b357faaa109e9310edc265c159559bd59a2098148484e9c
+host build receipt:
+7de6884d12b3144ff725fe9bc2550c7884356cc4379ed86f6f68e1ed8c3b2419
+Mac custody receipt:
+e2a06cb0f5ae69570e070bf6654bf1715f1b26fbfeb646f669d4fefb55db4f84
+```
 
-The durable writer is part of call attribution. If `call_started` cannot be
-written and flushed, the VST3 call has not been attempted and no in-flight call
-or return is invented. If the call returns but `call_completed` cannot be
-written and flushed, its scalar/output is unconsumable and the durable ledger
-remains unmatched at the exact operation/coordinates. No interface/component/
-factory release, `ExitDll`, `FreeLibrary`, or clean in-process retirement may
-then be claimed; accepted physical containment owns retirement. Writer failure
-is secondary to any earlier PC0 primary blocker and never erases it.
+GitHub readback reports the producer completed successfully at the failed
+source and artifact `9915439437` remains unexpired. A future implementation
+must revalidate the exact local and Deck stores; this design does not claim
+future availability.
 
-## 5. Count and output laws
+## 3. Preserved product envelope and nonclaims
 
-Each `int32` count must be 0–32; the overflow-checked sum, accumulated only
-after converting validated values to unsigned size, must be at most 64. Any
-negative, per-domain excess, aggregate excess, or arithmetic inconsistency is
-`PC0_BUS_COUNT_BLOCKED`; no storage, iteration, or later census call occurs.
-Storage is fixed-capacity for 64 records.
+V3 preserves one `PreSetupProcessingContractCensus` owner, its nine states,
+four operation types, eleven positive calls, sixteen proof rows, ten blockers,
+fourteen source/configuration paths, and five tracked evidence paths. The
+blocked taxonomy remains exactly:
 
-Before `getBusInfo`, zero the whole `BusInfo` and retain its request. Only
-`kResultTrue` makes output consumable. Returned media type and direction must
-equal the request. `busType` is exactly `kMain` or `kAux`; unknown bits outside
-`kDefaultActive|kIsControlVoltage` block. Control-voltage is false for event
-buses. Audio channel count is 1–64; event channel count is 1–16. The normalized
-flag projection contains explicit `default_active` and `control_voltage`
-booleans plus the fixed-width raw value.
+```text
+PC0_DESIGN_PREFLIGHT_BLOCKED
+PC0_DESIGN_SCOPE_BLOCKED
+PC0_BUS_COUNT_BLOCKED
+PC0_BUS_INFO_BLOCKED
+PC0_BUS_ARRANGEMENT_BLOCKED
+PC0_SAMPLE_FORMAT_BLOCKED
+PC0_CONTRACT_INCOMPLETE
+PC0_PROCESS_CLEANUP_BLOCKED
+PC0_EVIDENCE_BLOCKED
+RETURN_TO_DESIGN_GATE
+```
 
-`String128` inspection is limited to 128 UTF-16 code units and requires a NUL
-within the field. Strict conversion rejects unpaired or malformed surrogates;
-it does not trim, case-fold, or normalize. Only code units before the first NUL
-enter UTF-8 evidence; tail and padding never do. Empty but terminated names are
-representable and do not establish identity. Any malformed field is
-`PC0_BUS_INFO_BLOCKED`.
+The durable diagnostic is private proof-transaction data owned by the existing
+Deck execution lock. It is not a second owner, state, VST3 operation, blocker,
+proof row, tracked evidence path, or protocol family.
 
-Before `getBusArrangement`, zero the complete 64-bit output and bind an index
-already present in the retained audio roster. Only `kResultTrue` consumes it.
-The returned bitset is retained as exactly 16 lowercase hexadecimal digits,
-with its population count and a deterministic recognized-layout label when an
-exact pinned constant matches. The population count must equal the associated
-audio channel count. No standalone high-bit rejection is lawful: the pinned
-SDK's `kAmbi7thOrderACN` uses all 64 bits. No arrangement is requested for an
-event bus, and `setBusArrangements` is prohibited.
+All V2 prohibitions remain: no `setIoMode`, `activateBus`, `setActive`,
+`setBusArrangements`, `setupProcessing`, `setProcessing`, `process`,
+`getLatencySamples`, `getTailSamples`, buffers, controller, parameters,
+state, presets, proxy, C ABI, IPC, shared memory, broker, real-time work,
+Bitwig, Serum, packaging, signing, runner selection, or general compatibility.
 
-For each sample-size call, retain the raw `tresult` as signed fixed-width and
-eight-digit lowercase unsigned hexadecimal projections. `kResultTrue` means
-supported, `kResultFalse` means unsupported, and any other ordinary result is
-`PC0_SAMPLE_FORMAT_BLOCKED`. Unsupported is a valid census value, although the
-exact AGain positive claim requires both true.
+## 4. Exact implementation repair delta
 
-The immutable value uses schema
-`linux-vst-bridge-pc0-processing-contract/v1` and exact top-level keys
-`schema`, `lifecycle_state`, `counts`, `buses`, `sample_sizes`, `call_count`,
-`complete`, and `mutation_call_count`. `counts` has only the four canonical
-coordinates. Each ordered bus has only `media_type`, `direction`, `index`,
-`name_utf8`, `channel_count`, `bus_type`, `flags_u32_hex`, `default_active`,
-`control_voltage`, and `speaker_arrangement`; the last is null for event buses
-and otherwise contains `bits_u64_hex`, `channel_count`, and `recognized_layout`.
-Each sample entry has only `symbolic_size`, `tresult_i32`,
-`tresult_u32_hex`, and `supported`. Positive AGain requires
-`lifecycle_state="Initialized"`, `call_count=11`, `complete=true`, and
-`mutation_call_count=0`; latency and tail have no schema location.
+The repaired source may differ from failed source `7ac6095a...` at exactly
+these four paths:
 
-## 6. Completion, quiescence, and failure precedence
-
-A complete immutable contract requires four valid counts, exactly the implied
-`BusInfo` and audio-arrangement rosters, both classified sample-size results,
-the exact canonical call order, no in-flight call, and healthy bounded event and
-output ledgers. Missing, duplicated, extra, reordered, partial, or mutable
-output is `PC0_CONTRACT_INCOMPLETE`.
-
-The first semantic/call blocker remains primary and stops all remaining census
-calls. After an ordinary failure, temporary output is discarded; the census
-returns control to the accepted WA0 lease owner, which may release the interface
-and continue WC0/WA0 teardown only if existing interface/object quiescence is
-proved. Later release, shutdown, cleanup, or evidence failures are secondary
-and never erase it.
-
-Timeout, crash, or missing completion fabricates neither return nor output and
-forbids unsafe in-process continuation: no interface/component/factory release,
-`ExitDll`, or `FreeLibrary` is claimed. Accepted process containment drains the
-owned tree and retires the environment. Physical disappearance is not clean
-in-process retirement. Failed containment is `PC0_PROCESS_CLEANUP_BLOCKED`.
-
-## 7. Deterministic failure proof
-
-Production-owner, event-decoder, normalizer, and DX0-planner tests cover:
-negative/over-cap/aggregate-overflow counts; `getBusInfo` failure, coordinate
-mismatch, malformed or unterminated UTF-16, channel/type/flag invalidity;
-arrangement failure and channel mismatch; sample-size true/false/unexpected
-classification; unmatched starts for all four operation types; first-primary
-preservation; incomplete contracts; prohibited-call rejection; and
-renderer-only zero-external-work planning. Injected streams exercise accepted
-supervisor attribution. Tests make no GitHub, SSH, Proton, or fixture call.
-There is no PC0 fault module or live negative family; the sole live exercise is
-the positive AGain batch.
-
-| Injected mutation/fault | Required disposition |
+| Path | Exact V3 responsibility |
 |---|---|
-| Count negative, >32, sum >64, or checked-sum failure | `PC0_BUS_COUNT_BLOCKED`; no later census call. |
-| Info failure, coordinate/enum/flag/channel/name defect | `PC0_BUS_INFO_BLOCKED`; output unconsumed. |
-| Arrangement failure or popcount mismatch | `PC0_BUS_ARRANGEMENT_BLOCKED`; contract incomplete. |
-| Sample result other than true/false | `PC0_SAMPLE_FORMAT_BLOCKED`; no support inference. |
-| Missing/reordered/extra completion, including a failed durable `call_completed` write after ordinary return | Returned output is unconsumable; exact unmatched coordinates remain; `PC0_CONTRACT_INCOMPLETE` and physical containment apply. |
-| Unmatched start, injected timeout, or crash | Exact in-flight coordinates retained; process containment only. |
-| Renderer-only source mutation | P/E retained for C; all external invocation counters remain zero. |
+| `tools/host-proof.py` | Admit V3 source authority, bind the exact historical receipts, orchestrate and admit the read-only corrective Deck preflight, apply the corrective predicate, prohibit every Windows/artifact fallback, retrieve and retain one failed diagnostic, freeze the private pre-evidence journal snapshot after success, and project truthful history. |
+| `tools/wf0-factory-census/run.py` | Admit V3 source authority on the Deck, expose the bounded read-only corrective preflight, and atomically publish one validated private failed-run diagnostic in the existing execution lock before raising. |
+| `tools/wf0-factory-census/evidence.py` | Strictly validate the diagnostic/custody projection and the frozen corrective pre-evidence journal, then render the revised cost schema with explicit corrective history after success. |
+| `tools/wf0-factory-census/negative_tests.py` | Prove both failure classes, diagnostic rejection, read-only-preflight/reservation ordering, immutable-snapshot admission, exact corrective admission, no third batch, producer prohibition, identity equality, and historical accounting without external work. |
 
-## 8. Closed DX0 plan and identity contract
+`supervise.py` is sufficient and must remain byte-identical at Git blob
+`7bcd5f0ad93b0acf919af2ce9c17081d9ef1addb`. It already returns every fact
+needed to distinguish scanner exit 99 from a supervision failure. If
+implementation establishes that its returned run is insufficient, stop with
+`RETURN_TO_DESIGN_GATE`; V3 does not authorize changing it.
 
-The only new registry entry is:
-
-```json
-{"accepted_fixture_id":"wa0-again-accepted-v1","deterministic_validation_set":"pc0-pre-setup-deterministic-v1","evidence_renderer":"pc0-five-file-renderer-v1","expected_result":"pc0-pre-setup-contract-complete-v1","host_mode":"host_only","live_deck_batch":"pc0-positive-only-v1","plan_id":"pc0-pre-setup-processing-contract-v1","schema":"linux-vst-bridge-dx0-proof-plan/v1"}
-```
-
-No caller-supplied command, path, environment value, or hook is admitted. The
-ordinary invocation is exactly:
+The ten unchanged members of the fourteen-path source envelope, including
+`supervise.py`, must remain byte-identical to the failed source:
 
 ```text
-python3 tools/host-proof.py run --source <commit> --plan pc0-pre-setup-processing-contract-v1
+.github/workflows/wf0-windows-msvc-build.yml|100644|c4bbcb03d2bc9b464433bdb37931fb3d5a0f169c
+tools/wf0-factory-census/artifacts.py|100644|78f03c49cf313ac761578fed9287678d40178ec9
+tools/wf0-factory-census/build.py|100644|b81de04c2fd7dd6af29f27b7ef736ab9f76b075f
+tools/wf0-factory-census/common.py|100644|dc5e2e2309733bd77a4f528e43940bdc571ce67d
+tools/wf0-factory-census/normalize.py|100644|6efeeb4e4b568d623358841e1b4bba34eb8c9464
+tools/wf0-factory-census/supervise.py|100644|7bcd5f0ad93b0acf919af2ce9c17081d9ef1addb
+tools/wf0-factory-census/verify.py|100644|589ef7594303ebd5e8741d5303c56d1ee17348e8
+windows-factory-probe/source/component_instance_session.cpp|100644|30ddecfdbc245990211acaea7d8326e35b45713e
+windows-factory-probe/source/component_instance_session.h|100644|3f15fa52792ca75e4238c8f707e2154424a4f910
+windows-factory-probe/source/main.cpp|100644|c37b4ca23787de515b9c256ea2215ae7f10d2c1c
 ```
 
-DX0 canonical JSON/hash, typed receipt, persisted intent/nonce, single-writer,
-lost-acknowledgement recovery, and distinct P/E/C laws remain unchanged. PC0
-uses the already-selected schemas `linux-vst-bridge-pc0-complete-source/v1`
-(14 records), `linux-vst-bridge-pc0-transaction-result/v1`, and
-`linux-vst-bridge-pc0-evidence-packet/v1`. It reuses the exact DX0 v1 Windows
-build-input, accepted-fixture, Deck-execution-input, evidence-renderer,
-proof-transaction, host artifact/custody, and source-handoff schema families;
-their validators become plan-aware without weakening accepted WA0/DX0 data.
-
-The future implementation branch/ref are frozen as
-`codex/pc0-windows-vst3-pre-setup-processing-contract` and
-`refs/heads/codex/pc0-windows-vst3-pre-setup-processing-contract`. The inherited
-source-handoff wire identity remains schema
-`linux-vst-bridge-dx0-source-handoff/v1`, bundle
-`dx0-execution-source-<consumer-commit>.bundle`, sole advertised/Deck ref
-`refs/handoff/dx0-source/<consumer-commit>`, and receipt filenames
-`DX0_SOURCE_HANDOFF_RECEIPT.json` / `DX0_SOURCE_HANDOFF_RECEIPT.sha256`.
-These are derived by the driver, never copied by the operator.
-
-### Private retained result: P/E original-observation truth
-
-The Deck publishes `linux-vst-bridge-pc0-transaction-result/v1`. Its exact
-top-level keys are `schema`, `operation_nonce`, `artifact_producer_source`,
-`deck_execution_source`, `execution_input`, `host_artifact`,
-`accepted_fixture`, `source_handoff`, `closed_plan`, `original_observation`,
-`positive_result`, `call_facts`, `quiescence`, `shutdown`, `cleanup`,
-`protected_state`, and `integrity`. `positive_result.processing_contract` is
-the immutable `linux-vst-bridge-pc0-processing-contract/v1` value.
-
-This private object binds the true artifact producer P and original Deck
-execution E. It contains no evidence-consumer C: C does not yet exist as an
-execution fact when the Deck publishes. Strict private-result admission
-requires canonical JSON plus external sidecar; exact P/E and Deck-input joins;
-host artifact, accepted fixture, handoff, and closed plan; complete original
-observation identity/timestamps; exact positive contract/calls; interface and
-object quiescence; clean shutdown; zero descendants and retired/absent
-environment; equal completed original protected-state comparison; and hashes
-of each bounded projection. A filename, schema, digest, or success flag alone
-never qualifies, and admission never rewrites P or E for a later consumer.
-
-### Tracked evidence packet: P/E/C projection
-
-After strict admission, C locally renders `TRANSACTION.json` as the complete
-`linux-vst-bridge-pc0-evidence-packet/v1` value. Its exact top-level key roster
-is:
+The four repaired paths are outside the Windows-build roster. Every record in
+that roster must equal the failed producer exactly:
 
 ```text
-schema
-artifact_producer_source
-deck_execution_source
-evidence_consumer_source
-observation_disposition
-consumer_executed_on_deck
-consumer_deck_state_freshly_inspected
-admitted_private_result_sha256
-result_admission
-windows_build_input
-deck_execution_input
-host_artifact
-accepted_fixture
-source_handoff
-closed_plan
-original_observation
-processing_contract
-call_facts
-quiescence
-shutdown
-cleanup
-protected_state
-proof_rows
-renderer
-integrity
-```
-
-`observation_disposition` is exactly `original_observation` for the initial
-same-transaction rendering, otherwise `reused_original_observation`.
-`consumer_executed_on_deck` is true only when the admitted E observation
-actually executed the exact C source; `consumer_deck_state_freshly_inspected`
-is true only for the initial observation transaction, never for later reuse.
-A renderer-only correction may change C and renderer identity while preserving
-P/E; it must use the reuse disposition and both booleans are false.
-
-`result_admission` records the exact predicate/schema, pass result, admitted
-result digest, Deck-input digest, and plan digest. `original_observation`
-retains E's immutable observation ID and bounded timestamps from the admitted
-private result. `proof_rows` has exactly 16 unique row IDs and dispositions.
-`integrity` contains hashes of the admitted private result and named nested
-projections (`processing_contract`, `call_facts`, lifecycle closure,
-`protected_state`, `proof_rows`, and renderer), not a digest of the packet
-containing itself. Hash order is nested projections, private-result canonical
-bytes and external sidecar, evidence nested projections, evidence-packet
-canonical bytes, then the external evidence-file ledger; no object includes
-its own hash in its hashed contents.
-
-`COST_AND_INVALIDATION.json` uses the inherited DX0 cost-schema family and has
-only `schema`, `external_effect_counts`, `phase_dispositions`,
-`invalidation_cases`, `renderer_only_reuse`, `ordinary_driver_command_count`,
-`manually_copied_identifier_count`, and `fixture_accounting`. It owns no
-transaction, cleanup, or protected-state truth. `BASIS.md` and `FINDINGS.md`
-are human projections only.
-
-The accepted inherited ledger has 22 paired calls; PC0 adds exactly 11, so a
-positive retained result requires `started_count=completed_count=33`, no
-in-flight operation, no ledger overflow, and new-operation counts `(4,3,2,2)`
-in canonical order. Neither the result nor evidence admits latency/tail fields
-or any state-mutating operation.
-
-Identity invalidation is exact: a changed Windows roster record selects at most
-one post-freeze producer; a Deck-roster-only change selects zero builds and at
-most one positive batch; a renderer-only change over an admitted result selects
-only local rendering (zero build/download/custody/transfer/Deck effects); a
-Mac-driver-only change reuses narrower identities where equal. Ordinary PC0
-never compiles or reseeds AGain.
-
-## 9. Frozen source rosters and envelope
-
-Records are exactly `path`, `git_mode`, `git_blob`, unique and raw-UTF-8 sorted.
-The following memberships and modes are frozen; listed blobs are the exact
-revised-authority-head baseline. Final source identity substitutes only the
-final commit's blob at the same path/mode. Missing/extra paths, mode drift, or a
-blob not read from the bound commit blocks.
-
-The 14 changed source/configuration paths are:
-
-| Path | Why |
-|---|---|
-| `.github/workflows/wf0-windows-msvc-build.yml` | Register the exact PC0 host-only dispatch/plan while preserving the producer. |
-| `tools/host-proof.py` | Admit and drive the new closed plan through the existing one-command transaction. |
-| `tools/wf0-factory-census/artifacts.py` | Bind PC0 source identity in existing custody/handoff validation. |
-| `tools/wf0-factory-census/build.py` | Bind the PC0 build input and host-only receipt. |
-| `tools/wf0-factory-census/common.py` | Freeze plan, schemas, rosters, coordinates, and identity derivation. |
-| `tools/wf0-factory-census/evidence.py` | Strictly admit the retained result and render five files. |
-| `tools/wf0-factory-census/negative_tests.py` | Exercise production validation, invalidation, and injected failures. |
-| `tools/wf0-factory-census/normalize.py` | Decode the exact 11-call stream into the bounded contract. |
-| `tools/wf0-factory-census/run.py` | Select PC0 execution and publish its canonical retained result. |
-| `tools/wf0-factory-census/supervise.py` | Attribute the four new operations and coordinates. |
-| `tools/wf0-factory-census/verify.py` | Permit exactly the selected read-only C++ call surface and forbid all others. |
-| `windows-factory-probe/source/component_instance_session.cpp` | Implement the one bounded borrower and call sequence. |
-| `windows-factory-probe/source/component_instance_session.h` | Declare its fixed states/results/caps. |
-| `windows-factory-probe/source/main.cpp` | Select PC0 mode and close its session result. |
-
-Their exact baseline records, in that order, are:
-
-```text
-.github/workflows/wf0-windows-msvc-build.yml|100644|a00125a058607c0f1958cc883e2f09dcf1535214
-tools/host-proof.py|100644|beb57c62b94f3d99fb87f56db3b20b20553064c4
-tools/wf0-factory-census/artifacts.py|100644|b6b54bd0ccd9f35d9f395f3162008015000eb4dd
-tools/wf0-factory-census/build.py|100644|fc8850824808d3c635c2026a77877cb0eebf8c1e
-tools/wf0-factory-census/common.py|100644|e80dee0906bd7cdd3fea3f01eada609a1b996b48
-tools/wf0-factory-census/evidence.py|100644|41cb964c3f625ddb9626f35d8a7081f59df56ed2
-tools/wf0-factory-census/negative_tests.py|100644|9d12c99b2af474ecfb7a179d5bfab9bfcff8f3a6
-tools/wf0-factory-census/normalize.py|100644|39e840f51d7224a29e9f5d1e2eb9e13f84797551
-tools/wf0-factory-census/run.py|100644|48201b1f7a088c035638ab122a4ee7c465d11dde
-tools/wf0-factory-census/supervise.py|100644|aceb727371cd5a9405ec6664ba4394c78eaed4ad
-tools/wf0-factory-census/verify.py|100644|20451e84e209be0d903b74a4c239e68de83e0fd0
-windows-factory-probe/source/component_instance_session.cpp|100644|f1f4281b5484d38007fca22adbb40c7f35a827bc
-windows-factory-probe/source/component_instance_session.h|100644|6c81005b178c4cc7fa9f59a37830095a7a98acc9
-windows-factory-probe/source/main.cpp|100644|4047e91b3fef6365407c71e50b3398a05b280975
-```
-
-The inherited WindowsBuildInputIdentity roster remains the following exact
-17-record raw-sorted roster:
-
-```text
-.github/workflows/wf0-windows-msvc-build.yml|100644|a00125a058607c0f1958cc883e2f09dcf1535214
+.github/workflows/wf0-windows-msvc-build.yml|100644|c4bbcb03d2bc9b464433bdb37931fb3d5a0f169c
 CMakeLists.txt|100644|b6573f22f2931f24f0453c67accd514430cd525f
 cmake/WF0DependencyLock.cmake|100644|3312c93653621dd8ac7a1a9027f57614666cdbdd
-tools/wf0-factory-census/build.py|100644|fc8850824808d3c635c2026a77877cb0eebf8c1e
-tools/wf0-factory-census/common.py|100644|e80dee0906bd7cdd3fea3f01eada609a1b996b48
-tools/wf0-factory-census/verify.py|100644|20451e84e209be0d903b74a4c239e68de83e0fd0
+tools/wf0-factory-census/build.py|100644|b81de04c2fd7dd6af29f27b7ef736ab9f76b075f
+tools/wf0-factory-census/common.py|100644|dc5e2e2309733bd77a4f528e43940bdc571ce67d
+tools/wf0-factory-census/verify.py|100644|589ef7594303ebd5e8741d5303c56d1ee17348e8
 windows-factory-probe/CMakeLists.txt|100644|c07fdab2fe5a2814cbbcd9847619e651f6383510
 windows-factory-probe/include/linux_vst_bridge/wf0_probe/census.h|100644|fa7bc69b9408847617da68b4b32e0d136ee8084d
 windows-factory-probe/include/linux_vst_bridge/wf0_probe/events.h|100644|ba19cf5f378df32a3b31b3a7e97503f8cfdecfe6
-windows-factory-probe/source/component_instance_session.cpp|100644|f1f4281b5484d38007fca22adbb40c7f35a827bc
-windows-factory-probe/source/component_instance_session.h|100644|6c81005b178c4cc7fa9f59a37830095a7a98acc9
+windows-factory-probe/source/component_instance_session.cpp|100644|30ddecfdbc245990211acaea7d8326e35b45713e
+windows-factory-probe/source/component_instance_session.h|100644|3f15fa52792ca75e4238c8f707e2154424a4f910
 windows-factory-probe/source/factory_census.cpp|100644|bf5a14cf1941a48f3e3aea513fe9901ae97ce57b
 windows-factory-probe/source/factory_census.h|100644|a5757268ed6c91cd60d51dd4202ecd5d5e21e36d
-windows-factory-probe/source/main.cpp|100644|4047e91b3fef6365407c71e50b3398a05b280975
+windows-factory-probe/source/main.cpp|100644|c37b4ca23787de515b9c256ea2215ae7f10d2c1c
 windows-factory-probe/source/win32_module.cpp|100644|9095817720550ff858b10cb233341d51b022399a
 windows-factory-probe/source/win32_module.h|100644|0ae6eaaa54f68b8399f22c5b2cc99035a87f8bfd
 windows-fixtures/wf0/CMakeLists.txt|100644|9f2c019e658f3789d3a698b67ffbb61aa51db99a
 ```
 
-The DeckExecutionInputIdentity roster is exactly:
+The identity algorithm and every non-record field remain unchanged. This exact
+roster reproduces
+`575d3bd9183be1ec0fe0311cff48bc0107c4299a3355748c470e3d195d284849`.
+Any differing record or identity is `RETURN_TO_DESIGN_GATE`. The implementation
+must not dispatch a producer to repair a mismatch.
+
+`common.py` retains the V2 basis constants because it is a Windows-build input.
+The V3 source parent is therefore admitted by three narrow, PC0-only validators
+in `host-proof.py`, `run.py`, and `evidence.py`. Each must require the exact
+future V3 authority merge commit/tree, exact fourteen-path direct-child
+topology, V3 design/review/approval identities, and the existing PC0 ref.
+Deterministic parity tests must prove that all three derive the same
+`linux-vst-bridge-pc0-complete-source/v1` value. They may reuse the existing
+canonical source-role hashing function after the strict V3 preflight. They
+must not weaken or replace the inherited DX0/WA0 validator.
+
+Source inspection also found V2-only admission inside
+`artifacts.create_source_handoff`, `artifacts._source_from_bundle`, and
+`artifacts.verify_source_handoff`. The V3 PC0 call sites in `host-proof.py` and
+`run.py` must use narrow V3 equivalents of those existing responsibilities.
+They retain the exact `linux-vst-bridge-dx0-source-handoff/v1` key roster,
+bundle naming, one advertised ref, zero prerequisites, 128 MiB cap, canonical
+receipt, sidecar, and self-contained bare-repository readback. Only the exact
+admitted V3 authority/basis tuple changes. The tuple has the existing keys
+`reviewed_design_commit`, `design_blob`, `design_sha256`,
+`technical_lead_review`, and `approval_blob`. Old producer P and old custody
+continue through the unchanged V2 artifact validator.
+
+This routing is explicit; runtime monkey-patching of `common.py` or
+`artifacts.py` is forbidden. No new repository-local import is added to
+`run.py` or `evidence.py`, so the seven-record Deck closure and two-record
+renderer closure remain complete. V3-specific proof wording and cost-schema
+selection live in the already permitted driver/renderer paths; the historical
+V2 literals in `common.py` are not relabelled as V3 authority.
+
+## 5. Durable private failure diagnostic
+
+### Location and schema
+
+For a corrective execution input `D` and proof-plan digest `Q`, the existing
+Deck-side inner execution lock is:
 
 ```text
-tools/wf0-factory-census/artifacts.py|100644|b6b54bd0ccd9f35d9f395f3162008015000eb4dd
-tools/wf0-factory-census/common.py|100644|e80dee0906bd7cdd3fea3f01eada609a1b996b48
-tools/wf0-factory-census/environment.py|100644|5299101704055e371a14a2f8cd70dd8eb1bace24
-tools/wf0-factory-census/normalize.py|100644|39e840f51d7224a29e9f5d1e2eb9e13f84797551
-tools/wf0-factory-census/run.py|100644|48201b1f7a088c035638ab122a4ee7c465d11dde
-tools/wf0-factory-census/supervise.py|100644|aceb727371cd5a9405ec6664ba4394c78eaed4ad
-tools/wr0-proton-bootstrap/launch.py|100755|215718bb641765da9163779c0e2145bd02d3198a
+<Deck result parent>/.locks/<D>-<Q>/
 ```
 
-Its transitive repository-local import/execution closure must equal this
-roster. The EvidenceRendererIdentity roster is exactly:
+A failed PC0 run publishes exactly these two direct children:
 
 ```text
-tools/wf0-factory-census/common.py|100644|e80dee0906bd7cdd3fea3f01eada609a1b996b48
-tools/wf0-factory-census/evidence.py|100644|41cb964c3f625ddb9626f35d8a7081f59df56ed2
+PC0_FAILURE_DIAGNOSTIC.json
+PC0_FAILURE_DIAGNOSTIC.json.sha256
 ```
 
-The exact evidence roster is:
+The JSON schema is
+`linux-vst-bridge-pc0-failure-diagnostic/v1`. Its exact top-level key roster is:
+
+```text
+schema
+operation_nonce
+phase_nonce
+execution_source
+execution_input_sha256
+proof_plan_sha256
+run_id
+raw_exit
+classification
+primary_blocker
+secondary_cleanup_blocker
+last_lifecycle
+last_in_flight_operation
+durable_record_count
+durable_records
+call_counts
+audio_processor_observer_state
+audio_interface_quiescence
+inherited_shutdown
+cleanup
+environment_retirement_disposition
+stdout_sha256
+stderr_sha256
+stderr_bytes
+protected_snapshot_sha256
+runner_identity_sha256
+```
+
+There is no in-object digest. The sidecar is exactly:
+
+```text
+<lowercase SHA-256><two spaces>PC0_FAILURE_DIAGNOSTIC.json<LF>
+```
+
+### Exact value laws
+
+- `operation_nonce` and `phase_nonce` are lowercase 32-hex and must equal the
+  prepared intent.
+- `execution_source` uses the existing six-key source-role roster:
+  `identity_sha256`, `commit`, `tree`, `parent`, `ref`,
+  `manifest_sha256`.
+- The execution-input and proof-plan digests must equal the prepared intent.
+- `run_id` is lowercase 32-hex.
+- `raw_exit` is null when unobservable or an exact signed integer in
+  `[-255,255]`.
+- `classification` is one of
+  `output_publication_failed`, `supervision_failed`,
+  `supervision_and_process_cleanup_failed`, `process_cleanup_failed`,
+  `call_timeout`, `stage_timeout`, `abnormal_termination_in_flight`, or
+  `scanner_blocked`.
+- Scanner `raw_exit=99` requires
+  `classification=output_publication_failed`. A supervision exception requires
+  `classification=supervision_failed` unless process cleanup also failed, in
+  which case the compound classification is exact. No other classification
+  may relabel those cases.
+- `primary_blocker` retains the supervisor's first bounded blocker. Its
+  closed value set is exactly the union of the values of `EXIT_BLOCKER` and
+  `IN_FLIGHT_BLOCKER` in pinned `supervise.py` plus
+  `PC0_PROCESS_CLEANUP_BLOCKED`. These are inherited diagnostic values, not
+  additions to the ten PC0 outward outcomes.
+  The outward PC0 blocker remains derived by the existing V2 precedence law;
+  an inherited or otherwise unselected primary maps outward to
+  `PC0_EVIDENCE_BLOCKED` without rewriting the retained primary.
+- `secondary_cleanup_blocker` is null or
+  `PC0_PROCESS_CLEANUP_BLOCKED`.
+- `last_lifecycle` is null or one existing accepted WF0/WC0/WA0/PC0 lifecycle
+  enum. `last_in_flight_operation` is null or one of the existing 26 operations.
+- `durable_record_count` is an integer from 0 through 2048 and equals the list
+  length.
+- `durable_records` is the allow-listed projection already defined by
+  `normalize.sanitized_timeline(run)["positive"]`. Each record keeps only that
+  projection's exact keys. Admission revalidates sequence, event kind,
+  operation/interface/tier/coordinate enums, call pairing, host-callback
+  attribution, and lifecycle ordering to the last durable record. Unknown
+  keys, duplicate JSON keys, gaps, extra records, mutable coordinates, or an
+  impossible last-state/in-flight join block admission. The Deck reuses that
+  existing projection; the Mac validator freezes its literal closed key/enum
+  roster in `evidence.py` without importing `normalize.py` or `supervise.py`.
+  Deterministic parity cases bind the two validators.
+- `call_counts` has exactly the following 26 keys, each an integer 0 through
+  2048, and it must reproduce the starts in `durable_records`:
+
+```text
+can_process_sample_size
+count_classes
+create_component
+exit_dll
+free_library
+get_bus_arrangement
+get_bus_count
+get_bus_info
+get_class_info_1
+get_class_info_2
+get_class_info_unicode
+get_controller_class_id
+get_factory_info
+get_plugin_factory
+init_dll
+initialize_component
+load_library
+query_audio_processor
+query_factory_2
+query_factory_3
+release_audio_processor
+release_component
+release_factory_2
+release_factory_3
+release_factory_base
+terminate_component
+```
+
+- `audio_processor_observer_state` is one existing
+  `AudioProcessorLeaseState` name; `audio_interface_quiescence` is boolean.
+- `inherited_shutdown` has exactly `operations`,
+  `clean_in_process_shutdown`, and `physical_containment_only`.
+  `operations` has exactly the seven inherited shutdown operation names; each
+  value has only `disposition` and `source` using existing supervisor enums.
+- `cleanup` has exactly `owned_descendants_zero` and
+  `process_group_empty`, both booleans.
+- `environment_retirement_disposition` is exactly `retired`,
+  `not_attempted_process_containment_unproved`, or `failed`.
+- stdout/stderr/protected-snapshot/runner fields are lowercase SHA-256 values.
+  `stderr_bytes` is an integer from 0 through 65536.
+- Canonical diagnostic bytes are at most 2,097,152 bytes. Raw stdout, raw
+  stderr, environment paths, usernames, hostnames, addresses, process IDs,
+  credentials, plug-in binaries, license data, and proprietary state have no
+  schema location.
+
+### Publication order and failure law
+
+`run.py` keeps the failed `run` value until environment-retirement disposition
+is known. It constructs and validates the diagnostic before raising the PC0
+blocker. Publication uses `write_atomic` for canonical JSON, then
+`write_atomic` for the external sidecar; sidecar publication is the commit
+marker. The pair is re-read and strictly validated before the exception is
+raised. An already complete identical pair is reusable. A partial, symlinked,
+oversized, conflicting, or multiply named publication remains fail-closed.
+
+The inner lock is retained after every failure. A diagnostic never creates a
+success result, changes the primary blocker, proves clean shutdown, authorizes
+retry, or causes the lock to be removed. Diagnostic publication failure yields
+`PC0_EVIDENCE_BLOCKED` and preserves the incomplete lock. No diagnostic is
+published on the success path.
+
+The historical V2 batch predates this schema and remains unresolved; no file
+may be synthesized for it.
+
+## 6. Mac preflight, retrieval, admission, and private custody
+
+### Read-only corrective Deck safety preflight
+
+The same ordinary Mac driver command performs one exact current-safety
+preflight after the repaired V3 source handoff has been created and admitted
+and its Deck worktree has been proved detached and clean. It performs this
+preflight before writing either the local or remote current execution intent,
+before preparing `execute_deck_batch`, before persisting a corrective
+reservation or incrementing `deck_executions`, and before creating any current
+Mac or Deck execution lock, environment, result, diagnostic, or stage. The
+existing Mac execution-input single-writer lock is acquired only after this
+preflight succeeds and still before reservation; that coordination step
+creates no Deck effect.
+
+`host-proof.py` invokes one V3-only `corrective-preflight` operation in the
+repaired `run.py` from that exact detached worktree. The operation accepts only
+the candidate identities as bounded arguments, writes no input file, and
+returns one canonical JSON object on stdout. It calls only the existing
+read-only store validators, the already-designed narrow V3 source/handoff
+validators within `run.py`, `process_guard()`,
+`deck_fixture_identity()`, `verify_runner_identity()`, and
+`protected_snapshot()`, plus bounded read-only lock/result inspection. Its
+entry point cannot reach `write_atomic`, directory creation, environment
+creation/retirement, `supervise()`, result/diagnostic publication, or a
+Runtime/Proton launcher.
+It is a private proof-transaction helper, not a fifth VST3 operation type or a
+product state.
+
+The SSH command unsets `GH_TOKEN`, `GITHUB_TOKEN`, `GITHUB_PAT`, and
+`SSH_AUTH_SOCK`, sets `PYTHONDONTWRITEBYTECODE=1`, and invokes
+`/usr/bin/python3 -B`; bytecode or other worktree writes are forbidden. After
+the response, the Mac repeats exact HEAD, detached-branch, and full porcelain
+status checks and admits the receipt only if the worktree is still the expected
+commit, detached, and clean.
+
+The Mac duplicate-safe parses and independently validates the returned object,
+adds the local execution-lock and reservation-absence facts, and constructs the
+private embedded schema
+`linux-vst-bridge-pc0-corrective-deck-preflight/v1`. Its exact top-level roster
+is:
+
+```text
+schema
+operation_nonce
+execution_source
+execution_input_sha256
+proof_plan_sha256
+source_handoff
+worktree
+process_guard
+fixture
+runner_identity_sha256
+protected_snapshot_sha256
+stores
+historical_failed_transaction
+current_corrective_absence
+write_effect_counts
+```
+
+The closed nested rosters and values are:
+
+- `operation_nonce` is the current lowercase 32-hex transaction ID;
+  `execution_source` is the exact repaired V3 six-key source role, including
+  its unchanged PC0 ref; and `execution_input_sha256` and
+  `proof_plan_sha256` equal the exact candidate input and admitted plan;
+
+- `source_handoff`: `receipt_sha256`, `bundle_sha256`, and `advertised_ref`,
+  all equal to the exact admitted V3 handoff and bundle;
+- `worktree`: `commit`, `detached`, and `clean`, equal to the repaired source,
+  true, and true;
+- `process_guard`: `process_counts` and `prohibited_sibling_count`;
+  `process_counts` has exactly `bitwig`, `validator`, `wine`, `proton`,
+  `runtime`, `umu`, `yabridge`, and `wf0`, all zero, while the sibling count is
+  zero after rejecting every `.wr0-proton11.*` and
+  `.wf0-factory-census.stage-*` sibling recognized by the accepted guard;
+- `fixture`: `hardware`, `os`, `architecture`, `read_only_mode`,
+  `github_authority_absent`, and `forwarded_ssh_agent_absent`, equal to Steam
+  Deck Galileo, SteamOS 3.8.16, x86_64, enabled, true, and true;
+- `runner_identity_sha256`: exactly
+  `2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547`;
+- `protected_snapshot_sha256`: the canonical digest of the full accepted
+  `protected_snapshot()` value, after that function has revalidated Bitwig
+  6.1, its exact install/runtime/override projection, the accepted WR0 retained
+  environment, and every protected historical source/evidence invariant;
+- `stores`: `host_artifact_manifest_sha256`, `producer_run_id`,
+  `producer_run_attempt`, `artifact_id`, `again_bundle_manifest_sha256`,
+  `accepted_fixture_identity_sha256`, `host_transfer_fallback_selected`, and
+  `fixture_transfer_fallback_selected`; the values are exactly
+  `d0e11c374b7b1cb99b357faaa109e9310edc265c159559bd59a2098148484e9c`,
+  33812659869, 1, 9915439437,
+  `bfaa1dce4d2e189f89cee41493838824efe647e361e81436676b7b3a86ff5164`,
+  `6c87be964d26a7ad06e7a4c69c5c5261d1046e9cfb0b17a225fd24c3e40d0ba6`,
+  false, and false after both current stores validate;
+- `historical_failed_transaction`: `transaction_id`,
+  `execution_input_sha256`, `expected_intent_sha256`, `intent`, `result`,
+  `result_sidecar`, `inner_lock`, `inner_prepared_intent_sha256`,
+  `outer_lock`, `outer_prepared_intent_sha256`, and
+  `contradictory_pc0_object_count`; the transaction and input are the admitted
+  V2 values, intent is `present_matched`, result and sidecar are `absent`, both
+  locks are `present_intent_matched`, both prepared-intent digests equal the
+  expected canonical intent digest, and the contradictory-object count is
+  zero;
+- `current_corrective_absence`: `execution_intent_absent`,
+  `reservation_absent`, `mac_execution_lock_absent`, `outer_lock_absent`,
+  `inner_lock_absent`,
+  `result_absent`, `result_sidecar_absent`, `diagnostic_absent`, and
+  `diagnostic_sidecar_absent`, all true for the exact candidate input/plan;
+  intent absence covers both the local and remote current intent paths;
+- `write_effect_counts`: `environment_creations`,
+  `execution_intent_publications`, `execution_lock_creations`,
+  `result_publications`, `diagnostic_publications`,
+  `protected_state_mutations`, `deck_execution_reservations`,
+  `deck_execution_count_increments`, and `proton_launches`, all zero.
+
+The remote stdout projection has exactly that top-level roster except
+`schema`; its `current_corrective_absence` omits the Mac-only
+  `reservation_absent` and `mac_execution_lock_absent` keys. The Mac rejects
+remote claims for those keys, verifies both local absences itself, and inserts
+them and the schema literal. It also verifies the current local intent/result
+absence. No unbounded process text, paths, credentials, or raw protected-state
+content enter the receipt.
+
+There is no in-object digest. The Mac hashes the canonical object and embeds
+both the object and `corrective_preflight_sha256` in the existing
+`transfer_and_admit_deck_inputs` phase output beside `source_ref`,
+`detached_worktree_commit`, and `deck_github_operations=0`; it then durably
+saves that existing phase and the `handoff_admitted` state. No new phase,
+product state, VST3 operation type, proof row, runtime blocker, tracked file,
+or remote receipt file is introduced. The receipt is valid only for the same
+driver invocation's immediately following predicate and reservation; an
+earlier or interrupted invocation's receipt cannot be used to reserve.
+
+Missing, unsafe, noncanonical, extra, mismatched, nonzero, or contradictory
+preflight facts return an already approved PC0 outward blocker or
+`RETURN_TO_DESIGN_GATE`, according to the existing precedence law. They leave
+the candidate intent absent, consume zero corrective reservations, do not
+increment `deck_executions`, and launch no Runtime/Proton process. Host or
+fixture store absence blocks; it never selects a transfer, rebuild, download,
+custody, seed, or fixture fallback.
+The V3 corrective path never calls the host/fixture `publish_tree` fallback;
+it performs read-only roster/hash verification against the existing Deck
+stores and blocks if either store is absent.
+
+### Failed-run retrieval and custody
+
+After the corrective remote command returns one exact PC0 blocker, the Mac
+driver first performs the existing success-result recovery. Only when no
+success result or sidecar exists may it inspect the exact inner lock derived
+from `D` and `Q`. It retrieves only the two frozen diagnostic filenames.
+
+Remote admission requires a regular non-symlink lock directory containing
+exactly `prepared-intent.json` and the two diagnostic files, exact expected
+prepared-intent bytes, exactly one diagnostic pair, no conflicting diagnostic
+name, canonical JSON, exact sidecar bytes, the size bounds above, and every
+schema/value/join law. Source, source role, operation nonce, phase nonce,
+DeckExecutionInputIdentity, proof-plan digest, run ID, record sequence, call
+counts, blocker precedence, protected-snapshot digest, runner digest, and
+cleanup fields are all independently checked.
+
+The Mac stages the pair beneath the active transaction, validates it before
+promotion, then atomically promotes one private directory:
+
+```text
+<Mac transaction>/failure-diagnostic/
+  PC0_FAILURE_DIAGNOSTIC.json
+  PC0_FAILURE_DIAGNOSTIC.json.sha256
+```
+
+The `execute_deck_batch` phase output records exactly the outward blocker,
+retained primary blocker, secondary cleanup blocker, classification,
+`failure_diagnostic_sha256`, and custody disposition. No diagnostic bytes enter
+tracked evidence. An invalid staging pair is not promoted.
+
+Missing, ambiguous, partial, malformed, noncanonical, mismatched, oversized,
+unsafe, or multiple diagnostics result in `PC0_EVIDENCE_BLOCKED` followed by
+`RETURN_TO_DESIGN_GATE`. They never authorize another Deck launch. A valid
+failed diagnostic also ends V3's corrective authority permanently.
+
+### Immutable corrective pre-evidence journal boundary
+
+On corrective success, `host-proof.py` creates exactly this private pair at
+the root of the current Mac transaction:
+
+```text
+PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json
+PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json.sha256
+```
+
+The JSON is not a new schema. Its bytes are an exact byte-for-byte snapshot of
+the canonical `DX0_TRANSACTION_STATE.json` bytes under the existing
+transaction-state schema. It contains no snapshot digest or other new
+self-reference; `pre_evidence_journal_sha256` is introduced only by the later
+tracked corrective-history render. The snapshot is taken only after the
+corrective result has been strictly retained and admitted, the
+`retrieve_and_retain_result` phase has reached its terminal completed
+disposition, and all live effect counts and corrective-reservation facts have
+been durably saved. It is taken before constructing or rendering tracked
+evidence, before creating a `render_and_validate_evidence` phase receipt or the
+`evidence_rendered` state, and before `close_transaction` or final transaction
+completion.
+
+The corrective reservation remains durable in the existing
+`execute_deck_batch.inputs.corrective_reservation` object, whose exact keys are
+`kind`, `historical_transaction_id`, `reservation_ordinal`,
+`additional_positive_deck_batches_maximum`, and
+`corrective_preflight_sha256`. Their values are `v3_single_corrective`,
+`a14bcc65d15e9fbdf15810a658b2ee87`, 1, 1, and the exact admitted preflight
+digest. That input survives the phase's transition from `prepared` to
+`completed`; the same snapshot records `deck_executions=1`,
+`run_invocation_count=1`, the terminal result SHA, and every other current V3
+external effect.
+
+Snapshot publication first duplicate-safe parses the live journal, proves its
+bytes canonical, and validates the exact transaction/source/input/plan,
+preflight/reservation, execute-result, result-admission, phase, state, and
+effect joins. It then atomically writes the identical bytes and atomically
+writes this commit marker:
+
+```text
+<lowercase SHA-256><two spaces>PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json<LF>
+```
+
+An existing identical complete pair may be reused; a partial, symlinked,
+noncanonical, mismatched, early, late, or conflicting pair blocks. Before any
+tracked evidence is rendered, the driver and `evidence.py` strictly re-read
+the pair, verify the sidecar, and revalidate the same joins. At that moment the
+live journal must still be byte-identical to the snapshot. Later render,
+render-phase, evidence-state, close-phase, and finalization mutations change
+only `DX0_TRANSACTION_STATE.json`; the immutable snapshot is never rewritten
+and is no longer compared for byte equality to the completed live journal.
+
+Admission requires state `transaction_result_retained`; terminal
+`retrieve_and_retain_result`; an absent `render_and_validate_evidence` and
+`close_transaction`; `evidence_renders=0`; the exact retained result and
+result-admission object; and matching source, preflight, reservation, and effect
+facts. These laws reject a snapshot taken before result admission, one taken
+after render, any byte or sidecar mismatch, noncanonical bytes, divergent
+source/result/effect/reservation facts, and tracked evidence that substitutes
+the final live journal digest. The historical V2 `journal_sha256`
+`06473755eb7ccfa2529522bb29e3fb44a5a4a67ea38fd0e797d198939e1ed966`
+remains unchanged because that failed journal was already frozen.
+
+## 7. Exact corrective-authority predicate
+
+V3 replaces the blanket “any prior PC0 Deck execution blocks forever” check
+with a single conjunction. It is not a numeric ceiling of two. Before
+reserving the corrective batch, all of the following must be true:
+
+1. The repaired source is one direct child of the exact merged V3 authority
+   commit/tree and is on the unchanged PC0 implementation ref.
+2. The source parent contains the exact reviewed V3 design blob/SHA,
+   `PC0_DESIGN_V3_CLEAR` review identity, and an exact V3 operator-approval
+   receipt that authorizes one corrective batch and no Windows work.
+3. The historical journal is canonical and hashes to
+   `06473755eb7ccfa2529522bb29e3fb44a5a4a67ea38fd0e797d198939e1ed966`.
+4. The historical recovery receipt is canonical and hashes to
+   `870039310c0f6ee4d0bf4044d629e6f6e7d92d2f901b7b40a60f9724bb84f9e5`.
+5. Those files join to transaction
+   `a14bcc65d15e9fbdf15810a658b2ee87`, failed source `7ac6095a...`,
+   failed tree `ad4230a...`, unchanged PC0 ref, exact proof plan, and failed
+   Deck input `ae89ee...`.
+6. Their admitted effect history is exactly one Windows build/download/custody,
+   one host-artifact transfer, one source transfer, one Deck execution, zero
+   evidence renders, one ordinary driver invocation, and one separately
+   recorded authorized recovery continuation.
+7. The historical execute phase is failed with
+   `PC0_EVIDENCE_BLOCKED`, there is no admitted prior PC0 success result or
+   sidecar, and its diagnostic class remains
+   `unresolved_v2_no_diagnostic`.
+8. The Windows build identity equals `575d3bd9...` and the existing Mac host
+   store strictly validates run `33812659869` attempt 1, artifact
+   `9915439437`, manifest `d0e11c...`, build receipt `7de6884d...`, and custody
+   receipt `e2a06c...`. No producer, workflow dispatch, download, or custody
+   fallback is selectable.
+9. After later explicit execution authority permits Deck contact, the existing
+   Deck host-artifact store and accepted AGain fixture store validate exactly
+   in the current section 6 read-only preflight.
+   Absence or mismatch blocks. No artifact transfer, fixture seed, or AGain
+   build fallback is selectable.
+10. That same authorized preflight finds no historical success result/sidecar and
+    resolves the expected historical intent and failure-lock objects without
+    contradiction. This design makes no current remote-lock claim.
+11. Across the proof root there is exactly the one named historical
+    transaction plus the current exact V3 transaction for this ref; no other
+    PC0 Deck effect, corrective reservation, or completed corrective result
+    exists.
+12. The exact section 6 read-only preflight has completed successfully in this
+    driver invocation after repaired-source handoff/admission, and its
+    canonical receipt and digest are durable in
+    `transfer_and_admit_deck_inputs`. It proves the exact current source,
+    detached clean worktree, process/stage guard, fixture/authority posture,
+    runner, protected state, stores, historical locks, and current absence
+    facts. The current V3 transaction still has no `execute_deck_batch` phase,
+    corrective reservation, Deck effect, result, or diagnostic. Only now is
+    the existing Mac execution-input single-writer lock acquired with an exact
+    intent/publication recheck, before any corrective reservation is persisted.
+
+Only after all twelve predicates pass may the driver durably reserve one
+corrective execution. The current V3 journal increment to `deck_executions=1`
+and execute-phase `prepared` receipt, including the immutable
+`corrective_reservation` input defined in section 6, are the reservation.
+Both are durable before launch; any surviving reservation fact is consumed
+even if interruption prevented its companion write. The same-source
+transaction key, Mac single-writer lock, exact historical scan, and existing
+remote locks jointly prohibit duplicate launch. Once reserved, acknowledgement loss,
+command failure, valid diagnostic, invalid diagnostic, or success all count as
+consumed. No V3 code path can authorize a third batch.
+
+The additional effect ceiling is:
+
+| Effect | V3 additional maximum |
+|---|---:|
+| Windows builds / workflow dispatches | 0 / 0 |
+| artifact downloads / custody operations | 0 / 0 |
+| fixture seeds / AGain builds | 0 / 0 |
+| host-artifact transfers | 0 |
+| repaired-source handoff/transfers | 1 |
+| positive Deck batches | 1 |
+| live negative exercises | 0 |
+| evidence renders | 1 after success; otherwise one private diagnostic retrieval |
+
+If the repaired source handoff already validates exactly, transfer count may
+be zero. Any host/fixture cache miss is `RETURN_TO_DESIGN_GATE`, not permission
+to reconstruct or transfer it.
+
+The ordinary developer interface remains one command:
+
+```text
+python3 tools/host-proof.py run --source <repaired-commit> --plan pc0-pre-setup-processing-contract-v1
+```
+
+That steady-state interface does not erase earlier invocations.
+
+## 8. Truthful historical cost and P/E/C roles
+
+Producer P remains failed source
+`7ac6095a488d0077fcc78fedc5abd870b5ffb1cb` because that exact source built
+artifact `9915439437` under WindowsBuildInputIdentity `575d3bd9...`.
+Successful execution E is the repaired V3 source. Consumer C is the final
+evidence consumer and may differ only under the accepted renderer-only reuse
+law.
+
+`COST_AND_INVALIDATION.json` keeps the V2 top-level roster:
+
+```text
+schema
+external_effect_counts
+phase_dispositions
+invalidation_cases
+renderer_only_reuse
+ordinary_driver_command_count
+manually_copied_identifier_count
+fixture_accounting
+```
+
+The V2 validator fixes incompatible V1 value constraints, including per-effect
+maximum one and a one-invocation interpretation. V3 therefore freezes the new
+schema value
+`linux-vst-bridge-pc0-cost-and-invalidation/v2`. Publishing corrective history
+under the V1 schema is forbidden.
+
+`external_effect_counts` and `ordinary_driver_command_count` describe the final
+V3 transaction only. `invalidation_cases` keeps its existing entries and adds
+one exact `corrective_history` object with this roster:
+
+```text
+schema
+v2_failed_execution
+v2_operator_recovery
+v3_corrective_authority
+v3_corrective_execution
+cumulative_external_effect_counts
+cumulative_orchestration_counts
+```
+
+The nested schema is `linux-vst-bridge-pc0-corrective-history/v1`. Its closed
+sub-rosters are:
+
+| Object | Exact keys |
+|---|---|
+| `v2_failed_execution` | `transaction_id`, `journal_sha256`, `source`, `deck_execution_input_sha256`, `proof_plan_sha256`, `execute_phase_disposition`, `transaction_state`, `primary_blocker`, `failure_classification`, `local_result_disposition`, `remote_preflight`, `effect_counts`, `driver_invocation_count` |
+| `v2_operator_recovery` | `receipt_sha256`, `continuation_count`, `original_driver_invocation_count`, `original_failure_boundary`, `disposition`, `runtime_discovery_comment_id` |
+| `v3_corrective_authority` | `merge_commit`, `merge_tree`, `design_blob`, `design_sha256`, `review_id`, `approval_blob`, `prior_journal_sha256`, `prior_recovery_receipt_sha256`, `additional_positive_deck_batches_maximum`, `additional_windows_builds_maximum` |
+| `v3_corrective_execution` | `transaction_id`, `pre_evidence_journal_sha256`, `execution_source`, `evidence_consumer_source`, `driver_invocation_count`, `reservation_count`, `effect_counts`, `result_sha256` |
+
+Every `source` uses the existing six-key source role. Every `effect_counts`
+uses the existing seven effect keys. `remote_preflight` has exactly `result`,
+`result_sidecar`, `inner_lock`, and `outer_lock`, with values `absent`,
+`absent`, `present_intent_matched`, and `present_intent_matched` after the
+later authorized readback. A missing or mismatched historical lock blocks the
+corrective reservation; these values are not claims made by this draft.
+
+`cumulative_external_effect_counts` has the seven existing effect keys plus
+`workflow_dispatches`, `again_builds`, `fixture_seeds`, and
+`live_negative_exercises`. `cumulative_orchestration_counts` has exactly
+`v2_driver_invocations`, `operator_recovery_continuations`,
+`v3_driver_invocations`, and `total_orchestration_entries`.
+
+It binds both historical file hashes; V2 transaction/source/input/phase;
+unresolved classification; observed future lock preflight; producer
+run/artifact/build identity; each transaction's exact effect counts; the frozen
+V2 journal hash and the V3 immutable pre-evidence journal snapshot hash; V2
+driver invocation count; recovery continuation count; V3 authority identities;
+one V3 driver invocation and one corrective reservation; repaired execution E;
+final consumer C; and the retained success-result SHA-256.
+
+`v3_corrective_execution.transaction_id` is exactly the current V3
+`operation_nonce`. `pre_evidence_journal_sha256` is exclusively the digest of
+`PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json` admitted at the section 6 boundary.
+It is never labelled, validated, or substituted as the final mutable
+`DX0_TRANSACTION_STATE.json` digest. The execution source, consumer source,
+invocation count of 1, reservation count of 1, and result hash must join to that
+snapshot's source, result admission, execute phase, preflight receipt, and
+reservation input.
+
+The existing render projection remains acyclic: the snapshot records every
+actual pre-render effect, including `evidence_renders=0`.
+`v3_corrective_execution.effect_counts` and top-level `external_effect_counts`
+must be equal and copy the snapshot's six non-render effect values exactly;
+only `evidence_renders` is projected from 0 to 1 for this one local render.
+Successful render/close/finalization readback must prove that exact projection
+and no new live effect or invocation. A mismatch prevents acceptance without
+rewriting the snapshot or the rendered packet. Cumulative costs add the
+admitted V2 effects to this validated final V3 projection. No digest of a
+post-render live journal enters tracked corrective history.
+
+On a successful corrective batch, expected cumulative history is:
+
+```text
+windows_builds: 1
+workflow_dispatches: 1
+artifact_downloads: 1
+custody_operations: 1
+artifact_transfers: 1
+source_transfers: 1 plus the actual V3 value in [0,1]
+deck_executions: 2
+evidence_renders: 1
+again_builds: 0
+fixture_seeds: 0
+live_negative_exercises: 0
+v2_driver_invocations: 1
+operator_recovery_continuations: 1
+v3_driver_invocations: 1
+total_orchestration_entries: 3
+```
+
+The final renderer must calculate these values from admitted journals and
+receipts. It may not use constants as substitutes for file admission. The
+tracked evidence must state that the product's clean steady-state interface is
+one command while actual implementation history used two ordinary driver
+invocations, one additional authorized recovery continuation, and two Deck
+executions. No success packet is rendered if the corrective batch fails.
+
+## 9. Branch replacement, archive, and final topology
+
+The draft V3 design branch is:
+
+```text
+refs/heads/codex/pc0-durable-failure-diagnostic-design-v3
+```
+
+No implementation history changes during design. After V3 review, explicit
+operator approval, authority finalization, merge, and exact `main` readback:
+
+1. Create and push immutable archive ref
+   `refs/heads/codex/archive/pc0-v2-failed-7ac6095a488d` at exact failed source
+   `7ac6095a488d0077fcc78fedc5abd870b5ffb1cb`.
+2. Read back the archive ref and refuse replacement if it differs.
+3. Create one repaired source commit directly above the exact V3 authority
+   merge. Its diff against that parent is the same fourteen source/configuration
+   paths. Relative to failed source, only the four repair paths in section 4
+   may differ.
+4. Prove the complete Windows roster and WindowsBuildInputIdentity equal the
+   failed producer exactly.
+5. Replace
+   `refs/heads/codex/pc0-windows-vst3-pre-setup-processing-contract` only with
+   force-with-lease expecting old tip
+   `7ac6095a488d0077fcc78fedc5abd870b5ffb1cb`. Any lease mismatch stops.
+6. After the one authorized corrective success, create one five-path
+   evidence-only child.
+
+Final implementation topology is exactly:
+
+```text
+V3 authority merge
+  -> one 14-path repaired source commit
+     -> one 5-path evidence-only commit
+```
+
+The archived failed source is retained as historical evidence and is not an
+ancestor of the repaired two-commit implementation branch. A merge, rebase
+chain, third implementation commit, missing archive readback, or unreviewable
+force update is `RETURN_TO_DESIGN_GATE`.
+
+## 10. Sixteen-row proof matrix
+
+No seventeenth row is added.
+
+| # | Focused proof |
+|---:|---|
+| 1 | Every V2/V3 authority and Git relationship resolves; the repaired source is one exact fourteen-path child and all identity rosters reproduce. |
+| 2 | The sole `PreSetupProcessingContractCensus` still borrows resources and adds no product owner. |
+| 3 | Corrective AGain execution emits exactly the canonical eleven-call sequence and 33 paired lifecycle calls. |
+| 4 | Count bounds and checked arithmetic remain exact. |
+| 5 | Every `BusInfo` remains coordinate-consistent, bounded, and strictly normalized. |
+| 6 | Both speaker arrangements retain exact bits and channel consistency. |
+| 7 | Sample-size true/false/other classification remains exact; AGain is true/true on success. |
+| 8 | Only the full immutable roster reaches contract complete. |
+| 9 | Ordinary failure preserves the first blocker and only proven teardown. |
+| 10 | Writer/supervision failures durably publish and strictly admit the exact bounded diagnostic; exit 99 and supervision failure remain distinguishable. |
+| 11 | Static and event ledgers contain no prohibited setup, latency, tail, activation, or processing call. |
+| 12 | Invalidation proves all Windows-build records and WindowsBuildInputIdentity remain exact while only the four non-Windows repair paths differ. |
+| 13 | Accepted AGain and host-artifact stores are reused with zero build, seed, producer, download, custody, or host-artifact transfer. |
+| 14 | One clean corrective driver command is distinguished from the admitted V2 driver and recovery history; exact current read-only Deck preflight succeeds before any corrective reservation, and the predicate admits one reservation only. |
+| 15 | Producer P from failed source joins repaired execution E through unchanged build identity; strict P/E result admission and C renderer reuse remain exact. |
+| 16 | Final machine-readable evidence admits the immutable private pre-evidence journal snapshot and proves cleanup/protected-state closure plus failed V2 disposition, corrective authority, two-batch cumulative history, and exact final costs without a final mutable-journal digest. |
+
+Rows 3, 13, 14, and 16 require the later authorized positive observation.
+All other refinements are deterministic/static or combine deterministic
+validation with already admitted immutable identities. A failed corrective
+batch yields only private diagnostic custody and no PASS packet.
+
+Deterministic tests must prove, without GitHub, SSH, Proton, Wine, fixture, or
+DAW execution:
+
+- raw exit 99 publishes and admits
+  `classification=output_publication_failed`;
+- injected supervision failure publishes and admits
+  `classification=supervision_failed` with exact nullable raw exit;
+- wrong sidecar, duplicate keys, noncanonical bytes, extra/missing keys,
+  oversized values, unknown enums, record-sequence defects, mismatched
+  source/input/plan/nonces, altered call counts, multiple diagnostics, and
+  symlinks are rejected;
+- the exact historical journal and receipt plus later V3 authority admit one
+  corrective reservation only after successful current read-only Deck
+  preflight;
+- the read-only preflight occurs after repaired-source/handoff/worktree
+  admission and before the execute phase is prepared, any Mac/Deck execution
+  lock or current intent is created, the reservation is persisted, or the
+  Deck execution count is incremented;
+- process/stage, fixture/authority, protected-state, runner, host/fixture-store,
+  historical-intent/lock, and current-result/reservation/diagnostic failures
+  consume zero corrective reservations and reach no Runtime/Proton launch;
+- no write path is reachable from `run.py corrective-preflight`: injected
+  traps for filesystem publication, directory creation, environment
+  creation/retirement, supervision, result/diagnostic publication, and budget
+  mutation are never reached; the emitted and embedded readback rosters are
+  exact and unknown keys are rejected;
+- a pre-evidence snapshot taken before strict result admission or completion
+  of `retrieve_and_retain_result`, or after render/close/finalization, is
+  rejected;
+- snapshot byte mismatch, noncanonical or duplicate-key JSON, sidecar
+  mismatch, changed transaction/source/result/effect/preflight/reservation
+  facts, and substitution of the final live journal digest are rejected;
+- later render/close/finalize writes leave the snapshot byte-identical, and
+  final costs differ from its effects only by the one validated local render;
+- no corrective authority blocks a second batch;
+- a consumed corrective reservation blocks a third batch, including after
+  lost acknowledgement or failed diagnostic retrieval;
+- producer, dispatch, download, custody, host-artifact transfer, seed, and
+  AGain-build paths are unreachable in corrective mode;
+- the exact seventeen-record roster reproduces
+  `575d3bd9183be1ec0fe0311cff48bc0107c4299a3355748c470e3d195d284849`;
+- final cost/evidence validation rejects hidden V2 execution, hidden recovery,
+  false one-invocation history, false one-batch history, or changed P/E/C roles;
+- the deterministic proof count remains sixteen and external effects remain
+  zero.
+
+## 11. Stop laws, privacy, and approval boundary
+
+Stop with `PC0_V3_RECONNAISSANCE_BLOCKED` if the exact local journal/receipt
+bytes or admitted facts differ from section 2 before design authority is
+accepted. `PC0_V3_RECONNAISSANCE_BLOCKED` is a design-process return label,
+not an additional PC0 runtime blocked outcome.
+
+Return `RETURN_TO_DESIGN_GATE` if truthful implementation requires a
+Windows-build-input change; `supervise.py` change; fifth repair path; another
+owner/state/call/blocker/proof row/evidence path; changed claim/fixture/runner;
+new producer/download/custody/host transfer; live negative; AGain build/seed;
+generalized retry framework; or broader protocol.
+
+A failed diagnostic is private, bounded, allow-listed, and contains hashes
+instead of raw streams or protected snapshots. It never enters Git. The five
+tracked evidence paths remain exactly:
 
 ```text
 evidence/pc0-windows-vst3-pre-setup-processing-contract/BASIS.md
@@ -482,79 +1043,9 @@ evidence/pc0-windows-vst3-pre-setup-processing-contract/TRANSACTION.json
 evidence/pc0-windows-vst3-pre-setup-processing-contract/hashes.sha256
 ```
 
-`TRANSACTION.json` alone owns the complete machine-readable tracked packet;
-its exact `processing_contract` value nests the immutable contract schema.
-`hashes.sha256` hashes the other four tracked files in lexical path order and
-does not include itself. The evidence-renderer identity binds this exact roster
-and packet contract.
-
-## 10. Cost ledger, proof matrix, and blockers
-
-Before PC0 the closed DX0 driver supports only WA0; after PC0 one command owns
-plan selection, host reuse/production, fixture verification, custody/handoff,
-one positive batch, result retrieval, and evidence. Required steady-state
-ledger: one ordinary Mac command, zero copied identifiers, at most one Windows
-producer after source freeze, zero AGain builds/seeds, at most one positive Deck
-batch, zero live negatives. Renderer-only correction performs `(build,
-download/custody, transfer, Deck) = (0,0,0,0)`.
-
-The initial PC0 source necessarily changes Windows-roster C++ and verification
-blobs, so its expected acceptance transaction is exactly one Windows producer
-and one positive Deck batch. This is not a retry allowance.
-
-| Operation | Before PC0 | PC0 accepted target |
-|---|---:|---:|
-| Supported ordinary PC0 driver commands | 0 | 1 |
-| Manually copied cross-plane identifiers | not a lawful route | 0 |
-| Windows acceptance producer | not selectable for PC0 | 0 on hit, otherwise 1 maximum after freeze |
-| AGain build / fixture seed | 0 / 0 | 0 / 0 |
-| Positive Deck batches | not selectable for PC0 | 0 on valid hit, otherwise 1 maximum |
-| Live negative exercises | 0 | 0 |
-| Renderer-only correction external effects | no PC0 result exists | 0 |
-
-| # | Focused proof |
-|---:|---|
-| 1 | Every named Git authority resolves with its exact type and relationship; the 14-source envelope and all four narrower rosters reproduce. |
-| 2 | Sole owner borrows but never acquires an interface/process resource. |
-| 3 | AGain emits exactly the canonical 11-call sequence and paired records. |
-| 4 | Negative, capped, aggregate, and overflow count laws stop before iteration. |
-| 5 | Every `BusInfo` is zeroed, coordinate-consistent, bounded, and strictly normalized. |
-| 6 | Both stereo arrangements retain exact bits and match two channels. |
-| 7 | Sample-size true/false/other classification is exact; AGain is true/true. |
-| 8 | Only a closed immutable full roster reaches contract-complete. |
-| 9 | Each ordinary early failure preserves first blocker and permits only proven WA0 teardown. |
-| 10 | Unmatched/timeout/crash and durable writer-failure attribution names exact coordinates, makes returned output unconsumable where required, and uses physical containment without a clean-retirement claim. |
-| 11 | Static/event ledgers contain none of the prohibited setup, latency, tail, activation, or process calls. |
-| 12 | Build-, Deck-, renderer-, and Mac-only mutations select the exact DX0 phase set. |
-| 13 | Accepted AGain identity is reused with zero build and zero seed. |
-| 14 | The real closed plan completes through one driver command with zero copied identifiers. |
-| 15 | Strictly admitted private P/E result can be rendered for C; rerender changes C only, truthfully marks historical reuse, and performs zero external effect. |
-| 16 | `TRANSACTION.json` machine-readably proves all 16 dispositions, contract, interface/component/factory/module closure, zero descendants/environment, and equal protected state. |
-
-Exact blocked taxonomy (10): `PC0_DESIGN_PREFLIGHT_BLOCKED`,
-`PC0_DESIGN_SCOPE_BLOCKED`, `PC0_BUS_COUNT_BLOCKED`, `PC0_BUS_INFO_BLOCKED`,
-`PC0_BUS_ARRANGEMENT_BLOCKED`, `PC0_SAMPLE_FORMAT_BLOCKED`,
-`PC0_CONTRACT_INCOMPLETE`, `PC0_PROCESS_CLEANUP_BLOCKED`,
-`PC0_EVIDENCE_BLOCKED`, `RETURN_TO_DESIGN_GATE`.
-
-## 11. Stop, topology, audit, and privacy
-
-Return `PC0_DESIGN_SCOPE_BLOCKED` if implementation needs another owner,
-eleventh state, nineteenth proof row, eleventh blocker, seventeenth source path,
-seventh evidence path, live negative family, second producer/positive batch,
-fixture rebuild/reseed, runner/build-plane change, broad rename, or generic
-method framework. Return `RETURN_TO_DESIGN_GATE` for latency/tail, setup or any
-mutation, activation/processing, buffers, controller/connection point, changed
-fixture/claim, redesigned DX0 transaction, or another ownership domain.
-
-After future authority merge/readback, implementation topology is exactly one
-14-path source commit and one five-path evidence-only child. A fresh-context
-pre-PR audit must verify immutable authority, source/build/Deck/renderer
-rosters, transitive imports, canonical JSON/hash closure, private-result P/E
-truth without C, tracked-packet P/E/C truth, the exact `TRANSACTION.json` key
-roster, 16 proof dispositions, actual effect counts, writer-failure
-containment, shutdown/cleanup/protected equality, exact two-commit topology,
-and no binaries, SDK source, secrets, private locations,
-host/network/process/pointer identifiers, or proprietary state. Evidence is
-allow-listed UTF-8, bounded, NUL-free, and hashed. No approval or implementation
-is implied by this proposed card.
+The draft design PR authorizes no implementation or external execution. A later
+technical-lead review must return `PC0_DESIGN_V3_CLEAR` against an exact
+head/tree/design-blob/SHA. A later exact operator approval must be retained in
+repository authority and explicitly authorize only one corrective positive
+Deck batch with zero Windows work. Until that merged authority is read back,
+`implementation_authorized=false`.
