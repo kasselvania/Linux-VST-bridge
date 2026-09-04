@@ -161,3 +161,18 @@ def validate_runtime_observation(value):
                'applications':{k:v['selection'] for k,v in value['applications'].items()}}
     if digest(selection)!=value['declared_inputs_sha256']: raise RuntimeError('Declared runtime input digest differs')
     return value['launch_critical_manifest_sha256']
+
+
+def sanitized_supervision_error(error):
+    """Preserve a useful bounded exception without arguments or private state."""
+    if error is None:
+        return None
+    text=type(error).__name__+": "+str(error)
+    text=re.sub(r"Command .*", "Command <arguments omitted>", text)
+    text=re.sub(r"(?i)(password|token|secret|cookie|authorization)[=:]\s*\S+", r"\1=<redacted>", text)
+    text=re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\b", "<account>", text)
+    text=re.sub(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", "<address>", text)
+    text=re.sub(r"(?:[A-Za-z]:[\\/]|/)[^\s\"']+", "<path>", text)
+    text=re.sub(r"(?i)\b(?:pid|ppid)[=: ]+[0-9]+", "<process>", text)
+    text=re.sub(r"[\x00-\x1f\x7f]", " ", text)
+    return text[:768]

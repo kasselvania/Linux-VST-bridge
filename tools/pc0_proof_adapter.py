@@ -713,7 +713,7 @@ class PC0DiagnosticRuntime:
                     or set(summary) != {"run_id", "processing_contract"}
                     or not isinstance(summary["processing_contract"], dict)):
                 raise AdapterBoundaryError("successful diagnostic facts differ")
-        elif set(summary) != {"failure"}:
+        elif set(summary) not in ({"failure"}, {"failure", "supervision_error"}):
             raise AdapterBoundaryError("failure diagnostic facts absent")
         else:
             failure = _as_object(summary["failure"], "failure diagnostic")
@@ -723,6 +723,11 @@ class PC0DiagnosticRuntime:
                 value["execution_input_sha256"], request["reservation_identity"][:32],
                 request["reservation_identity"][32:], failure.get("protected_snapshot_sha256"),
                 expected_runtime_identity=runtime_digest)
+            detail = summary.get("supervision_error")
+            if detail is not None:
+                if not isinstance(detail, str) or len(detail) > 768:
+                    raise AdapterBoundaryError("supervision error detail exceeds bound")
+                compact["supervision_error"] = detail
             summary = compact
         return Observation(
             kind, value["classification"],

@@ -67,6 +67,13 @@ class RuntimeTests(unittest.TestCase):
                 a=app();a[key]=value
                 with self.assertRaises(RuntimeError):d.application(vdf({'AppState':a}),'4628710')
 
+    def test_supervision_error_is_useful_and_private(self):
+        self.assertIn("missing runtime identity",d.sanitized_supervision_error(TypeError("missing runtime identity")))
+        text=d.sanitized_supervision_error(RuntimeError("/home/private/file token=secret user@example.com 192.0.2.1 pid=999"))
+        for private in ('/home/private','token=secret','user@example.com','192.0.2.1','pid=999'):
+            self.assertNotIn(private,text)
+        self.assertLessEqual(len(d.sanitized_supervision_error(RuntimeError('a'*1000))),768)
+
     def test_duplicate_or_malformed_vdf_rejected(self):
         for raw in [b'"AppState" { "appid" "1" "appid" "2" }',b'"AppState" {',
                     b'"AppState" {} garbage',b'"AppState" {} }',b'"AppState" "x"']:
@@ -115,11 +122,13 @@ class RuntimeTests(unittest.TestCase):
             for node in ast.parse(text).body:
                 if not isinstance(node,ast.FunctionDef) or node.name not in names:continue
                 actual=current[node.name]
+                actual=actual.replace('            "supervision_error": sanitized_supervision_error(supervision_error),\n','')
                 actual=actual.replace(', *, runner_identity_sha256: str)',')').replace(', runner_identity_sha256: str)',')')
                 actual=actual.replace(', runner_identity_sha256=runner_identity_sha256','')
                 actual=actual.replace('"runner_identity_sha256": runner_identity_sha256','"runner_identity_sha256": RUNNER_DIGEST')
                 actual=actual.replace('!= runner_identity_sha256','!= RUNNER_DIGEST')
                 actual=actual.replace('    runner_identity = verify_diagnostic_runner()\n    verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])', '    verify_environment(environment)\n    runner_identity = verify_runner_identity()')
+                actual=actual.replace('verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])','verify_environment(environment)')
                 actual=actual.replace('verify_diagnostic_runner()', 'verify_runner_identity()')
                 actual=actual.replace(', expected_runner_identity_sha256: str)',' )').replace('str )','str)')
                 actual=actual.replace('!= expected_runner_identity_sha256','!= RUNNER_DIGEST')

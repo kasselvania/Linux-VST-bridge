@@ -271,7 +271,8 @@ def execute(proof, binding):
             pass
     if summary is None:
         try:
-            summary = {"failure": failure_data(r, observed, binding, deck_sha, retirement_disposition)}
+            summary = {"failure": failure_data(r, observed, binding, deck_sha, retirement_disposition),
+                       "supervision_error": observed.get("supervision_error")}
         except Exception:
             return {"state": "unknown", "effects": {"deck_workloads": 1, "diagnostic_publications": 0}}
     if cleanup != "COMPLETE" or protected != "UNCHANGED":

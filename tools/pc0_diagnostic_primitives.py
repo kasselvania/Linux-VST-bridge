@@ -10,7 +10,7 @@ from environment import _copy_regular, _bundle_manifest
 from supervise import *
 from run import *
 from run import _deck_keys, _deck_hex, _pc0_validate_durable_records
-from pc0_diagnostic_runtime import verify_diagnostic_runner
+from pc0_diagnostic_runtime import verify_diagnostic_runner, sanitized_supervision_error
 
 
 def verify_environment(environment: ScanEnvironment, *, runner_identity_sha256: str) -> None:
@@ -171,7 +171,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
                 topology_receipt = topology(
                     root, session, root_identity, spawn_command_vector_sha256
                 )
-                verify_environment(environment)
+                verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
                 if protected_snapshot() != before:
                     fail("protected state drifted before supervisor gate")
                 if hold_gate:
@@ -293,6 +293,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             "topology": topology_receipt, "held_gate": held_receipt,
             "cleanup": cleanup, "protected_snapshot": before,
             "runner_identity": runner_identity,
+            "supervision_error": sanitized_supervision_error(supervision_error),
         }
 
     if supervision_error is not None:
@@ -328,6 +329,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             "topology": topology_receipt, "held_gate": held_receipt,
             "cleanup": cleanup, "protected_snapshot": before,
             "runner_identity": runner_identity,
+            "supervision_error": sanitized_supervision_error(supervision_error),
         }
 
     if streams.pending:
