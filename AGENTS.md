@@ -2,9 +2,24 @@
 
 ## Mission
 
-Build a managed Windows-audio compatibility platform for native Linux DAWs. A supported user should be able to install, authorize, publish, run, save, reopen, update, diagnose, and roll back a Windows plug-in without manually administering Wine, Proton, prefixes, generated proxies, Flatpak paths, or bridge synchronization.
+Build a managed Windows-audio compatibility platform for native Linux DAWs. A supported user should be able to install, authorize, publish, run, save, reopen, update, diagnose, and roll back a Windows plug-in without manually administering Wine, Proton, prefixes, generated proxies, Flatpak paths, runtime versions, or opaque recovery steps.
 
 The Steam Deck, SteamOS, Bitwig, AGain, Serum, and Kontakt are fixtures. They do not define the universal product boundary.
+
+## Active PC0-D1 recovery ruling — 2026-09-04
+
+At the operator's direction to get the project unstuck, the technical lead authorizes one complete recovery task on the existing `codex/pc0-d1-observation` branch / PR #46: repair diagnostic result retention and budget enforcement, then obtain the existing AGain pre-setup bus/sample-format observation. The task is implementation and diagnostic execution, not another selection or design exercise.
+
+`docs/campaigns/PC0_D1.md` is the executable scoped authority and detailed task. This section explicitly supersedes conflicting generic or historical process rules for this task only:
+
+- The SAME PC0-D1 campaign now has a cumulative maximum of **eight** diagnostic reservations: the two already consumed remain consumed, leaving at most six additional reservations. This is a technical-lead budget decision under the operator's recovery direction, not permission for the agent to raise the ceiling further or reset the campaign.
+- Ordinary local repair, effect-free regression testing, exact-source rebinding in that receipt, and diagnostic execution after the repair tests pass belong to the same agent. No additional maintenance receipt, fresh-context review, operator approval, or main-branch merge is required between these development steps. Final code review before merge remains required.
+- Repair BOTH the policy's hard-coded one/two limit AND the backend's frozen stored-maximum comparison. Increase only the authorized campaign ceiling through the locked, validated backend path; preserve every reservation, consumed count, old observation, intent, lock and original delegation. Never manually reset the ledger or relaunch an unknown reservation.
+- Repair the worker before spending another live reservation. Persist bounded privacy-safe observations and error context independently of product-result normalization. A failed validator may reject a claim; it must not discard the information needed to debug that rejection. Incremental diagnostic retention before cleanup is authorized; it is not forbidden by the generic one-pair failure-closure wording.
+- Keep the current VST3 call roster, interpretation, host artifact, AGain fixture, supervision/containment guarantees and accepted WA0 frontier unchanged. Diagnostics remain acceptance-ineligible. This task does not authorize audio processing, commercial plug-ins, an acceptance run, new Windows builds or another harness framework.
+- Every additional live run must follow a tested repair or a concrete new diagnostic hypothesis. If a post-repair run again produces no usable diagnostic, stop live retries and fix retention locally. Unknown current containment or changed protected state stops live execution, not read-only diagnosis or local repair.
+
+The disabled default CLI mapping in `CURRENT_SLICE.md` is not a ban on this explicit campaign. Use `proof-run.py diagnose --authority` with the current campaign receipt and the exact tested source it names. Do not substitute the historical main-branch campaign receipt for this branch's recovery authority.
 
 ## Authority order
 
@@ -85,7 +100,7 @@ A change is proof-harness maintenance only when all product-contract facts above
 - read-only preflight;
 - deterministic harness tests.
 
-High-risk proof-harness maintenance requires one maintenance receipt and one independent technical review. It does **not** reopen product selection or require a new product-design approval unless it changes the product contract, fixture semantics, security boundary, or live budget.
+High-risk proof-harness maintenance requires one maintenance receipt and one independent technical review. It does **not** reopen product selection or require a new product-design approval unless it changes the product contract, fixture semantics, security boundary, or live budget. The active PC0-D1 ruling above provides its task-specific authority and review timing.
 
 Old evidence may never be relabelled. Final product acceptance still requires a fresh exact acceptance observation.
 
@@ -112,7 +127,7 @@ Required properties:
 - no silent product-scope expansion;
 - no promotion or relabelling into acceptance.
 
-Default live budget for the open AGain fixture is **two diagnostic batches per DiagnosticCampaignIdentity**. A slice may choose fewer. A higher budget requires an explicit operator ruling. Commercial, stateful, destructive, or authorization-sensitive fixtures default to one or zero.
+Default live budget for the open AGain fixture is **two diagnostic batches per DiagnosticCampaignIdentity** unless an explicit scoped ruling specifies otherwise. PC0-D1 has the eight-reservation cumulative ceiling stated above. A slice may choose fewer. Other increases require an explicit operator ruling or specifically delegated technical-lead decision. Commercial, stateful, destructive, or authorization-sensitive fixtures default to one or zero.
 
 ### ACCEPTANCE_CANDIDATE
 
@@ -142,7 +157,7 @@ After a diagnostic or inconclusive acceptance workload exits and cleanup readbac
 
 Do **not** render the success evidence packet, replay the proof matrix, run the full pre-PR audit, create a product-design amendment, or spend hours polishing a failed run.
 
-The default hard closure limit is one bounded diagnostic-validation pass and one short report. If that cannot be completed promptly, preserve the raw bounded diagnostic and return `DIAGNOSTIC_CLOSURE_BLOCKED`. The failure report itself is not another slice.
+The default hard closure limit is one bounded diagnostic-validation pass and one short report. If that cannot be completed promptly, preserve the raw bounded diagnostic and return `DIAGNOSTIC_CLOSURE_BLOCKED`. The failure report itself is not another slice. The active recovery ruling permits incremental privacy-safe retention before final closure so a closure error cannot erase the original observation.
 
 ## Budget ownership
 
