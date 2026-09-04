@@ -126,3 +126,19 @@ verifier and retains bounded sanitized supervision errors. A mocked-process test
 reproduced refusal before gate publication and passed after the exact call-site
 repair. All 54 runtime/adapter/CLI/policy/backend tests passed. The remaining slot
 is bound to this specific repair; this is not a blind repetition or budget reset.
+
+## Retained campaign outcome
+
+The second reservation, b22bc4c5898093dc9784dc08545dc1e5fa4b3bf1354548de15df6db0cb489ddc,
+consumed the final slot at source 2ff23fe74b5501b633b575f7a903289ec2db1866.
+The worker reported one workload and zero diagnostic publications; the backend
+retains OUTCOME_UNKNOWN. One same-reservation reconciliation found no publication
+and did not relaunch. Its bounded private failure pair validated once. No AGain
+bus/sample-format result is claimed. Both campaign slots remain consumed.
+
+Subsequent read-only containment readback found the exact stage absent, the process
+guard clear, the stopped worktree clean, and the protected snapshot equal to the
+first batch's retained snapshot. The second reservation's intent and lock remain;
+its observation and sidecar are absent. These current facts do not relabel the
+unknown execution receipt. Additional workload authority would require an explicit
+budget decision after repairing the missing diagnostic publication path.
