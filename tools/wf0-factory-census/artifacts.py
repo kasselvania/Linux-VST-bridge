@@ -14,6 +14,7 @@ import zipfile
 from typing import Any, Iterable
 
 from common import (
+    source_contract, source_authority,
     DX0_ACCEPTED_FIXTURE_ID, DX0_ACCEPTED_FIXTURE_SCHEMA,
     DX0_ACCEPTED_WA0_ARTIFACT_ID, DX0_ACCEPTED_WA0_ARTIFACT_MANIFEST_SHA256,
     DX0_ACCEPTED_WA0_BUILD_RECEIPT_SHA256, DX0_ACCEPTED_WA0_CUSTODY_RECEIPT_SHA256,
@@ -386,7 +387,7 @@ def publish_host_custody(wrapper: pathlib.Path, *, run: dict[str, Any],
             or artifact.get("url") != expected_rest_url
             or not isinstance(workflow_run, dict)
             or workflow_run.get("id") != run["id"]
-            or workflow_run.get("head_branch") != DX0_BRANCH
+            or workflow_run.get("head_branch") != producer_source["ref"].removeprefix("refs/heads/")
             or workflow_run.get("head_sha") != producer_source["commit"]):
         fail("DX0 host Actions artifact digest/name closure differs")
     with tempfile.TemporaryDirectory(prefix="dx0-host-custody-") as temporary:
@@ -435,7 +436,7 @@ def publish_host_custody(wrapper: pathlib.Path, *, run: dict[str, Any],
             "workflow": {
                 "path": ".github/workflows/wf0-windows-msvc-build.yml",
                 "git_blob": run["workflow_blob"], "event": "workflow_dispatch",
-                "head_branch": DX0_BRANCH, "head_sha": producer_source["commit"],
+                "head_branch": producer_source["ref"].removeprefix("refs/heads/"), "head_sha": producer_source["commit"],
                 "run_id": run["id"], "run_attempt": run["run_attempt"],
                 "phase_nonce": upload_result["phase_nonce"], "conclusion": "success",
             },
@@ -533,7 +534,7 @@ def verify_host_store(root: pathlib.Path, build_input_sha256: str) -> dict[str, 
             or core.get("workflow") != workflow
             or not isinstance(workflow, dict)
             or workflow.get("event") != "workflow_dispatch"
-            or workflow.get("ref") != DX0_REF
+            or workflow.get("ref") != source_contract(ref=producer.get("ref"))["ref"]
             or workflow.get("source_sha") != producer.get("commit")
             or workflow.get("host_mode") != "host_only"
             or not isinstance(workflow.get("run_id"), int)
@@ -545,7 +546,7 @@ def verify_host_store(root: pathlib.Path, build_input_sha256: str) -> dict[str, 
             or custody_workflow.get("path") != workflow.get("path")
             or custody_workflow.get("git_blob") != workflow.get("git_blob")
             or custody_workflow.get("event") != workflow.get("event")
-            or custody_workflow.get("head_branch") != DX0_BRANCH
+            or custody_workflow.get("head_branch") != source_contract(ref=producer.get("ref"))["branch"]
             or custody_workflow.get("head_sha") != producer.get("commit")
             or custody_workflow.get("run_id") != workflow.get("run_id")
             or custody_workflow.get("run_attempt") != workflow.get("run_attempt")
@@ -615,6 +616,7 @@ def _source_from_bundle(bundle: pathlib.Path, source_commit: str,
 def create_source_handoff(source_commit: str, stage: pathlib.Path) -> dict[str, Any]:
     source = dx0_complete_source(source_commit)
     role = dx0_source_role(source)
+    contract = source_contract(ref=source["ref"])
     if stage.exists() or stage.is_symlink():
         fail("DX0 source-handoff stage already exists")
     stage.mkdir(parents=True)
@@ -633,19 +635,13 @@ def create_source_handoff(source_commit: str, stage: pathlib.Path) -> dict[str, 
         fail("DX0 source bundle is not one self-contained advertised ref")
     receipt = {
         "schema": DX0_SOURCE_HANDOFF_SCHEMA, "repository": REPOSITORY,
-        "design_authority": {
-            "reviewed_design_commit": DX0_DESIGN_COMMIT,
-            "design_blob": DX0_DESIGN_BLOB,
-            "design_sha256": DX0_DESIGN_SHA256,
-            "technical_lead_review": DX0_REVIEW_ID,
-            "approval_blob": DX0_APPROVAL_BLOB,
-        },
+        "design_authority": source_authority(source),
         "implementation_basis": {
-            "commit": DX0_BASIS_COMMIT, "tree": DX0_BASIS_TREE,
+            "commit": contract["basis"], "tree": contract["basis_tree"],
         },
-        "implementation_source": role, "implementation_branch": DX0_BRANCH,
-        "implementation_ref": DX0_REF, "complete_source_schema": DX0_COMPLETE_SOURCE_SCHEMA,
-        "complete_source_record_count": 10,
+        "implementation_source": role, "implementation_branch": contract["branch"],
+        "implementation_ref": source["ref"], "complete_source_schema": source["schema"],
+        "complete_source_record_count": source["record_count"],
         "bundle": {"name": bundle_name, "advertised_ref": advertised_ref,
                    "sha256": sha256_file(bundle), "size": bundle.stat().st_size,
                    "prerequisite_count": 0, "advertised_ref_count": 1,
@@ -674,22 +670,17 @@ def verify_source_handoff(stage: pathlib.Path, source_commit: str) -> dict[str, 
     prerequisites, refs = _bundle_header(bundle)
     expected_ref = f"refs/handoff/dx0-source/{source_commit}"
     source = _source_from_bundle(bundle, source_commit, expected_ref)
+    contract = source_contract(ref=source["ref"])
     if (receipt.get("repository") != REPOSITORY
-            or receipt.get("design_authority") != {
-                "reviewed_design_commit": DX0_DESIGN_COMMIT,
-                "design_blob": DX0_DESIGN_BLOB,
-                "design_sha256": DX0_DESIGN_SHA256,
-                "technical_lead_review": DX0_REVIEW_ID,
-                "approval_blob": DX0_APPROVAL_BLOB,
-            }
+            or receipt.get("design_authority") != source_authority(source)
             or receipt.get("implementation_basis") != {
-                "commit": DX0_BASIS_COMMIT, "tree": DX0_BASIS_TREE,
+                "commit": contract["basis"], "tree": contract["basis_tree"],
             }
             or receipt.get("implementation_source") != dx0_source_role(source)
-            or receipt.get("implementation_branch") != DX0_BRANCH
-            or receipt.get("implementation_ref") != DX0_REF
-            or receipt.get("complete_source_schema") != DX0_COMPLETE_SOURCE_SCHEMA
-            or receipt.get("complete_source_record_count") != 10
+            or receipt.get("implementation_branch") != contract["branch"]
+            or receipt.get("implementation_ref") != source["ref"]
+            or receipt.get("complete_source_schema") != source["schema"]
+            or receipt.get("complete_source_record_count") != source["record_count"]
             or receipt.get("bundle", {}).get("sha256") != sha256_file(bundle)
             or receipt.get("bundle", {}).get("name") != bundle.name
             or receipt.get("bundle", {}).get("advertised_ref") != expected_ref

@@ -97,7 +97,8 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
         !is_lower_hex(result["--module-sha256"], 64) ||
         !is_lower_hex(result["--bundle-manifest-sha256"], 64) ||
         result["--max-classes"] != "256" || result["--stdout-cap"] != "1048576" ||
-        result["--mode"] != "wa0-audio-processor-interface-admission" ||
+        (result["--mode"] != "wa0-audio-processor-interface-admission" &&
+         result["--mode"] != "pc0-pre-setup-processing-contract") ||
         result["--component-case"] != "exact-again") {
         throw std::runtime_error("argument value mismatch");
     }
@@ -224,8 +225,11 @@ void suppressed_shutdown(wf0::EventWriter& events,
 
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
+    bool pc0_mode = false;
+    int first_primary = 0;
     try {
         const auto args = parse_args(argc, argv);
+        pc0_mode = args.at("--mode") == "pc0-pre-setup-processing-contract";
         const std::wstring module_path = wf0::utf8_to_wide(args.at("--module"));
         const std::wstring ready_path = wf0::utf8_to_wide(args.at("--ready"));
         const std::wstring gate_path = wf0::utf8_to_wide(args.at("--gate"));
@@ -255,7 +259,9 @@ int main(int argc, char** argv) {
 
         wf0::ModuleBinding module;
         int primary = wf0::open_module(module_path, module, events);
+        first_primary = primary;
         if (primary == 0) primary = wf0::enter_module(module, events, primary);
+        if (first_primary == 0) first_primary = primary;
 
         Steinberg::IPluginFactory* factory = nullptr;
         wf0::FactoryCensusResult census;
@@ -270,27 +276,33 @@ int main(int argc, char** argv) {
             if (factory == nullptr) {
                 events.lifecycle("factory_get_failed");
                 primary = 73;
+                if (first_primary == 0) first_primary = primary;
             } else {
                 events.lifecycle("factory_obtained");
                 census = wf0::enumerate_factory(factory, events, 256);
                 if (census.exit_code != 0) primary = census.exit_code;
+                if (first_primary == 0) first_primary = primary;
             }
         }
 
         if (factory != nullptr && primary == 0) {
             component = wf0::admit_component(
-                factory, events, component_case(args.at("--component-case")));
+                factory, events, component_case(args.at("--component-case")),
+                pc0_mode);
             component_session_ran = true;
-            events.final_lifecycle("component_session_closed", component.json_fields());
             if (component.primary_exit != 0) primary = component.primary_exit;
+            if (first_primary == 0) first_primary = primary;
+            events.final_lifecycle("component_session_closed", component.json_fields());
         }
 
         if (factory != nullptr &&
             (!component_session_ran || component.object_quiescence)) {
             primary = wf0::release_factory_interfaces(factory, census, events, primary);
+            if (first_primary == 0) first_primary = primary;
         }
         if (!component_session_ran || component.object_quiescence) {
             primary = wf0::exit_and_unload(module, events, primary);
+            if (first_primary == 0) first_primary = primary;
         } else {
             suppressed_shutdown(
                 events, census,
@@ -311,11 +323,14 @@ int main(int argc, char** argv) {
             ",\"create_instance_called\":true" +
             ",\"controller_instance_created\":false" +
             ",\"audio_processor_interface_queried\":true" +
-            ",\"audio_processor_method_called\":false";
+            ",\"audio_processor_method_called\":" +
+                bool_json(args.at("--mode") == "pc0-pre-setup-processing-contract");
         events.final_lifecycle("scanner_completed", fields);
         return 0;
+    } catch (int pc0_primary) {
+        return pc0_primary;
     } catch (const std::exception&) {
-        return 82;
+        return wf0::scanner_output_failure_exit(pc0_mode, first_primary);
     }
 }
 

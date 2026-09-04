@@ -22,6 +22,7 @@ from common import (
     steam_root, verify_runner_identity, write_atomic,
 )
 from environment import ScanEnvironment, verify_environment
+from common import PC0_BLOCKED_OUTCOMES, PC0_MODE, PC0_OPERATIONS
 
 
 PROCESS_CAP = 256
@@ -122,7 +123,101 @@ EXIT_BLOCKER = {
     90: "WA0_INTERFACE_QUERY_BLOCKED",
     91: "WA0_INTERFACE_QUERY_INCONSISTENT",
     92: "WA0_INTERFACE_RELEASE_BLOCKED",
+    93: "PC0_BUS_COUNT_BLOCKED", 94: "PC0_BUS_INFO_BLOCKED",
+    95: "PC0_BUS_ARRANGEMENT_BLOCKED", 96: "PC0_SAMPLE_FORMAT_BLOCKED",
+    97: "PC0_CONTRACT_INCOMPLETE", 99: "PC0_EVIDENCE_BLOCKED",
 }
+OPERATIONS.update(PC0_OPERATIONS)
+COMPONENT_OPERATIONS.update(PC0_OPERATIONS)
+AUDIO_INTERFACE_OPERATIONS.update(PC0_OPERATIONS)
+IN_FLIGHT_BLOCKER.update(zip(PC0_OPERATIONS, (
+    "PC0_BUS_COUNT_BLOCKED", "PC0_BUS_INFO_BLOCKED",
+    "PC0_BUS_ARRANGEMENT_BLOCKED", "PC0_SAMPLE_FORMAT_BLOCKED",
+)))
+
+
+def pc0_coordinates(record: dict[str, Any]) -> dict[str, Any]:
+    operation = record.get("operation")
+    fields = {key: record[key] for key in (
+        "media_type", "direction", "index", "audio_index", "symbolic_size"
+    ) if key in record}
+    required = {
+        "get_bus_count": {"media_type", "direction"},
+        "get_bus_info": {"media_type", "direction", "index"},
+        "get_bus_arrangement": {"direction", "audio_index"},
+        "can_process_sample_size": {"symbolic_size"},
+    }.get(operation, set())
+    if set(fields) != required:
+        fail("PC0_CONTRACT_INCOMPLETE: call coordinate roster differs")
+    for key, value in fields.items():
+        if key in {"index", "audio_index"}:
+            if type(value) is not int or not 0 <= value < 32:
+                fail("PC0_CONTRACT_INCOMPLETE: bus coordinate out of range")
+        elif value not in {"media_type": ("kAudio", "kEvent"),
+                           "direction": ("kInput", "kOutput"),
+                           "symbolic_size": ("kSample32", "kSample64")}[key]:
+            fail("PC0_CONTRACT_INCOMPLETE: coordinate enum differs")
+    if operation in PC0_OPERATIONS:
+        expected_interface = "IComponent" if operation in PC0_OPERATIONS[:2] else "IAudioProcessor"
+        if record.get("interface") != expected_interface:
+            fail("PC0_CONTRACT_INCOMPLETE: borrowed interface role differs")
+    return fields
+
+
+def pc0_durable_primary(records: list[dict[str, Any]]) -> str | None:
+    return next((
+        record.get("primary_blocker") for record in records
+        if record.get("event") == "lifecycle"
+        and record.get("state") == "pre_setup_census_blocked"
+        and record.get("primary_blocker") in PC0_BLOCKED_OUTCOMES
+        and record.get("primary_blocker") != "PC0_PROCESS_CLEANUP_BLOCKED"
+    ), None)
+
+
+def classify_observed_outcome(*, mode: str, raw_exit: int | None,
+                              timed_out: bool, in_flight: dict[str, Any] | None,
+                              last_state: str | None, records: list[dict[str, Any]],
+                              gated: bool, hold_gate: bool,
+                              cleanup_failed: bool = False) -> dict[str, Any]:
+    """Classify one observed process outcome without inventing later calls."""
+    durable_primary = pc0_durable_primary(records)
+    if hold_gate:
+        blocker, classification = None, "held_gate_proof_complete"
+    elif timed_out and in_flight is not None:
+        blocker, classification = (durable_primary or IN_FLIGHT_BLOCKER[in_flight["operation"]],
+                                   "call_timeout")
+    elif timed_out:
+        blocker = "WF0_SCANNER_LAUNCH_BLOCKED" if not gated else "WF0_OUTPUT_NORMALIZATION_BLOCKED"
+        classification = "stage_timeout"
+    elif raw_exit == 0 and last_state == "scanner_completed" and in_flight is None:
+        blocker, classification = None, "scanner_completed"
+    elif mode == PC0_MODE and raw_exit == 99:
+        blocker, classification = (durable_primary or (
+            "PC0_CONTRACT_INCOMPLETE" if in_flight is not None
+            and in_flight.get("operation") in PC0_OPERATIONS
+            else "PC0_EVIDENCE_BLOCKED"),
+                                   "output_publication_failed")
+    elif in_flight is not None:
+        blocker, classification = (durable_primary or IN_FLIGHT_BLOCKER[in_flight["operation"]],
+                                   "abnormal_termination_in_flight")
+    else:
+        blocker, classification = (durable_primary or EXIT_BLOCKER.get(raw_exit, "WF0_SCANNER_LAUNCH_BLOCKED"),
+                                   "scanner_blocked")
+    cleanup_blocker = "PC0_PROCESS_CLEANUP_BLOCKED" if mode == PC0_MODE and cleanup_failed else None
+    if cleanup_blocker is not None and blocker is None:
+        blocker, classification = cleanup_blocker, "process_cleanup_failed"
+    return {"blocker": blocker, "classification": classification,
+            "primary_blocker": blocker, "secondary_cleanup_blocker": (
+                cleanup_blocker if cleanup_blocker != blocker else None)}
+
+
+def pc0_session_is_unclosed(mode: str, records: list[dict[str, Any]],
+                            closed_component_session: dict[str, Any] | None) -> bool:
+    return (mode == PC0_MODE and closed_component_session is None
+            and any(record.get("event") == "call_started"
+                    and (record.get("operation") in PC0_OPERATIONS
+                         or record.get("operation") == "query_audio_processor")
+                    for record in records))
 
 
 def controlled_environment(environment: ScanEnvironment) -> dict[str, str]:
@@ -148,7 +243,7 @@ def controlled_environment(environment: ScanEnvironment) -> dict[str, str]:
 
 
 def handshake(environment: ScanEnvironment, session: str,
-              component_case: str) -> bytes:
+              component_case: str, mode: str = "wa0-audio-processor-interface-admission") -> bytes:
     marker = environment.marker
     return (
         "schema=linux-vst-bridge-wf0-handshake/v1\n"
@@ -158,14 +253,16 @@ def handshake(environment: ScanEnvironment, session: str,
         f"bundle_manifest_sha256={marker['bundle_manifest']['sha256']}\n"
         "implementation_source_manifest_sha256="
         f"{marker['implementation_source_manifest_sha256']}\n"
-        "mode=wa0-audio-processor-interface-admission\n"
+        f"mode={mode}\n"
         f"component_case={component_case}\n"
         "run_ordinal=1\n"
     ).encode()
 
 
 def command_vector(environment: ScanEnvironment, session: str,
-                   component_case: str) -> list[str]:
+                   component_case: str, mode: str = "wa0-audio-processor-interface-admission") -> list[str]:
+    if mode not in {"wa0-audio-processor-interface-admission", PC0_MODE}:
+        fail("PC0 command mode is outside the closed registry")
     if component_case != "exact-again":
         fail("component case is outside the closed WA0 command contract")
     marker = environment.marker
@@ -183,7 +280,7 @@ def command_vector(environment: ScanEnvironment, session: str,
         "--ready", f"C:\\wf0\\session\\{session}.ready",
         "--gate", f"C:\\wf0\\session\\{session}.gate",
         "--max-classes", "256", "--stdout-cap", "1048576",
-        "--mode", "wa0-audio-processor-interface-admission",
+        "--mode", mode,
         "--component-case", component_case,
     ]
 
@@ -384,6 +481,7 @@ class StreamState:
             fail("scanner sequence/event bound violation")
         event = record.get("event")
         if event == "call_started":
+            pc0_coordinates(record)
             if self.in_flight is not None or record.get("operation") not in OPERATIONS:
                 fail("scanner call-start contract violation")
             if record.get("interface") not in INTERFACES or record.get("tier") not in TIERS:
@@ -398,6 +496,8 @@ class StreamState:
                     fail("scanner completion tuple differs from its attempt")
             if record.get("attempt_sequence") != self.in_flight.get("sequence"):
                 fail("scanner completion attempt link differs")
+            if pc0_coordinates(record) != pc0_coordinates(self.in_flight):
+                fail("PC0_CONTRACT_INCOMPLETE: completion coordinates differ")
             self.in_flight = None
             self.in_flight_at = None
         elif event == "lifecycle":
@@ -578,7 +678,8 @@ def supervise_adapter(environment: ScanEnvironment) -> dict[str, Any]:
 
 
 def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
-              component_case: str = "exact-again") -> dict[str, Any]:
+              component_case: str = "exact-again",
+              mode: str = "wa0-audio-processor-interface-admission") -> dict[str, Any]:
     verify_environment(environment)
     runner_identity = verify_runner_identity()
     session = secrets.token_hex(16)
@@ -586,9 +687,9 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     gate = environment.session / f"{session}.gate"
     if ready.exists() or gate.exists():
         fail("handshake artifacts exist before spawn")
-    expected = handshake(environment, session, component_case)
+    expected = handshake(environment, session, component_case, mode)
     before = protected_snapshot()
-    command_line = command_vector(environment, session, component_case)
+    command_line = command_vector(environment, session, component_case, mode)
     spawn_command_vector_sha256 = sha256_bytes(canonical_json(command_line))
     started = time.monotonic()
     root = subprocess.Popen(command_line, env=controlled_environment(environment),
@@ -607,6 +708,9 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     gated_at: float | None = None
     timed_out = False
     held_receipt: dict[str, Any] | None = None
+    cleanup_error: str | None = None
+    supervision_error: Exception | None = None
+    cleanup = {"owned_descendants_zero": False, "process_group_empty": False}
     try:
         while True:
             pump(selector, streams, POLL_SECONDS)
@@ -672,9 +776,113 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
                         break
                     pump(selector, streams, 0.01)
                 break
+    except Exception as error:
+        # Capture the first supervision/stream failure so the cleanup attempt
+        # can finish and its result can be composed without Python replacing
+        # one exception with another from the finally block.
+        supervision_error = error
     finally:
-        cleanup = cleanup_process(root, sorted(seen_owned))
+        try:
+            cleanup = cleanup_process(root, sorted(seen_owned))
+        except RuntimeError as error:
+            cleanup_error = str(error)
         selector.close()
+
+    if cleanup_error is not None:
+        # Once bounded physical containment fails, later stream, protected-state,
+        # or runner readback cannot replace that failure or authorize deleting
+        # the marker-bound stage.  Return the durable call facts to the Deck
+        # owner, which preserves the environment and reports the primary plus
+        # the secondary containment blocker.
+        last_state = next((record.get("state") for record in reversed(streams.records)
+                           if record.get("event") == "lifecycle"), None)
+        in_flight = streams.in_flight
+        outcome = classify_observed_outcome(
+            mode=mode, raw_exit=root.returncode, timed_out=timed_out,
+            in_flight=in_flight, last_state=last_state, records=streams.records,
+            gated=gated_at is not None, hold_gate=hold_gate, cleanup_failed=True,
+        )
+        if mode != PC0_MODE:
+            fail(cleanup_error)
+        semantic_blockers = {
+            "PC0_BUS_COUNT_BLOCKED", "PC0_BUS_INFO_BLOCKED",
+            "PC0_BUS_ARRANGEMENT_BLOCKED", "PC0_SAMPLE_FORMAT_BLOCKED",
+            "PC0_CONTRACT_INCOMPLETE", "PC0_EVIDENCE_BLOCKED",
+        }
+        if outcome["blocker"] in semantic_blockers:
+            outcome["secondary_cleanup_blocker"] = "PC0_PROCESS_CLEANUP_BLOCKED"
+        elif supervision_error is not None:
+            outcome.update(
+                blocker="PC0_EVIDENCE_BLOCKED",
+                primary_blocker="PC0_EVIDENCE_BLOCKED",
+                secondary_cleanup_blocker="PC0_PROCESS_CLEANUP_BLOCKED",
+                classification="supervision_and_process_cleanup_failed",
+            )
+        else:
+            outcome.update(
+                blocker="PC0_PROCESS_CLEANUP_BLOCKED",
+                primary_blocker="PC0_PROCESS_CLEANUP_BLOCKED",
+                secondary_cleanup_blocker=None,
+                classification="process_cleanup_failed",
+            )
+        return {
+            "schema": "linux-vst-bridge-wa0-supervised-run/v1",
+            "run_id": environment.run_id, "fixture": environment.marker["fixture"],
+            "session_binding_sha256": sha256_bytes(expected), "records": streams.records,
+            "stdout_sha256": hashlib.sha256(streams.stdout).hexdigest(),
+            "stderr_sha256": hashlib.sha256(streams.stderr).hexdigest(),
+            "stderr_bytes": len(streams.stderr), "raw_exit": root.returncode,
+            "classification": outcome["classification"], "blocker": outcome["blocker"],
+            "secondary_cleanup_blocker": outcome["secondary_cleanup_blocker"],
+            "last_lifecycle": last_state,
+            "last_in_flight_operation": None if in_flight is None else in_flight["operation"],
+            "audio_processor_observer_state": "audio_processor_ownership_unknown",
+            "audio_interface_quiescence": False,
+            "call_counts": {operation: sum(
+                record.get("event") == "call_started" and record.get("operation") == operation
+                for record in streams.records) for operation in sorted(OPERATIONS)},
+            "component_case": component_case,
+            "inherited_shutdown": {"operations": {}, "clean_in_process_shutdown": False,
+                                   "physical_containment_only": True},
+            "topology": topology_receipt, "held_gate": held_receipt,
+            "cleanup": cleanup, "protected_snapshot": before,
+            "runner_identity": runner_identity,
+        }
+
+    if supervision_error is not None:
+        if mode != PC0_MODE:
+            raise supervision_error
+        # A stream or supervision failure makes any returned scalar/output
+        # unconsumable. Preserve an earlier durable PC0 semantic blocker, but
+        # otherwise assign the failure to the evidence/output owner. Physical
+        # containment succeeded; this is still not clean in-process shutdown.
+        last_state = next((record.get("state") for record in reversed(streams.records)
+                           if record.get("event") == "lifecycle"), None)
+        in_flight = streams.in_flight
+        blocker = pc0_durable_primary(streams.records) or "PC0_EVIDENCE_BLOCKED"
+        return {
+            "schema": "linux-vst-bridge-wa0-supervised-run/v1",
+            "run_id": environment.run_id, "fixture": environment.marker["fixture"],
+            "session_binding_sha256": sha256_bytes(expected), "records": streams.records,
+            "stdout_sha256": hashlib.sha256(streams.stdout).hexdigest(),
+            "stderr_sha256": hashlib.sha256(streams.stderr).hexdigest(),
+            "stderr_bytes": len(streams.stderr), "raw_exit": root.returncode,
+            "classification": "supervision_failed", "blocker": blocker,
+            "secondary_cleanup_blocker": None,
+            "last_lifecycle": last_state,
+            "last_in_flight_operation": None if in_flight is None else in_flight["operation"],
+            "audio_processor_observer_state": "audio_processor_ownership_unknown",
+            "audio_interface_quiescence": False,
+            "call_counts": {operation: sum(
+                record.get("event") == "call_started" and record.get("operation") == operation
+                for record in streams.records) for operation in sorted(OPERATIONS)},
+            "component_case": component_case,
+            "inherited_shutdown": {"operations": {}, "clean_in_process_shutdown": False,
+                                   "physical_containment_only": True},
+            "topology": topology_receipt, "held_gate": held_receipt,
+            "cleanup": cleanup, "protected_snapshot": before,
+            "runner_identity": runner_identity,
+        }
 
     if streams.pending:
         fail("scanner stdout ended with a partial JSONL record")
@@ -687,24 +895,13 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
                        if record.get("event") == "lifecycle"), None)
     in_flight = streams.in_flight
     raw_exit = root.returncode
-    if hold_gate:
-        blocker = None
-        classification = "held_gate_proof_complete"
-    elif timed_out and in_flight is not None:
-        blocker = IN_FLIGHT_BLOCKER[in_flight["operation"]]
-        classification = "call_timeout"
-    elif timed_out:
-        blocker = "WF0_SCANNER_LAUNCH_BLOCKED" if gated_at is None else "WF0_OUTPUT_NORMALIZATION_BLOCKED"
-        classification = "stage_timeout"
-    elif raw_exit == 0 and last_state == "scanner_completed" and in_flight is None:
-        blocker = None
-        classification = "scanner_completed"
-    elif in_flight is not None:
-        blocker = IN_FLIGHT_BLOCKER[in_flight["operation"]]
-        classification = "abnormal_termination_in_flight"
-    else:
-        blocker = EXIT_BLOCKER.get(raw_exit, "WF0_SCANNER_LAUNCH_BLOCKED")
-        classification = "scanner_blocked"
+    outcome = classify_observed_outcome(
+        mode=mode, raw_exit=raw_exit, timed_out=timed_out, in_flight=in_flight,
+        last_state=last_state, records=streams.records, gated=gated_at is not None,
+        hold_gate=hold_gate, cleanup_failed=cleanup_error is not None,
+    )
+    blocker = outcome["blocker"]
+    classification = outcome["classification"]
 
     started_operations = [
         record.get("operation") for record in streams.records
@@ -720,13 +917,6 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
         if record.get("event") == "lifecycle"
         and record.get("state") == "inherited_shutdown_suppressed"
     }
-    component_abnormal = (
-        in_flight is not None and in_flight.get("operation") in COMPONENT_OPERATIONS
-    )
-    audio_interface_abnormal = (
-        in_flight is not None
-        and in_flight.get("operation") in AUDIO_INTERFACE_OPERATIONS
-    )
     closed_component_sessions = [
         record.get("component_session") for record in streams.records
         if record.get("event") == "lifecycle"
@@ -735,6 +925,16 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     ]
     closed_component_session = (
         closed_component_sessions[-1] if closed_component_sessions else None
+    )
+    pc0_session_unclosed = pc0_session_is_unclosed(
+        mode, streams.records, closed_component_session
+    )
+    component_abnormal = pc0_session_unclosed or (
+        in_flight is not None and in_flight.get("operation") in COMPONENT_OPERATIONS
+    )
+    audio_interface_abnormal = pc0_session_unclosed or (
+        in_flight is not None
+        and in_flight.get("operation") in AUDIO_INTERFACE_OPERATIONS
     )
     if audio_interface_abnormal:
         audio_processor_observer_state = "audio_processor_ownership_unknown"
@@ -798,6 +998,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
         "stderr_sha256": hashlib.sha256(streams.stderr).hexdigest(),
         "stderr_bytes": len(streams.stderr), "raw_exit": raw_exit,
         "classification": classification, "blocker": blocker,
+        "secondary_cleanup_blocker": outcome["secondary_cleanup_blocker"],
         "last_lifecycle": last_state,
         "last_in_flight_operation": None if in_flight is None else in_flight["operation"],
         "audio_processor_observer_state": audio_processor_observer_state,

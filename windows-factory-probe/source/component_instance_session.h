@@ -17,6 +17,8 @@
 
 namespace linux_vst_bridge::wf0 {
 
+int scanner_output_failure_exit(bool pc0_mode, int first_primary) noexcept;
+
 enum class ComponentCase {
     exact_again,
     unknown_processor,
@@ -134,6 +136,64 @@ private:
     volatile LONG references_{1};
 };
 
+enum class PreSetupCensusState {
+    pre_setup_census_absent,
+    bus_count_in_flight,
+    bus_counts_validated,
+    detail_call_in_flight,
+    bus_info_complete,
+    speaker_arrangements_complete,
+    sample_format_call_in_flight,
+    pre_setup_contract_complete,
+    pre_setup_census_blocked,
+};
+
+// Borrowed interfaces: this owner never acquires or releases a reference.
+class PreSetupProcessingContractCensus final {
+public:
+    PreSetupProcessingContractCensus(Steinberg::Vst::IComponent& component,
+                                     Steinberg::Vst::IAudioProcessor& audio,
+                                     EventWriter& events) noexcept
+        : component_(component), audio_(audio), events_(events) {}
+    int run();
+    const std::string& contract() const noexcept { return contract_; }
+    PreSetupCensusState state() const noexcept {
+        return call_in_flight_ ? active_call_state_ : state_;
+    }
+    static bool checked_count(Steinberg::int32 count, std::size_t& aggregate) noexcept;
+
+private:
+    struct Bus {
+        Steinberg::int32 media{}, direction{}, index{}, channels{}, type{};
+        Steinberg::uint32 flags{};
+        std::string name;
+        Steinberg::Vst::SpeakerArrangement arrangement{};
+    };
+    void transition(PreSetupCensusState state);
+    void prepare_call(const char* operation, const char* interface_name,
+                      const std::string& coordinates);
+    void begin_call(PreSetupCensusState state) noexcept;
+    void complete_call() noexcept;
+    int block(int code);
+    Steinberg::Vst::IComponent& component_;
+    Steinberg::Vst::IAudioProcessor& audio_;
+    EventWriter& events_;
+    std::array<Steinberg::int32, 4> counts_{};
+    std::array<Bus, 64> buses_{};
+    std::array<Steinberg::tresult, 2> samples_{};
+    std::size_t size_{0};
+    unsigned call_count_{0};
+    int primary_{0};
+    PreSetupCensusState state_{PreSetupCensusState::pre_setup_census_absent};
+    PreSetupCensusState active_call_state_{PreSetupCensusState::pre_setup_census_absent};
+    const char* active_operation_{nullptr};
+    const char* active_interface_{nullptr};
+    std::array<char, 160> active_coordinates_{};
+    std::size_t active_coordinates_size_{0};
+    bool call_in_flight_{false};
+    std::string contract_;
+};
+
 struct AudioProcessorLeaseResult {
     AudioProcessorLeaseState state{
         AudioProcessorLeaseState::audio_processor_absent};
@@ -152,6 +212,7 @@ struct AudioProcessorLeaseResult {
     bool call_in_flight{false};
     bool callback_ledger_unchanged{false};
     bool audio_interface_quiescence{true};
+    std::string processing_contract;
 
     std::string json_fields() const;
 };
@@ -162,7 +223,7 @@ public:
                                  HostCallbackSink& callbacks,
                                  EventWriter& events) noexcept;
 
-    AudioProcessorLeaseResult acquire_and_retire();
+    AudioProcessorLeaseResult acquire_and_retire(bool pre_setup_census = false);
 
 private:
     Steinberg::Vst::IComponent& component_;
@@ -216,7 +277,8 @@ struct ComponentAdmissionResult {
 
 ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
                                           EventWriter& events,
-                                          ComponentCase component_case);
+                                          ComponentCase component_case,
+                                          bool pre_setup_census = false);
 
 const char* component_state_name(ComponentState state) noexcept;
 const char* audio_processor_state_name(AudioProcessorLeaseState state) noexcept;

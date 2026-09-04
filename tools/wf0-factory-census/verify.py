@@ -289,7 +289,7 @@ def compare_builds(a: pathlib.Path, b: pathlib.Path) -> dict[str, Any]:
 
 
 def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
-    """Require the five inherited plus two WA0 calls and reject audio methods."""
+    """Close the inherited ownership calls and four read-only PC0 methods."""
     root = source_root / "windows-factory-probe"
     texts = {
         path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
@@ -305,6 +305,10 @@ def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
         "release_component": r"\bcomponent\s*->\s*release\s*\(",
         "query_audio_processor": r"\bcomponent_\s*\.\s*queryInterface\s*\(",
         "release_audio_processor": r"\binterface_\s*->\s*release\s*\(",
+        "get_bus_count": r"\bcomponent_\s*\.\s*getBusCount\s*\(",
+        "get_bus_info": r"\bcomponent_\s*\.\s*getBusInfo\s*\(",
+        "get_bus_arrangement": r"\baudio_\s*\.\s*getBusArrangement\s*\(",
+        "can_process_sample_size": r"\baudio_\s*\.\s*canProcessSampleSize\s*\(",
     }
     counts = {
         name: len(re.findall(pattern, component))
@@ -313,9 +317,9 @@ def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
     if counts != {name: 1 for name in expected}:
         fail(f"WA0 plug-in call surface differs: {counts}")
     forbidden_calls = (
-        "setIoMode", "getBusCount", "getBusInfo", "getRoutingInfo",
+        "setIoMode", "getRoutingInfo",
         "activateBus", "setActive", "setState", "getState", "setBusArrangements",
-        "getBusArrangement", "canProcessSampleSize", "getLatencySamples",
+        "getLatencySamples",
         "setProcessing", "setupProcessing", "process", "getTailSamples",
         "connect", "disconnect", "notify",
         "createView", "setComponentHandler",
@@ -338,12 +342,13 @@ def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
     ):
         fail("WA0 one-owner or eight-state interface boundary differs")
     return {
-        "closed_plugin_operation_count": 7,
+        "closed_plugin_operation_count": 11,
+        "new_pre_setup_operation_count": 4,
         "new_audio_interface_operation_count": 2,
         "operation_call_counts": counts,
         "controller_creation_absent": True,
-        "audio_processor_method_calls_absent": True,
-        "audio_bus_parameter_state_processing_editor_calls_absent": True,
+        "unselected_audio_processor_method_calls_absent": True,
+        "mutation_parameter_state_processing_editor_calls_absent": True,
     }
 
 

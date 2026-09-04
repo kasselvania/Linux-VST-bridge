@@ -788,10 +788,11 @@ def dx0_source_identity(source_commit: str) -> tuple[dict[str, Any], dict[str, A
     """Verify the dispatch checkout and reproduce both source identity domains."""
     root = repo_root()
     phase_nonce = os.environ.get("DX0_PHASE_NONCE", "")
+    source = dx0_complete_source(source_commit)
     if (
         os.environ.get("GITHUB_REPOSITORY") != REPOSITORY
         or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
-        or os.environ.get("GITHUB_REF") != DX0_REF
+        or os.environ.get("GITHUB_REF") != source["ref"]
         or os.environ.get("GITHUB_SHA") != source_commit
         or os.environ.get("DX0_SOURCE_SHA") != source_commit
         or os.environ.get("DX0_HOST_MODE") != DX0_HOST_MODE
@@ -913,7 +914,7 @@ def build_dx0_workflow(source_commit: str, sdk: pathlib.Path,
     producer = dx0_source_role(source)
     workflow = {
         "path": WORKFLOW_PATH, "git_blob": workflow_blob,
-        "event": "workflow_dispatch", "ref": DX0_REF,
+        "event": "workflow_dispatch", "ref": source["ref"],
         "source_sha": source_commit, "host_mode": DX0_HOST_MODE,
         "phase_nonce": phase_nonce, "run_id": int(run_id),
         "run_attempt": int(run_attempt),
