@@ -14,8 +14,10 @@ basis_tree: 6e0964a6c506a743ce4fc229940f1e6ed982acc5
 maintenance_branch: codex/px2-class-aware-proof-backend
 maintenance_receipt: docs/maintenance/PX2_CLASS_AWARE_PROOF_BACKEND.md
 maintenance_review: docs/maintenance/PX2_MAINTENANCE_REVIEW.md
-maintenance_review_status: pending
-maintenance_implementation_authorized: false
+maintenance_reviewed_authority_head: 665f98b507b779e8bbada97984ede37b674d48ba
+maintenance_review_record_git_blob: 367934660d456e5b27ac630a7a1ae636c2b87c9e
+maintenance_review_status: PROOF_HARNESS_MAINTENANCE_CLEAR
+maintenance_implementation_authorized: true
 product_implementation_authorized: false
 live_execution_authorized: false
 permitted_execution_class: none
@@ -41,8 +43,8 @@ successor_selection_authorized: false
 The operator directed the technical leads to complete the process correction,
 inspect the detailed PX2 handoff, fix safe authority and documentation defects,
 and provide bounded engineering prompts. This authorizes repository-only PX2
-maintenance preparation. It authorizes no product implementation and no live
-workload.
+maintenance implementation after the retained focused review. It authorizes no
+product implementation and no live workload.
 
 ## Maintenance claim
 
@@ -59,13 +61,12 @@ PX2 does not add a live PC0 adapter and does not make any live plan executable.
 ## Required sequence
 
 ```text
-exact PX2 receipt and factual README correction
-→ one focused fresh-context maintenance review
+reviewed PX2 maintenance authority
 → merge maintenance authority
 → implement locally from the merged authority basis
 → deterministic production-helper and multiprocess tests
 → cheap Linux-only policy/core CI
-→ one non-draft maintenance PR
+→ one non-draft maintenance implementation PR
 → one exact-head technical-lead review
 → merge
 → configure main protection against direct/force/deletion bypass
@@ -90,8 +91,8 @@ The accepted product frontier remains WA0.
 classification: derived_non_authoritative_summary
 last_accepted_capability: WA0 — exact IAudioProcessor acquired and retired without invoking a method
 current_target: PC0 — initialized-state bus and sample-format contract
-current_state: PX2 authority awaiting focused maintenance review; no implementation or live execution authorized
-next_step: review and merge PX2 maintenance authority, then implement the local-only class-aware transaction core
+current_state: PX2 maintenance authority reviewed and implementation-authorized; no product or live execution authorized
+next_step: merge PX2 authority, then implement the local-only class-aware transaction core from that exact basis
 next_product_step_after_px2: add one closed PC0 adapter and use a bounded non-authoritative diagnostic campaign before one fresh acceptance candidate
 explicit_nonclaim: PX2 adds no VST3 capability and PC0 has not advanced the accepted frontier
 ```
