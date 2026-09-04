@@ -296,8 +296,8 @@ def authorize_live_request(authority: Authority, request: LiveRequest) -> dict[s
         identity_key = "diagnostic_campaign_identity"
         budget_key = "diagnostic_batch_budget"
         maximum = authority.integer(budget_key)
-        if maximum not in {1, 2}:
-            raise PolicyError("diagnostic batch budget must be one or two")
+        if maximum < 1:
+            raise PolicyError("diagnostic batch budget must be an explicit positive finite integer")
         acceptance_eligible = False
     else:
         identity_key = "acceptance_candidate_identity"

@@ -308,7 +308,7 @@ class StrictSSHPort:
         # travel only on stdin; neither the SSH command nor Python argv embeds it.
         loader = ("import hashlib,sys; b=sys.stdin.buffer.read(262145); "
                   "assert len(b)<=262144 and hashlib.sha256(b).hexdigest()==sys.argv[1]; "
-                  "exec(compile(b,'<diagnostic-worker>','exec'))")
+                  "exec(compile(b,'<pc0_diagnostic_worker>','exec'))")
         invocation = shlex.join((
             "env", "-u", "GH_TOKEN", "-u", "GITHUB_TOKEN", "-u",
             "GITHUB_PAT", "-u", "SSH_AUTH_SOCK", "PYTHONDONTWRITEBYTECODE=1",
@@ -710,9 +710,21 @@ class PC0DiagnosticRuntime:
             raise AdapterBoundaryError("diagnostic summary exceeds bound")
         if kind is ObservationKind.SUCCESS:
             if (value["cleanup"] != "COMPLETE" or value["protected"] != "UNCHANGED"
-                    or set(summary) != {"run_id", "processing_contract"}
+                    or set(summary) != {"run_id", "processing_contract", "shutdown", "raw_exit"}
+                    or summary["raw_exit"] != 0 or not isinstance(summary["shutdown"], dict)
                     or not isinstance(summary["processing_contract"], dict)):
                 raise AdapterBoundaryError("successful diagnostic facts differ")
+        elif set(summary) == {"troubleshooting"}:
+            detail = _keys(summary["troubleshooting"], {
+                "schema", "acceptance_eligible", "stage", "last_event", "observation",
+                "primary_error", "secondary_errors", "persistence_errors", "retirement",
+            }, "troubleshooting checkpoint")
+            if (kind is not ObservationKind.INCONCLUSIVE
+                    or value["classification"] != "PC0_DIAGNOSTIC_INCONCLUSIVE"
+                    or detail["schema"] != "pc0-read-only-troubleshooting/v1"
+                    or detail["acceptance_eligible"] is not False
+                    or len(canonical_json(detail)) > 128 * 1024):
+                raise AdapterBoundaryError("troubleshooting cannot promote acceptance")
         elif set(summary) not in ({"failure"}, {"failure", "supervision_error"}):
             raise AdapterBoundaryError("failure diagnostic facts absent")
         else:

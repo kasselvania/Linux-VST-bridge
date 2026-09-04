@@ -10,7 +10,10 @@ from environment import _copy_regular, _bundle_manifest
 from supervise import *
 from run import *
 from run import _deck_keys, _deck_hex, _pc0_validate_durable_records
-from pc0_diagnostic_runtime import verify_diagnostic_runner, sanitized_supervision_error
+from normalize import (validate_wa0_event_order, decode_field, logical_fuid,
+    sanitized_timeline, normalize_pc0_census, EXPECTED_CLASSES,
+    AUDIO_PROCESSOR_LEASE_SCHEMA, COMPONENT_SESSION_SCHEMA)
+from pc0_diagnostic_runtime import verify_diagnostic_runner, sanitized_supervision_error, exception_detail
 
 
 def verify_environment(environment: ScanEnvironment, *, runner_identity_sha256: str) -> None:
@@ -125,7 +128,7 @@ def create_dx0_environment(run_id: str, *, host: dict[str, Any],
 
 def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
               component_case: str = "exact-again",
-              mode: str = "wa0-audio-processor-interface-admission") -> dict[str, Any]:
+              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None) -> dict[str, Any]:
     runner_identity = verify_diagnostic_runner()
     verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
     session = secrets.token_hex(16)
@@ -155,6 +158,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     timed_out = False
     held_receipt: dict[str, Any] | None = None
     cleanup_error: str | None = None
+    cleanup_exception = None
     supervision_error: Exception | None = None
     cleanup = {"owned_descendants_zero": False, "process_group_empty": False}
     try:
@@ -228,11 +232,23 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
         # one exception with another from the finally block.
         supervision_error = error
     finally:
+        # The callback is supplied by the reservation worker and never raises.
+        # Preserve stream facts before cleanup/retirement can lose their source.
+        if checkpoint is not None:
+            checkpoint("supervisor_cleanup", {"records": streams.records,
+                "raw_exit": root.returncode, "cleanup": cleanup}, supervision_error)
         try:
             cleanup = cleanup_process(root, sorted(seen_owned))
         except RuntimeError as error:
             cleanup_error = str(error)
-        selector.close()
+            cleanup_exception = error
+        try:
+            selector.close()
+        finally:
+            if checkpoint is not None:
+                checkpoint("supervisor_containment", {"records": streams.records,
+                    "raw_exit": root.returncode, "cleanup": cleanup},
+                    cleanup_exception)
 
     if cleanup_error is not None:
         # Once bounded physical containment fails, later stream, protected-state,
@@ -294,6 +310,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             "cleanup": cleanup, "protected_snapshot": before,
             "runner_identity": runner_identity,
             "supervision_error": sanitized_supervision_error(supervision_error),
+            "supervision_exception": exception_detail(supervision_error),
         }
 
     if supervision_error is not None:
@@ -330,6 +347,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             "cleanup": cleanup, "protected_snapshot": before,
             "runner_identity": runner_identity,
             "supervision_error": sanitized_supervision_error(supervision_error),
+            "supervision_exception": exception_detail(supervision_error),
         }
 
     if streams.pending:
@@ -576,3 +594,333 @@ def validate_failure_diagnostic(value: Any, *, expected_source: dict[str, Any],
             or not 0 <= diagnostic["stderr_bytes"] <= 65536):
         fail("PC0_EVIDENCE_BLOCKED: failure diagnostic stderr bound differs")
     return diagnostic
+
+
+# Diagnostic projection of the pinned normalizer. Preserve every product
+# assertion; use the returned validated call pairs instead of an undefined
+# local from validate_wa0_event_order. Frozen Deck modules remain untouched.
+def normalize_wa0_positive(
+    run: dict[str, Any], build: dict[str, Any], *, pre_setup: bool = False
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Normalize one exact AGain interface lease without calling its methods."""
+    if (run.get("classification"), run.get("blocker"), run.get("raw_exit"),
+        run.get("last_in_flight_operation"), run.get("component_case")) != (
+            "scanner_completed", None, 0, None, "exact-again"
+        ):
+        fail("positive WA0 run did not terminate as one complete interface lease")
+    records = run.get("records")
+    if not isinstance(records, list) or not records:
+        fail("positive WC0 event stream is absent")
+    starts, completes = validate_wa0_event_order(records, pre_setup=pre_setup)
+
+    final = records[-1]
+    raw_session = final.get("component_session")
+    if (
+        final.get("event") != "lifecycle"
+        or final.get("state") != "scanner_completed"
+        or final.get("create_instance_called") is not True
+        or final.get("controller_instance_created") is not False
+        or final.get("audio_processor_interface_queried") is not True
+        or final.get("audio_processor_method_called") is not pre_setup
+        or not isinstance(raw_session, dict)
+    ):
+        fail("positive WA0 final record is absent or crosses the claim ceiling")
+    expected_processor_raw = "5FDEE8845592534F96FAE4133C935A18"
+    expected_component_iid_raw = "31FF31E8D5F20143928EBBEE25697802"
+    expected_controller_raw = "655B9DD3AFD7FA42843F4AC841EB04F0"
+    expected_audio_iid_raw = "993F0442DAB73C45A569E79D9AAEC33D"
+    create = raw_session.get("create", {})
+    controller = raw_session.get("controller_id", {})
+    initialize = raw_session.get("initialize", {})
+    terminate = raw_session.get("terminate", {})
+    release = raw_session.get("release", {})
+    host = raw_session.get("host", {})
+    audio = raw_session.get("audio_processor_lease", {})
+    callbacks_raw = raw_session.get("callbacks", {})
+    if (
+        raw_session.get("state") != "component_released"
+        or raw_session.get("primary_blocker") is not None
+        or raw_session.get("processor_cid_raw_tuid_hex") != expected_processor_raw
+        or raw_session.get("requested_iid_raw_tuid_hex") != expected_component_iid_raw
+        or create != {
+            "attempted": True, "result_u32_hex": "00000000",
+            "output_nonnull": True, "tuple_consistent": True,
+        }
+        or controller != {
+            "attempted": True, "buffer_zero_initialized": True,
+            "result_u32_hex": "00000000", "raw_tuid_hex": expected_controller_raw,
+            "matches_expected": True,
+        }
+        or initialize != {
+            "attempted": True, "result_u32_hex": "00000000", "succeeded": True,
+        }
+        or terminate != {
+            "attempted": True, "returned_ordinary": True,
+            "result_u32_hex": "00000000",
+        }
+        or release != {
+            "attempted": True, "returned_ordinary": True, "reference_count": 0,
+            "pointer_cleared": True,
+        }
+        or host != {
+            "created": True, "name": "Linux VST Bridge WC0",
+            "reference_baseline": 1, "reference_after_initialize": 2,
+            "reference_after_terminate": 1,
+            "reference_returned_to_baseline": True,
+            "owner_release_attempted": True,
+            "owner_release_result": 0,
+        }
+        or raw_session.get("audio_processor_session_ran") is not True
+        or audio != {
+            "state": "audio_processor_lease_retired",
+            "primary_blocker": None,
+            "requested_interface": "Steinberg::Vst::IAudioProcessor",
+            "requested_iid_raw_tuid_hex": expected_audio_iid_raw,
+            "query": {
+                "output_zero_initialized": True,
+                "attempted": True,
+                "result_u32_hex": "00000000",
+                "output_nonnull": True,
+                "tuple_consistent": True,
+            },
+            "lease_acquired": True,
+            "release": {
+                "attempted": True,
+                "returned_ordinary": True,
+                "reference_count": 1,
+            },
+            "pointer_cleared": True,
+            "call_in_flight": False,
+            "callback_ledger_unchanged": True,
+            "audio_interface_quiescence": True,
+        }
+        or raw_session.get("component_call_in_flight") is not False
+        or raw_session.get("callback_ledger_closed") is not True
+        or raw_session.get("object_quiescence") is not True
+        or raw_session.get("inherited_shutdown_permitted") is not True
+    ):
+        fail("positive AGain audio lease or component lifecycle differs")
+
+    callback_records = callbacks_raw.get("records")
+    expected_callback_shape = [
+        ("addRef", "component", "initialize_component", 2),
+        ("release", "component", "terminate_component", 1),
+        ("release", "owner_local", None, 0),
+    ]
+    if (
+        callbacks_raw.get("capacity") != 64
+        or callbacks_raw.get("record_count") != 3
+        or callbacks_raw.get("closed") is not True
+        or callbacks_raw.get("overflowed") is not False
+        or callbacks_raw.get("output_failed") is not False
+        or callbacks_raw.get("wrong_thread") is not False
+        or callbacks_raw.get("unexpected_object_request") is not False
+        or callbacks_raw.get("callback_in_flight") is not False
+        or not isinstance(callback_records, list)
+        or len(callback_records) != 3
+    ):
+        fail("positive AGain callback ledger closure differs")
+    for raw, expected in zip(callback_records, expected_callback_shape):
+        operation, origin, enclosing, count = expected
+        if (
+            raw.get("operation") != operation
+            or raw.get("origin") != origin
+            or raw.get("enclosing_operation") != enclosing
+            or raw.get("reference_count") != count
+            or (origin == "component") != isinstance(
+                raw.get("enclosing_attempt_sequence"), int
+            )
+        ):
+            fail("positive AGain callback reference sequence differs")
+    callback_events = [item for item in records if item.get("event") == "host_callback"]
+    if len(callback_events) != 3:
+        fail("positive event stream callback count differs")
+    for event, retained in zip(callback_events, callback_records):
+        for key in ("operation", "origin", "enclosing_attempt_sequence",
+                    "enclosing_operation", "reference_count"):
+            if event.get(key) != retained.get(key):
+                fail("retained callback ledger differs from synchronously flushed events")
+
+    if final.get("class_count") != 3 or len(final.get("classes", [])) != 3:
+        fail("inherited AGain census regression is not the exact three-class roster")
+    factory = final.get("factory", {})
+    vendor = decode_field(factory.get("vendor_hex"), "utf8", 64)
+    url = decode_field(factory.get("url_hex"), "utf8", 256)
+    email = decode_field(factory.get("email_hex"), "utf8", 128)
+    if (vendor["text"], url["text"], email["text"], factory.get("flags_i32")) != (
+        "Steinberg Media Technologies", "http://www.steinberg.net",
+        "mailto:info@steinberg.de", 16
+    ):
+        fail("inherited AGain factory metadata regression differs")
+    class_ids = []
+    for ordinal, raw in enumerate(final["classes"]):
+        raw_id = raw.get("raw_tuid_hex")
+        class_id = logical_fuid(raw_id)
+        encoding = "utf16le" if raw.get("tier") == "IPluginFactory3.PClassInfoW" else "utf8"
+        name = decode_field(raw.get("name_hex"), encoding, 64)["text"]
+        category = decode_field(raw.get("category_hex"), "utf8", 32)["text"]
+        expected = EXPECTED_CLASSES[ordinal]
+        if (class_id, name, category) != expected[:3]:
+            fail("inherited AGain ordered class regression differs")
+        class_ids.append({
+            "ordinal": ordinal, "logical_class_id": class_id,
+            "raw_windows_tuid": raw_id, "name": name, "category": category,
+        })
+
+    timeline = sanitized_timeline(run)
+    callback_ledger = {
+        "host_name": "Linux VST Bridge WC0",
+        "capacity": 64,
+        "record_count": 3,
+        "records": callback_records,
+        "component_originated_reference_sequence": [2, 1],
+        "owner_final_release": 0,
+        "closed": True,
+        "overflowed": False,
+        "output_failed": False,
+        "wrong_thread": False,
+        "unexpected_host_object_request": False,
+        "unchanged_across_audio_processor_lease": True,
+    }
+    source = build["implementation_source_manifest"]
+    scanner_record = next(item for item in build["artifact_set"]["records"]
+                          if item["path"] == "bin/wf0-factory-probe.exe")
+    module_sha256 = next(
+        item["sha256"] for item in build["again_bundle_manifest"]["records"]
+        if item["path"] == "Contents/x86_64-win/again.vst3"
+    )
+    source_identity = {
+        "schema": source["schema"], "commit": source["commit"],
+        "tree": build["source_tree"], "record_count": source["record_count"],
+        "manifest_sha256": build["implementation_source_manifest_sha256"],
+    }
+    audio_processor_lease = {
+        "schema": AUDIO_PROCESSOR_LEASE_SCHEMA,
+        "implementation_source_identity": source_identity,
+        "scanner_sha256": scanner_record["sha256"],
+        "module_sha256": module_sha256,
+        "owner": "AudioProcessorInterfaceLease",
+        "component_owner_reference_baseline": 1,
+        "interface": {
+            "name": "Steinberg::Vst::IAudioProcessor",
+            "logical_iid": logical_fuid(expected_audio_iid_raw),
+            "raw_windows_tuid": expected_audio_iid_raw,
+            "pointer_identity_retained": False,
+        },
+        "state": audio["state"],
+        "query": audio["query"],
+        "lease_acquired": audio["lease_acquired"],
+        "release": audio["release"],
+        "pointer_cleared": audio["pointer_cleared"],
+        "call_in_flight": audio["call_in_flight"],
+        "callback_ledger_unchanged": audio["callback_ledger_unchanged"],
+        "audio_interface_quiescence": audio["audio_interface_quiescence"],
+        "call_attribution": {
+            "closed_operations": [
+                "query_audio_processor", "release_audio_processor"
+            ],
+            "new_operation_count": 2,
+            "total_operation_count": 22,
+            "started_count": 2,
+            "completed_count": 2,
+            "last_in_flight_operation": None,
+        },
+        "audio_processor_method_called": False,
+        "explicit_nonclaims": [
+            "no_audio_processor_method", "no_interface_pointer_identity",
+            "no_controller_creation", "no_connection_point", "no_bus_access",
+            "no_parameter_access", "no_state_access", "no_processing_setup",
+            "no_audio", "no_events", "no_editor", "no_proxy", "no_ipc",
+            "no_bitwig", "no_serum",
+        ],
+        "stage_timeline_sha256": sha256_bytes(canonical_json(timeline)),
+    }
+    component_session = {
+        "schema": COMPONENT_SESSION_SCHEMA,
+        "implementation_source_identity": source_identity,
+        "scanner_sha256": scanner_record["sha256"],
+        "module_sha256": module_sha256,
+        "processor": {
+            "logical_cid": logical_fuid(expected_processor_raw),
+            "raw_windows_tuid": expected_processor_raw,
+            "requested_interface": "Steinberg::Vst::IComponent",
+            "requested_interface_logical_iid": logical_fuid(expected_component_iid_raw),
+            "requested_interface_raw_windows_tuid": expected_component_iid_raw,
+        },
+        "controller": {
+            "logical_cid": logical_fuid(expected_controller_raw),
+            "raw_windows_tuid": expected_controller_raw,
+            "result_u32_hex": controller["result_u32_hex"],
+            "queried_before_initialize": True,
+            "complete_output_zero_initialized": True,
+            "matched": True,
+        },
+        "create": create,
+        "initialize": initialize,
+        "audio_processor_lease": {
+            "state": audio["state"],
+            "query_result_u32_hex": audio["query"]["result_u32_hex"],
+            "query_output_nonnull": audio["query"]["output_nonnull"],
+            "release_reference_count": audio["release"]["reference_count"],
+            "pointer_cleared": audio["pointer_cleared"],
+            "quiescence": audio["audio_interface_quiescence"],
+        },
+        "terminate": terminate,
+        "component_release": release,
+        "host_reference_sequence": [1, 2, 1, 0],
+        "callback_ledger": callback_ledger,
+        "component_state": "component_released",
+        "object_quiescence": {
+            "value": True,
+            "facts": {
+                "audio_interface_quiescent_before_terminate": True,
+                "initialize_succeeded": True,
+                "terminate_attempted_once_and_returned_ordinary": True,
+                "component_release_returned_zero": True,
+                "component_call_in_flight": False,
+                "component_pointer_cleared": True,
+                "host_reference_returned_to_baseline": True,
+                "host_owner_final_release_returned_zero": True,
+                "host_callback_in_flight": False,
+                "callback_ledger_closed": True,
+            },
+        },
+        "inherited_wf0_regression": {
+            "factory_vendor": vendor["text"],
+            "ordered_class_census": class_ids,
+            "factory_release_order": [
+                "release_factory_3", "release_factory_2", "release_factory_base"
+            ],
+            "module_exit": final.get("module_exit"),
+            "module_unload": final.get("module_unload"),
+            "clean_in_process_shutdown": True,
+        },
+        "call_attribution": {
+            "closed_operation_count": 22,
+            "new_wa0_operation_count": 2,
+            "started_count": len(starts),
+            "completed_count": len(completes),
+            "last_in_flight_operation": None,
+        },
+        "controller_instance_created": False,
+        "forbidden_component_method_called": False,
+        "audio_processor_method_called": False,
+        "explicit_nonclaims": [
+            "no_controller_creation", "no_connection_point",
+            "no_audio_processor_method", "no_bus_host_call",
+            "no_parameter_host_call", "no_state_host_call", "no_processing",
+            "no_audio", "no_events", "no_editor", "no_bitwig", "no_serum",
+            "no_proxy", "no_ipc",
+        ],
+        "stage_timeline_sha256": sha256_bytes(canonical_json(timeline)),
+        "callback_ledger_sha256": sha256_bytes(canonical_json(callback_ledger)),
+    }
+    if pre_setup:
+        contract = normalize_pc0_census(records, raw_session.get("processing_contract"))
+        audio_processor_lease["processing_contract"] = contract
+        for projection in (audio_processor_lease, component_session):
+            projection["audio_processor_method_called"] = True
+            projection["explicit_nonclaims"] = [claim for claim in projection["explicit_nonclaims"]
+                if claim not in {"no_audio_processor_method", "no_bus_host_call", "no_bus_access"}]
+        component_session["call_attribution"]["closed_operation_count"] = 33
+    return audio_processor_lease, component_session, timeline

@@ -176,3 +176,67 @@ def sanitized_supervision_error(error):
     text=re.sub(r"(?i)\b(?:pid|ppid)[=: ]+[0-9]+", "<process>", text)
     text=re.sub(r"[\x00-\x1f\x7f]", " ", text)
     return text[:768]
+
+
+# Independent of the product normalizer and its validators. Only these scalar
+# protocol fields can enter a troubleshooting checkpoint; no process identities,
+# command lines, environment, factory account metadata or paths are retained.
+CHECKPOINT_KEYS = frozenset("""
+event sequence attempt_sequence operation interface ordinal tier return_kind
+state disposition object_quiescence component_state primary_blocker
+result_u32_hex win32_error_u32_hex i32_result u32_result bool_result output_nonnull
+host_reference_count object_role requested_interface media_type direction index
+audio_index symbolic_size audio_interface_quiescence audio_processor_state
+callback_ledger_unchanged release_reference_count pointer_cleared
+processing_contract schema lifecycle_state counts count buses name_utf8
+channel_count bus_type flags_u32_hex default_active control_voltage
+speaker_arrangement bits_u64_hex recognized_layout sample_sizes tresult_i32
+tresult_u32_hex supported call_count complete mutation_call_count
+raw_exit classification blocker secondary_cleanup_blocker last_lifecycle
+last_in_flight_operation audio_processor_observer_state inherited_shutdown
+operations clean_in_process_shutdown physical_containment_only cleanup
+owned_descendants_zero process_group_empty stdout_sha256 stderr_sha256 stderr_bytes
+records run_id component_session
+terminate_component release_component release_factory_3 release_factory_2
+release_factory_base exit_dll free_library source
+""".split())
+
+
+def checkpoint_projection(value, depth=0):
+    if depth > 10:
+        return "<depth bound>"
+    if isinstance(value, dict):
+        return {k: checkpoint_projection(v, depth+1) for k,v in value.items()
+                if k in CHECKPOINT_KEYS}
+    if isinstance(value, list):
+        return [checkpoint_projection(v, depth+1) for v in value[-256:]]
+    if value is None or type(value) in (bool, int):
+        return value
+    if isinstance(value, str):
+        # Protocol strings and AGain bus names, never arbitrary free-form text.
+        if len(value) <= 128 and re.fullmatch(r"[A-Za-z0-9_ .:+-]*", value):
+            return value
+        return "<redacted string>"
+    return "<unsupported value>"
+
+
+def exception_detail(error):
+    """Bounded chain, repository locations and sanitized messages; no locals."""
+    chain=[]; seen=set()
+    while error is not None and id(error) not in seen and len(chain)<4:
+        seen.add(id(error)); frames=[]; tb=error.__traceback__
+        while tb is not None:
+            filename=tb.tb_frame.f_code.co_filename
+            if '/tools/' in filename:
+                module='tools/'+filename.split('/tools/',1)[1]
+            elif filename.startswith('<pc0_'):
+                module='tools/'+filename[1:-1]+'.py'
+            else:
+                module='<external>'
+            frames.append({'module':module, 'function':tb.tb_frame.f_code.co_name[:80],
+                           'line':tb.tb_lineno})
+            tb=tb.tb_next
+        chain.append({'type':type(error).__name__, 'detail':sanitized_supervision_error(error),
+                      'frames':frames[-6:]})
+        error=error.__cause__ if error.__cause__ is not None else error.__context__
+    return chain

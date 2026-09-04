@@ -196,6 +196,20 @@ class PolicyTests(unittest.TestCase):
             validate_canonical_delegation(authority, canonical_json(value)), value,
         )
 
+    def test_explicit_finite_diagnostic_ceiling_does_not_change_acceptance(self):
+        for maximum in (1, 2, 8, 11):
+            authority, value = self.delegation("diagnostic", budget=maximum)
+            self.assertEqual(value["batch_budget_maximum"], maximum)
+            self.assertFalse(value["acceptance_eligible"])
+            self.assertEqual(validate_delegation(authority, value), value)
+            with self.assertRaises(PolicyError):
+                validate_delegation(authority, {**value, "acceptance_eligible":True})
+        for maximum in (0, -1, True, "unlimited", "1.5"):
+            with self.subTest(maximum=maximum), self.assertRaises(PolicyError):
+                self.delegation("diagnostic", budget=maximum)
+        with self.assertRaises(PolicyError):
+            self.delegation("acceptance", budget=8)
+
     def test_acceptance_is_one_exact_candidate(self):
         authority, value = self.delegation("acceptance")
         self.assertTrue(value["acceptance_eligible"])

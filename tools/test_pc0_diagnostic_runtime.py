@@ -117,12 +117,19 @@ class RuntimeTests(unittest.TestCase):
     def test_frozen_process_functions_only_change_runtime_dependencies(self):
         path=TOOLS/'pc0_diagnostic_primitives.py'
         current={n.name:ast.get_source_segment(path.read_text(),n) for n in ast.parse(path.read_text()).body if isinstance(n,ast.FunctionDef)}
-        for module,names in [('environment',['verify_environment','retire_environment','create_dx0_environment']),('supervise',['supervise']),('run',['validate_failure_diagnostic'])]:
+        for module,names in [('environment',['verify_environment','retire_environment','create_dx0_environment']),('supervise',['supervise']),('run',['validate_failure_diagnostic']),('normalize',['normalize_wa0_positive'])]:
             text=subprocess.check_output(['git','show','309b8918c128c0b9e6701d0453dc841a111d5ac5:tools/wf0-factory-census/'+module+'.py'],cwd=TOOLS.parent).decode()
             for node in ast.parse(text).body:
                 if not isinstance(node,ast.FunctionDef) or node.name not in names:continue
                 actual=current[node.name]
                 actual=actual.replace('            "supervision_error": sanitized_supervision_error(supervision_error),\n','')
+                actual=actual.replace('            "supervision_exception": exception_detail(supervision_error),\n','')
+                actual=actual.replace(', checkpoint=None)', ')')
+                actual=actual.replace('    cleanup_exception = None\n', '')
+                actual=actual.replace('            cleanup_exception = error\n', '')
+                actual=actual.replace('    starts, completes = validate_wa0_event_order(records, pre_setup=pre_setup)',
+                                      '    validate_wa0_event_order(records, pre_setup=pre_setup)')
+                actual=actual.replace('len(starts)', 'len(expected_calls)').replace('len(completes)', 'len(expected_calls)')
                 actual=actual.replace(', *, runner_identity_sha256: str)',')').replace(', runner_identity_sha256: str)',')')
                 actual=actual.replace(', runner_identity_sha256=runner_identity_sha256','')
                 actual=actual.replace('"runner_identity_sha256": runner_identity_sha256','"runner_identity_sha256": RUNNER_DIGEST')
@@ -132,6 +139,19 @@ class RuntimeTests(unittest.TestCase):
                 actual=actual.replace('verify_diagnostic_runner()', 'verify_runner_identity()')
                 actual=actual.replace(', expected_runner_identity_sha256: str)',' )').replace('str )','str)')
                 actual=actual.replace('!= expected_runner_identity_sha256','!= RUNNER_DIGEST')
+                if node.name == 'supervise':
+                    tree=ast.parse(actual)
+                    class StripCapture(ast.NodeTransformer):
+                        def visit_If(self, n):
+                            if ast.unparse(n.test) == 'checkpoint is not None':
+                                return None
+                            return self.generic_visit(n)
+                        def visit_Try(self, n):
+                            n=self.generic_visit(n)
+                            if not n.handlers and not n.finalbody:
+                                return n.body
+                            return n
+                    actual=ast.unparse(StripCapture().visit(tree))
                 with self.subTest(function=node.name):
                     self.assertEqual(ast.dump(ast.parse(actual)),ast.dump(ast.parse(ast.get_source_segment(text,node))))
 
