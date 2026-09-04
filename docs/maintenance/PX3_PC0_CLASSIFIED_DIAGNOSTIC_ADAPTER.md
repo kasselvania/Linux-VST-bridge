@@ -11,7 +11,8 @@ branch: codex/px3-pc0-classified-diagnostic-adapter
 claim: >-
   The production PX2 registry contains exactly one closed PC0 diagnostic-only
   adapter. It performs strict read-only preflight and reconciliation, invokes
-  only the stopped source's lower-level Deck execute seam after PX2 reservation,
+  a current reservation-bound worker over the stopped source's environment,
+  supervision, normalization, and cleanup primitives after PX2 reservation,
   strictly admits bounded private observations, and can never render product
   evidence or produce an acceptance-eligible result.
 plan_id: pc0-pre-setup-processing-contract-diagnostic-v1
@@ -28,6 +29,7 @@ allowed_changed_paths:
   - CURRENT_SLICE.md
   - docs/maintenance/PX3_PC0_CLASSIFIED_DIAGNOSTIC_ADAPTER.md
   - tools/pc0_proof_adapter.py
+  - tools/pc0_diagnostic_worker.py
   - tools/proof-run.py
   - tools/proof_execution_policy.py
   - tools/test_pc0_proof_adapter.py
@@ -40,8 +42,11 @@ no_live_budget:
 tests:
   - exact production registry and diagnostic-only structure
   - authority, source, plan, artifact, fixture, and runtime refusal before reservation
-  - stable campaign budget across diagnostic source revisions
-  - retained result, retained diagnostic, and unknown-outcome reconciliation
+  - actual retained-store sidecar reader and stdin worker with pinned helper contracts
+  - two distinct reservations on one frozen artifact; same reservation resumes; third refused
+  - unknown remains consumed and reconcilable; later exact result with one launch
+  - retrieval survives failed launch safety; historical stores remain untouched
+  - current retrieval effects are zero rather than historical publication counts
   - canonical bounded diagnostic/sidecar admission and unknown effects
   - no renderer, legacy full transaction, or product evidence path
   - Linux-only PX2 proof policy core workflow
@@ -49,6 +54,9 @@ stop_boundary: >-
   Any need for a live campaign authority, acceptance adapter, product-contract
   change, legacy full transaction, second budget owner, tracked product
   evidence, Windows work, or changed PC0 behavior stops this maintenance task.
+repair_review: 5117828668
+reviewed_head: b765ce1d074592345e47cec0acfd4a717e54ee1d
+validation_scope: local_effect_free_dependencies_and_linux_policy_core
 live_execution_authorized: false
 diagnostic_campaign_authorized: false
 acceptance_candidate_authorized: false

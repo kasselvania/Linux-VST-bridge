@@ -146,7 +146,7 @@ class FakeCommandPort:
         self.head_source = head_source
         self.calls: list[tuple[str, ...]] = []
 
-    def run(self, argv, *, cwd=None, timeout=30.0):
+    def run(self, argv, *, cwd=None, timeout=30.0, input_bytes=None):
         del cwd, timeout
         command = tuple(argv)
         self.calls.append(command)
@@ -167,6 +167,8 @@ class FakeCommandPort:
         elif command[:2] == ("git", "rev-parse"):
             if target == f"{STOPPED_PC0_SOURCE}^{{tree}}":
                 value = STOPPED_PC0_TREE
+            elif target.endswith(":tools/pc0_diagnostic_worker.py"):
+                value = adapter_module._git_blob_sha1(REMOTE_PREFLIGHT_PROGRAM.encode())
             elif target.endswith(f":{SELECTION_PATH}"):
                 value = SELECTION_GIT_BLOB
             else:
@@ -174,91 +176,6 @@ class FakeCommandPort:
         else:
             return CommandReply(2, b"", b"non-git command refused")
         return CommandReply(0, (value + "\n").encode("ascii"), b"")
-
-
-class FakeFileSystemPort:
-    def __init__(self) -> None:
-        self.selection = (ROOT / SELECTION_PATH).read_bytes()
-        self.calls: list[pathlib.Path] = []
-
-    def read_bytes(self, path: pathlib.Path, maximum: int) -> bytes:
-        self.calls.append(path)
-        if path.name != "SLICE_SELECTION.md" or len(self.selection) > maximum:
-            raise AdapterBoundaryError("unexpected fake filesystem read")
-        return self.selection
-
-
-def result_document(operation_nonce: str, phase_nonce: str) -> bytes:
-    value = {
-        "schema": PC0_RESULT_SCHEMA,
-        "operation_nonce": operation_nonce,
-        "artifact_producer_source": dict(PRODUCER_SOURCE_ROLE),
-        "deck_execution_source": dict(STOPPED_SOURCE_ROLE),
-        "execution_input": {
-            "identity_sha256": EXECUTION_INPUT,
-            "schema": PC0_DECK_EXECUTION_INPUT_SCHEMA,
-            "proof_plan_sha256": PC0_LEGACY_PLAN_SHA256,
-            "runtime_proton_sha256": RUNTIME_PROTON_IDENTITY,
-            "source_handoff_ref": f"refs/handoff/dx0-source/{STOPPED_PC0_SOURCE}",
-            "detached_worktree_commit": STOPPED_PC0_SOURCE,
-            "host_artifact_manifest_sha256": HOST_MANIFEST_SHA256,
-            "accepted_fixture_identity_sha256": ACCEPTED_FIXTURE_IDENTITY,
-        },
-        "host_artifact": {
-            "windows_build_input_sha256": WINDOWS_BUILD_INPUT_IDENTITY,
-            "workflow_run_id": PRODUCER_RUN_ID,
-            "run_attempt": PRODUCER_RUN_ATTEMPT,
-            "artifact_id": PRODUCER_ARTIFACT_ID,
-            "manifest_sha256": HOST_MANIFEST_SHA256,
-            "build_receipt_sha256": "a" * 64,
-            "mac_custody_receipt_sha256": "b" * 64,
-        },
-        "accepted_fixture": {
-            "identity_sha256": ACCEPTED_FIXTURE_IDENTITY,
-            "bundle_manifest_sha256": AGAIN_BUNDLE_MANIFEST_SHA256,
-            "module_sha256": AGAIN_MODULE_SHA256,
-            "mac_store_receipt_sha256": "c" * 64,
-            "deck_store_receipt_sha256": "c" * 64,
-        },
-        "source_handoff": {
-            "bundle_sha256": BUNDLE_SHA,
-            "receipt_sha256": RECEIPT_SHA,
-            "advertised_ref": f"refs/handoff/dx0-source/{STOPPED_PC0_SOURCE}",
-            "worktree_commit": STOPPED_PC0_SOURCE,
-            "worktree_clean": True,
-        },
-        "closed_plan": {
-            "plan_id": "pc0-pre-setup-processing-contract-v1",
-            "sha256": PC0_LEGACY_PLAN_SHA256,
-            "expected_result": "pc0-pre-setup-contract-complete-v1",
-            "live_exercise_ceiling": 1,
-        },
-        "original_observation": {
-            "run_id": RESULT_RUN_ID,
-            "phase_nonce": phase_nonce,
-        },
-        "positive_result": {"processing_contract": {
-            "schema": "diagnostic-test-contract/v1", "audio_buses": [],
-            "event_buses": [], "sample_sizes": [],
-        }},
-        "call_facts": {},
-        "quiescence": {},
-        "shutdown": {},
-        "cleanup": {
-            "owned_descendant_count": 0,
-            "process_group_empty": True,
-            "environment_retired": True,
-            "stage_absent": True,
-        },
-        "protected_state": {
-            "pre_sha256": PROTECTED_SHA,
-            "post_sha256": PROTECTED_SHA,
-            "equal": True,
-            "comparison_completed": True,
-        },
-        "integrity": {},
-    }
-    return canonical_json(value)
 
 
 def diagnostic_document(
@@ -315,457 +232,433 @@ def diagnostic_document(
     return canonical_json(value)
 
 
-class FakeSSHPort:
-    def __init__(
-        self, *, state: str = "absent", final_state: str = "result",
-        overrides: dict[str, object] | None = None,
-        diagnostic_classification: str = "supervision_failed",
-        timeout_after_launch: bool = False,
-        retained_nonces: tuple[str, str] | None = None,
-    ) -> None:
-        self.state = state
-        self.final_state = final_state
-        self.overrides = dict(overrides or {})
-        self.diagnostic_classification = diagnostic_classification
-        self.timeout_after_launch = timeout_after_launch
-        self.retained_nonces = retained_nonces
-        self.run_python_calls = 0
-        self.execute_calls = 0
-        self.writes: list[tuple[str, bytes]] = []
-        self.last_operation_nonce = "0" * 32
-        self.last_phase_nonce = "0" * 32
-
-    def _set(self, value: dict, dotted: str, item: object) -> None:
-        target = value
-        parts = dotted.split(".")
-        for part in parts[:-1]:
-            target = target[part]
-        target[parts[-1]] = item
-
-    def _preflight(self, arguments) -> dict:
-        source, adapter_source, operation_nonce, phase_nonce = arguments
-        self.last_operation_nonce = operation_nonce
-        self.last_phase_nonce = phase_nonce
-        retained_operation, retained_phase = (
-            self.retained_nonces or (operation_nonce, phase_nonce)
-        )
-        has_pair = self.state in {"result", "diagnostic"}
-        plan = {
-            "schema": "linux-vst-bridge-dx0-proof-plan/v1",
-            "plan_id": "pc0-pre-setup-processing-contract-v1",
-            "accepted_fixture_id": "wa0-again-accepted-v1",
-            "host_mode": "host_only",
-            "deterministic_validation_set": "pc0-pre-setup-deterministic-v1",
-            "live_deck_batch": "pc0-positive-only-v1",
-            "expected_result": "pc0-pre-setup-contract-complete-v1",
-            "evidence_renderer": "pc0-five-file-renderer-v1",
-        }
-        deck_input = {
-            "schema": PC0_DECK_EXECUTION_INPUT_SCHEMA,
-            "host_artifact_manifest_sha256": HOST_MANIFEST_SHA256,
-            "accepted_fixture_identity_sha256": ACCEPTED_FIXTURE_IDENTITY,
-            "proof_plan_sha256": PC0_LEGACY_PLAN_SHA256,
-            "runtime_proton_sha256": RUNTIME_PROTON_IDENTITY,
-            "record_count": 0,
-            "records": [],
-        }
-        intent = {
-            "schema": "linux-vst-bridge-dx0-deck-intent/v1",
-            "operation_nonce": operation_nonce,
-            "phase_nonce": phase_nonce,
-            "execution_source": dict(STOPPED_SOURCE_ROLE),
-            "deck_execution_input": deck_input,
-            "deck_execution_input_sha256": EXECUTION_INPUT,
-            "proof_plan": plan,
-            "proof_plan_sha256": PC0_LEGACY_PLAN_SHA256,
-            "host_artifact_manifest_sha256": HOST_MANIFEST_SHA256,
-            "accepted_fixture_identity_sha256": ACCEPTED_FIXTURE_IDENTITY,
-            "source_handoff_receipt_sha256": RECEIPT_SHA,
-        }
-        value = {
-            "schema": "linux-vst-bridge-pc0-classified-diagnostic-preflight/v1",
-            "adapter_source_commit": adapter_source,
-            "execution_source_commit": source,
-            "execution_input_sha256": EXECUTION_INPUT,
-            "legacy_proof_plan_sha256": PC0_LEGACY_PLAN_SHA256,
-            "operation_nonce": operation_nonce,
-            "phase_nonce": phase_nonce,
-            "source_handoff_receipt_sha256": RECEIPT_SHA,
-            "source_handoff_bundle_sha256": BUNDLE_SHA,
-            "host": {
-                "windows_build_input_identity": WINDOWS_BUILD_INPUT_IDENTITY,
-                "producer_source_commit": PRODUCER_SOURCE_ROLE["commit"],
-                "producer_run_id": PRODUCER_RUN_ID,
-                "producer_run_attempt": PRODUCER_RUN_ATTEMPT,
-                "artifact_id": PRODUCER_ARTIFACT_ID,
-                "manifest_sha256": HOST_MANIFEST_SHA256,
-            },
-            "fixture": {
-                "again_module_sha256": AGAIN_MODULE_SHA256,
-                "again_bundle_manifest_sha256": AGAIN_BUNDLE_MANIFEST_SHA256,
-                "accepted_fixture_identity_sha256": ACCEPTED_FIXTURE_IDENTITY,
-            },
-            "runtime_proton_identity_sha256": RUNTIME_PROTON_IDENTITY,
-            "protected_snapshot_sha256": PROTECTED_SHA,
-            "fixture_platform": {
-                "hardware": "Steam Deck Galileo",
-                "os": "SteamOS 3.8.16",
-                "architecture": "x86_64",
-                "read_only_mode": "enabled",
-            },
-            "process_counts": {
-                key: 0 for key in (
-                    "bitwig", "validator", "wine", "proton", "runtime",
-                    "umu", "yabridge", "wf0",
-                )
-            },
-            "write_effect_counts": {
-                key: 0 for key in (
-                    "environment_creations", "execution_intent_publications",
-                    "execution_lock_creations", "result_publications",
-                    "diagnostic_publications", "protected_state_mutations",
-                    "deck_execution_reservations",
-                    "deck_execution_count_increments", "proton_launches",
-                )
-            },
-            "outcome_state": self.state,
-            "outcome_operation_nonce": retained_operation if has_pair else None,
-            "outcome_phase_nonce": retained_phase if has_pair else None,
-            "intent": intent,
-        }
-        for path, item in self.overrides.items():
-            self._set(value, path, item)
-        return value
-
-    def run_python(self, worktree, program, arguments, *, timeout):
-        del program, timeout
-        self.run_python_calls += 1
-        if STOPPED_PC0_SOURCE not in worktree:
-            raise AdapterBoundaryError("wrong stopped worktree")
-        return canonical_json(self._preflight(arguments))
-
-    def execute_pc0(self, worktree, intent, *, timeout):
-        del timeout
-        self.execute_calls += 1
-        if (STOPPED_PC0_SOURCE not in worktree
-                or not intent.endswith("/DX0_DECK_EXECUTION_INTENT.json")):
-            raise AdapterBoundaryError("wrong lower-level execution seam")
-        self.state = "unknown" if self.timeout_after_launch else self.final_state
-        if self.timeout_after_launch:
-            raise PortTimeout("lost acknowledgement")
-        if self.final_state == "result":
-            return CommandReply(0, b'{"disposition":"completed"}\n', b"")
-        return CommandReply(1, b"", b"bounded diagnostic failure")
-
-    def read_file(self, path, maximum, *, timeout):
-        del timeout
-        operation_nonce, phase_nonce = (
-            self.retained_nonces
-            or (self.last_operation_nonce, self.last_phase_nonce)
-        )
-        if "DX0_TRANSACTION_RESULT" in path:
-            raw = result_document(operation_nonce, phase_nonce)
-            filename = "DX0_TRANSACTION_RESULT.json"
-        else:
-            raw = diagnostic_document(
-                operation_nonce, phase_nonce,
-                classification=self.diagnostic_classification,
-            )
-            filename = "PC0_FAILURE_DIAGNOSTIC.json"
-        value = (
-            f"{sha256_bytes(raw)}  {filename}\n".encode("ascii")
-            if path.endswith(".sha256") else raw
-        )
-        if len(value) > maximum:
-            raise AdapterBoundaryError("fake remote read exceeded bound")
-        return value
-
-    def write_file(self, path, data, *, timeout):
-        del timeout
-        self.writes.append((path, data))
+# Real helper contracts are read from the pinned local Git object, never from
+# an artifact download. CI fetches history so this exact object is available.
+import contextlib
+import importlib
+import io
+import json
+import shlex
+from unittest.mock import patch, create_autospec
+import pc0_proof_adapter as adapter_module
+from pc0_proof_adapter import OSFileSystemPort, StrictSSHPort
 
 
-class TestRuntime(PC0DiagnosticRuntime):
-    def __init__(self, *args, store_error: bool = False, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.store_error = store_error
+class LocalWorkerPort:
+    """Execute the actual stdin loader AND worker; only effectful primitives mocked."""
+    def __init__(self, test):
+        self.test = test
+        self.calls = []
+        self.actions = []
+        self.lose_ack = False
 
-    def _validate_mac_stores(self) -> None:
-        if self.store_error:
-            raise AdapterBoundaryError("injected Mac store mismatch")
-
-
-def injected_adapter(
-    base: pathlib.Path, ssh: FakeSSHPort, *, source_mismatch: bool = False,
-    store_error: bool = False, head_source: str = SOURCE_A,
-) -> tuple[DiagnosticPlanAdapter, FakeCommandPort, FakeFileSystemPort, TestRuntime]:
-    command = FakeCommandPort(
-        source_mismatch=source_mismatch, head_source=head_source,
-    )
-    filesystem = FakeFileSystemPort()
-    runtime = TestRuntime(
-        AdapterPorts(command, filesystem, ssh), repository=ROOT,
-        proof_root=base / "proof", store_error=store_error,
-    )
-    adapter = DiagnosticPlanAdapter(
-        descriptor=PLAN_DESCRIPTOR,
-        preflight=runtime.preflight,
-        reconcile=runtime.reconcile,
-        invoke=runtime.invoke_diagnostic,
-        admit=runtime.admit_diagnostic,
-    )
-    return adapter, command, filesystem, runtime
+    def run(self, argv, *, cwd=None, timeout=30.0, input_bytes=None):
+        self.calls.append((tuple(argv), input_bytes))
+        tokens = shlex.split(argv[-1])
+        index = tokens.index("-c")
+        loader, python_args = tokens[index + 1], tokens[index + 2:]
+        self.actions.append(python_args[1])
+        output = io.BytesIO()
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch.object(sys, "argv", ["-c", *python_args]))
+            stack.enter_context(patch.object(sys, "stdin", io.TextIOWrapper(io.BytesIO(input_bytes))))
+            stack.enter_context(patch.object(sys, "stdout", io.TextIOWrapper(output, write_through=True)))
+            stack.enter_context(patch.object(pathlib.Path, "home", return_value=self.test.remote_home))
+            exec(loader, {"__name__": "__main__"})
+            raw = output.getvalue()
+        if self.lose_ack and python_args[1] == "execute":
+            self.lose_ack = False
+            raise PortTimeout("lost acknowledgement after worker publication")
+        return CommandReply(0, raw, b"")
 
 
 class PC0AdapterTests(unittest.TestCase):
-    def setUp(self) -> None:
+    @classmethod
+    def setUpClass(cls):
+        cls.modules_temp = tempfile.TemporaryDirectory()
+        cls.module_root = pathlib.Path(cls.modules_temp.name)
+        for name in ("common", "artifacts", "environment", "normalize", "supervise", "run"):
+            data = subprocess.check_output([
+                "git", "show", f"{STOPPED_PC0_SOURCE}:tools/wf0-factory-census/{name}.py"], cwd=ROOT)
+            (cls.module_root / f"{name}.py").write_bytes(data)
+        cls.modules_patch = patch.dict(sys.modules)
+        cls.modules_patch.start()
+        sys.path.insert(0, str(cls.module_root))
+        for name in ("common", "artifacts", "environment", "normalize", "supervise", "run"):
+            sys.modules.pop(name, None)
+        cls.common = importlib.import_module("common")
+        cls.artifacts = importlib.import_module("artifacts")
+        cls.run_module = importlib.import_module("run")
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.path.remove(str(cls.module_root))
+        cls.modules_patch.stop()
+        cls.modules_temp.cleanup()
+
+    def mock(self, owner, name, **kwargs):
+        original = getattr(owner, name)
+        replacement = create_autospec(original, **kwargs)
+        self.stack.enter_context(patch.object(owner, name, replacement))
+        return replacement
+
+    def pair(self, path, value):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        raw = canonical_json(value)
+        path.write_bytes(raw)
+        path.with_suffix(".sha256").write_bytes(f"{sha256_bytes(raw)}  {path.name}\n".encode())
+        return sha256_bytes(raw)
+
+    def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.base = pathlib.Path(self.temporary.name)
+        self.base = pathlib.Path(self.temporary.name).resolve()
+        self.stack = contextlib.ExitStack()
+        self.addCleanup(self.stack.close)
+        self.remote_home = self.base / "remote"
+        self.remote_proof = self.remote_home / ".local/share/linux-vst-bridge/proof"
+        self.mac_proof = self.base / "proof"
+        self.busy = False
+        self.stale = False
+        self.protected_bad = False
+        self.fail_supervise = False
+        self.failure = False
+        self.contained = True
+        self.failed_retirement = False
+        self.launches = 0
+        self.protected = {"fixture": "local-effect-free"}
+        self.module_bytes = b"local inert module identity fixture"
+        module_sha = sha256_bytes(self.module_bytes)
+        manifest = {"windows_build_input_sha256": WINDOWS_BUILD_INPUT_IDENTITY}
+        host_sha = sha256_bytes(canonical_json(manifest))
+        fixture_receipt = {"bundle_manifest": {"sha256": AGAIN_BUNDLE_MANIFEST_SHA256,
+            "records": [{"path": "Contents/x86_64-win/again.vst3", "sha256": module_sha}]}}
+        fixture_sha = sha256_bytes(canonical_json(fixture_receipt))
+        for name, value in (("HOST_MANIFEST_SHA256", host_sha),
+                            ("ACCEPTED_FIXTURE_IDENTITY", fixture_sha), ("AGAIN_MODULE_SHA256", module_sha)):
+            self.stack.enter_context(patch.object(adapter_module, name, value))
+        self.stack.enter_context(patch.object(self.common, "DX0_AGAIN_MODULE_SHA256", module_sha))
+        host = self.mac_proof / "host-artifacts/by-manifest" / host_sha
+        build = {"producer_source": dict(PRODUCER_SOURCE_ROLE),
+                 "windows_build_input": {"sha256": WINDOWS_BUILD_INPUT_IDENTITY},
+                 "workflow": {"run_id": PRODUCER_RUN_ID, "run_attempt": PRODUCER_RUN_ATTEMPT},
+                 "artifact": {"manifest_sha256": host_sha}}
+        custody = {"producer_source": dict(PRODUCER_SOURCE_ROLE),
+                   "windows_build_input_sha256": WINDOWS_BUILD_INPUT_IDENTITY,
+                   "workflow": build["workflow"], "artifact": {"id": PRODUCER_ARTIFACT_ID},
+                   "inner_envelope": {"host_artifact_manifest_sha256": host_sha}}
+        self.pair(host / "DX0_HOST_ARTIFACT_MANIFEST.json", manifest)
+        self.pair(host / "DX0_WINDOWS_HOST_BUILD_RECEIPT.json", build)
+        self.pair(host / "DX0_MAC_HOST_CUSTODY_RECEIPT.json", custody)
+        fixture = self.mac_proof / "fixtures/by-manifest" / AGAIN_BUNDLE_MANIFEST_SHA256
+        self.pair(fixture / "DX0_ACCEPTED_FIXTURE_RECEIPT.json", fixture_receipt)
+        module = fixture / "again.vst3/Contents/x86_64-win/again.vst3"
+        module.parent.mkdir(parents=True)
+        module.write_bytes(self.module_bytes)
+        self.host_path = host
+        self.fixture_path = fixture
+        self.host = {"root": str(host), "manifest_sha256": host_sha, "build_receipt": build,
+                     "custody": custody, "build_receipt_sha256": "a" * 64, "custody_sha256": "b" * 64}
+        self.fixture = {"root": str(fixture), "identity_sha256": fixture_sha,
+                        "identity": fixture_receipt, "receipt_sha256": fixture_sha}
+        self.source = {"commit": STOPPED_PC0_SOURCE}
+        self.mock(self.run_module, "pc0_v3_require_frozen_source", return_value=self.source)
+        self.mock(self.common, "dx0_source_role", return_value=dict(STOPPED_SOURCE_ROLE))
+        self.mock(self.run_module, "pc0_v3_verify_source_handoff", return_value={"receipt_sha256": RECEIPT_SHA})
+        self.mock(self.common, "dx0_deck_source_parent", return_value=self.base / "handoffs")
+        self.mock(self.common, "dx0_deck_host_artifact_parent", return_value=host.parent)
+        self.mock(self.common, "dx0_deck_fixture_parent", return_value=fixture.parent)
+        # Actual artifacts.read_canonical_json is intentionally NOT mocked.
+        self.host_reader = self.mock(self.artifacts, "verify_host_store", return_value=self.host)
+        self.fixture_reader = self.mock(self.artifacts, "verify_fixture_store", return_value=self.fixture)
+        self.mock(self.common, "deck_fixture_identity", return_value={})
+        self.mock(self.common, "verify_runner_identity", return_value={"launch_critical_manifest_sha256": RUNTIME_PROTON_IDENTITY})
+        self.mock(self.common, "protected_snapshot", side_effect=self.snapshot)
+        # Actual inherited guard executes on the argv generated by StrictSSHPort.
+        self.mock(self.common, "process_census", side_effect=lambda: [
+            {"comm": "python3", "cmdline": shlex.join(sys.argv)},
+            {"comm": "proton" if self.busy else "idle", "cmdline": ""}])
+        env_parent = self.base / "environments"
+        env_parent.mkdir()
+        self.mock(self.common, "environment_parent", return_value=env_parent)
+        self.environment_parent = env_parent
+        self.mock(self.common, "dx0_deck_execution_input", return_value={"records": [], "record_count": 0})
+        self.create = self.mock(self.run_module, "create_dx0_environment", side_effect=lambda *args, **kwargs: object())
+        self.supervise = self.mock(self.run_module, "supervise", side_effect=self.scan)
+        self.retire = self.mock(self.run_module, "retire_environment", side_effect=self.retirement)
+        self.mock(self.run_module, "_build_for_normalizer", return_value={})
+        self.mock(self.run_module, "normalize_wa0_positive", return_value=({"processing_contract": {}}, {}, {}))
+        # Pinned failure validation and sanitized timeline remain real.
+        self.command = FakeCommandPort()
+        self.local_worker = LocalWorkerPort(self)
+        ssh = StrictSSHPort(self.local_worker)
+        ssh._destination = "local-effect-free-port"
+        self.runtime = PC0DiagnosticRuntime(AdapterPorts(self.command, OSFileSystemPort(), ssh),
+                                            repository=ROOT, proof_root=self.mac_proof)
+        self.adapter = DiagnosticPlanAdapter(descriptor=PLAN_DESCRIPTOR, preflight=self.runtime.preflight,
+            reconcile=self.runtime.reconcile, invoke=self.runtime.invoke_diagnostic, admit=self.runtime.admit_diagnostic)
+        self.backend = ClassifiedProofBackend(self.base / "state", {PLAN_ID: self.adapter})
 
-    def execute(
-        self, ssh: FakeSSHPort, *, source: str = SOURCE_A,
-        campaign: str = CAMPAIGN, budget: int = 1,
-        state_name: str = "state", source_mismatch: bool = False,
-        store_error: bool = False,
-    ):
-        authority, delegation = write_authority(
-            self.base, source, campaign=campaign, budget=budget,
-            name=f"authority-{source}-{campaign[:4]}.md",
-        )
-        adapter, command, filesystem, runtime = injected_adapter(
-            self.base, ssh, source_mismatch=source_mismatch,
-            store_error=store_error, head_source=source,
-        )
-        backend = ClassifiedProofBackend(
-            self.base / state_name, {PLAN_ID: adapter},
-        )
-        return backend.execute(authority, delegation), backend, adapter, runtime
+    def snapshot(self):
+        if self.protected_bad:
+            raise RuntimeError("protected-state check failed")
+        return self.protected
 
-    def test_production_registry_is_exactly_one_diagnostic_plan(self):
+    def retirement(self, environment):
+        if self.failed_retirement:
+            raise RuntimeError("retirement failed")
+        return {"environment_retired": True, "stage_absent": True}
+
+    def scan(self, environment, *, mode):
+        self.assertEqual(mode, self.common.PC0_MODE)
+        self.launches += 1
+        if self.fail_supervise:
+            raise RuntimeError("unresolved local supervision stand-in")
+        diagnostic = parse_canonical_json(diagnostic_document("a" * 32, "b" * 32))
+        return {**diagnostic, "run_id": f"{self.launches:032x}",
+                "classification": "supervision_failed" if self.failure else "scanner_completed",
+                "blocker": "PC0_EVIDENCE_BLOCKED" if self.failure else None,
+                "cleanup": {"owned_descendants_zero": self.contained, "process_group_empty": self.contained},
+                "protected_snapshot": self.protected,
+                "runner_identity": {"launch_critical_manifest_sha256": RUNTIME_PROTON_IDENTITY},
+                "records": []}
+
+    def execute(self, source=SOURCE_A, budget=2):
+        self.command.head_source = source
+        authority, delegation = write_authority(self.base, source, budget=budget)
+        return self.backend.execute(authority, delegation)
+
+    def transaction(self, receipt):
+        path = self.base / "state/diagnostic" / CAMPAIGN / "transactions" / receipt.reservation_identity / "transaction.json"
+        return parse_canonical_json(path.read_bytes(), maximum=512 * 1024)
+
+    def test_real_store_sidecars_and_hashes(self):
+        self.runtime._validate_mac_stores()
+        for directory, name in ((self.host_path, "DX0_HOST_ARTIFACT_MANIFEST"),
+                                (self.host_path, "DX0_WINDOWS_HOST_BUILD_RECEIPT"),
+                                (self.host_path, "DX0_MAC_HOST_CUSTODY_RECEIPT"),
+                                (self.fixture_path, "DX0_ACCEPTED_FIXTURE_RECEIPT")):
+            with self.subTest(name=name):
+                sidecar = directory / (name + ".sha256")
+                raw = sidecar.read_bytes()
+                wrong = directory / (name + ".json.sha256")
+                sidecar.rename(wrong)
+                with self.assertRaises(AdapterBoundaryError):
+                    self.runtime._validate_mac_stores()
+                wrong.rename(sidecar)
+                sidecar.write_bytes(b"0" * len(raw))
+                with self.assertRaises(AdapterBoundaryError):
+                    self.runtime._validate_mac_stores()
+                sidecar.write_bytes(raw)
+
+    def test_real_helper_stdin_and_actual_reader_guard(self):
+        receipt = self.execute()
+        self.assertEqual(receipt.state, "CLOSED")
+        self.assertEqual(self.launches, 1)
+        self.assertTrue(self.host_reader.called)
+        for argv, data in self.local_worker.calls:
+            self.assertNotIn("proton", " ".join(argv).lower())
+            self.assertEqual(data, REMOTE_PREFLIGHT_PROGRAM.encode())
+        # The owning artifacts reader rejects a noncanonical retained receipt.
+        path = self.host_path / "DX0_WINDOWS_HOST_BUILD_RECEIPT.json"
+        path.write_bytes(path.read_bytes().rstrip(b"\n"))
+        self.command.head_source = SOURCE_B
+        with self.assertRaises(PreflightFailed):
+            self.execute(SOURCE_B)
+        self.assertEqual(self.launches, 1)
+
+    def test_guard_stale_stage_and_protected_checks_block_new_launch(self):
+        for failure in ("busy", "stale", "protected"):
+            with self.subTest(failure=failure):
+                self.busy = failure == "busy"
+                self.protected_bad = failure == "protected"
+                stage = self.environment_parent / ".wf0-factory-census.stage-local"
+                if failure == "stale":
+                    stage.mkdir()
+                with self.assertRaises(PreflightFailed):
+                    self.execute()
+                self.assertEqual(self.launches, 0)
+                self.assertFalse((self.base / "state").exists())
+                if stage.exists():
+                    stage.rmdir()
+
+    def test_two_reservations_same_artifact_resume_and_third_refused(self):
+        old = self.remote_proof / "results/by-execution-input/historical"
+        old.mkdir(parents=True)
+        historical = old / "DX0_TRANSACTION_RESULT.json"
+        historical.write_bytes(b"original historical acceptance identity\n")
+        before = historical.read_bytes()
+        first = self.execute()
+        repeat = self.execute()
+        second = self.execute(SOURCE_B)
+        self.assertEqual((first.budget_consumed, repeat.budget_consumed, second.budget_consumed), (1, 1, 2))
+        self.assertEqual(self.launches, 2)
+        self.assertNotEqual(first.reservation_identity, second.reservation_identity)
+        with self.assertRaises(BudgetExhausted):
+            self.execute(SOURCE_C)
+        self.assertEqual(self.launches, 2)
+        publications = list(self.remote_proof.glob("diagnostics/*/*/*/observation.json"))
+        self.assertEqual(len(publications), 2)
+        observations = [json.loads(path.read_bytes()) for path in publications]
+        self.assertEqual(len({v["summary"]["run_id"] for v in observations}), 2)
+        self.assertEqual(len({v["binding"]["host_manifest_sha256"] for v in observations}), 1)
+        self.assertTrue(all(v["binding"]["acceptance_eligible"] is False for v in observations))
+        self.assertEqual(historical.read_bytes(), before)
+        self.assertEqual(list(old.iterdir()), [historical])
+
+    def test_unknown_consumed_then_late_exact_result_one_launch(self):
+        self.local_worker.lose_ack = True
+        # Hold back the exact result pair after actual worker execution, simulating
+        # an acknowledgement loss while bounded publication is still in flight.
+        original = self.local_worker.run
+        saved = []
+        def delayed(*args, **kwargs):
+            try:
+                return original(*args, **kwargs)
+            except PortTimeout:
+                for path in self.remote_proof.glob("diagnostics/*/*/*/observation*"):
+                    saved.append((path, path.read_bytes()))
+                    path.unlink()
+                raise
+        self.local_worker.run = delayed
+        first = self.execute()
+        second = self.execute()
+        self.assertEqual(first.state, "OUTCOME_UNKNOWN")
+        self.assertEqual(second.state, "OUTCOME_UNKNOWN")
+        self.assertEqual(second.budget_consumed, 1)
+        self.assertIsNone(self.transaction(first)["observation"])
+        self.assertEqual(self.launches, 1)
+        for path, raw in saved:
+            path.write_bytes(raw)
+        self.busy = self.protected_bad = True
+        (self.host_path / "DX0_HOST_ARTIFACT_MANIFEST.sha256").write_bytes(b"bad sidecar")
+        recovered = self.execute()
+        self.assertEqual(recovered.state, "CLOSED")
+        self.assertEqual(self.launches, 1)
+        observation = self.transaction(recovered)["observation"]
+        self.assertEqual(observation["effects"], {"deck_workloads": 0, "diagnostic_publications": 0})
+        self.assertFalse(observation["payload"]["acceptance_eligible"])
+
+    def test_unknown_supervision_never_relaunches(self):
+        self.fail_supervise = True
+        first, second = self.execute(), self.execute()
+        self.assertEqual((first.state, second.state), ("OUTCOME_UNKNOWN", "OUTCOME_UNKNOWN"))
+        self.assertEqual(self.launches, 1)
+        self.assertEqual(self.retire.call_count, 0)
+
+    def test_existing_diagnostic_retrieval_ignores_failed_launch_safety(self):
+        self.failure = True
+        first = self.execute()
+        self.assertEqual(first.state, "CLOSED")
+        self.assertIsNotNone(first.failure_sha256)
+        self.busy = self.protected_bad = True
+        repeat = self.execute()
+        self.assertEqual(repeat.state, "CLOSED")
+        self.assertEqual(self.launches, 1)
+        self.assertEqual(list(self.remote_proof.glob("results/**/*")), [])
+
+    def test_other_reservation_cannot_relabel_diagnostic(self):
+        self.execute()
+        publication = next(self.remote_proof.glob("diagnostics/*/*/*/observation.json"))
+        value = json.loads(publication.read_bytes())
+        value["binding"]["campaign_identity"] = "0" * 64
+        raw = canonical_json(value)
+        publication.write_bytes(raw)
+        publication.with_suffix(".sha256").write_bytes(f"{sha256_bytes(raw)}  observation.json\n".encode())
+        with self.assertRaises(PreflightFailed):
+            self.execute()
+        self.assertEqual(self.launches, 1)
+
+    def test_incomplete_containment_preserves_environment(self):
+        self.failure, self.contained = True, False
+        result = self.execute()
+        self.assertEqual(result.state, "CLOSED")
+        self.assertEqual(self.retire.call_count, 0)
+        observation = self.transaction(result)["observation"]
+        self.assertEqual(observation["cleanup_disposition"], "INCOMPLETE")
+        self.assertFalse(observation["payload"]["acceptance_eligible"])
+
+    def test_failed_retirement_is_recorded_truthfully(self):
+        self.failure = self.failed_retirement = True
+        result = self.execute()
+        publication = next(self.remote_proof.glob("diagnostics/*/*/*/observation.json"))
+        value = json.loads(publication.read_bytes())
+        self.assertEqual(value["summary"]["failure"]["environment_retirement_disposition"], "failed")
+        self.assertEqual(value["cleanup"], "INCOMPLETE")
+        self.assertEqual(result.state, "CLOSED")
+        self.assertEqual(len(list(publication.parent.glob("*.json"))), 2)  # intent + sole diagnostic
+        self.assertEqual(len(list(publication.parent.glob("*.sha256"))), 1)
+
+    def test_frozen_input_mismatch_refuses_before_reservation(self):
+        cases = ((self.command, "source_mismatch", True),
+                 (self.host["custody"]["artifact"], "id", 1),
+                 (self.fixture, "identity_sha256", "0" * 64),
+                 (self.common.verify_runner_identity.return_value, "launch_critical_manifest_sha256", "0" * 64))
+        for target, key, value in cases:
+            with self.subTest(key=key):
+                old = target[key] if isinstance(target, dict) else getattr(target, key)
+                if isinstance(target, dict):
+                    target[key] = value
+                else:
+                    setattr(target, key, value)
+                try:
+                    with self.assertRaises(PreflightFailed):
+                        self.execute()
+                    self.assertFalse((self.base / "state").exists())
+                    self.assertEqual(self.launches, 0)
+                finally:
+                    if isinstance(target, dict):
+                        target[key] = old
+                    else:
+                        setattr(target, key, old)
+
+    def test_corrupt_oversized_and_wrong_identity_observations_are_refused(self):
+        self.execute()
+        path = next(self.remote_proof.glob("diagnostics/*/*/*/observation.json"))
+        sidecar = path.with_suffix(".sha256")
+        original, original_sidecar = path.read_bytes(), sidecar.read_bytes()
+        for mutation in ("sidecar", "noncanonical", "oversize", "worker_sha256", "adapter_source_commit", "reservation_identity", "host_manifest_sha256"):
+            with self.subTest(mutation=mutation):
+                raw = original
+                value = json.loads(raw)
+                if mutation in value["binding"]:
+                    value["binding"][mutation] = "0" * len(value["binding"][mutation])
+                    raw = canonical_json(value)
+                elif mutation == "noncanonical":
+                    raw = raw.rstrip(b"\n")
+                elif mutation == "oversize":
+                    raw = b"x" * (MAX_REMOTE_DOCUMENT_BYTES + 1)
+                path.write_bytes(raw)
+                sidecar.write_bytes(b"bad" if mutation == "sidecar" else f"{sha256_bytes(raw)}  observation.json\n".encode())
+                with self.assertRaises(PreflightFailed):
+                    self.execute()
+                self.assertEqual(self.launches, 1)
+                path.write_bytes(original)
+                sidecar.write_bytes(original_sidecar)
+
+    def test_guard_is_not_weakened_and_worker_bytes_are_verified(self):
+        self.busy = True
+        with self.assertRaises(PreflightFailed):
+            self.execute()
+        self.busy = False
+        authority, delegation = write_authority(self.base)
+        binding = self.runtime._request(json.loads(delegation), None)
+        self.runtime._remote("inspect", binding)
+        argv, data = self.local_worker.calls[-1]
+        with self.assertRaises(AssertionError):
+            self.local_worker.run(argv, input_bytes=data + b"# changed\n")
+
+    def test_production_registry_and_live_authority_remain_disabled(self):
         self.assertEqual(set(PRODUCTION_ADAPTERS), {PLAN_ID})
-        adapter = PRODUCTION_ADAPTERS[PLAN_ID]
-        self.assertIsInstance(adapter, DiagnosticPlanAdapter)
-        self.assertFalse(hasattr(adapter, "render_product_evidence"))
-        record = adapter.descriptor.record()
-        self.assertEqual(record["execution_class"], "DIAGNOSTIC_NON_AUTHORITATIVE")
-        self.assertEqual(record["product_contract_identity"], "pc0-selection-v2")
-        self.assertEqual(record["product_contract_sha256"], SELECTION_SHA256)
-        self.assertEqual(record["plan_content_sha256"], PLAN_CONTENT_SHA256)
-
-    def test_current_no_active_authority_blocks_before_any_adapter_port(self):
+        self.assertFalse(hasattr(PRODUCTION_ADAPTERS[PLAN_ID], "render_product_evidence"))
         authority = load_authority(ROOT / "CURRENT_SLICE.md")
         with self.assertRaisesRegex(PolicyError, "LIVE_EXECUTION_FORBIDDEN"):
             authorize_live_request(authority, LiveRequest(
-                ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE,
-                SOURCE_A, PLAN_ID, CAMPAIGN,
-            ))
-        result = subprocess.run(
-            [sys.executable, str(TOOLS / "proof-run.py"), "diagnose",
-             "--source", SOURCE_A, "--plan", PLAN_ID,
-             "--campaign", CAMPAIGN],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, check=False,
-        )
+                ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE, SOURCE_A, PLAN_ID, CAMPAIGN))
+        result = subprocess.run([sys.executable, str(TOOLS / "proof-run.py"), "diagnose",
+            "--source", SOURCE_A, "--plan", PLAN_ID, "--campaign", CAMPAIGN], capture_output=True)
         self.assertEqual(result.returncode, 2)
-        self.assertIn("LIVE_EXECUTION_FORBIDDEN", result.stderr)
-
-    def test_unsupported_or_mismatched_inputs_fail_before_reservation(self):
-        cases = (
-            ("source", {"source_mismatch": True}),
-            ("mac-store", {"store_error": True}),
-            ("artifact", {"overrides": {"host.artifact_id": 1}}),
-            ("fixture", {"overrides": {"fixture.again_module_sha256": "0" * 64}}),
-            ("runtime", {"overrides": {"runtime_proton_identity_sha256": "0" * 64}}),
-            ("plan", {"overrides": {"legacy_proof_plan_sha256": "0" * 64}}),
-        )
-        for index, (label, values) in enumerate(cases):
-            with self.subTest(label=label):
-                ssh = FakeSSHPort(overrides=values.get("overrides"))
-                authority, delegation = write_authority(
-                    self.base, name=f"mismatch-{index}.md",
-                )
-                adapter, _command, _filesystem, _runtime = injected_adapter(
-                    self.base, ssh,
-                    source_mismatch=bool(values.get("source_mismatch")),
-                    store_error=bool(values.get("store_error")),
-                )
-                state = self.base / f"state-mismatch-{index}"
-                backend = ClassifiedProofBackend(state, {PLAN_ID: adapter})
-                with self.assertRaises(PreflightFailed):
-                    backend.execute(authority, delegation)
-                self.assertFalse(state.exists())
-                self.assertEqual(ssh.execute_calls, 0)
-
-        other_authority, other_delegation = write_authority(
-            self.base, plan_id="unsupported-diagnostic-plan",
-            name="unsupported.md",
-        )
-        unsupported_state = self.base / "state-unsupported"
-        with self.assertRaises(UnsupportedAdapter):
-            ClassifiedProofBackend(
-                unsupported_state, dict(PRODUCTION_ADAPTERS),
-            ).execute(other_authority, other_delegation)
-        self.assertFalse(unsupported_state.exists())
-
-    def test_preflight_is_read_only_and_failure_consumes_no_campaign_batch(self):
-        compile(REMOTE_PREFLIGHT_PROGRAM, "<pc0-read-only-preflight>", "exec")
-        for forbidden in (
-            "create_dx0_environment", "write_atomic", "retire_environment",
-            "supervise(", ".mkdir(", "os.replace",
-        ):
-            self.assertNotIn(forbidden, REMOTE_PREFLIGHT_PROGRAM)
-        ssh = FakeSSHPort(overrides={"process_counts.wine": 1})
-        authority, delegation = write_authority(self.base, name="preflight.md")
-        adapter, _command, _filesystem, _runtime = injected_adapter(self.base, ssh)
-        state = self.base / "state-preflight"
-        with self.assertRaises(PreflightFailed):
-            ClassifiedProofBackend(state, {PLAN_ID: adapter}).execute(
-                authority, delegation,
-            )
-        self.assertEqual(ssh.writes, [])
-        self.assertEqual(ssh.execute_calls, 0)
-        self.assertEqual(list(state.rglob("budget.json")), [])
-
-    def test_diagnostic_source_revisions_share_one_campaign_budget(self):
-        ssh = FakeSSHPort(
-            state="result", retained_nonces=("a" * 32, "b" * 32),
-        )
-        adapter, command, _filesystem, _runtime = injected_adapter(self.base, ssh)
-        backend = ClassifiedProofBackend(self.base / "state-campaign", {PLAN_ID: adapter})
-        authorities = [
-            write_authority(
-                self.base, source, budget=2, name=f"revision-{index}.md",
-            )
-            for index, source in enumerate((SOURCE_A, SOURCE_B, SOURCE_C), 1)
-        ]
-        command.head_source = SOURCE_A
-        first = backend.execute(*authorities[0])
-        command.head_source = SOURCE_B
-        second = backend.execute(*authorities[1])
-        self.assertEqual((first.budget_consumed, second.budget_consumed), (1, 2))
-        with self.assertRaises(BudgetExhausted):
-            command.head_source = SOURCE_C
-            backend.execute(*authorities[2])
-        self.assertEqual(ssh.execute_calls, 0)
-        budget_path = self.base / "state-campaign" / "diagnostic" / CAMPAIGN / "budget.json"
-        budget = parse_canonical_json(budget_path.read_bytes(), maximum=512 * 1024)
-        self.assertEqual(budget["consumed_count"], 2)
-
-    def test_retained_result_and_diagnostic_reconcile_without_relaunch(self):
-        for index, (state, classification) in enumerate((
-            ("result", "supervision_failed"),
-            ("diagnostic", "supervision_failed"),
-        ), 1):
-            with self.subTest(state=state):
-                ssh = FakeSSHPort(
-                    state=state, diagnostic_classification=classification,
-                    retained_nonces=("a" * 32, "b" * 32),
-                )
-                receipt, _backend, adapter, _runtime = self.execute(
-                    ssh, campaign=str(index + 4) * 64,
-                    state_name=f"state-retained-{state}",
-                )
-                self.assertEqual(receipt.state, TransactionState.CLOSED.value)
-                self.assertEqual(ssh.execute_calls, 0)
-                self.assertFalse(receipt.renderer_completed)
-                self.assertFalse(hasattr(adapter, "render_product_evidence"))
-                if state == "result":
-                    self.assertIsNotNone(receipt.result_sha256)
-                else:
-                    self.assertIsNotNone(receipt.failure_sha256)
-
-    def test_unknown_outcome_is_consumed_and_never_relaunched(self):
-        ssh = FakeSSHPort(timeout_after_launch=True)
-        authority, delegation = write_authority(self.base, name="unknown.md")
-        adapter, _command, _filesystem, _runtime = injected_adapter(self.base, ssh)
-        backend = ClassifiedProofBackend(self.base / "state-unknown", {PLAN_ID: adapter})
-        first = backend.execute(authority, delegation)
-        second = backend.execute(authority, delegation)
-        self.assertEqual(first.state, TransactionState.CLOSED.value)
-        self.assertEqual(second.budget_consumed, 1)
-        self.assertEqual(ssh.execute_calls, 1)
-        transaction = (self.base / "state-unknown" / "diagnostic" / CAMPAIGN
-                       / "transactions" / first.reservation_identity)
-        failure = parse_canonical_json(
-            (transaction / "classified-failure.json").read_bytes(),
-        )
-        self.assertEqual(failure["effects"]["deck_workloads"], "unknown")
-
-    def test_every_outcome_is_acceptance_ineligible_and_renderer_absent(self):
-        cases = (
-            ("result", "supervision_failed", True),
-            ("diagnostic", "call_timeout", False),
-            ("diagnostic", "supervision_failed", False),
-        )
-        for index, (state, classification, success) in enumerate(cases, 6):
-            with self.subTest(state=state, classification=classification):
-                ssh = FakeSSHPort(
-                    state=state, diagnostic_classification=classification,
-                    retained_nonces=("a" * 32, "b" * 32),
-                )
-                receipt, _backend, adapter, _runtime = self.execute(
-                    ssh, campaign=str(index) * 64,
-                    state_name=f"state-outcome-{index}",
-                )
-                self.assertFalse(hasattr(adapter, "render_product_evidence"))
-                transaction_path = next(
-                    (self.base / f"state-outcome-{index}").rglob("transaction.json")
-                )
-                transaction = parse_canonical_json(
-                    transaction_path.read_bytes(), maximum=512 * 1024,
-                )
-                self.assertFalse(transaction["delegation"]["acceptance_eligible"])
-                self.assertFalse(transaction["observation"]["payload"]["acceptance_eligible"])
-                self.assertFalse(receipt.renderer_completed)
-                self.assertEqual(receipt.result_sha256 is not None, success)
-
-    def test_diagnostic_pair_rejects_noncanonical_sidecar_mismatch_and_oversize(self):
-        ssh = FakeSSHPort()
-        _adapter, _command, _filesystem, runtime = injected_adapter(self.base, ssh)
-        operation_nonce, phase_nonce = "a" * 32, "b" * 32
-        raw = diagnostic_document(operation_nonce, phase_nonce)
-        sidecar = (
-            f"{sha256_bytes(raw)}  PC0_FAILURE_DIAGNOSTIC.json\n".encode("ascii")
-        )
-        summary, _digest, _kind, _cleanup = runtime._validate_diagnostic_pair(
-            raw, sidecar, EXECUTION_INPUT, operation_nonce, phase_nonce,
-            PROTECTED_SHA,
-        )
-        self.assertEqual(summary["classification"], "supervision_failed")
-
-        malformed = copy.deepcopy(parse_canonical_json(raw, maximum=MAX_REMOTE_DOCUMENT_BYTES))
-        malformed["durable_record_count"] = 1
-        malformed_raw = canonical_json(malformed)
-        failures = (
-            (raw.rstrip(b"\n"), sidecar),
-            (raw, b"0" * 64 + b"  PC0_FAILURE_DIAGNOSTIC.json\n"),
-            (malformed_raw, f"{sha256_bytes(malformed_raw)}  PC0_FAILURE_DIAGNOSTIC.json\n".encode()),
-            (b"x" * (MAX_REMOTE_DOCUMENT_BYTES + 1), sidecar),
-        )
-        for index, (bad_raw, bad_sidecar) in enumerate(failures):
-            with self.subTest(case=index):
-                with self.assertRaises(AdapterBoundaryError):
-                    runtime._validate_diagnostic_pair(
-                        bad_raw, bad_sidecar, EXECUTION_INPUT,
-                        operation_nonce, phase_nonce, PROTECTED_SHA,
-                    )
-
-    def test_only_lower_level_execute_seam_is_present_and_no_evidence_packet_is_created(self):
-        source = (TOOLS / "pc0_proof_adapter.py").read_text(encoding="utf-8")
-        self.assertIn('"tools/wf0-factory-census/run.py"', source)
-        self.assertNotIn('"tools/host-proof.py"', source)
-        self.assertNotIn('"tools/wf0-factory-census/evidence.py"', source)
-        self.assertNotIn("render_product_evidence=", source)
-
-        ssh = FakeSSHPort(state="result", retained_nonces=("a" * 32, "b" * 32))
-        receipt, _backend, _adapter, _runtime = self.execute(
-            ssh, campaign="f" * 64, state_name="state-no-evidence",
-        )
-        self.assertIsNotNone(receipt.result_sha256)
-        names = {path.name for path in (self.base / "state-no-evidence").rglob("*")}
-        self.assertFalse(any(name.startswith("PC0_EVIDENCE") for name in names))
-        self.assertFalse(any("COST_AND_INVALIDATION" in name for name in names))
+        self.assertIn(b"LIVE_EXECUTION_FORBIDDEN", result.stderr)
 
 
 if __name__ == "__main__":

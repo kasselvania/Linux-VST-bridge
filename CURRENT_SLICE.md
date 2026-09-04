@@ -47,9 +47,14 @@ source, retained Windows producer and artifact, accepted AGain fixture, and
 pinned Runtime/Proton identities. Its preflight is read-only, PX2 owns campaign
 reservation, and every observation remains permanently acceptance-ineligible.
 
-The adapter has no product-evidence renderer and does not call the retired
-top-level PC0 transaction driver. The production registry contains no
-acceptance adapter.
+The adapter has no product-evidence renderer. Its current diagnostic worker
+reuses pinned environment, supervision, normalization, and cleanup primitives;
+it calls neither the retired transaction driver nor the archived execute entry.
+Intents, locks, and observations bind the campaign, reservation, exact worker
+and source, and frozen artifact/fixture/runtime in a private diagnostic namespace.
+Unknown outcomes remain consumed and reconcilable; retrieval does not require
+launch-safety checks or count an existing publication as a current effect.
+The production registry contains no acceptance adapter.
 
 ## Completion posture
 

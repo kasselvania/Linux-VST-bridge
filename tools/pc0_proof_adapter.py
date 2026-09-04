@@ -2,8 +2,7 @@
 """Closed diagnostic-only PC0 adapter for the classified proof backend.
 
 PX2 owns every campaign reservation.  This module binds one immutable plan,
-performs read-only admission before that reservation, and invokes only the
-archived PC0 Deck ``run.py execute`` seam after reservation.  It has no product
+performs read-only admission before that reservation, and invokes a reservation-bound diagnostic worker over pinned PC0 primitives.  It has no product
 evidence renderer and never calls the retired top-level transaction driver.
 """
 
@@ -195,7 +194,7 @@ class CommandReply:
 class CommandPort(Protocol):
     def run(
         self, argv: Sequence[str], *, cwd: pathlib.Path | None = None,
-        timeout: float = 30.0,
+        timeout: float = 30.0, input_bytes: bytes | None = None,
     ) -> CommandReply: ...
 
 
@@ -209,12 +208,6 @@ class SSHPort(Protocol):
         timeout: float,
     ) -> bytes: ...
 
-    def execute_pc0(self, worktree: str, intent: str, *, timeout: float) -> CommandReply: ...
-
-    def read_file(self, path: str, maximum: int, *, timeout: float) -> bytes: ...
-
-    def write_file(self, path: str, data: bytes, *, timeout: float) -> None: ...
-
 
 @dataclass(frozen=True, slots=True)
 class AdapterPorts:
@@ -223,25 +216,16 @@ class AdapterPorts:
     ssh: SSHPort
 
 
-@dataclass(frozen=True, slots=True)
-class RemoteOutcome:
-    state: str
-    preflight: Mapping[str, Any]
-    document: bytes | None = None
-    sidecar: bytes | None = None
-    launched: bool | str = False
-
-
 class SubprocessCommandPort:
     """Bounded shell-free local command port."""
 
     def run(
         self, argv: Sequence[str], *, cwd: pathlib.Path | None = None,
-        timeout: float = 30.0,
+        timeout: float = 30.0, input_bytes: bytes | None = None,
     ) -> CommandReply:
         try:
             result = subprocess.run(
-                list(argv), cwd=cwd, stdin=subprocess.DEVNULL,
+                list(argv), cwd=cwd, input=input_bytes,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 timeout=timeout, check=False,
             )
@@ -304,97 +288,37 @@ class StrictSSHPort:
         self._destination = matches[0]
         return matches[0]
 
-    def _ssh(self, destination: str, script: str, *, timeout: float) -> CommandReply:
+    def _ssh(self, destination: str, script: str, *, timeout: float, input_bytes: bytes | None = None) -> CommandReply:
         return self.command.run((
             "/usr/bin/ssh", "-o", "ForwardAgent=no", "-o", "BatchMode=yes",
             "-o", "StrictHostKeyChecking=yes", destination, script,
-        ), timeout=timeout)
+        ), timeout=timeout, input_bytes=input_bytes)
 
-    def _run(self, script: str, *, timeout: float) -> CommandReply:
-        return self._ssh(self._discover(), script, timeout=timeout)
+    def _run(self, script: str, *, timeout: float, input_bytes: bytes | None = None) -> CommandReply:
+        return self._ssh(self._discover(), script, timeout=timeout, input_bytes=input_bytes)
 
     def run_python(
         self, worktree: str, program: str, arguments: Sequence[str], *,
         timeout: float,
     ) -> bytes:
+        raw = program.encode("utf-8")
+        # The inherited guard scans argv for runtime names. Verified helper bytes
+        # travel only on stdin; neither the SSH command nor Python argv embeds it.
+        loader = ("import hashlib,sys; b=sys.stdin.buffer.read(262145); "
+                  "assert len(b)<=262144 and hashlib.sha256(b).hexdigest()==sys.argv[1]; "
+                  "exec(compile(b,'<diagnostic-worker>','exec'))")
         invocation = shlex.join((
             "env", "-u", "GH_TOKEN", "-u", "GITHUB_TOKEN", "-u",
             "GITHUB_PAT", "-u", "SSH_AUTH_SOCK", "PYTHONDONTWRITEBYTECODE=1",
-            "/usr/bin/python3", "-B", "-c", program, *arguments,
+            "/usr/bin/python3", "-B", "-c", loader, sha256_bytes(raw), *arguments,
         ))
-        reply = self._run(
-            f"cd {shlex.quote(worktree)} && {invocation}", timeout=timeout,
-        )
+        reply = self._run(f"cd {shlex.quote(worktree)} && {invocation}",
+                          timeout=timeout, input_bytes=raw)
         if reply.returncode != 0:
-            raise AdapterBoundaryError("read-only PC0 Deck helper failed")
-        if not reply.stdout or len(reply.stdout) > MAX_PREFLIGHT_BYTES:
-            raise AdapterBoundaryError("read-only PC0 Deck helper output differs")
+            raise AdapterBoundaryError("bounded diagnostic worker failed")
+        if not reply.stdout or len(reply.stdout) > MAX_REMOTE_DOCUMENT_BYTES:
+            raise AdapterBoundaryError("diagnostic worker output differs")
         return reply.stdout
-
-    def execute_pc0(self, worktree: str, intent: str, *, timeout: float) -> CommandReply:
-        invocation = shlex.join((
-            "env", "-u", "GH_TOKEN", "-u", "GITHUB_TOKEN", "-u",
-            "GITHUB_PAT", "-u", "SSH_AUTH_SOCK", "PYTHONDONTWRITEBYTECODE=1",
-            "/usr/bin/python3", "-B", "tools/wf0-factory-census/run.py",
-            "execute", "--intent", intent,
-        ))
-        return self._run(f"cd {shlex.quote(worktree)} && {invocation}", timeout=timeout)
-
-    def read_file(self, path: str, maximum: int, *, timeout: float) -> bytes:
-        program = (
-            "import pathlib,sys; p=pathlib.Path(sys.argv[1]); n=int(sys.argv[2]); "
-            "assert p.is_file() and not p.is_symlink() and 0 < p.stat().st_size <= n; "
-            "sys.stdout.buffer.write(p.read_bytes())"
-        )
-        invocation = shlex.join((
-            "/usr/bin/python3", "-B", "-c", program, path, str(maximum),
-        ))
-        reply = self._run(invocation, timeout=timeout)
-        if reply.returncode != 0 or not reply.stdout or len(reply.stdout) > maximum:
-            raise AdapterBoundaryError("bounded remote file read failed")
-        return reply.stdout
-
-    def write_file(self, path: str, data: bytes, *, timeout: float) -> None:
-        if not data or len(data) > MAX_INTENT_BYTES:
-            raise AdapterBoundaryError("execution intent is absent or oversized")
-        encoded = data.hex()
-        program = r'''import os,pathlib,sys
-p=pathlib.Path(sys.argv[1])
-d=bytes.fromhex(sys.argv[2])
-if p.exists() or p.is_symlink():
-    if not p.is_file() or p.is_symlink() or p.read_bytes()!=d:
-        raise RuntimeError('intent-conflict')
-else:
-    p.parent.mkdir(parents=True,exist_ok=True)
-    if p.parent.is_symlink():
-        raise RuntimeError('unsafe-intent-parent')
-    t=p.with_name('.'+p.name+'.tmp')
-    if t.exists() or t.is_symlink():
-        raise RuntimeError('intent-temp-conflict')
-    fd=os.open(t,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o400)
-    try:
-        stream=os.fdopen(fd,'wb')
-        fd=-1
-        with stream:
-            stream.write(d)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(t,p)
-        directory=os.open(p.parent,os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-    finally:
-        if fd>=0:
-            os.close(fd)
-'''
-        invocation = shlex.join((
-            "/usr/bin/python3", "-B", "-c", program, path, encoded,
-        ))
-        reply = self._run(invocation, timeout=timeout)
-        if reply.returncode != 0:
-            raise AdapterBoundaryError("remote execution-intent publication failed")
 
 
 ARTIFACT_REQUIREMENT = MappingProxyType({
@@ -496,65 +420,10 @@ def _checked_text(reply: CommandReply, label: str) -> str:
     return value
 
 
-REMOTE_PREFLIGHT_PROGRAM = r'''
-import pathlib,sys
-root=pathlib.Path.cwd()
-sys.path.insert(0,str(root/'tools/wf0-factory-census'))
-import common
-import run
-from artifacts import verify_fixture_store,verify_host_store
-source_commit,adapter_source,operation_nonce,phase_nonce=sys.argv[1:5]
-source=run.pc0_v3_require_frozen_source(source_commit,detached=True)
-source_role=common.dx0_source_role(source)
-handoff=run.pc0_v3_verify_source_handoff(common.dx0_deck_source_parent()/source_commit,source_commit,reconstruct=False)
-counts=common.process_guard()
-fixture_platform=common.deck_fixture_identity()
-runner=common.verify_runner_identity()
-protected=common.protected_snapshot()
-host_root=common.dx0_deck_host_artifact_parent()/run.PC0_HOST_MANIFEST_SHA256
-build_input=common.read_canonical_json(host_root/'DX0_WINDOWS_HOST_BUILD_RECEIPT.json')['windows_build_input']['sha256']
-host=verify_host_store(host_root,build_input)
-fixture=verify_fixture_store(common.dx0_deck_fixture_parent()/common.DX0_AGAIN_BUNDLE_MANIFEST_SHA256)
-plan=common.dx0_closed_plan(common.PC0_PLAN_ID)
-plan_sha=common.dx0_identity_sha256(plan)
-deck_input=common.dx0_deck_execution_input(source_commit,host['manifest_sha256'],fixture['identity_sha256'],plan_sha)
-execution_sha=common.dx0_identity_sha256(deck_input)
-proof=common.dx0_deck_result_parent().parent.parent
-intent_path=proof/'intents'/operation_nonce/'DX0_DECK_EXECUTION_INTENT.json'
-result_root=common.dx0_deck_result_parent()/execution_sha
-result_stage=common.dx0_deck_result_parent()/f'.dx0-result-stage-{execution_sha}'
-result_path=result_root/'DX0_TRANSACTION_RESULT.json'
-result_sidecar=result_root/'DX0_TRANSACTION_RESULT.json.sha256'
-lock=common.dx0_deck_result_parent()/'.locks'/f'{execution_sha}-{plan_sha}'
-diagnostic_path=lock/'PC0_FAILURE_DIAGNOSTIC.json'
-diagnostic_sidecar=lock/'PC0_FAILURE_DIAGNOSTIC.json.sha256'
-regular=lambda p: p.is_file() and not p.is_symlink()
-directory=lambda p: p.is_dir() and not p.is_symlink()
-result_complete=directory(result_root) and {p.name for p in result_root.iterdir()}=={'DX0_TRANSACTION_RESULT.json','DX0_TRANSACTION_RESULT.json.sha256'} and regular(result_path) and regular(result_sidecar)
-diagnostic_complete=directory(lock) and {p.name for p in lock.iterdir()}=={'prepared-intent.json','PC0_FAILURE_DIAGNOSTIC.json','PC0_FAILURE_DIAGNOSTIC.json.sha256'} and regular(diagnostic_path) and regular(diagnostic_sidecar)
-outcome_operation_nonce=None
-outcome_phase_nonce=None
-if result_complete and not lock.exists():
-    retained=run.validate_retained_result_file(result_path,expected_execution_input_sha256=execution_sha,expected_plan_sha256=plan_sha)
-    state='result'
-    outcome_operation_nonce=retained['operation_nonce']
-    outcome_phase_nonce=retained['original_observation']['phase_nonce']
-elif diagnostic_complete and not result_root.exists():
-    prepared=run._load_intent(lock/'prepared-intent.json')
-    if prepared['execution_source']!=source_role or prepared['deck_execution_input']!=deck_input or prepared['deck_execution_input_sha256']!=execution_sha or prepared['proof_plan']!=plan or prepared['proof_plan_sha256']!=plan_sha or prepared['host_artifact_manifest_sha256']!=host['manifest_sha256'] or prepared['accepted_fixture_identity_sha256']!=fixture['identity_sha256'] or prepared['source_handoff_receipt_sha256']!=handoff['receipt_sha256']:
-        common.fail('PC0_EVIDENCE_BLOCKED: retained diagnostic intent differs')
-    run.validate_failure_diagnostic_file(diagnostic_path,expected_source=source_role,expected_execution_input_sha256=execution_sha,expected_plan_sha256=plan_sha,expected_operation_nonce=prepared['operation_nonce'],expected_phase_nonce=prepared['phase_nonce'])
-    state='diagnostic'
-    outcome_operation_nonce=prepared['operation_nonce']
-    outcome_phase_nonce=prepared['phase_nonce']
-elif any(p.exists() or p.is_symlink() for p in (intent_path,result_root,result_stage,lock)):
-    state='unknown'
-else:
-    state='absent'
-intent={'schema':'linux-vst-bridge-dx0-deck-intent/v1','operation_nonce':operation_nonce,'phase_nonce':phase_nonce,'execution_source':source_role,'deck_execution_input':deck_input,'deck_execution_input_sha256':execution_sha,'proof_plan':plan,'proof_plan_sha256':plan_sha,'host_artifact_manifest_sha256':host['manifest_sha256'],'accepted_fixture_identity_sha256':fixture['identity_sha256'],'source_handoff_receipt_sha256':handoff['receipt_sha256']}
-value={'schema':'linux-vst-bridge-pc0-classified-diagnostic-preflight/v1','adapter_source_commit':adapter_source,'execution_source_commit':source_commit,'execution_input_sha256':execution_sha,'legacy_proof_plan_sha256':plan_sha,'operation_nonce':operation_nonce,'phase_nonce':phase_nonce,'source_handoff_receipt_sha256':handoff['receipt_sha256'],'source_handoff_bundle_sha256':handoff['receipt']['bundle']['sha256'],'host':{'windows_build_input_identity':build_input,'producer_source_commit':host['build_receipt']['producer_source']['commit'],'producer_run_id':host['build_receipt']['workflow']['run_id'],'producer_run_attempt':host['build_receipt']['workflow']['run_attempt'],'artifact_id':host['custody']['artifact']['id'],'manifest_sha256':host['manifest_sha256']},'fixture':{'again_module_sha256':common.DX0_AGAIN_MODULE_SHA256,'again_bundle_manifest_sha256':common.DX0_AGAIN_BUNDLE_MANIFEST_SHA256,'accepted_fixture_identity_sha256':fixture['identity_sha256']},'runtime_proton_identity_sha256':runner['launch_critical_manifest_sha256'],'protected_snapshot_sha256':common.sha256_bytes(common.canonical_json(protected)),'fixture_platform':fixture_platform,'process_counts':counts,'write_effect_counts':{k:0 for k in ('environment_creations','execution_intent_publications','execution_lock_creations','result_publications','diagnostic_publications','protected_state_mutations','deck_execution_reservations','deck_execution_count_increments','proton_launches')},'outcome_state':state,'outcome_operation_nonce':outcome_operation_nonce,'outcome_phase_nonce':outcome_phase_nonce,'intent':intent}
-sys.stdout.buffer.write(common.canonical_json(value))
-'''.strip()
+WORKER_PATH = "tools/pc0_diagnostic_worker.py"
+REMOTE_PREFLIGHT_PROGRAM = (REPOSITORY_ROOT / WORKER_PATH).read_text(encoding="utf-8")
+WORKER_SHA256 = sha256_bytes(REMOTE_PREFLIGHT_PROGRAM.encode("utf-8"))
+WORKER_SCHEMA = "linux-vst-bridge-pc0-reservation-diagnostic/v1"
 
 
 class PC0DiagnosticRuntime:
@@ -568,128 +437,64 @@ class PC0DiagnosticRuntime:
 
     def preflight(self, context: PreflightContext) -> None:
         delegation = self._validate_context(context.delegation, context.plan_descriptor)
-        self._local_preflight(delegation)
         request = self._request(delegation, None)
-        self._validate_remote_preflight(self._remote_preflight(request), request)
+        # PX2 calls preflight even on resume. Bounded retrieval must precede any
+        # launch-safety probe, including local custody checks that may now fail.
+        existing = self._remote("inspect", request)
+        if existing["state"] != "absent":
+            return
+        self._local_preflight(delegation)
+        self._remote("preflight", request)
 
     def reconcile(self, context: ReservationContext) -> Observation | None:
         delegation = self._validate_context(context.delegation, context.plan_descriptor)
         request = self._request(delegation, context.reservation_identity)
         try:
-            preflight = self._validate_remote_preflight(
-                self._remote_preflight(request), request,
-            )
-            outcome = self._read_outcome(preflight, launched=False)
+            return self._observation(self._remote("inspect", request), request)
         except Exception:
             return None
-        if outcome.state == "absent":
-            return None
-        return self._observation(outcome, request)
 
     def invoke_diagnostic(self, context: ReservationContext) -> Observation:
         delegation = self._validate_context(context.delegation, context.plan_descriptor)
         request = self._request(delegation, context.reservation_identity)
-        launch_attempted = False
+        attempted = False
         try:
-            preflight = self._validate_remote_preflight(
-                self._remote_preflight(request), request,
-            )
-            existing = self._read_outcome(preflight, launched=False)
-            if existing.state != "absent":
-                return self._observation(existing, request)
-            intent = canonical_json(preflight["intent"])
-            if len(intent) > MAX_INTENT_BYTES:
-                raise AdapterBoundaryError("PC0 execution intent exceeds its bound")
-            intent_path = self._intent_path(request["operation_nonce"])
-            self.ports.ssh.write_file(intent_path, intent, timeout=60.0)
-            launch_attempted = True
-            reply = self.ports.ssh.execute_pc0(
-                self._worktree(), intent_path, timeout=900.0,
-            )
-            after = self._validate_remote_preflight(
-                self._remote_preflight(request), request,
-            )
-            launched: bool | str = "unknown"
-            outcome_state = after["outcome_state"]
-            if outcome_state == "diagnostic":
-                launched = True
-            elif outcome_state == "result" and reply.returncode == 0:
-                try:
-                    reply_value = json.loads(reply.stdout.decode("utf-8", "strict"))
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    reply_value = {}
-                disposition = (
-                    reply_value.get("disposition")
-                    if isinstance(reply_value, Mapping) else None
-                )
-                launched = True if disposition == "completed" else (
-                    False if disposition == "reused" else "unknown"
-                )
-            outcome = self._read_outcome(after, launched=launched)
-            if outcome.state == "absent" or (reply.returncode != 0 and outcome.state == "unknown"):
-                raise OutcomeUnknown(
-                    effects={"deck_workloads": "unknown"},
-                    cleanup_disposition="UNKNOWN",
-                    protected_state_disposition="UNKNOWN",
-                )
-            return self._observation(outcome, request)
+            existing = self._remote("inspect", request)
+            if existing["state"] == "absent":
+                self._local_preflight(delegation)
+                self._remote("preflight", request)
+                attempted = True
+                existing = self._remote("execute", request)
+            observation = self._observation(existing, request)
+            if observation is not None:
+                return observation
+            raise OutcomeUnknown(
+                effects=existing.get("effects", {"deck_workloads": "unknown"}),
+                cleanup_disposition="UNKNOWN", protected_state_disposition="UNKNOWN")
         except OutcomeUnknown:
             raise
         except (PortTimeout, AdapterBoundaryError) as exc:
             raise OutcomeUnknown(
-                effects={
-                    "deck_workloads": "unknown" if launch_attempted else 0,
-                },
-                cleanup_disposition="UNKNOWN",
-                protected_state_disposition="UNKNOWN",
-            ) from exc
+                effects={"deck_workloads": "unknown" if attempted else 0,
+                         "diagnostic_publications": "unknown" if attempted else 0},
+                cleanup_disposition="UNKNOWN", protected_state_disposition="UNKNOWN") from exc
 
-    def admit_diagnostic(
-        self, context: ReservationContext, observation: Observation,
-    ) -> Mapping[str, Any]:
+    def admit_diagnostic(self, context: ReservationContext, observation: Observation) -> Mapping[str, Any]:
         delegation = self._validate_context(context.delegation, context.plan_descriptor)
+        request = self._request(delegation, context.reservation_identity)
+        payload = _keys(observation.payload, {
+            "schema", "execution_class", "acceptance_eligible", "binding",
+            "document_sha256", "diagnostic_data"}, "diagnostic payload")
         if (observation.kind is not ObservationKind.SUCCESS
                 or observation.cleanup_disposition != "COMPLETE"
                 or observation.protected_state_disposition != "UNCHANGED"
-                or dict(observation.effects) not in (
-                    {"deck_workloads": 0, "result_publications": 1,
-                     "diagnostic_publications": 0},
-                    {"deck_workloads": 1, "result_publications": 1,
-                     "diagnostic_publications": 0},
-                )):
-            raise AdapterBoundaryError("only a successful diagnostic observation is admissible")
-        payload = _keys(observation.payload, {
-            "schema", "execution_class", "acceptance_eligible",
-            "adapter_source_commit", "execution_source_commit",
-            "execution_input_sha256", "legacy_proof_plan_sha256",
-            "disposition", "document_sha256", "diagnostic_data",
-        }, "PC0 diagnostic payload")
-        if (payload["schema"] != PAYLOAD_SCHEMA
-                or payload["execution_class"]
-                != ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE.value
+                or payload["schema"] != PAYLOAD_SCHEMA
+                or payload["execution_class"] != request["execution_class"]
                 or payload["acceptance_eligible"] is not False
-                or payload["adapter_source_commit"] != delegation["source_commit"]
-                or payload["execution_source_commit"] != STOPPED_PC0_SOURCE
-                or payload["legacy_proof_plan_sha256"] != PC0_LEGACY_PLAN_SHA256
-                or payload["disposition"] != "result"
-                or HEX64.fullmatch(str(payload["execution_input_sha256"])) is None
+                or payload["binding"] != request
                 or HEX64.fullmatch(str(payload["document_sha256"])) is None):
-            raise AdapterBoundaryError("successful diagnostic payload binding differs")
-        diagnostic_data = _as_object(payload["diagnostic_data"], "diagnostic data")
-        raw = canonical_json(diagnostic_data)
-        if len(raw) > 128 * 1024:
-            raise AdapterBoundaryError("admitted diagnostic data exceeds its bound")
-        return {
-            "schema": ADMITTED_SCHEMA,
-            "execution_class": ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE.value,
-            "acceptance_eligible": False,
-            "adapter_source_commit": delegation["source_commit"],
-            "execution_source_commit": STOPPED_PC0_SOURCE,
-            "execution_input_sha256": payload["execution_input_sha256"],
-            "legacy_proof_plan_sha256": PC0_LEGACY_PLAN_SHA256,
-            "remote_result_sha256": payload["document_sha256"],
-            "diagnostic_data": diagnostic_data,
-        }
+            raise AdapterBoundaryError("successful diagnostic binding differs")
+        return {"schema": ADMITTED_SCHEMA, **{k: v for k, v in payload.items() if k != "schema"}}
 
     def _validate_context(
         self, delegation_value: Mapping[str, Any], descriptor_value: Mapping[str, Any],
@@ -713,7 +518,7 @@ class PC0DiagnosticRuntime:
 
     def _request(
         self, delegation: Mapping[str, Any], reservation_identity: str | None,
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         projected = sha256_bytes(canonical_json({
             "schema": RESERVATION_SCHEMA,
             "execution_class": delegation["execution_class"],
@@ -727,9 +532,25 @@ class PC0DiagnosticRuntime:
         if reservation_identity is not None and reservation_identity != projected:
             raise AdapterBoundaryError("reservation identity differs from delegation")
         return {
-            "adapter_source_commit": str(delegation["source_commit"]),
-            "operation_nonce": projected[:32],
-            "phase_nonce": projected[32:],
+            "execution_class": delegation["execution_class"],
+            "acceptance_eligible": False,
+            "campaign_identity": delegation["execution_identity"],
+            "reservation_identity": projected,
+            "adapter_source_commit": delegation["source_commit"],
+            "worker_sha256": WORKER_SHA256,
+            "execution_source": dict(STOPPED_SOURCE_ROLE),
+            "producer_source": dict(PRODUCER_SOURCE_ROLE),
+            "windows_build_input_identity": WINDOWS_BUILD_INPUT_IDENTITY,
+            "producer_run_id": PRODUCER_RUN_ID,
+            "producer_run_attempt": PRODUCER_RUN_ATTEMPT,
+            "artifact_id": PRODUCER_ARTIFACT_ID,
+            "host_manifest_sha256": HOST_MANIFEST_SHA256,
+            "fixture_identity": ACCEPTED_FIXTURE_IDENTITY,
+            "fixture_bundle_sha256": AGAIN_BUNDLE_MANIFEST_SHA256,
+            "fixture_module_sha256": AGAIN_MODULE_SHA256,
+            "runtime_identity": RUNTIME_PROTON_IDENTITY,
+            "legacy_plan_sha256": PC0_LEGACY_PLAN_SHA256,
+            "plan_content_sha256": PLAN_CONTENT_SHA256,
         }
 
     def _local_preflight(self, delegation: Mapping[str, Any]) -> None:
@@ -757,6 +578,8 @@ class PC0DiagnosticRuntime:
              str(delegation["source_commit"]), "diagnostic source"),
             (("git", "rev-parse", f"{delegation['source_commit']}:{SELECTION_PATH}"),
              SELECTION_GIT_BLOB, "diagnostic source contract"),
+            (("git", "rev-parse", f"{delegation['source_commit']}:{WORKER_PATH}"),
+             _git_blob_sha1(REMOTE_PREFLIGHT_PROGRAM.encode("utf-8")), "diagnostic worker"),
             (("git", "rev-parse", "--verify", f"{STOPPED_PC0_ARCHIVE_REF}^{{commit}}"),
              STOPPED_PC0_SOURCE, "stopped source archive"),
             (("git", "rev-parse", f"{STOPPED_PC0_SOURCE}^{{tree}}"),
@@ -832,7 +655,7 @@ class PC0DiagnosticRuntime:
     def _local_pair_any(self, path: pathlib.Path) -> tuple[dict[str, Any], str]:
         raw = self.ports.filesystem.read_bytes(path, MAX_REMOTE_DOCUMENT_BYTES)
         sidecar = self.ports.filesystem.read_bytes(
-            path.with_suffix(path.suffix + ".sha256"), MAX_SIDECAR_BYTES,
+            path.with_suffix(".sha256"), MAX_SIDECAR_BYTES,
         )
         value, digest = _pair(raw, sidecar, path.name, path.name)
         return value, digest
@@ -841,331 +664,60 @@ class PC0DiagnosticRuntime:
         return ("/home/deck/.local/share/linux-vst-bridge/worktrees/dx0/"
                 + STOPPED_PC0_SOURCE)
 
-    def _intent_path(self, operation_nonce: str) -> str:
-        return ("/home/deck/.local/share/linux-vst-bridge/proof/intents/"
-                f"{operation_nonce}/DX0_DECK_EXECUTION_INTENT.json")
-
-    def _remote_preflight(self, request: Mapping[str, str]) -> dict[str, Any]:
+    def _remote(self, action: str, request: Mapping[str, Any]) -> dict[str, Any]:
         raw = self.ports.ssh.run_python(
             self._worktree(), REMOTE_PREFLIGHT_PROGRAM,
-            (STOPPED_PC0_SOURCE, request["adapter_source_commit"],
-             request["operation_nonce"], request["phase_nonce"]),
-            timeout=300.0,
-        )
-        return _canonical_object(raw, MAX_PREFLIGHT_BYTES, "PC0 remote preflight")
+            (action, canonical_json(dict(request)).hex()),
+            timeout=900.0 if action == "execute" else 60.0)
+        reply = _canonical_object(raw, MAX_REMOTE_DOCUMENT_BYTES, "diagnostic reply")
+        if reply.get("state") not in {"ready", "absent", "unknown", "observed"}:
+            raise AdapterBoundaryError("diagnostic state differs")
+        if action == "preflight" and reply["state"] != "ready":
+            raise AdapterBoundaryError("launch preflight is not ready")
+        if action != "preflight" and reply["state"] == "ready":
+            raise AdapterBoundaryError("unexpected preflight reply")
+        # Retrieval never inherits historical execution/publication counts.
+        if action == "inspect":
+            reply["effects"] = {"deck_workloads": 0, "diagnostic_publications": 0}
+        return reply
 
-    def _validate_remote_preflight(
-        self, value: Mapping[str, Any], request: Mapping[str, str],
-    ) -> dict[str, Any]:
-        preflight = _keys(value, {
-            "schema", "adapter_source_commit", "execution_source_commit",
-            "execution_input_sha256", "legacy_proof_plan_sha256",
-            "operation_nonce", "phase_nonce", "source_handoff_receipt_sha256",
-            "source_handoff_bundle_sha256", "host", "fixture",
-            "runtime_proton_identity_sha256", "protected_snapshot_sha256",
-            "fixture_platform", "process_counts", "write_effect_counts",
-            "outcome_state", "outcome_operation_nonce", "outcome_phase_nonce",
-            "intent",
-        }, "PC0 remote preflight")
-        host = _keys(preflight["host"], {
-            "windows_build_input_identity", "producer_source_commit",
-            "producer_run_id", "producer_run_attempt", "artifact_id",
-            "manifest_sha256",
-        }, "PC0 remote host")
-        fixture = _keys(preflight["fixture"], {
-            "again_module_sha256", "again_bundle_manifest_sha256",
-            "accepted_fixture_identity_sha256",
-        }, "PC0 remote fixture")
-        counts = _keys(preflight["process_counts"], PROCESS_KEYS, "PC0 process counts")
-        writes = _keys(
-            preflight["write_effect_counts"], WRITE_EFFECT_KEYS, "PC0 preflight writes",
-        )
-        fixture_platform = _keys(preflight["fixture_platform"], {
-            "hardware", "os", "architecture", "read_only_mode",
-        }, "PC0 fixture platform")
-        if (preflight["schema"] != PREFLIGHT_SCHEMA
-                or preflight["adapter_source_commit"]
-                != request["adapter_source_commit"]
-                or preflight["execution_source_commit"] != STOPPED_PC0_SOURCE
-                or preflight["operation_nonce"] != request["operation_nonce"]
-                or preflight["phase_nonce"] != request["phase_nonce"]
-                or preflight["legacy_proof_plan_sha256"] != PC0_LEGACY_PLAN_SHA256
-                or preflight["runtime_proton_identity_sha256"]
-                != RUNTIME_PROTON_IDENTITY
-                or HEX64.fullmatch(str(preflight["execution_input_sha256"])) is None
-                or HEX64.fullmatch(str(preflight["protected_snapshot_sha256"])) is None
-                or HEX64.fullmatch(str(preflight["source_handoff_receipt_sha256"])) is None
-                or HEX64.fullmatch(str(preflight["source_handoff_bundle_sha256"])) is None
-                or any(value != 0 for value in counts.values())
-                or any(value != 0 for value in writes.values())
-                or fixture_platform != {
-                    "hardware": "Steam Deck Galileo",
-                    "os": "SteamOS 3.8.16",
-                    "architecture": "x86_64",
-                    "read_only_mode": "enabled",
-                }
-                or preflight["outcome_state"] not in {
-                    "absent", "result", "diagnostic", "unknown"}):
-            raise AdapterBoundaryError("PC0 remote preflight identity differs")
-        retained_nonces = (
-            preflight["outcome_operation_nonce"], preflight["outcome_phase_nonce"],
-        )
-        if preflight["outcome_state"] in {"result", "diagnostic"}:
-            if any(re.fullmatch(r"[0-9a-f]{32}", str(item)) is None
-                   for item in retained_nonces):
-                raise AdapterBoundaryError("PC0 retained outcome nonce differs")
-        elif retained_nonces != (None, None):
-            raise AdapterBoundaryError("PC0 absent/unknown outcome retained a nonce")
-        expected_host = {
-            "windows_build_input_identity": WINDOWS_BUILD_INPUT_IDENTITY,
-            "producer_source_commit": PRODUCER_SOURCE,
-            "producer_run_id": PRODUCER_RUN_ID,
-            "producer_run_attempt": PRODUCER_RUN_ATTEMPT,
-            "artifact_id": PRODUCER_ARTIFACT_ID,
-            "manifest_sha256": HOST_MANIFEST_SHA256,
-        }
-        expected_fixture = {
-            "again_module_sha256": AGAIN_MODULE_SHA256,
-            "again_bundle_manifest_sha256": AGAIN_BUNDLE_MANIFEST_SHA256,
-            "accepted_fixture_identity_sha256": ACCEPTED_FIXTURE_IDENTITY,
-        }
-        if host != expected_host or fixture != expected_fixture:
-            raise AdapterBoundaryError("PC0 remote artifact or fixture differs")
-        intent = _keys(preflight["intent"], {
-            "schema", "operation_nonce", "phase_nonce", "execution_source",
-            "deck_execution_input", "deck_execution_input_sha256", "proof_plan",
-            "proof_plan_sha256", "host_artifact_manifest_sha256",
-            "accepted_fixture_identity_sha256", "source_handoff_receipt_sha256",
-        }, "PC0 remote intent")
-        deck_input = _keys(intent["deck_execution_input"], {
-            "schema", "host_artifact_manifest_sha256",
-            "accepted_fixture_identity_sha256", "proof_plan_sha256",
-            "runtime_proton_sha256", "record_count", "records",
-        }, "PC0 Deck execution input")
-        if (intent.get("operation_nonce") != request["operation_nonce"]
-                or intent.get("phase_nonce") != request["phase_nonce"]
-                or intent.get("execution_source") != dict(STOPPED_SOURCE_ROLE)
-                or intent.get("proof_plan") != dict(PC0_LEGACY_PLAN)
-                or intent.get("deck_execution_input_sha256")
-                != preflight["execution_input_sha256"]
-                or intent.get("proof_plan_sha256") != PC0_LEGACY_PLAN_SHA256
-                or intent.get("host_artifact_manifest_sha256") != HOST_MANIFEST_SHA256
-                or intent.get("accepted_fixture_identity_sha256")
-                != ACCEPTED_FIXTURE_IDENTITY
-                or intent.get("source_handoff_receipt_sha256")
-                != preflight["source_handoff_receipt_sha256"]
-                or deck_input.get("schema") != PC0_DECK_EXECUTION_INPUT_SCHEMA
-                or deck_input.get("host_artifact_manifest_sha256")
-                != HOST_MANIFEST_SHA256
-                or deck_input.get("accepted_fixture_identity_sha256")
-                != ACCEPTED_FIXTURE_IDENTITY
-                or deck_input.get("proof_plan_sha256") != PC0_LEGACY_PLAN_SHA256
-                or deck_input.get("runtime_proton_sha256")
-                != RUNTIME_PROTON_IDENTITY
-                or type(deck_input.get("record_count")) is not int
-                or not isinstance(deck_input.get("records"), list)
-                or deck_input.get("record_count") != len(deck_input["records"])
-                or len(canonical_json(intent)) > MAX_INTENT_BYTES):
-            raise AdapterBoundaryError("PC0 remote intent projection differs")
-        return preflight
-
-    def _read_outcome(
-        self, preflight: Mapping[str, Any], *, launched: bool | str,
-    ) -> RemoteOutcome:
-        state = str(preflight["outcome_state"])
-        execution = str(preflight["execution_input_sha256"])
-        plan = str(preflight["legacy_proof_plan_sha256"])
-        if state == "result":
-            root = ("/home/deck/.local/share/linux-vst-bridge/proof/results/"
-                    f"by-execution-input/{execution}")
-            document = self.ports.ssh.read_file(
-                root + "/DX0_TRANSACTION_RESULT.json",
-                MAX_REMOTE_DOCUMENT_BYTES, timeout=120.0,
-            )
-            sidecar = self.ports.ssh.read_file(
-                root + "/DX0_TRANSACTION_RESULT.json.sha256",
-                MAX_SIDECAR_BYTES, timeout=30.0,
-            )
-            return RemoteOutcome(state, preflight, document, sidecar, launched)
-        if state == "diagnostic":
-            root = ("/home/deck/.local/share/linux-vst-bridge/proof/results/"
-                    f"by-execution-input/.locks/{execution}-{plan}")
-            document = self.ports.ssh.read_file(
-                root + "/PC0_FAILURE_DIAGNOSTIC.json",
-                MAX_REMOTE_DOCUMENT_BYTES, timeout=120.0,
-            )
-            sidecar = self.ports.ssh.read_file(
-                root + "/PC0_FAILURE_DIAGNOSTIC.json.sha256",
-                MAX_SIDECAR_BYTES, timeout=30.0,
-            )
-            return RemoteOutcome(state, preflight, document, sidecar, launched)
-        return RemoteOutcome(state, preflight, launched=launched)
-
-    def _observation(
-        self, outcome: RemoteOutcome, request: Mapping[str, str],
-    ) -> Observation:
-        launch_effect: int | str = 1 if outcome.launched is True else (
-            "unknown" if outcome.launched == "unknown" else 0
-        )
-        common = {
-            "schema": PAYLOAD_SCHEMA,
-            "execution_class": ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE.value,
-            "acceptance_eligible": False,
-            "adapter_source_commit": request["adapter_source_commit"],
-            "execution_source_commit": STOPPED_PC0_SOURCE,
-            "execution_input_sha256": outcome.preflight["execution_input_sha256"],
-            "legacy_proof_plan_sha256": PC0_LEGACY_PLAN_SHA256,
-        }
-        if outcome.state == "result":
-            if outcome.document is None or outcome.sidecar is None:
-                raise AdapterBoundaryError("PC0 result pair is incomplete")
-            data, digest = self._validate_result_pair(
-                outcome.document, outcome.sidecar,
-                str(outcome.preflight["execution_input_sha256"]),
-                str(outcome.preflight["outcome_operation_nonce"]),
-                str(outcome.preflight["outcome_phase_nonce"]),
-                str(outcome.preflight["source_handoff_receipt_sha256"]),
-                str(outcome.preflight["source_handoff_bundle_sha256"]),
-                str(outcome.preflight["protected_snapshot_sha256"]),
-            )
-            return Observation(
-                ObservationKind.SUCCESS, "PC0_DIAGNOSTIC_OBSERVED",
-                {**common, "disposition": "result", "document_sha256": digest,
-                 "diagnostic_data": data},
-                "COMPLETE", "UNCHANGED",
-                {"deck_workloads": launch_effect, "result_publications": 1,
-                 "diagnostic_publications": 0},
-            )
-        if outcome.state == "diagnostic":
-            if outcome.document is None or outcome.sidecar is None:
-                raise AdapterBoundaryError("PC0 diagnostic pair is incomplete")
-            data, digest, kind, cleanup = self._validate_diagnostic_pair(
-                outcome.document, outcome.sidecar,
-                str(outcome.preflight["execution_input_sha256"]),
-                str(outcome.preflight["outcome_operation_nonce"]),
-                str(outcome.preflight["outcome_phase_nonce"]),
-                str(outcome.preflight["protected_snapshot_sha256"]),
-            )
-            classification = "PC0_" + str(data["classification"]).upper()
-            return Observation(
-                kind, classification,
-                {**common, "disposition": "diagnostic", "document_sha256": digest,
-                 "diagnostic_data": data},
-                cleanup, "UNCHANGED",
-                {"deck_workloads": launch_effect, "result_publications": 0,
-                 "diagnostic_publications": 1},
-            )
+    def _observation(self, reply: Mapping[str, Any], request: Mapping[str, Any]) -> Observation | None:
+        if reply["state"] in {"absent", "unknown"}:
+            return None
+        value = _keys(reply.get("observation"), {
+            "schema", "binding", "execution_input_sha256", "kind",
+            "classification", "summary", "cleanup", "protected"}, "reservation observation")
+        if (value["schema"] != WORKER_SCHEMA or value["binding"] != request
+                or HEX64.fullmatch(str(value["execution_input_sha256"])) is None
+                or value["classification"] not in {
+                    "PC0_DIAGNOSTIC_OBSERVED", "PC0_DIAGNOSTIC_FAILED", "PC0_DIAGNOSTIC_INCONCLUSIVE"}):
+            raise AdapterBoundaryError("reservation observation binding differs")
+        kind = ObservationKind(value["kind"])
+        summary = _as_object(value["summary"], "diagnostic summary")
+        if len(canonical_json(summary)) > MAX_REMOTE_DOCUMENT_BYTES - 16384:
+            raise AdapterBoundaryError("diagnostic summary exceeds bound")
+        if kind is ObservationKind.SUCCESS:
+            if (value["cleanup"] != "COMPLETE" or value["protected"] != "UNCHANGED"
+                    or set(summary) != {"run_id", "processing_contract"}
+                    or not isinstance(summary["processing_contract"], dict)):
+                raise AdapterBoundaryError("successful diagnostic facts differ")
+        elif set(summary) != {"failure"}:
+            raise AdapterBoundaryError("failure diagnostic facts absent")
+        else:
+            failure = _as_object(summary["failure"], "failure diagnostic")
+            raw = canonical_json(failure)
+            compact, _digest, _kind, _cleanup = self._validate_diagnostic_pair(
+                raw, f"{sha256_bytes(raw)}  PC0_FAILURE_DIAGNOSTIC.json\n".encode(),
+                value["execution_input_sha256"], request["reservation_identity"][:32],
+                request["reservation_identity"][32:], failure.get("protected_snapshot_sha256"))
+            summary = compact
         return Observation(
-            ObservationKind.INCONCLUSIVE, "PC0_REMOTE_OUTCOME_UNKNOWN",
-            {**common, "disposition": "unknown", "document_sha256": None,
-             "diagnostic_data": {}},
-            "UNKNOWN", "UNKNOWN", {"deck_workloads": "unknown"},
-        )
-
-    def _validate_result_pair(
-        self, raw: bytes, sidecar: bytes,
-        expected_execution_input_sha256: str,
-        expected_operation_nonce: str,
-        expected_phase_nonce: str,
-        expected_source_handoff_receipt_sha256: str,
-        expected_source_handoff_bundle_sha256: str,
-        expected_protected_snapshot_sha256: str,
-    ) -> tuple[dict[str, Any], str]:
-        result, digest = _pair(
-            raw, sidecar, "DX0_TRANSACTION_RESULT.json", "PC0 result",
-        )
-        _keys(result, PC0_RESULT_KEYS, "PC0 result")
-        source = _keys(
-            result["deck_execution_source"], set(STOPPED_SOURCE_ROLE),
-            "Deck execution source",
-        )
-        producer = _keys(
-            result["artifact_producer_source"], set(PRODUCER_SOURCE_ROLE),
-            "producer source",
-        )
-        execution = _keys(result["execution_input"], {
-            "identity_sha256", "schema", "proof_plan_sha256",
-            "runtime_proton_sha256", "source_handoff_ref",
-            "detached_worktree_commit", "host_artifact_manifest_sha256",
-            "accepted_fixture_identity_sha256",
-        }, "execution input")
-        host = _keys(result["host_artifact"], {
-            "windows_build_input_sha256", "workflow_run_id", "run_attempt",
-            "artifact_id", "manifest_sha256", "build_receipt_sha256",
-            "mac_custody_receipt_sha256",
-        }, "host artifact")
-        fixture = _keys(result["accepted_fixture"], {
-            "identity_sha256", "bundle_manifest_sha256", "module_sha256",
-            "mac_store_receipt_sha256", "deck_store_receipt_sha256",
-        }, "accepted fixture")
-        handoff = _keys(result["source_handoff"], {
-            "bundle_sha256", "receipt_sha256", "advertised_ref",
-            "worktree_commit", "worktree_clean",
-        }, "source handoff")
-        plan = _keys(result["closed_plan"], {
-            "plan_id", "sha256", "expected_result", "live_exercise_ceiling",
-        }, "closed plan")
-        observation = _as_object(result["original_observation"], "original observation")
-        cleanup = _as_object(result["cleanup"], "result cleanup")
-        protected = _as_object(result["protected_state"], "result protected state")
-        positive = _as_object(result["positive_result"], "positive result")
-        if (result["schema"] != PC0_RESULT_SCHEMA
-                or result["operation_nonce"] != expected_operation_nonce
-                or observation.get("phase_nonce") != expected_phase_nonce
-                or re.fullmatch(r"[0-9a-f]{32}",
-                                str(observation.get("run_id"))) is None
-                or source != dict(STOPPED_SOURCE_ROLE)
-                or producer != dict(PRODUCER_SOURCE_ROLE)
-                or execution.get("schema") != PC0_DECK_EXECUTION_INPUT_SCHEMA
-                or execution.get("identity_sha256")
-                != expected_execution_input_sha256
-                or execution.get("proof_plan_sha256") != PC0_LEGACY_PLAN_SHA256
-                or execution.get("runtime_proton_sha256") != RUNTIME_PROTON_IDENTITY
-                or execution.get("source_handoff_ref")
-                != f"refs/handoff/dx0-source/{STOPPED_PC0_SOURCE}"
-                or execution.get("detached_worktree_commit") != STOPPED_PC0_SOURCE
-                or execution.get("host_artifact_manifest_sha256")
-                != HOST_MANIFEST_SHA256
-                or execution.get("accepted_fixture_identity_sha256")
-                != ACCEPTED_FIXTURE_IDENTITY
-                or host.get("windows_build_input_sha256")
-                != WINDOWS_BUILD_INPUT_IDENTITY
-                or host.get("workflow_run_id") != PRODUCER_RUN_ID
-                or host.get("run_attempt") != PRODUCER_RUN_ATTEMPT
-                or host.get("artifact_id") != PRODUCER_ARTIFACT_ID
-                or host.get("manifest_sha256") != HOST_MANIFEST_SHA256
-                or fixture.get("module_sha256") != AGAIN_MODULE_SHA256
-                or fixture.get("bundle_manifest_sha256")
-                != AGAIN_BUNDLE_MANIFEST_SHA256
-                or fixture.get("identity_sha256") != ACCEPTED_FIXTURE_IDENTITY
-                or handoff.get("bundle_sha256")
-                != expected_source_handoff_bundle_sha256
-                or handoff.get("receipt_sha256")
-                != expected_source_handoff_receipt_sha256
-                or handoff.get("advertised_ref")
-                != f"refs/handoff/dx0-source/{STOPPED_PC0_SOURCE}"
-                or handoff.get("worktree_commit") != STOPPED_PC0_SOURCE
-                or handoff.get("worktree_clean") is not True
-                or plan.get("plan_id") != "pc0-pre-setup-processing-contract-v1"
-                or plan.get("sha256") != PC0_LEGACY_PLAN_SHA256
-                or plan.get("live_exercise_ceiling") != 1
-                or cleanup != {
-                    "owned_descendant_count": 0, "process_group_empty": True,
-                    "environment_retired": True, "stage_absent": True}
-                or protected.get("equal") is not True
-                or protected.get("comparison_completed") is not True
-                or protected.get("pre_sha256") != protected.get("post_sha256")
-                or protected.get("pre_sha256")
-                != expected_protected_snapshot_sha256):
-            raise AdapterBoundaryError("PC0 result identity or disposition differs")
-        contract = _as_object(positive.get("processing_contract"), "processing contract")
-        if len(canonical_json(contract)) > 128 * 1024:
-            raise AdapterBoundaryError("PC0 processing contract exceeds its bound")
-        return {
-            "remote_result_schema": result["schema"],
-            "run_id": observation.get("run_id"),
-            "processing_contract": contract,
-        }, digest
+            kind, value["classification"],
+            {"schema": PAYLOAD_SCHEMA, "execution_class": request["execution_class"],
+             "acceptance_eligible": False, "binding": dict(request),
+             "document_sha256": sha256_bytes(canonical_json(value)), "diagnostic_data": summary},
+            value["cleanup"], value["protected"],
+            reply.get("effects", {"deck_workloads": "unknown", "diagnostic_publications": "unknown"}))
 
     def _validate_diagnostic_pair(
         self, raw: bytes, sidecar: bytes,
