@@ -1,298 +1,97 @@
-# Prompt — Adversarial Implementation Design Review
+# Prompt — Adversarial Product Design Review
 
-Use this prompt in a fresh context that did not author the implementation design card.
+Use this in a fresh context for a product-contract design. Proof-harness-only work uses `PROOF_HARNESS_MAINTENANCE_REVIEW.md`.
 
 ```text
-/goal
-
-Act as the independent adversarial design reviewer for one selected slice of
-the Linux Audio Compatibility Bridge project.
-
-Review design only. Do not implement code, edit the repository, launch a live
-fixture, or invent a replacement architecture without identifying the exact
-defect in the proposed design.
+Act as the independent adversarial reviewer for one product-contract design.
 
 Repository:
 kasselvania/Linux-VST-bridge
 
-Pinned design-review basis:
-commit: <EXACT COMMIT>
-tree:   <EXACT TREE>
-
 Slice:
-<SLICE_ID> — <TITLE>
+<SLICE_ID — TITLE>
 
-Selection receipt:
-<PATH AND IDENTITY>
+Exact design head/tree/card identity:
+<HEAD / TREE / BLOB / SHA-256>
 
-Implementation design card:
-<PATH>
-expected Git blob: <BLOB>
-expected SHA-256: <SHA-256>
-expected revision: <REVISION>
+Do not implement. Do not run Windows or Deck workloads. Do not redesign the
+proof harness merely because it could be cleaner.
 
-────────────────────────────────────────────────────────────────────
 1. VERIFY AUTHORITY
-────────────────────────────────────────────────────────────────────
 
-Confirm:
+Confirm exact repository, basis, selection receipt, design identity, changed
+paths, worktree/PR posture, and implementation_authorized=false.
 
-- repository and exact basis;
-- CURRENT_SLICE names this slice;
-- authority_phase is reconnaissance_and_design;
-- implementation_authorized is false;
-- selection receipt matches the card's claim, fixture, path, and mutation
-  envelope;
-- design card path/blob/SHA/revision are exact;
-- no implementation diff is being smuggled into the design review.
+2. REVIEW THE PRODUCT CONTRACT
 
-On mismatch return:
+Attack:
 
-DESIGN_REVIEW_BLOCKED
+- primary claim and claim ceiling;
+- product owner map;
+- lifecycle states and transitions;
+- exact VST3 operation roster, order, and return interpretation;
+- product-facing normalization;
+- fixture semantics;
+- thread/reentrancy obligations;
+- containment and shutdown claims;
+- protocol, trust, authorization, privacy, and security boundaries;
+- product proof matrix and nonclaims.
 
-Do not repair authority implicitly.
+3. REVIEW DEVELOPMENT ECONOMICS
 
-────────────────────────────────────────────────────────────────────
-2. READ THE APPLICABLE AUTHORITY
-────────────────────────────────────────────────────────────────────
+The card must separately define:
 
-Read:
+- deterministic/local work;
+- whether a DiagnosticCampaignIdentity is needed;
+- diagnostic batch budget;
+- bounded diagnostic result and failure closure;
+- one exact AcceptanceCandidateIdentity;
+- acceptance batch budget;
+- Windows producer budget;
+- live negative budget;
+- separate budget owners.
 
-- AGENTS.md
-- GOVERNANCE.md
-- CURRENT_SLICE.md
-- docs/DEVELOPMENT_PROCESS.md
-- the selection receipt
-- the complete implementation design card
-- applicable architecture sections
-- applicable fixture cards and research basis
-- accepted predecessor implementation/evidence needed by this design
+Reject a design that uses acceptance as the edit/debug loop or gives every Deck
+contact one undifferentiated budget.
 
-Do not use the full dossier as implementation authority.
+4. DIAGNOSTIC INTEGRITY
 
-────────────────────────────────────────────────────────────────────
-3. OWNER AUDIT
-────────────────────────────────────────────────────────────────────
+Verify diagnostic results are permanently:
 
-For every consequential fact ask:
+execution_class: diagnostic_non_authoritative
+acceptance_eligible: false
 
-- Is there exactly one authoritative owner?
-- Who creates, mutates, reads, retires, and recovers it?
-- Is durable representation distinct from cached/read-model state?
-- Can an in-memory flag, path name, process name, UI state, test result, or
-  evidence record compete with the real owner?
-- What happens when physical state and memory disagree?
+They may not create product evidence, set product proof rows to PASS, update the
+accepted frontier, or be promoted.
 
-Report missing, overlapping, circular, or implicit owners.
+5. HARNESS-MAINTENANCE BOUNDARY
 
-────────────────────────────────────────────────────────────────────
-4. COMPLETE STATE-SPACE AUDIT
-────────────────────────────────────────────────────────────────────
+The card must state which harness defects may be repaired through focused
+maintenance without reopening the product design. Return design repair only if
+that boundary would allow a real product-contract change to escape review.
 
-Enumerate the proposed states independently.
+6. RETURN-TO-PRODUCT-DESIGN RULE
 
-For each pair of adjacent fallible operations ask:
+Require exact return when any product claim, VST3 call/interpretation,
+ownership, lifecycle, Windows product behavior, fixture meaning, product
+normalization, claimed containment/shutdown semantics, protocol/security
+boundary, proof requirement, or compatibility claim changes.
 
-> If operation N succeeds and operation N+1 fails, what exact physical state
-> exists and which named state represents it?
+Do not demand product redesign for a diagnostic-retention, evidence-rendering,
+transaction-bookkeeping, or orchestration defect that leaves every product
+fact unchanged.
 
-Inspect:
+7. VERDICT
 
-- rename before parent fsync;
-- write before file/directory fsync;
-- spawn before ownership proof;
-- publish before readback;
-- promote before commit;
-- commit before retirement;
-- deletion before absence durability;
-- callback before acknowledgement;
-- authorization before persistence;
-- host save before project commit;
-- evidence rendering before publication.
-
-Report every externally observable intermediate state missing from the card.
-
-Test crash, reboot, cancellation, retry, duplicate invocation, stale process
-identity, and concurrent actor behavior at every durable/intermediate state.
-
-────────────────────────────────────────────────────────────────────
-5. MUTATION AND FAULT AUDIT
-────────────────────────────────────────────────────────────────────
-
-For every mutation-ledger row verify:
-
-- precondition is exact;
-- operation is bounded;
-- immediate physical result is stated;
-- durability barrier is sufficient;
-- readback checks the right identity;
-- next authority state begins at the correct point;
-- failure classification names the correct owner;
-- recovery cannot destroy both predecessor and replacement;
-- unknown objects are refused rather than adopted;
-- post-commit failure never enters pre-commit rollback;
-- cleanup is idempotent or explicitly non-repeatable.
-
-Perform a cross-invariant scan: when one defect is found, inspect every other
-operation governed by the same invariant.
-
-────────────────────────────────────────────────────────────────────
-6. PROCESS, THREAD, CALLBACK, AND REAL-TIME AUDIT
-────────────────────────────────────────────────────────────────────
-
-Where applicable inspect:
-
-- real observed versus assumed topology;
-- parent, ancestry, process group, session, namespace, and lifetime;
-- exact process/object identity and stale-ID protection;
-- escaped descendants and unrelated same-name protection;
-- timeout and final empty proof;
-- thread affinity;
-- callback direction and recursive/reentrant calls;
-- lock ordering;
-- bounded waits;
-- allocation/logging/filesystem/network behavior on real-time paths;
-- editor versus processor failure ownership;
-- shutdown while callbacks are outstanding.
-
-If real topology is not yet knowable, require bounded reconnaissance instead of
-allowing the design to pretend.
-
-────────────────────────────────────────────────────────────────────
-7. IDENTITY AND AUTHORIZATION AUDIT
-────────────────────────────────────────────────────────────────────
-
-For every dangerous operation verify that the complete identity is sufficient.
-Reject designs that rely on:
-
-- friendly name;
-- basename or path suffix;
-- PID alone;
-- path alone;
-- ambient latest version;
-- one in-memory boolean;
-- vendor/product family where exact build/class is required;
-- successful stdout without process/owner proof.
-
-Inspect machine identity, licensing, browser/deep-link callbacks, recurring
-verification, content roots, and secret handling where applicable.
-
-────────────────────────────────────────────────────────────────────
-8. SECURITY, PRIVACY, LICENSING, AND CLEAN-ROOM AUDIT
-────────────────────────────────────────────────────────────────────
-
-Verify:
-
-- untrusted process boundaries;
-- path containment and symlink law;
-- command/profile injection resistance;
-- diagnostic allow lists and redaction;
-- no credentials, tokens, license material, account state, proprietary
-  binaries, presets, or paid content in Git/evidence;
-- no unsupported DRM or authorization bypass;
-- exact third-party license/distribution obligations;
-- no accidental yabridge/GPL source copying;
-- no false sandbox claim.
-
-────────────────────────────────────────────────────────────────────
-9. PROOF-MATRIX AUDIT
-────────────────────────────────────────────────────────────────────
-
-For every primary and supporting claim verify:
-
-- positive proof matches the claim;
-- negative/fault proof reaches the production owner;
-- synthetic versus live fixture choice is justified;
-- test names do not substitute for behavior;
-- output, screenshot, or log alone is not overclaimed;
-- incomplete/capped observations propagate to unknown;
-- evidence can be regenerated without rewriting history;
-- the claim ceiling blocks adjacent inference.
-
-Identify any test that merely restates the condition in a parallel toy helper.
-
-────────────────────────────────────────────────────────────────────
-10. CODE-TOPOLOGY AUDIT
-────────────────────────────────────────────────────────────────────
-
-Verify the proposed code topology keeps owners distinct. One source file may
-contain multiple early-proof owners, but their interfaces and state must remain
-explicit.
-
-Report any component that would implicitly own several unrelated concerns such
-as runtime selection, process supervision, durable transaction state, evidence
-rendering, and UI policy without an approved boundary.
-
-────────────────────────────────────────────────────────────────────
-11. MATERIAL-DISCOVERY AND STOP-LAW AUDIT
-────────────────────────────────────────────────────────────────────
-
-Verify that the card names the observations that would invalidate it and that
-implementation must stop rather than patch forward.
-
-Add missing slice-specific stop conditions.
-
-────────────────────────────────────────────────────────────────────
-12. VERDICT
-────────────────────────────────────────────────────────────────────
-
-Return one of:
+Return:
 
 DESIGN_CLEAR
-
+or
 DESIGN_REPAIR_REQUIRED
-
+or
 DESIGN_REVIEW_BLOCKED
 
-A clear design must have no unresolved P0/P1 finding and no material unknown
-masquerading as design fact.
-
-For every finding provide:
-
-- severity: P0 / P1 / P2;
-- exact design heading;
-- violated invariant;
-- concrete failure state;
-- why existing proof would miss it;
-- required design change;
-- every adjacent operation that must receive the same cross-invariant audit;
-- whether reconnaissance is required.
-
-Do not provide implementation patches.
-
-────────────────────────────────────────────────────────────────────
-13. OUTPUT FORMAT
-────────────────────────────────────────────────────────────────────
-
-VERDICT
-
-AUTHORITY_CHECK
-
-OWNER_FINDINGS
-
-STATE_SPACE_FINDINGS
-
-MUTATION_AND_FAULT_FINDINGS
-
-PROCESS_THREAD_REALTIME_FINDINGS
-
-IDENTITY_AUTHORIZATION_FINDINGS
-
-SECURITY_PRIVACY_LICENSING_FINDINGS
-
-PROOF_MATRIX_FINDINGS
-
-CODE_TOPOLOGY_FINDINGS
-
-MATERIAL_DISCOVERY_FINDINGS
-
-CROSS_INVARIANT_AUDIT
-
-REQUIRED_DESIGN_REVISIONS
-
-RECONNAISSANCE_REQUIRED
-
-APPROVAL_RECOMMENDATION
-
-REVIEWED_DESIGN_IDENTITY
+For each finding provide severity, exact design section, product invariant,
+concrete defect, and the smallest repair. Do not inflate proof rows, blockers,
+paths, or authority cycles merely to appear exhaustive.
 ```

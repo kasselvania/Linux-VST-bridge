@@ -1,237 +1,132 @@
-# Prompt — Independent Pre-PR Implementation Audit
+# Prompt — Independent Pre-PR Product Implementation Audit
 
-Use this prompt in a fresh context after implementation and evidence are complete but before technical-lead PR review.
+Use this prompt only after one exact acceptance candidate has produced an admitted success result and tracked product evidence. Do not use the full audit to polish a failed diagnostic or inconclusive acceptance attempt.
 
 ```text
-/goal
-
-Act as the independent pre-PR implementation auditor for one Linux Audio
-Compatibility Bridge slice.
-
-You did not author the implementation or its design card.
-
-Audit the exact implementation head against the exact approved design. Do not
-weaken the design to make the code pass. Do not silently redesign the slice.
+Act as the independent product implementation auditor.
 
 Repository:
 kasselvania/Linux-VST-bridge
 
-Implementation branch:
-<BRANCH>
-
-Exact candidate head:
-<HEAD SHA>
-
-Exact parent/basis:
-<PARENT SHA>
-
-Expected tree:
-<TREE SHA>
-
 Slice:
-<SLICE_ID> — <TITLE>
+<SLICE_ID — TITLE>
 
-Approved implementation design:
-path: <PATH>
-Git blob: <BLOB>
-SHA-256: <SHA-256>
-revision: <REVISION>
+Exact product design:
+<PATH / BLOB / SHA-256>
 
-Design approval receipt:
-<PATH AND IDENTITY>
+Exact candidate source/head/tree:
+<SOURCE / HEAD / TREE>
 
-────────────────────────────────────────────────────────────────────
-1. VERIFY BASIS AND AUTHORITY
-────────────────────────────────────────────────────────────────────
+AcceptanceCandidateIdentity:
+<IDENTITY>
+
+Tracked acceptance evidence:
+<PATHS / IDENTITY>
+
+You did not author the design, implementation, diagnostic campaign, or evidence.
+
+1. VERIFY ENTRY CONDITIONS
 
 Confirm:
 
-- exact repository, branch, head, parent, and tree;
-- worktree is clean when local access exists;
-- candidate descends from the exact approved design basis;
-- CURRENT_SLICE names the slice and says implementation_authorized: true;
-- approved design and approval receipt identities are exact;
-- changed paths are inside the approved envelope;
-- no later design revision or competing implementation PR exists.
+- exact repository, basis, head, parent, and tree;
+- candidate source is frozen;
+- CURRENT_SLICE authorizes ACCEPTANCE_CANDIDATE;
+- exact product design and approval identities;
+- exact AcceptanceCandidateIdentity;
+- one admitted acceptance result exists;
+- tracked evidence was rendered from that result;
+- diagnostic observations, if any, are marked acceptance_eligible=false;
+- no failed diagnostic or inconclusive acceptance result is being substituted.
 
-On mismatch return:
+If no admitted successful acceptance result exists, return:
 
-PRE_PR_AUDIT_BLOCKED
+PRE_PR_AUDIT_NOT_APPLICABLE
 
-Do not reset, rebase, or substitute another head.
+Do not perform a full audit of a failed development run.
 
-────────────────────────────────────────────────────────────────────
-2. READ THE COMPLETE APPROVED CONTRACT
-────────────────────────────────────────────────────────────────────
+2. PRODUCT-DESIGN FIDELITY
 
-Read:
+Create a matrix for every approved:
 
-- AGENTS.md
-- GOVERNANCE.md
-- CURRENT_SLICE.md
-- docs/DEVELOPMENT_PROCESS.md
-- selection receipt
-- approved implementation design card
-- adversarial design review and disposition
-- design approval receipt
-- applicable architecture and fixture sections
-- all candidate changed files
-- complete retained evidence
-
-The approved card—not the implementation summary—is the audit checklist.
-
-────────────────────────────────────────────────────────────────────
-3. DESIGN-FIDELITY MATRIX
-────────────────────────────────────────────────────────────────────
-
-Create a row for every approved:
-
-- owner;
-- state;
-- transition;
-- mutation/fault ledger operation;
+- product owner;
+- lifecycle state and transition;
+- VST3 operation and interpretation;
+- product-facing normalization;
 - process/thread/callback role;
-- identity/authorization rule;
-- durability/recovery rule;
-- security/privacy/licensing rule;
-- proof-matrix claim;
-- blocked result;
+- containment/shutdown claim;
+- identity/security/privacy rule;
+- proof row;
 - changed path;
 - nonclaim.
 
-For each row classify:
+Classify each:
 
-```text
 implemented_and_exercised
 implemented_not_exercised
 partially_implemented
 not_implemented
 design_divergence
 not_applicable_with_reason
-```
 
-────────────────────────────────────────────────────────────────────
-4. CODE AUDIT
-────────────────────────────────────────────────────────────────────
+3. CODE AUDIT
 
-Inspect actual production paths, not only tests and prose.
+Inspect production paths. Verify one owner per fact, legal transitions, exact
+call order, output handling, identity at use time, bounded timeout, process
+ownership, cleanup, security, privacy, and evidence eligibility.
+
+4. EXECUTION-CLASS AUDIT
 
 Verify:
 
-- one authoritative owner per fact;
-- legal state transitions only;
-- every fallible operation has the approved physical-state/recovery behavior;
-- durable commit begins at the approved barrier;
-- pre-commit and post-commit exception paths cannot cross;
-- physical readback outranks stale in-memory state;
-- unknown objects/identities are refused;
-- timeout and cleanup are bounded and scoped;
-- exact identity is revalidated at use time;
-- real-time and callback laws are preserved;
-- security/privacy/licensing boundaries are enforced;
-- evidence cannot claim a state the implementation has not reached.
+- diagnostic runs are permanently acceptance-ineligible;
+- the acceptance result came from the exact candidate;
+- a diagnostic was not promoted or relabelled;
+- producer P, execution E, and consumer C are truthful;
+- actual diagnostic and acceptance budgets are separately counted;
+- lost acknowledgements did not duplicate physical work.
 
-For each defect, inspect every adjacent operation governed by the same
-invariant. Do not stop at the first line-level issue.
-
-────────────────────────────────────────────────────────────────────
 5. TEST AND EVIDENCE AUDIT
-────────────────────────────────────────────────────────────────────
 
-Verify:
+Verify deterministic tests exercise production helpers, live acceptance covers
+the product claim, evidence is bounded and canonical, cleanup/protected state
+are exact, and incomplete facts remain unknown.
 
-- tests exercise production helpers where the design requires it;
-- synthetic faults and live fixtures are used in the approved roles;
-- every design fault row has a matching test or justified non-test proof;
-- retained evidence is generated from the candidate implementation identity;
-- evidence-only amendments preserve source identity where designed;
-- fixture versions and hashes are exact;
-- output is bounded and sanitized;
-- incomplete observations remain unknown;
-- no proprietary/secret material is retained;
-- claim and nonclaims match actual evidence.
+Do not rerun Windows or Deck work unless separately authorized. Existing
+accepted evidence is the default audit input.
 
-Run the approved validation suite when tools and fixture access are available.
-Do not install unapproved dependencies.
+6. CLASSIFICATION
 
-────────────────────────────────────────────────────────────────────
-6. MATERIAL-DIVERGENCE DECISION
-────────────────────────────────────────────────────────────────────
+Return RETURN_TO_PRODUCT_DESIGN only for a change in:
 
-Return `RETURN_TO_DESIGN_GATE` when implementation or real evidence reveals a
-material difference in:
+- claim or claim ceiling;
+- VST3 roster/order/interpretation;
+- product owner/lifecycle;
+- Windows product/ABI behavior;
+- fixture semantics;
+- product normalization;
+- claimed containment/shutdown semantics;
+- protocol/trust/security boundary;
+- product proof requirement or compatibility claim.
 
-- owner map;
-- state/transition set;
-- mutation or durability boundary;
-- process/thread/callback topology;
-- protocol direction;
-- identity/authorization law;
-- security/privacy/licensing posture;
-- fixture;
-- primary claim or claim ceiling;
-- changed-path envelope;
-- proof matrix.
+Return PROOF_HARNESS_MAINTENANCE_REQUIRED for a harness defect that leaves all
+product-contract facts unchanged.
 
-Do not issue a coding repair prompt for a design defect.
+Return IMPLEMENTATION_REPAIR_REQUIRED for code that fails an already complete
+product design without changing either product or harness architecture.
 
-Return `PRE_PR_REPAIR_REQUIRED` only when the approved design remains sound and
-the defect is implementation fidelity.
-
-────────────────────────────────────────────────────────────────────
 7. VERDICT
-────────────────────────────────────────────────────────────────────
 
-Return one of:
+Return one:
 
 PRE_PR_AUDIT_CLEAR
-
-PRE_PR_REPAIR_REQUIRED
-
-RETURN_TO_DESIGN_GATE
-
+IMPLEMENTATION_REPAIR_REQUIRED
+PROOF_HARNESS_MAINTENANCE_REQUIRED
+RETURN_TO_PRODUCT_DESIGN
 PRE_PR_AUDIT_BLOCKED
+PRE_PR_AUDIT_NOT_APPLICABLE
 
-For every finding provide:
-
-- severity;
-- design heading and exact implementation path;
-- approved invariant;
-- concrete failure;
-- test/evidence gap;
-- implementation repair or design-return classification;
-- cross-invariant audit scope.
-
-When repair is appropriate, provide one bounded repair prompt that preserves
-the approved design and exact branch topology.
-
-────────────────────────────────────────────────────────────────────
-8. OUTPUT FORMAT
-────────────────────────────────────────────────────────────────────
-
-VERDICT
-
-BASIS_AND_AUTHORITY
-
-DESIGN_FIDELITY_MATRIX
-
-OWNER_AND_STATE_FINDINGS
-
-MUTATION_AND_RECOVERY_FINDINGS
-
-PROCESS_THREAD_REALTIME_FINDINGS
-
-IDENTITY_SECURITY_LICENSING_FINDINGS
-
-TEST_AND_EVIDENCE_FINDINGS
-
-CLAIM_AND_NONCLAIM_FINDINGS
-
-CROSS_INVARIANT_AUDIT
-
-MATERIAL_DIVERGENCE_DECISION
-
-REQUIRED_ACTION
-
-CANDIDATE_HEAD_REVIEWED
+Include exact candidate reviewed, acceptance identity, diagnostic/acceptance
+budget accounting, design-fidelity findings, evidence findings, and required
+action.
 ```

@@ -1,360 +1,158 @@
-# Prompt — Choose the Next Slice
+# Prompt — Choose the Next Product Slice
 
-Use this prompt in a fresh technical-lead context after the repository has returned to no-active-slice posture.
+Use this in a fresh technical-lead context only after the repository is in no-active-product-slice posture and no mandatory proof-harness repair remains.
 
 ```text
-/goal
+Act as technical lead for the Linux VST Bridge.
 
-Act as the technical lead responsible for choosing the next bounded slice for
-the Linux Audio Compatibility Bridge project.
-
-This prompt authorizes analysis and recommendation only.
-
-It does not authorize:
-
-- editing the repository;
-- replacing CURRENT_SLICE.md;
-- creating a branch;
-- implementing code;
-- installing dependencies;
-- launching a fixture;
-- mutating an environment;
-- changing Bitwig, Flatpak, Wine, Proton, Steam, or user content;
-- opening or merging a pull request;
-- selecting more than one active slice.
+This task is analysis only. Do not edit the repo, create a branch, run a
+fixture, or authorize implementation.
 
 Repository:
 kasselvania/Linux-VST-bridge
 
-Expected working repository:
-<EXACT REPOSITORY PATH OR GITHUB REPOSITORY>
+Expected main:
+<COMMIT / TREE>
 
-Pinned current main:
-commit: <CURRENT MAIN COMMIT>
-tree:   <CURRENT MAIN TREE>
+1. VERIFY BASIS
 
-Last accepted slice:
-<LAST ACCEPTED SLICE ID AND TITLE>
+Confirm exact main, accepted product frontier, no active product implementation,
+no open successor PR, and no unresolved process/harness repair that must precede
+new live product work.
 
-Last accepted implementation merge:
-<MERGE COMMIT>
+If process repair remains mandatory, return:
 
-Last status-closure merge:
-<STATUS CLOSURE COMMIT>
+NEXT_SLICE_BLOCKED_BY_PROCESS_REPAIR
 
-────────────────────────────────────────────────────────────────────
-1. VERIFY THE BASIS
-────────────────────────────────────────────────────────────────────
-
-Confirm:
-
-- the repository is the expected repository;
-- main is exactly the pinned commit and tree;
-- CURRENT_SLICE.md records no active implementation slice;
-- the last accepted slice and status closure are present;
-- no open implementation PR already owns a successor slice;
-- accepted evidence packets relevant to the frontier verify;
-- the repository state relevant to successor selection is internally
-  consistent.
-
-If any basis differs, return:
-
-NEXT_SLICE_SELECTION_BLOCKED
-
-State the exact mismatch. Do not silently select a newer basis, repair state,
-or infer that an open branch is accepted implementation.
-
-────────────────────────────────────────────────────────────────────
-2. READ THE HUMAN AUTHORITY
-────────────────────────────────────────────────────────────────────
-
-Read in full:
-
-- README.md
-- AGENTS.md
-- GOVERNANCE.md
-- CURRENT_SLICE.md
-- docs/DEVELOPMENT_PROCESS.md
-- docs/ARCHITECTURE.md
-- docs/DESIGN_DOSSIER.md
-- docs/DECISION_REGISTER.md
-- docs/FIXTURE_CARDS.md
-- docs/RESEARCH_BASIS.md
-
-Read:
-
-- the implementation design card for the last accepted high-risk slice, if
-  one exists;
-- the complete retained evidence for the last accepted slice;
-- the merged implementation paths for the last accepted slice;
-- the previous one or two accepted boundaries where they materially constrain
-  the next choice;
-- unresolved decisions relevant to the current frontier.
-
-Do not treat the dossier's dependency-ordered proof sequence as an automatic
-roadmap.
-
-────────────────────────────────────────────────────────────────────
-3. ESTABLISH THE CURRENT ACCEPTED BOUNDARY
-────────────────────────────────────────────────────────────────────
-
-State exactly what the repository now proves.
+2. STATE THE ACCEPTED FRONTIER
 
 Separate:
 
-- accepted implementation fact;
-- fixture-observed fact;
-- retained evidence;
-- provisional architecture;
-- open decision;
-- explicit nonclaim.
+- accepted product capability;
+- retained acceptance evidence;
+- proof-harness capability;
+- diagnostic history;
+- open product decision;
+- explicit nonclaims.
 
-Describe the current end-to-end proved route:
+3. IDENTIFY ONE PRODUCT EDGE
 
-accepted component
-    -> accepted boundary
-    -> accepted component
-    -> current frontier
-    -> first unproved boundary
+Find the smallest meaningful next product boundary with one comprehensible
+failure owner. Do not select tooling merely because it is untidy. Do not combine
+independent product uncertainties.
 
-Do not describe an intended component as though it exists.
+4. PRESENT AT MOST THREE CANDIDATES
 
-────────────────────────────────────────────────────────────────────
-4. IDENTIFY MATERIAL UNKNOWNS
-────────────────────────────────────────────────────────────────────
+For each candidate state:
 
-List only unknowns that materially affect the next implementation decision.
-
-For every unknown, classify it as:
-
-- requires read-only reconnaissance;
-- requires implementation proof;
-- requires operator decision;
-- requires vendor or external documentation;
-- blocked by a missing fixture;
-- deliberately deferred.
-
-Identify whether any proposed implementation would combine multiple ownership
-or uncertainty domains so that a failure would be uninterpretable.
-
-────────────────────────────────────────────────────────────────────
-5. IDENTIFY THE NEXT DEPENDENCY EDGE
-────────────────────────────────────────────────────────────────────
-
-Determine the smallest meaningful boundary immediately beyond the accepted
-implementation.
-
-The next slice must:
-
-- establish one primary claim;
-- have one comprehensible failure owner;
-- preserve accepted fixtures;
-- avoid combining independent uncertainty domains where practical;
-- advance the product toward the design dossier;
-- produce evidence useful to the next decision;
-- remain valuable if it returns a truthful blocked result.
-
-Do not choose work merely because it is visually exciting or listed next in a
-prior sequence.
-
-Do not choose cleanup merely because code has grown. Cleanup requires a
-specific ownership, correctness, operability, or implementation-pressure
-reason.
-
-────────────────────────────────────────────────────────────────────
-6. PRESENT AT MOST THREE CANDIDATES
-────────────────────────────────────────────────────────────────────
-
-For each candidate provide:
-
-- slice ID and title;
-- one-sentence primary claim;
-- precise owner boundary;
+- one primary product claim;
+- owner/lifecycle boundary;
+- VST3 operations;
 - exact fixture;
-- reason it is now implementable;
-- accepted prerequisites it consumes;
-- unresolved uncertainty domains;
-- expected tracked-path/component envelope;
-- permitted external mutation;
-- prohibited mutation;
+- accepted prerequisites;
+- product unknowns;
+- source envelope estimate;
+- deterministic development work;
+- whether a diagnostic campaign is needed;
+- diagnostic batch budget;
+- final acceptance batch budget;
+- Windows producer budget;
+- live negative-fixture budget;
 - success evidence;
 - meaningful blocked result;
-- explicit nonclaims;
-- material stop conditions;
-- whether reconnaissance is required first;
-- whether an implementation design card is mandatory;
-- applicable design-risk triggers:
-  - owner boundary;
-  - durable state;
-  - process supervision;
-  - cross-process protocol;
-  - real-time behavior;
-  - thread affinity/reentrancy;
-  - security/privacy;
-  - authorization/licensing;
-  - third-party runtime;
-  - migration/recovery;
-  - compatibility claim;
-  - user-owned content.
+- explicit nonclaims.
 
-A candidate is not ready when its primary failure could belong to several
-unseparated owners.
+5. RECOMMEND ONE
 
-────────────────────────────────────────────────────────────────────
-7. RECOMMEND EXACTLY ONE
-────────────────────────────────────────────────────────────────────
+Choose one candidate. Explain why it is the smallest coherent product proof and
+why the others wait.
 
-Choose exactly one recommended slice.
+6. CLASSIFY THE PRODUCT DESIGN GATE
 
-Explain:
+Return DESIGN_GATE_REQUIRED when the slice changes product ownership,
+lifecycle, VST3 calls, product normalization, fixture meaning, process/security
+boundary, or compatibility claim.
 
-- why it is the smallest meaningful next proof;
-- why it follows from the accepted boundary;
-- why the other candidates are premature, broader, or lower-value;
-- what becomes decidable after it;
-- what it deliberately leaves unproved.
+A waiver must positively prove none of those change.
 
-If no candidate is sufficiently bounded, recommend a reconnaissance or design
-slice instead of forcing implementation.
+7. REQUIRE A DEVELOPMENT PLAN
 
-────────────────────────────────────────────────────────────────────
-8. CLASSIFY THE DESIGN GATE
-────────────────────────────────────────────────────────────────────
+The recommended slice must include this sequence:
 
-Return one of:
+implement locally
+→ deterministic validation
+→ optional bounded diagnostic campaign
+→ proof-harness maintenance without product redesign when needed
+→ freeze AcceptanceCandidateIdentity
+→ one strict acceptance transaction
+→ audit and merge
 
-DESIGN_GATE_REQUIRED
+Do not permit acceptance as the edit/debug loop.
 
-or:
+8. FREEZE SEPARATE BUDGET OWNERS
 
-DESIGN_GATE_WAIVED
+State:
 
-The gate is required when the slice introduces or materially changes:
+Windows producer budget owner: WindowsBuildInputIdentity
+Diagnostic budget owner: DiagnosticCampaignIdentity
+Acceptance budget owner: AcceptanceCandidateIdentity
+Live negative budget owner: FaultPlanIdentity
+Evidence render owner: EvidenceRendererIdentity + admitted acceptance result
 
-- an owner;
-- a state machine;
-- durable mutation;
-- transaction, rollback, migration, repair, or recovery;
-- process creation, supervision, signalling, or termination;
-- cross-process or cross-language communication;
-- real-time behavior;
-- thread affinity or reentrancy;
-- security/privacy;
-- licensing/authorization;
-- third-party runtime behavior;
-- persistent user data;
-- compatibility claims.
+Diagnostic and acceptance budgets must not consume one another.
 
-A waiver must positively explain why none of those conditions applies. Small
-size or confidence is not a waiver reason.
+For the open AGain fixture, diagnostic campaigns default to at most two live
+batches. Acceptance defaults to one batch per exact candidate.
 
-When required, state:
+9. DRAFT THE SELECTION RECEIPT
 
-- reconnaissance needed before design;
-- implementation-design-card path;
-- required independent adversarial design review;
-- material-discovery stop conditions;
-- implementation remains unauthorized until a separate design approval.
+Include:
 
-────────────────────────────────────────────────────────────────────
-9. DRAFT THE SLICE-SELECTION RECEIPT
-────────────────────────────────────────────────────────────────────
-
-Use the schema from docs/templates/SLICE_SELECTION_RECEIPT.md and produce:
-
-SLICE_SELECTION_RECEIPT
-
-repository:
-basis_commit:
-basis_tree:
-selected_slice:
-selected_title:
-primary_claim:
-exact_fixture:
-authority_phase:
-  reconnaissance_and_design
-  or
-  implementation
-implementation_authorized:
-  false
-  or
-  true
-design_gate:
-design_gate_reason:
-design_card_path:
-allowed_changed_paths:
-permitted_external_mutation:
-protected_state:
-explicit_nonclaims:
-material_discovery_requires_stop: true
+repository
+basis commit/tree
+slice ID/title
+primary claim
+claim ceiling
+exact fixture
+product design gate
+allowed paths
+protected state
+change_class: PRODUCT_CONTRACT_CHANGE
+diagnostic_required
+diagnostic_plan_id
+diagnostic_batch_budget
+acceptance_plan_id
+acceptance_batch_budget: 1
+windows_producer_budget
+live_negative_budget
+failure_closure: bounded diagnostic only
+implementation_authorized: false
+live_execution_authorized: false
 successor_selection_authorized: false
 
-For a design-gated slice:
+10. OUTPUT
 
-- authority_phase must be reconnaissance_and_design;
-- implementation_authorized must be false.
-
-Do not draft an implementation prompt for a design-gated slice before its
-implementation design has been approved.
-
-────────────────────────────────────────────────────────────────────
-10. PRODUCE THE EXACT OPERATOR APPROVAL SENTENCE
-────────────────────────────────────────────────────────────────────
-
-For a design-gated slice, produce exactly:
-
-I explicitly approve selecting <SLICE_ID> — <TITLE> and replacing the
-no-active-slice card with its bounded reconnaissance-and-design authority.
-This approval does not authorize implementation. Implementation requires a
-separate approved design revision.
-
-For a legitimately waived design gate, produce exactly:
-
-I explicitly approve activating <SLICE_ID> — <TITLE>, replacing the
-no-active-slice card, and implementing only its exact bounded claim and
-changed-path/mutation envelope.
-
-Do not interpret the generated sentence as approval. The operator must provide
-it separately.
-
-────────────────────────────────────────────────────────────────────
-11. OUTPUT FORMAT
-────────────────────────────────────────────────────────────────────
-
-Return exactly these sections:
+Return:
 
 NEXT_SLICE_SELECTION_READY
 or
 NEXT_SLICE_SELECTION_BLOCKED
+or
+NEXT_SLICE_BLOCKED_BY_PROCESS_REPAIR
+
+Then provide:
 
 BASIS
-
-CURRENT_ACCEPTED_BOUNDARY
-
-FIRST_UNPROVED_BOUNDARY
-
-MATERIAL_UNKNOWNS
-
-CANDIDATE_A
-
-CANDIDATE_B
-if applicable
-
-CANDIDATE_C
-if applicable
-
-RECOMMENDED_SLICE
-
-WHY_THE_OTHER_CANDIDATES_WAIT
-
-DESIGN_GATE_DECISION
-
-REQUIRED_RECONNAISSANCE
-
-DRAFT_SLICE_SELECTION_RECEIPT
-
+ACCEPTED_FRONTIER
+FIRST_UNPROVED_PRODUCT_EDGE
+CANDIDATES
+RECOMMENDATION
+DESIGN_GATE
+DEVELOPMENT_AND_DIAGNOSTIC_PLAN
+SEPARATE_BUDGETS
+DRAFT_SELECTION_RECEIPT
 EXACT_OPERATOR_APPROVAL_SENTENCE
 
-No repository edit, branch, implementation prompt, or pull request is part of
-this task.
+Keep the analysis bounded. Do not write an implementation prompt before an
+approved design exists.
 ```

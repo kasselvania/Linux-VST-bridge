@@ -1,128 +1,112 @@
-# Current Slice: PC0 — Durable Failed-Batch Diagnostic and Corrective Execution Repair
+# Current Work: PX0 — Diagnostic Development and Acceptance Separation
 
-## Status
+## Authority
 
-```text
-status: active_implementation_slice
-authority_phase: implementation
-implementation_authorized: true
-slice: PC0
-product_claim_revision: pc0-selection-v2
-design_revision: pc0-design-v3
-design_status: approved_for_implementation
-design_commit: c2349780f9ed1aa6077b118be000cbab5aba698a
-design_tree: c1a71eb2afb9c71f62ddc2cc3bd9a5b5baa4e4bd
-design_card: docs/slices/PC0/IMPLEMENTATION_DESIGN.md
-design_card_git_blob: b991e204681e56869a0977cad091c7de7345cbeb
-design_card_sha256: 4dcdce46f5f7d478fe2687c3d685418c4dd4b940804cb7a6744b890a6acff3cc
-design_review_record: docs/slices/PC0/ADVERSARIAL_DESIGN_REVIEW.md
-design_review_blob: 3498f6e0cf342c33c7c5023a4c193ab3c9dc7c79
-technical_lead_review_id: 5108043079
-technical_lead_review_result: PC0_DESIGN_V3_CLEAR
-prior_v3_repair_review: 5107795355 / PC0_DESIGN_V3_REPAIR_REQUIRED
-design_approval: docs/slices/PC0/DESIGN_APPROVAL.md
-design_approval_blob: 32cec9c63d908687cf5e8071656413db48c049cb
-design_repair_basis_commit: 1c0c31c4ab69a40303cd00b155ca30626323c451
-design_repair_basis_tree: 192d2af4b5d83d94264510eab7c7729b5de1a9b5
-design_branch: codex/pc0-durable-failure-diagnostic-design-v3
-implementation_branch: codex/pc0-windows-vst3-pre-setup-processing-contract
-implementation_basis: exact merged PR #38 V3 authority commit and tree, established by main readback before source creation
-failed_archive_ref: refs/heads/codex/archive/pc0-v2-failed-7ac6095a488d
-implementation_force_with_lease_expected_old_tip: 7ac6095a488d0077fcc78fedc5abd870b5ffb1cb
-v2_design_commit: 996ee557d33ea55d6acf7ef2242f703c2c63f262
-v2_design_tree: bb1fe157bef42854812ebeb0b73b1a5332c93cf6
-v2_design_blob: ec0683fc66028239d7481640ba72e2dd9a060a2c
-v2_design_sha256: 20e653a6b1fad720ea5fc888a8d531bda44c338840f5eb96e488612d197de992
-v2_technical_lead_review: 5105712590 / PC0_DESIGN_V2_CLEAR
-runtime_discovery: PR #37 comment 5533164226 / PC0_RUNTIME_DISCOVERY — RETURN_TO_DESIGN_GATE
-failed_source_commit: 7ac6095a488d0077fcc78fedc5abd870b5ffb1cb
-failed_source_tree: ad4230a713a2bb644476be8be9d374a1feb36b06
-failed_transaction_id: a14bcc65d15e9fbdf15810a658b2ee87
-failed_transaction_journal_sha256: 06473755eb7ccfa2529522bb29e3fb44a5a4a67ea38fd0e797d198939e1ed966
-operator_recovery_receipt_sha256: 870039310c0f6ee4d0bf4044d629e6f6e7d92d2f901b7b40a60f9724bb84f9e5
-windows_build_input_identity: 575d3bd9183be1ec0fe0311cff48bc0107c4299a3355748c470e3d195d284849
-retained_producer_run_attempt: 33812659869 / 1
-retained_artifact: 9915439437
-corrective_positive_deck_batches_maximum: 1
+```yaml
+status: active_process_repair
+authority_phase: documentation_and_governance
+change_class: PROOF_HARNESS_MAINTENANCE
+process_repair_authorized: true
+product_implementation_authorized: false
+live_execution_authorized: false
+permitted_execution_class: READ_ONLY_RECONCILIATION
+repository: kasselvania/Linux-VST-bridge
+basis_commit: 7ed1fbf985b5bb717883e0cd2132620b960e3aa6
+basis_tree: 07efd2d95c7f72205ac5c201361c4291bb8eaf6d
+repair_branch: codex/px0-diagnostic-acceptance-process-repair
+accepted_product_frontier: WA0
+current_product_target: PC0
+pc0_status: suspended_after_inconclusive_acceptance_attempt
+pc0_product_claim_changed: false
+stopped_pc0_source: 309b8918c128c0b9e6701d0453dc841a111d5ac5
+stopped_pc0_source_tree: a6a123b554eb220cbdfb9bf9afab3d08d4a8ac92
+stopped_pc0_archive_ref: refs/heads/codex/archive/pc0-v3-stopped-309b8918
+prior_failed_pc0_source: 7ac6095a488d0077fcc78fedc5abd870b5ffb1cb
+prior_failed_pc0_archive_ref: refs/heads/codex/archive/pc0-v2-failed-7ac6095a488d
 successor_selection_authorized: false
 ```
 
-## Primary claim
+## Operator ruling
 
-> On the exact accepted AGain lifecycle, while the processor remains in the
-> Initialized state, the supervised Windows host performs one bounded read-only
-> census of all audio/event buses, all existing `BusInfo` records, current
-> audio speaker arrangements, and `kSample32`/`kSample64` support, retains one
-> exact normalized pre-setup processing contract, and completes the accepted
-> interface/component/factory/module shutdown without mutating processing state.
+The current product implementation was stopped after an extended failed attempt because the repository treated proof-harness development and failure reporting as acceptance-grade work. The operator directed the technical lead to repair the repository process and prevent recurrence.
 
-## Exact implementation authority
+No PC0 source from the stopped attempt is accepted. No PC0 evidence exists. The accepted product frontier remains WA0.
 
-The immutable reviewed [pc0-design-v3](docs/slices/PC0/IMPLEMENTATION_DESIGN.md), technical-lead review `5108043079 / PC0_DESIGN_V3_CLEAR`, retained [adversarial review history](docs/slices/PC0/ADVERSARIAL_DESIGN_REVIEW.md), and [operator approval receipt](docs/slices/PC0/DESIGN_APPROVAL.md) authorize only the bounded V3 repair. The design card remains byte-identical to reviewed Git blob `b991e204681e56869a0977cad091c7de7345cbeb`, raw SHA-256 `4dcdce46f5f7d478fe2687c3d685418c4dd4b940804cb7a6744b890a6acff3cc`.
+## Process repair claim
 
-The historical V2 batch is spent and remains `unresolved_v2_no_diagnostic`. It must not be retroactively assigned a diagnostic classification. Its transaction journal, separately authorized recovery continuation, failed source, producer run/artifact, and actual effects remain part of final cumulative history.
-
-## Exact implementation envelope
+The repository will distinguish:
 
 ```text
-product owners:                               1
-product owner:                                PreSetupProcessingContractCensus
-stable product states:                        9
-VST3 operation types:                         4
-positive PC0 calls:                          11
-focused proof rows:                          16
-runtime blockers:                            10
-source/configuration paths:                   14
-tracked evidence paths:                       5
-implementation repair paths versus failed:    4
-additional Windows builds:                    0
-additional workflow dispatches:               0
-additional artifact downloads:                0
-additional custody operations:                0
-additional host-artifact transfers:           0
-additional fixture seeds:                     0
-additional AGain builds:                      0
-repaired-source handoffs/transfers:            1 maximum
-corrective positive Deck reservations:         1 maximum
-corrective positive Deck batches:              1 maximum
-third total PC0 Deck batch:                    0
-deterministic negative tests:                  required
-live negative exercises:                       0
-Bitwig launches:                               0
-Serum launches:                                0
+change class:
+  PRODUCT_CONTRACT_CHANGE
+  PROOF_HARNESS_MAINTENANCE
+  MECHANICAL_MAINTENANCE
+
+execution class:
+  READ_ONLY_RECONCILIATION
+  DIAGNOSTIC_NON_AUTHORITATIVE
+  ACCEPTANCE_CANDIDATE
 ```
 
-The ordinary clean steady-state interface remains one Mac driver command. Every actual driver invocation, including any preflight-only invocation, must be retained truthfully in private transaction and final cumulative cost history.
+A proof-harness-only defect will no longer require a new product constitution. Diagnostic runs will be permanently acceptance-ineligible and separately budgeted. Only one exact frozen acceptance candidate may produce product evidence.
 
-## Exact source and Windows identity law
-
-The repaired implementation commit is one direct fourteen-path child of the merged V3 authority. Relative to failed source `7ac6095a488d0077fcc78fedc5abd870b5ffb1cb`, only these four paths may differ:
+## Mandatory reduced sequence
 
 ```text
-tools/host-proof.py
-tools/wf0-factory-census/run.py
-tools/wf0-factory-census/evidence.py
-tools/wf0-factory-census/negative_tests.py
+approve product contract once
+→ implement and validate locally
+→ run at most two bounded AGain diagnostic batches when needed
+→ repair harness under maintenance authority
+→ freeze one acceptance candidate
+→ run one strict acceptance transaction
+→ audit successful evidence only
+→ merge or return to product design only for a product-contract change
 ```
 
-All other members of the fourteen-path source envelope remain byte-identical to failed source. The complete seventeen-record Windows roster must reproduce WindowsBuildInputIdentity `575d3bd9183be1ec0fe0311cff48bc0107c4299a3355748c470e3d195d284849`. Producer P remains failed source `7ac6095a...`, run `33812659869` attempt 1, artifact `9915439437`; no producer fallback is selectable.
+## Failure closure
 
-Before implementation-ref replacement, preserve and read back failed source at `refs/heads/codex/archive/pc0-v2-failed-7ac6095a488d`. Replace the implementation ref only with force-with-lease expecting old tip `7ac6095a488d0077fcc78fedc5abd870b5ffb1cb`.
+A failed diagnostic or inconclusive acceptance attempt may produce only:
 
-## Corrective execution authority
+1. one bounded diagnostic JSON object and sidecar;
+2. cleanup and protected-state disposition;
+3. actual effect counts;
+4. one concise failure report.
 
-One V3-only read-only Deck preflight must complete after repaired-source handoff and detached-clean worktree admission, but before current intent publication, any Mac or Deck execution lock, execute-phase preparation, corrective reservation, Deck-effect increment, environment/stage creation, diagnostic/result publication, or Runtime/Proton launch. It validates exact source/handoff/worktree, process/stage guard, Galileo/SteamOS/read-only/authority posture, Runtime/Proton identity, protected state, existing host/fixture stores, historical intent/locks/result absence, and current corrective absence. Failure consumes no corrective reservation, mutates no execution or protected state, and authorizes no automatic launch.
+It must not trigger a success evidence packet, full proof-matrix replay, full pre-PR audit, or product-design amendment merely to document failure.
 
-Only after that preflight and all twelve corrective predicates pass may one reservation be persisted. The reservation is consumed once made. A failed corrective batch retains its lock and may publish only the exact bounded private `linux-vst-bridge-pc0-failure-diagnostic/v1` pair; it publishes no success result and authorizes no retry. No second corrective or third total PC0 Deck batch is authorized.
+## PC0 disposition
 
-On success, freeze exact canonical `DX0_TRANSACTION_STATE.json` bytes privately as `PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json` plus `PC0_CORRECTIVE_PRE_EVIDENCE_STATE.json.sha256` after strict result admission and completed `retrieve_and_retain_result`, but before tracked render, render-phase publication, close, or final completion. Final corrective history uses `pre_evidence_journal_sha256` only for that immutable snapshot and never labels it as the digest of the later mutable journal.
+PC0 is suspended, not rejected.
 
-## Absolute claim ceiling
+The pre-setup processing-contract product claim remains a sensible next capability. It may resume only after:
 
-PC0 remains Initialized-state read-only observation. It must not call or prepare `setupProcessing`, `getLatencySamples`, `getTailSamples`, activation, processing, audio/event buffers, controller, state, parameters, proxy, C ABI, IPC, Bitwig, Serum, packaging, signing, a new runner, generalized retry machinery, a live negative family, or a broader compatibility claim.
+1. this process repair is accepted;
+2. the proof driver enforces distinct diagnostic and acceptance classes;
+3. the stopped source is treated only as archived development history;
+4. a new bounded DiagnosticCampaignIdentity is created if real-fixture debugging remains necessary;
+5. a fresh AcceptanceCandidateIdentity is frozen only after diagnostic development succeeds.
 
-A material discovery, WindowsBuildInputIdentity drift, fifth repair path, additional runtime blocker, seventeenth proof row, sixth tracked evidence path, required Windows operation, or need for another corrective Deck batch returns PC0 to the design gate. No successor slice is authorized.
+No old diagnostic or failed acceptance observation may be promoted.
 
-## Next action
+## Operator frontier
 
-Merge this exact authority finalization through PR #38 and read back the resulting `main` merge commit/tree. Then create and verify the failed-source archive ref, create one fourteen-path repaired source commit directly above that merged authority, prove the frozen Windows identity and deterministic tests, replace the implementation ref under the exact lease, and perform the authorized read-only Deck preflight. The corrective reservation remains unavailable until every predicate passes.
+```text
+classification: derived_non_authoritative_summary
+last_accepted_capability: WA0 — exact IAudioProcessor acquired and retired without invoking a method
+current_target: PC0 — read initialized-state buses, BusInfo, speaker arrangements, and kSample32/kSample64 support
+current_state: PC0 implementation stopped after an inconclusive harness/development failure; process repair active; no live execution authorized
+next_accepted_capability_if_pc0_later_succeeds: exact pre-setup audio/event bus and sample-format contract
+explicit_nonclaim: PC0 has not advanced the accepted product frontier
+```
+
+## Prohibited during PX0
+
+- Windows workflow or build;
+- artifact download or custody;
+- source or artifact transfer to the Deck;
+- Runtime, Proton, Wine, Bitwig, Serum, scanner, diagnostic, or acceptance workload;
+- PC0 product implementation;
+- promotion of stopped PC0 work;
+- successor selection.
+
+Read-only Git and repository-state inspection remain permitted.
