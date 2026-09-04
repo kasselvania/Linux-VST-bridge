@@ -31,7 +31,7 @@ accepted_product_frontier: WA0
 current_product_target: PC0
 pc0_status: suspended_after_inconclusive_acceptance_attempt
 stopped_pc0_source: 309b8918c128c0b9e6701d0453dc841a111d5ac5
-stopped_pc0_source_tree: a6a123b554eb220cbdfb9bfab3d08d4a8ac92
+stopped_pc0_source_tree: a6a123b554eb220cbdfb9bf9afab3d08d4a8ac92
 stopped_pc0_archive_ref: refs/heads/codex/archive/pc0-v3-stopped-309b8918
 successor_selection_authorized: false
 ```
