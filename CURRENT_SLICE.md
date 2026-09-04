@@ -1,14 +1,14 @@
-# Current Work: PC0-D1 Scoped Diagnostic Campaign
+# Current Work: PC0-D1 — Obtain the AGain Observation
 
-The first classified PC0 diagnostic campaign is approved in
-[its scoped authority](docs/campaigns/PC0_D1.md). The accepted product frontier is
-WA0; PC0 is not accepted. No product or maintenance implementation is active.
+The existing [PC0-D1 authority](docs/campaigns/PC0_D1.md) owns troubleshooting,
+narrow diagnostic-harness maintenance, and the first plug-in observation.
+The accepted frontier is WA0. PC0 is not accepted; no successor is selected.
 
 ## Authority
 
 This mapping is the default CLI circuit breaker, not a grant of campaign work.
-It remains live-disabled. Only the linked campaign receipt authorizes the exact
-classified API invocation described there; it owns the source, plan and budget.
+It remains live-disabled. The linked receipt owns scoped maintenance, source,
+plan, and budget; pass it explicitly through proof-run.py --authority.
 
 ```yaml
 status: no_active_slice
@@ -51,6 +51,6 @@ successor_selection_authorized: false
 
 Last accepted capability: WA0 — IAudioProcessor acquired and retired.
 Current target: PC0 — initialized-state bus and sample-format contract.
-Next action: run the first authorized, permanently non-acceptance diagnostic.
-The campaign receipt alone owns its two-batch ceiling and exact source binding.
-No acceptance adapter, acceptance candidate, product evidence, or successor is authorized.
+Next action: resolve the specific prerequisite, then obtain the first diagnostic.
+The same agent owns investigation, narrow repair, and execution under PC0-D1.
+The existing two-reservation ceiling is unchanged. No product acceptance is authorized.
