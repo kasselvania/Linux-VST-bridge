@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Classified proof command for Linux VST Bridge.
 
-This command is the only supported future entry point for workload-producing
-proof operations. PX2 routes a validated canonical delegation into the
-class-aware core. The production adapter registry remains empty, so this
-module cannot currently launch a workload.
+This command is the only supported entry point for workload-producing proof
+operations. PX2 routes a validated canonical delegation into the class-aware
+core. PX3 registers one closed PC0 diagnostic adapter; CURRENT_SLICE authority
+still disables every live execution.
 """
 
 from __future__ import annotations
@@ -18,9 +18,8 @@ import subprocess
 import sys
 from typing import Callable
 
-from classified_proof_backend import (
-    BackendError, ClassifiedProofBackend, PRODUCTION_ADAPTERS,
-)
+from classified_proof_backend import BackendError, ClassifiedProofBackend
+from pc0_proof_adapter import PRODUCTION_ADAPTERS
 from proof_execution_policy import (
     ExecutionClass, LiveRequest, PolicyError, authority_status,
     authorize_live_request, canonical_json, load_authority,

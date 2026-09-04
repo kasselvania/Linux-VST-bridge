@@ -48,6 +48,16 @@ LEGAL_AUTHORITY_POSTURES = frozenset({
         False,
     ),
     (
+        "no_active_slice",
+        "no_active_slice",
+        "PROOF_HARNESS_MAINTENANCE",
+        False,
+        False,
+        "none",
+        True,
+        True,
+    ),
+    (
         "active_proof_harness_maintenance",
         "proof_harness_maintenance",
         "PROOF_HARNESS_MAINTENANCE",

@@ -139,12 +139,16 @@ class PolicyTests(unittest.TestCase):
         status = authority_status(authority)
         self.assertFalse(status["live_execution_authorized"])
         self.assertTrue(status["classified_backend_core_ready"])
-        self.assertFalse(status["classified_backend_ready"])
+        self.assertTrue(status["classified_backend_ready"])
         self.assertEqual(status["status"], "no_active_slice")
         self.assertEqual(status["authority_phase"], "no_active_slice")
         self.assertFalse(authority.boolean("maintenance_implementation_authorized"))
         self.assertEqual(authority.fields["accepted_product_frontier"], "WA0")
-        self.assertEqual(authority.fields["production_adapter_registry"], "empty")
+        self.assertEqual(
+            authority.fields["production_adapter_registry"], "pc0_diagnostic_only",
+        )
+        self.assertFalse(authority.boolean("diagnostic_campaign_authorized"))
+        self.assertFalse(authority.boolean("acceptance_candidate_authorized"))
         with self.assertRaisesRegex(PolicyError, "LIVE_EXECUTION_FORBIDDEN"):
             authorize_live_request(
                 authority,
@@ -220,11 +224,13 @@ class PolicyTests(unittest.TestCase):
                     authority_status(invalid)
 
     def test_no_active_core_ready_posture_is_accepted_by_status_command(self):
-        complete = self.load(authority_text(mode="complete"))
+        complete = self.load(authority_text(
+            mode="complete", overrides={"classified_backend_ready": "true"},
+        ))
         status = authority_status(complete)
         self.assertEqual(status["authority_phase"], "no_active_slice")
         self.assertTrue(status["classified_backend_core_ready"])
-        self.assertFalse(status["classified_backend_ready"])
+        self.assertTrue(status["classified_backend_ready"])
         self.assertFalse(status["live_execution_authorized"])
         local = self.load(authority_text(mode="maintenance"))
         self.assertEqual(authority_status(local)["authority_phase"],
@@ -239,7 +245,7 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(command_status["status"], "no_active_slice")
         self.assertEqual(command_status["authority_phase"], "no_active_slice")
         self.assertTrue(command_status["classified_backend_core_ready"])
-        self.assertFalse(command_status["classified_backend_ready"])
+        self.assertTrue(command_status["classified_backend_ready"])
         self.assertFalse(command_status["live_execution_authorized"])
         self.assertEqual(command_status["permitted_execution_class"], "none")
 
