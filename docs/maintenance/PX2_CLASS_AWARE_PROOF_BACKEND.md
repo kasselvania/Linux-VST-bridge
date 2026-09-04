@@ -160,9 +160,12 @@ failure_closure:
   product_design_return_on_harness_failure: false
 review_path: docs/prompts/PROOF_HARNESS_MAINTENANCE_REVIEW.md
 review_record: docs/maintenance/PX2_MAINTENANCE_REVIEW.md
+reviewed_authority_head: 665f98b507b779e8bbada97984ede37b674d48ba
+review_record_git_blob: 367934660d456e5b27ac630a7a1ae636c2b87c9e
+review_result: PROOF_HARNESS_MAINTENANCE_CLEAR
 review_must_precede_implementation: true
-review_status: pending
-implementation_authorized: false
+review_status: clear
+implementation_authorized: true
 live_execution_authorized: false
 operator_approval_required: false
 operator_approval_text: >-
@@ -298,9 +301,9 @@ repository administration, not product evidence.
 
 ## README correction
 
-The repository README currently stops its accepted-boundary summary at WR0.
-PX2 corrects that factual summary to include WF0, WC0, WA0, DX0/PX0/PX1, and
-PC0's suspended posture. This does not reopen product design.
+The repository README previously stopped its accepted-boundary summary at WR0.
+The reviewed authority corrects that factual summary to include WF0, WC0, WA0,
+DX0/PX0/PX1, and PC0's suspended posture. This does not reopen product design.
 
 ## PX2 completion
 
@@ -308,7 +311,6 @@ PX2 is complete when:
 
 - the production transaction core and policy integration pass deterministic
   tests with injected adapters;
-- the focused maintenance review is retained;
 - direct legacy live execution remains disabled;
 - the Linux-only policy/core CI passes;
 - main protection is configured or an exact administration blocker is retained;
