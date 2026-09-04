@@ -2,19 +2,25 @@
 """Classified proof command for Linux VST Bridge.
 
 This command is the only supported future entry point for workload-producing
-proof operations. PX1 intentionally blocks live delegation until a backend
-records execution class, identity, eligibility, and budget in its result.
+proof operations. PX2 routes a validated canonical delegation into the
+class-aware core. The production adapter registry remains empty, so this
+module cannot currently launch a workload.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
+from dataclasses import asdict
+import os
 import pathlib
+import pwd
 import subprocess
 import sys
 from typing import Callable
 
+from classified_proof_backend import (
+    BackendError, ClassifiedProofBackend, PRODUCTION_ADAPTERS,
+)
 from proof_execution_policy import (
     ExecutionClass, LiveRequest, PolicyError, authority_status,
     authorize_live_request, canonical_json, load_authority,
@@ -24,6 +30,22 @@ from proof_execution_policy import (
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 AUTHORITY = ROOT / "CURRENT_SLICE.md"
 LOCAL_BACKEND = ROOT / "tools/host-proof.py"
+
+
+def production_state_root() -> pathlib.Path:
+    """Use the OS account home, never caller-controlled environment paths."""
+    real_home = pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)
+    if not real_home.is_absolute():
+        raise BackendError("OS account home is not an absolute path")
+    if sys.platform == "darwin":
+        return (
+            real_home / "Library" / "Application Support" / "Linux VST Bridge"
+            / "proof" / "classified-proof"
+        )
+    return real_home / ".local" / "state" / "linux-vst-bridge" / "classified-proof"
+
+
+STATE_ROOT = production_state_root()
 
 
 def _run_local(operation: str, source: str, plan: str) -> int:
@@ -55,6 +77,7 @@ def dispatch(
     args: argparse.Namespace,
     *,
     local_runner: Callable[[str, str, str], int] = _run_local,
+    classified_runner: Callable[[object, bytes], object] | None = None,
 ) -> int:
     authority = load_authority(AUTHORITY)
     if args.operation == "status":
@@ -65,16 +88,20 @@ def dispatch(
 
     request = _live_request(args)
     delegation = authorize_live_request(authority, request)
-
-    # A class-aware live backend must persist this exact delegation in its
-    # transaction/result before PX1 can enable delegation. The old DX0 backend
-    # cannot do that and would allow diagnostic promotion, so fail closed.
-    raise PolicyError(
-        "CLASSIFIED_BACKEND_REQUIRED: authority is valid, but no backend "
-        "currently records execution_class, execution_identity, "
-        "acceptance_eligible, and separate diagnostic/acceptance budgets; "
-        f"validated delegation={json.dumps(delegation, sort_keys=True)}"
-    )
+    delegation_bytes = canonical_json(delegation)
+    if classified_runner is None:
+        backend = ClassifiedProofBackend(STATE_ROOT, PRODUCTION_ADAPTERS)
+        receipt = backend.execute(authority, delegation_bytes)
+    else:
+        receipt = classified_runner(authority, delegation_bytes)
+    if hasattr(receipt, "__dataclass_fields__"):
+        output = asdict(receipt)
+    elif isinstance(receipt, dict):
+        output = receipt
+    else:
+        raise BackendError("classified backend returned no receipt")
+    print(canonical_json(output).decode(), end="")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -101,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return dispatch(args)
-    except PolicyError as error:
+    except (PolicyError, BackendError) as error:
         print(str(error), file=sys.stderr)
         return 2
 

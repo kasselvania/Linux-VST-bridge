@@ -1,12 +1,13 @@
-# Current Work: PX2 — Class-Aware Proof Transaction Core
+# Current Work: No Active Slice — PX2 Core Ready
 
 ## Authority
 
 ```yaml
-status: active_proof_harness_maintenance
-authority_phase: proof_harness_maintenance
+status: no_active_slice
+authority_phase: no_active_slice
 change_class: PROOF_HARNESS_MAINTENANCE
 maintenance_id: PX2
+maintenance_status: complete
 maintenance_title: Class-Aware Proof Transaction Core
 repository: kasselvania/Linux-VST-bridge
 basis_commit: 98110016c1d50d578b2cf44d439830442f917b68
@@ -17,12 +18,13 @@ maintenance_review: docs/maintenance/PX2_MAINTENANCE_REVIEW.md
 maintenance_reviewed_authority_head: 665f98b507b779e8bbada97984ede37b674d48ba
 maintenance_review_record_git_blob: 367934660d456e5b27ac630a7a1ae636c2b87c9e
 maintenance_review_status: PROOF_HARNESS_MAINTENANCE_CLEAR
-maintenance_implementation_authorized: true
+maintenance_implementation_authorized: false
 product_implementation_authorized: false
 live_execution_authorized: false
 permitted_execution_class: none
-classified_backend_core_ready: false
+classified_backend_core_ready: true
 classified_backend_ready: false
+production_adapter_registry: empty
 diagnostic_campaign_authorized: false
 acceptance_candidate_authorized: false
 windows_workload_authorized: false
@@ -42,35 +44,28 @@ successor_selection_authorized: false
 
 The operator directed the technical leads to complete the process correction,
 inspect the detailed PX2 handoff, fix safe authority and documentation defects,
-and provide bounded engineering prompts. This authorizes repository-only PX2
-maintenance implementation after the retained focused review. It authorizes no
-product implementation and no live workload.
+and provide bounded engineering prompts. That ruling authorized repository-only
+PX2 maintenance implementation after the retained focused review. PX2 is now
+complete; this posture authorizes no further maintenance or product
+implementation and no live workload.
 
 ## Maintenance claim
 
-PX2 will install one class-aware proof transaction core around closed plan
-adapters. The core must durably retain execution class, product contract, exact
+PX2 provides one class-aware proof transaction core around closed plan
+adapters. The core durably retains execution class, product contract, exact
 plan digest, execution identity, exact per-run source, acceptance eligibility,
-and the independently owned budget before workload launch. It must use real
+and the independently owned budget before workload launch. It uses real
 cross-process single-writer reservation, monotonic crash-recoverable state,
 structurally separate diagnostic and acceptance outputs, and bounded failure
 closure.
 
 PX2 does not add a live PC0 adapter and does not make any live plan executable.
 
-## Required sequence
+## Completed scope
 
-```text
-reviewed PX2 maintenance authority
-→ merge maintenance authority
-→ implement locally from the merged authority basis
-→ deterministic production-helper and multiprocess tests
-→ cheap Linux-only policy/core CI
-→ one non-draft maintenance implementation PR
-→ one exact-head technical-lead review
-→ merge
-→ configure main protection against direct/force/deletion bypass
-```
+The generic transaction core and its policy integration are complete. Focused
+deterministic tests include real multiprocess reservation and crash recovery.
+The Linux-only CI check is `PX2 proof policy core`.
 
 There is no product-slice selection, product-design revision, product approval,
 Windows producer, artifact transaction, Steam Deck contact, diagnostic batch,
@@ -78,10 +73,10 @@ or acceptance batch in PX2.
 
 ## Completion posture
 
-After PX2 merges, the class-aware core may be marked ready, but live execution
-remains disabled until a later exact authority supplies one closed PC0 adapter,
-one `DiagnosticCampaignIdentity` or `AcceptanceCandidateIdentity`, and its
-separate budget.
+There is no active product or maintenance implementation. The generic core is
+ready and the production adapter registry is empty. Live execution remains
+disabled; any later adapter and its separate campaign or candidate budget
+require their own exact authority.
 
 The accepted product frontier remains WA0.
 
@@ -91,8 +86,8 @@ The accepted product frontier remains WA0.
 classification: derived_non_authoritative_summary
 last_accepted_capability: WA0 — exact IAudioProcessor acquired and retired without invoking a method
 current_target: PC0 — initialized-state bus and sample-format contract
-current_state: PX2 maintenance authority reviewed and implementation-authorized; no product or live execution authorized
-next_step: merge PX2 authority, then implement the local-only class-aware transaction core from that exact basis
-next_product_step_after_px2: add one closed PC0 adapter and use a bounded non-authoritative diagnostic campaign before one fresh acceptance candidate
+current_state: PX2 complete; generic core ready; production adapter registry empty; no active implementation or live execution authorized
+next_step: no active implementation selected
+next_product_step_after_px2: any closed adapter and campaign or candidate budget require separate exact authority
 explicit_nonclaim: PX2 adds no VST3 capability and PC0 has not advanced the accepted frontier
 ```

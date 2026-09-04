@@ -1,0 +1,32 @@
+name: PX2 proof policy
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  proof-policy-core:
+    name: PX2 proof policy core
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Compile policy and transaction core
+        run: >-
+          python3 -m py_compile
+          tools/classified_proof_backend.py
+          tools/proof-run.py
+          tools/proof_execution_policy.py
+          tools/test_classified_proof_backend.py
+          tools/test_proof_execution_policy.py
+      - name: Run deterministic policy and transaction tests
+        run: >-
+          python3 -m unittest -v
+          tools/test_proof_execution_policy.py
+          tools/test_classified_proof_backend.py
