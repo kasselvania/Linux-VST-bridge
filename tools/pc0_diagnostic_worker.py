@@ -12,9 +12,12 @@ import os
 import pathlib
 import re
 import sys
+import types
+
+_SUPPORT_SOURCES = {}
 
 MAX_BYTES = 2 * 1024 * 1024
-SCHEMA = "linux-vst-bridge-pc0-reservation-diagnostic/v1"
+SCHEMA = "linux-vst-bridge-pc0-reservation-diagnostic/v2"
 CLASS = "DIAGNOSTIC_NON_AUTHORITATIVE"
 
 
@@ -102,6 +105,17 @@ def sync(path):
 
 def primitives():
     sys.path.insert(0, str(pathlib.Path.cwd() / "tools/wf0-factory-census"))
+    for name, source in _SUPPORT_SOURCES.items():
+        source_digest = digest(source.encode())
+        if name in sys.modules:
+            if getattr(sys.modules[name], "_pc0_source_sha256", None) != source_digest:
+                raise RuntimeError("diagnostic helper module identity differs")
+            continue
+        module = types.ModuleType(name)
+        module.__file__ = "<" + name + ">"
+        module._pc0_source_sha256 = source_digest
+        sys.modules[name] = module
+        exec(compile(source, module.__file__, "exec"), module.__dict__)
     import common
     import artifacts
     import run
@@ -117,9 +131,10 @@ def preflight(binding):
         c.dx0_deck_source_parent() / source["commit"], source["commit"], reconstruct=False)
     c.process_guard()  # Includes this process; code must never be sent in argv.
     c.deck_fixture_identity()
-    runner = c.verify_runner_identity()
-    if runner["launch_critical_manifest_sha256"] != binding["runtime_identity"]:
-        raise RuntimeError("runtime differs")
+    from pc0_diagnostic_runtime import verify_diagnostic_runner
+    runner = verify_diagnostic_runner()
+    if runner["baseline_contract_sha256"] != binding["runtime_identity"]:
+        raise RuntimeError("runtime contract differs")
     before = c.protected_snapshot()
     host_root = c.dx0_deck_host_artifact_parent() / binding["host_manifest_sha256"]
     build_input = a.read_canonical_json(host_root / "DX0_WINDOWS_HOST_BUILD_RECEIPT.json")["windows_build_input"]["sha256"]
@@ -138,7 +153,11 @@ def preflight(binding):
     if c.dx0_identity_sha256(plan) != binding["legacy_plan_sha256"]:
         raise RuntimeError("closed plan differs")
     deck_input = c.dx0_deck_execution_input(source["commit"], host["manifest_sha256"], fixture["identity_sha256"], binding["legacy_plan_sha256"])
-    return c, r, source, host, fixture, before, c.dx0_identity_sha256(deck_input), handoff
+    diagnostic_input = {"schema": "linux-vst-bridge-pc0-diagnostic-execution-input/v1",
+                        "stopped_contract_input_sha256": c.dx0_identity_sha256(deck_input),
+                        "observed_runtime_sha256": runner["launch_critical_manifest_sha256"],
+                        "declared_runtime_inputs_sha256": runner["declared_inputs_sha256"]}
+    return c, r, source, host, fixture, before, digest(canonical(diagnostic_input)), handoff, runner
 
 
 def failure_data(r, observed, binding, deck_sha, retirement_disposition):
@@ -169,11 +188,13 @@ def failure_data(r, observed, binding, deck_sha, retirement_disposition):
         "environment_retirement_disposition": retirement_disposition,
         "protected_snapshot_sha256": digest(canonical(observed["protected_snapshot"])),
         "runner_identity_sha256": observed["runner_identity"]["launch_critical_manifest_sha256"]})
-    r.validate_failure_diagnostic(
+    from pc0_diagnostic_primitives import validate_failure_diagnostic
+    validate_failure_diagnostic(
         value, expected_source=binding["execution_source"],
         expected_execution_input_sha256=deck_sha, expected_plan_sha256=binding["legacy_plan_sha256"],
         expected_operation_nonce=binding["reservation_identity"][:32],
-        expected_phase_nonce=binding["reservation_identity"][32:])
+        expected_phase_nonce=binding["reservation_identity"][32:],
+        expected_runner_identity_sha256=value["runner_identity_sha256"])
     return value
 
 
@@ -181,7 +202,8 @@ def execute(proof, binding):
     retained = inspect(proof, binding)
     if retained["state"] != "absent":
         return {**retained, "effects": {"deck_workloads": 0, "diagnostic_publications": 0}}
-    c, r, source, host, fixture, before, deck_sha, _handoff = preflight(binding)
+    c, r, source, host, fixture, before, deck_sha, _handoff, runtime = preflight(binding)
+    import pc0_diagnostic_primitives as diagnostic
     root = namespace(proof, binding)
     root.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -203,10 +225,11 @@ def execute(proof, binding):
     classification = "PC0_DIAGNOSTIC_INCONCLUSIVE"
     try:
         c.process_guard()
-        environment = r.create_dx0_environment(
+        environment = diagnostic.create_dx0_environment(
             binding["reservation_identity"][:32], host=host, fixture=fixture,
-            execution_source=binding["execution_source"], deck_execution_input_sha256=deck_sha)
-        observed = r.supervise(environment, mode=c.PC0_MODE)
+            execution_source=binding["execution_source"], deck_execution_input_sha256=deck_sha,
+            runner_identity_sha256=runtime["launch_critical_manifest_sha256"])
+        observed = diagnostic.supervise(environment, mode=c.PC0_MODE)
         contained = observed.get("cleanup") == {"owned_descendants_zero": True, "process_group_empty": True}
         if not contained:
             environment = None  # Do not remove files beneath potentially live children.
@@ -225,7 +248,8 @@ def execute(proof, binding):
     finally:
         if environment is not None and observed is not None:
             try:
-                retirement = r.retire_environment(environment)
+                retirement = diagnostic.retire_environment(environment,
+                    runner_identity_sha256=runtime["launch_critical_manifest_sha256"])
                 retired = retirement["environment_retired"] is True and retirement["stage_absent"] is True
                 retirement_disposition = "retired" if retired else "failed"
             except Exception:
@@ -254,7 +278,7 @@ def execute(proof, binding):
         kind, classification = "INCONCLUSIVE", "PC0_DIAGNOSTIC_INCONCLUSIVE"
     value = {"schema": SCHEMA, "binding": binding, "execution_input_sha256": deck_sha,
              "kind": kind, "classification": classification, "summary": summary,
-             "cleanup": cleanup, "protected": protected}
+             "cleanup": cleanup, "protected": protected, "runtime_observation": runtime}
     raw = canonical(value)
     publish(root / "observation.json", raw)
     publish(root / "observation.sha256", f"{digest(raw)}  observation.json\n".encode())

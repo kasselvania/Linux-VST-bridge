@@ -21,6 +21,8 @@ import sys
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol, Sequence
 
+from pc0_diagnostic_runtime import validate_runtime_observation
+
 from classified_proof_backend import (
     BackendError,
     DiagnosticPlanAdapter,
@@ -106,8 +108,8 @@ RUNTIME_PROTON_IDENTITY = \
     "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547"
 
 PREFLIGHT_SCHEMA = "linux-vst-bridge-pc0-classified-diagnostic-preflight/v1"
-PAYLOAD_SCHEMA = "linux-vst-bridge-pc0-classified-diagnostic-observation/v1"
-ADMITTED_SCHEMA = "linux-vst-bridge-pc0-classified-diagnostic-result/v1"
+PAYLOAD_SCHEMA = "linux-vst-bridge-pc0-classified-diagnostic-observation/v2"
+ADMITTED_SCHEMA = "linux-vst-bridge-pc0-classified-diagnostic-result/v2"
 MAX_PREFLIGHT_BYTES = 256 * 1024
 MAX_REMOTE_DOCUMENT_BYTES = 2 * 1024 * 1024
 MAX_SIDECAR_BYTES = 256
@@ -421,9 +423,12 @@ def _checked_text(reply: CommandReply, label: str) -> str:
 
 
 WORKER_PATH = "tools/pc0_diagnostic_worker.py"
-REMOTE_PREFLIGHT_PROGRAM = (REPOSITORY_ROOT / WORKER_PATH).read_text(encoding="utf-8")
+WORKER_SOURCE = (REPOSITORY_ROOT / WORKER_PATH).read_text(encoding="utf-8")
+SUPPORT_SOURCES = {name: (REPOSITORY_ROOT / ("tools/" + name + ".py")).read_text(encoding="utf-8")
+                   for name in ("pc0_diagnostic_runtime", "pc0_diagnostic_primitives")}
+REMOTE_PREFLIGHT_PROGRAM = WORKER_SOURCE.replace("_SUPPORT_SOURCES = {}", "_SUPPORT_SOURCES = " + repr(SUPPORT_SOURCES))
 WORKER_SHA256 = sha256_bytes(REMOTE_PREFLIGHT_PROGRAM.encode("utf-8"))
-WORKER_SCHEMA = "linux-vst-bridge-pc0-reservation-diagnostic/v1"
+WORKER_SCHEMA = "linux-vst-bridge-pc0-reservation-diagnostic/v2"
 
 
 class PC0DiagnosticRuntime:
@@ -484,7 +489,7 @@ class PC0DiagnosticRuntime:
         request = self._request(delegation, context.reservation_identity)
         payload = _keys(observation.payload, {
             "schema", "execution_class", "acceptance_eligible", "binding",
-            "document_sha256", "diagnostic_data"}, "diagnostic payload")
+            "document_sha256", "diagnostic_data", "runtime_observation"}, "diagnostic payload")
         if (observation.kind is not ObservationKind.SUCCESS
                 or observation.cleanup_disposition != "COMPLETE"
                 or observation.protected_state_disposition != "UNCHANGED"
@@ -579,7 +584,7 @@ class PC0DiagnosticRuntime:
             (("git", "rev-parse", f"{delegation['source_commit']}:{SELECTION_PATH}"),
              SELECTION_GIT_BLOB, "diagnostic source contract"),
             (("git", "rev-parse", f"{delegation['source_commit']}:{WORKER_PATH}"),
-             _git_blob_sha1(REMOTE_PREFLIGHT_PROGRAM.encode("utf-8")), "diagnostic worker"),
+             _git_blob_sha1(WORKER_SOURCE.encode("utf-8")), "diagnostic worker"),
             (("git", "rev-parse", "--verify", f"{STOPPED_PC0_ARCHIVE_REF}^{{commit}}"),
              STOPPED_PC0_SOURCE, "stopped source archive"),
             (("git", "rev-parse", f"{STOPPED_PC0_SOURCE}^{{tree}}"),
@@ -591,6 +596,12 @@ class PC0DiagnosticRuntime:
             )
             if observed != expected:
                 raise AdapterBoundaryError(f"{label} identity differs")
+        for name, source in SUPPORT_SOURCES.items():
+            blob = _checked_text(self.ports.command.run(
+                ("git", "rev-parse", f"{delegation['source_commit']}:tools/{name}.py"),
+                cwd=self.repository), "diagnostic helper")
+            if blob != _git_blob_sha1(source.encode()):
+                raise AdapterBoundaryError("diagnostic helper source differs")
         self._validate_mac_stores()
 
     def _validate_mac_stores(self) -> None:
@@ -686,12 +697,13 @@ class PC0DiagnosticRuntime:
             return None
         value = _keys(reply.get("observation"), {
             "schema", "binding", "execution_input_sha256", "kind",
-            "classification", "summary", "cleanup", "protected"}, "reservation observation")
+            "classification", "summary", "cleanup", "protected", "runtime_observation"}, "reservation observation")
         if (value["schema"] != WORKER_SCHEMA or value["binding"] != request
                 or HEX64.fullmatch(str(value["execution_input_sha256"])) is None
                 or value["classification"] not in {
                     "PC0_DIAGNOSTIC_OBSERVED", "PC0_DIAGNOSTIC_FAILED", "PC0_DIAGNOSTIC_INCONCLUSIVE"}):
             raise AdapterBoundaryError("reservation observation binding differs")
+        runtime_digest = validate_runtime_observation(value["runtime_observation"])
         kind = ObservationKind(value["kind"])
         summary = _as_object(value["summary"], "diagnostic summary")
         if len(canonical_json(summary)) > MAX_REMOTE_DOCUMENT_BYTES - 16384:
@@ -709,13 +721,15 @@ class PC0DiagnosticRuntime:
             compact, _digest, _kind, _cleanup = self._validate_diagnostic_pair(
                 raw, f"{sha256_bytes(raw)}  PC0_FAILURE_DIAGNOSTIC.json\n".encode(),
                 value["execution_input_sha256"], request["reservation_identity"][:32],
-                request["reservation_identity"][32:], failure.get("protected_snapshot_sha256"))
+                request["reservation_identity"][32:], failure.get("protected_snapshot_sha256"),
+                expected_runtime_identity=runtime_digest)
             summary = compact
         return Observation(
             kind, value["classification"],
             {"schema": PAYLOAD_SCHEMA, "execution_class": request["execution_class"],
              "acceptance_eligible": False, "binding": dict(request),
-             "document_sha256": sha256_bytes(canonical_json(value)), "diagnostic_data": summary},
+             "document_sha256": sha256_bytes(canonical_json(value)), "diagnostic_data": summary,
+             "runtime_observation": value["runtime_observation"]},
             value["cleanup"], value["protected"],
             reply.get("effects", {"deck_workloads": "unknown", "diagnostic_publications": "unknown"}))
 
@@ -725,6 +739,7 @@ class PC0DiagnosticRuntime:
         expected_operation_nonce: str,
         expected_phase_nonce: str,
         expected_protected_snapshot_sha256: str,
+        *, expected_runtime_identity: str = RUNTIME_PROTON_IDENTITY,
     ) -> tuple[dict[str, Any], str, ObservationKind, str]:
         diagnostic, digest = _pair(
             raw, sidecar, "PC0_FAILURE_DIAGNOSTIC.json", "PC0 diagnostic",
@@ -766,7 +781,7 @@ class PC0DiagnosticRuntime:
                     "supervision_and_process_cleanup_failed"})
                 or (raw_exit is not None and (type(raw_exit) is not int
                                                or not -255 <= raw_exit <= 255))
-                or diagnostic["runner_identity_sha256"] != RUNTIME_PROTON_IDENTITY
+                or diagnostic["runner_identity_sha256"] != expected_runtime_identity
                 or diagnostic["protected_snapshot_sha256"]
                 != expected_protected_snapshot_sha256
                 or re.fullmatch(r"[0-9a-f]{32}", str(diagnostic["run_id"])) is None

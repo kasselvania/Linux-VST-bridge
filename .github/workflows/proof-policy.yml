@@ -25,12 +25,15 @@ jobs:
           tools/classified_proof_backend.py
           tools/pc0_proof_adapter.py
           tools/pc0_diagnostic_worker.py
+          tools/pc0_diagnostic_runtime.py
+          tools/pc0_diagnostic_primitives.py
           tools/proof-run.py
           tools/proof_execution_policy.py
           tools/test_pc0_proof_adapter.py
           tools/test_classified_proof_backend.py
           tools/test_proof_execution_policy.py
           tools/test_proof_cli.py
+          tools/test_pc0_diagnostic_runtime.py
       - name: Run deterministic policy and transaction tests
         run: >-
           python3 -m unittest -v
@@ -38,3 +41,4 @@ jobs:
           tools/test_classified_proof_backend.py
           tools/test_pc0_proof_adapter.py
           tools/test_proof_cli.py
+          tools/test_pc0_diagnostic_runtime.py
