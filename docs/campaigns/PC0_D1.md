@@ -15,8 +15,8 @@ permitted_execution_class: DIAGNOSTIC_NON_AUTHORITATIVE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: false
-authorized_source_commit: 2172915c09ec6d1df1ffc5e383d19ff7cdd4db1f
-authorized_source_tree: da79907b1f506a854aa99455a9c3ff0291ea32a6
+authorized_source_commit: 1e4be8a1386385380b7d240241d3cabd6793cea2
+authorized_source_tree: cef7f89635bf3457491f543ecd500f98a09dddcc
 authorized_plan_id: pc0-pre-setup-processing-contract-diagnostic-v1
 authorized_product_contract_identity: pc0-selection-v2
 authorized_product_contract_sha256: daa042e4184cb5fffdf1ff08d59cc51f7755b4635c85e02597adc2584c4b4c1d
@@ -93,3 +93,22 @@ report at most 15 lines. No success packet, full audit, or polished failure doss
 Ordinary troubleshooting is part of this job. Escalate only a genuinely new scope,
 safety, deployment, or budget decision, stating exactly what decision is needed.
 Even diagnostic success does not advance the accepted frontier beyond WA0.
+
+## Diagnostic metadata repair binding
+
+The source above separates observed Steam bookkeeping from the unchanged declared
+runtime inputs. Read-only comparison found 32 of 33 locked files exact; only the
+Proton app manifest differed (710 to 691 bytes). Installed app/build/depot/install
+selection and both tool manifests matched; Steam recorded a pending target build.
+The diagnostic verifier rejects changed deployed files, alternate selections,
+unknown manifest fields, active download/staging state, and non-regular files.
+It records the actual complete snapshot digest and declared-input digest separately.
+The historical WR0 verifier and all installed files remain unchanged.
+
+Diagnostic copies of five frozen PC0 functions accept the observed runtime identity
+explicitly. A structural regression compares their bodies with stopped source
+309b8918c128c0b9e6701d0453dc841a111d5ac5, permitting only runtime dependency changes;
+product calls, supervision, containment, and retirement logic remain identical.
+The verified stdin worker carries these helpers without changing the Deck worktree.
+Targeted runtime/adapter/CLI/policy/backend tests: 52 passed before this source bind.
+The campaign identity and two-reservation ceiling above are unchanged.
