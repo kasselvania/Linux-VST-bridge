@@ -15,8 +15,8 @@ permitted_execution_class: DIAGNOSTIC_NON_AUTHORITATIVE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: false
-authorized_source_commit: 1e4be8a1386385380b7d240241d3cabd6793cea2
-authorized_source_tree: cef7f89635bf3457491f543ecd500f98a09dddcc
+authorized_source_commit: 2ff23fe74b5501b633b575f7a903289ec2db1866
+authorized_source_tree: c82270184beab47bcfd4e9676a701bede8e9df14
 authorized_plan_id: pc0-pre-setup-processing-contract-diagnostic-v1
 authorized_product_contract_identity: pc0-selection-v2
 authorized_product_contract_sha256: daa042e4184cb5fffdf1ff08d59cc51f7755b4635c85e02597adc2584c4b4c1d
@@ -112,3 +112,17 @@ product calls, supervision, containment, and retirement logic remain identical.
 The verified stdin worker carries these helpers without changing the Deck worktree.
 Targeted runtime/adapter/CLI/policy/backend tests: 52 passed before this source bind.
 The campaign identity and two-reservation ceiling above are unchanged.
+
+## Remaining-slot repair binding
+
+The first reservation, 4008dc6b0628dea1157628a3e04108caaba478e6954c56b900a37bb0c3d65a6f,
+is closed at source 1e4be8a1386385380b7d240241d3cabd6793cea2. The host reached
+readiness; supervision stopped before any plug-in call, with complete containment
+and retirement and unchanged protected state. One slot was consumed, one remains.
+The retained observation is not rewritten or relabelled.
+
+The source above repairs the missing runtime-identity argument at the ready-gate
+verifier and retains bounded sanitized supervision errors. A mocked-process test
+reproduced refusal before gate publication and passed after the exact call-site
+repair. All 54 runtime/adapter/CLI/policy/backend tests passed. The remaining slot
+is bound to this specific repair; this is not a blind repetition or budget reset.
