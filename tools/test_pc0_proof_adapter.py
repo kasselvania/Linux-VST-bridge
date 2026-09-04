@@ -399,6 +399,7 @@ class PC0AdapterTests(unittest.TestCase):
         self.mock(self.common, "environment_parent", return_value=env_parent)
         self.environment_parent = env_parent
         self.mock(self.common, "dx0_deck_execution_input", return_value={"records": [], "record_count": 0})
+        self.actual_supervise = self.diagnostic.supervise
         self.create = self.mock(self.diagnostic, "create_dx0_environment", side_effect=lambda *args, **kwargs: object())
         self.supervise = self.mock(self.diagnostic, "supervise", side_effect=self.scan)
         self.retire = self.mock(self.diagnostic, "retire_environment", side_effect=self.retirement)
@@ -447,6 +448,41 @@ class PC0AdapterTests(unittest.TestCase):
     def transaction(self, receipt):
         path = self.base / "state/diagnostic" / CAMPAIGN / "transactions" / receipt.reservation_identity / "transaction.json"
         return parse_canonical_json(path.read_bytes(), maximum=512 * 1024)
+
+    def test_ready_gate_rechecks_observed_runtime_identity_before_publication(self):
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+        session = self.base / "gate-session"
+        session.mkdir()
+        environment = SimpleNamespace(session=session, run_id="a"*32, marker={"fixture":"again"})
+        expected = b"exact-ready-binding"
+        root = MagicMock(pid=123, returncode=0)
+        root.poll.return_value = 0
+        selector = MagicMock()
+        selector.get_map.return_value = {}
+        def pump_once(selector, streams, timeout):
+            if not streams.records:
+                (session / ("b"*32 + ".ready")).write_bytes(expected)
+                streams.records.append({"event":"lifecycle", "state":"readiness_announced"})
+        with contextlib.ExitStack() as stack:
+            for name,value in {
+                "verify_diagnostic_runner":self.runtime_observation,
+                "handshake":expected,"command_vector":["inert-test-command"],
+                "controlled_environment":{},"process_identity":{"pid":123,"start_ticks":1},
+                "descendants":[],"topology":{},"protected_snapshot":self.protected,
+                "cleanup_process":{"owned_descendants_zero":True,"process_group_empty":True},
+            }.items():
+                stack.enter_context(patch.object(self.diagnostic,name,return_value=value))
+            verify=stack.enter_context(patch.object(self.diagnostic,"verify_environment",autospec=True))
+            stack.enter_context(patch.object(self.diagnostic.subprocess,"Popen",return_value=root))
+            stack.enter_context(patch.object(self.diagnostic.selectors,"DefaultSelector",return_value=selector))
+            stack.enter_context(patch.object(self.diagnostic.secrets,"token_hex",return_value="b"*32))
+            stack.enter_context(patch.object(self.diagnostic,"pump",side_effect=pump_once))
+            self.actual_supervise(environment,mode=self.common.PC0_MODE)
+            self.assertEqual(verify.call_count,2)
+            for call in verify.call_args_list:
+                self.assertEqual(call.kwargs,{"runner_identity_sha256":self.runtime_observation["launch_critical_manifest_sha256"]})
+            self.assertEqual((session/("b"*32+".gate")).read_bytes(),expected)
 
     def test_real_store_sidecars_and_hashes(self):
         self.runtime._validate_mac_stores()
