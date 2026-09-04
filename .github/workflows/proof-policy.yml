@@ -30,9 +30,11 @@ jobs:
           tools/test_pc0_proof_adapter.py
           tools/test_classified_proof_backend.py
           tools/test_proof_execution_policy.py
+          tools/test_proof_cli.py
       - name: Run deterministic policy and transaction tests
         run: >-
           python3 -m unittest -v
           tools/test_proof_execution_policy.py
           tools/test_classified_proof_backend.py
           tools/test_pc0_proof_adapter.py
+          tools/test_proof_cli.py
