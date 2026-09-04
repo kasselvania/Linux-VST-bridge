@@ -1,405 +1,236 @@
 # Implementation Design Card — `<SLICE_ID>`
 
-**Template class:** mandatory design artifact for a design-gated slice.  
-**Normal path:** `docs/slices/<SLICE_ID>/IMPLEMENTATION_DESIGN.md`.  
-**Rule:** remove all instructional placeholder text before approval. An implementation agent must not infer omitted design.
+Use this only for a product-contract change that requires a design gate. Proof-harness-only work uses `PROOF_HARNESS_MAINTENANCE_RECEIPT.md`.
 
----
+Remove all placeholder text before approval.
 
 ## 1. Identity and authority
 
-```text
-slice_id:
-title:
-design_revision:
-design_status: draft | review_required | approved | superseded
-repository:
-basis_commit:
-basis_tree:
-selection_receipt_path:
-selection_receipt_identity:
-current_slice_path: CURRENT_SLICE.md
+```yaml
+slice_id: <ID>
+title: <TITLE>
+change_class: PRODUCT_CONTRACT_CHANGE
+design_revision: <REVISION>
+design_status: proposed | review_required | clear | superseded
+repository: kasselvania/Linux-VST-bridge
+basis_commit: <COMMIT>
+basis_tree: <TREE>
+selection_receipt_path: <PATH>
 authority_phase: reconnaissance_and_design
 implementation_authorized: false
-prepared_by:
-prepared_at:
 ```
 
-### Design-gate trigger
-
-State every trigger that made the gate mandatory:
+## 2. Primary product contract
 
 ```text
-[ ] owner boundary
-[ ] state machine/lifecycle
-[ ] durable mutation
-[ ] transaction/rollback/migration/recovery
-[ ] process supervision/termination
-[ ] cross-process or cross-language protocol
-[ ] real-time/deadline behavior
-[ ] thread affinity/reentrancy
-[ ] identity/authorization
-[ ] security/privacy
-[ ] licensing/vendor activation
-[ ] third-party runtime
-[ ] persistent user data/content
-[ ] compatibility claim
+primary_claim:
+claim_ceiling:
+accepted_prerequisites:
+exact_fixture:
 ```
 
-## 2. Primary claim and claim ceiling
+State the exact end-to-end boundary and everything a successful demo still does not prove.
 
-### Primary claim
+## 3. Product-contract ownership
 
-One bounded sentence stating exactly what becomes true.
-
-> `<PRIMARY CLAIM>`
-
-### End-to-end route
-
-```text
-accepted owner/input
-    -> new boundary
-    -> new owner/output
-```
-
-### Claim ceiling
-
-State everything that the slice does not prove. Include later adjacent capabilities that a successful demo might tempt someone to infer.
-
-## 3. Exact fixture and accepted prerequisites
-
-| Fixture/prerequisite | Exact identity | Accepted source/evidence | Mutation permitted? |
-|---|---|---|---|
-|  |  |  |  |
-
-State what must be reverified immediately before implementation and live exercise.
-
-## 4. Reconnaissance findings
-
-List only facts actually observed or established by primary documentation.
-
-| Question | Observed answer | Evidence | Design consequence | Still unknown |
-|---|---|---|---|---|
-|  |  |  |  |  |
-
-### Implementability verdict
-
-```text
-IMPLEMENTABLE
-```
-
-or:
-
-```text
-DESIGN_BLOCKED
-```
-
-A blocked design must state the exact missing fact and must not invent an implementation route.
-
-## 5. Owner map
-
-Every consequential fact has exactly one authoritative owner.
-
-| Fact | Authoritative owner | Durable representation | Readers | Forbidden competing authority |
-|---|---|---|---|---|
-|  |  |  |  |  |
-
-Questions:
-
-- Who may create the fact?
-- Who may mutate it?
-- Who may retire it?
-- What exact readback proves it?
-- What happens if in-memory state and physical state disagree?
-
-## 6. State machine
-
-### Legal states
-
-| State | Authoritative facts | Physical/external reality | Entry proof | Exit operation |
-|---|---|---|---|---|
-|  |  |  |  |  |
-
-Include every state another process, the filesystem, the DAW, the runtime, or a crash/restart can observe.
-
-### Legal transitions
-
-```text
-STATE_A
-  -> STATE_B
-  -> STATE_C
-```
-
-| From | Operation | To | Durability/readback required | Failure classification |
-|---|---|---|---|---|
-|  |  |  |  |  |
-
-### Forbidden transitions
-
-List transitions that must fail closed.
-
-### Restart/retry reconciliation
-
-For every durable/intermediate state, state what a new process does after crash, reboot, cancellation, or retry.
-
-## 7. Fallible-operation and mutation ledger
-
-For every external mutation or fallible operation, answer the syscall-boundary question:
-
-> What is physically true if this operation succeeds and the next operation fails?
-
-| # | Precondition | Fallible operation | Immediate physical result | Durability barrier | Exact readback | Next authority state | Failure owner | Recovery action |
-|---:|---|---|---|---|---|---|---|---|
-| 1 |  |  |  |  |  |  |  |  |
-
-Include as applicable:
-
-- file create/write/rename/delete;
-- parent-directory `fsync`;
-- database transaction/commit;
-- registry mutation;
-- process spawn;
-- IPC handshake;
-- shared-memory grant;
-- network/browser handoff;
-- DAW scan/admission;
-- vendor authorization transition;
-- state save/project commit;
-- content move/locate;
-- evidence publication.
-
-### Commit points
-
-State every irreversible authority boundary.
-
-```text
-before <COMMIT POINT>:
-    rollback owner and exact restoration law
-
-after <COMMIT POINT>:
-    authoritative new state and prohibited rollback behavior
-```
-
-## 8. Process, thread, callback, and topology model
-
-Omit only when demonstrably inapplicable.
-
-| Role | Created by | Parent/owner | Required thread/process | Lifetime | Exit/cleanup owner |
+| Fact | Owner | Creation | Mutation | Retirement | Exact readback |
 |---|---|---|---|---|---|
 |  |  |  |  |  |  |
 
-### Actual or expected topology
+## 4. Product lifecycle
 
-```text
-owner
-  -> child
-      -> descendant
-```
-
-State:
-
-- exact ownership identity;
-- process-group/session behavior;
-- thread affinity;
-- callback direction;
-- recursive/reentrant calls;
-- allowed blocking;
-- deadlines;
-- timeout output;
-- cleanup and empty proof;
-- stale PID/object protection;
-- unrelated same-name protection.
-
-## 9. Identity and authorization ledger
-
-Every dangerous operation states the complete identity that authorizes it.
-
-| Operation | Required identity | Freshness/readback | Refusal cases |
-|---|---|---|---|
-|  |  |  |  |
-
-Examples:
-
-```text
-terminate process:
-    exact PID + start ticks + exact owned ancestry + session/run identity
-
-restore predecessor:
-    transaction-derived canonical path + exact predecessor identity + snapshot equality
-
-load plug-in class:
-    exact module digest + VST3 class ID + environment revision + runner revision
-```
-
-Never use a friendly name, basename, path suffix, PID alone, or in-memory boolean as sufficient identity.
-
-## 10. Data, durability, recovery, and migration
-
-| Data class | Owner | Location | Sensitive? | Durability | Backup/rollback | Migration law |
-|---|---|---|---|---|---|---|
-|  |  |  |  |  |  |  |
-
-State:
-
-- atomicity model;
-- durable commit record;
-- reconciliation after partial failure;
-- idempotency/retry behavior;
-- predecessor retention/retirement;
-- version/schema migration;
-- unknown-object refusal;
-- user-visible recovery result.
-
-## 11. Security, privacy, licensing, and proprietary material
-
-### Threats
-
-| Threat | Boundary | Prevention | Negative proof |
-|---|---|---|---|
-|  |  |  |  |
-
-### Sensitive/proprietary exclusions
-
-State what may never enter Git, logs, diagnostics, screenshots, or support bundles.
-
-### Network and authorization
-
-State exact permitted network/browser/vendor behavior. Unknown vendor behavior remains unknown.
-
-### Third-party licensing
-
-List dependencies, licenses, distribution obligations, and clean-room constraints.
-
-## 12. Approved code topology
-
-| Component/file | Owner responsibility | Public interface | Must not own |
-|---|---|---|---|
-|  |  |  |  |
-
-Even when an early proof uses one source file, identify conceptual owners and their APIs. Do not allow one procedure to become the implicit owner of unrelated state, process, transaction, evidence, and UI concerns.
-
-## 13. Changed-path and external-mutation envelope
-
-### Allowed tracked paths
-
-```text
-<EXACT PATHS OR PREFIXES>
-```
-
-### Permitted external mutation
-
-```text
-<EXACT USER-SPACE PATHS / APPLICATION STATE / NONE>
-```
-
-### Protected state
-
-List exact identities that must remain unchanged.
-
-### Prohibited mutation
-
-List adjacent repositories, runtimes, DAW settings, proprietary fixtures, and user data that must not change.
-
-## 14. Proof matrix
-
-| Claim | Positive proof | Negative/fault proof | Real fixture required? | Production helper exercised? | Retained evidence | Claim ceiling |
-|---|---|---|---|---|---|---|
-|  |  |  |  |  |  |  |
-
-Rules:
-
-- Test names are not proof.
-- A toy lambda is not equivalent to the production owner.
-- Synthetic faults are appropriate for deterministic injection.
-- Real runtime, ABI, DAW, process, authorization, and timing claims require real fixture evidence.
-- Every incomplete or capped observation propagates to `unknown`, not absence.
-
-## 15. Failure and blocked-result taxonomy
-
-| Result code | Exact owner/stage | Preserved state | Cleanup | Next lawful action |
+| State | Authoritative facts | External reality | Entry proof | Exit operation |
 |---|---|---|---|---|
 |  |  |  |  |  |
 
-Do not reuse a broad “launch failed” result for observability, cleanup, identity, authorization, content, or evidence failures.
+List legal and forbidden transitions. Include only product-significant states here. Proof-transaction bookkeeping belongs to the harness section.
 
-## 16. Material-discovery stop conditions
+## 5. VST3 and product operation roster
 
-Implementation stops and returns to the design gate if any observation changes:
+| Order/type | Operation | Coordinates | Legal lifecycle | Return/output interpretation | Failure owner |
+|---|---|---|---|---|---|
+|  |  |  |  |  |  |
+
+This roster is part of the product contract. A later change returns to product design.
+
+## 6. Product-facing normalization
+
+Freeze exact caps, enum interpretation, string handling, consistency rules, and immutable output schema.
+
+## 7. Process, thread, callback, and shutdown law
+
+State exact process/thread roles, reentrancy, timeouts, ownership, clean in-process shutdown claims, and physical containment claims.
+
+## 8. Fixture, security, privacy, and licensing
+
+State exact permitted fixture use and what may never enter Git, logs, diagnostics, screenshots, or support bundles.
+
+## 9. Source and mutation envelope
 
 ```text
-[ ] owner map
-[ ] state or transition set
-[ ] mutation root
-[ ] durability/commit/recovery boundary
-[ ] process/thread/callback topology
-[ ] protocol direction or payload law
-[ ] identity/authorization law
-[ ] security/privacy/licensing posture
-[ ] exact fixture
-[ ] primary claim or claim ceiling
-[ ] changed-path envelope
-[ ] proof matrix
+allowed tracked paths:
+permitted external mutation:
+protected state:
+prohibited mutation:
 ```
 
-Add slice-specific stop conditions:
+## 10. Deterministic/local development lane
 
-- `<CONDITION>`
+List all checks that must pass before any live workload:
 
-The agent may retain bounded read-only evidence but may not patch forward.
+- compiler/syntax checks;
+- production-owner state tests;
+- schema and canonical-JSON tests;
+- selected/prohibited-call checks;
+- source/build/Deck/renderer invalidation;
+- result-admission tests;
+- driver dry-run external plan.
 
-## 17. Implementation sequence
+## 11. Diagnostic campaign
 
-This is dependency order within the slice, not a roadmap.
+State whether live diagnostic development is required.
 
-```text
-1. ...
-2. ...
-3. ...
+```yaml
+diagnostic_required: true | false
+diagnostic_campaign_schema: linux-vst-bridge-diagnostic-campaign/v1
+diagnostic_campaign_identity_inputs:
+  - product_contract_identity
+  - windows_artifact_identity
+  - fixture_identity
+  - runtime_identity
+  - closed_diagnostic_plan
+  - diagnostic_harness_source_identity
+diagnostic_plan_id: <ID OR null>
+diagnostic_batch_budget: <0, 1, OR 2 BY DEFAULT>
+acceptance_eligible: false
 ```
 
-Identify the clean implementation commit required before live evidence when source identity matters.
+For each diagnostic batch define:
 
-## 18. Adversarial design review disposition
+- bounded result/diagnostic schema;
+- cleanup and protected-state law;
+- actual effect accounting;
+- invalidation conditions;
+- permanent prohibition on promotion into acceptance.
 
-```text
-review_path:
-review_identity:
-review_result: DESIGN_CLEAR | DESIGN_REPAIR_REQUIRED
-findings_resolved:
-unresolved_findings:
+### Diagnostic failure closure
+
+A failed diagnostic may produce only one bounded diagnostic pair, cleanup/protected-state disposition, effect counts, and one concise report. No success evidence packet, product proof-matrix replay, or full pre-PR audit.
+
+## 12. Proof-harness maintenance boundary
+
+State which changes may be repaired under `PROOF_HARNESS_MAINTENANCE` without reopening this product design.
+
+Confirm that maintenance must leave unchanged:
+
+- claim and nonclaims;
+- VST3 calls/order/interpretation;
+- product owners and lifecycle;
+- Windows product behavior;
+- fixture semantics;
+- product normalization;
+- containment/shutdown claims;
+- protocol/security boundary.
+
+## 13. Acceptance candidate
+
+```yaml
+acceptance_candidate_schema: linux-vst-bridge-acceptance-candidate/v1
+acceptance_identity_inputs:
+  - product_contract_identity
+  - exact_candidate_source
+  - windows_build_input_identity
+  - artifact_and_custody_identity
+  - fixture_identity
+  - runtime_identity
+  - closed_acceptance_plan
+  - acceptance_authority
+acceptance_plan_id: <ID>
+acceptance_batch_budget: 1
 ```
 
-Summarize every material design change made after review.
+Define exact entry conditions, result schema, evidence roster, cleanup, protected state, and claim ceiling.
 
-## 19. Approved design identity
+A diagnostic result may not be promoted. Acceptance requires a fresh observation.
 
-The card does not approve itself.
+## 14. Budget ledger
+
+| Budget | Identity owner | Maximum | Reuse law | Failure law |
+|---|---|---:|---|---|
+| Windows producer | `WindowsBuildInputIdentity` |  |  |  |
+| Diagnostic workload | `DiagnosticCampaignIdentity` |  |  |  |
+| Acceptance workload | `AcceptanceCandidateIdentity` | 1 |  |  |
+| Live negative replay | `FaultPlanIdentity` |  |  |  |
+| Source transfer | source-handoff identity |  |  |  |
+| Evidence render | renderer + retained result |  |  |  |
+
+Do not combine these budgets.
+
+## 15. Proof matrix
+
+| Product claim | Deterministic proof | Diagnostic role | Acceptance proof | Production helper | Retained product evidence | Claim ceiling |
+|---|---|---|---|---|---|---|
+|  |  |  |  |  |  |  |
+
+Diagnostic observations cannot satisfy the acceptance column.
+
+## 16. Failure classification
+
+Distinguish at least:
 
 ```text
-card_path:
-card_git_blob:
-card_sha256:
-design_revision:
-approval_receipt_path:
-approval_receipt_identity:
+IMPLEMENTATION_REPAIR_REQUIRED
+PROOF_HARNESS_MAINTENANCE_REQUIRED
+DIAGNOSTIC_BUDGET_EXHAUSTED
+DIAGNOSTIC_CLOSURE_BLOCKED
+ACCEPTANCE_CANDIDATE_INCONCLUSIVE
+ACCEPTANCE_CANDIDATE_FAILED
+RETURN_TO_PRODUCT_DESIGN
+```
+
+For each, state preserved state, cleanup, remaining budgets, and next lawful action.
+
+## 17. Material product-design stop conditions
+
+Implementation returns to product design only for changes to:
+
+- primary claim or claim ceiling;
+- VST3 roster/order/interpretation;
+- product ownership/refcount law;
+- product lifecycle;
+- Windows product/ABI behavior;
+- fixture semantics;
+- product normalization;
+- claimed containment/shutdown semantics;
+- protocol/trust/security boundary;
+- product proof requirements or compatibility claim.
+
+Harness-only discoveries enter proof-harness maintenance.
+
+## 18. Implementation sequence
+
+```text
+implement locally
+→ deterministic validation
+→ bounded diagnostics if required
+→ harness maintenance if required
+→ freeze acceptance candidate
+→ one acceptance transaction
+→ evidence
+→ independent audit
+→ exact-head review
+```
+
+## 19. Review disposition and approved identity
+
+```yaml
+adversarial_review_path: <PATH>
+adversarial_review_result: DESIGN_CLEAR | DESIGN_REPAIR_REQUIRED
+card_path: <PATH>
+card_git_blob: <BLOB>
+card_sha256: <SHA-256>
+approval_receipt_path: <PATH>
 implementation_authorized: false
 ```
 
-Implementation becomes authorized only when a separate accepted approval receipt and `CURRENT_SLICE.md` reference this exact revision.
-
-## 20. Implementation handoff
-
-The implementation prompt must include:
-
-- exact accepted main commit/tree;
-- exact design card path and identity;
-- exact approval receipt;
-- one primary claim;
-- exact fixture;
-- exact changed paths and external mutation;
-- acceptance and negative proof matrix;
-- material-discovery stop law;
-- explicit nonclaims;
-- PR and merge posture.
-
-Do not hand the implementation agent the whole dossier as its task contract.
+The card does not approve itself.
