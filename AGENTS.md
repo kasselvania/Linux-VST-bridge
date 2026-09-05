@@ -6,13 +6,17 @@ Build a managed Windows-audio compatibility platform for native Linux DAWs. A su
 
 The Steam Deck, SteamOS, Bitwig, AGain, Serum, and Kontakt are fixtures. They do not define the universal product boundary.
 
-## Completed AP0 ruling — Offline AGain sample processing
+## Active AP1 ruling — Native Linux / Windows audio round trip
 
-AP0 is accepted through PR #49 after exact-head technical-lead review. PC0 remains an accepted prerequisite. `CURRENT_SLICE.md` owns current status, the bounded accepted claim and the next proposed product direction.
+AP0 is accepted through PR #49; PC0 remains accepted. Under the operator's request to prepare the next audio-bearing crossing, the technical lead selects and authorizes **AP1** on `codex/ap1-linux-windows-audio-roundtrip`, from `f285560c05f2eedf59ddce91c4f0e1d917cf775f`. Issue #50 tracks it. `CURRENT_SLICE.md` owns the selected transport, ownership/failure contract, required proof and task limits.
 
-The AP0 work order authorized implementation, necessary host builds, scoped diagnostics and fresh acceptance in one task. That task is now complete. Its original instructions and spending limits remain in Git history and the retained AP0 records; they do not authorize another build, workload, candidate or successor after this merge. Preserve the immutable evidence and all cumulative failed/diagnostic histories. Do not rerun successful work for status closure.
+One engineer owns implementation, ordinary local testing, necessary native Linux and Windows host builds, artifact delivery, same-host mapped audio/loopback control, scoped diagnostics, mechanical source/plan/candidate binding and fresh device verification before opening one implementation PR. Final technical-lead review/merge remains separate. No additional selection, design dossier, intermediate approval or process-only PR is required inside the recorded contract. The engineer chooses private layout and serialization details, not a different claim or ownership model.
 
-No implementation successor is active. Read-only investigation and review remain permitted; a subsequent scoped work order must define any new audio transport or processing capability. Preserve process containment, useful failure retention, private-state protection and honest evidence classification.
+This ruling supersedes historical restrictions that would forbid the AP1 Rust caller, local IPC/mapping, changed host build, current-branch delivery or narrow supporting runner changes. The new loopback endpoint is ephemeral, authenticated and local only; this is no external network authority. Reuse the accepted SDK/runtime/AGain and the working runner, rather than creating another orchestration framework or importing old authority. Necessary producer branch/input-roster and classified-adapter changes are included; backend readiness must be real before execution.
+
+Use AP1-specific scoped receipts through the existing command after local tests, with exact computed source/binary/runtime bindings. Explicit within-contract source/artifact/plan revisions are delegated without resetting task totals. The default CLI guard remains closed for unspecified workloads; it does not prohibit this authorized task. Follow CURRENT_SLICE.md's cumulative allowances and stop conditions. Routine in-scope repair needs no renewed operator permission.
+
+Preserve PC0/AP0 behavior, immutable evidence and all historical budgets/unknowns. No diagnostic promotion or duplicate workload after lost acknowledgement. AP0 remains the accepted frontier until AP1 passes final review and merges. Prior AP0 completion directions are history, not the active assignment.
 
 ## Authority order
 
