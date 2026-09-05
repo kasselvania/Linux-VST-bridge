@@ -61,6 +61,37 @@ class AP4ExecutionTests(AP2ExecutionTests):
   result=self.execute_cli(['--preflight-only']);self.assertEqual(result['state'],'ready');self.assertEqual(self.scan.call_count,0)
 
 
+ def test_ap4_gui_note_arrives_after_clean_caller_exit(self):
+  self.gui_note_case('delayed')
+ def test_ap4_gui_note_timeout_preserves_native_records(self):
+  self.gui_note_case('missing')
+ def test_ap4_failed_gui_does_not_wait_for_observation(self):
+  self.gui_note_case('failed')
+ def gui_note_case(self,case):
+  profile=self.profile.previous;session=self.base/('gui-'+case);session.mkdir()
+  env=types.SimpleNamespace(session=session,run_id='f'*32)
+  root=self.base/'gui-fixture';root.mkdir();project=root/'test.bwproject';project.write_bytes(b'private-test-fixture')
+  native=self.base/'native-gui';relative='AGainQueuedBridge.vst3/Contents/x86_64-linux/AGainQueuedBridge.so'
+  for path in (root/'plugins'/relative,native/relative):path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'exact-native')
+  records=[dict(event='ap4_native_state',operation='get',gain=.25),dict(event='ap3_proxy_lifecycle',clean=case!='failed',blocks=4)]
+  report=session/'ap3-gui-report.jsonl';report.write_text(''.join(json.dumps(r)+'\n' for r in records))
+  note=dict(event='ap4_bitwig_ui',run_id=env.run_id,case='bitwig_first',playback=True,saved=True,quit=True,responsive=True,moonlight_control=True)
+  ticks=[0.];sleeps=[]
+  def sleep(seconds):
+   sleeps.append(seconds);ticks[0]+=30.
+   if case=='delayed':(session/'bitwig_first-ui.json').write_text(json.dumps(note)+'\n')
+  def completed_caller(*args,**kwargs):
+   # Effectful caller has exited; exercise the actual GUI report callback.
+   raw=kwargs['caller_report']();return [json.loads(line) for line in raw.splitlines()]
+  def command(args,**kwargs):
+   return '8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231\n' if args[0]=='flatpak' else ''
+  with patch.object(profile.subprocess,'check_output',side_effect=command),patch.object(profile.inherited,'controlled_environment',return_value={}),patch.object(profile,'progress'),patch.object(profile,'real_home',return_value=self.base),patch.object(profile.companion,'supervise',side_effect=completed_caller),patch.object(profile.time,'monotonic',side_effect=lambda:ticks[0]),patch.object(profile.time,'sleep',side_effect=sleep):
+   result=profile.gui(env,mode='local',checkpoint=lambda *v:None,profile=self.profile,label='bitwig_first',root=root,project=project,native=native,ui_note_wait_seconds=60)
+  self.assertEqual(result[:2],records)
+  self.assertEqual(result[2:],[note] if case=='delayed' else [])
+  self.assertEqual(len(sleeps),{'delayed':1,'missing':2,'failed':0}[case])
+  self.assertTrue(report.is_file());self.assertTrue(project.is_file())
+
  def test_ap4_batch_stops_before_next_instance_when_normalization_fails(self):
   env=types.SimpleNamespace(session=self.base/'ap4-batch',run_id='f'*32);env.session.mkdir()
   clean={'owned_descendants_zero':True,'process_group_empty':True};saved=[]
