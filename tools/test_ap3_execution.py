@@ -71,6 +71,17 @@ class AP3ExecutionTests(AP2ExecutionTests):
    result=self.batch_supervise(env,mode=self.profile.MODE,profile=self.profile,checkpoint=lambda *v:None)
   self.assertEqual(run.call_count,1);gui.assert_not_called();self.assertFalse(result['cleanup']['process_group_empty']);self.assertFalse(list(env.session.iterdir()))
 
+ def test_ap3_batch_exception_preserves_final_companion_containment(self):
+  env=types.SimpleNamespace(session=self.base/'batch',run_id='f'*32);env.session.mkdir()
+  clean={'owned_descendants_zero':True,'process_group_empty':True};saved=[]
+  def failed(*args,**kwargs):
+   kwargs['checkpoint']('native_caller_retained',{'classification':'native_setup_failed','cleanup':clean,'caller':{'records':[]}},RuntimeError('setup timeout'))
+   raise RuntimeError('setup timeout')
+  with patch.object(self.profile,'core',side_effect=failed),patch.object(self.profile,'gui') as gui,patch.object(self.profile,'progress'):
+   with self.assertRaisesRegex(RuntimeError,'setup timeout'):self.batch_supervise(env,mode=self.profile.MODE,profile=self.profile,checkpoint=lambda *v:saved.append(v))
+  gui.assert_not_called();self.assertEqual(saved[-1][1]['cleanup'],clean)
+  self.assertEqual(saved[-1][1]['current']['classification'],'native_setup_failed')
+
  def test_ap3_companion_retains_owned_descendants_and_report_on_failure(self):
   companion=self.profile.companion;environment=types.SimpleNamespace(session=self.base/'companion');environment.session.mkdir();(environment.session/'ap1.control').write_bytes(b'local substitute')
   process=types.SimpleNamespace(pid=123,poll=lambda:0)

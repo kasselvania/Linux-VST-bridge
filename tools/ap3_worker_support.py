@@ -112,7 +112,10 @@ def supervise(environment,*,mode,checkpoint,profile):
   progress(environment,label)
   outer_checkpoint=checkpoint
   def capture(stage,available=None,error=None):
-   outer_checkpoint(stage,{'segments':segments,'current':available,'cleanup':{'owned_descendants_zero':False,'process_group_empty':False}} if available else None,error)
+   # Completed segments were admitted and contained before continuing.
+   # The companion's final checkpoint covers BOTH its caller and Windows.
+   cleanup=available.get('cleanup',{}) if available else {}
+   outer_checkpoint(stage,{'segments':segments,'current':available,'cleanup':{k:cleanup.get(k) is True for k in clean}} if available else None,error)
   # Existing companion and Windows supervisor own every process and timeout.
   original=checkpoint;checkpoint=capture
   try:observed=run()
