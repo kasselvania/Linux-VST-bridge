@@ -881,7 +881,7 @@ def build_dx0_workflow(source_commit: str, sdk: pathlib.Path,
                        transaction: pathlib.Path, output: pathlib.Path) -> dict[str, Any]:
     source, build_input, workflow_blob = dx0_source_identity(source_commit)
     build_input_sha = dx0_identity_sha256(build_input)
-    call_surface = scanner_component_call_surface(repo_root(), ap0=True)
+    call_surface = scanner_component_call_surface(repo_root(), ap0=True, ap2=True)
     sdk_identity = verify_sdk(sdk)
     sdk_identity["checkout_regression"] = eol_checkout_regression()
     observed, cl_bv = toolchain_identity()

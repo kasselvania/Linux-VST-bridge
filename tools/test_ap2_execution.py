@@ -76,6 +76,16 @@ class AP2ExecutionTests(AP1ExecutionTests):
   self.assertFalse(self.rendered);self.assertEqual(self.retire.call_count,1)
   doc=self.transaction()['observation']['payload']['document'];available=doc['summary']['troubleshooting']['observation']
   self.assertEqual(available['caller']['records'][1]['output_bits'],host_records()[1]['output_bits']);self.assertEqual(len(available['activations']),2)
+ def test_ap2_build_surface_is_explicit_and_still_rejects_state_calls(self):
+  import tempfile,shutil
+  spec=importlib.util.spec_from_file_location('ap2_build_verify',TOOLS/'wf0-factory-census/verify.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  root=TOOLS.parent
+  self.assertEqual(module.scanner_component_call_surface(root,ap0=True,ap2=True)['closed_plugin_operation_count'],19)
+  with self.assertRaises(Exception):module.scanner_component_call_surface(root,ap0=True)
+  with tempfile.TemporaryDirectory() as temp:
+   target=pathlib.Path(temp);shutil.copytree(root/'windows-factory-probe',target/'windows-factory-probe')
+   path=target/'windows-factory-probe/source/main.cpp';path.write_text(path.read_text()+'\ncomponent->setState(nullptr);\n')
+   with self.assertRaises(Exception):module.scanner_component_call_surface(target,ap0=True,ap2=True)
  def test_ap2_host_output_corruption_rejected(self):
   records=host_records();records[1]['output_bits'][0][0]=0
   with self.assertRaises(ValueError):contract.compare(records)
