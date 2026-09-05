@@ -59,7 +59,7 @@ def progress(environment,phase):
 
 def await_stream(environment):
  progress(environment,'await_stream_active')
- gate=environment.session/'stream-active.json';end=time.monotonic()+240
+ gate=environment.session/'stream-active.json';end=time.monotonic()+120
  while not gate.exists():
   if time.monotonic()>end:raise RuntimeError('Moonlight stream-active confirmation timeout')
   time.sleep(.1)
@@ -99,7 +99,7 @@ def gui(environment,*,mode,checkpoint,profile,label):
   return raw
  progress(environment,label)
  return companion.supervise(environment,mode=mode,checkpoint=checkpoint,profile=profile,session=session,
-  caller_command=command,caller_env=env,ready_seconds=300,exit_seconds=60,caller_report=retained_report,track_descendants=True,
+  caller_command=command,caller_env=env,ready_seconds=180,exit_seconds=30,caller_report=retained_report,track_descendants=True,
   accepted_events={'ap3_proxy_stats','ap3_proxy_lifecycle','ap3_bitwig_ui'})
 
 def supervise(environment,*,mode,checkpoint,profile):
