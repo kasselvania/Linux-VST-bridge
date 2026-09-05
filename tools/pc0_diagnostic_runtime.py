@@ -63,7 +63,7 @@ def parse_vdf(raw):
         raise RuntimeError('Steam manifest root differs')
     return result['AppState']
 
-def application(raw, appid, *, applications=APPS):
+def application(raw, appid, *, applications=APPS, allow_completed_update=False):
     app=parse_vdf(raw)
     build,directory,depot,manifest,size=applications[appid]
     known={'appid','universe','name','StateFlags','installdir','SizeOnDisk','buildid',
@@ -82,8 +82,16 @@ def application(raw, appid, *, applications=APPS):
     for k in BOOKKEEPING:
         if k in app and (not isinstance(app[k],str) or re.fullmatch(r'[0-9]{1,20}',app[k]) is None):
             raise RuntimeError('Steam bookkeeping value is not a bounded integer')
+    # Steam retains completed transfer counters. AP1 explicitly selects the
+    # installed update; historical callers retain the original zero-counter rule.
+    completed = (allow_completed_update and app['StateFlags']=='4'
+        and app.get('TargetBuildID')==build and app.get('ScheduledAutoUpdate')=='0'
+        and app.get('UpdateResult')=='0' and app.get('StagingSize')=='0'
+        and all(k in app for k in ('BytesToDownload','BytesDownloaded','BytesToStage','BytesStaged'))
+        and app['BytesDownloaded']==app['BytesToDownload']
+        and app['BytesStaged']==app['BytesToStage'])
     for k in ('BytesDownloaded','BytesStaged','BytesToStage','StagingSize','UpdateResult'):
-        if app.get(k,'0')!='0': raise RuntimeError('Steam update/staging activity requires resolution')
+        if app.get(k,'0')!='0' and not completed: raise RuntimeError('Steam update/staging activity requires resolution')
     return {'selection':expected, 'bookkeeping':{
         'state_flags':app['StateFlags'], 'target_build':app.get('TargetBuildID'),
         'scheduled_update':app.get('ScheduledAutoUpdate'),
@@ -96,7 +104,7 @@ def lock_api():
         raise RuntimeError('Historical runtime contract differs')
     return api
 
-def verify_diagnostic_runner(*, baseline=None, applications=APPS):
+def verify_diagnostic_runner(*, baseline=None, applications=APPS, allow_completed_update=False):
     contract_sha256=BASELINE if baseline is None else digest(baseline)
     api=lock_api(); baseline=api['expected_lock_manifest']() if baseline is None else baseline
     if [r['safe_path'] for r in baseline['files']] != [r['safe_path'] for r in api['expected_lock_manifest']()['files']]:
@@ -114,7 +122,7 @@ def verify_diagnostic_runner(*, baseline=None, applications=APPS):
             if info.st_size>16384: raise RuntimeError('Steam manifest exceeds diagnostic bound')
             raw=path.read_bytes()
             appid=spec.relative.removeprefix('appmanifest_').removesuffix('.acf')
-            apps[appid]=application(raw,appid,applications=applications)
+            apps[appid]=application(raw,appid,applications=applications,allow_completed_update=allow_completed_update)
             record['size']=len(raw);record['sha256']=hashlib.sha256(raw).hexdigest()
         elif info.st_size!=record['size'] or api['sha256_file'](path)!=record['sha256']:
             raise RuntimeError('Deployed runtime input differs: '+record['safe_path'])

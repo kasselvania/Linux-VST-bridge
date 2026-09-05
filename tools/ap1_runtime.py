@@ -73,7 +73,7 @@ def declared_inputs():
     return runtime.declared_runtime_inputs(baseline=baseline(), applications=APPS)
 
 def verify_runtime():
-    return runtime.verify_diagnostic_runner(baseline=baseline(), applications=APPS)
+    return runtime.verify_diagnostic_runner(baseline=baseline(), applications=APPS, allow_completed_update=True)
 
 def validate_observation(value):
     return runtime.validate_runtime_observation(value, baseline=baseline(), applications=APPS)

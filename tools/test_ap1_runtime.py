@@ -44,6 +44,22 @@ class AP1RuntimeTests(unittest.TestCase):
             changed={**value,key:bad}
             with self.subTest(key=key),self.assertRaises(RuntimeError):old.application(vdf({'AppState':changed}),'4628710',applications=new.APPS)
 
+    def test_completed_update_counters_are_explicit_and_partial_states_rejected(self):
+        app=observation()['applications']['4628710']['selection']
+        app.update(name='Proton 11.0',StateFlags='4',UpdateResult='0',StagingSize='0',
+            TargetBuildID='25118279',ScheduledAutoUpdate='0',BytesToDownload='160',
+            BytesDownloaded='160',BytesToStage='747498077',BytesStaged='747498077')
+        raw=vdf({'AppState':app})
+        with self.assertRaises(RuntimeError):old.application(raw,'4628710',applications=new.APPS)
+        self.assertEqual(old.application(raw,'4628710',applications=new.APPS,allow_completed_update=True)['selection']['buildid'],'25118279')
+        for key,bad in [('BytesDownloaded','159'),('BytesStaged','747498076'),('StagingSize','1'),
+                        ('UpdateResult','1'),('StateFlags','1028'),('StateFlags','6'),
+                        ('TargetBuildID','25118280'),('ScheduledAutoUpdate','1')]:
+            with self.subTest(key=key),self.assertRaises(RuntimeError):
+                old.application(vdf({'AppState':{**app,key:bad}}),'4628710',applications=new.APPS,allow_completed_update=True)
+        missing=dict(app);del missing['BytesStaged']
+        with self.assertRaises(RuntimeError):old.application(vdf({'AppState':missing}),'4628710',applications=new.APPS,allow_completed_update=True)
+
     def test_actual_file_verifier_uses_explicit_selection_and_detects_drift(self):
         with tempfile.TemporaryDirectory() as temp:
             root=pathlib.Path(temp);baseline=new.baseline();legacy=copy.deepcopy(baseline);specs=[]
