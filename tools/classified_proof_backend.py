@@ -50,6 +50,8 @@ FAILURE_MAX_BYTES = 64 * 1024
 STATE_MAX_BYTES = 512 * 1024
 PLAN_MAX_BYTES = 32 * 1024
 RESULT_MAX_BYTES = 256 * 1024
+# The envelope retains both the independently bounded observation and admission.
+RESULT_ENVELOPE_MAX_BYTES = 512 * 1024
 EFFECT_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")
 CLASSIFICATION = re.compile(r"[A-Z][A-Z0-9_]{0,127}")
 
@@ -1159,7 +1161,7 @@ class ClassifiedProofBackend:
             return self._receipt(transaction, budget)
 
         result = self._result_record(transaction, observation, admitted)
-        result_sha256 = _write_object(paths.result, result, maximum=RESULT_MAX_BYTES)
+        result_sha256 = _write_object(paths.result, result, maximum=RESULT_ENVELOPE_MAX_BYTES)
         transaction = self._transition(
             transaction,
             TransactionState.RESULT_RETAINED,
@@ -1223,7 +1225,7 @@ class ClassifiedProofBackend:
         paths: _Paths,
         transaction: Mapping[str, Any],
     ) -> dict[str, Any]:
-        result = _read_object(paths.result, maximum=RESULT_MAX_BYTES)
+        result = _read_object(paths.result, maximum=RESULT_ENVELOPE_MAX_BYTES)
         raw = canonical_json(result)
         if sha256_bytes(raw) != transaction["result_sha256"]:
             raise DurableStateError("retained result digest differs")

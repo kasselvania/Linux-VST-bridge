@@ -1,4 +1,6 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
+mod queue;
+mod queued;
 use ap1_native_client::{
     endpoint::{receive_version, send_version, Prepared},
     mapping::{barrier, Mapping},
@@ -15,13 +17,15 @@ use std::{
         Mutex,
     },
 };
-const MINOR: u64 = 2;
 struct Session {
     mapping: Option<Mapping>,
     socket: TcpStream,
     state: ClientState,
     phase: u16,
     max: usize,
+    minor: u64,
+    epoch: u64,
+    position: u64,
 }
 // Mapping has no escaping references; the registry serializes every access.
 unsafe impl Send for Session {}
@@ -60,6 +64,31 @@ fn binding() -> io::Result<(PathBuf, [u8; 16])> {
     Ok((path, session))
 }
 impl Session {
+    fn open_at(path: &std::path::Path, id: [u8; 16], max: usize, minor: u64) -> io::Result<Self> {
+        let prepared = Prepared::create(path, id)?;
+        let (mapping, socket) = prepared.accept(minor)?;
+        let mut s = Self {
+            mapping: Some(mapping),
+            socket,
+            state: ClientState {
+                session: id,
+                next: 1,
+                slot: Slot::Writable,
+            },
+            phase: 8,
+            max,
+            minor,
+            epoch: 0,
+            position: 0,
+        };
+        let mut payload = (max as u32).to_le_bytes().to_vec();
+        if minor == 3 {
+            payload.extend_from_slice(&0u32.to_le_bytes());
+        } // SDK kRealtime
+        s.exchange(8, payload)?;
+        s.phase = 9;
+        Ok(s)
+    }
     fn exchange(&mut self, kind: u16, payload: Vec<u8>) -> io::Result<Frame> {
         need(self.phase != ERROR, "failed session")?;
         let f = Frame {
@@ -68,14 +97,18 @@ impl Session {
             sequence: self.state.next,
             payload,
         };
-        let result = send_version(&mut self.socket, &f, 5, MINOR)
-            .and_then(|_| receive_version(&mut self.socket, 10, MINOR));
+        let result = send_version(&mut self.socket, &f, 5, self.minor)
+            .and_then(|_| receive_version(&mut self.socket, 10, self.minor));
         match result {
             Ok(reply)
                 if reply.kind == kind + 1
                     && reply.session == f.session
                     && reply.sequence == f.sequence
-                    && reply.payload.is_empty() =>
+                    && (reply.payload.is_empty()
+                        && !(self.minor == 3 && matches!(kind, 10 | 12))
+                        || self.minor == 3
+                            && matches!(kind, 10 | 12)
+                            && reply.payload == f.payload) =>
             {
                 Ok(reply)
             }
@@ -100,6 +133,39 @@ impl Session {
         self.phase = op + 1;
         Ok(())
     }
+    fn transition_epoch(&mut self, op: u16, epoch: u64) -> io::Result<()> {
+        need(
+            self.minor == 3
+                && match op {
+                    10 => (self.phase == 9 || self.phase == 13) && epoch == self.epoch + 1,
+                    12 => self.phase == 11 && epoch == self.epoch,
+                    _ => false,
+                },
+            "queued lifecycle epoch/order",
+        )?;
+        self.exchange(op, epoch.to_le_bytes().to_vec())?;
+        if op == 10 {
+            self.epoch = epoch;
+            self.position = 0;
+        }
+        self.phase = op + 1;
+        Ok(())
+    }
+    fn process_positioned(
+        &mut self,
+        n: usize,
+        gain: f64,
+        silence: u64,
+        input: [&[f32]; 2],
+        epoch: u64,
+        position: u64,
+    ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+        need(
+            self.minor == 3 && epoch == self.epoch && position == self.position,
+            "queued audio epoch/position",
+        )?;
+        self.process(n, gain, silence, input)
+    }
     fn process(
         &mut self,
         n: usize,
@@ -110,7 +176,7 @@ impl Session {
         need(
             self.phase == 11
                 && self.state.slot == Slot::Writable
-                && self.state.next <= 64
+                && (self.minor == 3 || self.state.next <= 64)
                 && n > 0
                 && n <= self.max
                 && silence <= 3,
@@ -139,9 +205,28 @@ impl Session {
                 map.write_plane(OUTPUT, ch, &poison)?;
             }
             barrier();
-            let request = self.state.process(n, gain, silence as u32)?;
-            send_version(&mut self.socket, &request, 5, MINOR)?;
-            let reply = receive_version(&mut self.socket, 5, MINOR)?;
+            let mut request = if self.minor == 3 {
+                self.state.process_sustained(n, gain, silence as u32)?
+            } else {
+                self.state.process(n, gain, silence as u32)?
+            };
+            if self.minor == 3 {
+                request.payload.extend_from_slice(&self.epoch.to_le_bytes());
+                request
+                    .payload
+                    .extend_from_slice(&self.position.to_le_bytes());
+            }
+            send_version(&mut self.socket, &request, 5, self.minor)?;
+            let mut reply = receive_version(&mut self.socket, 5, self.minor)?;
+            if self.minor == 3 {
+                need(
+                    reply.payload.len() == 32
+                        && get(&reply.payload[16..24]) == self.epoch
+                        && get(&reply.payload[24..32]) == self.position,
+                    "Done epoch/position differs",
+                )?;
+                reply.payload.truncate(16);
+            }
             let flags = self.state.done(&reply)?;
             barrier();
             let output = [map.plane(OUTPUT, 0)?, map.plane(OUTPUT, 1)?];
@@ -162,6 +247,7 @@ impl Session {
                     )?;
                 }
             }
+            self.position += n as u64;
             Ok((output, flags))
         })();
         if result.is_err() {
@@ -173,8 +259,8 @@ impl Session {
     fn close(mut self) -> io::Result<()> {
         let result = if self.phase == 15 {
             let f = self.state.close()?;
-            send_version(&mut self.socket, &f, 5, MINOR)
-                .and_then(|_| receive_version(&mut self.socket, 10, MINOR))
+            send_version(&mut self.socket, &f, 5, self.minor)
+                .and_then(|_| receive_version(&mut self.socket, 10, self.minor))
                 .and_then(|f| self.state.closed(&f))
         } else {
             Err(invalid("unclean session close"))
@@ -208,22 +294,7 @@ pub unsafe extern "C" fn ap2_open(max: u32, handle: *mut u64) -> i32 {
         }
         let result = (|| {
             let (path, id) = binding()?;
-            let prepared = Prepared::create(&path, id)?;
-            let (mapping, socket) = prepared.accept(MINOR)?;
-            let mut s = Session {
-                mapping: Some(mapping),
-                socket,
-                state: ClientState {
-                    session: id,
-                    next: 1,
-                    slot: Slot::Writable,
-                },
-                phase: 8,
-                max: max as usize,
-            };
-            s.exchange(8, max.to_le_bytes().to_vec())?;
-            s.phase = 9;
-            Ok::<_, io::Error>(s)
+            Session::open_at(&path, id, max as usize, 2)
         })();
         match result {
             Ok(s) => {

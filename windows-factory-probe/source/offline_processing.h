@@ -11,6 +11,10 @@ class ExternalProcessing {
 public:
     virtual ~ExternalProcessing() = default;
     virtual bool hosted() const { return false; }
+    virtual bool sustained() const { return false; }
+    // Owner-thread selection after a stopped interval; the chosen frame stays
+    // pending until the corresponding lifecycle_request consumes it.
+    virtual uint16_t next_transition() { return 14; }
     virtual uint32_t lifecycle_request(uint16_t) { return 256; }
     virtual void lifecycle_ack(uint16_t) {}
     virtual void ready() = 0;

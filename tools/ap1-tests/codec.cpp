@@ -99,6 +99,29 @@ int main(int argc, char** argv) {
     bool incompatible=false;
     try{decode(successor);}catch(...){incompatible=true;}
     require(incompatible,"AP2 must not be admitted as AP1");
+    Timeline timeline;
+    Frame start{Start,frame.session,1,std::vector<uint8_t>(8)};
+    put(start.payload.data(),1,8);timeline.start(start);
+    Sequence sustained;sustained.session=frame.session;
+    for(uint64_t i=1;i<=4096;++i){
+      auto f=frame;f.sequence=i;f.payload.resize(48);
+      put(f.payload.data()+32,1,8);put(f.payload.data()+40,(i-1)*63,8);
+      require(decode(encode(f,3),3).payload==f.payload,"minor 3 framing");
+      auto r=sustained.begin(timeline.request_frame(f),UINT64_MAX-1);
+      auto done=std::vector<uint8_t>(16);timeline.result(done,r.frames);
+      require(get(done.data()+16,8)==1&&get(done.data()+24,8)==(i-1)*63,"completion timeline");
+      sustained.complete();
+    }
+    Frame stop{Stop,frame.session,4097,start.payload};timeline.stop(stop);
+    put(start.payload.data(),2,8);timeline.start(start);
+    require(timeline.position==0&&timeline.epoch==2,"restart timeline reset");
+    auto stale=frame;stale.payload.resize(48);put(stale.payload.data()+32,1,8);
+    bool stale_rejected=false;try{timeline.request_frame(stale);}catch(...){stale_rejected=true;}
+    require(stale_rejected,"old activation accepted");
+    Sequence bounded;bounded.session=frame.session;bounded.next=65;
+    auto excess=frame;excess.sequence=65;
+    bool bounded_rejected=false;try{bounded.begin(excess);}catch(...){bounded_rejected=true;}
+    require(bounded_rejected,"legacy call ceiling changed");
     for (auto value : wire) {
         std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(value);
     }

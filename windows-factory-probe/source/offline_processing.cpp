@@ -7,6 +7,8 @@
 #include <bit>
 #include <thread>
 #include <string>
+#include <exception>
+#include <stdexcept>
 
 namespace linux_vst_bridge::wf0 {
 namespace {
@@ -38,6 +40,7 @@ std::string bits(const std::array<float, capacity + 2>& values) {
 OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& processor,
                                     HostCallbackSink& callbacks, EventWriter& events, ExternalProcessing* external) {
     const bool hosted=external&&external->hosted();
+    const bool sustained=external&&external->sustained();
     uint32_t maximum=external?capacity:frames;
     const auto owner = std::this_thread::get_id();
     std::array<Block,3> blocks;
@@ -65,7 +68,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         block.output_bus.channelBuffers32=block.out.data();
         block.input_bus.silenceFlags=b==2?3:0;
         block.output_bus.silenceFlags=0;
-        block.data.processMode=kOffline;block.data.symbolicSampleSize=kSample32;
+        block.data.processMode=sustained?kRealtime:kOffline;block.data.symbolicSampleSize=kSample32;
         block.data.numSamples=frames;block.data.numInputs=block.data.numOutputs=1;
         block.data.inputs=&block.input_bus;block.data.outputs=&block.output_bus;
         block.data.inputParameterChanges=&block.parameters;
@@ -93,7 +96,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     }
     SpeakerArrangement input=SpeakerArr::kStereo, output=SpeakerArr::kStereo;
     if (!call("set_bus_arrangements",[&]{return processor.setBusArrangements(&input,1,&output,1);})) return {false,true};
-    ProcessSetup setup{};setup.processMode=kOffline;setup.symbolicSampleSize=kSample32;
+    ProcessSetup setup{};setup.processMode=sustained?kRealtime:kOffline;setup.symbolicSampleSize=kSample32;
     setup.maxSamplesPerBlock=static_cast<int32>(maximum);setup.sampleRate=48000.;
     if (!call("setup_processing",[&]{return processor.setupProcessing(setup);})) return {false,true};
     if (!call("activate_audio_input",[&]{return component.activateBus(kAudio,kInput,0,true);})) return {false,true};
@@ -102,6 +105,11 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     active=call("set_active_true",[&]{return component.setActive(true);});
     if (!active) return {false,false};
     if(hosted) external->lifecycle_ack(9);
+    uint64_t processed=0,intervals=0;
+    bool restart=false;
+    std::exception_ptr primary_error;
+    do {
+    joined=false;restart=false;
     try {
         std::thread worker([&] {
             // No owner-thread call overlaps this thread. Logging surrounds calls;
@@ -114,7 +122,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                 stopped=false;
                 started=call("set_processing_true",[&]{return processor.setProcessing(true);},true);
                 if (started && external) {if(hosted) external->lifecycle_ack(11);else external->ready();}
-                if (started) for(int b=0;b<(external?65:3);++b) {
+                if (started) for(uint64_t b=0;sustained||b<uint64_t(external?65:3);++b) {
                     auto& block=blocks[external?0:b];
                     if (external) {
                         for(int ch=0;ch<2;++ch) {
@@ -133,11 +141,12 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         block.parameters.addParameterData(2,parameter)->addPoint(0,0.,point);
                     }
                     block.worker_thread=std::this_thread::get_id()!=owner;
-                    events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
+                    if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
                     block.result=processor.process(block.data);
-                    events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
+                    if(!sustained)events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
                         ",\"result\":"+std::to_string(block.result));
-                    if(block.result!=kResultOk) {ok=false;break;}
+                    if(block.result!=kResultOk) {ok=false;if(sustained)throw std::runtime_error("AGain process returned failure");break;}
+                    ++processed;
                     if(external) {
                         for(int ch=0;ch<2;++ch) {
                             if(block.input[ch]!=block.input_before[ch] ||
@@ -148,23 +157,38 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                                 if(std::bit_cast<uint32>(block.output[ch][i])!=sentinel)
                                     throw std::runtime_error("AP1 unused private output modified");
                         }
-                        events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
+                        if(!sustained)events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
                     }
                     if(external) external->done(block.out[0],block.out[1],block.output_bus.silenceFlags);
                 }
-            } catch (...) {worker_exception=true;ok=false;}
+            } catch (...) {primary_error=std::current_exception();worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after
             // a failed process result. A hang is owned by the outer timeout.
             try {stopped=call("set_processing_false",[&]{return processor.setProcessing(false);},true);}
-            catch (...) {stopped=false;ok=false;}
+            catch (...) {if(!primary_error)primary_error=std::current_exception();stopped=false;ok=false;}
         });
         worker.join();joined=true;
-    } catch (...) {ok=false;}
+    } catch (...) {if(!primary_error)primary_error=std::current_exception();ok=false;}
     events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
         ",\"processing_stopped\":"+(stopped?"true":"false")+
         ",\"worker_exception\":"+(worker_exception?"true":"false"));
     if (!stopped) return {false,false};
-    if(hosted&&ok) {external->lifecycle_ack(13);external->lifecycle_request(14);}
+    if(hosted&&ok) {
+        external->lifecycle_ack(13);
+        if(sustained)restart=external->next_transition()==10;
+        if(!restart)external->lifecycle_request(14);
+    }
+    ++intervals;
+    } while(restart&&ok);
+    if(sustained) {
+        events.lifecycle("ap3_processing_summary",",\"processed_blocks\":"+std::to_string(processed)+
+            ",\"intervals\":"+std::to_string(intervals)+",\"process_mode\":\"kRealtime\"");
+        if(primary_error)try{std::rethrow_exception(primary_error);}catch(const std::exception& e){
+            // Only our fixed explanatory errors are emitted, not paths or args.
+            // Windows/plugin exceptions retain their stage via the outer supervisor.
+            events.lifecycle("ap3_processing_error",",\"detail\":\""+std::string(e.what()).substr(0,160)+"\"");
+        }catch(...){events.lifecycle("ap3_processing_error",",\"detail\":\"non-standard processing exception\"");}
+    }
     active=!call("set_active_false",[&]{return component.setActive(false);});
     if (active) return {false,false};
     call("deactivate_audio_output",[&]{return component.activateBus(kAudio,kOutput,0,false);});

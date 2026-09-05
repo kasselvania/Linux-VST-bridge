@@ -1049,3 +1049,22 @@ def ap2_windows_build_input(commit, *, root=None):
     value["records"] = dx0_records(commit, AP2_WINDOWS_BUILD_PATHS, root=root)
     value["record_count"] = len(value["records"])
     return value
+
+
+AP3_BRANCH = "codex/ap3-sustained-audio-and-remote-desktop"
+AP3_REF = "refs/heads/" + AP3_BRANCH
+AP3_WINDOWS_BUILD_PATHS = AP2_WINDOWS_BUILD_PATHS
+
+def ap3_complete_source(commit, *, root=None):
+    repository = root or repo_root()
+    command(["git", "merge-base", "--is-ancestor",
+             "4952d99648052ecab9be7886277f9c918a00cf46", commit], cwd=repository)
+    value = dx0_complete_source(commit, root=repository, strict=False)
+    value["ref"] = AP3_REF
+    return value
+
+def ap3_windows_build_input(commit, *, root=None):
+    value = dx0_windows_build_input(commit, root=root)
+    value["records"] = dx0_records(commit, AP3_WINDOWS_BUILD_PATHS, root=root)
+    value["record_count"] = len(value["records"])
+    return value

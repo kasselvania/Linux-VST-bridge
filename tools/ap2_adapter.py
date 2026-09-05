@@ -35,7 +35,7 @@ class AP2Runtime(base.AP0Runtime):
   return {**super()._request(delegation,reservation),'native_client':self.native,'runtime_identity':runtime.identity(),'declared_runtime_inputs_sha256':runtime.declared_inputs()}
  def _local_preflight(self,delegation):
   super()._local_preflight(delegation)
-  record=verify_native(native_parent()/self.native['manifest_sha256'],self.native)
+  record=verify_native(native_parent()/self.native['manifest_sha256'],self.native,self.product=='AP3')
   inputs=[{'path':p,'git_blob':d._checked_text(self.ports.command.run(('git','rev-parse',delegation['source_commit']+':'+p),cwd=self.repository),'AP2 native source')} for p in PATHS]
   if record['records']!=inputs or digest(canonical(inputs))!=self.native['input_sha256']:raise d.AdapterBoundaryError('AP2 native source differs from retained build')
  def render(self,context,result):

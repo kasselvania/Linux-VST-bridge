@@ -53,8 +53,8 @@ impl Frame {
     }
     pub fn encode_version(&self, minor: u64) -> io::Result<Vec<u8>> {
         need(
-            (1..=if minor == 2 { 15 } else { 7 }).contains(&self.kind)
-                && (1..=2).contains(&minor)
+            (1..=if minor >= 2 { 15 } else { 7 }).contains(&self.kind)
+                && (1..=3).contains(&minor)
                 && self.payload.len() <= 4040,
             "frame kind/length",
         )?;
@@ -94,12 +94,12 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
             && get(&b[6..8]) == minor
-            && (1..=2).contains(&minor)
+            && (1..=3).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
     need(
-        (1..=if minor == 2 { 15 } else { 7 }).contains(&get(&b[8..10]))
+        (1..=if minor >= 2 { 15 } else { 7 }).contains(&get(&b[8..10]))
             && get(&b[32..40]) == 1
             && get(&b[48..56]) == 0,
         "kind/instance/parent",
@@ -174,9 +174,15 @@ pub struct ClientState {
 }
 impl ClientState {
     pub fn process(&mut self, frames: usize, gain: f64, silence: u32) -> io::Result<Frame> {
+        self.process_limited(frames, gain, silence, 64)
+    }
+    pub fn process_sustained(&mut self, frames: usize, gain: f64, silence: u32) -> io::Result<Frame> {
+        self.process_limited(frames, gain, silence, u64::MAX - 1)
+    }
+    fn process_limited(&mut self, frames: usize, gain: f64, silence: u32, limit: u64) -> io::Result<Frame> {
         need(
             self.slot == Slot::Writable
-                && self.next <= 64
+                && self.next <= limit
                 && (1..=CAP).contains(&frames)
                 && silence <= 3
                 && gain.is_finite()

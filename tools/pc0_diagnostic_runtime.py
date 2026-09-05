@@ -194,6 +194,13 @@ def sanitized_supervision_error(error):
 # protocol fields can enter a troubleshooting checkpoint; no process identities,
 # command lines, environment, factory account metadata or paths are retained.
 CHECKPOINT_KEYS = frozenset("""
+phase callback_rejections
+    segments current core stream_active bitwig_first bitwig_reopen requested_maximum requested_rate requested_mode frames blocks gain_min gain_max clean scan_load playback gain_changed muted stopped removed responsive moonlight_control
+
+frames_per_callback active_frames callback_median_ns callback_p99_ns callback_max_ns
+callback_overruns callback_effects input_fnv1a64 output_fnv1a64 zero_gain_blocks
+one_silent_blocks inplace_blocks zero_frame_flushes fault_observed fault first_position
+processed request_high result_high position epoch last_position processed_blocks intervals
 stderr_detail latency_samples tail_samples activations host_records seed_after_activation reopen audio_calls samples max_error comparison_ok in_place terminate_result references_released module_unloaded next_sequence kind case
 caller seed seed_chosen_after_ready mapping_witness mapping_count connection_count instance_count mapping_unmapped closed_received replays silent detail stage error transport_lifecycle
 rejected origin thread_role enclosing_attempt_sequence enclosing_operation reference_count output_null
@@ -219,10 +226,13 @@ release_factory_base exit_dll free_library source
 
 
 def checkpoint_projection(value, depth=0):
-    if depth > 10:
+    if depth > 14:
         return "<depth bound>"
     if isinstance(value, dict):
-        return {k: checkpoint_projection(v, depth+1) for k,v in value.items()
+        return {
+k: (sanitized_supervision_error(RuntimeError(v))[len("RuntimeError: "):]
+                    if k in {"detail", "stderr_detail"} and isinstance(v,str)
+                    else checkpoint_projection(v, depth+1)) for k,v in value.items()
                 if k in CHECKPOINT_KEYS}
     if isinstance(value, list):
         return [checkpoint_projection(v, depth+1) for v in value[-258:]]

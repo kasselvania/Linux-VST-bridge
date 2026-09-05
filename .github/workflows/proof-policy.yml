@@ -29,6 +29,9 @@ jobs:
           tools/pc0_acceptance_worker.py
           tools/pc0_acceptance_adapter.py
           tools/pc0_contract.py
+          tools/ap3_adapter.py
+          tools/ap3_contract.py
+          tools/ap3_worker_support.py
           tools/ap2_adapter.py
           tools/ap2_contract.py
           tools/ap2_native_artifact.py
@@ -71,6 +74,8 @@ jobs:
           tools/test_ap1_execution.py
           tools/test_ap1_client.py
           tools/test_ap2_execution.py
+          tools/test_ap3_contract.py
+          tools/test_ap3_execution.py
       - name: Check native codec and ownership
         run: |
           RUSTC="$(rustup which --toolchain stable rustc)" rustup run stable cargo test --manifest-path native-audio-client/Cargo.toml --locked --offline

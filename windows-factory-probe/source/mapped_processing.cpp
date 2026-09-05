@@ -27,7 +27,7 @@ struct Socket {
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
 }
 struct MappedSession::Impl {
- EventWriter& events;Socket socket;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;
+ EventWriter& events;Socket socket;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
  explicit Impl(EventWriter&e):events(e){}
  ~Impl(){if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
  void error(const std::exception& e){
@@ -37,8 +37,8 @@ struct MappedSession::Impl {
  }
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
-MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.hosted=hosted;x.socket.minor=hosted?2:1;
+MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained):impl_(std::make_unique<Impl>(events)){
+ auto& x=*impl_;x.hosted=hosted||sustained;x.sustained=sustained;x.socket.minor=sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
@@ -57,17 +57,26 @@ MappedSession::MappedSession(const std::wstring& directory,const std::string& se
 }
 MappedSession::~MappedSession()=default;
 bool MappedSession::hosted() const{return impl_->hosted;}
+bool MappedSession::sustained() const{return impl_->sustained;}
+uint16_t MappedSession::next_transition(){auto&x=*impl_;try{
+ require(x.sustained&&!x.has_pending&&!x.timeline.running&&!x.state.failed&&!x.state.outstanding,"next lifecycle ownership");
+ x.pending=x.socket.receive();x.has_pending=true;
+ require(x.pending.kind==Start||x.pending.kind==Deactivate,"restart or deactivate required");return x.pending.kind;
+ }catch(const std::exception&e){x.error(e);throw;}}
+
 uint32_t MappedSession::lifecycle_request(uint16_t kind){auto&x=*impl_;try{
- require(x.hosted&&!x.state.failed&&!x.state.outstanding,"lifecycle ownership");auto f=x.socket.receive();
+ require(x.hosted&&!x.state.failed&&!x.state.outstanding,"lifecycle ownership");auto f=x.has_pending?std::move(x.pending):x.socket.receive();x.has_pending=false;
  require(f.kind==kind&&f.session==x.state.session&&f.sequence==x.state.next,"lifecycle correlation");
- if(kind==Activate){require(f.payload.size()==4,"activation extent");auto n=get(f.payload.data(),4);require(n>=1&&n<=capacity,"activation maximum");return uint32_t(n);}
+ if(kind==Activate){require(f.payload.size()==(x.sustained?8:4),"activation extent");if(x.sustained)require(get(f.payload.data()+4,4)==0,"realtime mode required");auto n=get(f.payload.data(),4);require(n>=1&&n<=capacity,"activation maximum");return uint32_t(n);}
+ if(x.sustained&&kind==Start){x.timeline.start(f);return 0;}
  require(f.payload.empty(),"lifecycle payload");if(kind==Close){x.state.close(f);x.closed=true;}return 0;
  }catch(const std::exception&e){x.error(e);throw;}}
 void MappedSession::lifecycle_ack(uint16_t kind){auto&x=*impl_;require(!x.state.failed,"failed lifecycle");
- x.socket.write(x.frame(kind,x.state.next));x.events.lifecycle("ap2_lifecycle_ack",",\"kind\":"+std::to_string(kind)+",\"next_sequence\":"+std::to_string(x.state.next));}
+ std::vector<uint8_t> payload;if(x.sustained&&(kind==Started||kind==Stopped)){payload.resize(8);put(payload.data(),x.timeline.epoch,8);}
+ x.socket.write(x.frame(kind,x.state.next,payload));x.events.lifecycle("ap2_lifecycle_ack",",\"kind\":"+std::to_string(kind)+",\"next_sequence\":"+std::to_string(x.state.next));}
 
 void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
-bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{auto f=x.socket.receive();if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next&&f.payload.empty(),"stop ownership");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(f);barrier();
+bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{auto f=x.socket.receive();if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f):f,x.sustained?UINT64_MAX-1:64);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  out={int(x.current.frames),x.current.gain,x.current.silence};return true;
  }catch(const std::exception&e){x.error(e);throw;}}
@@ -75,10 +84,11 @@ void MappedSession::done(const float* left,const float* right,uint64_t silence) 
  auto& x=*impl_;
  try {
   // Retain the actual 64-bit SDK result before validating it, including failures.
-  x.events.lifecycle("ap1_output_silence",",\"block\":"+std::to_string(x.state.next-1)+
+  if(!x.sustained)x.events.lifecycle("ap1_output_silence",",\"block\":"+std::to_string(x.state.next-1)+
       ",\"input_silence_flags\":"+std::to_string(x.current.silence)+
       ",\"output_silence_flags\":"+std::to_string(silence));
   auto payload=processing_result(x.current,left,right,silence);
+  if(x.sustained)x.timeline.result(payload,x.current.frames);
   for(size_t ch=0;ch<2;++ch)
    std::memcpy(x.view+output_offset+ch*stride+4,ch?right:left,x.current.frames*4);
   barrier();

@@ -17,14 +17,14 @@ inline uint64_t get(const uint8_t* p,size_t n){uint64_t v=0;for(size_t i=0;i<n;+
 inline void put(uint8_t* p,uint64_t v,size_t n){for(size_t i=0;i<n;++i)p[i]=uint8_t(v>>(8*i));}
 struct Frame {uint16_t kind;std::array<uint8_t,16> session;uint64_t sequence;std::vector<uint8_t> payload;};
 inline std::vector<uint8_t> encode(const Frame& f,uint16_t minor=1){
- require(f.kind>=Hello&&f.kind<=(minor==2?Deactivated:Error)&&f.payload.size()<=4040,"frame kind/length");
+ require(minor>=1&&minor<=3&&f.kind>=Hello&&f.kind<=(minor>=2?Deactivated:Error)&&f.payload.size()<=4040,"frame kind/length");
  std::vector<uint8_t>b(header_bytes+f.payload.size());put(b.data(),magic,4);put(b.data()+4,1,2);put(b.data()+6,minor,2);
  put(b.data()+8,f.kind,2);put(b.data()+12,f.payload.size(),4);std::memcpy(b.data()+16,f.session.data(),16);
  put(b.data()+32,1,8);put(b.data()+40,f.sequence,8);if(!f.payload.empty())std::memcpy(b.data()+56,f.payload.data(),f.payload.size());return b;
 }
 inline size_t payload_length(const uint8_t* b,uint16_t minor=1){
- require(get(b,4)==magic&&get(b+4,2)==1&&get(b+6,2)==minor&&(minor==1||minor==2)&&get(b+10,2)==0,"protocol version/header");
- require(get(b+8,2)>=Hello&&get(b+8,2)<=uint16_t(minor==2?Deactivated:Error)&&get(b+32,8)==1&&get(b+48,8)==0,"protocol kind/instance/parent");
+ require(get(b,4)==magic&&get(b+4,2)==1&&get(b+6,2)==minor&&(minor>=1&&minor<=3)&&get(b+10,2)==0,"protocol version/header");
+ require(get(b+8,2)>=Hello&&get(b+8,2)<=uint16_t(minor>=2?Deactivated:Error)&&get(b+32,8)==1&&get(b+48,8)==0,"protocol kind/instance/parent");
  auto n=get(b+12,4);require(n<=4040,"frame length");return size_t(n);
 }
 inline Frame decode(const std::vector<uint8_t>& b,uint16_t minor=1){
@@ -61,11 +61,25 @@ inline std::vector<uint8_t> processing_result(const Request& request,
 }
 struct Sequence {
  std::array<uint8_t,16> session{};uint64_t next=1;bool outstanding=false,closed=false,failed=false;
- Request begin(const Frame& f){
-  try {require(!failed&&!closed&&!outstanding&&next<=64&&f.session==session&&f.sequence==next,"session/sequence/ownership");auto r=request(f);outstanding=true;return r;}
+ Request begin(const Frame& f,uint64_t limit=64){
+  try {require(!failed&&!closed&&!outstanding&&next<=limit&&next<UINT64_MAX&&f.session==session&&f.sequence==next,"session/sequence/ownership");auto r=request(f);outstanding=true;return r;}
   catch(...){failed=true;throw;}
  }
  void complete(){require(outstanding&&!failed,"completion ownership");outstanding=false;++next;}
  void close(const Frame& f){try{require(!failed&&!closed&&!outstanding&&f.session==session&&f.sequence==next&&f.kind==Close&&f.payload.empty(),"close ownership");closed=true;}catch(...){failed=true;throw;}}
+};
+// Minor 3 adds explicit activation epochs and sample positions. The existing
+// sequence still owns the one shared mapping until each exact Done arrives.
+struct Timeline {
+ uint64_t epoch=0,position=0;bool running=false;
+ void start(const Frame& f){require(!running&&f.payload.size()==8&&epoch<UINT64_MAX&&get(f.payload.data(),8)==epoch+1,"start epoch");++epoch;position=0;running=true;}
+ void stop(const Frame& f){require(running&&f.payload.size()==8&&get(f.payload.data(),8)==epoch,"stop epoch");running=false;}
+ Frame request_frame(const Frame& f) const {
+  require(running&&f.payload.size()==48&&get(f.payload.data()+32,8)==epoch&&get(f.payload.data()+40,8)==position,"process epoch/position");
+  auto base=f;base.payload.resize(32);return base;
+ }
+ void result(std::vector<uint8_t>& payload,uint32_t frames){
+  require(running&&frames<=capacity&&position<=UINT64_MAX-frames,"result timeline");payload.resize(32);put(payload.data()+16,epoch,8);put(payload.data()+24,position,8);position+=frames;
+ }
 };
 }

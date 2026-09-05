@@ -104,6 +104,8 @@ def _production_adapters():
     adapters.update(ap1_adapters(ports))
     from ap2_adapter import adapters as ap2_adapters
     adapters.update(ap2_adapters(ports))
+    from ap3_adapter import adapters as ap3_adapters
+    adapters.update(ap3_adapters(ports))
     return adapters, command
 
 
