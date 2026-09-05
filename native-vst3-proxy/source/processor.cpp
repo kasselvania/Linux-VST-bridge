@@ -24,6 +24,19 @@ void report() {
   ap2_error(detail, sizeof(detail));
   std::fprintf(stderr, "AP2 backend: %s\n", reinterpret_cast<char *>(detail));
 }
+void report_stats(uint64_t handle) {
+  ap3_stats_t s{};
+  if (!ap3_stats(handle, &s))
+    std::fprintf(
+        stdout,
+        "{\"event\":\"ap3_proxy_stats\",\"fault\":%llu,\"first_position\":%llu,"
+        "\"processed\":%llu,\"request_high\":%llu,\"result_high\":%llu,"
+        "\"position\":%llu,\"epoch\":%llu}\n",
+        (unsigned long long)s.fault, (unsigned long long)s.first_position,
+        (unsigned long long)s.processed, (unsigned long long)s.request_high,
+        (unsigned long long)s.result_high, (unsigned long long)s.position,
+        (unsigned long long)s.epoch);
+}
 bool parameters(IParameterChanges *p, double &gain) {
   if (!p)
     return true;
@@ -162,18 +175,6 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     return kResultFalse;
   }
   phase_ = Deactivated;
-  if (queued_) {
-    ap3_stats_t s{};
-    if (!ap3_stats(handle_, &s))
-      std::fprintf(stdout,
-                   "{\"event\":\"ap3_proxy_stats\",\"fault\":%llu,"
-                   "\"processed\":%llu,\"request_high\":%llu,\"result_high\":%"
-                   "llu,\"position\":%llu,\"epoch\":%llu}\n",
-                   (unsigned long long)s.fault, (unsigned long long)s.processed,
-                   (unsigned long long)s.request_high,
-                   (unsigned long long)s.result_high,
-                   (unsigned long long)s.position, (unsigned long long)s.epoch);
-  }
   return kResultOk;
 }
 tresult PLUGIN_API Processor::setProcessing(TBool running) {
@@ -258,6 +259,8 @@ tresult PLUGIN_API Processor::terminate() {
   bool clean =
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated;
   if (handle_) {
+    if (queued_)
+      report_stats(handle_);
     clean =
         (queued_ ? ap3_close(handle_) == 0 : ap2_close(handle_) == 0) && clean;
     if (!clean)
