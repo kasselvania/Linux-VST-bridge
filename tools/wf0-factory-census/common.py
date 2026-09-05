@@ -1029,3 +1029,23 @@ def ap1_windows_build_input(commit, *, root=None):
     value["records"] = dx0_records(commit, AP1_WINDOWS_BUILD_PATHS, root=root)
     value["record_count"] = len(value["records"])
     return value
+
+
+# AP2 retains the AP1 source roster, extending its native host lifecycle mode.
+AP2_BRANCH = "codex/ap2-native-vst3-offline-bridge"
+AP2_REF = "refs/heads/" + AP2_BRANCH
+AP2_WINDOWS_BUILD_PATHS = AP1_WINDOWS_BUILD_PATHS
+
+def ap2_complete_source(commit, *, root=None):
+    repository = root or repo_root()
+    command(["git", "merge-base", "--is-ancestor",
+             "d2e4e9f18dce1e0322aed152cf3309d2f8267a92", commit], cwd=repository)
+    value = dx0_complete_source(commit, root=repository, strict=False)
+    value["ref"] = AP2_REF
+    return value
+
+def ap2_windows_build_input(commit, *, root=None):
+    value = dx0_windows_build_input(commit, root=root)
+    value["records"] = dx0_records(commit, AP2_WINDOWS_BUILD_PATHS, root=root)
+    value["record_count"] = len(value["records"])
+    return value

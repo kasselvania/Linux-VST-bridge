@@ -93,6 +93,12 @@ int main(int argc, char** argv) {
     try { processing_result({2,0.,0},nonfinite,zero,3); }
     catch (...) { reject=true; }
     require(reject,"nonfinite silent output accepted");
+    Frame activate{Activate,frame.session,1,{0,1,0,0}};
+    auto successor=encode(activate,2);
+    require(decode(successor,2).kind==Activate,"AP2 successor framing");
+    bool incompatible=false;
+    try{decode(successor);}catch(...){incompatible=true;}
+    require(incompatible,"AP2 must not be admitted as AP1");
     for (auto value : wire) {
         std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(value);
     }

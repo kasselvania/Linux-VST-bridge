@@ -37,6 +37,8 @@ std::string bits(const std::array<float, capacity + 2>& values) {
 }
 OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& processor,
                                     HostCallbackSink& callbacks, EventWriter& events, ExternalProcessing* external) {
+    const bool hosted=external&&external->hosted();
+    uint32_t maximum=external?capacity:frames;
     const auto owner = std::this_thread::get_id();
     std::array<Block,3> blocks;
     // All buffers and SDK parameter queues are allocated/populated on the owner
@@ -83,16 +85,23 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         ok = ok && accepted;
         return accepted;
     };
+    if(hosted) {
+        maximum=external->lifecycle_request(8);
+        const auto latency=processor.getLatencySamples(), tail=processor.getTailSamples();
+        events.lifecycle("ap2_processor_traits",",\"latency_samples\":"+std::to_string(latency)+",\"tail_samples\":"+std::to_string(tail));
+        if(latency!=0 || tail!=0) throw std::runtime_error("AP2 retained processor latency/tail differs");
+    }
     SpeakerArrangement input=SpeakerArr::kStereo, output=SpeakerArr::kStereo;
     if (!call("set_bus_arrangements",[&]{return processor.setBusArrangements(&input,1,&output,1);})) return {false,true};
     ProcessSetup setup{};setup.processMode=kOffline;setup.symbolicSampleSize=kSample32;
-    setup.maxSamplesPerBlock=external?capacity:frames;setup.sampleRate=48000.;
+    setup.maxSamplesPerBlock=static_cast<int32>(maximum);setup.sampleRate=48000.;
     if (!call("setup_processing",[&]{return processor.setupProcessing(setup);})) return {false,true};
     if (!call("activate_audio_input",[&]{return component.activateBus(kAudio,kInput,0,true);})) return {false,true};
     if (!call("activate_audio_output",[&]{return component.activateBus(kAudio,kOutput,0,true);})) return {false,true};
     if (!call("deactivate_event_input",[&]{return component.activateBus(kEvent,kInput,0,false);})) return {false,true};
     active=call("set_active_true",[&]{return component.setActive(true);});
     if (!active) return {false,false};
+    if(hosted) external->lifecycle_ack(9);
     try {
         std::thread worker([&] {
             // No owner-thread call overlaps this thread. Logging surrounds calls;
@@ -101,9 +110,10 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             try {
                 events.lifecycle("ap0_processing_thread_started",",\"distinct_from_owner\":"+
                     std::string(std::this_thread::get_id()!=owner?"true":"false"));
+                if(hosted) external->lifecycle_request(10);
                 stopped=false;
                 started=call("set_processing_true",[&]{return processor.setProcessing(true);},true);
-                if (started && external) external->ready();
+                if (started && external) {if(hosted) external->lifecycle_ack(11);else external->ready();}
                 if (started) for(int b=0;b<(external?65:3);++b) {
                     auto& block=blocks[external?0:b];
                     if (external) {
@@ -114,6 +124,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         }
                         ExternalBlock request{};
                         if (!external->next(request,block.in[0],block.in[1])) break;
+                        if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
                         block.input_before=block.input;
                         block.gain=request.gain;block.data.numSamples=request.frames;
                         block.input_bus.silenceFlags=request.silence;block.output_bus.silenceFlags=0;
@@ -153,10 +164,12 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         ",\"processing_stopped\":"+(stopped?"true":"false")+
         ",\"worker_exception\":"+(worker_exception?"true":"false"));
     if (!stopped) return {false,false};
+    if(hosted&&ok) {external->lifecycle_ack(13);external->lifecycle_request(14);}
     active=!call("set_active_false",[&]{return component.setActive(false);});
     if (active) return {false,false};
     call("deactivate_audio_output",[&]{return component.activateBus(kAudio,kOutput,0,false);});
     call("deactivate_audio_input",[&]{return component.activateBus(kAudio,kInput,0,false);});
+    if(hosted&&ok) {external->lifecycle_ack(15);external->lifecycle_request(5);}
     if (!external) for(int b=0;b<3;++b) {
         const auto& block=blocks[b];
         events.final_lifecycle("ap0_samples",",\"block\":"+std::to_string(b)+
