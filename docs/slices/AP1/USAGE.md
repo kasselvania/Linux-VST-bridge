@@ -25,7 +25,7 @@ RUSTC="$(rustup which --toolchain stable rustc)" rustup run stable cargo test \
   --manifest-path native-audio-client/Cargo.toml --locked --offline
 c++ -std=c++20 -Wall -Wextra -Werror -I windows-factory-probe/source \
   tools/ap1-tests/codec.cpp -o /tmp/ap1-codec-tests
-/tmp/ap1-codec-tests
+/tmp/ap1-codec-tests "$(cat tools/ap1-tests/golden.txt)"
 ```
 
 The native integration tests use local loopback sockets and mapped files; they launch no plug-in. Relevant existing AP0/PC0/runtime/policy/backend suites remain in the same CI job. Full actual words are retained before comparison can reject a block, and the worker saves bounded independent checkpoints outside the stage before normalization or retirement. Missing/partial output never becomes acceptance evidence.
