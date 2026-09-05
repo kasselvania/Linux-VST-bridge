@@ -25,7 +25,13 @@ def peer(directory,scenario,counts):
   while True:
    k,token,number,p=receive(s);assert token==session and number==seq
    if k==10:
-    assert not running and p==struct.pack('<Q',epoch+1);epoch+=1;position=0;running=True;counts['start']+=1;s.sendall(frame(11,session,seq,p));continue
+    assert not running and p==struct.pack('<Q',epoch+1);epoch+=1;position=0;running=True;counts['start']+=1
+    if scenario=='overflow':
+     time.sleep(.1)
+     try:assert s.recv(1)==b''
+     except ConnectionResetError:pass
+     return
+    s.sendall(frame(11,session,seq,p));continue
    if k==12:
     assert running and p==struct.pack('<Q',epoch);running=False;s.sendall(frame(13,session,seq,p));counts['stop']+=1;continue
    if k==14:
@@ -34,7 +40,7 @@ def peer(directory,scenario,counts):
    n,ino,outo,stride,gain,flags,reserved,e,pos=struct.unpack('<IIIIdIIQQ',p)
    assert (ino,outo,stride,reserved,e,pos)==(64,2128,1032,0,epoch,position)
    counts['process']+=1
-   fault=scenario not in {'positive','reopen','delayed'}
+   fault=scenario not in {'positive','reopen','delayed','core'}
    if fault and scenario=='disconnect':return
    if fault and scenario in {'timeout','underflow'}:time.sleep(.1 if scenario=='underflow' else 6)
    if scenario=='delayed':time.sleep(.0002)
@@ -57,7 +63,7 @@ def peer(directory,scenario,counts):
 
 def run(host,bundle,audit):
  results=[]
- for case in ['positive','reopen','delayed','disconnect','timeout','underflow','stale','position','sequence','flags','silence','nonfinite']:
+ for case in ['positive','reopen','core','delayed','disconnect','timeout','underflow','overflow','stale','position','sequence','flags','silence','nonfinite']:
   with tempfile.TemporaryDirectory(prefix='ap3-local-') as temp:
    directory=pathlib.Path(temp);counts=dict(activate=0,start=0,stop=0,process=0,closed=0);errors=[]
    env={**os.environ,'LVB_AP2_SESSION_DIR':str(directory),'LVB_AP2_SESSION':os.urandom(16).hex(),'LD_PRELOAD':audit}
@@ -65,10 +71,10 @@ def run(host,bundle,audit):
     try:peer(directory,case,counts)
     except BaseException as error:errors.append(type(error).__name__+': '+str(error))
    t=threading.Thread(target=target);t.start()
-   p=subprocess.run([host,bundle,'positive' if case=='delayed' else case],env=env,capture_output=True,text=True,timeout=35);t.join(16)
+   p=subprocess.run([host,bundle,'positive' if case=='delayed' else case],env=env,capture_output=True,text=True,timeout=85 if case=='core' else 35);t.join(16)
    assert not t.is_alive() and not errors,(case,errors)
    assert p.returncode==0,(case,p.returncode,p.stdout,p.stderr)
-   if case not in {'positive','reopen','delayed'}:assert counts['process']==1 and counts['closed']==0
+   if case not in {'positive','reopen','delayed','core'}:assert counts['process']==(0 if case=='overflow' else 1) and counts['closed']==0
    else:assert counts['activate']==1 and counts['start']==(1 if case=='reopen' else 2) and counts['closed']==1
    results.append(dict(case=case,peer_counts=counts,host_records=[json.loads(l) for l in p.stdout.splitlines()]))
  print(json.dumps(dict(classification='LOCAL_SUBSTITUTED_PEER_TESTS',windows_workloads=0,results=results)))

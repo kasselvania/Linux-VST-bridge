@@ -1,0 +1,27 @@
+"""Focused rejection tests; actual SDK-host tests live beside the native code."""
+import copy,unittest
+from unittest.mock import patch
+import ap3_contract as c
+class AP3ContractTests(unittest.TestCase):
+ def records(self):
+  out=[]
+  for n in (128,256):
+   out += [dict(event='ap3_host_ready',seed=123,seed_after_activation=True),dict(event='ap3_host_compared',frames_per_callback=n,active_frames=1440000,samples=2882048,latency_samples=1024,max_error=0.,callback_overruns=0,callback_effects=0,fault_observed=False,callback_median_ns=1000,callback_p99_ns=2000,callback_max_ns=4000)]
+  return out+[dict(event='ap3_proxy_stats',fault=0,processed=16887,position=1441024,epoch=2,request_high=8,result_high=8),dict(event='ap3_host_closed',terminate_result=0,module_unloaded=True,references_released=True)]
+ def test_failed_or_incomplete_measurements_never_pass(self):
+  with patch.object(c,'reconstruct',return_value={}):
+   self.assertEqual(c.compare(self.records())['samples_compared'],5764096)
+   for key,value in [('max_error',.001),('callback_overruns',1),('callback_effects',1),('samples',2882047),('latency_samples',0),('fault_observed',True),('callback_max_ns',100000000)]:
+    with self.subTest(key=key):
+     records=self.records();records[1][key]=value
+     with self.assertRaises(ValueError):c.compare(records)
+   for key,value in [('fault',1),('epoch',1),('processed',16886),('request_high',2049)]:
+    records=self.records();records[-2][key]=value
+    with self.assertRaises(ValueError):c.compare(records)
+ def test_wrong_actual_sample_digest_fails(self):
+  records=self.records();records[1]['output_fnv1a64']=1
+  with patch.object(c,'reconstruct',return_value={'output_fnv1a64':2}):
+   with self.assertRaises(ValueError):c.compare(records)
+ def test_zero_sign_is_numerically_canonical(self):
+  self.assertEqual(c.fold(123,0.),c.fold(123,-0.))
+if __name__=='__main__':unittest.main()

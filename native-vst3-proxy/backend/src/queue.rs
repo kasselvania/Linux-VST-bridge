@@ -29,13 +29,17 @@ impl<T: Copy> Queue<T> {
     pub fn push(&self, value: T) -> bool {
         let w = self.write.load(Ordering::Relaxed);
         let r = self.read.load(Ordering::Acquire);
-        if w - r == self.slots.len() as u64 {
+        if w == u64::MAX || w - r == self.slots.len() as u64 {
             return false;
         }
         unsafe {
             (*self.slots[w as usize % self.slots.len()].get()).write(value);
         }
-        self.high.fetch_max(w - r + 1, Ordering::Relaxed);
+        // Only this producer writes high; no retrying atomic RMW is needed.
+        self.high.store(
+            self.high.load(Ordering::Relaxed).max(w - r + 1),
+            Ordering::Relaxed,
+        );
         self.write.store(w + 1, Ordering::Release);
         true
     }

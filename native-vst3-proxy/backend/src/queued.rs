@@ -105,7 +105,7 @@ impl Callback {
             return 2;
         }
         match op {
-            START if !self.running => {
+            START if !self.running && self.epoch < u64::MAX => {
                 self.epoch += 1;
                 self.position = 0;
                 self.have = false;

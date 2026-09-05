@@ -79,7 +79,7 @@ struct Block {
   }
 };
 void hash(uint64_t &h, float x) {
-  uint32_t word = std::bit_cast<uint32_t>(x);
+  uint32_t word = std::bit_cast<uint32_t>(x == 0.f ? 0.f : x);
   for (int i = 0; i < 4; ++i) {
     h ^= (word >> (8 * i)) & 255;
     h *= 1099511628211ULL;
@@ -243,6 +243,16 @@ int main(int argc, char **argv) {
         reinterpret_cast<Mark>(dlsym(RTLD_DEFAULT, "ap3_audit_begin"));
     audit_end = reinterpret_cast<Count>(dlsym(RTLD_DEFAULT, "ap3_audit_end"));
     need(audit_begin && audit_end, "callback instrumentation required");
+    // Positive control: prove the exact interposer counts an allocation/free.
+    auto allocate =
+        reinterpret_cast<void *(*)(size_t)>(dlsym(RTLD_DEFAULT, "malloc"));
+    auto release =
+        reinterpret_cast<void (*)(void *)>(dlsym(RTLD_DEFAULT, "free"));
+    need(allocate && release, "allocator instrumentation symbols");
+    audit_begin();
+    void *allocation = allocate(32);
+    release(allocation);
+    need(audit_end() >= 2, "callback instrumentation positive control");
     auto module = VST3::Hosting::Module::create(argv[1], error);
     need(bool(module), "SDK module load");
     auto host = owned(new HostApplication);
@@ -284,6 +294,25 @@ int main(int argc, char **argv) {
     const char *failure_stage = nullptr;
     std::thread audio([&] {
       try {
+        if (scenario == "overflow") {
+          bool rejected = false;
+          for (int i = 0; i < 4096; ++i) {
+            auto op = callback([&] { return p->setProcessing(true); });
+            if (op != kResultOk) {
+              rejected = true;
+              break;
+            }
+            if (callback([&] { return p->setProcessing(false); }) !=
+                kResultOk) {
+              rejected = true;
+              break;
+            }
+          }
+          need(rejected, "descriptor overflow must reach proxy boundary");
+          need(callback([&] { return p->setProcessing(true); }) != kResultOk,
+               "overflow latch");
+          return;
+        }
         interval(*p, 128, scenario == "core" ? 1440000 : 300000, fault,
                  scenario == "overflow", false);
         if (!fault && scenario != "reopen")
