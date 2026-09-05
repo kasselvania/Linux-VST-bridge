@@ -50,7 +50,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if ($env:GITHUB_REPOSITORY -ne 'kasselvania/Linux-VST-bridge') { throw 'repository differs' }
           if ($env:GITHUB_EVENT_NAME -ne 'workflow_dispatch') { throw 'event differs' }
-          if ($env:GITHUB_REF -ne 'refs/heads/codex/ap3-sustained-audio-and-remote-desktop') { throw 'dispatch ref differs' }
+          if ($env:GITHUB_REF -ne 'refs/heads/codex/ap4-plugin-state-project-recall') { throw 'dispatch ref differs' }
           if ($env:GITHUB_SHA -ne $env:DX0_SOURCE_SHA) { throw 'dispatch source differs' }
           if ($env:DX0_SOURCE_SHA -notmatch '^[0-9a-f]{40}$') { throw 'source SHA is malformed' }
           if ($env:DX0_BUILD_INPUT_SHA256 -notmatch '^[0-9a-f]{64}$') { throw 'build-input digest is malformed' }
@@ -58,7 +58,7 @@ jobs:
           if ($env:DX0_PHASE_NONCE -notmatch '^[0-9a-f]{32}$') { throw 'phase nonce is malformed' }
           if ((git status --porcelain=v1 --untracked-files=all)) { throw 'checkout is dirty' }
           if ((git rev-parse HEAD) -ne $env:DX0_SOURCE_SHA) { throw 'checked-out commit differs' }
-          python -c "import pathlib,sys; sys.path.insert(0,str(pathlib.Path('tools/wf0-factory-census').resolve())); import common; source=common.ap3_complete_source('$env:DX0_SOURCE_SHA'); build=common.ap3_windows_build_input('$env:DX0_SOURCE_SHA'); assert common.dx0_identity_sha256(build) == '$env:DX0_BUILD_INPUT_SHA256'"
+          python -c "import pathlib,sys; sys.path.insert(0,str(pathlib.Path('tools/wf0-factory-census').resolve())); import common; source=common.ap4_complete_source('$env:DX0_SOURCE_SHA'); build=common.ap4_windows_build_input('$env:DX0_SOURCE_SHA'); assert common.dx0_identity_sha256(build) == '$env:DX0_BUILD_INPUT_SHA256'"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Select Visual Studio 2022 Enterprise

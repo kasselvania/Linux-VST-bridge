@@ -59,6 +59,12 @@ impl<T: Copy> Queue<T> {
         self.read
             .store(self.write.load(Ordering::Acquire), Ordering::Release);
     }
+    pub fn published(&self) -> u64 {
+        self.write.load(Ordering::Acquire)
+    }
+    pub fn consumed(&self) -> u64 {
+        self.read.load(Ordering::Acquire)
+    }
     pub fn high_water(&self) -> u64 {
         self.high.load(Ordering::Relaxed)
     }

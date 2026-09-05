@@ -53,9 +53,9 @@ impl Frame {
     }
     pub fn encode_version(&self, minor: u64) -> io::Result<Vec<u8>> {
         need(
-            (1..=if minor >= 2 { 15 } else { 7 }).contains(&self.kind)
-                && (1..=3).contains(&minor)
-                && self.payload.len() <= 4040,
+            (1..=if minor == 4 { 19 } else if minor >= 2 { 15 } else { 7 }).contains(&self.kind)
+                && (1..=4).contains(&minor)
+                && self.payload.len() <= if minor == 4 && matches!(self.kind, 17 | 18 | 19) { 1 << 20 } else { 4040 },
             "frame kind/length",
         )?;
         let mut b = vec![0; HEADER + self.payload.len()];
@@ -94,18 +94,18 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
             && get(&b[6..8]) == minor
-            && (1..=3).contains(&minor)
+            && (1..=4).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
     need(
-        (1..=if minor >= 2 { 15 } else { 7 }).contains(&get(&b[8..10]))
+        (1..=if minor == 4 { 19 } else if minor >= 2 { 15 } else { 7 }).contains(&get(&b[8..10]))
             && get(&b[32..40]) == 1
             && get(&b[48..56]) == 0,
         "kind/instance/parent",
     )?;
     let n = get(&b[12..16]);
-    need(n <= 4040, "frame length")?;
+    need(n <= if minor == 4 && matches!(get(&b[8..10]), 17 | 18 | 19) { 1 << 20 } else { 4040 }, "frame length")?;
     Ok(n as usize)
 }
 pub fn read_frame<R: Read>(r: &mut R) -> io::Result<Frame> {

@@ -43,12 +43,8 @@ public:
     }
     return Steinberg::kNotImplemented;
   }
-  Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream *) override {
-    return Steinberg::kNotImplemented;
-  }
-  Steinberg::tresult PLUGIN_API setState(Steinberg::IBStream *) override {
-    return Steinberg::kNotImplemented;
-  }
+  Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream *) override;
+  Steinberg::tresult PLUGIN_API setState(Steinberg::IBStream *) override;
 
 private:
   enum Phase {
@@ -62,7 +58,8 @@ private:
     Failed,
     Terminated
   };
-  Phase phase_ = New;
+  std::atomic<Phase> phase_{New};
+  bool stateSession();
   std::atomic_flag busy_ = ATOMIC_FLAG_INIT;
   uint64_t handle_ = 0;
   int maximum_ = 0;

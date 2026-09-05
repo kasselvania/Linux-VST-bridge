@@ -11,14 +11,15 @@ PATHS=tuple(sorted(('CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0Mode
 PATHS=tuple(sorted((*PATHS,
  'native-vst3-proxy/backend/src/queue.rs','native-vst3-proxy/backend/src/queued.rs',
  'native-vst3-proxy/include/ap3_backend.h','native-vst3-proxy/host/sustained.cpp',
- 'native-vst3-proxy/tests/callback_audit.cpp','tools/ap2_native_artifact.py')))
+  'native-vst3-proxy/tests/callback_audit.cpp','tools/ap2_native_artifact.py',
+ 'vst-state/stream.h','native-vst3-proxy/backend/src/state.rs','native-vst3-proxy/include/ap4_backend.h','native-vst3-proxy/host/state_cases.h')))
 AP3_NAMES=(*NAMES,'ap3-sustained-host','AGainQueuedBridge.vst3/Contents/x86_64-linux/AGainQueuedBridge.so','libap3-callback-audit.so')
-def verify_native(root,binding,ap3=False):
+def verify_native(root,binding,ap3=False,ap4=False):
  import json
  root=pathlib.Path(root)
  if root.is_symlink():raise RuntimeError('AP2 native root symlink')
  names=AP3_NAMES if ap3 else NAMES
- manifest_name='AP3_NATIVE_BUILD.json' if ap3 else 'AP2_NATIVE_BUILD.json'
+ manifest_name='AP4_NATIVE_BUILD.json' if ap4 else 'AP3_NATIVE_BUILD.json' if ap3 else 'AP2_NATIVE_BUILD.json'
  manifest=root/manifest_name
  raw=manifest.read_bytes();record=json.loads(raw)
  if manifest.is_symlink() or canonical(record)!=raw or digest(raw)!=binding['manifest_sha256']:raise RuntimeError('AP2 native manifest differs')

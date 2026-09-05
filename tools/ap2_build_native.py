@@ -15,8 +15,8 @@ def transfer_port():
  exec(compile(ast.get_source_segment(raw.decode(),node),'<retained-transfer>','exec'),namespace)
  return namespace['SSHAdapter']()
 def main():
- parser=argparse.ArgumentParser();parser.add_argument('--profile',choices=('ap2','ap3'),default='ap2');parser.add_argument('--output',type=pathlib.Path,required=True);args=parser.parse_args()
- ap3=args.profile=='ap3';names=AP3_NAMES if ap3 else NAMES;manifest_name='AP3_NATIVE_BUILD.json' if ap3 else 'AP2_NATIVE_BUILD.json'
+ parser=argparse.ArgumentParser();parser.add_argument('--profile',choices=('ap2','ap3','ap4'),default='ap2');parser.add_argument('--output',type=pathlib.Path,required=True);args=parser.parse_args()
+ ap4=args.profile=='ap4';ap3=args.profile in {'ap3','ap4'};names=AP3_NAMES if ap3 else NAMES;manifest_name='AP4_NATIVE_BUILD.json' if ap4 else 'AP3_NATIVE_BUILD.json' if ap3 else 'AP2_NATIVE_BUILD.json'
  if command(['git','status','--porcelain=v1','--untracked-files=all']):raise RuntimeError('native build needs clean committed source')
  source=command(['git','rev-parse','HEAD']);records=[{'path':p,'git_blob':command(['git','rev-parse',source+':'+p])} for p in PATHS]
  compiler=command(['rustup','which','--toolchain','stable','rustc']);version=command([compiler,'--version'])
@@ -67,10 +67,10 @@ print(json.dumps({'returncode':0,'output_sha256':hashlib.sha256(output.read_byte
  with zipfile.ZipFile(output) as z:
   if sorted(z.namelist())!=sorted([*names,'VST3_SDK_LICENSE.txt']):raise RuntimeError('native return roster differs')
   for name in z.namelist():p=root/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(z.read(name));p.chmod(0o444)
- (root/manifest_name).write_bytes(canonical(record));verify_native(root,binding,ap3)
+ (root/manifest_name).write_bytes(canonical(record));verify_native(root,binding,ap3,ap4)
  ssh.publish_tree(root,'/home/deck/.local/share/linux-vst-bridge/native-artifacts/by-manifest',manifest)
  program=(ROOT/'tools/ap1_client_artifact.py').read_text()+'\n'+(ROOT/'tools/ap2_native_artifact.py').read_text().replace('from ap1_client_artifact import canonical,digest','')
- program+='\nap3='+repr(ap3)+'\nbinding='+repr(binding)+"\nroot=pathlib.Path.home()/'.local/share/linux-vst-bridge/native-artifacts/by-manifest'/binding['manifest_sha256']\nverify_native(root,binding,ap3)\n[ (root/n).chmod(0o500) for n in ('ap2-offline-host', 'ap3-sustained-host') if (root/n).exists() ]\nprint('native artifact verified')\n"
+ program+='\nap4='+repr(ap4)+'\nap3='+repr(ap3)+'\nbinding='+repr(binding)+"\nroot=pathlib.Path.home()/'.local/share/linux-vst-bridge/native-artifacts/by-manifest'/binding['manifest_sha256']\nverify_native(root,binding,ap3,ap4)\n[ (root/n).chmod(0o500) for n in ('ap2-offline-host', 'ap3-sustained-host') if (root/n).exists() ]\nprint('native artifact verified')\n"
  StrictSSHPort(SubprocessCommandPort()).run_python('/home/deck',program,[],timeout=30)
  (ROOT/('docs/campaigns/'+args.profile.upper()+'_NATIVE.json')).write_bytes(canonical(binding));(args.output/'binding.json').write_bytes(canonical(binding))
  print(json.dumps({'native_manifest':manifest,'source':source,'workload_calls':0}))
