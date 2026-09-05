@@ -14,12 +14,12 @@ permitted_execution_class: DIAGNOSTIC_NON_AUTHORITATIVE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: false
-authorized_source_commit: fd3d70a36b65e1bba9fefc4914ebb1685b10faae
-authorized_source_tree: 63328b0b7936f5ea7ed2812cba19493dfec1ac2f
+authorized_source_commit: 76733f06cf61ad7c1bcd5945cd28a5d062995e74
+authorized_source_tree: ad3709446ac431a99162c14cfbcded3227eca719
 authorized_plan_id: ap1-linux-windows-audio-diagnostic-v1
 authorized_product_contract_identity: ap1-linux-windows-audio-v1
-authorized_product_contract_sha256: ad5ad1a5ebe0efec9df93f69f91091ce3c9c405c00437a7f3dee700fd4b2868b
-authorized_plan_content_sha256: 03ac8e98cd9212b34ff518e6ec75ddeb17ad38997ff104bf329affd3a3707ed0
+authorized_product_contract_sha256: d414eefe66c6db4cfbd3bc96ee09b323825c27cd59bc119ae8c41fe4f4797fb5
+authorized_plan_content_sha256: 95fdac448b5934502bde990cb875b561e1750c30a9bb638a5d8126c73b602166
 diagnostic_campaign_identity: 78c32c41080c2afb3f8bf85967474dfe49016eb84c76f62ac0bb272118fbd755
 diagnostic_batch_budget: 10
 diagnostic_plan_revision_authorized: true
@@ -33,7 +33,7 @@ This review-repair binding preserves diagnostic reservation 1 and its historical
 
 This mechanical binding implements AGENTS.md Active AP1 ruling and CURRENT_SLICE.md Execute and deliver. Local adapter, worker, ownership, protocol, sample and failure-retention tests passed. One AP1 campaign has ten cumulative diagnostic reservations; the separate task ceiling is six Windows producer attempts and two fresh acceptance candidates with one batch each. No historical campaign or accepted evidence changes.
 
-Reuse the bound native client, Windows host, AGain and runtime. Linux chooses inputs after Ready and independently checks every mapped sample, retaining request words and actual output. Keep one mapping, host, instance and authenticated loopback connection through ten bounded blocks, preserving the original eight and adding zero gain on non-silent input and a correctly formed left-channel-silent request. Both endpoints must be contained before stage retirement; protected state stays unchanged. Diagnostic results are permanently acceptance-ineligible. No replay after acknowledgement loss.
+Reuse the bound native client, Windows host and AGain. The operator explicitly authorized AP1 to bind installed Proton 11.0-2c/build 25118279 after Steam automatically updated the runtime. The AP1-specific exact binding preserves all historical PC0/AP0/first-AP1 selections and is verified before and after execution. No runtime installation or update-policy change occurs. Linux chooses inputs after Ready and independently checks every mapped sample, retaining request words and actual output. Keep one mapping, host, instance and authenticated loopback connection through ten bounded blocks, preserving the original eight and adding zero gain on non-silent input and a correctly formed left-channel-silent request. Both endpoints must be contained before stage retirement; protected state stays unchanged. Diagnostic results are permanently acceptance-ineligible. No replay after acknowledgement loss.
 
 Exact source/artifact/plan revisions for tested in-scope repairs use the existing explicit locked atomic adjustment path; preserve all consumed reservations and original authority. AP0 remains accepted pending AP1 review and merge.
 
@@ -69,19 +69,19 @@ Exact source/artifact/plan revisions for tested in-scope repairs use the existin
     },
     "operation": "ap1-mapped-stereo-ten-blocks",
     "runtime_requirement": {
-      "declared_runtime_inputs_sha256": "44cabf121629011dea5472330af03451774fc8c6bfc2c21ee2f9eb69009aca86",
+      "declared_runtime_inputs_sha256": "e701be47751c64e1cef522a4021cc5e283f110ab1124fd535286a53b657c1925",
       "remote_pc0_plan_sha256": "501829c4bf88988afb13ad984d5220839b73315d1ba89c8ca2e77600e58dc248",
-      "runtime_proton_identity_sha256": "2d64df1d36786ca2d0e955c553005423dc2b5bdd714bd0a17872622e33912547",
+      "runtime_proton_identity_sha256": "20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7",
       "stopped_pc0_archive_ref": "refs/heads/codex/archive/pc0-v3-stopped-309b8918",
       "stopped_pc0_source_commit": "309b8918c128c0b9e6701d0453dc841a111d5ac5",
       "stopped_pc0_source_tree": "a6a123b554eb220cbdfb9bf9afab3d08d4a8ac92"
     },
     "schema": "linux-vst-bridge-closed-proof-plan/v1"
   },
-  "plan_content_sha256": "03ac8e98cd9212b34ff518e6ec75ddeb17ad38997ff104bf329affd3a3707ed0",
+  "plan_content_sha256": "95fdac448b5934502bde990cb875b561e1750c30a9bb638a5d8126c73b602166",
   "plan_id": "ap1-linux-windows-audio-diagnostic-v1",
   "product_contract_identity": "ap1-linux-windows-audio-v1",
-  "product_contract_sha256": "ad5ad1a5ebe0efec9df93f69f91091ce3c9c405c00437a7f3dee700fd4b2868b",
+  "product_contract_sha256": "d414eefe66c6db4cfbd3bc96ee09b323825c27cd59bc119ae8c41fe4f4797fb5",
   "schema": "linux-vst-bridge-proof-plan-descriptor/v1"
 }
 ```
