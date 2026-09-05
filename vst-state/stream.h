@@ -138,7 +138,8 @@ inline bool readEnvelope(Steinberg::IBStream *s, std::vector<uint8_t> &b) {
   // bytes.
   uint8_t extra = 0;
   Steinberg::int32 count = 0;
-  s->read(&extra, 1, &count);
-  return count == 0;
+  auto result = s->read(&extra, 1, &count);
+  return count == 0 && (result == Steinberg::kResultOk ||
+                        result == Steinberg::kResultFalse);
 }
 } // namespace LVBState

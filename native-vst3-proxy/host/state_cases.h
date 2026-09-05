@@ -5,7 +5,7 @@
 class FragmentedStream final : public IBStream {
 public:
   LVBState::Stream storage;
-  bool fail_write = false;
+  bool fail_write = false, fail_eof = false;
   explicit FragmentedStream(std::vector<uint8_t> bytes = {})
       : storage(std::move(bytes), LVBState::payloadLimit + LVBState::overhead) {
   }
@@ -15,6 +15,11 @@ public:
   uint32 PLUGIN_API addRef() override { return storage.addRef(); }
   uint32 PLUGIN_API release() override { return storage.release(); }
   tresult PLUGIN_API read(void *p, int32 n, int32 *count) override {
+    if (fail_eof && storage.position == storage.bytes.size()) {
+      if (count)
+        *count = 0;
+      return kInternalError;
+    }
     return storage.read(p, std::min(n, 3), count);
   }
   tresult PLUGIN_API write(void *p, int32 n, int32 *count) override {
@@ -296,6 +301,12 @@ void stateCases(IComponent &c, IAudioProcessor &p, IEditController &controller,
           LVBState::payloadLimit + LVBState::overhead);
       need(c.setState(&truncated) != kResultOk, "truncated state accepted");
     }
+    FragmentedStream failed_eof(good);
+    failed_eof.fail_eof = true;
+    need(c.setState(&failed_eof) != kResultOk, "stream error accepted as EOF");
+    failed_eof.storage.position = 0;
+    need(controller.setComponentState(&failed_eof) != kResultOk,
+         "controller stream error accepted as EOF");
     auto oversized = good;
     oversized[64] = 1;
     oversized[66] = 0x10;
