@@ -387,8 +387,11 @@ def _render_packet_into(output: pathlib.Path,
 
 
 def render_packet(output: pathlib.Path, transaction: dict[str, Any], *,
-                  staging_parent: pathlib.Path | None = None) -> dict[str, Any]:
+                  staging_parent: pathlib.Path | None = None,
+                  renderer=None, validator=None) -> dict[str, Any]:
     """Render off-worktree, then atomically publish or admit an exact packet."""
+    renderer = renderer or _render_packet_into
+    validator = validator or validate_packet
     if output.is_symlink() or output.parent.is_symlink():
         fail("DX0 evidence output boundary is a symlink")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -401,18 +404,18 @@ def render_packet(output: pathlib.Path, transaction: dict[str, Any], *,
     try:
         # mkdtemp reserves the name; the inner renderer owns initial creation.
         stage.rmdir()
-        rendered = _render_packet_into(stage, transaction)
-        validate_packet(stage)
+        rendered = renderer(stage, transaction)
+        validator(stage)
         if output.exists():
             if not output.is_dir():
                 fail("DX0 evidence output exists as a non-directory")
-            validate_packet(output)
+            validator(output)
             if any((output / path.name).read_bytes() != path.read_bytes()
                    for path in stage.iterdir()):
                 fail("DX0 existing evidence packet differs from exact rerender")
             return rendered
         os.rename(stage, output)
-        validate_packet(output)
+        validator(output)
         return rendered
     finally:
         if stage.exists():
@@ -464,7 +467,7 @@ def publish_packet(source: pathlib.Path, output: pathlib.Path, *,
             shutil.rmtree(stage)
 
 
-def validate_packet(root: pathlib.Path) -> None:
+def validate_packet_files(root: pathlib.Path) -> None:
     expected_names = {pathlib.PurePosixPath(path).name for path in DX0_EVIDENCE_PATHS}
     if (not root.is_dir() or root.is_symlink()
             or {path.name for path in root.iterdir()} != expected_names):
@@ -487,6 +490,8 @@ def validate_packet(root: pathlib.Path) -> None:
         if b"\0" in data or prohibited.search(data):
             fail(f"DX0 evidence contains private/binary data: {path.name}")
         data.decode("utf-8", "strict")
+def validate_packet(root: pathlib.Path) -> None:
+    validate_packet_files(root)
     transaction = parse_json_no_duplicates(
         (root / "TRANSACTION.json").read_bytes(), "DX0 retained transaction"
     )
@@ -501,5 +506,88 @@ def validate_packet(root: pathlib.Path) -> None:
         fail("DX0 evidence JSON/schema differs")
 
 
-if __name__ == "__main__":
-    raise SystemExit("evidence.py is a library; use tools/host-proof.py")
+
+def render_pc0_acceptance_packet(output, result, *, consumer_source, validate):
+    """The existing five-file publication path, with classified PC0 admission."""
+    def admit(value):
+        if (value.get('execution_class') != 'ACCEPTANCE_CANDIDATE'
+                or value.get('acceptance_eligible') is not True
+                or value.get('observation', {}).get('kind') != 'SUCCESS'):
+            fail('PC0 renderer requires its own successful acceptance result')
+        payload = value['admitted_result']
+        if (payload != value['observation']['payload']
+                or payload.get('execution_class') != 'ACCEPTANCE_CANDIDATE'
+                or payload.get('acceptance_eligible') is not True
+                or payload['document_sha256'] != sha256_bytes(canonical_json(payload['document']))
+                or payload['document']['binding']['candidate_identity'] != value['execution_identity']
+                or payload['document']['binding']['reservation_identity'] != value['reservation_identity']
+                or payload['document']['binding']['adapter_source_commit'] != value['source_commit']):
+            fail('PC0 renderer result/class/source binding differs')
+        return validate(payload['document']['summary'])
+
+    def validate_files(directory):
+        validate_packet_files(directory)
+        value = parse_json_no_duplicates((directory/'TRANSACTION.json').read_bytes(), 'PC0 acceptance packet')
+        cost = parse_json_no_duplicates((directory/'COST_AND_INVALIDATION.json').read_bytes(), 'PC0 costs')
+        if (canonical_json(value) != (directory/'TRANSACTION.json').read_bytes()
+                or value.get('schema') != 'linux-vst-bridge-pc0-acceptance-packet/v1'
+                or value['result_sha256'] != sha256_bytes(canonical_json(value['result']))
+                or canonical_json(cost) != (directory/'COST_AND_INVALIDATION.json').read_bytes()
+                or cost['result_sha256'] != value['result_sha256']):
+            fail('PC0 packet integrity differs')
+        admit(value['result'])
+
+    def render_into(directory, value):
+        summary = admit(value)
+        contract = summary['processing_contract']
+        directory.mkdir()
+        result_sha = sha256_bytes(canonical_json(value))
+        packet = {'schema':'linux-vst-bridge-pc0-acceptance-packet/v1',
+            'status':'acceptance verified, awaiting technical-lead review',
+            'accepted_frontier':'WA0', 'consumer_source':consumer_source,
+            'result_sha256':result_sha, 'result':value}
+        write_atomic(directory/'TRANSACTION.json',canonical_json(packet))
+        write_atomic(directory/'BASIS.md',_markdown('PC0 acceptance basis',[
+            'One fresh classified acceptance of the approved Initialized-state AGain pre-setup census. '
+            'The earlier diagnostic is not acceptance evidence.',
+            f"Candidate source: `{value['source_commit']}`. Consumer source: `{consumer_source}`. "
+            f"Acceptance result: `{result_sha}`.",
+            'The binding lists current worker/helper dependencies and every retained frozen Deck import. '
+            'The Windows producer and retained artifact remain distinct from Python execution source. '
+            'Runtime inputs and installed selection are exact; permitted Steam metadata is observed separately.',
+            'The product call/owner/lifecycle/normalization laws are unchanged. Historical process topology '
+            'is superseded only by the current scoped acceptance ruling. No old result is relabelled.',
+        ]))
+        lines = [f"{b['media_type']} {b['direction']}[{b['index']}]: {b['name_utf8']}; "
+                 f"channels={b['channel_count']}, type={b['bus_type']}, flags={b['flags_u32_hex']}, "
+                 f"arrangement={b['speaker_arrangement']}" for b in contract['buses']]
+        lines.extend(f"{v['symbolic_size']}: result={v['tresult_i32']} ({v['tresult_u32_hex']}), "
+                     f"supported={v['supported']}" for v in contract['sample_sizes'])
+        lines.extend([
+            'The full 33-call paired ledger, 11 pre-setup calls, exact bus census, interface/component '
+            'quiescence, seven shutdown operations, process containment, stage absence and protected '
+            'state equality were validated from this fresh observation.',
+            'Default-active describes a bus flag, not activation. Sample-format support is not processed audio. '
+            'No setupProcessing, activation, process, latency/tail, audio buffers, Bitwig or commercial plug-in work.',
+            'Acceptance verified, awaiting technical-lead review. WA0 remains the accepted frontier until review and merge.',
+        ])
+        write_atomic(directory/'FINDINGS.md',_markdown('PC0 acceptance findings',lines))
+        cost = {'schema':'linux-vst-bridge-pc0-acceptance-cost/v1','result_sha256':result_sha,
+            'acceptance_budget_maximum':1, 'acceptance_reservations_consumed':1,
+            'observation_effects':value['observation']['effects'],
+            'new_windows_builds':0,'artifact_downloads':0,'fixture_seeds':0,'live_negative_workloads':0,
+            'diagnostic_history':'PC0-D1 remains separate: 3 of 8 consumed; no diagnostic used for acceptance',
+            'invalidation':{'candidate_source':value['source_commit'],
+                            'plan_content_sha256':value['plan_content_sha256'],
+                            'execution_dependencies':value['admitted_result']['binding']['execution_dependencies']}}
+        write_atomic(directory/'COST_AND_INVALIDATION.json',canonical_json(cost))
+        members=['BASIS.md','COST_AND_INVALIDATION.json','FINDINGS.md','TRANSACTION.json']
+        write_atomic(directory/'hashes.sha256',''.join(f"{sha256_file(directory/name)}  {name}\n" for name in members).encode())
+        validate_files(directory)
+        return {'result_sha256':result_sha,'record_count':5}
+
+    return render_packet(output,result,renderer=render_into,validator=validate_files)
+
+
+if __name__ == '__main__':
+    raise SystemExit('evidence.py is a library; use the classified proof command')

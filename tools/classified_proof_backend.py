@@ -611,6 +611,46 @@ class ClassifiedProofBackend:
                 adapter, paths, transaction, budget, observation,
             )
 
+    def render_retained(self, authority: Authority, delegation_bytes: bytes,
+                        *, renderer_revision: str) -> ExecutionReceipt:
+        """Explicit local reporting recovery; never preflight, reconcile or invoke."""
+        delegation = self._readmit_current_authority(authority, delegation_bytes)
+        adapter = self.adapters.get(str(delegation["plan_id"]))
+        if not isinstance(adapter, AcceptancePlanAdapter) or HEX64.fullmatch(renderer_revision) is None:
+            raise BackendError("retained rendering requires acceptance and a renderer revision")
+        descriptor = self._admit_adapter(adapter, delegation)
+        paths = self._paths(delegation, self._reservation_identity(delegation))
+        with _BudgetLock(paths.lock):
+            transaction = self._read_transaction_if_present(paths, delegation, descriptor)
+            if transaction is None or transaction["result_file"] is None:
+                raise DurableStateError("no immutable acceptance result to render")
+            budget = self._load_or_initialize_budget(paths, delegation)
+            if transaction["reservation_identity"] not in budget["reservations"]:
+                raise DurableStateError("acceptance result has no consumed reservation")
+            result = self._readmit_result(adapter, paths, transaction)
+            if transaction["renderer_completed"]:
+                return self._receipt(transaction, budget)
+            recovery = paths.transaction_dir / ("renderer-recovery-"+renderer_revision+".json")
+            if recovery.exists():
+                raise DurableStateError("this renderer recovery revision was already attempted")
+            record = {"renderer_revision":renderer_revision,
+                      "result_sha256":transaction["result_sha256"], "state":"STARTED",
+                      "workload_calls":0}
+            _write_object(recovery, record, maximum=STATE_MAX_BYTES)
+            context = self._reservation_context(delegation, descriptor,
+                transaction["reservation_identity"], transaction)
+            try:
+                adapter.render_product_evidence(context, _json_object(result))
+            except Exception:
+                _write_object(recovery, {**record,"state":"FAILED"}, maximum=STATE_MAX_BYTES)
+                raise
+            _write_object(recovery, {**record,"state":"COMPLETE"}, maximum=STATE_MAX_BYTES)
+            transaction = self._transition(self._update(transaction,
+                renderer_reservation_consumed=True, renderer_completed=True),
+                TransactionState.ACCEPTANCE_EVIDENCE_RENDERED)
+            self._write_transaction(paths, transaction)
+            return self._receipt(transaction, budget)
+
     def _readmit_current_authority(
         self, authority: Authority, delegation_bytes: bytes,
     ) -> dict[str, Any]:

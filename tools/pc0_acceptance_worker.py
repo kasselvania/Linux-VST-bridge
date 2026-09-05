@@ -19,4 +19,4 @@ for name, source in _SUPPORT_SOURCES.items():
     sys.modules[name] = module
     exec(compile(source, module.__file__, "exec"), module.__dict__)
 from pc0_execution_worker import main
-main("DIAGNOSTIC_NON_AUTHORITATIVE")
+main("ACCEPTANCE_CANDIDATE")

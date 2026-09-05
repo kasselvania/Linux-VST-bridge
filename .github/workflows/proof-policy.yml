@@ -25,6 +25,11 @@ jobs:
           tools/classified_proof_backend.py
           tools/pc0_proof_adapter.py
           tools/pc0_diagnostic_worker.py
+          tools/pc0_execution_worker.py
+          tools/pc0_acceptance_worker.py
+          tools/pc0_acceptance_adapter.py
+          tools/pc0_contract.py
+          tools/test_pc0_acceptance.py
           tools/pc0_diagnostic_runtime.py
           tools/pc0_diagnostic_primitives.py
           tools/proof-run.py
@@ -42,3 +47,4 @@ jobs:
           tools/test_pc0_proof_adapter.py
           tools/test_proof_cli.py
           tools/test_pc0_diagnostic_runtime.py
+          tools/test_pc0_acceptance.py

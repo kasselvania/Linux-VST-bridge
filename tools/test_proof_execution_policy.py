@@ -142,13 +142,13 @@ class PolicyTests(unittest.TestCase):
         self.assertTrue(status["classified_backend_ready"])
         self.assertEqual(status["status"], "no_active_slice")
         self.assertEqual(status["authority_phase"], "no_active_slice")
-        self.assertFalse(authority.boolean("maintenance_implementation_authorized"))
+        self.assertTrue(authority.boolean("maintenance_implementation_authorized"))
         self.assertEqual(authority.fields["accepted_product_frontier"], "WA0")
         self.assertEqual(
-            authority.fields["production_adapter_registry"], "pc0_diagnostic_only",
+            authority.fields["production_adapter_registry"], "pc0_diagnostic_and_acceptance",
         )
-        self.assertFalse(authority.boolean("diagnostic_campaign_authorized"))
-        self.assertFalse(authority.boolean("acceptance_candidate_authorized"))
+        self.assertNotEqual(authority.fields.get("diagnostic_campaign_authorized"), "true")
+        self.assertNotEqual(authority.fields.get("acceptance_candidate_authorized"), "true")
         with self.assertRaisesRegex(PolicyError, "LIVE_EXECUTION_FORBIDDEN"):
             authorize_live_request(
                 authority,

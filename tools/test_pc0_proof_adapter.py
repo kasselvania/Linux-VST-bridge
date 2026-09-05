@@ -680,7 +680,7 @@ class PC0AdapterTests(unittest.TestCase):
         self.assertEqual(len(list(publication.parent.glob("*.json"))), 3)  # intent, checkpoint, diagnostic
         self.assertEqual(len(list(publication.parent.glob("*.sha256"))), 1)
 
-    def test_complete_synthetic_observation_uses_real_normalizer_and_worker(self):
+    def complete_synthetic_scan(self):
         import normalize as n
         contract = self.common.pc0_expected_contract()
         audio = {"state":"audio_processor_lease_retired", "primary_blocker":None,
@@ -757,6 +757,10 @@ class PC0AdapterTests(unittest.TestCase):
             return observed
         self.supervise.side_effect = scan
         self.normalizer.side_effect = self.actual_normalizer
+        return contract, scan
+
+    def test_complete_synthetic_observation_uses_real_normalizer_and_worker(self):
+        contract, scan = self.complete_synthetic_scan()
         receipt = self.execute()
         observation = self.transaction(receipt)["observation"]
         self.assertEqual(observation["kind"], "SUCCESS", observation["payload"]["diagnostic_data"].get("troubleshooting", {}).get("primary_error"))

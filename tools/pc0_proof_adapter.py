@@ -425,7 +425,7 @@ def _checked_text(reply: CommandReply, label: str) -> str:
 WORKER_PATH = "tools/pc0_diagnostic_worker.py"
 WORKER_SOURCE = (REPOSITORY_ROOT / WORKER_PATH).read_text(encoding="utf-8")
 SUPPORT_SOURCES = {name: (REPOSITORY_ROOT / ("tools/" + name + ".py")).read_text(encoding="utf-8")
-                   for name in ("pc0_diagnostic_runtime", "pc0_diagnostic_primitives")}
+                   for name in ("pc0_diagnostic_runtime", "pc0_diagnostic_primitives", "pc0_execution_worker")}
 REMOTE_PREFLIGHT_PROGRAM = WORKER_SOURCE.replace("_SUPPORT_SOURCES = {}", "_SUPPORT_SOURCES = " + repr(SUPPORT_SOURCES))
 WORKER_SHA256 = sha256_bytes(REMOTE_PREFLIGHT_PROGRAM.encode("utf-8"))
 WORKER_SCHEMA = "linux-vst-bridge-pc0-reservation-diagnostic/v2"
@@ -433,6 +433,13 @@ WORKER_SCHEMA = "linux-vst-bridge-pc0-reservation-diagnostic/v2"
 
 class PC0DiagnosticRuntime:
     """Four closed adapter operations over injected local, filesystem, and SSH ports."""
+
+    publication_effect = "diagnostic_publications"
+    worker_path = WORKER_PATH
+    worker_source = WORKER_SOURCE
+    support_sources = SUPPORT_SOURCES
+    worker_sha256 = WORKER_SHA256
+    remote_program = REMOTE_PREFLIGHT_PROGRAM
 
     def __init__(self, ports: AdapterPorts, *, repository: pathlib.Path = REPOSITORY_ROOT,
                  proof_root: pathlib.Path | None = None) -> None:
@@ -481,7 +488,7 @@ class PC0DiagnosticRuntime:
         except (PortTimeout, AdapterBoundaryError) as exc:
             raise OutcomeUnknown(
                 effects={"deck_workloads": "unknown" if attempted else 0,
-                         "diagnostic_publications": "unknown" if attempted else 0},
+                         self.publication_effect: "unknown" if attempted else 0},
                 cleanup_disposition="UNKNOWN", protected_state_disposition="UNKNOWN") from exc
 
     def admit_diagnostic(self, context: ReservationContext, observation: Observation) -> Mapping[str, Any]:
@@ -542,7 +549,7 @@ class PC0DiagnosticRuntime:
             "campaign_identity": delegation["execution_identity"],
             "reservation_identity": projected,
             "adapter_source_commit": delegation["source_commit"],
-            "worker_sha256": WORKER_SHA256,
+            "worker_sha256": self.worker_sha256,
             "execution_source": dict(STOPPED_SOURCE_ROLE),
             "producer_source": dict(PRODUCER_SOURCE_ROLE),
             "windows_build_input_identity": WINDOWS_BUILD_INPUT_IDENTITY,
@@ -583,8 +590,8 @@ class PC0DiagnosticRuntime:
              str(delegation["source_commit"]), "diagnostic source"),
             (("git", "rev-parse", f"{delegation['source_commit']}:{SELECTION_PATH}"),
              SELECTION_GIT_BLOB, "diagnostic source contract"),
-            (("git", "rev-parse", f"{delegation['source_commit']}:{WORKER_PATH}"),
-             _git_blob_sha1(WORKER_SOURCE.encode("utf-8")), "diagnostic worker"),
+            (("git", "rev-parse", f"{delegation['source_commit']}:{self.worker_path}"),
+             _git_blob_sha1(self.worker_source.encode("utf-8")), "diagnostic worker"),
             (("git", "rev-parse", "--verify", f"{STOPPED_PC0_ARCHIVE_REF}^{{commit}}"),
              STOPPED_PC0_SOURCE, "stopped source archive"),
             (("git", "rev-parse", f"{STOPPED_PC0_SOURCE}^{{tree}}"),
@@ -596,7 +603,7 @@ class PC0DiagnosticRuntime:
             )
             if observed != expected:
                 raise AdapterBoundaryError(f"{label} identity differs")
-        for name, source in SUPPORT_SOURCES.items():
+        for name, source in self.support_sources.items():
             blob = _checked_text(self.ports.command.run(
                 ("git", "rev-parse", f"{delegation['source_commit']}:tools/{name}.py"),
                 cwd=self.repository), "diagnostic helper")
@@ -677,7 +684,7 @@ class PC0DiagnosticRuntime:
 
     def _remote(self, action: str, request: Mapping[str, Any]) -> dict[str, Any]:
         raw = self.ports.ssh.run_python(
-            self._worktree(), REMOTE_PREFLIGHT_PROGRAM,
+            self._worktree(), self.remote_program,
             (action, canonical_json(dict(request)).hex()),
             timeout=900.0 if action == "execute" else 60.0)
         reply = _canonical_object(raw, MAX_REMOTE_DOCUMENT_BYTES, "diagnostic reply")
@@ -689,7 +696,7 @@ class PC0DiagnosticRuntime:
             raise AdapterBoundaryError("unexpected preflight reply")
         # Retrieval never inherits historical execution/publication counts.
         if action == "inspect":
-            reply["effects"] = {"deck_workloads": 0, "diagnostic_publications": 0}
+            reply["effects"] = {"deck_workloads": 0, self.publication_effect: 0}
         return reply
 
     def _observation(self, reply: Mapping[str, Any], request: Mapping[str, Any]) -> Observation | None:
