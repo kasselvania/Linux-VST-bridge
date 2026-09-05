@@ -143,9 +143,9 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(status["status"], "no_active_slice")
         self.assertEqual(status["authority_phase"], "no_active_slice")
         self.assertFalse(authority.boolean("maintenance_implementation_authorized"))
-        self.assertEqual(authority.fields["accepted_product_frontier"], "PC0")
+        self.assertEqual(authority.fields["accepted_product_frontier"], "AP0")
         self.assertEqual(
-            authority.fields["production_adapter_registry"], "pc0_diagnostic_and_acceptance",
+            authority.fields["production_adapter_registry"], "pc0_and_ap0_diagnostic_and_acceptance",
         )
         self.assertNotEqual(authority.fields.get("diagnostic_campaign_authorized"), "true")
         self.assertNotEqual(authority.fields.get("acceptance_candidate_authorized"), "true")
