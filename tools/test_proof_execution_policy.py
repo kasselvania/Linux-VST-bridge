@@ -160,7 +160,7 @@ class PolicyTests(unittest.TestCase):
         mutations = {
             "status": "invented_status",
             "authority_phase": "invented_phase",
-            "change_class": "PRODUCT_CONTRACT_CHANGE",
+            "change_class": "PRODUCT_IMPLEMENTATION",
             "product_implementation_authorized": "true",
             "live_execution_authorized": "true",
             "permitted_execution_class": "ACCEPTANCE_CANDIDATE",
