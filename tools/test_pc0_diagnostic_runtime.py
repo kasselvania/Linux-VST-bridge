@@ -124,7 +124,14 @@ class RuntimeTests(unittest.TestCase):
                 actual=current[node.name]
                 actual=actual.replace('            "supervision_error": sanitized_supervision_error(supervision_error),\n','')
                 actual=actual.replace('            "supervision_exception": exception_detail(supervision_error),\n','')
-                actual=actual.replace(', checkpoint=None)', ')')
+                # AP0 supplies only mode/stream and host-verification seams;
+                # remove those selections to compare the unchanged PC0 path.
+                actual=actual.replace(', checkpoint=None, profile=None)', ')')
+                actual=actual.replace(', verify_host=None)', ')')
+                actual=actual.replace('(verify_host or verify_host_store)', 'verify_host_store')
+                actual=actual.replace('(profile.command_vector if profile else command_vector)', 'command_vector')
+                actual=actual.replace('profile.StreamState() if profile else StreamState()', 'StreamState()')
+                actual=actual.replace('mode != PC0_MODE and profile is None', 'mode != PC0_MODE')
                 actual=actual.replace('    cleanup_exception = None\n', '')
                 actual=actual.replace('            cleanup_exception = error\n', '')
                 actual=actual.replace('    starts, completes = validate_wa0_event_order(records, pre_setup=pre_setup)',

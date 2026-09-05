@@ -98,6 +98,8 @@ def _production_adapters():
     adapters = dict(PRODUCTION_ADAPTERS)
     adapters[PLAN_ID] = create_pc0_diagnostic_adapter(ports)
     adapters[ACCEPTANCE_PLAN_ID] = create_pc0_acceptance_adapter(ports)
+    from ap0_adapter import adapters as ap0_adapters
+    adapters.update(ap0_adapters(ports))
     return adapters, command
 
 

@@ -591,3 +591,57 @@ def render_pc0_acceptance_packet(output, result, *, consumer_source, validate):
 
 if __name__ == '__main__':
     raise SystemExit('evidence.py is a library; use the classified proof command')
+
+
+def render_ap0_packet(output, result, *, consumer_source, validate):
+    """Publish AP0 through the existing atomic five-file evidence mechanism."""
+    def admit(value):
+        if (value.get('execution_class')!='ACCEPTANCE_CANDIDATE'
+                or value.get('acceptance_eligible') is not True
+                or value['observation']['kind']!='SUCCESS'
+                or value['admitted_result']!=value['observation']['payload']):
+            fail('AP0 renderer requires its fresh successful acceptance result')
+        payload=value['admitted_result'];document=payload['document']
+        if (payload.get('schema')!='ap0-classified-observation/v1'
+                or payload['acceptance_eligible'] is not True
+                or payload['document_sha256']!=sha256_bytes(canonical_json(document))
+                or document['binding']['candidate_identity']!=value['execution_identity']
+                or document['binding']['reservation_identity']!=value['reservation_identity']
+                or document['binding']['adapter_source_commit']!=value['source_commit']):
+            fail('AP0 result/source/class binding differs')
+        return validate(document['summary'])
+    def check(directory):
+        validate_packet_files(directory)
+        packet=parse_json_no_duplicates((directory/'TRANSACTION.json').read_bytes(),'AP0 packet')
+        if packet['result_sha256']!=sha256_bytes(canonical_json(packet['result'])):
+            fail('AP0 result hash differs')
+        admit(packet['result'])
+    def render(directory,value):
+        s=admit(value);directory.mkdir()
+        digest=sha256_bytes(canonical_json(value))
+        write_atomic(directory/'TRANSACTION.json',canonical_json({
+            'schema':'linux-vst-bridge-ap0-acceptance-packet/v1',
+            'status':'acceptance verified, awaiting technical-lead review','accepted_frontier':'PC0',
+            'consumer_source':consumer_source,'result_sha256':digest,'result':value}))
+        write_atomic(directory/'BASIS.md',_markdown('AP0 acceptance basis',[
+            f"Fresh executed source `{value['source_commit']}`; consumer `{consumer_source}`; result `{digest}`.",
+            'Contract: docs/slices/AP0/CONTRACT.md. Independent fixed recipe, zero numerical tolerance. '
+            'Retained AGain fixture and deployed runtime; exact new host producer/artifact and delivered helper inputs are bound in the transaction.',
+            'No diagnostic observation is promoted. PC0 evidence and accepted behavior remain unchanged.']))
+        write_atomic(directory/'FINDINGS.md',_markdown('AP0 sample comparison',[
+            f"Compared every returned sample: {s['comparison']['samples_compared']} float32 samples; maximum absolute error {s['comparison']['maximum_absolute_error']}.",
+            '48000 Hz, kOffline, 16 frames per stereo block. Gains 0.5 and 0.25 on distinct left/right patterns, followed by a silent block at gain 0.25. '
+            'Exact comparison passed, inputs/guards unchanged, no nonfinite or unwritten samples, and silence flags correct.',
+            'Setup and activation ran on the owner thread. A distinct processing thread stopped and joined before deactivation, interface/component retirement and module unload. '
+            'Exit zero, complete in-process shutdown, owned-process containment, stage absent, protected state unchanged.',
+            'Offline numerical correctness only: no real-time, DAW, proxy, IPC, live audio, editor, state, commercial plug-in or arbitrary-memory-safety claim.',
+            'Acceptance verified, awaiting technical-lead review. PC0 remains accepted until AP0 review and merge.']))
+        write_atomic(directory/'COST_AND_INVALIDATION.json',canonical_json({
+            'schema':'ap0-cost/v1','result_sha256':digest,'acceptance_candidate_reservations':1,
+            'effects':value['observation']['effects'],'inputs':value['admitted_result']['binding'],
+            'task_totals_note':'See docs/slices/AP0/RESULT.md for cumulative producer, diagnostic and acceptance totals.'}))
+        members=['BASIS.md','COST_AND_INVALIDATION.json','FINDINGS.md','TRANSACTION.json']
+        write_atomic(directory/'hashes.sha256',''.join(f"{sha256_file(directory/n)}  {n}\n" for n in members).encode())
+        check(directory)
+        return {'result_sha256':digest,'record_count':5}
+    return render_packet(output,result,renderer=render,validator=check)

@@ -63,7 +63,7 @@ def retire_environment(environment: ScanEnvironment, *, runner_identity_sha256: 
 
 def create_dx0_environment(run_id: str, *, host: dict[str, Any],
                            fixture: dict[str, Any], execution_source: dict[str, Any],
-                           deck_execution_input_sha256: str, runner_identity_sha256: str) -> ScanEnvironment:
+                           deck_execution_input_sha256: str, runner_identity_sha256: str, verify_host=None) -> ScanEnvironment:
     """Compose a verified host-only payload and accepted fixture in one stage."""
     from artifacts import verify_fixture_store, verify_host_store
 
@@ -71,7 +71,7 @@ def create_dx0_environment(run_id: str, *, host: dict[str, Any],
         fail("DX0 Deck run ID must be 32 lowercase hexadecimal characters")
     host_root = pathlib.Path(host["root"])
     fixture_root = pathlib.Path(fixture["root"])
-    verified_host = verify_host_store(
+    verified_host = (verify_host or verify_host_store)(
         host_root, host["build_receipt"]["windows_build_input"]["sha256"]
     )
     verified_fixture = verify_fixture_store(fixture_root)
@@ -128,7 +128,7 @@ def create_dx0_environment(run_id: str, *, host: dict[str, Any],
 
 def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
               component_case: str = "exact-again",
-              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None) -> dict[str, Any]:
+              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None) -> dict[str, Any]:
     runner_identity = verify_diagnostic_runner()
     verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
     session = secrets.token_hex(16)
@@ -138,7 +138,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
         fail("handshake artifacts exist before spawn")
     expected = handshake(environment, session, component_case, mode)
     before = protected_snapshot()
-    command_line = command_vector(environment, session, component_case, mode)
+    command_line = (profile.command_vector if profile else command_vector)(environment, session, component_case, mode)
     spawn_command_vector_sha256 = sha256_bytes(canonical_json(command_line))
     started = time.monotonic()
     root = subprocess.Popen(command_line, env=controlled_environment(environment),
@@ -149,7 +149,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     selector = selectors.DefaultSelector()
     selector.register(root.stdout, selectors.EVENT_READ, "stdout")
     selector.register(root.stderr, selectors.EVENT_READ, "stderr")
-    streams = StreamState()
+    streams = profile.StreamState() if profile else StreamState()
     seen_owned: set[tuple[int, int]] = {
         (root_identity["pid"], root_identity["start_ticks"])
     }
@@ -264,7 +264,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             in_flight=in_flight, last_state=last_state, records=streams.records,
             gated=gated_at is not None, hold_gate=hold_gate, cleanup_failed=True,
         )
-        if mode != PC0_MODE:
+        if mode != PC0_MODE and profile is None:
             fail(cleanup_error)
         semantic_blockers = {
             "PC0_BUS_COUNT_BLOCKED", "PC0_BUS_INFO_BLOCKED",
@@ -314,7 +314,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
         }
 
     if supervision_error is not None:
-        if mode != PC0_MODE:
+        if mode != PC0_MODE and profile is None:
             raise supervision_error
         # A stream or supervision failure makes any returned scalar/output
         # unconsumable. Preserve an earlier durable PC0 semantic blocker, but

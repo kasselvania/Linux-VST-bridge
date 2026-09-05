@@ -89,12 +89,16 @@ def normalize(observed):
     comparison=compare_blocks(blocks)
     component=done[0]['component_session'];lease=component['audio_processor_lease']
     require(component['object_quiescence'] is True and lease['audio_interface_quiescence'] is True
-            and component['callback_ledger']['wrong_thread'] is False,'component/interface/callback quiescence failed')
+            and component['callbacks']['wrong_thread'] is False,'component/interface/callback quiescence failed')
     shutdown=observed['inherited_shutdown']
     require(shutdown['clean_in_process_shutdown'] is True and shutdown['physical_containment_only'] is False,'shutdown incomplete')
-    from pc0_contract import pc0_validate_contract
-    pc0_validate_contract(lease['processing_contract'])
-    return {'run_id':observed['run_id'],'blocks':blocks,'comparison':comparison,
+    from pc0_contract import pc0_validate_contract, pc0_validate_call_facts, PC0_OPERATIONS
+    ledger=[{**r, **{key:r.get(key) for key in ('interface','ordinal','tier')}}
+            for r in records if r.get('event') in {'call_started','call_completed'}]
+    facts={'ledger':ledger,'pc0_operation_counts':{op:sum(r.get('operation')==op and r.get('event')=='call_started' for r in ledger) for op in PC0_OPERATIONS}}
+    pc0_validate_call_facts(facts)
+    pc0_validate_contract(component['processing_contract'])
+    return {'run_id':observed['run_id'],'blocks':blocks,'comparison':comparison,'call_facts':facts,
             'lifecycle':[r for r in records if str(r.get('state','')).startswith('ap0_') and r.get('state')!='ap0_samples'],
             'component_session':component,'shutdown':shutdown,'cleanup':observed['cleanup'],
             'raw_exit':observed['raw_exit'],'stdout_sha256':observed['stdout_sha256'],
@@ -106,7 +110,7 @@ def validate_summary(summary):
             'retirement/protected state differs')
     # Re-run lifecycle/ownership admission on retained data, not a saved PASS flag.
     final={'state':'scanner_completed','component_session':summary['component_session']}
-    observed={'records':summary['lifecycle']+summary['blocks']+[final],
+    observed={'records':sorted(summary['call_facts']['ledger']+summary['lifecycle']+summary['blocks'],key=lambda r:r['sequence'])+[final],
               'run_id':summary['run_id'],'raw_exit':summary['raw_exit'],'classification':'scanner_completed',
               'cleanup':summary['cleanup'],'inherited_shutdown':summary['shutdown'],
               'stdout_sha256':summary['stdout_sha256'],'stderr_sha256':summary['stderr_sha256']}

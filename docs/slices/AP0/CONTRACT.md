@@ -1,0 +1,15 @@
+# AP0 offline AGain contract v1
+
+One session on the retained open AGain fixture processes three out-of-place 32-bit stereo blocks at 48000 Hz, 16 frames per block, using kOffline. Block-boundary parameter queues supply gain ID 0 at offset zero with 0.5, 0.25, 0.25; bypass ID 2 is explicitly zero. Musical event input and output parameter queues are absent.
+
+For block b=0 or 1 and frame i=0..15, left input is ((i+2*b) mod 9 - 4)/8 and right input is ((3*i+b+2) mod 11 - 5)/8. Block 2 is zero on both channels and declares both input channels silent. All buffer arrays have a leading and trailing guard word 0x4b123456; every output sample starts with quiet-NaN word 0x7fc12345. Arrays and parameter queues are populated before activation. Inputs and outputs never alias.
+
+The independent Python checker computes expected samples directly from this recipe and requested gain. It reads actual float32 output words, rejects nonfinite or missing values, requires exact numerical equality (absolute tolerance zero), compares all 96 samples, checks unchanged inputs and guards, and records maximum absolute error. Signed zero compares numerically. Both non-silent output flags must be zero; the silent block's output flags must be 3. No rule may be loosened to fit a run.
+
+The owner thread retains the PC0 census, configures stereo arrangements, calls setupProcessing, activates the two audio buses and disables the event input, then calls setActive(true). A distinct processing thread calls setProcessing(true), processes the three blocks sequentially and calls setProcessing(false). The owner joins it before setActive(false), bus deactivation, interface release, component termination/release and module unload. All tresult calls must return zero. Failed or unknown stop/deactivation suppresses interface release and module unload; the existing bounded supervisor owns physical containment.
+
+AGain activation text messages use the pinned SDK HostMessage/IAttributeList implementation via IHostApplication::createInstance. No controller or editor is created or connected. Callback attribution remains bounded and restricted to the appropriate owner-thread activation calls. Setup, sample calls and teardown have retained sequence/thread records; sample serialization and comparison occur after processing/join.
+
+Basis: pinned public.sdk 586dc5e6c8012c3e4b01c79389375cbe96bdb1da, [AGain parameter IDs](https://github.com/steinbergmedia/vst3_public_sdk/blob/586dc5e6c8012c3e4b01c79389375cbe96bdb1da/samples/vst/again/source/againparamids.h), and [processing interface thread/state requirements](https://github.com/steinbergmedia/vst3_pluginterfaces/blob/4f547e8e102b47de4a8b8aaf343c73b700786372/vst/ivstaudioprocessor.h). The checker does not read the plug-in implementation.
+
+This proves bounded offline sample correctness and clean shutdown on this fixture only. It establishes no real-time performance, audio-device output, native proxy/IPC, DAW integration, arbitrary memory safety, 64-bit processing or commercial plug-in support. PC0 remains accepted pending AP0 review. Diagnostic observations remain permanently acceptance-ineligible.

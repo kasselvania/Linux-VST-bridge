@@ -24,6 +24,8 @@ ACCEPTANCE = "ACCEPTANCE_CANDIDATE"
 
 
 def schema_for(binding):
+    if binding.get("product") == "AP0":
+        return "linux-vst-bridge-ap0-reservation/v1"
     return "linux-vst-bridge-pc0-reservation-acceptance/v1" if binding["execution_class"] == ACCEPTANCE else SCHEMA
 
 
@@ -151,7 +153,11 @@ def preflight(binding):
     before = c.protected_snapshot()
     host_root = c.dx0_deck_host_artifact_parent() / binding["host_manifest_sha256"]
     build_input = a.read_canonical_json(host_root / "DX0_WINDOWS_HOST_BUILD_RECEIPT.json")["windows_build_input"]["sha256"]
-    host = a.verify_host_store(host_root, build_input)
+    if binding.get("product") == "AP0":
+        from ap0_worker_support import verify_host
+    else:
+        verify_host = a.verify_host_store
+    host = verify_host(host_root, build_input)
     fixture = a.verify_fixture_store(c.dx0_deck_fixture_parent() / binding["fixture_bundle_sha256"])
     if (build_input != binding["windows_build_input_identity"]
             or host["manifest_sha256"] != binding["host_manifest_sha256"]
@@ -171,7 +177,7 @@ def preflight(binding):
                         "observed_runtime_sha256": runner["launch_critical_manifest_sha256"],
                         "declared_runtime_inputs_sha256": runner["declared_inputs_sha256"]}
     execution_sha = digest(canonical(diagnostic_input))
-    if is_acceptance(binding):
+    if is_acceptance(binding) or binding.get("product") == "AP0":
         from pc0_contract import acceptance_execution_input_sha256
         execution_sha = acceptance_execution_input_sha256(binding,runner)
     return c, r, source, host, fixture, before, execution_sha, handoff, runner
@@ -221,6 +227,9 @@ def execute(proof, binding):
         return {**retained, "effects": {"deck_workloads": 0, ("acceptance_publications" if is_acceptance(binding) else "diagnostic_publications"): 0}}
     c, r, source, host, fixture, before, deck_sha, _handoff, runtime = preflight(binding)
     import pc0_diagnostic_primitives as diagnostic
+    ap0 = None
+    if binding.get("product") == "AP0":
+        import ap0_worker_support as ap0
     root = namespace(proof, binding)
     root.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -304,23 +313,28 @@ def execute(proof, binding):
         environment = diagnostic.create_dx0_environment(
             binding["reservation_identity"][:32], host=host, fixture=fixture,
             execution_source=binding["execution_source"], deck_execution_input_sha256=deck_sha,
-            runner_identity_sha256=runtime["launch_critical_manifest_sha256"])
+            runner_identity_sha256=runtime["launch_critical_manifest_sha256"],
+            **({"verify_host": ap0.verify_host} if ap0 else {}))
         trouble["stage"] = "supervise"
-        observed = diagnostic.supervise(environment, mode=c.PC0_MODE, checkpoint=checkpoint)
+        observed = diagnostic.supervise(environment, mode=ap0.MODE if ap0 else c.PC0_MODE, checkpoint=checkpoint,
+            **({"profile":ap0} if ap0 else {}))
         checkpoint("observation_retained", observed)
         if observed.get("supervision_exception"):
             trouble["primary_error"] = trouble["primary_error"] or {
                 "stage": "supervise", "exception": observed["supervision_exception"]}
         if observed["classification"] == "scanner_completed" and contained:
             trouble["stage"] = "normalize"
-            audio, _component, _timeline = diagnostic.normalize_wa0_positive(
-                observed, r._build_for_normalizer(source, host, fixture), pre_setup=True)
-            summary = {"run_id": observed["run_id"], "processing_contract": audio["processing_contract"],
-                       "shutdown": checkpoint_projection(observed["inherited_shutdown"]),
-                       "raw_exit": observed["raw_exit"]}
-            if is_acceptance(binding):
-                from pc0_contract import acceptance_facts
-                summary["verification"] = acceptance_facts(observed, audio, _component, _timeline["positive"])
+            if ap0:
+                summary = ap0.normalize(observed)
+            else:
+                audio, _component, _timeline = diagnostic.normalize_wa0_positive(
+                    observed, r._build_for_normalizer(source, host, fixture), pre_setup=True)
+                summary = {"run_id": observed["run_id"], "processing_contract": audio["processing_contract"],
+                           "shutdown": checkpoint_projection(observed["inherited_shutdown"]),
+                           "raw_exit": observed["raw_exit"]}
+                if is_acceptance(binding):
+                    from pc0_contract import acceptance_facts
+                    summary["verification"] = acceptance_facts(observed, audio, _component, _timeline["positive"])
             kind, classification = "SUCCESS", "PC0_DIAGNOSTIC_OBSERVED"
         else:
             kind, classification = "FAILED", "PC0_DIAGNOSTIC_FAILED"
@@ -366,7 +380,16 @@ def execute(proof, binding):
         kind, classification = "INCONCLUSIVE", "PC0_DIAGNOSTIC_INCONCLUSIVE"
     if cleanup != "COMPLETE" or protected != "UNCHANGED":
         kind, classification = "INCONCLUSIVE", "PC0_DIAGNOSTIC_INCONCLUSIVE"
-    if is_acceptance(binding) and kind == "SUCCESS":
+    if ap0 and kind == "SUCCESS":
+        summary.update(stage_absent=retired, protected_before_sha256=digest(canonical(before)),
+                       protected_after_sha256=digest(canonical(after)))
+        try:
+            ap0.validate_summary(summary)
+        except Exception as exc:
+            error_at("ap0_admission",exc)
+            summary={"troubleshooting":trouble}
+            kind="INCONCLUSIVE"
+    if not ap0 and is_acceptance(binding) and kind == "SUCCESS":
         summary["verification"].update(stage_absent=retired,
             protected_before_sha256=digest(canonical(before)),
             protected_after_sha256=digest(canonical(after)))
@@ -383,6 +406,8 @@ def execute(proof, binding):
         kind, classification = "INCONCLUSIVE", "PC0_DIAGNOSTIC_INCONCLUSIVE"
     if is_acceptance(binding):
         classification = "PC0_ACCEPTANCE_OBSERVED" if kind == "SUCCESS" else "PC0_ACCEPTANCE_INCONCLUSIVE"
+    if ap0:
+        classification = "AP0_SAMPLES_VERIFIED" if kind == "SUCCESS" else "AP0_INCONCLUSIVE"
     value = value_for(summary, kind, classification)
     publications = 0
     try:
