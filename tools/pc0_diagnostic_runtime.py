@@ -226,7 +226,7 @@ release_factory_base exit_dll free_library source
 
 
 def checkpoint_projection(value, depth=0):
-    if depth > 10:
+    if depth > 14:
         return "<depth bound>"
     if isinstance(value, dict):
         return {

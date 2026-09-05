@@ -81,6 +81,7 @@ def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_e
                         observe_caller();time.sleep(.05)
                 except Exception as error:primary=primary or error
                 caller['raw_exit']=client.poll()
+                if caller['raw_exit'] is None:primary=primary or RuntimeError('native caller exit timeout after Windows completion')
                 # Same PID/start-time and process-group cleanup used for Windows.
                 try:
                     caller['cleanup']=inherited.cleanup_process(client,sorted(seen_caller))

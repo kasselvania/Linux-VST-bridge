@@ -94,6 +94,20 @@ class AP3ExecutionTests(AP2ExecutionTests):
   self.assertEqual(cleanup.call_args.args[1],[(123,10),(124,11)])
   retained=saved[-1][1]['caller'];self.assertEqual(retained['records'],[{'event':'ap3_proxy_stats','fault':4}]);self.assertEqual(retained['cleanup'],clean)
 
+ def test_ap3_companion_allows_bounded_gui_exit_after_thirty_seconds(self):
+  companion=self.profile.companion;env=types.SimpleNamespace(session=self.base/'companion');env.session.mkdir();(env.session/'ap1.control').write_bytes(b'local substitute')
+  clock=[0.];process=types.SimpleNamespace(pid=123,poll=lambda:0 if clock[0]>=35 else None)
+  clean={'owned_descendants_zero':True,'process_group_empty':True}
+  def sleep(n):clock[0]+=n
+  with patch.object(companion.subprocess,'Popen',return_value=process),patch.object(companion.inherited,'process_identity',return_value={'pid':123,'start_ticks':10}),patch.object(companion.inherited,'cleanup_process',return_value=clean),patch.object(companion.time,'monotonic',side_effect=lambda:clock[0]),patch.object(companion.time,'sleep',side_effect=sleep):
+   result=self.actual_profile_supervise(env,mode='local',profile=self.profile,checkpoint=lambda *v:None,caller_command=['substituted'],caller_env={'LOCAL':'true'},exit_seconds=60,windows_run=lambda capture:dict(records=[],classification='scanner_completed',raw_exit=0,cleanup=clean),caller_report=lambda:b'',accepted_events=set())
+  self.assertEqual(result['caller']['raw_exit'],0);self.assertGreaterEqual(clock[0],35);self.assertLess(clock[0],60)
+
+ def test_ap3_nested_checkpoint_keeps_original_contract_values(self):
+  from pc0_diagnostic_runtime import checkpoint_projection
+  original={'segments':{'core':{'records':[{'component_session':{'processing_contract':{'buses':[{'speaker_arrangement':{'bits_u64_hex':'0000000000000003'}}]}}}]}}}
+  self.assertEqual(checkpoint_projection(original),original)
+
  def test_ap3_batch_reporting_rejection_never_launches_next_segment(self):
   env=types.SimpleNamespace(session=self.base/'batch',run_id='f'*32);env.session.mkdir()
   good=dict(classification='scanner_completed',cleanup={'owned_descendants_zero':True,'process_group_empty':True},records=[{'state':'original_observation'}]);saved=[]
