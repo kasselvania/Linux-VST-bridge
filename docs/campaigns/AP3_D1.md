@@ -14,8 +14,8 @@ permitted_execution_class: DIAGNOSTIC_NON_AUTHORITATIVE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: false
-authorized_source_commit: 2163d57020e7a9eea831722209348b88b7ed72a3
-authorized_source_tree: 75a229f4b7a41f36a0f04bd6fff160ca2ce2b406
+authorized_source_commit: 14e9b274dbac8b96ab1802c374ba99f10e6f9ba6
+authorized_source_tree: 0a39c398fa997a765662e11241bc3ae20f35b709
 authorized_plan_id: ap3-sustained-audio-diagnostic-v1
 authorized_product_contract_identity: ap3-sustained-audio-v1
 authorized_product_contract_sha256: d60bc93960b282957018c47b5e017efc7d3d11078905fc0f638ef9eb529723c0
@@ -77,3 +77,11 @@ Native SDK-loaded positive and failure tests passed before this binding, includi
   "plan_content_sha256": "d86da4df6439ea762ee0776f093053e1258e7e80fabb74d49b90cc10339922d6"
 }
 ```
+
+Continuation: the first reservation remains consumed. Its 128-frame stream
+reported 2,882,048 samples and zero maximum error; the second interval failed.
+Cleanup completed and protected state was unchanged. The older checkpoint
+omitted AP3 fault/timing fields, which remain unknown for that transaction.
+This tested retention repair preserves those fields and sanitized original
+errors; it changes neither native nor Windows artifact inputs. Nine diagnostic
+batches remained before this new source binding. No diagnostic is acceptance.
