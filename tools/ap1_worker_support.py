@@ -35,13 +35,18 @@ def command_vector(environment,session,component_case,mode):
 
 StreamState=ap0.StreamState
 
-def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_env=None,windows_run=None,accepted_events=None,session=None):
+def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_env=None,windows_run=None,accepted_events=None,session=None,ready_seconds=5,exit_seconds=2,caller_report=None,track_descendants=False):
     if _client is None and caller_command is None:raise RuntimeError('native caller was not admitted')
     session=session or secrets.token_hex(16)
     out_path=environment.session/'ap1-client.jsonl';err_path=environment.session/'ap1-client.stderr'
     client=None;identity=None;observed=None;primary=None;windows_started=False;caller={'records':[],'raw_exit':None,'cleanup':{'owned_descendants_zero':False,'process_group_empty':False}}
     windows_cleanup={'owned_descendants_zero':False,'process_group_empty':False}
     captured={}
+    seen_caller=set()
+    def observe_caller():
+        if track_descendants and client is not None:
+            for process in inherited.descendants(client.pid):
+                seen_caller.add((process['pid'],process['start_ticks']))
     def capture(stage,available=None,error=None):
         nonlocal windows_cleanup,captured
         if available is not None:
@@ -56,24 +61,29 @@ def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_e
                 stdin=subprocess.DEVNULL,stdout=out,stderr=err,start_new_session=True,
                 env=caller_env or inherited.controlled_environment(environment))
             identity=inherited.process_identity(client.pid)
-            deadline=time.monotonic()+5
+            seen_caller.add((identity['pid'],identity['start_ticks']))
+            deadline=time.monotonic()+ready_seconds
             while not (environment.session/'ap1.control').exists():
+                observe_caller()
                 if client.poll() is not None:raise RuntimeError('native caller exited during setup')
                 if time.monotonic()>deadline:raise RuntimeError('native caller setup timeout')
                 time.sleep(.01)
             windows_started=True
-            observed=(windows_run(capture) if windows_run else diagnostic.supervise(environment,mode=mode,checkpoint=capture,profile=profile,session_override=session))
+            observed=(windows_run(capture) if windows_run else diagnostic.supervise(environment,mode=mode,checkpoint=capture,profile=profile,session_override=session,observe_companion=observe_caller))
             windows_cleanup=observed['cleanup']
         except Exception as error:
             primary=error
         finally:
             if client is not None:
-                try:client.wait(timeout=2)
-                except subprocess.TimeoutExpired:pass
+                try:
+                    end=time.monotonic()+exit_seconds
+                    while client.poll() is None and time.monotonic()<end:
+                        observe_caller();time.sleep(.05)
+                except Exception as error:primary=primary or error
                 caller['raw_exit']=client.poll()
                 # Same PID/start-time and process-group cleanup used for Windows.
                 try:
-                    caller['cleanup']=inherited.cleanup_process(client,[] if identity is None else [(identity['pid'],identity['start_ticks'])])
+                    caller['cleanup']=inherited.cleanup_process(client,sorted(seen_caller))
                 except Exception as error:
                     primary=primary or error
             else:
@@ -82,11 +92,11 @@ def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_e
     if not windows_started:windows_cleanup={'owned_descendants_zero':True,'process_group_empty':True}
     import hashlib
     caller['stderr_sha256']=hashlib.sha256(err_path.read_bytes()).hexdigest()
-    if caller_command is not None and err_path.stat().st_size:
+    if caller_command is not None and caller_report is None and err_path.stat().st_size:
         from pc0_diagnostic_runtime import sanitized_supervision_error
         caller['stderr_detail']=sanitized_supervision_error(RuntimeError(err_path.read_bytes()[:2048].decode('utf-8','replace')))
     try:
-        raw=out_path.read_bytes()
+        raw=out_path.read_bytes() if caller_report is None else caller_report()
         if len(raw)>192*1024:raise RuntimeError('native report exceeds bound')
         lines=raw.splitlines()
         for line in lines:

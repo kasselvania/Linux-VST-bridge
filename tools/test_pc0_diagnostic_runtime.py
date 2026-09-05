@@ -127,7 +127,9 @@ class RuntimeTests(unittest.TestCase):
                 actual=actual.replace('            "supervision_exception": exception_detail(supervision_error),\n','')
                 # AP0 supplies only mode/stream and host-verification seams;
                 # remove those selections to compare the unchanged PC0 path.
-                actual=actual.replace(', checkpoint=None, profile=None, session_override=None)', ')')
+                actual=actual.replace(', checkpoint=None, profile=None, session_override=None, observe_companion=None)', ')')
+                # AP3 observes only its additional owned DAW descendants.
+                actual=actual.replace('            if observe_companion is not None:\n                observe_companion()\n','')
                 actual=actual.replace('session_override or secrets.token_hex(16)', 'secrets.token_hex(16)')
                 actual=actual.replace(', verify_host=None)', ')')
                 actual=actual.replace('(verify_host or verify_host_store)', 'verify_host_store')

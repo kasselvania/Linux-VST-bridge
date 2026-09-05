@@ -71,3 +71,23 @@ machine support, multiple instances or universal realtime guarantee is claimed.
 Existing protected evidence/installations remain unchanged. Diagnostics stay
 acceptance-ineligible. Budgets are six Windows producers, ten diagnostics in
 one AP3 campaign, two fresh acceptance candidates; no historical count resets.
+
+## Controlled DAW batch
+
+The completed plan uses four serial supervised Windows instances: primary SDK
+streams, a separately confirmed Moonlight-active short stream, and two fresh
+Bitwig sessions opening only the prepared disposable project. Every stage reuses
+the existing companion/supervisor, exact mapping and owned cleanup. The companion
+records descendants while the Windows supervisor runs, and preserves the previous
+segment before moving its closed staging files. It never retries a failed segment.
+An ordinary bounded file confirms the actual stream state before the short test;
+agent-written, reservation-bound GUI notes describe only visible actions. They
+cannot supply numerical/timing values or turn a failed native/Windows result into
+success. The native shell optionally writes at most 8 KiB of termination-time
+facts into the owned session directory because a DAW may redirect stdout. No
+report writing occurs in processing or setProcessing. The native report includes
+actual setup, frames, gain range, zero-gain blocks, queue fault and clean teardown.
+The temporary plug-in publication must byte-match the admitted native artifact;
+Bitwig uses its existing installation and a single exact per-launch stage mount.
+Original preference bytes remain privately backed up until test settings are
+restored. Old diagnostic observations remain permanently acceptance-ineligible.

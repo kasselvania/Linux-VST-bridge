@@ -128,7 +128,7 @@ def create_dx0_environment(run_id: str, *, host: dict[str, Any],
 
 def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
               component_case: str = "exact-again",
-              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None, session_override=None) -> dict[str, Any]:
+              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None, session_override=None, observe_companion=None) -> dict[str, Any]:
     runner_identity = getattr(profile, "verify_runtime", verify_diagnostic_runner)()
     verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
     session = session_override or secrets.token_hex(16)
@@ -163,6 +163,8 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     cleanup = {"owned_descendants_zero": False, "process_group_empty": False}
     try:
         while True:
+            if observe_companion is not None:
+                observe_companion()
             pump(selector, streams, POLL_SECONDS)
             for record in descendants(root.pid):
                 seen_owned.add((record["pid"], record["start_ticks"]))

@@ -78,6 +78,7 @@ def run(host,bundle,audit):
    retained=[json.loads(line) for line in report.splitlines()]
    lifecycle=[r for r in retained if r['event']=='ap3_proxy_lifecycle'];assert len(lifecycle)==1
    assert lifecycle[0]['requested_rate']==48000 and lifecycle[0]['requested_maximum']==256 and lifecycle[0]['requested_mode']==0
+   assert (lifecycle[0]['callback_rejections']==0)==(case in {'positive','reopen','delayed','core'})
    assert lifecycle[0]['clean']==(case in {'positive','reopen','delayed','core'})
    assert any(r['event']=='ap3_proxy_stats' for r in retained)
    assert all(r in [json.loads(line) for line in p.stdout.splitlines()] for r in retained)

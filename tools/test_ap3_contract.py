@@ -35,6 +35,14 @@ class AP3ContractTests(unittest.TestCase):
   self.assertFalse({'topology','runner_identity','protected_snapshot'}&projected.keys())
   self.assertEqual(set(projected['caller']),{'raw_exit','cleanup','records'})
   self.assertNotIn('private',str(projected))
+ def test_bitwig_requires_native_control_and_direct_gui_observations(self):
+  q=dict(event='ap3_proxy_stats',fault=0,processed=5000,epoch=1,request_high=8,result_high=8)
+  l=dict(event='ap3_proxy_lifecycle',blocks=5000,callback_rejections=0,frames=1280000,clean=True,requested_rate=48000,requested_maximum=256,requested_mode=0,gain_min=0,gain_max=1,zero_gain_blocks=100)
+  u=dict(event='ap3_bitwig_ui',case='bitwig_first',**{k:True for k in ('scan_load','playback','gain_changed','muted','stopped','removed','responsive','moonlight_control')})
+  records=[q,l,u];self.assertFalse(c.compare_gui(records,'bitwig_first')['numerical_oracle'])
+  for index,key,value in [(0,'fault',1),(0,'processed',4999),(1,'clean',False),(1,'callback_rejections',1),(1,'frames',10),(1,'requested_maximum',512),(1,'gain_min',.5),(1,'zero_gain_blocks',0),(2,'playback',False),(2,'case','bitwig_reopen')]:
+   bad=copy.deepcopy(records);bad[index][key]=value
+   with self.subTest(key=key),self.assertRaises(ValueError):c.compare_gui(bad,'bitwig_first')
  def test_zero_sign_is_numerically_canonical(self):
   self.assertEqual(c.fold(123,0.),c.fold(123,-0.))
 if __name__=='__main__':unittest.main()

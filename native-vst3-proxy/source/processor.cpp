@@ -225,19 +225,25 @@ tresult PLUGIN_API Processor::setProcessing(TBool running) {
 }
 tresult PLUGIN_API Processor::process(ProcessData &d) {
   Guard g(busy_);
-  if (!g.held)
+  auto reject = [&] {
+    callback_rejections_.fetch_add(1, std::memory_order_relaxed);
+    return failure(d, maximum_);
+  };
+  if (!g.held) {
+    callback_rejections_.fetch_add(1, std::memory_order_relaxed);
     return kResultFalse;
+  }
   if (phase_ != Running || d.processMode != process_mode_ ||
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||
       d.numSamples > maximum_)
-    return failure(d, maximum_);
+    return reject();
   double pending = gain_;
   if (!parameters(d.inputParameterChanges, pending) ||
       (d.inputEvents && d.inputEvents->getEventCount() != 0))
-    return failure(d, maximum_);
+    return reject();
   if (d.numSamples == 0) {
     if (d.numInputs != 0 || d.numOutputs != 0 || d.inputs || d.outputs)
-      return kResultFalse;
+      return reject();
     gain_ = pending;
     return kResultOk;
   }
@@ -246,7 +252,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       !d.inputs[0].channelBuffers32 || !d.inputs[0].channelBuffers32[0] ||
       !d.inputs[0].channelBuffers32[1] ||
       (d.inputs[0].silenceFlags & ~uint64(3)))
-    return failure(d, maximum_);
+    return reject();
   auto **in = d.inputs[0].channelBuffers32;
   auto **out = d.outputs[0].channelBuffers32;
   if (overlap(out[0], out[1], d.numSamples) ||
@@ -255,12 +261,12 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       overlap(out[1], in[0], d.numSamples) ||
       (in[0] != out[0] && overlap(in[0], out[0], d.numSamples)) ||
       (in[1] != out[1] && overlap(in[1], out[1], d.numSamples)))
-    return failure(d, maximum_);
+    return reject();
   for (int ch = 0; ch < 2; ++ch)
     for (int i = 0; i < d.numSamples; ++i)
       if (!std::isfinite(in[ch][i]) ||
           ((d.inputs[0].silenceFlags & (uint64(1) << ch)) && in[ch][i] != 0.f))
-        return failure(d, maximum_);
+        return reject();
   uint64_t silence = 0;
   auto r = queued_ ? static_cast<int32_t>(ap3_process(
                          handle_, static_cast<uint32_t>(d.numSamples), pending,
@@ -273,7 +279,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     if (!queued_)
       report();
     phase_ = Failed;
-    return failure(d, maximum_);
+    return reject();
   }
   gain_ = pending;
   frames_ += d.numSamples;
@@ -308,11 +314,14 @@ tresult PLUGIN_API Processor::terminate() {
         "{\"event\":\"ap3_proxy_lifecycle\",\"phase\":%d,\"requested_maximum\":"
         "%d,"
         "\"requested_rate\":%.0f,\"requested_mode\":%d,\"frames\":%llu,"
-        "\"blocks\":%u,\"zero_gain_blocks\":%llu,\"gain_min\":%.9g,\"gain_"
+        "\"blocks\":%u,\"callback_rejections\":%llu,\"zero_gain_blocks\":%llu,"
+        "\"gain_min\":%.9g,\"gain_"
         "max\":%.9g,"
         "\"clean\":%s}\n",
         static_cast<int>(phase_), requested_maximum_, requested_rate_,
         requested_mode_, (unsigned long long)frames_, blocks_,
+        (unsigned long long)callback_rejections_.load(
+            std::memory_order_relaxed),
         (unsigned long long)zero_gain_blocks_, gain_min_, gain_max_,
         clean ? "true" : "false");
     if (n > 0 && static_cast<size_t>(n) < sizeof(text))
