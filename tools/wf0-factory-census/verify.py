@@ -288,7 +288,7 @@ def compare_builds(a: pathlib.Path, b: pathlib.Path) -> dict[str, Any]:
     }
 
 
-def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
+def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = False) -> dict[str, Any]:
     """Require the five inherited plus two WA0 calls and reject audio methods."""
     root = source_root / "windows-factory-probe"
     texts = {
@@ -320,6 +320,11 @@ def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
         "connect", "disconnect", "notify",
         "createView", "setComponentHandler",
     )
+    if ap0:
+        permitted = {"getBusCount", "getBusInfo", "getBusArrangement", "canProcessSampleSize",
+                     "setBusArrangements", "setupProcessing", "activateBus", "setActive",
+                     "setProcessing", "process"}
+        forbidden_calls = tuple(value for value in forbidden_calls if value not in permitted)
     production = "\n".join(
         text for path, text in texts.items()
         if path.startswith("source/")
@@ -338,12 +343,12 @@ def scanner_component_call_surface(source_root: pathlib.Path) -> dict[str, Any]:
     ):
         fail("WA0 one-owner or eight-state interface boundary differs")
     return {
-        "closed_plugin_operation_count": 7,
+        "closed_plugin_operation_count": 17 if ap0 else 7,
         "new_audio_interface_operation_count": 2,
         "operation_call_counts": counts,
         "controller_creation_absent": True,
-        "audio_processor_method_calls_absent": True,
-        "audio_bus_parameter_state_processing_editor_calls_absent": True,
+        "audio_processor_method_calls_absent": not ap0,
+        "audio_bus_parameter_state_processing_editor_calls_absent": not ap0,
     }
 
 

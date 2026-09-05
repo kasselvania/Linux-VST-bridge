@@ -1,12 +1,22 @@
+#include "offline_processing.h"
+#include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "component_instance_session.h"
 
 #include <algorithm>
 #include <array>
 #include <cstring>
 #include <limits>
+#include <stdexcept>
 #include <string>
+#include <bit>
+#include "pluginterfaces/vst/vstspeaker.h"
 
 namespace linux_vst_bridge::wf0 {
+
+int scanner_output_failure_exit(bool pc0_mode, int first_primary) noexcept {
+    return pc0_mode ? (first_primary == 0 ? 99 : first_primary) : 82;
+}
+
 namespace {
 
 constexpr int kCreateBlocked = 83;
@@ -63,6 +73,12 @@ const char* blocker_name(int value) noexcept {
         case kAudioProcessorQueryInconsistent:
             return "WA0_INTERFACE_QUERY_INCONSISTENT";
         case kAudioProcessorReleaseBlocked: return "WA0_INTERFACE_RELEASE_BLOCKED";
+        case 93: return "PC0_BUS_COUNT_BLOCKED";
+        case 94: return "PC0_BUS_INFO_BLOCKED";
+        case 95: return "PC0_BUS_ARRANGEMENT_BLOCKED";
+        case 96: return "PC0_SAMPLE_FORMAT_BLOCKED";
+        case 97: return "PC0_CONTRACT_INCOMPLETE";
+        case 99: return "PC0_EVIDENCE_BLOCKED";
         default: return nullptr;
     }
 }
@@ -183,7 +199,7 @@ void HostCallbackSink::record_result(const char* operation,
 void HostCallbackSink::record_create_instance(Steinberg::tresult result,
                                               bool output_null,
                                               const Steinberg::TUID cid,
-                                              const Steinberg::TUID iid) noexcept {
+                                              const Steinberg::TUID iid, bool expected) noexcept {
     HostCallbackRecord record;
     record.operation = "createInstance";
     record.result_u32 = static_cast<Steinberg::uint32>(result);
@@ -195,7 +211,7 @@ void HostCallbackSink::record_create_instance(Steinberg::tresult result,
         std::memcpy(record.iid.data(), iid, record.iid.size());
         record.identifiers_present = true;
     }
-    unexpected_object_request_ = true;
+    unexpected_object_request_ = unexpected_object_request_ || !expected;
     retain_and_emit(record);
 }
 
@@ -260,18 +276,22 @@ bool HostCallbackSink::close() noexcept {
 
 bool HostCallbackSink::closed() const noexcept { return closed_ && healthy(); }
 
-std::size_t HostCallbackSink::plugin_callback_count(const char* operation) const noexcept {
+std::size_t HostCallbackSink::plugin_callback_count(
+    const char* operation, const char* enclosing_operation) const noexcept {
     std::size_t count = 0;
     for (std::size_t index = 0; index < size_; ++index) {
         if (std::strcmp(records_[index].origin, "component") == 0 &&
-            std::strcmp(records_[index].operation, operation) == 0)
+            std::strcmp(records_[index].operation, operation) == 0 &&
+            (enclosing_operation == nullptr ||
+             (records_[index].enclosing_operation != nullptr &&
+              std::strcmp(records_[index].enclosing_operation, enclosing_operation) == 0)))
             ++count;
     }
     return count;
 }
 
-MinimalHostApplication::MinimalHostApplication(HostCallbackSink& sink) noexcept
-    : sink_(sink) {}
+MinimalHostApplication::MinimalHostApplication(HostCallbackSink& sink, bool processing) noexcept
+    : sink_(sink), processing_(processing) {}
 
 Steinberg::tresult PLUGIN_API MinimalHostApplication::queryInterface(
     const Steinberg::TUID interface_id, void** object) noexcept {
@@ -324,6 +344,14 @@ Steinberg::tresult PLUGIN_API MinimalHostApplication::getName(
 Steinberg::tresult PLUGIN_API MinimalHostApplication::createInstance(
     Steinberg::TUID cid, Steinberg::TUID interface_id, void** object) noexcept {
     if (object != nullptr) *object = nullptr;
+    if (processing_ && object != nullptr &&
+        Steinberg::FUnknownPrivate::iidEqual(cid, INLINE_UID_OF(Steinberg::Vst::IMessage)) &&
+        Steinberg::FUnknownPrivate::iidEqual(interface_id, INLINE_UID_OF(Steinberg::Vst::IMessage))) {
+        try { *object = new Steinberg::Vst::HostMessage(); }
+        catch (...) { return Steinberg::kOutOfMemory; }
+        sink_.record_create_instance(Steinberg::kResultOk, false, cid, interface_id, true);
+        return Steinberg::kResultOk;
+    }
     sink_.record_create_instance(Steinberg::kResultFalse, true, cid, interface_id);
     return Steinberg::kResultFalse;
 }
@@ -333,8 +361,249 @@ AudioProcessorInterfaceLease::AudioProcessorInterfaceLease(
     EventWriter& events) noexcept
     : component_(component), callbacks_(callbacks), events_(events) {}
 
-AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire() {
+namespace {
+const char* media_name(int value) { return value == 0 ? "kAudio" : "kEvent"; }
+const char* direction_name(int value) { return value == 0 ? "kInput" : "kOutput"; }
+std::string coordinates(int media, int direction, int index = -1) {
+    return ",\"media_type\":\"" + std::string(media_name(media)) +
+        "\",\"direction\":\"" + direction_name(direction) + "\"" +
+        (index < 0 ? "" : ",\"index\":" + std::to_string(index));
+}
+std::string u64_hex(Steinberg::uint64 value) {
+    return u32_hex(static_cast<Steinberg::uint32>(value >> 32)) +
+           u32_hex(static_cast<Steinberg::uint32>(value));
+}
+std::string json_string(const std::string& value) {
+    std::string output = "\"";
+    for (unsigned char byte : value) {
+        if (byte == '"' || byte == '\\') { output += '\\'; output += static_cast<char>(byte); }
+        else if (byte < 0x20) output += "\\u00" + u32_hex(byte).substr(6);
+        else output += static_cast<char>(byte);
+    }
+    return output + "\"";
+}
+bool bus_name(const Steinberg::Vst::String128& input, std::string& output) {
+    output.clear();
+    for (std::size_t i = 0; i < 128; ++i) {
+        unsigned cp = static_cast<unsigned short>(input[i]);
+        if (cp == 0) return true;
+        if (cp >= 0xd800 && cp <= 0xdbff) {
+            if (++i >= 128) return false;
+            const unsigned low = static_cast<unsigned short>(input[i]);
+            if (low < 0xdc00 || low > 0xdfff) return false;
+            cp = 0x10000 + ((cp - 0xd800) << 10) + (low - 0xdc00);
+        } else if (cp >= 0xdc00 && cp <= 0xdfff) return false;
+        if (cp < 0x80) output += static_cast<char>(cp);
+        else if (cp < 0x800) {
+            output += static_cast<char>(0xc0 | (cp >> 6));
+            output += static_cast<char>(0x80 | (cp & 63));
+        } else if (cp < 0x10000) {
+            output += static_cast<char>(0xe0 | (cp >> 12));
+            output += static_cast<char>(0x80 | ((cp >> 6) & 63));
+            output += static_cast<char>(0x80 | (cp & 63));
+        } else {
+            output += static_cast<char>(0xf0 | (cp >> 18));
+            output += static_cast<char>(0x80 | ((cp >> 12) & 63));
+            output += static_cast<char>(0x80 | ((cp >> 6) & 63));
+            output += static_cast<char>(0x80 | (cp & 63));
+        }
+    }
+    return false;
+}
+} // namespace
+
+bool PreSetupProcessingContractCensus::checked_count(
+    Steinberg::int32 count, std::size_t& aggregate) noexcept {
+    if (count < 0 || count > 32 || aggregate > 64 ||
+        static_cast<std::size_t>(count) > 64 - aggregate) return false;
+    aggregate += static_cast<std::size_t>(count);
+    return true;
+}
+
+void PreSetupProcessingContractCensus::transition(PreSetupCensusState state) {
+    static constexpr const char* names[] = {
+        "pre_setup_census_absent", "bus_count_in_flight", "bus_counts_validated",
+        "detail_call_in_flight", "bus_info_complete", "speaker_arrangements_complete",
+        "sample_format_call_in_flight", "pre_setup_contract_complete", "pre_setup_census_blocked",
+    };
+    state_ = state;
+    events_.lifecycle(names[static_cast<unsigned>(state)]);
+}
+
+void PreSetupProcessingContractCensus::prepare_call(
+    const char* operation, const char* interface_name,
+    const std::string& coordinates_value) {
+    // Prepare every possibly-throwing value before durable call_started. The
+    // later in-flight flip is POD-only and cannot create a durable attempt
+    // without the corresponding plug-in call.
+    if (coordinates_value.size() >= active_coordinates_.size())
+        throw std::length_error("PC0 call coordinates exceed their bound");
+    active_operation_ = operation;
+    active_interface_ = interface_name;
+    active_coordinates_size_ = coordinates_value.size();
+    std::copy_n(coordinates_value.data(), active_coordinates_size_,
+                active_coordinates_.data());
+    active_coordinates_[active_coordinates_size_] = '\0';
+}
+
+void PreSetupProcessingContractCensus::begin_call(
+    PreSetupCensusState state) noexcept {
+    // call_started has already been durably published. Only non-throwing
+    // internal state changes occur between that flush and the VST3 call.
+    active_call_state_ = state;
+    call_in_flight_ = true;
+}
+
+void PreSetupProcessingContractCensus::complete_call() noexcept {
+    call_in_flight_ = false;
+    active_operation_ = nullptr;
+    active_interface_ = nullptr;
+    active_coordinates_size_ = 0;
+    active_coordinates_[0] = '\0';
+}
+
+int PreSetupProcessingContractCensus::block(int code) {
+    latch(primary_, code);
+    contract_.clear();
+    state_ = PreSetupCensusState::pre_setup_census_blocked;
+    const char* blocker = blocker_name(primary_);
+    events_.lifecycle(
+        "pre_setup_census_blocked",
+        ",\"primary_blocker\":" +
+            (blocker == nullptr ? std::string("null")
+                                : std::string("\"") + blocker + "\""));
+    return primary_;
+}
+
+int PreSetupProcessingContractCensus::run() {
+    using namespace Steinberg;
+    using namespace Steinberg::Vst;
+    // Single use; an output-publication exception propagates past every cleanup
+    // call. The process supervisor, never this borrower, contains that failure.
+    if (state_ != PreSetupCensusState::pre_setup_census_absent) return block(97);
+    try {
+        std::size_t aggregate = 0;
+        for (int domain = 0; domain < 4; ++domain) {
+            const auto media = domain / 2, direction = domain % 2;
+            const auto fields = coordinates(media, direction);
+            prepare_call("get_bus_count", "IComponent", fields);
+            const auto attempt = events_.call_started("get_bus_count", "IComponent", -1, nullptr, fields);
+            begin_call(PreSetupCensusState::bus_count_in_flight);
+            const int32 count = component_.getBusCount(media, direction);
+            events_.call_completed(attempt, "get_bus_count", "IComponent", "int32",
+                ",\"i32_result\":" + std::to_string(count), -1, nullptr, fields);
+            complete_call();
+            ++call_count_;
+            if (!checked_count(count, aggregate)) return block(93);
+            counts_[static_cast<std::size_t>(domain)] = count;
+        }
+        transition(PreSetupCensusState::bus_counts_validated);
+        for (int domain = 0; domain < 4; ++domain) {
+            for (int32 index = 0; index < counts_[static_cast<std::size_t>(domain)]; ++index) {
+                BusInfo info{};
+                const auto media = domain / 2, direction = domain % 2;
+                const auto fields = coordinates(media, direction, index);
+                prepare_call("get_bus_info", "IComponent", fields);
+                const auto attempt = events_.call_started("get_bus_info", "IComponent", -1, nullptr, fields);
+                begin_call(PreSetupCensusState::detail_call_in_flight);
+                const tresult result = component_.getBusInfo(media, direction, index, info);
+                events_.call_completed(attempt, "get_bus_info", "IComponent", "tresult",
+                    ",\"result_u32_hex\":\"" + u32_hex(static_cast<uint32>(result)) + "\"",
+                    -1, nullptr, fields);
+                complete_call();
+                ++call_count_;
+                if (result != kResultTrue || info.mediaType != media || info.direction != direction ||
+                    info.channelCount < 1 || info.channelCount > (media == kAudio ? 64 : 16) ||
+                    (info.busType != kMain && info.busType != kAux) ||
+                    (info.flags & ~(BusInfo::kDefaultActive | BusInfo::kIsControlVoltage)) != 0 ||
+                    (media == kEvent && (info.flags & BusInfo::kIsControlVoltage) != 0)) return block(94);
+                auto& bus = buses_[size_];
+                if (!bus_name(info.name, bus.name)) return block(94);
+                bus.media = media; bus.direction = direction; bus.index = index;
+                bus.channels = info.channelCount; bus.type = info.busType; bus.flags = info.flags;
+                ++size_;
+            }
+        }
+        transition(PreSetupCensusState::bus_info_complete);
+        for (std::size_t index = 0; index < size_; ++index) {
+            auto& bus = buses_[index];
+            if (bus.media != kAudio) continue;
+            SpeakerArrangement arrangement{};
+            const auto fields = ",\"direction\":\"" + std::string(direction_name(bus.direction)) +
+                "\",\"audio_index\":" + std::to_string(bus.index);
+            prepare_call("get_bus_arrangement", "IAudioProcessor", fields);
+            const auto attempt = events_.call_started("get_bus_arrangement", "IAudioProcessor", -1, nullptr, fields);
+            begin_call(PreSetupCensusState::detail_call_in_flight);
+            const tresult result = audio_.getBusArrangement(bus.direction, bus.index, arrangement);
+            events_.call_completed(attempt, "get_bus_arrangement", "IAudioProcessor", "tresult",
+                ",\"result_u32_hex\":\"" + u32_hex(static_cast<uint32>(result)) + "\"",
+                -1, nullptr, fields);
+            complete_call();
+            ++call_count_;
+            if (result != kResultTrue || std::popcount(static_cast<uint64>(arrangement)) != bus.channels)
+                return block(95);
+            bus.arrangement = arrangement;
+        }
+        transition(PreSetupCensusState::speaker_arrangements_complete);
+        for (int32 size = kSample32; size <= kSample64; ++size) {
+            const auto fields = ",\"symbolic_size\":\"" + std::string(size == kSample32 ? "kSample32" : "kSample64") + "\"";
+            prepare_call("can_process_sample_size", "IAudioProcessor", fields);
+            const auto attempt = events_.call_started("can_process_sample_size", "IAudioProcessor", -1, nullptr, fields);
+            begin_call(PreSetupCensusState::sample_format_call_in_flight);
+            const tresult result = audio_.canProcessSampleSize(size);
+            events_.call_completed(attempt, "can_process_sample_size", "IAudioProcessor", "tresult",
+                ",\"result_u32_hex\":\"" + u32_hex(static_cast<uint32>(result)) + "\"",
+                -1, nullptr, fields);
+            complete_call();
+            ++call_count_;
+            if (result != kResultTrue && result != kResultFalse) return block(96);
+            samples_[static_cast<std::size_t>(size)] = result;
+        }
+        std::string value = "{\"schema\":\"linux-vst-bridge-pc0-processing-contract/v1\",\"lifecycle_state\":\"Initialized\",\"counts\":[";
+        for (int domain = 0; domain < 4; ++domain) {
+            if (domain) value += ',';
+            value += "{" + coordinates(domain / 2, domain % 2).substr(1) +
+                ",\"count\":" + std::to_string(counts_[static_cast<std::size_t>(domain)]) + "}";
+        }
+        value += "],\"buses\":[";
+        for (std::size_t i = 0; i < size_; ++i) {
+            const auto& bus = buses_[i];
+            if (i) value += ',';
+            value += "{" + coordinates(bus.media, bus.direction, bus.index).substr(1) +
+                ",\"name_utf8\":" + json_string(bus.name) + ",\"channel_count\":" + std::to_string(bus.channels) +
+                ",\"bus_type\":\"" + (bus.type == kMain ? "kMain" : "kAux") +
+                "\",\"flags_u32_hex\":\"" + u32_hex(bus.flags) +
+                "\",\"default_active\":" + bool_json((bus.flags & BusInfo::kDefaultActive) != 0) +
+                ",\"control_voltage\":" + bool_json((bus.flags & BusInfo::kIsControlVoltage) != 0) +
+                ",\"speaker_arrangement\":";
+            if (bus.media == kEvent) value += "null";
+            else value += "{\"bits_u64_hex\":\"" + u64_hex(bus.arrangement) +
+                "\",\"channel_count\":" + std::to_string(bus.channels) +
+                ",\"recognized_layout\":" + (bus.arrangement == SpeakerArr::kStereo ? std::string("\"kStereo\"") : std::string("null")) + "}";
+            value += "}";
+        }
+        value += "],\"sample_sizes\":[";
+        for (int size = 0; size < 2; ++size) {
+            if (size) value += ',';
+            value += "{\"symbolic_size\":\"" + std::string(size == 0 ? "kSample32" : "kSample64") +
+                "\",\"tresult_i32\":" + std::to_string(samples_[static_cast<std::size_t>(size)]) +
+                ",\"tresult_u32_hex\":\"" + u32_hex(static_cast<uint32>(samples_[static_cast<std::size_t>(size)])) +
+                "\",\"supported\":" + bool_json(samples_[static_cast<std::size_t>(size)] == kResultTrue) + "}";
+        }
+        value += "],\"call_count\":" + std::to_string(call_count_) + ",\"complete\":true,\"mutation_call_count\":0}";
+        events_.final_lifecycle("pre_setup_contract_complete", ",\"processing_contract\":" + value);
+        state_ = PreSetupCensusState::pre_setup_contract_complete;
+        contract_ = std::move(value);
+        return 0;
+    } catch (...) {
+        // No in-process release or unload is legal past an unproved writer boundary.
+        throw (primary_ == 0 ? 99 : primary_);
+    }
+}
+
+AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire(bool pre_setup_census, bool offline_processing) {
     AudioProcessorLeaseResult result;
+    try {
     const Steinberg::int8* requested =
         INLINE_UID_OF(Steinberg::Vst::IAudioProcessor);
     std::memcpy(result.requested_iid.data(), requested, 16);
@@ -398,6 +667,21 @@ AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire() {
         if (result.query_result != Steinberg::kResultOk)
             latch(result.primary_exit, kAudioProcessorQueryInconsistent);
 
+        if (pre_setup_census && result.primary_exit == 0) {
+            PreSetupProcessingContractCensus census(component_, *interface_, events_);
+            latch(result.primary_exit, census.run());
+            result.processing_contract = census.contract();
+        }
+
+        if (offline_processing && result.primary_exit == 0) {
+            const auto processing = run_offline_processing(component_, *interface_, callbacks_, events_);
+            latch(result.primary_exit, processing.success ? 0 : 110);
+            if (!processing.quiescent) {
+                result.audio_interface_quiescence = false;
+                return result; // Supervisor contains unknown ownership; never unload it.
+            }
+        }
+
         audio_state_event(
             result, AudioProcessorLeaseState::audio_processor_release_in_flight,
             events_);
@@ -440,7 +724,7 @@ AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire() {
 
     result.callback_ledger_unchanged =
         callbacks_.size() == callbacks_before && callbacks_.healthy();
-    if (!result.callback_ledger_unchanged) {
+    if (!result.callback_ledger_unchanged && !(offline_processing && callbacks_.healthy())) {
         result.audio_interface_quiescence = false;
         latch(result.primary_exit,
               result.release_attempted ? kAudioProcessorReleaseBlocked
@@ -460,12 +744,21 @@ AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire() {
             (blocker_name(result.primary_exit) == nullptr
                  ? std::string("null")
                  : std::string("\"") + blocker_name(result.primary_exit) + "\""));
-    return result;
+        return result;
+    } catch (int blocker) {
+        throw (result.primary_exit == 0 ? blocker : result.primary_exit);
+    } catch (...) {
+        // Once output publication fails, no later in-process call is legal.  If
+        // a semantic PC0 failure was already latched, preserve it as primary.
+        throw (result.primary_exit == 0 ? 99 : result.primary_exit);
+    }
 }
 
 std::string AudioProcessorLeaseResult::json_fields() const {
     const char* blocker = blocker_name(primary_exit);
     return
+        ",\"processing_contract\":" +
+        (processing_contract.empty() ? std::string("null") : processing_contract) +
         ",\"audio_processor_lease\":{"
         "\"state\":\"" + std::string(audio_processor_state_name(state)) + "\"" +
         ",\"primary_blocker\":" +
@@ -608,8 +901,10 @@ std::string ComponentAdmissionResult::json_fields() const {
 
 ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
                                           EventWriter& events,
-                                          ComponentCase component_case) {
+                                          ComponentCase component_case,
+                                          bool pre_setup_census, bool offline_processing) {
     ComponentAdmissionResult result;
+    try {
     const Steinberg::int8* processor = component_case == ComponentCase::unknown_processor
         ? kUnknownProcessor
         : kAgainProcessor;
@@ -703,7 +998,7 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
     HostCallbackSink& callbacks = *result.callbacks;
     MinimalHostApplication* host = nullptr;
     if (result.primary_exit == 0 && component != nullptr) {
-        host = new MinimalHostApplication(callbacks);
+        host = new MinimalHostApplication(callbacks, offline_processing);
         result.host_created = true;
         state_event(result, ComponentState::host_context_ready, events,
                     ",\"host_name\":\"Linux VST Bridge WC0\",\"reference_baseline\":1");
@@ -745,7 +1040,7 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
     if (result.initialize_succeeded && component != nullptr) {
         result.audio_processor_session_ran = true;
         AudioProcessorInterfaceLease lease(*component, callbacks, events);
-        result.audio_processor = lease.acquire_and_retire();
+        result.audio_processor = lease.acquire_and_retire(pre_setup_census, offline_processing);
         latch(result.primary_exit, result.audio_processor.primary_exit);
     }
 
@@ -828,7 +1123,8 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
                    result.host_reference_baseline);
         if (result.initialize_succeeded &&
             (!result.host_reference_returned_to_baseline ||
-             callbacks.plugin_callback_count("release") != 1)) {
+             callbacks.plugin_callback_count("release",
+                 offline_processing ? "terminate_component" : nullptr) != 1)) {
             latch(result.primary_exit, kHostContextBlocked);
         }
         if (!result.initialize_succeeded &&
@@ -870,7 +1166,14 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
             (blocker_name(result.primary_exit) == nullptr
                  ? std::string("null")
                  : std::string("\"") + blocker_name(result.primary_exit) + "\""));
-    return result;
+        return result;
+    } catch (int blocker) {
+        throw (result.primary_exit == 0 ? blocker : result.primary_exit);
+    } catch (...) {
+        // Physical process containment owns every object after an unpaired
+        // writer boundary.  Preserve an earlier lifecycle blocker if present.
+        throw (result.primary_exit == 0 ? 99 : result.primary_exit);
+    }
 }
 
 bool run_component_owner_regressions() noexcept {

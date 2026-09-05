@@ -356,7 +356,8 @@ def verify_host_payload(payload: pathlib.Path, destination: pathlib.Path,
 def publish_host_custody(wrapper: pathlib.Path, *, run: dict[str, Any],
                          artifact: dict[str, Any], upload_result: dict[str, Any],
                          producer_source: dict[str, Any],
-                         build_input: dict[str, Any]) -> dict[str, Any]:
+                         build_input: dict[str, Any], expected_branch: str = DX0_BRANCH,
+                         expected_input_count: int = 17) -> dict[str, Any]:
     build_input_sha = dx0_identity_sha256(build_input)
     expected_name = (
         f"dx0-windows-host-{build_input_sha}-run-{run['id']}-attempt-{run['run_attempt']}"
@@ -386,7 +387,7 @@ def publish_host_custody(wrapper: pathlib.Path, *, run: dict[str, Any],
             or artifact.get("url") != expected_rest_url
             or not isinstance(workflow_run, dict)
             or workflow_run.get("id") != run["id"]
-            or workflow_run.get("head_branch") != DX0_BRANCH
+            or workflow_run.get("head_branch") != expected_branch
             or workflow_run.get("head_sha") != producer_source["commit"]):
         fail("DX0 host Actions artifact digest/name closure differs")
     with tempfile.TemporaryDirectory(prefix="dx0-host-custody-") as temporary:
@@ -402,7 +403,7 @@ def publish_host_custody(wrapper: pathlib.Path, *, run: dict[str, Any],
         receipt = read_canonical_json(receipt_path, DX0_HOST_BUILD_SCHEMA)
         if (receipt.get("windows_build_input") != {
                 "schema": build_input["schema"], "sha256": build_input_sha,
-                "record_count": 17,
+                "record_count": expected_input_count,
             } or receipt.get("producer_source") != producer_source
                 or receipt.get("workflow", {}).get("run_id") != run["id"]
                 or receipt.get("workflow", {}).get("run_attempt") != run["run_attempt"]
@@ -419,7 +420,7 @@ def publish_host_custody(wrapper: pathlib.Path, *, run: dict[str, Any],
         manifest_digest = payload_check["manifest_sha256"]
         target = dx0_mac_host_artifact_parent() / manifest_digest
         if target.exists() or target.is_symlink():
-            return verify_host_store(target, build_input_sha)
+            return verify_host_store(target, build_input_sha, expected_branch=expected_branch, expected_input_count=expected_input_count)
         parent = dx0_mac_host_artifact_parent()
         parent.mkdir(parents=True, exist_ok=True)
         publish = parent / f".dx0-host-stage-{manifest_digest}"
@@ -435,7 +436,7 @@ def publish_host_custody(wrapper: pathlib.Path, *, run: dict[str, Any],
             "workflow": {
                 "path": ".github/workflows/wf0-windows-msvc-build.yml",
                 "git_blob": run["workflow_blob"], "event": "workflow_dispatch",
-                "head_branch": DX0_BRANCH, "head_sha": producer_source["commit"],
+                "head_branch": expected_branch, "head_sha": producer_source["commit"],
                 "run_id": run["id"], "run_attempt": run["run_attempt"],
                 "phase_nonce": upload_result["phase_nonce"], "conclusion": "success",
             },
@@ -467,10 +468,10 @@ def publish_host_custody(wrapper: pathlib.Path, *, run: dict[str, Any],
             directory.chmod(0o500)
         publish.chmod(0o500)
         os.replace(publish, target)
-    return verify_host_store(target, build_input_sha)
+    return verify_host_store(target, build_input_sha, expected_branch=expected_branch, expected_input_count=expected_input_count)
 
 
-def verify_host_store(root: pathlib.Path, build_input_sha256: str) -> dict[str, Any]:
+def verify_host_store(root: pathlib.Path, build_input_sha256: str, *, expected_branch: str = DX0_BRANCH, expected_input_count: int = 17) -> dict[str, Any]:
     if (root.parent not in {dx0_mac_host_artifact_parent(), dx0_deck_host_artifact_parent()}
             or not root.is_dir() or root.is_symlink()):
         fail("DX0 Mac host-artifact store root differs")
@@ -522,7 +523,7 @@ def verify_host_store(root: pathlib.Path, build_input_sha256: str) -> dict[str, 
             or build_receipt.get("repository") != REPOSITORY
             or build_receipt.get("windows_build_input") != {
                 "schema": "linux-vst-bridge-dx0-windows-build-input/v1",
-                "sha256": build_input_sha256, "record_count": 17,
+                "sha256": build_input_sha256, "record_count": expected_input_count,
             }
             or not isinstance(producer, dict)
             or custody.get("producer_source") != producer
@@ -533,7 +534,7 @@ def verify_host_store(root: pathlib.Path, build_input_sha256: str) -> dict[str, 
             or core.get("workflow") != workflow
             or not isinstance(workflow, dict)
             or workflow.get("event") != "workflow_dispatch"
-            or workflow.get("ref") != DX0_REF
+            or workflow.get("ref") != "refs/heads/" + expected_branch
             or workflow.get("source_sha") != producer.get("commit")
             or workflow.get("host_mode") != "host_only"
             or not isinstance(workflow.get("run_id"), int)
@@ -545,7 +546,7 @@ def verify_host_store(root: pathlib.Path, build_input_sha256: str) -> dict[str, 
             or custody_workflow.get("path") != workflow.get("path")
             or custody_workflow.get("git_blob") != workflow.get("git_blob")
             or custody_workflow.get("event") != workflow.get("event")
-            or custody_workflow.get("head_branch") != DX0_BRANCH
+            or custody_workflow.get("head_branch") != expected_branch
             or custody_workflow.get("head_sha") != producer.get("commit")
             or custody_workflow.get("run_id") != workflow.get("run_id")
             or custody_workflow.get("run_attempt") != workflow.get("run_attempt")

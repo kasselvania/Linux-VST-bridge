@@ -182,12 +182,14 @@ def sanitized_supervision_error(error):
 # protocol fields can enter a troubleshooting checkpoint; no process identities,
 # command lines, environment, factory account metadata or paths are retained.
 CHECKPOINT_KEYS = frozenset("""
+rejected origin thread_role enclosing_attempt_sequence enclosing_operation reference_count output_null
 event sequence attempt_sequence operation interface ordinal tier return_kind
 state disposition object_quiescence component_state primary_blocker
 result_u32_hex win32_error_u32_hex i32_result u32_result bool_result output_nonnull
 host_reference_count object_role requested_interface media_type direction index
 audio_index symbolic_size audio_interface_quiescence audio_processor_state
 callback_ledger_unchanged release_reference_count pointer_cleared
+result blocks comparison maximum_absolute_error samples_compared ap0_call_started ap0_call_completed block gain frames sample_rate process_mode sample_format process_result worker_thread owner_thread distinct_from_owner joined processing_stopped worker_exception input_silence_flags output_silence_flags input_bits output_bits
 processing_contract schema lifecycle_state counts count buses name_utf8
 channel_count bus_type flags_u32_hex default_active control_voltage
 speaker_arrangement bits_u64_hex recognized_layout sample_sizes tresult_i32
@@ -212,6 +214,8 @@ def checkpoint_projection(value, depth=0):
         return [checkpoint_projection(v, depth+1) for v in value[-256:]]
     if value is None or type(value) in (bool, int):
         return value
+    if type(value) is float and value == value and abs(value) < 1e6:
+        return value
     if isinstance(value, str):
         # Protocol strings and AGain bus names, never arbitrary free-form text.
         if len(value) <= 128 and re.fullmatch(r"[A-Za-z0-9_ .:+-]*", value):
@@ -229,7 +233,7 @@ def exception_detail(error):
             filename=tb.tb_frame.f_code.co_filename
             if '/tools/' in filename:
                 module='tools/'+filename.split('/tools/',1)[1]
-            elif filename.startswith('<pc0_'):
+            elif filename.startswith(('<pc0_','<ap0_')):
                 module='tools/'+filename[1:-1]+'.py'
             else:
                 module='<external>'

@@ -29,6 +29,12 @@ jobs:
           tools/pc0_acceptance_worker.py
           tools/pc0_acceptance_adapter.py
           tools/pc0_contract.py
+          tools/ap0_adapter.py
+          tools/ap0_worker.py
+          tools/ap0_worker_support.py
+          tools/ap0_contract.py
+          tools/test_ap0_contract.py
+          tools/test_ap0_execution.py
           tools/test_pc0_acceptance.py
           tools/pc0_diagnostic_runtime.py
           tools/pc0_diagnostic_primitives.py
@@ -48,3 +54,5 @@ jobs:
           tools/test_proof_cli.py
           tools/test_pc0_diagnostic_runtime.py
           tools/test_pc0_acceptance.py
+          tools/test_ap0_contract.py
+          tools/test_ap0_execution.py
