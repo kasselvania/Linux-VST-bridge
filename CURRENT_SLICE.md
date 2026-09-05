@@ -1,6 +1,12 @@
-# Current Work: Complete PC0 Acceptance
+# Current Work: PC0 Acceptance Verified — Awaiting Review
 
-**One task: connect the repaired, working AGain execution to acceptance, test the complete path locally, run one fresh acceptance workload, retain its evidence, and publish one implementation PR.** Do not stop after adapter preparation when the authorized run can proceed.
+**Status: acceptance verified, awaiting technical-lead review.** The single fresh PC0-A1 acceptance workload completed and its sanitized evidence is retained in `evidence/pc0-windows-vst3-pre-setup-processing-contract/`. WA0 remains the accepted product frontier until review and merge.
+
+Observed AGain audio buses: one input and one output, both two-channel `kStereo` (`0x3`); event buses: one one-channel input and zero outputs. All BusInfo entries are `kMain`, default-active (`flags=0x1`). `kSample32` and `kSample64` both returned `0`. The full 33-call paired ledger, including 11 pre-setup calls and zero mutation calls, passed validation. Exit was zero; all seven shutdown operations completed, interface/component quiescence and owned-process containment passed, the stage was absent, and protected state remained unchanged.
+
+Candidate source: `c4eda373caf0fc9d4c965e05f1e16706c06ddd3d`. Acceptance reservation: `4534d5b772cac1241cb822471566b71b668256de941a50671973d771517af214`. Immutable result SHA-256: `a920ef5ba3c712d7d19dbfd1948c85130d5b45d73c9985ae12c63b07fe5d7ae2`. Acceptance allowance: **1 consumed / 0 remaining**. PC0-D1 remains **3 consumed / 5 remaining**, and all 11 existing local diagnostic ledger files were verified byte-unchanged after the acceptance run. No diagnostic was promoted.
+
+Focused local validation passed 72 tests. No Windows rebuild/download, fixture seed, runtime replacement, live negative test, activation or audio processing was performed. The source, exact dependencies, plan and one-run authority are frozen in `docs/campaigns/PC0_A1.md`. The task instructions below are retained for review; they do not authorize another candidate or workload.
 
 Branch: `codex/pc0-acceptance-completion`.
 Accepted starting main: `c33c23267fcc1c59606bdad25a5cf1b10a947a54`.
@@ -12,7 +18,7 @@ PR #46 merged as harness maintenance at `3b556ea2712da7694272b8b32720ae3eb62ec65
 
 That private observation is permanently acceptance-ineligible. WA0 remains accepted. PC0 is observed diagnostically, not accepted. PC0-D1 consumed three of eight reservations; its five unused reservations need not be spent. Preserve every old observation, unknown result, intent, lock and campaign record.
 
-`tools/proof-run.py` currently registers only the PC0 diagnostic adapter. An `accept` parser is not an implemented acceptance path. Completing that path is part of THIS task, not another prerequisite project.
+At task start, `tools/proof-run.py` registered only the diagnostic adapter. It now registers the PC0 acceptance adapter over the shared repaired execution path and provides local `--render-only` recovery from an immutable acceptance result.
 
 ## Implementation
 
@@ -63,7 +69,7 @@ status: no_active_slice
 authority_phase: no_active_slice
 change_class: PROOF_HARNESS_MAINTENANCE
 maintenance_id: PC0-A1
-maintenance_status: implementation_authorized_by_scoped_ruling
+maintenance_status: acceptance_verified_awaiting_technical_lead_review
 repository: kasselvania/Linux-VST-bridge
 maintenance_implementation_authorized: true
 product_implementation_authorized: false
@@ -71,9 +77,9 @@ live_execution_authorized: false
 permitted_execution_class: none
 classified_backend_core_ready: true
 classified_backend_ready: true
-production_adapter_registry: pc0_diagnostic_only
+production_adapter_registry: pc0_diagnostic_and_acceptance
 accepted_product_frontier: WA0
 current_product_target: PC0
-pc0_status: acceptance_completion_active_candidate_not_yet_frozen
+pc0_status: acceptance_verified_awaiting_technical_lead_review
 successor_selection_authorized: false
 ```
