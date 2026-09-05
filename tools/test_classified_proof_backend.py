@@ -378,8 +378,8 @@ class BackendTests(unittest.TestCase):
                 else:
                     load_budget = backend._load_or_initialize_budget
 
-                    def mutate_after_lock(paths, admitted_delegation):
-                        budget = load_budget(paths, admitted_delegation)
+                    def mutate_after_lock(paths, admitted_delegation, admitted_authority=None):
+                        budget = load_budget(paths, admitted_delegation, admitted_authority)
                         mutate_authority()
                         return budget
 
@@ -457,6 +457,58 @@ class BackendTests(unittest.TestCase):
             backend.execute(*write_authority(self.base, plan, source=f"{9:040x}", budget=8))
         self.assertEqual(behavior.invoke_calls, 8)
         self.assertEqual({p:p.read_bytes() for p in old_files}, old_files)
+
+    def test_exact_diagnostic_plan_revision_preserves_budget_and_history(self):
+        plan = descriptor(ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE)
+        behavior = Behavior()
+        backend = ClassifiedProofBackend(self.state_root, {plan.plan_id: diagnostic_adapter(plan, behavior)})
+        for source in (SOURCE_A, SOURCE_B):
+            backend.execute(*write_authority(self.base, plan, source=source, budget=8))
+        root = self.state_root / "diagnostic" / IDENTITY
+        old = parse_canonical_json((root / "budget.json").read_bytes())
+        history = {p: p.read_bytes() for p in (root / "transactions").rglob("*") if p.is_file()}
+        new_plan = PlanDescriptor.create(
+            plan_id=plan.plan_id, execution_class=plan.execution_class,
+            product_contract_identity=plan.product_contract_identity,
+            product_contract_bytes=b"corrected notification semantics",
+            operation=plan.plan_content["operation"],
+            artifact_requirement={"kind":"corrected-host"},
+            fixture_requirement=plan.plan_content["fixture_requirement"],
+            runtime_requirement=plan.plan_content["runtime_requirement"])
+        backend = ClassifiedProofBackend(self.state_root, {plan.plan_id: diagnostic_adapter(new_plan, behavior)})
+        auth, delegation = write_authority(self.base, new_plan, source=SOURCE_C, budget=8)
+        with self.assertRaisesRegex(DurableStateError, "unauthorized plan revision"):
+            backend.execute(auth, delegation)
+        text = auth.path.read_text()
+        additions = ("diagnostic_plan_revision_authorized: true\n"
+            f"diagnostic_previous_plan_content_sha256: {plan.plan_content_sha256}\n"
+            f"diagnostic_previous_product_contract_sha256: {plan.product_contract_sha256}\n")
+        auth.path.write_text(text.replace("status:", additions + "status:", 1))
+        valid_text = auth.path.read_text()
+        auth.path.write_text(valid_text.replace(plan.plan_content_sha256, "f" * 64))
+        wrong = load_authority(auth.path)
+        wrong_delegation = canonical_json(authorize_live_request(wrong, LiveRequest(new_plan.execution_class, SOURCE_C, new_plan.plan_id, IDENTITY)))
+        with self.assertRaisesRegex(DurableStateError, "unauthorized plan revision"):
+            backend.execute(wrong, wrong_delegation)
+        self.assertEqual((root / "budget.json").read_bytes(), canonical_json(old))
+        auth.path.write_text(valid_text)
+        auth = load_authority(auth.path)
+        delegation = canonical_json(authorize_live_request(auth, LiveRequest(new_plan.execution_class, SOURCE_C, new_plan.plan_id, IDENTITY)))
+        for _ in range(2):
+            receipt = backend.execute(auth, delegation)
+            self.assertEqual(receipt.budget_consumed, 3)
+        budget = parse_canonical_json((root / "budget.json").read_bytes())
+        self.assertEqual(budget["reservations"][:2], old["reservations"])
+        self.assertEqual(budget["batch_budget_maximum"], 8)
+        self.assertEqual({p:p.read_bytes() for p in history}, history)
+        adjustment = parse_canonical_json(next(root.glob("plan-adjustment-*.json")).read_bytes())
+        self.assertEqual(adjustment["before"], old)
+        self.assertEqual(adjustment["after"]["consumed_count"], 2)
+        self.assertEqual(behavior.invoke_calls, 3)
+        for n in range(4, 9):
+            backend.execute(*write_authority(self.base, new_plan, source=f"{n:040x}", budget=8))
+        with self.assertRaises(BudgetExhausted):
+            backend.execute(*write_authority(self.base, new_plan, source=f"{9:040x}", budget=8))
 
     def test_extension_rejects_corruption_stable_drift_decrease_and_stale_authority(self):
         plan = descriptor(ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE)

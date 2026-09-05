@@ -513,7 +513,7 @@ class ClassifiedProofBackend:
         self._readmit_current_authority(authority, delegation_bytes)
         with _BudgetLock(paths.lock):
             self._readmit_current_authority(authority, delegation_bytes)
-            budget = self._load_or_initialize_budget(paths, delegation)
+            budget = self._load_or_initialize_budget(paths, delegation, authority)
             transaction = self._read_transaction_if_present(
                 paths, delegation, descriptor,
             )
@@ -624,7 +624,7 @@ class ClassifiedProofBackend:
             transaction = self._read_transaction_if_present(paths, delegation, descriptor)
             if transaction is None or transaction["result_file"] is None:
                 raise DurableStateError("no immutable acceptance result to render")
-            budget = self._load_or_initialize_budget(paths, delegation)
+            budget = self._load_or_initialize_budget(paths, delegation, authority)
             if transaction["reservation_identity"] not in budget["reservations"]:
                 raise DurableStateError("acceptance result has no consumed reservation")
             result = self._readmit_result(adapter, paths, transaction)
@@ -746,7 +746,7 @@ class ClassifiedProofBackend:
         }
 
     def _load_or_initialize_budget(
-        self, paths: _Paths, delegation: Mapping[str, Any],
+        self, paths: _Paths, delegation: Mapping[str, Any], authority: Authority | None = None,
     ) -> dict[str, Any]:
         expected = self._budget_template(delegation)
         if not paths.budget.exists():
@@ -755,7 +755,8 @@ class ClassifiedProofBackend:
         keys = set(expected)
         if set(budget) != keys or budget.get("schema") != BUDGET_SCHEMA:
             raise DurableStateError("budget key roster or schema differs")
-        for key in keys - {"consumed_count", "reservations", "batch_budget_maximum"}:
+        revision_keys = {"plan_content_sha256", "product_contract_sha256"}
+        for key in keys - {"consumed_count", "reservations", "batch_budget_maximum"} - revision_keys:
             if budget[key] != expected[key]:
                 raise DurableStateError(f"stable budget binding differs: {key}")
         reservations = budget["reservations"]
@@ -775,6 +776,37 @@ class ClassifiedProofBackend:
             raise DurableStateError("budget maximum is not a positive integer")
         if len(reservations) > old_maximum:
             raise DurableStateError("budget exceeds its maximum")
+        if any(budget[key] != expected[key] for key in revision_keys):
+            # A diagnostic repair can bind a new exact artifact/plan under the
+            # SAME campaign. Only explicit old-to-current authority admits it;
+            # acceptance and historical reservations are never rebound.
+            if (authority is None
+                    or delegation["execution_class"] != ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE.value
+                    or delegation["acceptance_eligible"] is not False
+                    or old_maximum != maximum
+                    or authority.fields.get("diagnostic_plan_revision_authorized") != "true"
+                    or any(authority.fields.get("diagnostic_previous_" + key) != budget[key]
+                           for key in revision_keys)):
+                raise DurableStateError("stable budget binding differs: unauthorized plan revision")
+            current = load_authority(authority.path)
+            if current.raw_sha256 != delegation["authority_sha256"]:
+                raise DurableStateError("current on-disk authority differs before plan revision")
+            updated = {**budget, **{key: expected[key] for key in revision_keys}}
+            adjustment = {
+                "schema": "classified-proof-diagnostic-plan-adjustment/v1",
+                "authority_sha256": delegation["authority_sha256"],
+                "before": budget, "after": updated,
+            }
+            adjustment_path = paths.budget.with_name(
+                "plan-adjustment-" + sha256_bytes(canonical_json(
+                    {key: [budget[key], updated[key]] for key in sorted(revision_keys)})) + ".json")
+            if adjustment_path.exists():
+                if _read_object(adjustment_path) != adjustment:
+                    raise DurableStateError("diagnostic plan adjustment record differs")
+            else:
+                _write_object(adjustment_path, adjustment, maximum=STATE_MAX_BYTES)
+            self._write_budget(paths, updated)
+            budget = updated
         if old_maximum != maximum:
             if (delegation["execution_class"] != ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE.value
                     or delegation["acceptance_eligible"] is not False or maximum < old_maximum):
