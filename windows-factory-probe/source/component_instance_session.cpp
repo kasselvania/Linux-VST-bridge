@@ -601,7 +601,7 @@ int PreSetupProcessingContractCensus::run() {
     }
 }
 
-AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire(bool pre_setup_census, bool offline_processing) {
+AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire(bool pre_setup_census, bool offline_processing, ExternalProcessing* external) {
     AudioProcessorLeaseResult result;
     try {
     const Steinberg::int8* requested =
@@ -674,7 +674,7 @@ AudioProcessorLeaseResult AudioProcessorInterfaceLease::acquire_and_retire(bool 
         }
 
         if (offline_processing && result.primary_exit == 0) {
-            const auto processing = run_offline_processing(component_, *interface_, callbacks_, events_);
+            const auto processing = run_offline_processing(component_, *interface_, callbacks_, events_, external);
             latch(result.primary_exit, processing.success ? 0 : 110);
             if (!processing.quiescent) {
                 result.audio_interface_quiescence = false;
@@ -902,7 +902,7 @@ std::string ComponentAdmissionResult::json_fields() const {
 ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
                                           EventWriter& events,
                                           ComponentCase component_case,
-                                          bool pre_setup_census, bool offline_processing) {
+                                          bool pre_setup_census, bool offline_processing, ExternalProcessing* external) {
     ComponentAdmissionResult result;
     try {
     const Steinberg::int8* processor = component_case == ComponentCase::unknown_processor
@@ -1040,7 +1040,7 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
     if (result.initialize_succeeded && component != nullptr) {
         result.audio_processor_session_ran = true;
         AudioProcessorInterfaceLease lease(*component, callbacks, events);
-        result.audio_processor = lease.acquire_and_retire(pre_setup_census, offline_processing);
+        result.audio_processor = lease.acquire_and_retire(pre_setup_census, offline_processing, external);
         latch(result.primary_exit, result.audio_processor.primary_exit);
     }
 

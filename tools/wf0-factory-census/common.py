@@ -1007,3 +1007,25 @@ def ap0_windows_build_input(commit, *, root=None):
     value["records"] = dx0_records(commit, AP0_WINDOWS_BUILD_PATHS, root=root)
     value["record_count"] = len(value["records"])
     return value
+
+
+AP1_BRANCH = "codex/ap1-linux-windows-audio-roundtrip"
+AP1_REF = "refs/heads/" + AP1_BRANCH
+AP1_WINDOWS_BUILD_PATHS = tuple(sorted((*AP0_WINDOWS_BUILD_PATHS,
+    "windows-factory-probe/source/ap1_protocol.h",
+    "windows-factory-probe/source/mapped_processing.cpp",
+    "windows-factory-probe/source/mapped_processing.h")))
+
+def ap1_complete_source(commit, *, root=None):
+    repository = root or repo_root()
+    command(["git", "merge-base", "--is-ancestor",
+             "221c22df75ef090a0445233eefb71a7e29aa3f88", commit], cwd=repository)
+    value = dx0_complete_source(commit, root=repository, strict=False)
+    value["ref"] = AP1_REF
+    return value
+
+def ap1_windows_build_input(commit, *, root=None):
+    value = dx0_windows_build_input(commit, root=root)
+    value["records"] = dx0_records(commit, AP1_WINDOWS_BUILD_PATHS, root=root)
+    value["record_count"] = len(value["records"])
+    return value

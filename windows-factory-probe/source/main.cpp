@@ -52,6 +52,7 @@ int main() {
 
 #include "component_instance_session.h"
 #include "factory_census.h"
+#include "mapped_processing.h"
 #include "win32_module.h"
 
 #include <windows.h>
@@ -99,7 +100,8 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
         result["--max-classes"] != "256" || result["--stdout-cap"] != "1048576" ||
         (result["--mode"] != "wa0-audio-processor-interface-admission" &&
          result["--mode"] != "pc0-pre-setup-processing-contract" &&
-         result["--mode"] != "ap0-offline-again-processing") ||
+         result["--mode"] != "ap0-offline-again-processing" &&
+         result["--mode"] != "ap1-linux-windows-audio-roundtrip") ||
         result["--component-case"] != "exact-again") {
         throw std::runtime_error("argument value mismatch");
     }
@@ -258,6 +260,10 @@ int main(int argc, char** argv) {
         if (wf0::sha256_file(module_path) != args.at("--module-sha256")) return 65;
         events.lifecycle("supervisor_gate_accepted");
 
+        const bool ap1_mode=args.at("--mode")=="ap1-linux-windows-audio-roundtrip";
+        std::unique_ptr<wf0::MappedSession> mapped;
+        if(ap1_mode) mapped=std::make_unique<wf0::MappedSession>(
+            ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events);
         wf0::ModuleBinding module;
         int primary = wf0::open_module(module_path, module, events);
         first_primary = primary;
@@ -289,8 +295,8 @@ int main(int argc, char** argv) {
         if (factory != nullptr && primary == 0) {
             component = wf0::admit_component(
                 factory, events, component_case(args.at("--component-case")),
-                pc0_mode || args.at("--mode") == "ap0-offline-again-processing",
-                args.at("--mode") == "ap0-offline-again-processing");
+                pc0_mode || ap1_mode || args.at("--mode") == "ap0-offline-again-processing",
+                ap1_mode || args.at("--mode") == "ap0-offline-again-processing", mapped.get());
             component_session_ran = true;
             if (component.primary_exit != 0) primary = component.primary_exit;
             if (first_primary == 0) first_primary = primary;
@@ -310,6 +316,10 @@ int main(int argc, char** argv) {
                 events, census,
                 component.audio_processor_session_ran &&
                     !component.audio_processor.audio_interface_quiescence);
+        }
+        if(mapped) {
+            if(!component.object_quiescence) mapped.release(); // OS containment; no premature unmap.
+            else if(primary==0) mapped->finish(true);
         }
         if (primary != 0) return primary;
 

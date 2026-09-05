@@ -27,9 +27,9 @@ from common import (
     sha256_file, source_manifest_sha256, write_atomic,
 )
 from common import (
-    AP0_BRANCH as DX0_BRANCH, AP0_WINDOWS_BUILD_PATHS, DX0_HOST_ARTIFACT_SCHEMA, DX0_HOST_BUILD_SCHEMA, DX0_HOST_MODE,
-    AP0_REF as DX0_REF, DX0_WINDOWS_BUILD_INPUT_SCHEMA, ap0_complete_source as dx0_complete_source,
-    dx0_identity_sha256, dx0_source_role, ap0_windows_build_input as dx0_windows_build_input,
+    AP1_BRANCH as DX0_BRANCH, AP1_WINDOWS_BUILD_PATHS, DX0_HOST_ARTIFACT_SCHEMA, DX0_HOST_BUILD_SCHEMA, DX0_HOST_MODE,
+    AP1_REF as DX0_REF, DX0_WINDOWS_BUILD_INPUT_SCHEMA, ap1_complete_source as dx0_complete_source,
+    dx0_identity_sha256, dx0_source_role, ap1_windows_build_input as dx0_windows_build_input,
 )
 from verify import (
     artifact_file_records, artifact_manifest, compare_builds,
@@ -806,7 +806,7 @@ def dx0_source_identity(source_commit: str) -> tuple[dict[str, Any], dict[str, A
     if (
         os.environ.get("DX0_BUILD_INPUT_SHA256") != digest
         or build_input.get("schema") != DX0_WINDOWS_BUILD_INPUT_SCHEMA
-        or build_input.get("record_count") != len(AP0_WINDOWS_BUILD_PATHS)
+        or build_input.get("record_count") != len(AP1_WINDOWS_BUILD_PATHS)
     ):
         fail("DX0 Windows-build-input identity differs from dispatch")
     workflow_blob = _git(root, "rev-parse", f"{source_commit}:{WORKFLOW_PATH}")
@@ -955,7 +955,7 @@ def build_dx0_workflow(source_commit: str, sdk: pathlib.Path,
         "repository": REPOSITORY, "producer_source": producer,
         "windows_build_input": {
             "schema": DX0_WINDOWS_BUILD_INPUT_SCHEMA,
-            "sha256": build_input_sha, "record_count": len(AP0_WINDOWS_BUILD_PATHS),
+            "sha256": build_input_sha, "record_count": len(AP1_WINDOWS_BUILD_PATHS),
         },
         "workflow": workflow, "runner": observed["runner"],
         "toolchain": observed["toolchain"], "vst3_sdk": sdk_identity,

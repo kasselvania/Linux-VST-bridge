@@ -13,10 +13,11 @@ namespace {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 constexpr int frames = 16;
+constexpr int capacity = 256;
 constexpr uint32 guard = 0x4b123456;
 constexpr uint32 sentinel = 0x7fc12345;
 struct Block {
-    std::array<std::array<float, frames + 2>, 2> input{}, output{};
+    std::array<std::array<float, capacity + 2>, 2> input{}, output{}, input_before{};
     std::array<float*, 2> in{}, out{};
     AudioBusBuffers input_bus{}, output_bus{};
     ParameterChanges parameters{2};
@@ -25,7 +26,7 @@ struct Block {
     tresult result{kNotInitialized};
     bool worker_thread{false};
 };
-std::string bits(const std::array<float, frames + 2>& values) {
+std::string bits(const std::array<float, capacity + 2>& values) {
     std::string text="[";
     for (int i=0;i<frames+2;++i) {
         if (i) text+=",";
@@ -35,7 +36,7 @@ std::string bits(const std::array<float, frames + 2>& values) {
 }
 }
 OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& processor,
-                                    HostCallbackSink& callbacks, EventWriter& events) {
+                                    HostCallbackSink& callbacks, EventWriter& events, ExternalProcessing* external) {
     const auto owner = std::this_thread::get_id();
     std::array<Block,3> blocks;
     // All buffers and SDK parameter queues are allocated/populated on the owner
@@ -43,12 +44,12 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     for (int b=0;b<3;++b) {
         auto& block=blocks[b]; block.gain=b==0?0.5:0.25;
         for (int ch=0;ch<2;++ch) {
-            block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
+            block.input[ch].front()=block.input[ch][frames+1]=std::bit_cast<float>(guard);
             block.output[ch].fill(std::bit_cast<float>(sentinel));
-            block.output[ch].front()=block.output[ch].back()=std::bit_cast<float>(guard);
+            block.output[ch].front()=block.output[ch][frames+1]=std::bit_cast<float>(guard);
             for(int i=0;i<frames;++i) {
                 const int numerator=ch==0?((i+b*2)%9)-4:((i*3+b+2)%11)-5;
-                block.input[ch][i+1]=b==2?0.f:static_cast<float>(numerator)/8.f;
+                block.input[ch][i+1]=(external||b==2)?0.f:static_cast<float>(numerator)/8.f;
             }
             block.in[ch]=block.input[ch].data()+1;block.out[ch]=block.output[ch].data()+1;
         }
@@ -85,7 +86,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     SpeakerArrangement input=SpeakerArr::kStereo, output=SpeakerArr::kStereo;
     if (!call("set_bus_arrangements",[&]{return processor.setBusArrangements(&input,1,&output,1);})) return {false,true};
     ProcessSetup setup{};setup.processMode=kOffline;setup.symbolicSampleSize=kSample32;
-    setup.maxSamplesPerBlock=frames;setup.sampleRate=48000.;
+    setup.maxSamplesPerBlock=external?capacity:frames;setup.sampleRate=48000.;
     if (!call("setup_processing",[&]{return processor.setupProcessing(setup);})) return {false,true};
     if (!call("activate_audio_input",[&]{return component.activateBus(kAudio,kInput,0,true);})) return {false,true};
     if (!call("activate_audio_output",[&]{return component.activateBus(kAudio,kOutput,0,true);})) return {false,true};
@@ -102,14 +103,43 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     std::string(std::this_thread::get_id()!=owner?"true":"false"));
                 stopped=false;
                 started=call("set_processing_true",[&]{return processor.setProcessing(true);},true);
-                if (started) for(int b=0;b<3;++b) {
-                    auto& block=blocks[b];
+                if (started && external) external->ready();
+                if (started) for(int b=0;b<(external?65:3);++b) {
+                    auto& block=blocks[external?0:b];
+                    if (external) {
+                        for(int ch=0;ch<2;++ch) {
+                            block.input[ch].fill(0.f);block.output[ch].fill(std::bit_cast<float>(sentinel));
+                            block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
+                            block.output[ch].front()=block.output[ch].back()=std::bit_cast<float>(guard);
+                        }
+                        ExternalBlock request{};
+                        if (!external->next(request,block.in[0],block.in[1])) break;
+                        block.input_before=block.input;
+                        block.gain=request.gain;block.data.numSamples=request.frames;
+                        block.input_bus.silenceFlags=request.silence;block.output_bus.silenceFlags=0;
+                        block.parameters.clearQueue();int32 parameter=0,point=0;
+                        block.parameters.addParameterData(0,parameter)->addPoint(0,request.gain,point);
+                        block.parameters.addParameterData(2,parameter)->addPoint(0,0.,point);
+                    }
                     block.worker_thread=std::this_thread::get_id()!=owner;
                     events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
                     block.result=processor.process(block.data);
                     events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
                         ",\"result\":"+std::to_string(block.result));
                     if(block.result!=kResultOk) {ok=false;break;}
+                    if(external) {
+                        for(int ch=0;ch<2;++ch) {
+                            if(block.input[ch]!=block.input_before[ch] ||
+                               std::bit_cast<uint32>(block.output[ch].front())!=guard ||
+                               std::bit_cast<uint32>(block.output[ch].back())!=guard)
+                                throw std::runtime_error("AP1 private buffer guard/input");
+                            for(int i=block.data.numSamples+1;i<=capacity;++i)
+                                if(std::bit_cast<uint32>(block.output[ch][i])!=sentinel)
+                                    throw std::runtime_error("AP1 unused private output modified");
+                        }
+                        events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
+                    }
+                    if(external) external->done(block.out[0],block.out[1],unsigned(block.output_bus.silenceFlags));
                 }
             } catch (...) {worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after
@@ -127,7 +157,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     if (active) return {false,false};
     call("deactivate_audio_output",[&]{return component.activateBus(kAudio,kOutput,0,false);});
     call("deactivate_audio_input",[&]{return component.activateBus(kAudio,kInput,0,false);});
-    for(int b=0;b<3;++b) {
+    if (!external) for(int b=0;b<3;++b) {
         const auto& block=blocks[b];
         events.final_lifecycle("ap0_samples",",\"block\":"+std::to_string(b)+
             ",\"gain\":"+std::to_string(block.gain)+",\"sample_rate\":48000,\"frames\":16"+
