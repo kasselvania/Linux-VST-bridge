@@ -651,7 +651,7 @@ def render_ap1_packet(output,result,*,consumer_source,validate):
     summary=validate(result['admitted_result']['document']['summary'])
     return render_ap0_packet(output,result,consumer_source=consumer_source,validate=validate,product='AP1',findings=[
         f"Linux read and independently checked {summary['comparison']['samples_compared']} float32 samples; maximum absolute error {summary['comparison']['maximum_absolute_error']}.",
-        'Eight changing blocks, 1/16/63/256 frames, gains 0.5/0.25/0.75, distinct stereo inputs and silence. Linux chose the retained seed only after Windows Ready. Actual input and returned words are retained.',
+        'Ten changing blocks, 1/16/63/256 frames, gains 0/0.5/0.25/0.75, distinct stereo inputs, all-channel silence and one-channel silence. Actual output masks are retained independently of input masks. Linux chose the retained seed only after Windows Ready. Actual input and returned words are retained.',
         'One host, AGain instance, shared mapping and authenticated loopback control connection reused throughout. Control carried no audio. Both views witnessed the same backing mapping before module load.',
         'Owner-thread setup/activation; distinct processing thread stopped and joined before deactivation, interface/component retirement and unload. Windows unmapped before Closed; Linux unmapped after Closed. Both owned groups empty, disposable stage absent, protected state unchanged.',
         'Offline Linux/Windows numerical round trip only. No DAW, realtime, editor, commercial plug-in, state, event transport or arbitrary plug-in memory-safety claim. AP0 remains accepted pending AP1 review and merge.'])

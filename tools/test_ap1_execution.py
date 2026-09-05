@@ -18,8 +18,8 @@ def caller():
             out=[contract.GUARD]+[contract.POISON]*256+[contract.GUARD]
             for i in range(1,n+1):out[i]=struct.unpack('<I',struct.pack('<f',contract.sample(ins[ch][i])*contract.GAINS[b]))[0]
             outs.append(out)
-        records.append(dict(event='ap1_client_block',sequence=b+1,frames=n,gain=contract.GAINS[b],silent=b==5,input_bits=ins,output_bits=outs,maximum_absolute_error=0.))
-    records.append(dict(event='ap1_client_closed',blocks=8,samples_compared=1344,maximum_absolute_error=0.,closed_received=True,mapping_unmapped=True,replays=0))
+        records.append(dict(event='ap1_client_block',sequence=b+1,frames=n,gain=contract.GAINS[b],silent=b==5,input_silence_flags=contract.SILENCE[b],output_silence_flags=3 if b in (5,8) else 0,input_bits=ins,output_bits=outs,maximum_absolute_error=0.))
+    records.append(dict(event='ap1_client_closed',blocks=10,samples_compared=1502,maximum_absolute_error=0.,closed_received=True,mapping_unmapped=True,replays=0))
     return dict(records=records,raw_exit=0,cleanup=dict(owned_descendants_zero=True,process_group_empty=True))
 class AP1ExecutionTests(AP0ExecutionTests):
     def setUp(self):
@@ -39,8 +39,8 @@ class AP1ExecutionTests(AP0ExecutionTests):
             records=r['records'];records[:]=[v for v in records if v.get('state') not in {'ap0_samples','ap0_process_started','ap0_process_completed'}]
             index=next(i for i,v in enumerate(records) if v.get('state')=='ap0_call_completed' and v.get('operation')=='set_processing_true')+1
             extra=[]
-            for b in range(8):
-                extra.extend([dict(event='lifecycle',state='ap0_process_started',block=b),dict(event='lifecycle',state='ap0_process_completed',block=b,result=0),dict(event='lifecycle',state='ap1_private_buffers_valid',block=b)])
+            for b in range(10):
+                extra.extend([dict(event='lifecycle',state='ap0_process_started',block=b),dict(event='lifecycle',state='ap0_process_completed',block=b,result=0),dict(event='lifecycle',state='ap1_private_buffers_valid',block=b),dict(event='lifecycle',state='ap1_output_silence',block=b,input_silence_flags=contract.SILENCE[b],output_silence_flags=3 if b in (5,8) else 0)])
             records[index:index]=extra
             records.insert(0,dict(event='lifecycle',state='ap1_mapping_ready',mapping_count=1,connection_count=1,mapping_witness=True))
             records.append(dict(event='lifecycle',state='ap1_endpoint_closed',mapping_unmapped=True,instance_count=1))
@@ -84,7 +84,7 @@ class AP1ExecutionTests(AP0ExecutionTests):
             cleanup.assert_called_once_with(child,[(321,77)])
         self.assertFalse(history[0][1]['cleanup']['process_group_empty'])
         last=history[-1][1];self.assertTrue(last['cleanup']['process_group_empty'])
-        self.assertEqual(last['records'][0]['detail'],'original failure');self.assertEqual(len(last['caller']['records']),10)
+        self.assertEqual(last['records'][0]['detail'],'original failure');self.assertEqual(len(last['caller']['records']),12)
     def test_ap1_reporting_failure_retains_samples_and_cleanup(self):
         with patch.object(self.profile,'validate_summary',side_effect=ValueError('local reporting rejection')):
             self.execute_cli()
@@ -95,7 +95,7 @@ class AP1ExecutionTests(AP0ExecutionTests):
     def test_ap1_fresh_command_retains_and_renders_actual_words(self):
         self.assertEqual(self.execute_cli(['--preflight-only'])['state'],'ready');self.assertEqual(self.launches,0)
         receipt=self.execute_cli();self.assertTrue(receipt['renderer_completed'],self.transaction().get('observation',{}).get('payload',{}).get('document',{}).get('summary',{}))
-        self.assertEqual(self.rendered[0]['admitted_result']['document']['summary']['comparison']['samples_compared'],1344)
+        self.assertEqual(self.rendered[0]['admitted_result']['document']['summary']['comparison']['samples_compared'],1502)
         self.execute_cli();self.assertEqual(self.launches,1)
     def test_ap1_original_words_survive_normalization_and_lost_ack(self):
         original=self.ap1_scan.side_effect

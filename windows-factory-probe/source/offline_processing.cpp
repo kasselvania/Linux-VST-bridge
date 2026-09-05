@@ -139,7 +139,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         }
                         events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
                     }
-                    if(external) external->done(block.out[0],block.out[1],unsigned(block.output_bus.silenceFlags));
+                    if(external) external->done(block.out[0],block.out[1],block.output_bus.silenceFlags);
                 }
             } catch (...) {worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after

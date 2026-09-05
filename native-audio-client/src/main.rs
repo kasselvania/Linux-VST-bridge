@@ -240,25 +240,28 @@ fn run(stage: &mut &'static str) -> io::Result<()> {
             mapping.write_plane(OUTPUT, ch, &poison)?;
         }
         barrier();
-        let request = state.process(frames, GAINS[b], b == 5)?;
+        let request = state.process(frames, GAINS[b], SILENCE[b])?;
         // Failure latches ownership before any read/reuse. There is no resend path.
         let exchange = send(&mut socket, &request, 5)
             .and_then(|_| receive(&mut socket, 5))
             .and_then(|f| state.done(&f));
-        if let Err(error) = exchange {
-            state.failed();
-            return Err(error);
-        }
+        let output_silence = match exchange {
+            Ok(flags) => flags,
+            Err(error) => {
+                state.failed();
+                return Err(error);
+            }
+        };
         barrier();
         let returned_input = [mapping.plane(INPUT, 0)?, mapping.plane(INPUT, 1)?];
         let output = [mapping.plane(OUTPUT, 0)?, mapping.plane(OUTPUT, 1)?];
-        let comparison = compare(&input, &output, frames, GAINS[b]);
+        let comparison = compare(&input, &output, frames, GAINS[b], output_silence);
         let error = comparison
             .as_ref()
             .map(|v| v.to_string())
             .unwrap_or("null".into());
         count += frames * 2;
-        record(format!("{{\"event\":\"ap1_client_block\",\"sequence\":{},\"frames\":{frames},\"gain\":{},\"silent\":{},\"input_bits\":{},\"output_bits\":{},\"maximum_absolute_error\":{error}}}",request.sequence,GAINS[b],b==5,words(&returned_input),words(&output)))?;
+        record(format!("{{\"event\":\"ap1_client_block\",\"sequence\":{},\"frames\":{frames},\"gain\":{},\"silent\":{},\"input_silence_flags\":{},\"output_silence_flags\":{output_silence},\"input_bits\":{},\"output_bits\":{},\"maximum_absolute_error\":{error}}}",request.sequence,GAINS[b],SILENCE[b]==3,SILENCE[b],words(&returned_input),words(&output)))?;
         // Retain actual mapped words before either validation can fail.
         need(returned_input == input, "input/guard modified")?;
         comparison?;
@@ -270,7 +273,7 @@ fn run(stage: &mut &'static str) -> io::Result<()> {
     drop(socket);
     mapping.close()?;
     *stage = "report";
-    record(format!("{{\"event\":\"ap1_client_closed\",\"blocks\":8,\"samples_compared\":{count},\"maximum_absolute_error\":0.0,\"mapping_unmapped\":true,\"closed_received\":true,\"replays\":0}}"))?;
+    record(format!("{{\"event\":\"ap1_client_closed\",\"blocks\":10,\"samples_compared\":{count},\"maximum_absolute_error\":0.0,\"mapping_unmapped\":true,\"closed_received\":true,\"replays\":0}}"))?;
     Ok(())
 }
 fn main() {

@@ -10,7 +10,7 @@ public:
     ~MappedSession();
     void ready() override;
     bool next(ExternalBlock&,float*,float*) override;
-    void done(const float*,const float*,unsigned) override;
+    void done(const float*,const float*,uint64_t) override;
     void finish(bool success);
 private:
     struct Impl;std::unique_ptr<Impl> impl_;

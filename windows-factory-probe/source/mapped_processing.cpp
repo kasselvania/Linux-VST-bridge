@@ -61,6 +61,20 @@ bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*im
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  out={int(x.current.frames),x.current.gain,x.current.silence};return true;
  }catch(const std::exception&e){x.error(e);throw;}}
-void MappedSession::done(const float* left,const float* right,unsigned silence){auto&x=*impl_;try{require(silence==x.current.silence,"output silence flags");for(size_t ch=0;ch<2;++ch)std::memcpy(x.view+output_offset+ch*stride+4,ch?right:left,x.current.frames*4);barrier();std::vector<uint8_t>p(8);put(p.data(),x.current.frames,4);put(p.data()+4,output_offset,4);x.socket.write(x.frame(Done,x.state.next,p));x.state.complete();}catch(const std::exception&e){x.error(e);throw;}}
+void MappedSession::done(const float* left,const float* right,uint64_t silence) {
+ auto& x=*impl_;
+ try {
+  // Retain the actual 64-bit SDK result before validating it, including failures.
+  x.events.lifecycle("ap1_output_silence",",\"block\":"+std::to_string(x.state.next-1)+
+      ",\"input_silence_flags\":"+std::to_string(x.current.silence)+
+      ",\"output_silence_flags\":"+std::to_string(silence));
+  auto payload=processing_result(x.current,left,right,silence);
+  for(size_t ch=0;ch<2;++ch)
+   std::memcpy(x.view+output_offset+ch*stride+4,ch?right:left,x.current.frames*4);
+  barrier();
+  x.socket.write(x.frame(Done,x.state.next,payload));
+  x.state.complete();
+ } catch(const std::exception& error) {x.error(error);throw;}
+}
 void MappedSession::finish(bool success){auto&x=*impl_;require(success&&x.closed&&!x.state.outstanding&&!x.state.failed,"session did not close cleanly");require(UnmapViewOfFile(x.view)!=0,"mapping unmap");x.view=nullptr;require(CloseHandle(x.mapping.value)!=0,"mapping handle close");x.mapping.value=nullptr;require(CloseHandle(x.file.value)!=0,"file handle close");x.file.value=INVALID_HANDLE_VALUE;x.socket.write(x.frame(Closed,x.state.next));x.events.lifecycle("ap1_endpoint_closed",",\"mapping_unmapped\":true,\"instance_count\":1");}
 }

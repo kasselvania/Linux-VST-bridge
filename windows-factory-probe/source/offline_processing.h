@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 namespace linux_vst_bridge::wf0 {
@@ -11,7 +12,7 @@ public:
     virtual ~ExternalProcessing() = default;
     virtual void ready() = 0;
     virtual bool next(ExternalBlock&, float* left, float* right) = 0;
-    virtual void done(const float* left, const float* right, unsigned silence) = 0;
+    virtual void done(const float* left, const float* right, uint64_t silence) = 0;
 };
 struct OfflineResult { bool success; bool quiescent; };
 OfflineResult run_offline_processing(Steinberg::Vst::IComponent& component,

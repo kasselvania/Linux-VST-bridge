@@ -8,7 +8,7 @@ from classified_proof_backend import PlanDescriptor,AcceptancePlanAdapter,Diagno
 from proof_execution_policy import ExecutionClass,canonical_json,sha256_bytes
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 CONTRACT='docs/slices/AP1/CONTRACT.md';ARTIFACT='docs/campaigns/AP1_ARTIFACT.json';CLIENT='docs/campaigns/AP1_CLIENT.json'
-EVIDENCE='evidence/ap1-linux-windows-audio-roundtrip'
+EVIDENCE='evidence/ap1-linux-windows-audio-roundtrip-a2'
 SUPPORT={**base.SUPPORT,**{n:(ROOT/'tools'/f'{n}.py').read_text() for n in ('ap1_client_artifact','ap1_contract','ap1_worker_support')}}
 # The existing entrypoint has no product policy or execution implementation.
 PROGRAM=base.WORKER.replace('_SUPPORT_SOURCES = {}','_SUPPORT_SOURCES = '+repr(SUPPORT))
@@ -17,7 +17,7 @@ def candidate_identity(source,plan):
 def descriptor(cls,artifact,client):
     return PlanDescriptor.create(plan_id='ap1-linux-windows-audio-'+('acceptance' if cls is ExecutionClass.ACCEPTANCE_CANDIDATE else 'diagnostic')+'-v1',
         execution_class=cls,product_contract_identity='ap1-linux-windows-audio-v1',product_contract_bytes=(ROOT/CONTRACT).read_bytes(),
-        operation='ap1-mapped-stereo-eight-blocks',artifact_requirement={**artifact,'native_client':client},
+        operation='ap1-mapped-stereo-ten-blocks',artifact_requirement={**artifact,'native_client':client},
         fixture_requirement=d.FIXTURE_REQUIREMENT,runtime_requirement={**d.RUNTIME_REQUIREMENT,'declared_runtime_inputs_sha256':base.declared_runtime_inputs()})
 def client_parent():
     return pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)/'Library/Application Support/Linux VST Bridge/proof/client-artifacts/by-manifest'

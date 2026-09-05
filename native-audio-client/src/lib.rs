@@ -54,6 +54,7 @@ impl Frame {
         let mut b = vec![0; HEADER + self.payload.len()];
         put(&mut b[0..4], 0x3141504c);
         put(&mut b[4..6], 1);
+        put(&mut b[6..8], 1);
         put(&mut b[8..10], self.kind as u64);
         put(&mut b[12..16], self.payload.len() as u64);
         b[16..32].copy_from_slice(&self.session);
@@ -79,7 +80,7 @@ pub fn payload_length(b: &[u8]) -> io::Result<usize> {
         b.len() == HEADER
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
-            && get(&b[6..8]) == 0
+            && get(&b[6..8]) == 1
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
@@ -153,11 +154,12 @@ pub struct ClientState {
     pub slot: Slot,
 }
 impl ClientState {
-    pub fn process(&mut self, frames: usize, gain: f64, silent: bool) -> io::Result<Frame> {
+    pub fn process(&mut self, frames: usize, gain: f64, silence: u32) -> io::Result<Frame> {
         need(
             self.slot == Slot::Writable
                 && self.next <= 64
                 && (1..=CAP).contains(&frames)
+                && silence <= 3
                 && gain.is_finite()
                 && (0.0..=1.0).contains(&gain),
             "request ownership/extent",
@@ -168,7 +170,7 @@ impl ClientState {
             (4, INPUT as u64),
             (8, OUTPUT as u64),
             (12, STRIDE as u64),
-            (24, if silent { 3 } else { 0 }),
+            (24, silence as u64),
         ] {
             put(&mut p[o..o + 4], v);
         }
@@ -184,15 +186,15 @@ impl ClientState {
             payload: p,
         })
     }
-    pub fn done(&mut self, f: &Frame) -> io::Result<()> {
+    pub fn done(&mut self, f: &Frame) -> io::Result<u64> {
         let ok = match self.slot {
             Slot::Outstanding { sequence, frames } => {
                 f.kind == DONE
                     && f.session == self.session
                     && f.sequence == sequence
-                    && f.payload.len() == 8
+                    && f.payload.len() == 16
                     && get(&f.payload[..4]) == frames as u64
-                    && get(&f.payload[4..]) == OUTPUT as u64
+                    && get(&f.payload[4..8]) == OUTPUT as u64
             }
             _ => false,
         };
@@ -202,7 +204,7 @@ impl ClientState {
         }
         self.slot = Slot::Writable;
         self.next += 1;
-        Ok(())
+        Ok(get(&f.payload[8..16]))
     }
     pub fn failed(&mut self) {
         self.slot = Slot::Failed;
@@ -231,8 +233,9 @@ impl ClientState {
         )
     }
 }
-pub const LENGTHS: [usize; 8] = [1, 16, 63, 256, 16, 63, 1, 256];
-pub const GAINS: [f64; 8] = [0.5, 0.25, 0.75, 0.5, 0.75, 0.25, 0.5, 0.75];
+pub const LENGTHS: [usize; 10] = [1, 16, 63, 256, 16, 63, 1, 256, 16, 63];
+pub const GAINS: [f64; 10] = [0.5, 0.25, 0.75, 0.5, 0.75, 0.25, 0.5, 0.75, 0.0, 0.5];
+pub const SILENCE: [u32; 10] = [0, 0, 0, 0, 0, 3, 0, 0, 0, 1];
 pub fn recipe(seed: u64, b: usize, ch: usize) -> [u32; CAP + 2] {
     let mut a = [0u32; CAP + 2];
     a[0] = GUARD;
@@ -243,11 +246,18 @@ pub fn recipe(seed: u64, b: usize, ch: usize) -> [u32; CAP + 2] {
         x ^= x >> 7;
         x ^= x << 17;
         let numerator = (x % 129) as i32 - 64;
-        *v = if b == 5 {
+        *v = if SILENCE[b] & (1 << ch) != 0 {
             0
         } else {
             (numerator as f32 / 128.0).to_bits()
         };
+    }
+    // Make the added valid cases discriminating for every post-Ready seed.
+    if b == 8 {
+        a[1] = ((ch + 1) as f32 / 4.0).to_bits();
+    }
+    if b == 9 && ch == 1 {
+        a[1] = (-0.5f32).to_bits();
     }
     a
 }
@@ -256,7 +266,9 @@ pub fn compare(
     output: &[[u32; CAP + 2]; 2],
     frames: usize,
     gain: f64,
+    output_silence: u64,
 ) -> io::Result<f64> {
+    need(output_silence & !3 == 0, "invalid output silence bits")?;
     let mut max: f64 = 0.0;
     for ch in 0..2 {
         need(
@@ -271,6 +283,10 @@ pub fn compare(
             let actual = f32::from_bits(output[ch][i]) as f64;
             let expected = f32::from_bits(input[ch][i]) as f64 * gain;
             need(actual.is_finite(), "nonfinite/unwritten output")?;
+            need(
+                output_silence & (1 << ch) == 0 || actual == 0.0,
+                "output silence claim has nonzero sample",
+            )?;
             max = max.max((actual - expected).abs());
         }
     }
@@ -301,7 +317,7 @@ mod tests {
     #[test]
     fn fragmented_coalesced_and_truncated() {
         let mut s = state();
-        let frame = s.process(63, 0.75, false).unwrap();
+        let frame = s.process(63, 0.75, 0).unwrap();
         let bytes = frame.encode().unwrap();
         let mut r = Fragments {
             data: Cursor::new([bytes.clone(), bytes.clone()].concat()),
@@ -314,7 +330,7 @@ mod tests {
     }
     #[test]
     fn bad_header() {
-        let b = state().process(16, 0.5, false).unwrap().encode().unwrap();
+        let b = state().process(16, 0.5, 0).unwrap().encode().unwrap();
         for offset in [0, 4, 6, 10, 12, 32, 48] {
             let mut bad = b.clone();
             bad[offset] = 255;
@@ -325,11 +341,11 @@ mod tests {
     fn wrong_done_never_reuses() {
         for fault in 0..4 {
             let mut s = state();
-            s.process(16, 0.5, false).unwrap();
-            assert!(s.process(1, 0.5, false).is_err());
-            let mut p = vec![0; 8];
+            s.process(16, 0.5, 0).unwrap();
+            assert!(s.process(1, 0.5, 0).is_err());
+            let mut p = vec![0; 16];
             put(&mut p[..4], 16);
-            put(&mut p[4..], OUTPUT as u64);
+            put(&mut p[4..8], OUTPUT as u64);
             let mut done = Frame {
                 kind: DONE,
                 session: s.session,
@@ -344,17 +360,17 @@ mod tests {
             };
             assert!(s.done(&done).is_err());
             assert_eq!(s.slot, Slot::Failed);
-            assert!(s.process(16, 0.5, false).is_err());
+            assert!(s.process(16, 0.5, 0).is_err());
             assert!(s.close().is_err());
         }
     }
     #[test]
     fn duplicate_done_and_lost_response() {
         let mut s = state();
-        s.process(1, 0.5, false).unwrap();
-        let mut p = vec![0; 8];
+        s.process(1, 0.5, 0).unwrap();
+        let mut p = vec![0; 16];
         put(&mut p[..4], 1);
-        put(&mut p[4..], OUTPUT as u64);
+        put(&mut p[4..8], OUTPUT as u64);
         let done = Frame {
             kind: DONE,
             session: s.session,
@@ -365,7 +381,7 @@ mod tests {
         assert!(s.done(&done).is_err());
         assert_eq!(s.slot, Slot::Failed);
         let mut s = state();
-        s.process(1, 0.5, false).unwrap();
+        s.process(1, 0.5, 0).unwrap();
         s.failed();
         assert!(s.close().is_err());
     }
@@ -380,16 +396,16 @@ mod tests {
                 output[ch][i] = (f32::from_bits(input[ch][i]) * 0.5).to_bits();
             }
         }
-        assert_eq!(compare(&input, &output, 256, 0.5).unwrap(), 0.0);
+        assert_eq!(compare(&input, &output, 256, 0.5, 0).unwrap(), 0.0);
         for ch in 0..2 {
             for i in 1..=CAP {
                 let mut bad = output;
                 bad[ch][i] = POISON;
-                assert!(compare(&input, &bad, 256, 0.5).is_err());
+                assert!(compare(&input, &bad, 256, 0.5, 0).is_err());
             }
         }
         output.swap(0, 1);
-        assert!(compare(&input, &output, 256, 0.5).is_err());
+        assert!(compare(&input, &output, 256, 0.5, 0).is_err());
     }
     #[test]
     fn partial_write_error() {
@@ -407,10 +423,10 @@ mod tests {
             }
         }
         let mut s = state();
-        let frame = s.process(16, 0.5, false).unwrap();
+        let frame = s.process(16, 0.5, 0).unwrap();
         assert!(Broken(2).write_all(&frame.encode().unwrap()).is_err());
         s.failed();
-        assert!(s.process(16, 0.5, false).is_err());
+        assert!(s.process(16, 0.5, 0).is_err());
     }
     #[test]
     fn real_peer_disconnect_and_deadline() {
@@ -441,7 +457,7 @@ fn cross_language_vector() {
         next: 7,
         slot: Slot::Writable,
     };
-    let frame = state.process(63, 0.75, false).unwrap();
+    let frame = state.process(63, 0.75, 0).unwrap();
     assert_eq!(frame.encode().unwrap(), bytes);
     assert_eq!(Frame::decode(&bytes).unwrap(), frame);
 }

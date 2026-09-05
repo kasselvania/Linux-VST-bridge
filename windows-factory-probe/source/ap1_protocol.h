@@ -18,12 +18,12 @@ inline void put(uint8_t* p,uint64_t v,size_t n){for(size_t i=0;i<n;++i)p[i]=uint
 struct Frame {uint16_t kind;std::array<uint8_t,16> session;uint64_t sequence;std::vector<uint8_t> payload;};
 inline std::vector<uint8_t> encode(const Frame& f){
  require(f.kind>=Hello&&f.kind<=Error&&f.payload.size()<=4040,"frame kind/length");
- std::vector<uint8_t>b(header_bytes+f.payload.size());put(b.data(),magic,4);put(b.data()+4,1,2);
+ std::vector<uint8_t>b(header_bytes+f.payload.size());put(b.data(),magic,4);put(b.data()+4,1,2);put(b.data()+6,1,2);
  put(b.data()+8,f.kind,2);put(b.data()+12,f.payload.size(),4);std::memcpy(b.data()+16,f.session.data(),16);
  put(b.data()+32,1,8);put(b.data()+40,f.sequence,8);if(!f.payload.empty())std::memcpy(b.data()+56,f.payload.data(),f.payload.size());return b;
 }
 inline size_t payload_length(const uint8_t* b){
- require(get(b,4)==magic&&get(b+4,2)==1&&get(b+6,2)==0&&get(b+10,2)==0,"protocol version/header");
+ require(get(b,4)==magic&&get(b+4,2)==1&&get(b+6,2)==1&&get(b+10,2)==0,"protocol version/header");
  require(get(b+8,2)>=Hello&&get(b+8,2)<=Error&&get(b+32,8)==1&&get(b+48,8)==0,"protocol kind/instance/parent");
  auto n=get(b+12,4);require(n<=4040,"frame length");return size_t(n);
 }
@@ -38,6 +38,26 @@ inline Request request(const Frame& f){
  require(frames>=1&&frames<=capacity&&get(p+4,4)==input_offset&&get(p+8,4)==output_offset&&get(p+12,4)==stride,"process extent");
  require(std::isfinite(gain)&&gain>=0&&gain<=1&&get(p+24,4)<=3&&get(p+28,4)==0,"gain/silence/reserved");
  return {uint32_t(frames),gain,uint32_t(get(p+24,4))};
+}
+// Actual native result handler used by MappedSession::done before publication.
+// Output flags are independent claims; an unflagged channel may still be zero.
+inline std::vector<uint8_t> processing_result(const Request& request,
+                                             const float* left, const float* right,
+                                             uint64_t silence) {
+ require(request.frames>=1 && request.frames<=capacity,"result extent");
+ require((silence & ~uint64_t(3))==0,"invalid output silence bits");
+ for (size_t ch=0;ch<2;++ch) {
+  const auto* samples=ch?right:left;
+  for (size_t i=0;i<request.frames;++i) {
+   require(std::isfinite(samples[i]),"nonfinite output sample");
+   require(!(silence & (uint64_t(1)<<ch)) || samples[i]==0.f,
+           "output silence claim has nonzero sample");
+  }
+ }
+ std::vector<uint8_t> payload(16);
+ put(payload.data(),request.frames,4);put(payload.data()+4,output_offset,4);
+ put(payload.data()+8,silence,8);
+ return payload;
 }
 struct Sequence {
  std::array<uint8_t,16> session{};uint64_t next=1;bool outstanding=false,closed=false,failed=false;

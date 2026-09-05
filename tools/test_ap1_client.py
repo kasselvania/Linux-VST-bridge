@@ -4,7 +4,7 @@ TOOLS=pathlib.Path(__file__).parent.resolve();ROOT=TOOLS.parent;sys.path.insert(
 from ap1_contract import compare_caller,GUARD
 HEADER=struct.Struct('<IHHHHI16sQQQ')
 def frame(kind,session,sequence,payload=b''):
-    return HEADER.pack(0x3141504c,1,0,kind,0,len(payload),session,1,sequence,0)+payload
+    return HEADER.pack(0x3141504c,1,1,kind,0,len(payload),session,1,sequence,0)+payload
 def exact(sock,n):
     b=b''
     while len(b)<n:
@@ -50,10 +50,21 @@ class NativeClientTests(unittest.TestCase):
                                 for i in range(n):
                                     value=struct.unpack_from('<f',shared,inp+ch*stride+4*(i+1))[0]
                                     struct.pack_into('<f',shared,outoff+ch*stride+4*(i+1),value*gain)
+                            output_silence=3 if silence==3 or gain==0 else 0
+                            if silence & 1:
+                                self.assertTrue(all(struct.unpack_from('<f',shared,inp+4*(i+1))[0]==0 for i in range(n)))
+                            if requests==10:
+                                self.assertEqual(silence,1);self.assertEqual(output_silence,0)
+                                self.assertNotEqual(struct.unpack_from('<f',shared,inp+stride+4)[0],0.)
+                            if requests==9:
+                                self.assertEqual((silence,gain,output_silence),(0,0.,3))
+                                self.assertNotEqual(struct.unpack_from('<f',shared,inp+4)[0],0.)
+                            if fault=='invalid_mask':output_silence=1<<32
+                            if fault=='false_silence':output_silence=3
                             if fault=='corrupt':struct.pack_into('<f',shared,outoff+4,99.)
                             if fault=='disconnect':break
                             if fault=='timeout':time.sleep(5.2);break
-                            sock.sendall(frame(4,session,seq+(1 if fault=='stale' else 0),struct.pack('<II',n,outoff)))
+                            sock.sendall(frame(4,session,seq+(1 if fault=='stale' else 0),struct.pack('<IIQ',n,outoff,output_silence)))
                             if fault:
                                 self.assertEqual(sock.recv(1),b'','failed response must never replay or reuse');break
                     child.wait(timeout=3)
@@ -63,12 +74,20 @@ class NativeClientTests(unittest.TestCase):
                     if child.poll() is None:child.kill();child.wait()
                     child.stderr.close()
     def test_real_mapping_roundtrip_and_independent_admission(self):
-        code,records,n=self.run_peer();self.assertEqual((code,n),(0,8))
+        code,records,n=self.run_peer();self.assertEqual((code,n),(0,10))
         result=compare_caller({'raw_exit':code,'records':records,'cleanup':{'owned_descendants_zero':True,'process_group_empty':True}})
-        self.assertEqual(result['samples_compared'],1344);self.assertEqual(result['maximum_absolute_error'],0)
+        self.assertEqual(result['samples_compared'],1502);self.assertEqual(result['maximum_absolute_error'],0)
     def test_bad_samples_retained_before_rejection(self):
         code,r,n=self.run_peer('corrupt');self.assertEqual((code,n),(1,1));self.assertEqual(r[-1]['event'],'ap1_client_error')
         self.assertEqual(r[-2]['event'],'ap1_client_block');self.assertEqual(r[-2]['output_bits'][0][1],struct.unpack('<I',struct.pack('<f',99.))[0])
+    def test_invalid_output_silence_claims_are_retained_and_stop(self):
+        for fault,flags in [('invalid_mask',1<<32),('false_silence',3)]:
+            with self.subTest(fault=fault):
+                code,records,n=self.run_peer(fault)
+                self.assertEqual((code,n),(1,1))
+                self.assertEqual(records[-2]['output_silence_flags'],flags)
+                self.assertEqual(records[-1]['event'],'ap1_client_error')
+                self.assertIn('silence',records[-1]['detail'])
     def test_missing_stale_disconnected_responses_never_replay(self):
         for fault in ('stale','disconnect','timeout'):
             with self.subTest(fault=fault):
