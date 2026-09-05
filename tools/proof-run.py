@@ -17,10 +17,11 @@ from pc0_proof_adapter import (
     PRODUCTION_ADAPTERS, PLAN_ID, AdapterPorts, OSFileSystemPort,
     StrictSSHPort, SubprocessCommandPort, create_pc0_diagnostic_adapter,
 )
+from pc0_acceptance_adapter import PLAN_ID as ACCEPTANCE_PLAN_ID, create_pc0_acceptance_adapter
 from proof_execution_policy import (
     ExecutionClass, LiveRequest, PolicyError, authority_status,
     authorize_live_request, canonical_json, load_authority,
-    validate_canonical_delegation,
+    validate_canonical_delegation, sha256_bytes,
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -96,6 +97,7 @@ def _production_adapters():
     ports = AdapterPorts(command, OSFileSystemPort(), StrictSSHPort(command))
     adapters = dict(PRODUCTION_ADAPTERS)
     adapters[PLAN_ID] = create_pc0_diagnostic_adapter(ports)
+    adapters[ACCEPTANCE_PLAN_ID] = create_pc0_acceptance_adapter(ports)
     return adapters, command
 
 
@@ -146,6 +148,13 @@ def dispatch(args: argparse.Namespace, *,
             raise BackendError(error_chain(exc)) from exc
         output = {"operation": "read_only_preflight", "state": "ready",
                   "reservations_created": 0, "acceptance_eligible": False}
+    elif getattr(args, "render_only", False):
+        if args.operation != "accept":
+            raise BackendError("retained rendering is acceptance-only")
+        adapters, _command = _production_adapters()
+        receipt = ClassifiedProofBackend(STATE_ROOT, adapters).render_retained(authority, encoded,
+            renderer_revision=sha256_bytes((ROOT / "tools/wf0-factory-census/evidence.py").read_bytes()))
+        output = asdict(receipt)
     elif classified_runner is not None:
         receipt = classified_runner(authority, encoded)
         output = asdict(receipt) if hasattr(receipt, "__dataclass_fields__") else receipt
@@ -179,6 +188,9 @@ def build_parser() -> argparse.ArgumentParser:
         item.add_argument(f"--{identity}", required=True)
         item.add_argument("--authority", type=pathlib.Path,
                           help="Explicit scoped receipt; default CURRENT_SLICE remains fail-closed")
+        if name == "accept":
+            item.add_argument("--render-only", action="store_true",
+                              help="Render the immutable retained acceptance result; no remote calls")
         item.add_argument("--preflight-only", action="store_true",
                           help="Read-only adapter checks only; never reserve or launch")
     return parser

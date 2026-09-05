@@ -240,3 +240,17 @@ def exception_detail(error):
                       'frames':frames[-6:]})
         error=error.__cause__ if error.__cause__ is not None else error.__context__
     return chain
+
+
+def declared_runtime_inputs():
+    """Compute the pinned selection/input identity, excluding Steam bookkeeping."""
+    baseline = lock_api()['expected_lock_manifest']()
+    applications = {}
+    for appid, (build, directory, depot, manifest, size) in APPS.items():
+        applications[appid] = {'appid':appid, 'universe':'1', 'buildid':build,
+            'installdir':directory, 'SizeOnDisk':size,
+            'InstalledDepots':{depot:{'manifest':manifest,'size':size}},
+            'UserConfig':{}, 'MountedConfig':{}}
+    return digest({'runner':baseline['runner'], 'runtime':baseline['runtime'],
+        'files':[r for r in baseline['files'] if not r['safe_path'].startswith('steamapps/')],
+        'applications':applications})
