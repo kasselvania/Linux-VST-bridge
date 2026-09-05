@@ -5,13 +5,13 @@ The normal `tools/proof-run.py` registry contains the AP1 diagnostic and accepta
 ```sh
 python3 -B tools/proof-run.py diagnose \
   --authority /path/to/authority/docs/campaigns/AP1_D1.md \
-  --source fd3d70a36b65e1bba9fefc4914ebb1685b10faae \
+  --source a2e12c52df0db34c6476c1b337065e1f53e92638 \
   --plan ap1-linux-windows-audio-diagnostic-v1 \
   --campaign 78c32c41080c2afb3f8bf85967474dfe49016eb84c76f62ac0bb272118fbd755 \
   --preflight-only
 ```
 
-Only an authorized new batch omits `--preflight-only`. The original AP1_A1.md is historical and must not be rebound or rerun. The repaired second candidate has not been issued: current preflight is blocked by deployed Proton runtime drift; see [RESULT_A2.md](RESULT_A2.md). Once that explicit runtime decision is resolved and current preflight passes, acceptance uses `accept`, a mechanically bound AP1_A2.md, plan `ap1-linux-windows-audio-acceptance-v1` and its exact `--candidate` identity. Existing closed reservations reconcile without relaunch. A new source or artifact requires the explicit receipt revision and preserved cumulative budget described by the active work order.
+Only an authorized new batch omits `--preflight-only`. AP1_A1.md and AP1_A2.md now both have successful closed acceptance reservations. Do not rebind or relaunch either candidate. The final repaired source and operator-approved Proton 11.0-2c selection passed fresh verification; see [RESULT_A2.md](RESULT_A2.md). Candidate two used `accept`, AP1_A2.md, plan `ap1-linux-windows-audio-acceptance-v1` and candidate `d3953b583ad60230deff0c306d7d6d015f5969ca8b48c03d2bb0937eebfc5eb6`. The two-candidate allowance is exhausted. Existing closed reservations reconcile without relaunch. A new source or artifact requires the explicit receipt revision and preserved cumulative budget described by the active work order.
 
 The existing host-only Windows workflow builds the AP1 branch's 22 exact Windows inputs in two MSVC roots; it reuses the retained AGain binary. The native crate has no third-party Rust dependencies. `tools/ap1_build_client.py --source <full-commit> --output <private-client-store>` uses the installed rustup stable compiler, its matching musl target and bundled rust-lld to produce a static x86-64 ELF. It records compiler/linker, source-input and binary identities, and writes AP1_CLIENT.json. Do not rebuild unchanged inputs merely because documentation changes.
 

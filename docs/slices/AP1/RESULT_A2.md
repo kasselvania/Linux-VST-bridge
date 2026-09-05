@@ -1,42 +1,59 @@
-# AP1 review repair — fresh verification blocked before reservation
+# AP1 — Fresh silence-repair verification on Proton 11.0-2c
 
-The repaired ten-case path has **no new device numerical result yet**. Read-only preflight stopped at `verify_diagnostic_runner`: `RuntimeError: Deployed runtime input differs: runner/version` (SSH worker exit 1; command exit 2). The first acceptance still proves its original **1344/1344 samples, maximum absolute error 0.0**, with complete cleanup; its [result](RESULT.md), evidence and receipt remain unchanged.
+Linux independently verified **1502/1502 returned float32 samples with maximum absolute error 0.0**, using exact equality and zero tolerance. This is the fresh second acceptance candidate, on the explicitly approved installed Proton 11.0-2c runtime. Both new valid-request cases passed with their actual output silence masks retained independently of input flags. The [first acceptance](RESULT.md) and its immutable evidence remain unchanged.
 
-## Implemented and locally verified
+| Request | Stereo frames | Gain | Input silence mask | Actual output mask | Maximum error |
+|---|---:|---:|---:|---:|---:|
+| 1 | 1 | 0.5 | 0 | 0 | 0 |
+| 2 | 16 | 0.25 | 0 | 0 | 0 |
+| 3 | 63 | 0.75 | 0 | 0 | 0 |
+| 4 | 256 | 0.5 | 0 | 0 | 0 |
+| 5 | 16 | 0.75 | 0 | 0 | 0 |
+| 6 | 63 | 0.25 | 3 | 3 | 0 |
+| 7 | 1 | 0.5 | 0 | 0 | 0 |
+| 8 | 256 | 0.75 | 0 | 0 | 0 |
+| 9 | 16 | 0 | 0 | 3 | 0 |
+| 10 | 63 | 0.5 | 1 | 0 | 0 |
 
-`MappedSession::done` now calls the production `processing_result` handler to validate the full 64-bit output silence mask independently of the input mask. Only stereo bits are legal; marked channels must contain finite zero-valued samples. Unflagged channels may be zero. Actual flags are retained before native validation and returned in the version 1.1 Done payload. Linux retains the output flags and mapped words before independently checking every expected sample, guard and unused output region. Ownership, correlation, no-replay, deadlines, lifecycle and cleanup are preserved.
+Requests 1–8 preserve the original numerical recipe. Request 9 supplies non-silent stereo input at gain zero: AGain returned all-zero samples and mask 3. Request 10 supplies a correctly zeroed left channel, non-silent right input and gain 0.5: AGain returned mask 0; Linux verified the zero left output and every gain-scaled right sample. Unflagged zero-valued channels are valid. The existing all-channel-silent request also passed with mask 3.
 
-The original eight cases are unchanged. Added cases are gain 0 on non-silent stereo input (input mask 0), and gain 0.5 on a correctly zeroed left channel with non-silent right input (input mask 1). The resulting recipe checks 1502 samples. Their actual AGain output masks remain unobserved in this repair run; local native-handler tests cover output masks 3 and 0 respectively without substituting those expectations for live results.
+Linux selected seed `7627698536824973777` only after Windows Ready. Windows did not receive the seed or expected answers. The packet retains actual Linux inputs, output words and flags; Python independently recomputed every expected sample. Guard words, input ownership and unused output capacity remained intact. Zero nonfinite, stale, unwritten or swapped samples were accepted.
 
-Focused tests passed: 90 Python tests including actual Rust mapped-file/loopback integration and worker/adapter/runtime/policy/backend regressions; eight Rust tests; and the C++ test invoking the production native result handler. Tests reject illegal low/high output bits, nonfinite output and false silence claims; the real client retains false claims and stops without replay. A deterministic nonzero witness prevents a random all-zero input from weakening the negative test. AP0/PC0 checks passed. These are local failure tests, not live fault experiments.
+One Windows host, one AGain instance, one 4192-byte shared mapping and one authenticated loopback connection served all ten changing blocks. Both endpoints witnessed the same mapping before module load. Setup and activation stayed on the owner thread; processing used the distinct processing thread, which stopped and joined before deactivation, release and unload. The existing AP0 interpretation of AGain's kNotImplemented setProcessing notifications is unchanged. Windows unmapped before Closed; Linux received Closed and confirmed its own unmap. No replay occurred.
 
-## Exact source and artifacts
+Both endpoints exited zero. Owned descendants and both process groups were empty; the disposable stage and backing file were absent. Protected-state digests before and after both equal `307e53f193155ee471e5a7d8ae5ab106ddc9ea253e0a42d203f5429b66eef305`. The explicitly bound runtime composition matched at preflight, launch and post-run.
 
-- Tested executable source: `fd3d70a36b65e1bba9fefc4914ebb1685b10faae`, tree `63328b0b7936f5ea7ed2812cba19493dfec1ac2f`.
-- Windows producer source: `34699b682439ed75ea9fd0992b98222253b6f1da`; [successful run 33971421519](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/33971421519); artifact `9971070716`; host manifest `f38dee93baf0e4054f3d729e561f9aa8756605935174ccb4cd889cd9d74cf1dc`.
-- Native caller source: `34699b682439ed75ea9fd0992b98222253b6f1da`; binary `9191a64e92faf92559cf0121208f73b52c2c2d5d4534d75f6c44ede27ebe2225`; manifest `cabc63622f73a9c541941a8483f605bc929c2a11b04467928f079a1760cb7ce8`.
-- Both exact artifacts were delivered using existing custody/transfer. Only the verified new native binary received owner execute permission; no AGain or runtime bytes were changed.
-- [AP1_D1.md](../../campaigns/AP1_D1.md) mechanically binds the tested repair under the original campaign and preserves the first reservation. No second acceptance receipt or reservation was created.
+## Repair and runtime binding
 
-## Concrete runtime blocker and current containment
+`MappedSession::done` calls the production native result handler, which validates the full 64-bit output mask and corresponding finite zero samples independently of the input mask. Actual flags are retained before validation and carried in the version 1.1 Done response. Linux saves actual returned data before comparison can fail. Exact numerical checks, guards, correlation, no-replay, timeouts, retention and owned cleanup remain intact.
 
-The deployed Proton installation differs from the pinned runtime:
+Steam's log recorded `Priority Auto Update` and installed Proton 11.0-2c/build 25118279 in place of 11.0-2/build 24867889. Initial preflight correctly refused the changed version/launcher. The operator and the technical lead then explicitly authorized this AP1 runtime transition. `tools/ap1_runtime.py` binds the same 33 launch-critical paths and new exact build/depot records; historical WR0/PC0/AP0 and first AP1 selections remain unchanged. This is explicit selection of the completed update, not trust in an ambient latest runtime.
 
-| Fact | Pinned | Observed |
-|---|---|---|
-| Version | `1787334450 proton-11.0-2-x86_64` | `1788504981 proton-11.0-2c-x86_64` |
-| Steam build | `24867889` | `25118279` |
-| `runner/version` SHA-256 | `823833b4a22543efdd3b0822981a9518dff08282520eba16661bd9d59bf5e026` | `85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4` |
-| `runner/proton` SHA-256 | `ccb67e21ef0d81cc4142ee3af74a16702292623bad11ec7047dbd6c97be62eed` | `787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad` |
+Steam retained completed transfer counters (160/160 download bytes and 747498077/747498077 staged bytes). The narrow AP1 verifier permits those only when totals match, installed/target builds agree, staging size and update result are zero, no update is scheduled, and installation state is fully installed. It still rejects partial/active updates and every bound-file mismatch. The original zero-counter policy remains the default for historical callers. No runtime installation, update-policy change, accepted seed modification or additional endpoint rebuild occurred.
 
-The sampled Wine/wineserver binaries and Runtime 4 VERSIONS file still match. Both Steam application states are installed/quiescent (4). Steam content_log records `Priority Auto Update` at 2026-09-05 03:35:16 on the Deck clock, followed by successful commit of build 25118279 at 03:35:22: 1632 files updated, one moved, none deleted. This establishes a Steam automatic update; the bounded readback is not a complete runtime audit. Tailscale's periodic SSH authentication was resolved before this preflight.
+Both runtime and host code differ from the first acceptance; this result does not isolate the causal effect of the Proton update. It verifies the complete explicitly recorded new composition.
 
-Current process guard counts are all zero; native client process count is zero; prior transaction stage count is zero. Protected-state digest is unchanged from first acceptance: `307e53f193155ee471e5a7d8ae5ab106ddc9ea253e0a42d203f5429b66eef305`. No new plug-in instance, stage, workload, diagnostic publication or acceptance candidate was created. The read-only preflight runs before backend construction, so the stored diagnostic plan and reservation count are also untouched.
+## Exact evidence and validation
 
-| Cumulative allowance | Consumed | Remaining |
+- Executed source: `a2e12c52df0db34c6476c1b337065e1f53e92638`, tree `33c582b8e40572732dc145b1626fc8d23c804e44`.
+- Windows/native producer source: `34699b682439ed75ea9fd0992b98222253b6f1da`. [Windows run 33971421519](https://github.com/kasselvania/Linux-VST-bridge/actions/runs/33971421519), artifact `9971070716`, host manifest `f38dee93baf0e4054f3d729e561f9aa8756605935174ccb4cd889cd9d74cf1dc`.
+- Native binary: `9191a64e92faf92559cf0121208f73b52c2c2d5d4534d75f6c44ede27ebe2225`; manifest `cabc63622f73a9c541941a8483f605bc929c2a11b04467928f079a1760cb7ce8`. Both endpoint artifacts were retained and reused after runtime rebinding.
+- Runtime: `1788504981 proton-11.0-2c-x86_64`, build `25118279`, depot `2978628887517351791`; AP1 runtime contract `20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7`. Runtime 4 and AGain remain byte-exact to their existing bindings.
+- Acceptance candidate: `d3953b583ad60230deff0c306d7d6d015f5969ca8b48c03d2bb0937eebfc5eb6`; [authority](../../campaigns/AP1_A2.md).
+- Acceptance reservation: `53e697f3cd58394d4c1d1c1b6a8e7f1867713673c7e764b1048197ce051ea467`; immutable result `c018835588a05a3e8fb7092ef95f262338b003060897b7f0d7a1c6f470f0a628`. The normal command returned `ACCEPTANCE_EVIDENCE_RENDERED`, success with no failure record.
+- [New sanitized evidence packet](../../../evidence/ap1-linux-windows-audio-roundtrip-a2/FINDINGS.md), including the exact transaction, identities, call/lifecycle facts, mapped words and file hashes. The original packet remains under `evidence/ap1-linux-windows-audio-roundtrip`.
+- Diagnostic reservation `55671028529aabb295fc7faff5e8f6d09415108bacf8e76634d45777e4a65260` separately observed 1502 exact samples with seed `659711247737960145` and complete cleanup. It remains private and permanently acceptance-ineligible.
+
+Focused native C++ tests exercise the actual production result handler: zero gain, masks 1/2 for correctly formed partly silent input, ordinary/all-silent output, valid unflagged zeros, invalid low/high bits, false silence claims and nonfinite samples. Eight Rust tests and real Rust mapped-file/loopback integration passed, including retained invalid output, stale Done, disconnect and timeout without replay or premature reuse. The final shared runtime/worker/adapter/policy/backend suite passed 91 tests, including explicit old/new-runtime separation, changed-byte rejection, completed-versus-partial-update checks and lost acknowledgement without duplicate execution. AP0/PC0 regression checks passed. Failure tests are local platform/peer substitutions; no live hostile-plug-in fault campaign is claimed.
+
+## Cumulative cost and boundary
+
+| Allowance | Consumed | Remaining |
 |---|---:|---:|
 | Windows producers | 2 of 6 | 4 |
-| AP1 diagnostics, original campaign | 1 of 10 | 9 |
-| Acceptance candidates | 1 of 2 | 1 |
+| AP1 diagnostics, original campaign | 2 of 10 | 8 |
+| Fresh acceptance candidates | 2 of 2 | 0 |
 
-Next decision: restore the pinned Proton build, or explicitly authorize AP1 verification against the installed 11.0-2c runtime with its own exact binding. CURRENT_SLICE excludes runtime replacement and requires reusing the unchanged runtime; this repair does not authorize silently accepting changed launcher bytes or altering historical locks. Keep PR #51 unmerged. AP0 remains the accepted frontier.
+The runtime refusals were read-only preflight failures and consumed no reservation. Diagnostic batch 2 and acceptance candidate 2 each executed and published once. The existing locked atomic plan revision preserved the first diagnostic reservation; both acceptance candidates retain their original source and authority. No historical count, result or unknown was reset or relabelled. No further acceptance run is authorized by the exhausted allowance.
+
+This proves the selected offline native Linux / Windows numerical round trip and repaired silence handling on this exact composition. It does not prove DAW integration, real-time behavior, arbitrary transports, state, editors, commercial plug-ins or universal runtime compatibility. PR #51 remains unmerged for final review; AP0 remains the accepted frontier.

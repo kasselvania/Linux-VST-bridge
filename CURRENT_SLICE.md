@@ -1,8 +1,8 @@
 # Current Work: AP1 — Repair output-silence handling
 
-**Review repair implemented; the operator has authorized AP1 binding to installed Proton 11.0-2c and completing fresh verification in PR #51.** Branch: `codex/ap1-linux-windows-audio-roundtrip`. Technical-lead review `5120241348` covers implementation head `6bf0d541323fc864945344ce0a82b0d3e754224d`. AP0 remains accepted. The active AP1 ruling in AGENTS.md continues to authorize implementation, necessary builds, focused tests and exact candidate binding without an intermediate planning handoff.
+**Review repair and fresh second acceptance succeeded; PR #51 is ready for focused rereview and remains unmerged.** Linux independently verified 1502/1502 returned samples with maximum error 0.0, including zero gain on non-silent input (actual output mask 3) and correctly formed one-channel silence (actual output mask 0). All ten cases reused one instance/mapping/connection; shutdown and containment completed, the stage was absent, and protected state was unchanged. See [second acceptance result](docs/slices/AP1/RESULT_A2.md).
 
-The repair and rebuilt endpoints passed focused tests and were delivered. Read-only preflight found Proton 11.0-2c/build 25118279 instead of pinned 11.0-2/build 24867889; launcher bytes also differ. No new live reservation was consumed. Current processes/stages are absent and protected state matches the first acceptance. See [review-repair result](docs/slices/AP1/RESULT_A2.md). The operator explicitly approved binding AP1 to installed Proton 11.0-2c after the automatic update was identified. Record its exact runtime identity for AP1 only, preserve historical PC0/AP0 bindings and all prior results, reuse unchanged endpoint artifacts, and finish the remaining verification under the existing allowance. No runtime installation or update-policy change is authorized or required.
+The operator and technical lead authorized the exact installed Proton 11.0-2c binding after Steam's automatic update. The same runtime inputs/selection matched preflight, launch and post-run. Both rebuilt endpoint artifacts were reused. Historical PC0/AP0/first-AP1 runtime bindings, the first successful result, and all consumed reservations remain intact. AP0 remains the accepted frontier pending final AP1 review and merge.
 
 ## Preserve the successful result
 
@@ -12,7 +12,7 @@ AP1's goal remains native Linux-owned samples -> shared mapping -> Windows AGain
 
 ## The repair
 
-`MappedSession::done` wrongly requires output silence flags to equal input silence flags. The parser admits normalized gain [0,1] and input masks 0..3, but the pinned AGain legitimately returns mask 3 for gain zero on ordinary input, and mask 0 while processing a partly silent stereo input. Both currently become transport failures despite successful processing.
+Review found that `MappedSession::done` previously required output silence flags to equal input silence flags. The parser admits normalized gain [0,1] and input masks 0..3, but the pinned AGain legitimately returns mask 3 for gain zero on ordinary input, and mask 0 while processing a partly silent stereo input. Both previously became transport failures despite successful processing; the second acceptance now covers them.
 
 Treat output silence as a result, not a copy of input. Check legal output bits and zero-valued samples for channels actually marked silent; do not require all zero-valued channels to be flagged. Preserve the actual flags in the appropriate response or retained observation. Keep exact sample comparison, buffer guards, request correlation, no-replay, deadlines and cleanup intact. Do not merely disable result checking or narrow away these ordinary supported inputs.
 
@@ -22,7 +22,7 @@ The source basis is the pinned AGain `process` implementation in public.sdk comm
 
 ## Finish under the existing allowance
 
-Current consumption after the review repair: **2 of 6 Windows producers, 1 of 10 AP1 diagnostics, 1 of 2 acceptance candidates**. No count is reset or ceiling increased. The lead explicitly permits the remaining second acceptance candidate after this review-driven repair even though the first measured candidate succeeded; this supersedes the earlier condition limiting candidate two to an execution failure/inconclusive result. This is correction of an admitted-input bug, not a new product selection.
+Current cumulative consumption: **2 of 6 Windows producers, 2 of 10 AP1 diagnostics, 2 of 2 acceptance candidates**. Fresh verification is complete and the acceptance allowance is exhausted; no additional acceptance run is authorized. No count is reset or ceiling increased. The lead explicitly permitted the second acceptance candidate after this review-driven repair even though the first measured candidate succeeded; this supersedes the earlier condition limiting candidate two to an execution failure/inconclusive result. This is correction of an admitted-input bug, not a new product selection.
 
 Test locally, build the changed endpoint through the existing producer, bind the actual source/artifacts/plan, and obtain fresh verification through existing classified commands. Reuse unchanged SDK/AGain and working supervision/retention; AP1 alone uses the exact operator-approved installed Proton 11.0-2c binding. Diagnostics are available only as useful within the remaining allowance. Lost acknowledgement is reconciled, never replayed. Preserve all earlier private records and Git history; the current PR evidence may be superseded by a clearly identified new result, never by relabeling the first result.
 
