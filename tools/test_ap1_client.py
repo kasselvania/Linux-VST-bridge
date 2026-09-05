@@ -60,7 +60,9 @@ class NativeClientTests(unittest.TestCase):
                                 self.assertEqual((silence,gain,output_silence),(0,0.,3))
                                 self.assertNotEqual(struct.unpack_from('<f',shared,inp+4)[0],0.)
                             if fault=='invalid_mask':output_silence=1<<32
-                            if fault=='false_silence':output_silence=3
+                            if fault=='false_silence':
+                                output_silence=3
+                                struct.pack_into('<f',shared,outoff+4,1.)
                             if fault=='corrupt':struct.pack_into('<f',shared,outoff+4,99.)
                             if fault=='disconnect':break
                             if fault=='timeout':time.sleep(5.2);break
