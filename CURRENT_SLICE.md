@@ -1,14 +1,14 @@
-# Current Work: PC0-D1 — Obtain the AGain Observation
+# Current Work: PC0-D1 — Repair the Runner and Obtain the AGain Result
 
-The existing [PC0-D1 authority](docs/campaigns/PC0_D1.md) owns troubleshooting,
-narrow diagnostic-harness maintenance, and the first plug-in observation.
-The accepted frontier is WA0. PC0 is not accepted; no successor is selected.
+**Active task: repair diagnostic retention and budget enforcement, then run the existing AGain bus/sample-format probe.** Continue the existing `codex/pc0-d1-observation` branch and PR #46; do not create another process slice.
+
+The operator directed the technical lead to get this work unstuck. `AGENTS.md` and `GOVERNANCE.md` now carry the explicit scoped recovery ruling. The [PC0-D1 task and executable authority](docs/campaigns/PC0_D1.md) authorize the same agent to investigate, edit the Python harness/policy/backend, test locally, bind the tested source and continue diagnostics BEFORE PR merge. No separate design/approval request is needed for these steps.
+
+The SAME campaign has **eight total reservations, two already consumed, at most six additional**. Preserve cumulative history. Repair both the policy's one/two restriction and the backend's frozen stored maximum before new live work; do not edit the ledger manually. Repair observation retention before another workload. WA0 remains the accepted product frontier; PC0 and audio processing remain unaccepted.
 
 ## Authority
 
-This mapping is the default CLI circuit breaker, not a grant of campaign work.
-It remains live-disabled. The linked receipt owns scoped maintenance, source,
-plan, and budget; pass it explicitly through proof-run.py --authority.
+The mapping below is ONLY the disabled default CLI circuit breaker, retained for existing CLI behavior. It does not revoke the explicit PC0-D1 task. Pass the CURRENT recovery-branch `docs/campaigns/PC0_D1.md` through `proof-run.py diagnose --authority`; do not use the historical main-branch receipt or interpret the default mapping as a ban on scoped maintenance.
 
 ```yaml
 status: no_active_slice
@@ -47,10 +47,16 @@ stopped_pc0_archive_ref: refs/heads/codex/archive/pc0-v3-stopped-309b8918
 successor_selection_authorized: false
 ```
 
-## Operator frontier
+## Work order
 
-Last accepted capability: WA0 — IAudioProcessor acquired and retired.
-Current target: PC0 — initialized-state bus and sample-format contract.
-Next action: resolve the specific prerequisite, then obtain the first diagnostic.
-The same agent owns investigation, narrow repair, and execution under PC0-D1.
-The existing two-reservation ceiling is unchanged. No product acceptance is authorized.
+1. Preserve local work and the two existing reservation histories. Establish current process containment and protected-state readback without rerunning the old workload.
+2. In the existing worker, retain a bounded privacy-safe observation before normalization/retirement; retain useful exception and secondary-cleanup context when normal reporting fails.
+3. Correct policy and locked budget-ceiling extension without resetting consumption or altering historic transactions/delegations.
+4. Exercise the actual worker and budget failure paths in the existing local test suites. No live reservation is needed for these tests.
+5. Commit the tested repair and update the source binding in the current campaign receipt; that mechanical rebind is already authorized.
+6. Run the existing diagnostic command using retained host artifact 9915439437 and the same AGain fixture. Inspect the literal output immediately. Fix routine errors and continue within the allowance.
+7. Stop live retries if observations are lost again, containment/protected state cannot be established, a real product-scope change is required, or the total allowance is exhausted. Local diagnosis/repair does not require another handoff.
+
+## Required return
+
+Return the actual plug-in contract or precise last stage and error, a short explanation of the fix, cumulative reservation use, cleanup/protected-state disposition, and the PR/head. Do not substitute a hash list or passing-test count for the AGain result. Keep PR #46 open for final review; no acceptance evidence or successor is authorized by this task.

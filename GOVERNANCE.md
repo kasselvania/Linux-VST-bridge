@@ -11,6 +11,12 @@ This repository must be strict about accepted product claims without turning dev
 
 The detailed lifecycle is owned only by `docs/DEVELOPMENT_PROCESS.md`. This file owns authority and truth classes.
 
+## Current scoped exception: PC0-D1 recovery
+
+The 2026-09-04 recovery ruling in `AGENTS.md`, with its executable task in `docs/campaigns/PC0_D1.md`, takes precedence over the generic process below for the existing AGain diagnostic only. At the operator's direction, the technical lead has set a cumulative eight-reservation ceiling for the SAME campaign (two already consumed, at most six additional), authorized the policy/backend and diagnostic-retention repairs, and delegated tested source rebinding and diagnostic continuation to the implementation agent. No extra design, approval, or pre-run maintenance-review handoff is required inside that task. Code review is required before eventual merge. Acceptance execution and the accepted WA0 frontier are unchanged.
+
+The new ceiling is not a permission to bypass executable controls: the policy and existing stored-budget migration must be corrected and locally tested before another live reservation. Old unknown results and consumed reservations remain historical. Bounded privacy-safe observations may be checkpointed before normalization and cleanup; the final report's validation cannot be the sole path that retains debugging information. The one-pair closure rule limits final reporting, not necessary diagnostic capture or ordinary local investigation.
+
 ## Authority precedence
 
 1. explicit operator product or process ruling;
@@ -143,7 +149,7 @@ one focused maintenance receipt
 → exact technical-lead disposition
 ```
 
-Operator approval is required only when the maintenance changes fixture semantics, security/privacy boundaries, external mutation, or live budgets. It does not require a new product design card merely because the proof harness is high risk.
+Operator approval is required only when the maintenance changes fixture semantics, security/privacy boundaries, external mutation, or live budgets, except where an explicit scoped ruling delegates that decision. It does not require a new product design card merely because the proof harness is high risk. PC0-D1 uses the review timing specified in its current recovery ruling.
 
 ## Diagnostic execution authority
 
@@ -155,7 +161,7 @@ A diagnostic campaign must freeze:
 - live diagnostic budget;
 - bounded output and cleanup law.
 
-For the open AGain fixture, the default is two diagnostic batches per campaign. A higher ceiling requires an explicit operator ruling. Commercial or stateful fixtures default to one or zero.
+For the open AGain fixture, the default is two diagnostic batches per campaign unless an explicit scoped ruling sets another ceiling. PC0-D1 recovery authorizes eight cumulative reservations. Other increases require an explicit operator ruling or specifically delegated technical-lead decision. Commercial or stateful fixtures default to one or zero.
 
 Every diagnostic result must state:
 
@@ -189,7 +195,7 @@ After process cleanup and protected-state readback, a failed diagnostic or incon
 3. actual effect-count accounting;
 4. one concise report.
 
-No success evidence packet, full proof-matrix replay, pre-PR audit, or product-design amendment is created merely to prove that a development run failed.
+No success evidence packet, full proof-matrix replay, pre-PR audit, or product-design amendment is created merely to prove that a development run failed. Incremental capture authorized by the recovery ruling happens before this final closure and is not another product observation.
 
 ## Budget ownership
 
@@ -220,7 +226,7 @@ Budgets do not silently consume one another.
 
 - Product design review uses a fresh context.
 - Final implementation audit uses a fresh context.
-- High-risk proof-harness maintenance uses a focused fresh-context review proving the product contract is unchanged.
+- High-risk proof-harness maintenance uses a focused fresh-context review proving the product contract is unchanged, with timing governed by an explicit scoped ruling where present.
 - A review must inspect the exact head, not a branch name or summary.
 
 ## Merge posture

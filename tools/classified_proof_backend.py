@@ -512,6 +512,7 @@ class ClassifiedProofBackend:
         # budget lock. Re-admit once more under that lock before durable writes.
         self._readmit_current_authority(authority, delegation_bytes)
         with _BudgetLock(paths.lock):
+            self._readmit_current_authority(authority, delegation_bytes)
             budget = self._load_or_initialize_budget(paths, delegation)
             transaction = self._read_transaction_if_present(
                 paths, delegation, descriptor,
@@ -714,7 +715,7 @@ class ClassifiedProofBackend:
         keys = set(expected)
         if set(budget) != keys or budget.get("schema") != BUDGET_SCHEMA:
             raise DurableStateError("budget key roster or schema differs")
-        for key in keys - {"consumed_count", "reservations"}:
+        for key in keys - {"consumed_count", "reservations", "batch_budget_maximum"}:
             if budget[key] != expected[key]:
                 raise DurableStateError(f"stable budget binding differs: {key}")
         reservations = budget["reservations"]
@@ -728,8 +729,34 @@ class ClassifiedProofBackend:
         if (not isinstance(budget["consumed_count"], int)
                 or isinstance(budget["consumed_count"], bool)):
             raise DurableStateError("budget consumed count is not an integer")
-        if len(reservations) > int(budget["batch_budget_maximum"]):
+        old_maximum = budget["batch_budget_maximum"]
+        maximum = expected["batch_budget_maximum"]
+        if type(old_maximum) is not int or old_maximum < 1:
+            raise DurableStateError("budget maximum is not a positive integer")
+        if len(reservations) > old_maximum:
             raise DurableStateError("budget exceeds its maximum")
+        if old_maximum != maximum:
+            if (delegation["execution_class"] != ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE.value
+                    or delegation["acceptance_eligible"] is not False or maximum < old_maximum):
+                raise DurableStateError("budget decrease or acceptance extension forbidden")
+            updated = {**budget, "batch_budget_maximum": maximum}
+            # Called only under the existing budget lock after fresh authority
+            # admission. Record intent before the atomic replacement, so an
+            # interrupted replacement is safely repeatable without count loss.
+            adjustment = {
+                "schema": "classified-proof-budget-adjustment/v1",
+                "authority_sha256": delegation["authority_sha256"],
+                "before": budget, "after": updated,
+            }
+            adjustment_path = paths.budget.with_name(
+                f"budget-adjustment-{old_maximum}-to-{maximum}.json")
+            if adjustment_path.exists():
+                if _read_object(adjustment_path) != adjustment:
+                    raise DurableStateError("budget adjustment record differs")
+            else:
+                _write_object(adjustment_path, adjustment, maximum=STATE_MAX_BYTES)
+            self._write_budget(paths, updated)
+            budget = updated
         return budget
 
     def _write_budget(self, paths: _Paths, budget: Mapping[str, Any]) -> None:
@@ -789,9 +816,19 @@ class ClassifiedProofBackend:
         }
         if set(transaction) != keys or transaction.get("schema") != TRANSACTION_SCHEMA:
             raise DurableStateError("transaction key roster or schema differs")
-        if transaction["delegation"] != dict(delegation):
+        original = transaction["delegation"]
+        if not isinstance(original, dict) or set(original) != set(delegation):
             raise DurableStateError("transaction delegation differs")
-        if transaction["delegation_sha256"] != sha256_bytes(canonical_json(delegation)):
+        if original != dict(delegation):
+            mutable = {"authority_sha256", "batch_budget_maximum"}
+            if (delegation["execution_class"] != ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE.value
+                    or any(original[k] != delegation[k] for k in set(delegation) - mutable)
+                    or type(original["batch_budget_maximum"]) is not int
+                    or not 0 < original["batch_budget_maximum"] <= delegation["batch_budget_maximum"]
+                    or not isinstance(original["authority_sha256"], str)
+                    or HEX64.fullmatch(original["authority_sha256"]) is None):
+                raise DurableStateError("transaction delegation differs")
+        if transaction["delegation_sha256"] != sha256_bytes(canonical_json(original)):
             raise DurableStateError("transaction delegation digest differs")
         if transaction["plan_descriptor"] != dict(descriptor):
             raise DurableStateError("transaction plan descriptor differs")
@@ -896,7 +933,7 @@ class ClassifiedProofBackend:
         transaction: Mapping[str, Any],
     ) -> Observation | None:
         context = self._reservation_context(
-            delegation, descriptor, str(transaction["reservation_identity"]), transaction,
+            transaction["delegation"], descriptor, str(transaction["reservation_identity"]), transaction,
         )
         try:
             observation = adapter.reconcile(context)

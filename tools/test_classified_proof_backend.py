@@ -418,6 +418,78 @@ class BackendTests(unittest.TestCase):
             backend.execute(*authorities[2])
         self.assertEqual(behavior.invoke_calls, 2)
 
+    def test_extension_preserves_two_consumed_and_unknown_history_with_six_left(self):
+        plan = descriptor(ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE)
+        behavior = Behavior()
+        backend = ClassifiedProofBackend(self.state_root, {plan.plan_id: diagnostic_adapter(plan, behavior)})
+        first = backend.execute(*write_authority(self.base, plan, source=SOURCE_A, budget=2))
+        behavior.invoke_mode = "unknown"
+        second = backend.execute(*write_authority(self.base, plan, source=SOURCE_B, budget=2))
+        self.assertEqual(second.state, "OUTCOME_UNKNOWN")
+        campaign = self.state_root / "diagnostic" / IDENTITY
+        old_files = {p:p.read_bytes() for p in (campaign / "transactions").rglob("*") if p.is_file()}
+        old_budget = parse_canonical_json((campaign / "budget.json").read_bytes())
+        original_delegations = []
+        def reconcile(context):
+            original_delegations.append(context.delegation)
+            return None
+        behavior.reconcile = reconcile
+        backend = ClassifiedProofBackend(self.state_root, {plan.plan_id: diagnostic_adapter(plan, behavior)})
+        # Extension itself reconciles the old reservation; no new invocation.
+        enlarged = write_authority(self.base, plan, source=SOURCE_B, budget=8)
+        extended = backend.execute(*enlarged)
+        repeated = backend.execute(*enlarged)
+        self.assertEqual((extended.budget_consumed, repeated.budget_consumed), (2, 2))
+        self.assertEqual(behavior.invoke_calls, 2)
+        self.assertTrue(all(d["batch_budget_maximum"] == 2 for d in original_delegations))
+        self.assertEqual({p:p.read_bytes() for p in old_files}, old_files)
+        adjusted = parse_canonical_json((campaign / "budget.json").read_bytes())
+        self.assertEqual(adjusted, {**old_budget, "batch_budget_maximum":8})
+        adjustment = parse_canonical_json((campaign / "budget-adjustment-2-to-8.json").read_bytes())
+        self.assertEqual(adjustment["before"], old_budget)
+        self.assertEqual(adjustment["after"], adjusted)
+        self.assertEqual(adjustment["authority_sha256"], enlarged[0].raw_sha256)
+        behavior.invoke_mode = "return"
+        for n in range(3, 9):
+            result = backend.execute(*write_authority(self.base, plan, source=f"{n:040x}", budget=8))
+            self.assertEqual(result.budget_consumed, n)
+        with self.assertRaises(BudgetExhausted):
+            backend.execute(*write_authority(self.base, plan, source=f"{9:040x}", budget=8))
+        self.assertEqual(behavior.invoke_calls, 8)
+        self.assertEqual({p:p.read_bytes() for p in old_files}, old_files)
+
+    def test_extension_rejects_corruption_stable_drift_decrease_and_stale_authority(self):
+        plan = descriptor(ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE)
+        behavior = Behavior()
+        backend = ClassifiedProofBackend(self.state_root, {plan.plan_id: diagnostic_adapter(plan, behavior)})
+        backend.execute(*write_authority(self.base, plan, budget=2))
+        path = self.state_root / "diagnostic" / IDENTITY / "budget.json"
+        original = path.read_bytes()
+        authority = write_authority(self.base, plan, source=SOURCE_B, budget=8)
+        mutations = {"batch_budget_maximum": [True, "2", 0, -1, 1.5],
+                     "consumed_count": [0, True, 2], "reservations": [[], ["bad"]],
+                     "execution_identity": ["e"*64], "plan_id": ["wrong"],
+                     "product_contract_sha256": ["a"*64]}
+        for key, values in mutations.items():
+            for value in values:
+                with self.subTest(key=key, value=value):
+                    budget = parse_canonical_json(original)
+                    budget[key] = value
+                    path.write_bytes(canonical_json(budget))
+                    with self.assertRaises(DurableStateError):
+                        backend.execute(*authority)
+                    self.assertEqual(behavior.invoke_calls, 1)
+                    self.assertFalse(path.with_name("budget-adjustment-2-to-8.json").exists())
+        path.write_bytes(original)
+        with self.assertRaises(DurableStateError):
+            backend.execute(*write_authority(self.base, plan, source=SOURCE_B, budget=1))
+        stale = write_authority(self.base, plan, source=SOURCE_B, budget=8)
+        stale[0].path.write_text(authority_text(plan, source=SOURCE_C, identity=IDENTITY, budget=8))
+        with self.assertRaises(Exception):
+            backend.execute(*stale)
+        self.assertEqual(path.read_bytes(), original)
+        self.assertFalse(path.with_name("budget-adjustment-2-to-8.json").exists())
+
     def test_acceptance_candidate_reserves_once_and_source_is_frozen(self):
         plan = descriptor(ExecutionClass.ACCEPTANCE_CANDIDATE)
         behavior = Behavior()
