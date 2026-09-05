@@ -276,11 +276,15 @@ bool HostCallbackSink::close() noexcept {
 
 bool HostCallbackSink::closed() const noexcept { return closed_ && healthy(); }
 
-std::size_t HostCallbackSink::plugin_callback_count(const char* operation) const noexcept {
+std::size_t HostCallbackSink::plugin_callback_count(
+    const char* operation, const char* enclosing_operation) const noexcept {
     std::size_t count = 0;
     for (std::size_t index = 0; index < size_; ++index) {
         if (std::strcmp(records_[index].origin, "component") == 0 &&
-            std::strcmp(records_[index].operation, operation) == 0)
+            std::strcmp(records_[index].operation, operation) == 0 &&
+            (enclosing_operation == nullptr ||
+             (records_[index].enclosing_operation != nullptr &&
+              std::strcmp(records_[index].enclosing_operation, enclosing_operation) == 0)))
             ++count;
     }
     return count;
@@ -1119,7 +1123,8 @@ ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
                    result.host_reference_baseline);
         if (result.initialize_succeeded &&
             (!result.host_reference_returned_to_baseline ||
-             callbacks.plugin_callback_count("release") != 1)) {
+             callbacks.plugin_callback_count("release",
+                 offline_processing ? "terminate_component" : nullptr) != 1)) {
             latch(result.primary_exit, kHostContextBlocked);
         }
         if (!result.initialize_succeeded &&

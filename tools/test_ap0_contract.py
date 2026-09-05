@@ -1,4 +1,4 @@
-import copy, pathlib, sys, unittest
+import copy, pathlib, sys, unittest, re, shutil, subprocess, tempfile
 sys.path.insert(0,str(pathlib.Path(__file__).parent))
 from ap0_contract import *
 
@@ -29,6 +29,48 @@ class AP0Tests(unittest.TestCase):
                        lambda d:d[0].update(worker_thread=False)]:
             data=blocks();mutate(data)
             with self.assertRaises(ValueError):compare_blocks(data)
+    def test_native_host_release_attribution(self):
+        # Compile the actual native counter with only its platform/storage ports
+        # substituted. Exercise the SDK activation sequence and a missing
+        # termination release; PC0's default still counts the complete ledger.
+        source=(pathlib.Path(__file__).parents[1]/'windows-factory-probe/source/component_instance_session.cpp').read_text()
+        begin=source.index('std::size_t HostCallbackSink::plugin_callback_count(')
+        end=source.index('\nMinimalHostApplication::',begin)
+        body=source[begin:end]
+        self.assertIn('offline_processing ? "terminate_component" : nullptr',source)
+        program = r'''#include <cstddef>
+#include <cstring>
+#include <array>
+#include <cassert>
+struct Record {const char* origin; const char* operation; const char* enclosing_operation;};
+struct HostCallbackSink {
+ std::array<Record,4> records_{}; std::size_t size_{};
+ std::size_t plugin_callback_count(const char*,const char* = nullptr) const noexcept;
+};
+''' + body + r'''
+int main() {
+ HostCallbackSink sink;
+ sink.records_={{{"component","release","set_active_true"},
+                 {"component","release","set_active_false"},
+                 {"component","release","terminate_component"},
+                 {"owner_local","release",nullptr}}}; sink.size_=4;
+ assert(sink.plugin_callback_count("release")==3);
+ assert(sink.plugin_callback_count("release","terminate_component")==1);
+ sink.records_[2].enclosing_operation="set_active_false";
+ assert(sink.plugin_callback_count("release","terminate_component")==0);
+ sink.records_[0].enclosing_operation=nullptr;
+ assert(sink.plugin_callback_count("release","terminate_component")==0);
+ sink.records_[0]={"component","release","terminate_component"}; sink.size_=1;
+ assert(sink.plugin_callback_count("release")==1);
+ assert(sink.plugin_callback_count("release","terminate_component")==1);
+}
+'''
+        compiler=shutil.which('c++');self.assertIsNotNone(compiler)
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory);(root/'counter.cpp').write_text(program)
+            subprocess.run([compiler,'-std=c++20',str(root/'counter.cpp'),'-o',str(root/'counter')],check=True,capture_output=True)
+            subprocess.run([str(root/'counter')],check=True)
+
     def test_host_order_and_preallocation(self):
         source=(pathlib.Path(__file__).parents[1]/'windows-factory-probe/source/offline_processing.cpp').read_text()
         self.assertIn('callbacks.begin_plugin_call(events.sequence(),operation)',source)

@@ -95,7 +95,8 @@ public:
     bool output_failed() const noexcept { return output_failed_; }
     bool wrong_thread() const noexcept { return wrong_thread_; }
     bool callback_in_flight() const noexcept { return callback_in_flight_; }
-    std::size_t plugin_callback_count(const char* operation) const noexcept;
+    std::size_t plugin_callback_count(const char* operation,
+                                      const char* enclosing_operation = nullptr) const noexcept;
 
 private:
     void retain_and_emit(HostCallbackRecord record) noexcept;
