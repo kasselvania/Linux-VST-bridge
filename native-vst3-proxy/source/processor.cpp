@@ -31,7 +31,7 @@ void report() {
   ap2_error(detail, sizeof(detail));
   std::fprintf(stderr, "AP2 backend: %s\n", reinterpret_cast<char *>(detail));
 }
-// Optional bounded test report, written only during non-RT termination. The
+// Optional bounded test report, written only on the non-RT owner thread. The
 // DAW's own plug-in host may redirect stdout; this preserves the same facts.
 void diagnostic_report(const char *text, size_t size) {
   std::fwrite(text, 1, size, stdout);
@@ -148,9 +148,49 @@ void stateReport(const char *operation, const std::vector<uint8_t> &blob,
     diagnostic_report(text, static_cast<size_t>(n));
 }
 } // namespace
+
+void Processor::stateFailure(const char *operation, const char *stage) {
+  if (state_error_reported_ || owner_ != std::this_thread::get_id())
+    return;
+  state_error_reported_ = true;
+  ap4_failure_t failure{};
+  failure.first_position = UINT64_MAX;
+  if (handle_)
+    ap4_failure(handle_, &failure);
+  uint8_t fallback[385]{};
+  ap2_error(fallback, sizeof(fallback));
+  const auto *raw = std::strcmp(stage, "state_response") == 0 ||
+                            !failure.detail[0]
+                        ? fallback
+                        : failure.detail;
+  // Keep the bounded existing backend explanation as JSON text, never locals,
+  // command arguments, environment or stream contents.
+  char escaped[771]{};
+  size_t used = 0;
+  for (size_t i = 0; i < 384 && raw[i]; ++i) {
+    unsigned char ch = raw[i];
+    if (ch == '"' || ch == '\\')
+      escaped[used++] = '\\';
+    escaped[used++] = ch < 32 || ch > 126 ? '?' : char(ch);
+  }
+  char text[1400];
+  auto n = std::snprintf(text, sizeof(text),
+      "{\"event\":\"ap4_native_error\",\"operation\":\"%s\","
+      "\"stage\":\"%s\",\"fault\":%llu,\"first_position\":%llu,"
+      "\"processed\":%llu,\"callback_rejections\":%llu,\"detail\":\"%s\"}\n",
+      operation, stage, (unsigned long long)failure.fault,
+      (unsigned long long)failure.first_position,
+      (unsigned long long)failure.processed,
+      (unsigned long long)callback_rejections_.load(std::memory_order_relaxed),
+      escaped);
+  if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+    diagnostic_report(text, static_cast<size_t>(n));
+}
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
+  if (phase_ == Failed)
+    stateFailure("get", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
       phase_ == Failed || phase_ == Terminated)
     return kResultFalse;
@@ -162,6 +202,7 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     if (ap4_state(handle_, nullptr, 0, blob.data(),
                   static_cast<uint32_t>(blob.size()), &size)) {
       phase_ = Failed;
+      stateFailure("get", "state_response");
       report();
       return kResultFalse;
     }
@@ -179,6 +220,8 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
 tresult PLUGIN_API Processor::setState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
+  if (phase_ == Failed)
+    stateFailure("set", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
       phase_ == Running || phase_ == Failed || phase_ == Terminated)
     return kResultFalse;
@@ -197,6 +240,7 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
                   readback.data(), static_cast<uint32_t>(readback.size()),
                   &size)) {
       phase_ = Failed;
+      stateFailure("set", "state_response");
       report();
       return kResultFalse;
     }

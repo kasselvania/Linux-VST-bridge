@@ -270,8 +270,15 @@ void stateCases(IComponent &c, IAudioProcessor &p, IEditController &controller,
     throw;
   }
   audio.join();
-  if (failure)
+  if (failure) {
+    if (scenario == "state-callback-fault") {
+      LVBState::Stream unsaved;
+      need(c.getState(&unsaved) != kResultOk,
+           "failed callback instance allowed a state snapshot");
+      need(unsaved.bytes.empty(), "failed snapshot wrote host bytes");
+    }
     std::rethrow_exception(failure);
+  }
   stage = "state_stopped";
   if (capturing) {
     // A failed host write cannot be published as a successful snapshot.

@@ -693,9 +693,52 @@ pub unsafe extern "C" fn ap4_witness(id: u64, out: *mut state::WitnessReport) ->
     }) as u32
 }
 
+#[repr(C)]
+pub struct Failure {
+    fault: u64,
+    first_position: u64,
+    processed: u64,
+    detail: [u8; 385],
+}
+fn failure_snapshot(s: &Shared) -> Failure {
+    let mut out = Failure {
+        fault: s.fault.load(Ordering::Acquire),
+        first_position: s.first_position.load(Ordering::Acquire),
+        processed: s.processed.load(Ordering::Acquire),
+        detail: [0; 385],
+    };
+    if let Ok(detail) = s.detail.lock() {
+        let n = detail.len().min(out.detail.len() - 1);
+        out.detail[..n].copy_from_slice(&detail.as_bytes()[..n]);
+    }
+    out
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_failure(id: u64, out: *mut Failure) -> u32 {
+    crate::ffi(|| {
+        let p = ACTIVE.load(Ordering::Acquire);
+        if p.is_null() || (*p).id != id || out.is_null() {
+            return 1;
+        }
+        *out = failure_snapshot(&(*p).shared);
+        0
+    }) as u32
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn first_callback_fault_survives_later_worker_failure() {
+        let s = Shared::new();
+        s.fail(UNDERFLOW, 1024);
+        s.fail(WORKER, 2048);
+        *s.detail.lock().unwrap() = "queued session fault or cancelled".into();
+        let report = failure_snapshot(&s);
+        assert_eq!(report.fault, UNDERFLOW);
+        assert_eq!(report.first_position, 1024);
+        assert_eq!(report.processed, 0);
+        assert!(report.detail.starts_with(b"queued session fault"));
+    }
     fn pump(s: &Shared) {
         while let Some(mut r) = s.requests.pop() {
             if r.kind == AUDIO {

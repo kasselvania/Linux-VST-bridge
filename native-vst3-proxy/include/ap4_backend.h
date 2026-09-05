@@ -19,6 +19,14 @@ struct ap4_witness_t {
   double maximum_error, restored_gain;
 };
 uint32_t ap4_witness(uint64_t handle, struct ap4_witness_t *out);
+/* Owner-thread failure readback; atomics and the worker detail only. This never
+   reads mutable callback buffers or holds the callback registry guard. */
+struct ap4_failure_t {
+  uint64_t fault, first_position, processed;
+  uint8_t detail[385];
+};
+uint32_t ap4_failure(uint64_t handle, struct ap4_failure_t *out);
+
 #ifdef __cplusplus
 }
 #endif

@@ -60,6 +60,8 @@ private:
   };
   std::atomic<Phase> phase_{New};
   bool stateSession();
+  void stateFailure(const char *operation, const char *stage);
+  bool state_error_reported_ = false;
   std::atomic_flag busy_ = ATOMIC_FLAG_INIT;
   uint64_t handle_ = 0;
   int maximum_ = 0;

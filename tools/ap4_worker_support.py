@@ -50,7 +50,7 @@ def core(environment,*,mode,checkpoint,profile,label):
  env={**inherited.controlled_environment(environment),'LVB_AP2_SESSION_DIR':str(environment.session),'LVB_AP2_SESSION':session,'LVB_AP4_STATE_STORE':str(store),'LVB_AP4_COMPARE':'1','LD_PRELOAD':str(_native/'libap3-callback-audit.so')}
  return companion.supervise(environment,mode=mode,checkpoint=checkpoint,profile=profile,session=session,
   caller_command=[str(_native/'ap3-sustained-host'),str(_native/'AGainQueuedBridge.vst3'),label.replace('_','-')],caller_env=env,
-  accepted_events={'ap4_host_state','ap4_host_compared','ap4_native_state','ap4_sample_comparison','ap3_host_closed','ap3_host_error','ap3_proxy_stats'})
+  accepted_events={'ap4_host_state','ap4_host_compared','ap4_native_state','ap4_native_error','ap4_sample_comparison','ap3_host_closed','ap3_host_error','ap3_proxy_stats'})
 
 def project_digest():
  p=project_path()
@@ -62,7 +62,7 @@ def gui(environment,*,mode,checkpoint,profile,label,prior):
  if before!=expected:raise RuntimeError('saved project changed before reopen')
  result=previous.gui(environment,mode=mode,checkpoint=checkpoint,profile=profile,label=label,
   root=gui_root(),project=project_path(),native=_native,extra_env={'LVB_AP4_COMPARE':'1'},
-  accepted_events={'ap4_bitwig_ui','ap4_native_state','ap4_sample_comparison','ap3_proxy_stats','ap3_proxy_lifecycle'})
+  accepted_events={'ap4_bitwig_ui','ap4_native_state','ap4_native_error','ap4_sample_comparison','ap3_proxy_stats','ap3_proxy_lifecycle'})
  result['caller']['records'].append(dict(event='ap4_project',case=label,project_before_sha256=before,expected_before_sha256=expected,project_sha256=project_digest()))
  return result
 

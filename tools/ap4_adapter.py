@@ -10,7 +10,7 @@ from classified_proof_backend import PlanDescriptor,DiagnosticPlanAdapter,Accept
 from proof_execution_policy import ExecutionClass,canonical_json,sha256_bytes
 ROOT=previous.ROOT
 CONTRACT='CURRENT_SLICE.md';ARTIFACT='docs/campaigns/AP4_ARTIFACT.json';NATIVE='docs/campaigns/AP4_NATIVE.json'
-FULL_DIAGNOSTIC=False
+FULL_DIAGNOSTIC=True
 SUPPORT={**ap3.SUPPORT,**{n:(ROOT/'tools'/f'{n}.py').read_text() for n in ('ap4_contract','ap4_worker_support')}}
 PROGRAM=base.WORKER.replace('_SUPPORT_SOURCES = {}','_SUPPORT_SOURCES = '+repr(SUPPORT))
 def candidate_identity(source,plan):return sha256_bytes(canonical_json({'schema':'ap4-candidate/v1','source':source,'plan':plan.record()}))

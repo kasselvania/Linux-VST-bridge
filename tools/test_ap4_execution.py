@@ -22,7 +22,7 @@ class AP4ExecutionTests(AP2ExecutionTests):
    self.stack.enter_context(patch.dict(sys.modules,{name:module}));exec(compile(a.SUPPORT[name],module.__file__,'exec'),module.__dict__)
   self.profile=sys.modules['ap4_worker_support'];self.stack.enter_context(patch.object(self.profile,'verify_host',return_value=self.host));self.stack.enter_context(patch.object(self.profile,'bind_client'))
   def scan(*args,**kwargs):
-   return dict(records=[],raw_exit=1,classification='scanner_failed',cleanup={'owned_descendants_zero':True,'process_group_empty':True},caller={'records':[dict(event='ap4_host_compared',frames_per_callback=128,active_frames=1440000,samples=2882048,max_error=0.,callback_max_ns=9000,callback_overruns=0,input_fnv1a64=123,output_fnv1a64=456,envelope_hex='a'*232,payload_hex='b'*24,controller_gain=.25),dict(event='ap4_proxy_stats',fault=1,first_position=1024,processed=4,request_high=5,result_high=0,position=1024,epoch=2),dict(event='ap4_host_error',stage='process',detail='original injected response fault: control disconnected/IO',last_position=1024)],'raw_exit':1,'cleanup':{'owned_descendants_zero':True,'process_group_empty':True}})
+   return dict(records=[],raw_exit=1,classification='scanner_failed',cleanup={'owned_descendants_zero':True,'process_group_empty':True},caller={'records':[dict(event='ap4_host_compared',frames_per_callback=128,active_frames=1440000,samples=2882048,max_error=0.,callback_max_ns=9000,callback_overruns=0,input_fnv1a64=123,output_fnv1a64=456,envelope_hex='a'*232,payload_hex='b'*24,controller_gain=.25),dict(event='ap4_proxy_stats',fault=1,first_position=1024,processed=4,request_high=5,result_high=0,position=1024,epoch=2),dict(event='ap4_host_error',stage='process',detail='original injected response fault: control disconnected/IO',last_position=1024),dict(event='ap4_native_error',operation='get',stage='failed_instance',fault=1,first_position=1024,processed=4,callback_rejections=1,detail='first native delayed output underflow')],'raw_exit':1,'cleanup':{'owned_descendants_zero':True,'process_group_empty':True}})
   self.profile.configure(False)
   self.batch_supervise=self.profile.supervise
   self.scan=self.stack.enter_context(patch.object(self.profile,'supervise',side_effect=scan))
@@ -49,6 +49,11 @@ class AP4ExecutionTests(AP2ExecutionTests):
   self.assertEqual(records[1]['fault'],1);self.assertEqual(records[1]['first_position'],1024)
   self.assertEqual(records[1]['epoch'],2);self.assertEqual(records[2]['last_position'],1024)
   self.assertIn('control disconnected',records[2]['detail'])
+  self.assertEqual(records[3]['event'],'ap4_native_error')
+  self.assertEqual(records[3]['fault'],1)
+  self.assertEqual(records[3]['first_position'],1024)
+  self.assertEqual(records[3]['callback_rejections'],1)
+  self.assertEqual(records[3]['detail'],'first native delayed output underflow')
   self.assertFalse(doc['binding']['acceptance_eligible']);self.assertFalse(self.rendered)
  def test_ap4_lost_ack_reconciles_without_replay(self):
   self.local_worker.lose_ack=True;self.execute_cli();self.execute_cli();self.assertEqual(self.scan.call_count,1)
