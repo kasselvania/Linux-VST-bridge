@@ -144,8 +144,11 @@ def preflight(binding):
         c.dx0_deck_source_parent() / source["commit"], source["commit"], reconstruct=False)
     c.process_guard()  # Includes this process; code must never be sent in argv.
     c.deck_fixture_identity()
-    from pc0_diagnostic_runtime import verify_diagnostic_runner
-    runner = verify_diagnostic_runner()
+    if binding.get("product") == "AP1":
+        from ap1_runtime import verify_runtime
+    else:
+        from pc0_diagnostic_runtime import verify_diagnostic_runner as verify_runtime
+    runner = verify_runtime()
     if runner["baseline_contract_sha256"] != binding["runtime_identity"]:
         raise RuntimeError("runtime contract differs")
     if is_acceptance(binding) and runner["declared_inputs_sha256"] != binding["declared_runtime_inputs_sha256"]:

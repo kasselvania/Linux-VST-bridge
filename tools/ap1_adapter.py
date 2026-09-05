@@ -1,6 +1,7 @@
 """AP1 plans reuse the classified AP0 transaction and supervision path."""
 import importlib.util,json,pathlib,pwd,os,sys
 import ap0_adapter as base
+import ap1_runtime as runtime
 import pc0_proof_adapter as d
 from ap1_contract import validate_summary
 from ap1_client_artifact import PATHS,canonical,digest,verify_client
@@ -9,7 +10,7 @@ from proof_execution_policy import ExecutionClass,canonical_json,sha256_bytes
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 CONTRACT='docs/slices/AP1/CONTRACT.md';ARTIFACT='docs/campaigns/AP1_ARTIFACT.json';CLIENT='docs/campaigns/AP1_CLIENT.json'
 EVIDENCE='evidence/ap1-linux-windows-audio-roundtrip-a2'
-SUPPORT={**base.SUPPORT,**{n:(ROOT/'tools'/f'{n}.py').read_text() for n in ('ap1_client_artifact','ap1_contract','ap1_worker_support')}}
+SUPPORT={**base.SUPPORT,**{n:(ROOT/'tools'/f'{n}.py').read_text() for n in ('ap1_runtime','ap1_client_artifact','ap1_contract','ap1_worker_support')}}
 # The existing entrypoint has no product policy or execution implementation.
 PROGRAM=base.WORKER.replace('_SUPPORT_SOURCES = {}','_SUPPORT_SOURCES = '+repr(SUPPORT))
 def candidate_identity(source,plan):
@@ -18,22 +19,24 @@ def descriptor(cls,artifact,client):
     return PlanDescriptor.create(plan_id='ap1-linux-windows-audio-'+('acceptance' if cls is ExecutionClass.ACCEPTANCE_CANDIDATE else 'diagnostic')+'-v1',
         execution_class=cls,product_contract_identity='ap1-linux-windows-audio-v1',product_contract_bytes=(ROOT/CONTRACT).read_bytes(),
         operation='ap1-mapped-stereo-ten-blocks',artifact_requirement={**artifact,'native_client':client},
-        fixture_requirement=d.FIXTURE_REQUIREMENT,runtime_requirement={**d.RUNTIME_REQUIREMENT,'declared_runtime_inputs_sha256':base.declared_runtime_inputs()})
+        fixture_requirement=d.FIXTURE_REQUIREMENT,runtime_requirement={**d.RUNTIME_REQUIREMENT,'runtime_proton_identity_sha256':runtime.identity(),'declared_runtime_inputs_sha256':runtime.declared_inputs()})
 def client_parent():
     return pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)/'Library/Application Support/Linux VST Bridge/proof/client-artifacts/by-manifest'
 class AP1Runtime(base.AP0Runtime):
     product='AP1';diagnostic_budget=10;windows_branch='codex/ap1-linux-windows-audio-roundtrip';windows_input_count=22
     candidate_key=staticmethod(candidate_identity);check_summary=staticmethod(validate_summary)
+    validate_runtime=staticmethod(runtime.validate_observation)
     support_sources=SUPPORT;remote_program=PROGRAM;worker_sha256=sha256_bytes(PROGRAM.encode())
     def __init__(self,ports,plan,artifact,client,**kwargs):
         super().__init__(ports,plan,artifact,**kwargs);self.client=client
     def _dependencies(self,source):
         dep=super()._dependencies(source)
-        paths={r['path'] for r in dep['candidate']['records']}|set(PATHS)|{CONTRACT,ARTIFACT,CLIENT,'tools/ap1_adapter.py','tools/ap1_contract.py','tools/ap1_client_artifact.py','tools/ap1_build_client.py','tools/ap1_worker_support.py'}
+        paths={r['path'] for r in dep['candidate']['records']}|set(PATHS)|{CONTRACT,ARTIFACT,CLIENT,'tools/ap1_adapter.py','tools/ap1_contract.py','tools/ap1_client_artifact.py','tools/ap1_build_client.py','tools/ap1_worker_support.py','tools/ap1_runtime.py'}
         dep['candidate']['records']=[{'path':p,'git_blob':d._checked_text(self.ports.command.run(('git','rev-parse',source+':'+p),cwd=self.repository),'AP1 source input')} for p in sorted(paths)]
         return dep
     def _request(self,delegation,reservation):
-        return {**super()._request(delegation,reservation),'native_client':self.client}
+        return {**super()._request(delegation,reservation),'native_client':self.client,'runtime_identity':runtime.identity(),
+                'declared_runtime_inputs_sha256':runtime.declared_inputs()}
     def _local_preflight(self,delegation):
         super()._local_preflight(delegation)
         record=verify_client(client_parent()/self.client['manifest_sha256'],self.client)

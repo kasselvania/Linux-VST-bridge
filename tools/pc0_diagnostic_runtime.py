@@ -63,9 +63,9 @@ def parse_vdf(raw):
         raise RuntimeError('Steam manifest root differs')
     return result['AppState']
 
-def application(raw, appid):
+def application(raw, appid, *, applications=APPS):
     app=parse_vdf(raw)
-    build,directory,depot,manifest,size=APPS[appid]
+    build,directory,depot,manifest,size=applications[appid]
     known={'appid','universe','name','StateFlags','installdir','SizeOnDisk','buildid',
            'InstalledDepots','UserConfig','MountedConfig'} | BOOKKEEPING
     if set(app)-known: raise RuntimeError('Unknown Steam manifest field requires classification')
@@ -96,8 +96,11 @@ def lock_api():
         raise RuntimeError('Historical runtime contract differs')
     return api
 
-def verify_diagnostic_runner():
-    api=lock_api(); baseline=api['expected_lock_manifest']()
+def verify_diagnostic_runner(*, baseline=None, applications=APPS):
+    contract_sha256=BASELINE if baseline is None else digest(baseline)
+    api=lock_api(); baseline=api['expected_lock_manifest']() if baseline is None else baseline
+    if [r['safe_path'] for r in baseline['files']] != [r['safe_path'] for r in api['expected_lock_manifest']()['files']]:
+        raise RuntimeError('Runtime file roster differs')
     observed=copy.deepcopy(baseline); apps={}
     for record,spec in zip(observed['files'],api['LOCK_FILES'],strict=True):
         base=api['lock_base'](spec.base)
@@ -105,31 +108,32 @@ def verify_diagnostic_runner():
         path=base/spec.relative
         api['require_contained'](path,base,label='diagnostic locked file')
         info=path.lstat()
-        if not stat.S_ISREG(info.st_mode) or format(stat.S_IMODE(info.st_mode),'04o')!=spec.mode:
+        if not stat.S_ISREG(info.st_mode) or format(stat.S_IMODE(info.st_mode),'04o')!=record['mode']:
             raise RuntimeError('Diagnostic runtime file type/mode differs: '+record['safe_path'])
         if spec.base=='steamapps':
             if info.st_size>16384: raise RuntimeError('Steam manifest exceeds diagnostic bound')
             raw=path.read_bytes()
             appid=spec.relative.removeprefix('appmanifest_').removesuffix('.acf')
-            apps[appid]=application(raw,appid)
+            apps[appid]=application(raw,appid,applications=applications)
             record['size']=len(raw);record['sha256']=hashlib.sha256(raw).hexdigest()
-        elif info.st_size!=spec.size or api['sha256_file'](path)!=spec.sha256:
+        elif info.st_size!=record['size'] or api['sha256_file'](path)!=record['sha256']:
             raise RuntimeError('Deployed runtime input differs: '+record['safe_path'])
     selection={'runner':baseline['runner'],'runtime':baseline['runtime'],
                'files':[r for r in baseline['files'] if not r['safe_path'].startswith('steamapps/')],
                'applications':{k:v['selection'] for k,v in apps.items()}}
-    result={'schema':SCHEMA,'baseline_contract_sha256':BASELINE,
+    result={'schema':SCHEMA,'baseline_contract_sha256':contract_sha256,
             'launch_critical_manifest_sha256':digest(observed),
             'declared_inputs_sha256':digest(selection), 'observed_manifest':observed,
             'applications':apps}
     return result
 
-def validate_runtime_observation(value):
+def validate_runtime_observation(value, *, baseline=None, applications=APPS):
     if not isinstance(value,dict) or set(value)!={'schema','baseline_contract_sha256',
             'launch_critical_manifest_sha256','declared_inputs_sha256','observed_manifest','applications'}:
         raise RuntimeError('Diagnostic runtime observation shape differs')
-    baseline=lock_api()['expected_lock_manifest']()
-    if value['schema']!=SCHEMA or value['baseline_contract_sha256']!=BASELINE:
+    contract_sha256=BASELINE if baseline is None else digest(baseline)
+    baseline=lock_api()['expected_lock_manifest']() if baseline is None else baseline
+    if value['schema']!=SCHEMA or value['baseline_contract_sha256']!=contract_sha256:
         raise RuntimeError('Diagnostic runtime contract differs')
     manifest=value['observed_manifest']
     if set(manifest)!=set(baseline) or any(manifest[k]!=baseline[k] for k in ('schema','runner','runtime')):
@@ -144,9 +148,9 @@ def validate_runtime_observation(value):
             raise RuntimeError('Observed Steam metadata record differs')
     if digest(manifest)!=value['launch_critical_manifest_sha256']:
         raise RuntimeError('Observed runtime snapshot digest differs')
-    if set(value['applications'])!=set(APPS): raise RuntimeError('Application roster differs')
+    if set(value['applications'])!=set(applications): raise RuntimeError('Application roster differs')
     for appid,observed in value['applications'].items():
-        build,directory,depot,depot_manifest,size=APPS[appid]
+        build,directory,depot,depot_manifest,size=applications[appid]
         expected={'appid':appid,'universe':'1','buildid':build,'installdir':directory,'SizeOnDisk':size,
                   'InstalledDepots':{depot:{'manifest':depot_manifest,'size':size}},'UserConfig':{},'MountedConfig':{}}
         if set(observed)!={'selection','bookkeeping'} or observed['selection']!=expected:
@@ -247,15 +251,15 @@ def exception_detail(error):
     return chain
 
 
-def declared_runtime_inputs():
+def declared_runtime_inputs(*, baseline=None, applications=APPS):
     """Compute the pinned selection/input identity, excluding Steam bookkeeping."""
-    baseline = lock_api()['expected_lock_manifest']()
-    applications = {}
-    for appid, (build, directory, depot, manifest, size) in APPS.items():
-        applications[appid] = {'appid':appid, 'universe':'1', 'buildid':build,
+    baseline = lock_api()['expected_lock_manifest']() if baseline is None else baseline
+    selected = {}
+    for appid, (build, directory, depot, manifest, size) in applications.items():
+        selected[appid] = {'appid':appid, 'universe':'1', 'buildid':build,
             'installdir':directory, 'SizeOnDisk':size,
             'InstalledDepots':{depot:{'manifest':manifest,'size':size}},
             'UserConfig':{}, 'MountedConfig':{}}
     return digest({'runner':baseline['runner'], 'runtime':baseline['runtime'],
         'files':[r for r in baseline['files'] if not r['safe_path'].startswith('steamapps/')],
-        'applications':applications})
+        'applications':selected})

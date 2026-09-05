@@ -28,9 +28,12 @@ class AP1ExecutionTests(AP0ExecutionTests):
         plan=a.descriptor(ExecutionClass.ACCEPTANCE_CANDIDATE,old.artifact,client)
         r=a.AP1Runtime(old.ports,plan,old.artifact,client,repository=TOOLS.parent,proof_root=self.mac_proof);self.runtime=r;self.plan=plan
         self.stack.enter_context(patch.object(r,'_dependencies',old._dependencies));self.stack.enter_context(patch.object(r,'_local_preflight'))
-        for name in ('ap1_client_artifact','ap1_contract','ap1_worker_support'):
+        for name in ('ap1_runtime','ap1_client_artifact','ap1_contract','ap1_worker_support'):
             module=types.ModuleType(name);module.__file__='<'+name+'>';module._pc0_source_sha256=d.sha256_bytes(a.SUPPORT[name].encode())
             self.stack.enter_context(patch.dict(sys.modules,{name:module}));exec(compile(a.SUPPORT[name],module.__file__,'exec'),module.__dict__)
+        from test_ap1_runtime import observation
+        self.runtime_observation=observation()
+        self.stack.enter_context(patch.object(sys.modules['ap1_runtime'],'verify_runtime',return_value=self.runtime_observation))
         self.profile=sys.modules['ap1_worker_support'];self.actual_profile_supervise=self.profile.supervise
         self.stack.enter_context(patch.object(self.profile,'verify_host',return_value=self.host));self.stack.enter_context(patch.object(self.profile,'bind_client'))
         original=self.supervise.side_effect

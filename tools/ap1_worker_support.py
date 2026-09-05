@@ -4,6 +4,7 @@ import supervise as inherited
 import pc0_diagnostic_primitives as diagnostic
 import ap0_worker_support as ap0
 from ap1_contract import MODE,normalize,validate_summary
+from ap1_runtime import verify_runtime
 from ap1_client_artifact import verify_client
 from ap0_artifacts import verify_host_store
 from pc0_diagnostic_runtime import exception_detail

@@ -42,6 +42,7 @@ class AP0Runtime(d.PC0DiagnosticRuntime):
     windows_branch='codex/ap0-offline-again-processing'
     windows_input_count=19
     check_summary=staticmethod(validate_summary)
+    validate_runtime=staticmethod(validate_runtime_observation)
     worker_path='tools/ap0_worker.py'
     worker_source=WORKER
     support_sources=SUPPORT
@@ -105,7 +106,7 @@ class AP0Runtime(d.PC0DiagnosticRuntime):
         if v.get('schema')!='linux-vst-bridge-'+self.product.lower()+'-reservation/v1' or v.get('binding')!=request:
             raise d.AdapterBoundaryError('AP0 observation binding differs')
         try:
-            validate_runtime_observation(v['runtime_observation'])
+            self.validate_runtime(v['runtime_observation'])
             if (v['runtime_observation']['declared_inputs_sha256']!=request['declared_runtime_inputs_sha256']
                     or v['execution_input_sha256']!=acceptance_execution_input_sha256(request,v['runtime_observation'])):
                 raise d.AdapterBoundaryError('AP0 runtime/execution input differs')

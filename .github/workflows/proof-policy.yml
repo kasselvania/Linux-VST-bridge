@@ -29,6 +29,7 @@ jobs:
           tools/pc0_acceptance_worker.py
           tools/pc0_acceptance_adapter.py
           tools/pc0_contract.py
+          tools/ap1_runtime.py
           tools/ap1_adapter.py
           tools/ap1_contract.py
           tools/ap1_worker_support.py
@@ -61,6 +62,7 @@ jobs:
           tools/test_pc0_acceptance.py
           tools/test_ap0_contract.py
           tools/test_ap0_execution.py
+          tools/test_ap1_runtime.py
           tools/test_ap1_execution.py
           tools/test_ap1_client.py
       - name: Check AP1 native codec and ownership
