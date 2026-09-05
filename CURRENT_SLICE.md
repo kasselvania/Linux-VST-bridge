@@ -58,7 +58,7 @@ Out of scope: Bitwig/DAW launch or proxy publication, live speakers/audio device
 
 The architecture already specifies a Linux caller, Windows host, bounded control frames and separately shared audio. AP0's accepted implementation is the processing basis. Standard Win32 [file mapping](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile) uses offset-addressed same-file views; Valve's [Proton 11 Wine mapping source](https://github.com/ValveSoftware/wine/blob/proton_11.0/dlls/ntdll/unix/virtual.c) selects MAP_SHARED for writable file views. These are feasibility evidence, not proof of our exact installed binary/container combination. AP1 must establish that combination empirically. No device execution or transport success is claimed by this preparation.
 
-## Default command guard
+## Authority — default command guard
 
 This compatibility mapping blocks unspecified live commands, not the active work order above. Leave it closed until AP1 scoped receipts and their actual registered adapter authorize an exact run. Existing readiness here describes the accepted PC0/AP0 adapters, not an already-implemented AP1 adapter.
 

@@ -67,7 +67,7 @@ def lifecycle_result_ok(operation, result):
         operation in {'set_processing_true', 'set_processing_false'}
         and result == -2147467263))
 
-def normalize(observed):
+def validate_lifecycle(observed, expected_blocks=3):
     records=observed['records']
     require(observed['raw_exit']==0 and observed['classification']=='scanner_completed','scanner did not complete')
     require(observed['cleanup']=={'owned_descendants_zero':True,'process_group_empty':True},'containment incomplete')
@@ -89,11 +89,9 @@ def normalize(observed):
     require(calls[15]['sequence'] < joined[0]['sequence'] < calls[16]['sequence'],'deactivated before stop/join')
     process=[r for r in records if r.get('state') in {'ap0_process_started','ap0_process_completed'}]
     require([(r['state'],r['block']) for r in process]==
-            [(state,b) for b in range(3) for state in ('ap0_process_started','ap0_process_completed')], 'process calls differ')
+            [(state,b) for b in range(expected_blocks) for state in ('ap0_process_started','ap0_process_completed')], 'process calls differ')
     require(calls[13]['sequence']<process[0]['sequence']<process[-1]['sequence']<calls[14]['sequence'],'process outside Processing state')
     require(all(r['result']==0 for r in process[1::2]),'process returned failure')
-    blocks=[r for r in records if r.get('state')=='ap0_samples']
-    comparison=compare_blocks(blocks)
     component=done[0]['component_session'];lease=component['audio_processor_lease']
     require(component['object_quiescence'] is True and lease['audio_interface_quiescence'] is True
             and component['callbacks']['wrong_thread'] is False,'component/interface/callback quiescence failed')
@@ -105,11 +103,17 @@ def normalize(observed):
     facts={'ledger':ledger,'pc0_operation_counts':{op:sum(r.get('operation')==op and r.get('event')=='call_started' for r in ledger) for op in PC0_OPERATIONS}}
     pc0_validate_call_facts(facts)
     pc0_validate_contract(component['processing_contract'])
-    return {'run_id':observed['run_id'],'blocks':blocks,'comparison':comparison,'call_facts':facts,
+    return {'run_id':observed['run_id'],'call_facts':facts,
             'lifecycle':[r for r in records if str(r.get('state','')).startswith('ap0_') and r.get('state')!='ap0_samples'],
             'component_session':component,'shutdown':shutdown,'cleanup':observed['cleanup'],
             'raw_exit':observed['raw_exit'],'stdout_sha256':observed['stdout_sha256'],
             'stderr_sha256':observed['stderr_sha256']}
+
+def normalize(observed):
+    summary=validate_lifecycle(observed)
+    blocks=[r for r in observed['records'] if r.get('state')=='ap0_samples']
+    summary.update(blocks=blocks,comparison=compare_blocks(blocks))
+    return summary
 
 def validate_summary(summary):
     require(summary['comparison']==compare_blocks(summary['blocks']),'comparison differs')

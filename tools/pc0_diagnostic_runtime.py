@@ -182,6 +182,7 @@ def sanitized_supervision_error(error):
 # protocol fields can enter a troubleshooting checkpoint; no process identities,
 # command lines, environment, factory account metadata or paths are retained.
 CHECKPOINT_KEYS = frozenset("""
+caller seed seed_chosen_after_ready mapping_witness mapping_count connection_count instance_count mapping_unmapped closed_received replays silent detail stage error transport_lifecycle
 rejected origin thread_role enclosing_attempt_sequence enclosing_operation reference_count output_null
 event sequence attempt_sequence operation interface ordinal tier return_kind
 state disposition object_quiescence component_state primary_blocker
@@ -211,7 +212,7 @@ def checkpoint_projection(value, depth=0):
         return {k: checkpoint_projection(v, depth+1) for k,v in value.items()
                 if k in CHECKPOINT_KEYS}
     if isinstance(value, list):
-        return [checkpoint_projection(v, depth+1) for v in value[-256:]]
+        return [checkpoint_projection(v, depth+1) for v in value[-258:]]
     if value is None or type(value) in (bool, int):
         return value
     if type(value) is float and value == value and abs(value) < 1e6:

@@ -593,7 +593,7 @@ if __name__ == '__main__':
     raise SystemExit('evidence.py is a library; use the classified proof command')
 
 
-def render_ap0_packet(output, result, *, consumer_source, validate):
+def render_ap0_packet(output, result, *, consumer_source, validate, product="AP0", findings=None):
     """Publish AP0 through the existing atomic five-file evidence mechanism."""
     def admit(value):
         if (value.get('execution_class')!='ACCEPTANCE_CANDIDATE'
@@ -602,7 +602,7 @@ def render_ap0_packet(output, result, *, consumer_source, validate):
                 or value['admitted_result']!=value['observation']['payload']):
             fail('AP0 renderer requires its fresh successful acceptance result')
         payload=value['admitted_result'];document=payload['document']
-        if (payload.get('schema')!='ap0-classified-observation/v1'
+        if (payload.get('schema')!=product.lower()+'-classified-observation/v1'
                 or payload['acceptance_eligible'] is not True
                 or payload['document_sha256']!=sha256_bytes(canonical_json(document))
                 or document['binding']['candidate_identity']!=value['execution_identity']
@@ -620,15 +620,15 @@ def render_ap0_packet(output, result, *, consumer_source, validate):
         s=admit(value);directory.mkdir()
         digest=sha256_bytes(canonical_json(value))
         write_atomic(directory/'TRANSACTION.json',canonical_json({
-            'schema':'linux-vst-bridge-ap0-acceptance-packet/v1',
-            'status':'acceptance verified, awaiting technical-lead review','accepted_frontier':'PC0',
+            'schema':'linux-vst-bridge-'+product.lower()+'-acceptance-packet/v1',
+            'status':'acceptance verified, awaiting technical-lead review','accepted_frontier':'PC0' if product=='AP0' else 'AP0',
             'consumer_source':consumer_source,'result_sha256':digest,'result':value}))
-        write_atomic(directory/'BASIS.md',_markdown('AP0 acceptance basis',[
+        write_atomic(directory/'BASIS.md',_markdown(product+' acceptance basis',[
             f"Fresh executed source `{value['source_commit']}`; consumer `{consumer_source}`; result `{digest}`.",
-            'Contract: docs/slices/AP0/CONTRACT.md. Independent fixed recipe, zero numerical tolerance. '
+            'Contract: docs/slices/'+product+'/CONTRACT.md. Independent sample comparison, zero numerical tolerance. '
             'Retained AGain fixture and deployed runtime; exact new host producer/artifact and delivered helper inputs are bound in the transaction.',
-            'No diagnostic observation is promoted. PC0 evidence and accepted behavior remain unchanged.']))
-        write_atomic(directory/'FINDINGS.md',_markdown('AP0 sample comparison',[
+            'No diagnostic observation is promoted. Earlier accepted evidence and behavior remain unchanged.']))
+        write_atomic(directory/'FINDINGS.md',_markdown(product+' sample comparison',findings or [
             f"Compared every returned sample: {s['comparison']['samples_compared']} float32 samples; maximum absolute error {s['comparison']['maximum_absolute_error']}.",
             '48000 Hz, kOffline, 16 frames per stereo block. Gains 0.5 and 0.25 on distinct left/right patterns, followed by a silent block at gain 0.25. '
             'Exact comparison passed, inputs/guards unchanged, no nonfinite or unwritten samples, and silence flags correct.',
@@ -637,11 +637,21 @@ def render_ap0_packet(output, result, *, consumer_source, validate):
             'Offline numerical correctness only: no real-time, DAW, proxy, IPC, live audio, editor, state, commercial plug-in or arbitrary-memory-safety claim.',
             'Acceptance verified, awaiting technical-lead review. PC0 remains accepted until AP0 review and merge.']))
         write_atomic(directory/'COST_AND_INVALIDATION.json',canonical_json({
-            'schema':'ap0-cost/v1','result_sha256':digest,'acceptance_candidate_reservations':1,
+            'schema':product.lower()+'-cost/v1','result_sha256':digest,'acceptance_candidate_reservations':1,
             'effects':value['observation']['effects'],'inputs':value['admitted_result']['binding'],
-            'task_totals_note':'See docs/slices/AP0/RESULT.md for cumulative producer, diagnostic and acceptance totals.'}))
+            'task_totals_note':'See docs/slices/'+product+'/RESULT.md for cumulative producer, diagnostic and acceptance totals.'}))
         members=['BASIS.md','COST_AND_INVALIDATION.json','FINDINGS.md','TRANSACTION.json']
         write_atomic(directory/'hashes.sha256',''.join(f"{sha256_file(directory/n)}  {n}\n" for n in members).encode())
         check(directory)
         return {'result_sha256':digest,'record_count':5}
     return render_packet(output,result,renderer=render,validator=check)
+
+
+def render_ap1_packet(output,result,*,consumer_source,validate):
+    summary=validate(result['admitted_result']['document']['summary'])
+    return render_ap0_packet(output,result,consumer_source=consumer_source,validate=validate,product='AP1',findings=[
+        f"Linux read and independently checked {summary['comparison']['samples_compared']} float32 samples; maximum absolute error {summary['comparison']['maximum_absolute_error']}.",
+        'Eight changing blocks, 1/16/63/256 frames, gains 0.5/0.25/0.75, distinct stereo inputs and silence. Linux chose the retained seed only after Windows Ready. Actual input and returned words are retained.',
+        'One host, AGain instance, shared mapping and authenticated loopback control connection reused throughout. Control carried no audio. Both views witnessed the same backing mapping before module load.',
+        'Owner-thread setup/activation; distinct processing thread stopped and joined before deactivation, interface/component retirement and unload. Windows unmapped before Closed; Linux unmapped after Closed. Both owned groups empty, disposable stage absent, protected state unchanged.',
+        'Offline Linux/Windows numerical round trip only. No DAW, realtime, editor, commercial plug-in, state, event transport or arbitrary plug-in memory-safety claim. AP0 remains accepted pending AP1 review and merge.'])

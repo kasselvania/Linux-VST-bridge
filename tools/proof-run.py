@@ -100,6 +100,8 @@ def _production_adapters():
     adapters[ACCEPTANCE_PLAN_ID] = create_pc0_acceptance_adapter(ports)
     from ap0_adapter import adapters as ap0_adapters
     adapters.update(ap0_adapters(ports))
+    from ap1_adapter import adapters as ap1_adapters
+    adapters.update(ap1_adapters(ports))
     return adapters, command
 
 

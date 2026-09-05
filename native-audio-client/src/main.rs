@@ -16,6 +16,7 @@ extern "C" {
 struct Mapping {
     pointer: NonNull<u8>,
     _file: File,
+    unmapped: bool,
 }
 impl Mapping {
     fn new(path: &Path) -> io::Result<Self> {
@@ -32,7 +33,14 @@ impl Mapping {
         Ok(Self {
             pointer: NonNull::new(p as *mut u8).ok_or_else(|| invalid("null mapping"))?,
             _file: file,
+            unmapped: false,
         })
+    }
+    fn close(mut self) -> io::Result<()> {
+        let result = unsafe { munmap(self.pointer.as_ptr() as *mut c_void, MAP_BYTES) };
+        need(result == 0, "native mapping unmap failed")?;
+        self.unmapped = true;
+        Ok(())
     }
     fn write(&mut self, offset: usize, b: &[u8]) -> io::Result<()> {
         need(
@@ -69,7 +77,9 @@ impl Mapping {
 }
 impl Drop for Mapping {
     fn drop(&mut self) {
-        unsafe { munmap(self.pointer.as_ptr() as *mut c_void, MAP_BYTES) };
+        if !self.unmapped {
+            unsafe { munmap(self.pointer.as_ptr() as *mut c_void, MAP_BYTES) };
+        }
     }
 }
 fn barrier() {
@@ -162,6 +172,7 @@ fn run(stage: &mut &'static str) -> io::Result<()> {
         }
     };
     drop(listener);
+    socket.set_nonblocking(false)?;
     socket.set_nodelay(true)?;
     let hello = receive(&mut socket, 10)?;
     need(
@@ -241,17 +252,23 @@ fn run(stage: &mut &'static str) -> io::Result<()> {
         barrier();
         let returned_input = [mapping.plane(INPUT, 0)?, mapping.plane(INPUT, 1)?];
         let output = [mapping.plane(OUTPUT, 0)?, mapping.plane(OUTPUT, 1)?];
-        need(returned_input == input, "input/guard modified")?;
-        let error = compare(&input, &output, frames, GAINS[b])?;
+        let comparison = compare(&input, &output, frames, GAINS[b]);
+        let error = comparison
+            .as_ref()
+            .map(|v| v.to_string())
+            .unwrap_or("null".into());
         count += frames * 2;
         record(format!("{{\"event\":\"ap1_client_block\",\"sequence\":{},\"frames\":{frames},\"gain\":{},\"silent\":{},\"input_bits\":{},\"output_bits\":{},\"maximum_absolute_error\":{error}}}",request.sequence,GAINS[b],b==5,words(&returned_input),words(&output)))?;
+        // Retain actual mapped words before either validation can fail.
+        need(returned_input == input, "input/guard modified")?;
+        comparison?;
     }
     *stage = "close";
     send(&mut socket, &state.close()?, 5)?;
     let closed = receive(&mut socket, 10)?;
     state.closed(&closed)?;
     drop(socket);
-    drop(mapping);
+    mapping.close()?;
     *stage = "report";
     record(format!("{{\"event\":\"ap1_client_closed\",\"blocks\":8,\"samples_compared\":{count},\"maximum_absolute_error\":0.0,\"mapping_unmapped\":true,\"closed_received\":true,\"replays\":0}}"))?;
     Ok(())
