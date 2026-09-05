@@ -128,10 +128,10 @@ def create_dx0_environment(run_id: str, *, host: dict[str, Any],
 
 def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
               component_case: str = "exact-again",
-              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None) -> dict[str, Any]:
-    runner_identity = verify_diagnostic_runner()
+              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None, session_override=None) -> dict[str, Any]:
+    runner_identity = getattr(profile, "verify_runtime", verify_diagnostic_runner)()
     verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
-    session = secrets.token_hex(16)
+    session = session_override or secrets.token_hex(16)
     ready = environment.session / f"{session}.ready"
     gate = environment.session / f"{session}.gate"
     if ready.exists() or gate.exists():
@@ -355,7 +355,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     after = protected_snapshot()
     if after != before:
         fail("protected state drifted during supervised execution")
-    if verify_diagnostic_runner() != runner_identity:
+    if getattr(profile, "verify_runtime", verify_diagnostic_runner)() != runner_identity:
         fail("Runtime 4 / Proton 11 identity changed during supervised execution")
     last_state = next((record.get("state") for record in reversed(streams.records)
                        if record.get("event") == "lifecycle"), None)

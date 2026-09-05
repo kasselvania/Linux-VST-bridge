@@ -63,9 +63,9 @@ def parse_vdf(raw):
         raise RuntimeError('Steam manifest root differs')
     return result['AppState']
 
-def application(raw, appid):
+def application(raw, appid, *, applications=APPS, allow_completed_update=False):
     app=parse_vdf(raw)
-    build,directory,depot,manifest,size=APPS[appid]
+    build,directory,depot,manifest,size=applications[appid]
     known={'appid','universe','name','StateFlags','installdir','SizeOnDisk','buildid',
            'InstalledDepots','UserConfig','MountedConfig'} | BOOKKEEPING
     if set(app)-known: raise RuntimeError('Unknown Steam manifest field requires classification')
@@ -82,8 +82,16 @@ def application(raw, appid):
     for k in BOOKKEEPING:
         if k in app and (not isinstance(app[k],str) or re.fullmatch(r'[0-9]{1,20}',app[k]) is None):
             raise RuntimeError('Steam bookkeeping value is not a bounded integer')
+    # Steam retains completed transfer counters. AP1 explicitly selects the
+    # installed update; historical callers retain the original zero-counter rule.
+    completed = (allow_completed_update and app['StateFlags']=='4'
+        and app.get('TargetBuildID')==build and app.get('ScheduledAutoUpdate')=='0'
+        and app.get('UpdateResult')=='0' and app.get('StagingSize')=='0'
+        and all(k in app for k in ('BytesToDownload','BytesDownloaded','BytesToStage','BytesStaged'))
+        and app['BytesDownloaded']==app['BytesToDownload']
+        and app['BytesStaged']==app['BytesToStage'])
     for k in ('BytesDownloaded','BytesStaged','BytesToStage','StagingSize','UpdateResult'):
-        if app.get(k,'0')!='0': raise RuntimeError('Steam update/staging activity requires resolution')
+        if app.get(k,'0')!='0' and not completed: raise RuntimeError('Steam update/staging activity requires resolution')
     return {'selection':expected, 'bookkeeping':{
         'state_flags':app['StateFlags'], 'target_build':app.get('TargetBuildID'),
         'scheduled_update':app.get('ScheduledAutoUpdate'),
@@ -96,8 +104,11 @@ def lock_api():
         raise RuntimeError('Historical runtime contract differs')
     return api
 
-def verify_diagnostic_runner():
-    api=lock_api(); baseline=api['expected_lock_manifest']()
+def verify_diagnostic_runner(*, baseline=None, applications=APPS, allow_completed_update=False):
+    contract_sha256=BASELINE if baseline is None else digest(baseline)
+    api=lock_api(); baseline=api['expected_lock_manifest']() if baseline is None else baseline
+    if [r['safe_path'] for r in baseline['files']] != [r['safe_path'] for r in api['expected_lock_manifest']()['files']]:
+        raise RuntimeError('Runtime file roster differs')
     observed=copy.deepcopy(baseline); apps={}
     for record,spec in zip(observed['files'],api['LOCK_FILES'],strict=True):
         base=api['lock_base'](spec.base)
@@ -105,31 +116,32 @@ def verify_diagnostic_runner():
         path=base/spec.relative
         api['require_contained'](path,base,label='diagnostic locked file')
         info=path.lstat()
-        if not stat.S_ISREG(info.st_mode) or format(stat.S_IMODE(info.st_mode),'04o')!=spec.mode:
+        if not stat.S_ISREG(info.st_mode) or format(stat.S_IMODE(info.st_mode),'04o')!=record['mode']:
             raise RuntimeError('Diagnostic runtime file type/mode differs: '+record['safe_path'])
         if spec.base=='steamapps':
             if info.st_size>16384: raise RuntimeError('Steam manifest exceeds diagnostic bound')
             raw=path.read_bytes()
             appid=spec.relative.removeprefix('appmanifest_').removesuffix('.acf')
-            apps[appid]=application(raw,appid)
+            apps[appid]=application(raw,appid,applications=applications,allow_completed_update=allow_completed_update)
             record['size']=len(raw);record['sha256']=hashlib.sha256(raw).hexdigest()
-        elif info.st_size!=spec.size or api['sha256_file'](path)!=spec.sha256:
+        elif info.st_size!=record['size'] or api['sha256_file'](path)!=record['sha256']:
             raise RuntimeError('Deployed runtime input differs: '+record['safe_path'])
     selection={'runner':baseline['runner'],'runtime':baseline['runtime'],
                'files':[r for r in baseline['files'] if not r['safe_path'].startswith('steamapps/')],
                'applications':{k:v['selection'] for k,v in apps.items()}}
-    result={'schema':SCHEMA,'baseline_contract_sha256':BASELINE,
+    result={'schema':SCHEMA,'baseline_contract_sha256':contract_sha256,
             'launch_critical_manifest_sha256':digest(observed),
             'declared_inputs_sha256':digest(selection), 'observed_manifest':observed,
             'applications':apps}
     return result
 
-def validate_runtime_observation(value):
+def validate_runtime_observation(value, *, baseline=None, applications=APPS):
     if not isinstance(value,dict) or set(value)!={'schema','baseline_contract_sha256',
             'launch_critical_manifest_sha256','declared_inputs_sha256','observed_manifest','applications'}:
         raise RuntimeError('Diagnostic runtime observation shape differs')
-    baseline=lock_api()['expected_lock_manifest']()
-    if value['schema']!=SCHEMA or value['baseline_contract_sha256']!=BASELINE:
+    contract_sha256=BASELINE if baseline is None else digest(baseline)
+    baseline=lock_api()['expected_lock_manifest']() if baseline is None else baseline
+    if value['schema']!=SCHEMA or value['baseline_contract_sha256']!=contract_sha256:
         raise RuntimeError('Diagnostic runtime contract differs')
     manifest=value['observed_manifest']
     if set(manifest)!=set(baseline) or any(manifest[k]!=baseline[k] for k in ('schema','runner','runtime')):
@@ -144,9 +156,9 @@ def validate_runtime_observation(value):
             raise RuntimeError('Observed Steam metadata record differs')
     if digest(manifest)!=value['launch_critical_manifest_sha256']:
         raise RuntimeError('Observed runtime snapshot digest differs')
-    if set(value['applications'])!=set(APPS): raise RuntimeError('Application roster differs')
+    if set(value['applications'])!=set(applications): raise RuntimeError('Application roster differs')
     for appid,observed in value['applications'].items():
-        build,directory,depot,depot_manifest,size=APPS[appid]
+        build,directory,depot,depot_manifest,size=applications[appid]
         expected={'appid':appid,'universe':'1','buildid':build,'installdir':directory,'SizeOnDisk':size,
                   'InstalledDepots':{depot:{'manifest':depot_manifest,'size':size}},'UserConfig':{},'MountedConfig':{}}
         if set(observed)!={'selection','bookkeeping'} or observed['selection']!=expected:
@@ -182,6 +194,7 @@ def sanitized_supervision_error(error):
 # protocol fields can enter a troubleshooting checkpoint; no process identities,
 # command lines, environment, factory account metadata or paths are retained.
 CHECKPOINT_KEYS = frozenset("""
+caller seed seed_chosen_after_ready mapping_witness mapping_count connection_count instance_count mapping_unmapped closed_received replays silent detail stage error transport_lifecycle
 rejected origin thread_role enclosing_attempt_sequence enclosing_operation reference_count output_null
 event sequence attempt_sequence operation interface ordinal tier return_kind
 state disposition object_quiescence component_state primary_blocker
@@ -211,7 +224,7 @@ def checkpoint_projection(value, depth=0):
         return {k: checkpoint_projection(v, depth+1) for k,v in value.items()
                 if k in CHECKPOINT_KEYS}
     if isinstance(value, list):
-        return [checkpoint_projection(v, depth+1) for v in value[-256:]]
+        return [checkpoint_projection(v, depth+1) for v in value[-258:]]
     if value is None or type(value) in (bool, int):
         return value
     if type(value) is float and value == value and abs(value) < 1e6:
@@ -246,15 +259,15 @@ def exception_detail(error):
     return chain
 
 
-def declared_runtime_inputs():
+def declared_runtime_inputs(*, baseline=None, applications=APPS):
     """Compute the pinned selection/input identity, excluding Steam bookkeeping."""
-    baseline = lock_api()['expected_lock_manifest']()
-    applications = {}
-    for appid, (build, directory, depot, manifest, size) in APPS.items():
-        applications[appid] = {'appid':appid, 'universe':'1', 'buildid':build,
+    baseline = lock_api()['expected_lock_manifest']() if baseline is None else baseline
+    selected = {}
+    for appid, (build, directory, depot, manifest, size) in applications.items():
+        selected[appid] = {'appid':appid, 'universe':'1', 'buildid':build,
             'installdir':directory, 'SizeOnDisk':size,
             'InstalledDepots':{depot:{'manifest':manifest,'size':size}},
             'UserConfig':{}, 'MountedConfig':{}}
     return digest({'runner':baseline['runner'], 'runtime':baseline['runtime'],
         'files':[r for r in baseline['files'] if not r['safe_path'].startswith('steamapps/')],
-        'applications':applications})
+        'applications':selected})

@@ -25,6 +25,8 @@ enum class ComponentCase {
     unsupported_interface,
 };
 
+class ExternalProcessing;
+
 enum class ComponentState {
     component_absent,
     component_create_in_flight,
@@ -225,7 +227,7 @@ public:
                                  HostCallbackSink& callbacks,
                                  EventWriter& events) noexcept;
 
-    AudioProcessorLeaseResult acquire_and_retire(bool pre_setup_census = false, bool offline_processing = false);
+    AudioProcessorLeaseResult acquire_and_retire(bool pre_setup_census = false, bool offline_processing = false, ExternalProcessing* external = nullptr);
 
 private:
     Steinberg::Vst::IComponent& component_;
@@ -280,7 +282,7 @@ struct ComponentAdmissionResult {
 ComponentAdmissionResult admit_component(Steinberg::IPluginFactory* factory,
                                           EventWriter& events,
                                           ComponentCase component_case,
-                                          bool pre_setup_census = false, bool offline_processing = false);
+                                          bool pre_setup_census = false, bool offline_processing = false, ExternalProcessing* external = nullptr);
 
 const char* component_state_name(ComponentState state) noexcept;
 const char* audio_processor_state_name(AudioProcessorLeaseState state) noexcept;

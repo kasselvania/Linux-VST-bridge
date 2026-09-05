@@ -6,13 +6,27 @@ Build a managed Windows-audio compatibility platform for native Linux DAWs. A su
 
 The Steam Deck, SteamOS, Bitwig, AGain, Serum, and Kontakt are fixtures. They do not define the universal product boundary.
 
-## Completed AP0 ruling — Offline AGain sample processing
+## Active AP1 ruling — Native Linux / Windows audio round trip
 
-AP0 is accepted through PR #49 after exact-head technical-lead review. PC0 remains an accepted prerequisite. `CURRENT_SLICE.md` owns current status, the bounded accepted claim and the next proposed product direction.
+AP0 is accepted through PR #49; PC0 remains accepted. Under the operator's request to prepare the next audio-bearing crossing, the technical lead selects and authorizes **AP1** on `codex/ap1-linux-windows-audio-roundtrip`, from `f285560c05f2eedf59ddce91c4f0e1d917cf775f`. Issue #50 tracks it. `CURRENT_SLICE.md` owns the selected transport, ownership/failure contract, required proof and task limits.
 
-The AP0 work order authorized implementation, necessary host builds, scoped diagnostics and fresh acceptance in one task. That task is now complete. Its original instructions and spending limits remain in Git history and the retained AP0 records; they do not authorize another build, workload, candidate or successor after this merge. Preserve the immutable evidence and all cumulative failed/diagnostic histories. Do not rerun successful work for status closure.
+One engineer owns implementation, ordinary local testing, necessary native Linux and Windows host builds, artifact delivery, same-host mapped audio/loopback control, scoped diagnostics, mechanical source/plan/candidate binding and fresh device verification before opening one implementation PR. Final technical-lead review/merge remains separate. No additional selection, design dossier, intermediate approval or process-only PR is required inside the recorded contract. The engineer chooses private layout and serialization details, not a different claim or ownership model.
 
-No implementation successor is active. Read-only investigation and review remain permitted; a subsequent scoped work order must define any new audio transport or processing capability. Preserve process containment, useful failure retention, private-state protection and honest evidence classification.
+This ruling supersedes historical restrictions that would forbid the AP1 Rust caller, local IPC/mapping, changed host build, current-branch delivery or narrow supporting runner changes. The new loopback endpoint is ephemeral, authenticated and local only; this is no external network authority. Reuse the accepted SDK/AGain and the working runner machinery; runtime selection follows the scoped update ruling below. Necessary producer branch/input-roster and classified-adapter changes are included; backend readiness must be real before execution.
+
+Use AP1-specific scoped receipts through the existing command after local tests, with exact computed source/binary/runtime bindings. Explicit within-contract source/artifact/plan revisions are delegated without resetting task totals. The default CLI guard remains closed for unspecified workloads; it does not prohibit this authorized task. Follow CURRENT_SLICE.md's cumulative allowances and stop conditions. Routine in-scope repair needs no renewed operator permission.
+
+Preserve PC0/AP0 behavior, immutable evidence and all historical budgets/unknowns. No diagnostic promotion or duplicate workload after lost acknowledgement. AP0 remains the accepted frontier until AP1 passes final review and merges. Prior AP0 completion directions are history, not the active assignment.
+
+### AP1 runtime-update continuation — 2026-09-05
+
+The operator reports that Steam/Valve updated Proton during the ongoing silence repair. The lead authorizes completing that same repair and fresh verification against the actually installed, completed official update. This supersedes the unchanged-runtime/runtime-replacement prohibition in CURRENT_SLICE.md for this transition only; it is not permission to substitute arbitrary runners or relax numerical, ownership or containment checks.
+
+Read the installed Proton version/build/depot and required Steam Linux Runtime selection, plus the relevant executable digests. Distinguish an installed update from scheduled download/bookkeeping changes. Bind the observed new composition explicitly before launch; do not auto-trust whatever a scan finds, mislabel changed executable bytes as bookkeeping, or overwrite the historical WR0/PC0/AP0 runtime locks and evidence. Narrow AP1 runtime-manifest, verifier/adapter and existing diagnostic-plan adjustment changes are authorized, with focused tests rejecting mismatch after binding. Preserve all counters, reservations and old authority; no new budgeting or runtime-management framework.
+
+Use the current stable installed composition once Steam has finished writing it. Verify that bound executable inputs/selection remain unchanged at preflight, launch and post-run; a mid-run replacement prevents acceptance of a single-runtime claim. Preserve unrelated protected state and compare its before/after values. Reuse the repaired Windows host/native caller whenever their build inputs are unchanged: a Proton update alone is not a reason to rebuild them. Any needed prefix migration is confined to disposable test staging; do not modify accepted seed material, user plug-in installations or authorization state.
+
+The existing remaining AP1 diagnostics and second acceptance candidate cover this transition and the silence repair together. Preflight-only runtime refusal is not a plug-in execution; preserve any reservation already consumed and never rebind or replay it. Read current counters rather than assuming their earlier values. No ceiling increases or historical result promotion are authorized. Run the original round-trip cases plus the new silence cases; this exercises the required loading, processing and cleanup path without replaying every older slice. Earlier results remain evidence for their recorded runtime; the new result names its own runtime. Since code and runtime both changed, do not claim this isolates the update's causal effect. Continue PR #51 without an intermediate planning handoff; retain and report a genuine compatibility failure rather than bypassing checks.
 
 ## Authority order
 

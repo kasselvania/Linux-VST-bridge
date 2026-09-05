@@ -24,8 +24,8 @@ ACCEPTANCE = "ACCEPTANCE_CANDIDATE"
 
 
 def schema_for(binding):
-    if binding.get("product") == "AP0":
-        return "linux-vst-bridge-ap0-reservation/v1"
+    if binding.get("product") in {"AP0", "AP1"}:
+        return "linux-vst-bridge-" + binding["product"].lower() + "-reservation/v1"
     return "linux-vst-bridge-pc0-reservation-acceptance/v1" if binding["execution_class"] == ACCEPTANCE else SCHEMA
 
 
@@ -144,8 +144,11 @@ def preflight(binding):
         c.dx0_deck_source_parent() / source["commit"], source["commit"], reconstruct=False)
     c.process_guard()  # Includes this process; code must never be sent in argv.
     c.deck_fixture_identity()
-    from pc0_diagnostic_runtime import verify_diagnostic_runner
-    runner = verify_diagnostic_runner()
+    if binding.get("product") == "AP1":
+        from ap1_runtime import verify_runtime
+    else:
+        from pc0_diagnostic_runtime import verify_diagnostic_runner as verify_runtime
+    runner = verify_runtime()
     if runner["baseline_contract_sha256"] != binding["runtime_identity"]:
         raise RuntimeError("runtime contract differs")
     if is_acceptance(binding) and runner["declared_inputs_sha256"] != binding["declared_runtime_inputs_sha256"]:
@@ -153,8 +156,12 @@ def preflight(binding):
     before = c.protected_snapshot()
     host_root = c.dx0_deck_host_artifact_parent() / binding["host_manifest_sha256"]
     build_input = a.read_canonical_json(host_root / "DX0_WINDOWS_HOST_BUILD_RECEIPT.json")["windows_build_input"]["sha256"]
-    if binding.get("product") == "AP0":
-        from ap0_worker_support import verify_host
+    if binding.get("product") in {"AP0", "AP1"}:
+        if binding.get("product") == "AP1":
+            from ap1_worker_support import verify_host, bind_client
+            bind_client(binding["native_client"])
+        else:
+            from ap0_worker_support import verify_host
     else:
         verify_host = a.verify_host_store
     host = verify_host(host_root, build_input)
@@ -177,7 +184,7 @@ def preflight(binding):
                         "observed_runtime_sha256": runner["launch_critical_manifest_sha256"],
                         "declared_runtime_inputs_sha256": runner["declared_inputs_sha256"]}
     execution_sha = digest(canonical(diagnostic_input))
-    if is_acceptance(binding) or binding.get("product") == "AP0":
+    if is_acceptance(binding) or binding.get("product") in {"AP0", "AP1"}:
         from pc0_contract import acceptance_execution_input_sha256
         execution_sha = acceptance_execution_input_sha256(binding,runner)
     return c, r, source, host, fixture, before, execution_sha, handoff, runner
@@ -228,8 +235,11 @@ def execute(proof, binding):
     c, r, source, host, fixture, before, deck_sha, _handoff, runtime = preflight(binding)
     import pc0_diagnostic_primitives as diagnostic
     ap0 = None
-    if binding.get("product") == "AP0":
-        import ap0_worker_support as ap0
+    if binding.get("product") in {"AP0", "AP1"}:
+        if binding.get("product") == "AP1":
+            import ap1_worker_support as ap0
+        else:
+            import ap0_worker_support as ap0
     root = namespace(proof, binding)
     root.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -285,8 +295,8 @@ def execute(proof, binding):
         raw = canonical({"observation": value, "sha256": digest(canonical(value))})
         temporary = None
         try:
-            if len(raw) > 128 * 1024:
-                raise RuntimeError("checkpoint exceeds 128 KiB bound")
+            if len(raw) > (256 if binding.get("product") == "AP1" else 128) * 1024:
+                raise RuntimeError("checkpoint exceeds declared byte bound")
             # One ordinary atomic file; failed writes leave the earlier checkpoint.
             with tempfile.NamedTemporaryFile(dir=root, prefix=".checkpoint-", delete=False) as stream:
                 temporary = pathlib.Path(stream.name)
@@ -316,7 +326,7 @@ def execute(proof, binding):
             runner_identity_sha256=runtime["launch_critical_manifest_sha256"],
             **({"verify_host": ap0.verify_host} if ap0 else {}))
         trouble["stage"] = "supervise"
-        observed = diagnostic.supervise(environment, mode=ap0.MODE if ap0 else c.PC0_MODE, checkpoint=checkpoint,
+        observed = (getattr(ap0,"supervise",diagnostic.supervise) if ap0 else diagnostic.supervise)(environment, mode=ap0.MODE if ap0 else c.PC0_MODE, checkpoint=checkpoint,
             **({"profile":ap0} if ap0 else {}))
         checkpoint("observation_retained", observed)
         if observed.get("supervision_exception"):
@@ -409,7 +419,7 @@ def execute(proof, binding):
     if is_acceptance(binding):
         classification = "PC0_ACCEPTANCE_OBSERVED" if kind == "SUCCESS" else "PC0_ACCEPTANCE_INCONCLUSIVE"
     if ap0:
-        classification = "AP0_SAMPLES_VERIFIED" if kind == "SUCCESS" else "AP0_INCONCLUSIVE"
+        classification = binding["product"] + ("_SAMPLES_VERIFIED" if kind == "SUCCESS" else "_INCONCLUSIVE")
     value = value_for(summary, kind, classification)
     publications = 0
     try:

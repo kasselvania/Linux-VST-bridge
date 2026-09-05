@@ -36,6 +36,13 @@ def descriptor(execution_class,artifact):
         runtime_requirement={**d.RUNTIME_REQUIREMENT,'declared_runtime_inputs_sha256':declared_runtime_inputs()})
 
 class AP0Runtime(d.PC0DiagnosticRuntime):
+    product='AP0'
+    candidate_key=staticmethod(candidate_identity)
+    diagnostic_budget=8
+    windows_branch='codex/ap0-offline-again-processing'
+    windows_input_count=19
+    check_summary=staticmethod(validate_summary)
+    validate_runtime=staticmethod(validate_runtime_observation)
     worker_path='tools/ap0_worker.py'
     worker_source=WORKER
     support_sources=SUPPORT
@@ -50,12 +57,12 @@ class AP0Runtime(d.PC0DiagnosticRuntime):
         v=dict(value)
         if (dict(plan)!=self.plan.record() or v['execution_class']!=self.plan.execution_class.value
                 or v['acceptance_eligible'] is not self.acceptance
-                or v['batch_budget_maximum']!=(1 if self.acceptance else 8)
+                or v['batch_budget_maximum']!=(1 if self.acceptance else self.diagnostic_budget)
                 or v['plan_content_sha256']!=self.plan.plan_content_sha256
                 or v['product_contract_identity']!=self.plan.product_contract_identity
                 or v['product_contract_sha256']!=self.plan.product_contract_sha256
                 or v['plan_id']!=self.plan.plan_id
-                or (self.acceptance and v['execution_identity']!=candidate_identity(v['source_commit'],self.plan))):
+                or (self.acceptance and v['execution_identity']!=self.candidate_key(v['source_commit'],self.plan))):
             raise d.AdapterBoundaryError('AP0 authority/plan/candidate differs')
         return v
     def _dependencies(self,source):
@@ -68,7 +75,7 @@ class AP0Runtime(d.PC0DiagnosticRuntime):
         return dep
     def _request(self,delegation,reservation):
         r=super()._request(delegation,reservation)
-        r.update(product='AP0',acceptance_eligible=self.acceptance,
+        r.update(product=self.product,acceptance_eligible=self.acceptance,
             plan_content_sha256=self.plan.plan_content_sha256,
             declared_runtime_inputs_sha256=declared_runtime_inputs(),
             execution_dependencies=self._dependencies(delegation['source_commit']),
@@ -86,40 +93,40 @@ class AP0Runtime(d.PC0DiagnosticRuntime):
                 raise d.AdapterBoundaryError('AP0 dependency differs: '+record['path'])
         sys.path.insert(0,str(self.repository/'tools/wf0-factory-census'))
         import artifacts,common
-        if common.dx0_identity_sha256(common.ap0_windows_build_input(source))!=self.artifact['windows_build_input_identity']:
+        if common.dx0_identity_sha256(getattr(common,self.product.lower()+'_windows_build_input')(source))!=self.artifact['windows_build_input_identity']:
             raise d.AdapterBoundaryError('AP0 source Windows inputs differ from retained producer')
         host=artifacts.verify_host_store(common.dx0_mac_host_artifact_parent()/self.artifact['host_manifest_sha256'],
-            self.artifact['windows_build_input_identity'],expected_branch='codex/ap0-offline-again-processing',expected_input_count=19)
+            self.artifact['windows_build_input_identity'],expected_branch=self.windows_branch,expected_input_count=self.windows_input_count)
         if host['build_receipt']['producer_source']!=self.artifact['producer_source'] or host['custody']['artifact']['id']!=self.artifact['artifact_id']:
             raise d.AdapterBoundaryError('AP0 producer/custody differs')
         artifacts.verify_fixture_store(common.dx0_mac_fixture_parent()/d.AGAIN_BUNDLE_MANIFEST_SHA256)
     def _observation(self,reply,request):
         if reply['state'] in {'absent','unknown'}:return None
         v=reply['observation']
-        if v.get('schema')!='linux-vst-bridge-ap0-reservation/v1' or v.get('binding')!=request:
+        if v.get('schema')!='linux-vst-bridge-'+self.product.lower()+'-reservation/v1' or v.get('binding')!=request:
             raise d.AdapterBoundaryError('AP0 observation binding differs')
         try:
-            validate_runtime_observation(v['runtime_observation'])
+            self.validate_runtime(v['runtime_observation'])
             if (v['runtime_observation']['declared_inputs_sha256']!=request['declared_runtime_inputs_sha256']
                     or v['execution_input_sha256']!=acceptance_execution_input_sha256(request,v['runtime_observation'])):
                 raise d.AdapterBoundaryError('AP0 runtime/execution input differs')
             kind=ObservationKind(v['kind'])
             if kind is ObservationKind.SUCCESS:
-                if v['classification']!='AP0_SAMPLES_VERIFIED' or v['cleanup']!='COMPLETE' or v['protected']!='UNCHANGED':
+                if v['classification']!=self.product+'_SAMPLES_VERIFIED' or v['cleanup']!='COMPLETE' or v['protected']!='UNCHANGED':
                     raise d.AdapterBoundaryError('AP0 disposition differs')
-                validate_summary(v['summary'])
+                self.check_summary(v['summary'])
         except Exception as error:
-            return Observation(ObservationKind.INCONCLUSIVE,'AP0_ADMISSION_FAILED',
+            return Observation(ObservationKind.INCONCLUSIVE,self.product+'_ADMISSION_FAILED',
                 {'acceptance_eligible':False,'error':exception_detail(error),'available':checkpoint_projection(v['summary'])},
                 v.get('cleanup','UNKNOWN'),v.get('protected','UNKNOWN'),reply.get('effects',{}))
-        return Observation(kind,v['classification'],{'schema':'ap0-classified-observation/v1',
+        return Observation(kind,v['classification'],{'schema':self.product.lower()+'-classified-observation/v1',
             'execution_class':request['execution_class'],'acceptance_eligible':self.acceptance and kind is ObservationKind.SUCCESS,
             'binding':request,'document_sha256':sha256_bytes(canonical_json(v)),'document':v},v['cleanup'],v['protected'],reply.get('effects',{}))
     def admit(self,context,observation):
         delegation=self._validate_context(context.delegation,context.plan_descriptor)
         request=self._request(delegation,context.reservation_identity)
         payload=observation.payload
-        if payload.get('schema')!='ap0-classified-observation/v1' or payload['binding']!=request:
+        if payload.get('schema')!=self.product.lower()+'-classified-observation/v1' or payload['binding']!=request:
             if not self.acceptance and observation.kind is not ObservationKind.SUCCESS:return payload
             raise d.AdapterBoundaryError('AP0 payload differs')
         restored=self._observation({'state':'observed','observation':payload['document'],'effects':observation.effects},request)
