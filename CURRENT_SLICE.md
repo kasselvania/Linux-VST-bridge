@@ -1,5 +1,7 @@
 # Current Work: AP3 — Sustained native audio and remote development access
 
+**Implementation and fresh verification complete; awaiting PR #56 review.** See [actual results](docs/slices/AP3/RESULT.md): 6,366,144 checked samples at maximum error 0.0, controlled Bitwig playback/reopen, complete cleanup and separate agent-through-Moonlight control. AP2 remains accepted until review/merge.
+
 **Implementation authorized on this branch.** Basis: `5890e862fc91a9fec96a142cbc72916849b19b12`; branch `codex/ap3-sustained-audio-and-remote-desktop`. AP2 is accepted through PR #53. Issue #54 tracks AP3; #55 tracks the supporting desktop tool. Read AGENTS.md's active ruling. These are implementation tasks, not requests for another plan.
 
 ## Deliverable
