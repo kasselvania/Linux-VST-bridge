@@ -62,7 +62,7 @@ def run(host,bundle,audit):
  results=[]
  with tempfile.TemporaryDirectory(prefix='ap4-state-tests-') as tmp:
   root=pathlib.Path(tmp);store=root/'state';store.mkdir()
-  for case in ('state-local','state-gain','state-mute','state-error','state-stale','state-lost-set'):
+  for case in ('state-capture','state-gain','state-mute','state-error','state-stale','state-lost-set'):
    directory=root/case;directory.mkdir();counts=dict(get=0,set=0,activate=0,start=0,stop=0,process=0,zero_frame=0,closed=0);errors=[]
    env={**os.environ,'LVB_AP2_SESSION_DIR':str(directory),'LVB_AP2_SESSION':os.urandom(16).hex(),'LVB_AP4_STATE_STORE':str(store),'LVB_AP4_COMPARE':'1','LD_PRELOAD':audit,'LVB_AP3_REPORT':str(directory/'proxy.jsonl')}
    def target():
@@ -80,7 +80,7 @@ def run(host,bundle,audit):
    else:
     assert counts['closed']==1 and counts['get']>=3
     compared=[r for r in records if r['event']=='ap4_host_compared'];assert compared and all(r['max_error']==0 and r['callback_effects']==0 for r in compared)
-    if case!='state-local':assert compared[0]['initial_gain_sent'] is False
+    if case not in {'state-local','state-capture'}:assert compared[0]['initial_gain_sent'] is False
    results.append(dict(case=case,counts=counts,records=records,stderr=p.stderr[-1500:]))
   assert (store/'gain.state').read_bytes()==envelope(.25)
   assert (store/'mute.state').read_bytes()==envelope(0.)
