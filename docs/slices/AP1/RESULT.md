@@ -1,5 +1,7 @@
 # AP1 — Fresh mapped audio verification
 
+This records the first acceptance on Proton 11.0-2. The later silence-repair acceptance and current cumulative totals are in [RESULT_A2.md](RESULT_A2.md); all measurements and costs below retain their original first-result scope.
+
 Linux independently verified **1344 of 1344 returned float32 samples**, with **maximum absolute error 0.0** and zero tolerance. This was a fresh acceptance session on the retained Steam Deck / Runtime 4 / Proton 11 / Windows AGain fixture, following a separately retained successful diagnostic. AP0 remains the accepted frontier pending AP1 review and merge.
 
 | Request | Stereo frames | Gain | Input | Maximum error |
