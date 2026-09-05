@@ -2,6 +2,10 @@
 
 **Active implementation work order.** Issue #50; branch `codex/ap1-linux-windows-audio-roundtrip`; accepted basis `f285560c05f2eedf59ddce91c4f0e1d917cf775f`. The scoped AGENTS.md ruling authorizes the complete task before merge. AP0 and PC0 remain accepted; their evidence and spent allowances are unchanged.
 
+## Observed completion pending review
+
+Fresh AP1 acceptance verified 1344 Linux-read samples across eight changing blocks with maximum absolute error 0.0, one mapping/connection/instance, complete shutdown and unchanged protected state. See `docs/slices/AP1/RESULT.md` and the retained acceptance packet. One of six Windows producers, one of ten diagnostics and the first of two permitted acceptance candidates were consumed. AP0 remains accepted until this implementation is reviewed and merged.
+
 ## Product outcome
 
 A native Linux caller supplies changing stereo sample buffers and gain requests to one supervised Windows AGain instance under the existing Steam Deck / Runtime 4 / Proton 11 fixture, receives the actual processed samples through shared memory, verifies them independently, and closes cleanly.
