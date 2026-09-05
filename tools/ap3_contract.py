@@ -74,7 +74,15 @@ def normalize(observed):
  require([(r['kind'],r['next_sequence']) for r in ack]==[(9,1),(11,1),(13,11259),(11,11259),(13,16888),(15,16888)],'AP3 lifecycle sequence acknowledgements')
  require(joins[0]['sequence']<ack[2]['sequence']<ack[3]['sequence'] and joins[1]['sequence']<ack[4]['sequence']<ack[5]['sequence'],'AP3 restart before quiescence')
  require(closed[0]['sequence']>next(r['sequence'] for r in ledger if r.get('operation')=='free_library' and r['event']=='call_completed'),'AP3 mapping closed before plugin unload')
- return dict(raw=observed,comparison=comparison,cleanup=observed['cleanup'])
+ return dict(raw=public_observation(observed,ledger,terminal),comparison=comparison,cleanup=observed['cleanup'])
+
+def public_observation(observed,ledger,terminal):
+ # Public protocol facts only; no topology, runtime paths or private launch data.
+ caller=observed['caller'];records=observed['records']
+ retained={k:observed[k] for k in ('raw_exit','classification','cleanup','run_id','inherited_shutdown','stdout_sha256','stderr_sha256')}
+ retained['records']=sorted(ledger+[r for r in records if str(r.get('state','')).startswith(('ap0_','ap1_','ap2_','ap3_'))]+[terminal[0]],key=lambda r:r['sequence'])
+ retained['caller']={k:caller[k] for k in ('raw_exit','cleanup','records')}
+ return retained
 
 def validate_summary(summary):
  require(summary['stage_absent'] is True and summary['protected_before_sha256']==summary['protected_after_sha256'],'AP3 stage/protected state')

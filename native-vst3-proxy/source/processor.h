@@ -67,6 +67,10 @@ private:
   uint64_t handle_ = 0;
   int maximum_ = 0;
   unsigned blocks_ = 0;
+  uint64_t frames_ = 0, zero_gain_blocks_ = 0;
+  double gain_min_ = 1., gain_max_ = 0.;
+  int requested_maximum_ = 0, requested_mode_ = -1;
+  double requested_rate_ = 0.;
   double gain_ = 1.;
   int process_mode_ = Steinberg::Vst::kOffline;
   bool queued_ = false;

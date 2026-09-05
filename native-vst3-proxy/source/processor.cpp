@@ -6,6 +6,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 namespace AP2 {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -24,11 +28,30 @@ void report() {
   ap2_error(detail, sizeof(detail));
   std::fprintf(stderr, "AP2 backend: %s\n", reinterpret_cast<char *>(detail));
 }
+// Optional bounded test report, written only during non-RT termination. The
+// DAW's own plug-in host may redirect stdout; this preserves the same facts.
+void diagnostic_report(const char *text, size_t size) {
+  std::fwrite(text, 1, size, stdout);
+  const char *path = std::getenv("LVB_AP3_REPORT");
+  if (!path)
+    return;
+  int fd = ::open(path, O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW | O_CLOEXEC,
+                  0600);
+  struct stat st{};
+  bool valid = fd >= 0 && !::fstat(fd, &st) && S_ISREG(st.st_mode) &&
+               st.st_uid == ::getuid() && (st.st_mode & 077) == 0 &&
+               st.st_size >= 0 && st.st_size + static_cast<off_t>(size) <= 8192;
+  if (!valid || ::write(fd, text, size) != static_cast<ssize_t>(size))
+    std::fputs("AP3 diagnostic persistence failed\n", stderr);
+  if (fd >= 0)
+    ::close(fd);
+}
 void report_stats(uint64_t handle) {
   ap3_stats_t s{};
-  if (!ap3_stats(handle, &s))
-    std::fprintf(
-        stdout,
+  if (!ap3_stats(handle, &s)) {
+    char text[512];
+    auto n = std::snprintf(
+        text, sizeof(text),
         "{\"event\":\"ap3_proxy_stats\",\"fault\":%llu,\"first_position\":%llu,"
         "\"processed\":%llu,\"request_high\":%llu,\"result_high\":%llu,"
         "\"position\":%llu,\"epoch\":%llu}\n",
@@ -36,6 +59,9 @@ void report_stats(uint64_t handle) {
         (unsigned long long)s.processed, (unsigned long long)s.request_high,
         (unsigned long long)s.result_high, (unsigned long long)s.position,
         (unsigned long long)s.epoch);
+    if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+      diagnostic_report(text, static_cast<size_t>(n));
+  }
 }
 bool parameters(IParameterChanges *p, double &gain) {
   if (!p)
@@ -135,6 +161,9 @@ tresult PLUGIN_API Processor::canProcessSampleSize(int32 size) {
 }
 tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
   Guard g(busy_);
+  requested_maximum_ = setup.maxSamplesPerBlock;
+  requested_rate_ = setup.sampleRate;
+  requested_mode_ = setup.processMode;
   if (!g.held || owner_ != std::this_thread::get_id() ||
       (phase_ != Initialized && phase_ != Setup) ||
       (setup.processMode != kOffline &&
@@ -247,6 +276,10 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     return failure(d, maximum_);
   }
   gain_ = pending;
+  frames_ += d.numSamples;
+  zero_gain_blocks_ += pending == 0.;
+  gain_min_ = std::min(gain_min_, pending);
+  gain_max_ = std::max(gain_max_, pending);
   ++blocks_;
   d.outputs[0].silenceFlags = silence;
   return kResultOk;
@@ -268,6 +301,23 @@ tresult PLUGIN_API Processor::terminate() {
     handle_ = 0;
   }
   auto r = AudioEffect::terminate();
+  if (preview_ && std::getenv("LVB_AP3_REPORT")) {
+    char text[768];
+    auto n = std::snprintf(
+        text, sizeof(text),
+        "{\"event\":\"ap3_proxy_lifecycle\",\"phase\":%d,\"requested_maximum\":"
+        "%d,"
+        "\"requested_rate\":%.0f,\"requested_mode\":%d,\"frames\":%llu,"
+        "\"blocks\":%u,\"zero_gain_blocks\":%llu,\"gain_min\":%.9g,\"gain_"
+        "max\":%.9g,"
+        "\"clean\":%s}\n",
+        static_cast<int>(phase_), requested_maximum_, requested_rate_,
+        requested_mode_, (unsigned long long)frames_, blocks_,
+        (unsigned long long)zero_gain_blocks_, gain_min_, gain_max_,
+        clean ? "true" : "false");
+    if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+      diagnostic_report(text, static_cast<size_t>(n));
+  }
   phase_ = Terminated;
   return clean ? r : kResultFalse;
 }

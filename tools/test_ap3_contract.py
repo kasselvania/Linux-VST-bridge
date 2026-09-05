@@ -28,6 +28,13 @@ class AP3ContractTests(unittest.TestCase):
   from pc0_diagnostic_runtime import checkpoint_projection
   v=checkpoint_projection({'detail':'control disconnected/IO at /home/private-user/secret token=abc123 100.99.11.22','environment':{'password':'not retained'}})
   self.assertIn('control disconnected',v['detail']);self.assertNotIn('private-user',str(v));self.assertNotIn('abc123',str(v));self.assertNotIn('100.99',str(v));self.assertNotIn('environment',v)
+ def test_public_observation_excludes_private_supervision_metadata(self):
+  v={k:None for k in ('raw_exit','classification','cleanup','run_id','inherited_shutdown','stdout_sha256','stderr_sha256')}
+  v.update(records=[],topology={'pid':123},runner_identity={'private_path':'secret'},protected_snapshot={'private':'secret'},caller=dict(raw_exit=0,cleanup=c.CLEAN,records=[],stderr_detail='private launcher data'))
+  projected=c.public_observation(v,[],[dict(sequence=1,state='scanner_completed')])
+  self.assertFalse({'topology','runner_identity','protected_snapshot'}&projected.keys())
+  self.assertEqual(set(projected['caller']),{'raw_exit','cleanup','records'})
+  self.assertNotIn('private',str(projected))
  def test_zero_sign_is_numerically_canonical(self):
   self.assertEqual(c.fold(123,0.),c.fold(123,-0.))
 if __name__=='__main__':unittest.main()

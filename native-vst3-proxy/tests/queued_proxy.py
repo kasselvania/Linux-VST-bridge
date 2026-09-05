@@ -66,7 +66,7 @@ def run(host,bundle,audit):
  for case in ['positive','reopen','core','delayed','disconnect','timeout','underflow','overflow','stale','position','sequence','flags','silence','nonfinite']:
   with tempfile.TemporaryDirectory(prefix='ap3-local-') as temp:
    directory=pathlib.Path(temp);counts=dict(activate=0,start=0,stop=0,process=0,closed=0);errors=[]
-   env={**os.environ,'LVB_AP2_SESSION_DIR':str(directory),'LVB_AP2_SESSION':os.urandom(16).hex(),'LD_PRELOAD':audit}
+   env={**os.environ,'LVB_AP2_SESSION_DIR':str(directory),'LVB_AP2_SESSION':os.urandom(16).hex(),'LD_PRELOAD':audit,'LVB_AP3_REPORT':str(directory/'proxy-report.jsonl')}
    def target():
     try:peer(directory,case,counts)
     except BaseException as error:errors.append(type(error).__name__+': '+str(error))
@@ -74,6 +74,13 @@ def run(host,bundle,audit):
    p=subprocess.run([host,bundle,'positive' if case=='delayed' else case],env=env,capture_output=True,text=True,timeout=85 if case=='core' else 35);t.join(16)
    assert not t.is_alive() and not errors,(case,errors)
    assert p.returncode==0,(case,p.returncode,p.stdout,p.stderr)
+   report=(directory/'proxy-report.jsonl').read_bytes();assert 0<len(report)<=8192
+   retained=[json.loads(line) for line in report.splitlines()]
+   lifecycle=[r for r in retained if r['event']=='ap3_proxy_lifecycle'];assert len(lifecycle)==1
+   assert lifecycle[0]['requested_rate']==48000 and lifecycle[0]['requested_maximum']==256 and lifecycle[0]['requested_mode']==0
+   assert lifecycle[0]['clean']==(case in {'positive','reopen','delayed','core'})
+   assert any(r['event']=='ap3_proxy_stats' for r in retained)
+   assert all(r in [json.loads(line) for line in p.stdout.splitlines()] for r in retained)
    if case not in {'positive','reopen','delayed','core'}:assert counts['process']==(0 if case=='overflow' else 1) and counts['closed']==0
    else:assert counts['activate']==1 and counts['start']==(1 if case=='reopen' else 2) and counts['closed']==1
    results.append(dict(case=case,peer_counts=counts,host_records=[json.loads(l) for l in p.stdout.splitlines()]))
