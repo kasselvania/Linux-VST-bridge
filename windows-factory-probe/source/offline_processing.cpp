@@ -68,7 +68,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         block.data.inputParameterChanges=&block.parameters;
     }
     bool ok=true, active=false, stopped=true, joined=false, worker_exception=false;
-    auto call = [&](const char* operation, auto function) {
+    auto call = [&](const char* operation, auto function, bool notification = false) {
         events.lifecycle("ap0_call_started",",\"operation\":\""+std::string(operation)+
             "\",\"owner_thread\":"+(std::this_thread::get_id()==owner?"true":"false"));
         callbacks.begin_plugin_call(events.sequence(),operation);
@@ -76,8 +76,11 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         callbacks.end_plugin_call();
         events.lifecycle("ap0_call_completed",",\"operation\":\""+std::string(operation)+
             "\",\"result\":"+std::to_string(result));
-        ok = ok && result==kResultOk;
-        return result==kResultOk;
+        // The pinned SDK AudioEffect default is a no-op notification returning
+        // kNotImplemented. This exception applies only to setProcessing.
+        const bool accepted = result==kResultOk || (notification && result==kNotImplemented);
+        ok = ok && accepted;
+        return accepted;
     };
     SpeakerArrangement input=SpeakerArr::kStereo, output=SpeakerArr::kStereo;
     if (!call("set_bus_arrangements",[&]{return processor.setBusArrangements(&input,1,&output,1);})) return {false,true};
@@ -98,7 +101,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                 events.lifecycle("ap0_processing_thread_started",",\"distinct_from_owner\":"+
                     std::string(std::this_thread::get_id()!=owner?"true":"false"));
                 stopped=false;
-                started=call("set_processing_true",[&]{return processor.setProcessing(true);});
+                started=call("set_processing_true",[&]{return processor.setProcessing(true);},true);
                 if (started) for(int b=0;b<3;++b) {
                     auto& block=blocks[b];
                     block.worker_thread=std::this_thread::get_id()!=owner;
@@ -111,7 +114,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             } catch (...) {worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after
             // a failed process result. A hang is owned by the outer timeout.
-            try {stopped=call("set_processing_false",[&]{return processor.setProcessing(false);});}
+            try {stopped=call("set_processing_false",[&]{return processor.setProcessing(false);},true);}
             catch (...) {stopped=false;ok=false;}
         });
         worker.join();joined=true;

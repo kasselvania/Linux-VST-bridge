@@ -118,6 +118,27 @@ class AP0ExecutionTests(AcceptanceTests):
         stream.accept(dict(event='lifecycle',sequence=6,state='ap0_call_completed',operation='set_active_true',result=0))
         self.assertIsNone(stream.ap0_call)
         self.assertIsNone(stream.in_flight_at)
+    def test_ap0_unimplemented_notification_retained(self):
+        original=self.supervise.side_effect
+        def scan(*args,**kwargs):
+            r=original(*args,**kwargs)
+            for v in r['records']:
+                if v.get('state')=='ap0_call_completed' and v['operation'].startswith('set_processing_'):
+                    v['result']=-2147467263
+            return r
+        self.supervise.side_effect=scan
+        self.execute_cli()
+        self.assertEqual(len(self.rendered),1)
+        s=self.rendered[0]['admitted_result']['document']['summary']
+        self.assertEqual([r['result'] for r in s['lifecycle'] if r.get('state')=='ap0_call_completed' and r['operation'].startswith('set_processing_')],[-2147467263]*2)
+        for operation in contract.CALLS:
+            self.assertEqual(contract.lifecycle_result_ok(operation,-2147467263),operation.startswith('set_processing_'))
+            self.assertFalse(contract.lifecycle_result_ok(operation,-1))
+            self.assertFalse(contract.lifecycle_result_ok(operation,False))
+        joined=next(r for r in s['lifecycle'] if r['state']=='ap0_thread_joined')
+        joined['joined']=False
+        with self.assertRaisesRegex(ValueError,'not stopped/joined'):contract.validate_summary(s)
+
     def test_ap0_lost_ack_no_duplicate(self):
         self.local_worker.lose_ack=True
         self.execute_cli();self.execute_cli()

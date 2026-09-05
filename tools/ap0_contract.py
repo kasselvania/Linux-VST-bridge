@@ -60,6 +60,13 @@ def compare_blocks(blocks):
     return {'comparison_rule':'exact numerical equality; tolerance 0',
             'samples_compared':len(errors),'maximum_absolute_error':max(errors)}
 
+def lifecycle_result_ok(operation, result):
+    # Exact pinned Windows SDK kNotImplemented; never accept it for process,
+    # activation or setup. The raw notification result remains in evidence.
+    return type(result) is int and (result == 0 or (
+        operation in {'set_processing_true', 'set_processing_false'}
+        and result == -2147467263))
+
 def normalize(observed):
     records=observed['records']
     require(observed['raw_exit']==0 and observed['classification']=='scanner_completed','scanner did not complete')
@@ -71,7 +78,7 @@ def normalize(observed):
     for i,r in enumerate(calls):
         require(r['state']==('ap0_call_started' if i%2==0 else 'ap0_call_completed'),'unpaired call')
         if i%2:
-            require(type(r['result']) is int and r['result']==0,'processing lifecycle call failed')
+            require(lifecycle_result_ok(r['operation'], r['result']),'processing lifecycle call failed')
         else:
             require(r['owner_thread'] is (r['operation'] not in {'set_processing_true','set_processing_false'}),'lifecycle thread differs')
     joined=[r for r in records if r.get('state')=='ap0_thread_joined']
