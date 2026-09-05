@@ -14,8 +14,8 @@ permitted_execution_class: DIAGNOSTIC_NON_AUTHORITATIVE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: false
-authorized_source_commit: 450a5e4d8b56f9af9a6066b170ad7d3953b88505
-authorized_source_tree: 4e3ce42457d9081ba8d5d00892c3562cc138abc1
+authorized_source_commit: a32cd6fe4d8e7f3b936df51df4e817cc0ff071a9
+authorized_source_tree: 84b1d0cb26cc7f7468c7d208ee53bdd6c21cc3f5
 authorized_plan_id: ap3-sustained-audio-diagnostic-v1
 authorized_product_contract_identity: ap3-sustained-audio-v1
 authorized_product_contract_sha256: cba129f770a8d16b1def770c99bd56fe632aa5d6352ebf08a4445b75ea2834aa
@@ -23,15 +23,15 @@ authorized_plan_content_sha256: 65e5dff0225daa148511dbfaa0d6cdf8bb83ac33ebb5d130
 diagnostic_campaign_identity: 7110e1871dab383c2e002ecb8733ecfea0d663acb46197e4ef2469dff98c36bb
 diagnostic_batch_budget: 10
 diagnostic_plan_revision_authorized: true
-diagnostic_previous_plan_content_sha256: d86da4df6439ea762ee0776f093053e1258e7e80fabb74d49b90cc10339922d6
-diagnostic_previous_product_contract_sha256: d60bc93960b282957018c47b5e017efc7d3d11078905fc0f638ef9eb529723c0
+diagnostic_previous_plan_content_sha256: 65e5dff0225daa148511dbfaa0d6cdf8bb83ac33ebb5d130cde409b328b42d70
+diagnostic_previous_product_contract_sha256: cba129f770a8d16b1def770c99bd56fe632aa5d6352ebf08a4445b75ea2834aa
 accepted_product_frontier: AP2
 current_product_target: AP3
 ```
 
-The active AP3 ruling authorizes this exact repaired source, native artifact and closed continuation in the SAME campaign. Two reservations remain consumed: D1 retained a first-stream comparison but failed during the second stream; its missing first-fault detail remains unknown. D2 verified 5,764,096 samples at maximum error 0.0 and clean unchanged protected state. Neither diagnostic can be promoted. One Windows producer is consumed; its inputs remain unchanged and its retained artifact is reused.
+The active AP3 ruling authorizes this exact repaired source, native artifact and closed continuation in the SAME campaign. Three reservations remain consumed: D1 retained a first-stream comparison but failed during the second stream; its missing first-fault detail remains unknown. D2 verified 5,764,096 samples at maximum error 0.0 and clean unchanged protected state. D3 retained both primary streams and the short stream-active comparison, then timed out before GUI bridge insertion. Its processes were contained; a batch checkpoint lost the final containment flag. Separate verified cleanup retired that owned stage with protected state unchanged; its historical failure remains unchanged. The checkpoint repair is locally tested. No diagnostic can be promoted. One Windows producer is consumed; its inputs remain unchanged and its retained artifact is reused.
 
-The scoped old-to-current plan adjustment preserves both reservations and the ten-batch ceiling. The current four-instance batch contains the primary 30-second 128/256-frame streams without active Moonlight, a separately confirmed short stream-active SDK run, and two fresh disposable Bitwig sessions with the exact native publication. Failed native, Windows, GUI or reporting admission stops further segments. All useful facts are checkpointed before validation/retirement. Existing ownership, timeouts, mappings, cleanup and artifact custody remain responsible. No new campaign, count reset or automatic replay is permitted.
+The scoped old-to-current plan adjustment preserves all three reservations and the ten-batch ceiling. The current four-instance batch contains the primary 30-second 128/256-frame streams without active Moonlight, a separately confirmed short stream-active SDK run, and two fresh disposable Bitwig sessions with the exact native publication. Failed native, Windows, GUI or reporting admission stops further segments. All useful facts are checkpointed before validation/retirement. Existing ownership, timeouts, mappings, cleanup and artifact custody remain responsible. No new campaign, count reset or automatic replay is permitted.
 
 Bitwig setup was completed before the comparison baseline: only test search locations and 48 kHz/256-frame audio settings changed; original preference bytes are privately backed up. Existing projects and plug-in installations are preserved. Actual agent-through-Moonlight control is separately established. AP2 remains accepted; final AP3 acceptance requires a fresh complete candidate and review.
 
