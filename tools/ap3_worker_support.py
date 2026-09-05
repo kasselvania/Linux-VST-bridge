@@ -6,7 +6,7 @@ from ap0_worker_support import StreamState
 from ap1_runtime import verify_runtime
 from ap0_artifacts import verify_host_store
 from ap2_native_artifact import verify_native
-from ap3_contract import MODE,normalize,validate_summary
+from ap3_contract import MODE,normalize,normalize_session,validate_summary
 from common import real_home
 _native=None
 
@@ -121,6 +121,8 @@ def supervise(environment,*,mode,checkpoint,profile):
   checkpoint('ap3_segment_retained',{'segments':segments,'cleanup':observed['cleanup'],'classification':observed['classification']})
   if observed['cleanup']!=clean or observed['classification']!='scanner_completed':
    return dict(segments=segments,cleanup=observed['cleanup'],classification=observed['classification'])
+  # Refuse another live segment when the retained caller/report is invalid.
+  normalize_session(observed,label)
   closed=environment.session/('ap3-'+label+'-closed');closed.mkdir()
   for name in ('ap1.audio','ap1.control','ap1-client.jsonl','ap1-client.stderr','ap3-gui-report.jsonl'):
    path=environment.session/name

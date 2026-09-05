@@ -58,7 +58,7 @@ class AP3ExecutionTests(AP2ExecutionTests):
   good=dict(classification='scanner_completed',cleanup=clean,records=[{'state':'core_retained'}])
   failed=dict(classification='scanner_failed',cleanup=clean,records=[{'state':'original_stream_failure'}])
   checkpoints=[]
-  with patch.object(self.profile,'core',side_effect=[good,failed]) as run,patch.object(self.profile,'gui') as gui,patch.object(self.profile,'progress'),patch.object(self.profile,'await_stream'):
+  with patch.object(self.profile,'core',side_effect=[good,failed]) as run,patch.object(self.profile,'gui') as gui,patch.object(self.profile,'progress'),patch.object(self.profile,'await_stream'),patch.object(self.profile,'normalize_session'):
    result=self.batch_supervise(env,mode=self.profile.MODE,profile=self.profile,checkpoint=lambda *v:checkpoints.append(v))
   self.assertEqual(run.call_count,2);gui.assert_not_called()
   self.assertEqual(result['segments'],{'core':good,'stream_active':failed})
@@ -82,5 +82,12 @@ class AP3ExecutionTests(AP2ExecutionTests):
     self.actual_profile_supervise(environment,mode='local',profile=self.profile,checkpoint=lambda *v:saved.append(v),caller_command=['substituted'],caller_env={'LOCAL':'true'},track_descendants=True,caller_report=lambda:b'{"event":"ap3_proxy_stats","fault":4}\n',accepted_events={'ap3_proxy_stats'})
   self.assertEqual(cleanup.call_args.args[1],[(123,10),(124,11)])
   retained=saved[-1][1]['caller'];self.assertEqual(retained['records'],[{'event':'ap3_proxy_stats','fault':4}]);self.assertEqual(retained['cleanup'],clean)
+
+ def test_ap3_batch_reporting_rejection_never_launches_next_segment(self):
+  env=types.SimpleNamespace(session=self.base/'batch',run_id='f'*32);env.session.mkdir()
+  good=dict(classification='scanner_completed',cleanup={'owned_descendants_zero':True,'process_group_empty':True},records=[{'state':'original_observation'}]);saved=[]
+  with patch.object(self.profile,'core',return_value=good) as run,patch.object(self.profile,'gui') as gui,patch.object(self.profile,'progress'),patch.object(self.profile,'normalize_session',side_effect=ValueError('retained caller failed')):
+   with self.assertRaisesRegex(ValueError,'retained caller failed'):self.batch_supervise(env,mode=self.profile.MODE,profile=self.profile,checkpoint=lambda *v:saved.append(v))
+  self.assertEqual(run.call_count,1);gui.assert_not_called();self.assertEqual(saved[-1][1]['segments']['core'],good);self.assertFalse(list(env.session.iterdir()))
 
 def load_tests(loader,tests,pattern):return unittest.TestSuite(AP3ExecutionTests(n) for n in dir(AP3ExecutionTests) if n.startswith('test_ap3_'))
