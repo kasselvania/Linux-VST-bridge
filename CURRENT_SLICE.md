@@ -1,6 +1,8 @@
 # Current Work: AP1 — Repair output-silence handling
 
-**Implementation repair required; continue the same task and PR #51.** Branch: `codex/ap1-linux-windows-audio-roundtrip`. Technical-lead review `5120241348` covers implementation head `6bf0d541323fc864945344ce0a82b0d3e754224d`. AP0 remains accepted. The active AP1 ruling in AGENTS.md continues to authorize implementation, necessary builds, focused tests and exact candidate binding without an intermediate planning handoff.
+**Review repair implemented; fresh verification blocked by a changed deployed Proton runtime. Continue the same task and PR #51.** Branch: `codex/ap1-linux-windows-audio-roundtrip`. Technical-lead review `5120241348` covers implementation head `6bf0d541323fc864945344ce0a82b0d3e754224d`. AP0 remains accepted. The active AP1 ruling in AGENTS.md continues to authorize implementation, necessary builds, focused tests and exact candidate binding without an intermediate planning handoff.
+
+The repair and rebuilt endpoints passed focused tests and were delivered. Read-only preflight found Proton 11.0-2c/build 25118279 instead of pinned 11.0-2/build 24867889; launcher bytes also differ. No new live reservation was consumed. Current processes/stages are absent and protected state matches the first acceptance. See [review-repair result](docs/slices/AP1/RESULT_A2.md). Runtime restoration or explicit new-runtime binding requires a separate deployment/scope decision; the existing remaining allowance is preserved.
 
 ## Preserve the successful result
 
@@ -20,7 +22,7 @@ The source basis is the pinned AGain `process` implementation in public.sdk comm
 
 ## Finish under the existing allowance
 
-Current consumption: **1 of 6 Windows producers, 1 of 10 AP1 diagnostics, 1 of 2 acceptance candidates**. No count is reset or ceiling increased. The lead explicitly permits the remaining second acceptance candidate after this review-driven repair even though the first measured candidate succeeded; this supersedes the earlier condition limiting candidate two to an execution failure/inconclusive result. This is correction of an admitted-input bug, not a new product selection.
+Current consumption after the review repair: **2 of 6 Windows producers, 1 of 10 AP1 diagnostics, 1 of 2 acceptance candidates**. No count is reset or ceiling increased. The lead explicitly permits the remaining second acceptance candidate after this review-driven repair even though the first measured candidate succeeded; this supersedes the earlier condition limiting candidate two to an execution failure/inconclusive result. This is correction of an admitted-input bug, not a new product selection.
 
 Test locally, build the changed endpoint through the existing producer, bind the actual source/artifacts/plan, and obtain fresh verification through existing classified commands. Reuse unchanged SDK/runtime/AGain and working supervision/retention. Diagnostics are available only as useful within the remaining allowance. Lost acknowledgement is reconciled, never replayed. Preserve all earlier private records and Git history; the current PR evidence may be superseded by a clearly identified new result, never by relabeling the first result.
 
