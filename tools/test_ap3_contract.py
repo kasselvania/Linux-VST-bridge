@@ -1,4 +1,6 @@
 """Focused rejection tests; actual SDK-host tests live beside the native code."""
+import pathlib,sys
+sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent))
 import copy,unittest
 from unittest.mock import patch
 import ap3_contract as c
@@ -22,6 +24,10 @@ class AP3ContractTests(unittest.TestCase):
   records=self.records();records[1]['output_fnv1a64']=1
   with patch.object(c,'reconstruct',return_value={'output_fnv1a64':2}):
    with self.assertRaises(ValueError):c.compare(records)
+ def test_failure_detail_redacts_private_data_without_erasing_operation(self):
+  from pc0_diagnostic_runtime import checkpoint_projection
+  v=checkpoint_projection({'detail':'control disconnected/IO at /home/private-user/secret token=abc123 100.99.11.22','environment':{'password':'not retained'}})
+  self.assertIn('control disconnected',v['detail']);self.assertNotIn('private-user',str(v));self.assertNotIn('abc123',str(v));self.assertNotIn('100.99',str(v));self.assertNotIn('environment',v)
  def test_zero_sign_is_numerically_canonical(self):
   self.assertEqual(c.fold(123,0.),c.fold(123,-0.))
 if __name__=='__main__':unittest.main()
