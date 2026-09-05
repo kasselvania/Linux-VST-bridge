@@ -213,7 +213,7 @@ struct Live {
     id: u64,
     shared: Arc<Shared>,
     callback: UnsafeCell<Callback>,
-    worker: Option<JoinHandle<()>>,
+    worker: UnsafeCell<Option<JoinHandle<()>>>,
     max: usize,
 }
 static ACTIVE: AtomicPtr<Live> = AtomicPtr::new(std::ptr::null_mut());
@@ -234,12 +234,12 @@ impl Drop for Guard {
 }
 // The nonblocking registry guard serializes lifecycle/callback/close, including
 // invalid handles. Worker only owns Shared and Session, never Live/host buffers.
-unsafe fn live(id: u64) -> Option<&'static mut Live> {
+unsafe fn live(id: u64) -> Option<&'static Live> {
     let p = ACTIVE.load(Ordering::Acquire);
     if p.is_null() {
         None
     } else if (*p).id == id {
-        Some(&mut *p)
+        Some(&*p)
     } else {
         None
     }
@@ -392,7 +392,7 @@ unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
             id: NEXT.fetch_add(1, Ordering::Relaxed),
             shared,
             callback: UnsafeCell::new(Callback::new()),
-            worker: Some(t),
+            worker: UnsafeCell::new(Some(t)),
             max: max as usize,
         }))
     });
@@ -642,7 +642,7 @@ pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
     } else {
         l.shared.quit.store(true, Ordering::Release);
     }
-    if let Some(t) = l.worker.take() {
+    if let Some(t) = (&mut *l.worker.get()).take() {
         if t.join().is_err() {
             l.shared.fail(WORKER, u64::MAX);
         }

@@ -1,5 +1,36 @@
 // AP4 cases extend the existing SDK-loaded consumer. Peer substitution is local
 // test instrumentation only; live output always comes from Windows AGain.
+// Host fragmentation is independent of the proxy's memory stream. It forwards
+// actual SDK reads/writes with a deliberately small accepted extent.
+class FragmentedStream final : public IBStream {
+public:
+  LVBState::Stream storage;
+  bool fail_write = false;
+  explicit FragmentedStream(std::vector<uint8_t> bytes = {})
+      : storage(std::move(bytes), LVBState::payloadLimit + LVBState::overhead) {
+  }
+  tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
+    return storage.queryInterface(id, out);
+  }
+  uint32 PLUGIN_API addRef() override { return storage.addRef(); }
+  uint32 PLUGIN_API release() override { return storage.release(); }
+  tresult PLUGIN_API read(void *p, int32 n, int32 *count) override {
+    return storage.read(p, std::min(n, 3), count);
+  }
+  tresult PLUGIN_API write(void *p, int32 n, int32 *count) override {
+    if (fail_write) {
+      if (count)
+        *count = 0;
+      return kResultFalse;
+    }
+    return storage.write(p, std::min(n, 5), count);
+  }
+  tresult PLUGIN_API seek(int64 n, int32 m, int64 *p) override {
+    return storage.seek(n, m, p);
+  }
+  tresult PLUGIN_API tell(int64 *p) override { return storage.tell(p); }
+};
+
 std::string stateHex(const std::vector<uint8_t> &bytes) {
   std::string out;
   const char *h = "0123456789abcdef";
@@ -213,6 +244,10 @@ void stateCases(IComponent &c, IAudioProcessor &p, IEditController &controller,
     if (capturing) {
       wait([&] { return progress.frames.load() >= 4096; });
       saved = snapshot(c, controller, .25, "overlapping_save");
+      LVBState::Stream live_restore(saved, LVBState::payloadLimit +
+                                               LVBState::overhead);
+      need(c.setState(&live_restore) != kResultOk,
+           "live state mutation accepted");
       saveBytes(saved, "gain.state");
       progress.mute.store(true, std::memory_order_release);
       wait([&] { return progress.flushed.load(); });
@@ -229,6 +264,19 @@ void stateCases(IComponent &c, IAudioProcessor &p, IEditController &controller,
     std::rethrow_exception(failure);
   stage = "state_stopped";
   if (capturing) {
+    // A failed host write cannot be published as a successful snapshot.
+    FragmentedStream short_write;
+    ok(c.getState(&short_write), "short host writes");
+    FragmentedStream short_read(short_write.storage.bytes);
+    ok(c.setState(&short_read), "short host reads");
+    short_write.fail_write = true;
+    need(c.getState(&short_write) != kResultOk, "failed host write accepted");
+    LVBState::Stream arithmetic;
+    need(arithmetic.seek(std::numeric_limits<int64>::max(),
+                         IBStream::kIBSeekCur, nullptr) != kResultOk,
+         "seek overflow accepted");
+    need(arithmetic.seek(-1, IBStream::kIBSeekSet, nullptr) != kResultOk,
+         "negative seek accepted");
     // Malformed input must not change the current good instance.
     auto good = snapshot(c, controller, 0., "before_invalid");
     for (size_t index : std::array<size_t, 6>{0, 8, 16, 32, 64, 72}) {
@@ -237,6 +285,18 @@ void stateCases(IComponent &c, IAudioProcessor &p, IEditController &controller,
       LVBState::Stream s(bad, LVBState::payloadLimit + LVBState::overhead);
       need(c.setState(&s) != kResultOk, "malformed state accepted");
     }
+    for (size_t length = 0; length < good.size(); ++length) {
+      LVBState::Stream truncated(
+          std::vector<uint8_t>(good.begin(), good.begin() + length),
+          LVBState::payloadLimit + LVBState::overhead);
+      need(c.setState(&truncated) != kResultOk, "truncated state accepted");
+    }
+    auto oversized = good;
+    oversized[64] = 1;
+    oversized[66] = 0x10;
+    LVBState::Stream too_big(oversized,
+                             LVBState::payloadLimit + LVBState::overhead);
+    need(c.setState(&too_big) != kResultOk, "oversized state accepted");
     need(snapshot(c, controller, 0., "after_invalid") == good,
          "invalid state mutated component");
     for (auto pair : std::array<std::pair<const char *, double>, 2>{

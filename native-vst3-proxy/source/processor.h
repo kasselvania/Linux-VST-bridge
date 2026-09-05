@@ -32,7 +32,7 @@ public:
   Steinberg::tresult PLUGIN_API canProcessSampleSize(Steinberg::int32) override;
   Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData &) override;
   Steinberg::uint32 PLUGIN_API getLatencySamples() override {
-    return queued_ ? 1024 : 0;
+    return preview_ || queued_ ? 1024 : 0;
   }
   Steinberg::uint32 PLUGIN_API getTailSamples() override { return 0; }
   Steinberg::tresult PLUGIN_API
