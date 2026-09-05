@@ -31,6 +31,7 @@ class AP0Tests(unittest.TestCase):
             with self.assertRaises(ValueError):compare_blocks(data)
     def test_host_order_and_preallocation(self):
         source=(pathlib.Path(__file__).parents[1]/'windows-factory-probe/source/offline_processing.cpp').read_text()
+        self.assertIn('callbacks.begin_plugin_call(events.sequence(),operation)',source)
         self.assertLess(source.index('addParameterData'),source.index('set_active_true'))
         self.assertLess(source.index('worker.join()'),source.index('set_active_false'))
         self.assertLess(source.index('set_processing_false'),source.index('worker.join()'))

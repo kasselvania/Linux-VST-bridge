@@ -71,7 +71,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     auto call = [&](const char* operation, auto function) {
         events.lifecycle("ap0_call_started",",\"operation\":\""+std::string(operation)+
             "\",\"owner_thread\":"+(std::this_thread::get_id()==owner?"true":"false"));
-        callbacks.begin_plugin_call(1,operation);
+        callbacks.begin_plugin_call(events.sequence(),operation);
         const auto result=function();
         callbacks.end_plugin_call();
         events.lifecycle("ap0_call_completed",",\"operation\":\""+std::string(operation)+
