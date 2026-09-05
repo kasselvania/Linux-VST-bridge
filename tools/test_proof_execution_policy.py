@@ -142,8 +142,8 @@ class PolicyTests(unittest.TestCase):
         self.assertTrue(status["classified_backend_ready"])
         self.assertEqual(status["status"], "no_active_slice")
         self.assertEqual(status["authority_phase"], "no_active_slice")
-        self.assertTrue(authority.boolean("maintenance_implementation_authorized"))
-        self.assertEqual(authority.fields["accepted_product_frontier"], "WA0")
+        self.assertFalse(authority.boolean("maintenance_implementation_authorized"))
+        self.assertEqual(authority.fields["accepted_product_frontier"], "PC0")
         self.assertEqual(
             authority.fields["production_adapter_registry"], "pc0_diagnostic_and_acceptance",
         )
@@ -160,7 +160,7 @@ class PolicyTests(unittest.TestCase):
         mutations = {
             "status": "invented_status",
             "authority_phase": "invented_phase",
-            "change_class": "PRODUCT_IMPLEMENTATION",
+            "change_class": "PRODUCT_CONTRACT_CHANGE",
             "product_implementation_authorized": "true",
             "live_execution_authorized": "true",
             "permitted_execution_class": "ACCEPTANCE_CANDIDATE",
