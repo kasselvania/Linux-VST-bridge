@@ -48,7 +48,9 @@ Publish one reviewable implementation PR, with reusable code, focused tests, con
 - AP2 `CONTRACT.md`/`RESULT.md`, native proxy/backend and Windows mapped/offline processing: working baseline, not realtime evidence.
 - [Pinned SDK processing/thread/latency contract](https://github.com/steinbergmedia/vst3_pluginterfaces/blob/4f547e8e102b47de4a8b8aaf343c73b700786372/vst/ivstaudioprocessor.h).
 
-## Default command guard
+## Authority
+
+Default command guard.
 
 This mapping describes the default closed command and accepted registry. AP3's above work order authorizes implementation and scoped receipts authorize its exact executions; it does not claim an AP3 adapter already exists.
 
