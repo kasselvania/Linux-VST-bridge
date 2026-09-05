@@ -6,13 +6,17 @@ Build a managed Windows-audio compatibility platform for native Linux DAWs. A su
 
 The Steam Deck, SteamOS, Bitwig, AGain, Serum, and Kontakt are fixtures. They do not define the universal product boundary.
 
-## Completed AP2 ruling — Host-loaded native VST3 offline bridge
+## Active AP3 ruling — Sustained audio and remote development access
 
-AP2 is accepted through PR #53 after exact-head technical-lead review. AP1, AP0 and PC0 remain accepted prerequisites. `CURRENT_SLICE.md` owns current status, the bounded accepted capability, evidence references and the next proposed product direction.
+AP2 is accepted through PR #53; AP1, AP0 and PC0 remain accepted. The operator requested continued VST progress with Mac-to-Deck visual control. The lead authorizes AP3 on `codex/ap3-sustained-audio-and-remote-desktop`, from `5890e862fc91a9fec96a142cbc72916849b19b12`. Issue #54 tracks sustained host-facing audio and controlled Bitwig playback; #55 separately tracks Sunshine/Moonlight access. `CURRENT_SLICE.md` owns the product contract and allowance; `docs/DECK_REMOTE_DESKTOP.md` owns the operational setup.
 
-The AP2 implementation and fresh verification task is complete. Its prior build, diagnostic, candidate and runtime-contingency permissions do not authorize another workload after merge. Preserve the acceptance result, diagnostic history, producer failures and all consumed counts. Do not rerun successful work for status closure or alter historical evidence.
+One engineer owns implementation, necessary native/Windows builds, focused tests, exact source/artifact/runtime binding, device verification and a reviewable PR. This is an explicit PRODUCT_CONTRACT_CHANGE ruling, including callback-safe queuing, reported latency, sustained processing, minimal reference-gain control, host lifecycle integration and the bounded Bitwig test. No additional selection, design dossier, intermediate activation or process-only PR is required within this work order. Private implementation choices and ordinary repairs belong to the engineer. Final review/merge remain separate. Do not merely enable realtime on AP2's blocking path or call streaming audio a numerical/timing oracle.
 
-No implementation successor is active. Read-only investigation and review remain permitted; the next scoped work order must define the new capability and its execution boundaries. The accepted proxy remains explicitly offline-only. Preserve the VST3/C ABI and process/mapping ownership boundaries, useful failure retention and private-state protection. Real-time or DAW support requires actual implementation and evidence, not removal of the current refusal.
+The requested desktop setup is explicitly authorized MECHANICAL_MAINTENANCE/operational work, not a VST proof execution. Installing official user-local Sunshine/Moonlight packages, narrow normal input/service configuration, pairing the operator's two machines and testing harmless GUI control do not consume plug-in/build reservations and must not be labelled read-only. Respect existing shell approvals, app permissions and operator-only credential/security prompts. Do not use a streamed terminal or remote desktop to bypass Computer Use exclusions, sandboxing or denied permissions. Routine shell/build work stays on the existing approved SSH path. No change to SteamOS read-only protection, broad firewall disable, unauthenticated access or public forwarding is authorized.
+
+This ruling supersedes historical AP2 prohibitions on a sustained mode, native queue/worker integration, scoped Bitwig publication/launch and corresponding runner changes. Temporary test publication/settings and remote-access setup are deliberate fixture changes outside existing acceptance transactions; record the specific changes and establish the new comparison baseline before measurement, never rebaseline unexplained changes after a run. Previously accepted evidence and protected installations remain unchanged. Desktop tooling is not a runtime dependency of the bridge and cannot hold up independent VST implementation while a one-time permission is pending.
+
+Continue through the useful audio and GUI outcomes, not merely a working package install, loader or adapter. Within-contract source binding, runtime contingency and review repairs are delegated under the recorded cumulative allowance. No old reservation may be reset or replayed. AP2 remains accepted until AP3 review/merge. No unrelated projects, production music sessions, commercial plug-ins, installer/preset/editor framework or general remote-control/broker platform belongs in this task.
 
 ## Authority order
 
@@ -208,7 +212,6 @@ IMPLEMENTATION_REPAIR_REQUIRED
 
 - Producer P, execution E, and consumer C remain distinct.
 - Every observation names its execution class and eligibility.
-- Diagnostic observations are permanently acceptance-ineligible.
 - No retroactive relabelling or promotion.
 - Exact build, artifact, fixture, source, runtime, and plan identities.
 - Canonical bounded JSON and external sidecars.
