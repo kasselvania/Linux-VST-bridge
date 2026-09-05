@@ -103,13 +103,19 @@ class AP0ExecutionTests(AcceptanceTests):
         self.assertIn('nonfinite',json.dumps(v['summary']))
         self.execute_cli();self.assertEqual(self.launches,1)
     def test_ap0_callback_stream_and_pairing(self):
-        stream=sys.modules['ap0_worker_support'].StreamState()
-        stream.accept(dict(event='lifecycle',sequence=1,state='ap0_call_started',operation='set_active_true',owner_thread=True))
-        callback=dict(event='host_callback',sequence=2,operation='createInstance',thread_role='scanner_main_thread',origin='component',enclosing_attempt_sequence=1,enclosing_operation='set_active_true',result_u32_hex='00000000',output_null=False)
+        def started():
+            stream=sys.modules['ap0_worker_support'].StreamState()
+            stream.accept(dict(event='lifecycle',sequence=1,state='ap0_call_started',operation='set_active_true',owner_thread=True))
+            return stream
+        base=dict(event='host_callback',sequence=2,operation='createInstance',thread_role='scanner_main_thread',origin='component',enclosing_attempt_sequence=1,enclosing_operation='set_active_true',result_u32_hex='00000000',output_null=False)
         for change in ({'enclosing_attempt_sequence':9},{'thread_role':'processing_thread'},{'output_null':True}):
-            with self.assertRaises(RuntimeError):stream.accept({**callback,**change})
-        stream.accept(callback)
-        stream.accept(dict(event='lifecycle',sequence=3,state='ap0_call_completed',operation='set_active_true',result=0))
+            stream=started()
+            with self.assertRaises(RuntimeError):stream.accept({**base,**change})
+            self.assertTrue(stream.records[-1]['rejected'])
+        stream=started()
+        callbacks=[dict(operation='addRef',reference_count=3),dict(operation='queryInterface'),dict(operation='createInstance'),dict(operation='release',reference_count=2)]
+        for seq,change in enumerate(callbacks,2):stream.accept({**base,**change,'sequence':seq})
+        stream.accept(dict(event='lifecycle',sequence=6,state='ap0_call_completed',operation='set_active_true',result=0))
         self.assertIsNone(stream.ap0_call)
         self.assertIsNone(stream.in_flight_at)
     def test_ap0_lost_ack_no_duplicate(self):

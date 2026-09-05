@@ -40,16 +40,25 @@ class StreamState(inherited.StreamState):
             super().accept(record)
         elif record.get('event')=='host_callback' and self.ap0_call is not None:
             start=self.ap0_call
+            operation=record.get('operation')
+            reference=record.get('reference_count')
+            result_ok=(operation in {'queryInterface','createInstance'}
+                       and record.get('result_u32_hex')=='00000000'
+                       and record.get('output_null') is False)
+            reference_ok=(operation in {'addRef','release'}
+                          and type(reference) is int and 1 <= reference <= 64)
             if (start.get('operation') not in {'set_active_true','set_active_false'}
                     or record.get('thread_role')!='scanner_main_thread'
                     or record.get('origin')!='component'
                     or record.get('enclosing_attempt_sequence')!=start['sequence']
                     or record.get('enclosing_operation')!=start['operation']
-                    or record.get('operation')!='createInstance'
-                    or record.get('result_u32_hex')!='00000000'
-                    or record.get('output_null') is not False
+                    or not (result_ok or reference_ok)
                     or record.get('sequence')!=len(self.records)+1):
-                raise RuntimeError('AP0 activation callback differs')
+                # Retain the rejected protocol record before the shared worker
+                # sanitizes the checkpoint; never discard the first cause.
+                if len(self.records)<inherited.EVENT_CAP:
+                    self.records.append({**record,'rejected':True})
+                raise RuntimeError('AP0 activation callback differs: '+str(operation)[:80])
             self.host_callback_count+=1
             if self.host_callback_count>64 or len(self.records)>=inherited.EVENT_CAP:
                 raise RuntimeError('AP0 callback/event bound exceeded')

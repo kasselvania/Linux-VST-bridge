@@ -368,7 +368,9 @@ def execute(proof, binding):
             cleanup = "COMPLETE"
         except Exception as exc:
             error_at("process_readback", exc)
-    if summary is None and observed is not None:
+    if ap0 and summary is None:
+        summary = {"troubleshooting": trouble}
+    if not ap0 and summary is None and observed is not None:
         try:
             summary = {"failure": failure_data(r, observed, binding, deck_sha, retirement_disposition),
                        "supervision_error": observed.get("supervision_error")}

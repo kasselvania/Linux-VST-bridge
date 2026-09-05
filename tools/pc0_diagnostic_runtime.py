@@ -182,6 +182,7 @@ def sanitized_supervision_error(error):
 # protocol fields can enter a troubleshooting checkpoint; no process identities,
 # command lines, environment, factory account metadata or paths are retained.
 CHECKPOINT_KEYS = frozenset("""
+rejected origin thread_role enclosing_attempt_sequence enclosing_operation reference_count output_null
 event sequence attempt_sequence operation interface ordinal tier return_kind
 state disposition object_quiescence component_state primary_blocker
 result_u32_hex win32_error_u32_hex i32_result u32_result bool_result output_nonnull
@@ -213,6 +214,8 @@ def checkpoint_projection(value, depth=0):
         return [checkpoint_projection(v, depth+1) for v in value[-256:]]
     if value is None or type(value) in (bool, int):
         return value
+    if type(value) is float and value == value and abs(value) < 1e6:
+        return value
     if isinstance(value, str):
         # Protocol strings and AGain bus names, never arbitrary free-form text.
         if len(value) <= 128 and re.fullmatch(r"[A-Za-z0-9_ .:+-]*", value):
@@ -230,7 +233,7 @@ def exception_detail(error):
             filename=tb.tb_frame.f_code.co_filename
             if '/tools/' in filename:
                 module='tools/'+filename.split('/tools/',1)[1]
-            elif filename.startswith('<pc0_'):
+            elif filename.startswith(('<pc0_','<ap0_')):
                 module='tools/'+filename[1:-1]+'.py'
             else:
                 module='<external>'
