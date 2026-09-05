@@ -14,17 +14,17 @@ permitted_execution_class: DIAGNOSTIC_NON_AUTHORITATIVE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: false
-authorized_source_commit: 9a9c188843ca102757a0496091b74e0975d7b403
-authorized_source_tree: 9b136b399268c48dd830609aaa07c59433ea76ba
+authorized_source_commit: d9f4a0dec920b71b50fa07460b288d9e7407313b
+authorized_source_tree: 89541481201e862767743dbee47a82aff2747beb
 authorized_plan_id: ap0-offline-again-diagnostic-v1
 authorized_product_contract_identity: ap0-offline-again-v1
 authorized_product_contract_sha256: 803d8374a6c46a86b3789c23af4375edf8c881054c92b612774489197de5adba
-authorized_plan_content_sha256: 9dd43e2579142b6b4317b026ddc3c4b66498c3c9cfa9b6c6b3ed0a7ea1a19773
+authorized_plan_content_sha256: d83f8313e6dff10c5ea60759d97fc117f2ca6f5075c3df6b201c7330fb3e3b83
 diagnostic_campaign_identity: 1b104be869d0e4b6ecf8bfb13df9328c76edcafa7c767c8ab6c0ac3111411f6f
 diagnostic_batch_budget: 8
 diagnostic_plan_revision_authorized: true
-diagnostic_previous_plan_content_sha256: 1d025d5592bde57decff6966b52301d06406cb350a961c4a30994763d9f97e90
-diagnostic_previous_product_contract_sha256: ebd654929ae68fbf4481a75f7684f557471f7882cba4f10a1faaccc2ec248879
+diagnostic_previous_plan_content_sha256: 9dd43e2579142b6b4317b026ddc3c4b66498c3c9cfa9b6c6b3ed0a7ea1a19773
+diagnostic_previous_product_contract_sha256: 803d8374a6c46a86b3789c23af4375edf8c881054c92b612774489197de5adba
 accepted_product_frontier: PC0
 current_product_target: AP0
 ```
@@ -33,26 +33,26 @@ The active AP0 ruling delegates this bounded diagnostic for the implemented cont
 
 The exact retained fixture, new host artifact and producer are bound in AP0_ARTIFACT.json and the closed descriptor below. The adapter enforces current Windows build-input equivalence with the retained producer. The shared supervisor and worker retain bounded errors before retirement. Scoped processing calls are AP0 only; PC0 histories remain untouched.
 
-The active AP0 ruling delegates necessary exact plan/artifact rebinding after tested repairs. This exact revision corrects the SDK no-op setProcessing notification handling and binds producer attempt 3. Numerical inputs, requested gains, zero tolerance, fixture, runtime, campaign identity and ceiling remain unchanged. Apply the above old-to-current hash transition only through the existing locked atomic budget path, retaining its before/after record, both consumed reservations and all original transaction authority. Never relaunch or promote either failed observation.
+The active AP0 ruling delegates necessary exact plan/artifact rebinding after tested repairs. This exact revision isolates the component-termination host release from ordinary activation/deactivation callbacks and binds producer attempt 4. The earlier SDK notification correction remains in place. Numerical inputs, requested gains, zero tolerance, fixture, runtime, campaign identity and ceiling remain unchanged. Apply the above old-to-current hash transition only through the existing locked atomic budget path, retaining its before/after record, all three consumed reservations and all original transaction authority. Never relaunch or promote any earlier observation.
 
 ```json
 {
   "execution_class": "DIAGNOSTIC_NON_AUTHORITATIVE",
   "plan_content": {
     "artifact_requirement": {
-      "artifact_id": 9962143620,
-      "host_manifest_sha256": "1cda73fce4dea6936e0c7c910ede4824f307d5c59fd6b08fb9aeafc716600a32",
+      "artifact_id": 9962278098,
+      "host_manifest_sha256": "ad84f6339c30fbcfbff854be85c7c2f6d811c3536edb8ab882eed4ebb8aa01f0",
       "producer_run_attempt": 1,
-      "producer_run_id": 33941926604,
+      "producer_run_id": 33942379173,
       "producer_source": {
-        "commit": "a5a208d917eb88451ce04795ff55552324e59a7f",
-        "identity_sha256": "3faed207c4f8ef734c29fba6d69f9a92f2b1a0019b83e2ae5f9a4f60605f4ee2",
+        "commit": "0add6e51bb9c0f2063906630679777503967f9fc",
+        "identity_sha256": "31f41720f53c92d0335b084c727c2c8e482968545227a9f26dcd9331db0416e6",
         "manifest_sha256": "a6244f2052ca4c24bdfe822a96cbf5ee4eb61ebcf6e544e5b26252cce6d8dc20",
-        "parent": "a74c310e2ed09fc4106a05439884c2407b3abfb6",
+        "parent": "e96ca7f59135d50baceff7fd0ca5dffe09fdbac1",
         "ref": "refs/heads/codex/ap0-offline-again-processing",
-        "tree": "c34f82e824a93a9527f10c994cdfa5aa7711c3fc"
+        "tree": "415dd6ec4387f855920570eaff11909c55dd4ca5"
       },
-      "windows_build_input_identity": "74e27c736f94b896cd0cb3e0f055bfb43fcdc8bfeb0e8ab4eacd99734754ae45"
+      "windows_build_input_identity": "2502c86980162bcb51c474b6cb952c670b8d45a019c26d1a8ed050a88ac4616b"
     },
     "fixture_requirement": {
       "accepted_fixture_identity_sha256": "6c87be964d26a7ad06e7a4c69c5c5261d1046e9cfb0b17a225fd24c3e40d0ba6",
@@ -70,7 +70,7 @@ The active AP0 ruling delegates necessary exact plan/artifact rebinding after te
     },
     "schema": "linux-vst-bridge-closed-proof-plan/v1"
   },
-  "plan_content_sha256": "9dd43e2579142b6b4317b026ddc3c4b66498c3c9cfa9b6c6b3ed0a7ea1a19773",
+  "plan_content_sha256": "d83f8313e6dff10c5ea60759d97fc117f2ca6f5075c3df6b201c7330fb3e3b83",
   "plan_id": "ap0-offline-again-diagnostic-v1",
   "product_contract_identity": "ap0-offline-again-v1",
   "product_contract_sha256": "803d8374a6c46a86b3789c23af4375edf8c881054c92b612774489197de5adba",
