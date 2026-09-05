@@ -14,21 +14,26 @@ permitted_execution_class: DIAGNOSTIC_NON_AUTHORITATIVE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: false
-authorized_source_commit: 14e9b274dbac8b96ab1802c374ba99f10e6f9ba6
-authorized_source_tree: 0a39c398fa997a765662e11241bc3ae20f35b709
+authorized_source_commit: 450a5e4d8b56f9af9a6066b170ad7d3953b88505
+authorized_source_tree: 4e3ce42457d9081ba8d5d00892c3562cc138abc1
 authorized_plan_id: ap3-sustained-audio-diagnostic-v1
 authorized_product_contract_identity: ap3-sustained-audio-v1
-authorized_product_contract_sha256: d60bc93960b282957018c47b5e017efc7d3d11078905fc0f638ef9eb529723c0
-authorized_plan_content_sha256: d86da4df6439ea762ee0776f093053e1258e7e80fabb74d49b90cc10339922d6
+authorized_product_contract_sha256: cba129f770a8d16b1def770c99bd56fe632aa5d6352ebf08a4445b75ea2834aa
+authorized_plan_content_sha256: 65e5dff0225daa148511dbfaa0d6cdf8bb83ac33ebb5d130cde409b328b42d70
 diagnostic_campaign_identity: 7110e1871dab383c2e002ecb8733ecfea0d663acb46197e4ef2469dff98c36bb
 diagnostic_batch_budget: 10
+diagnostic_plan_revision_authorized: true
+diagnostic_previous_plan_content_sha256: d86da4df6439ea762ee0776f093053e1258e7e80fabb74d49b90cc10339922d6
+diagnostic_previous_product_contract_sha256: d60bc93960b282957018c47b5e017efc7d3d11078905fc0f638ef9eb529723c0
 accepted_product_frontier: AP2
 current_product_target: AP3
 ```
 
-The AP3 product-contract and execution ruling in AGENTS.md/CURRENT_SLICE.md authorizes this exact diagnostic binding. One campaign has ten cumulative diagnostic batches. Six Windows producers and two fresh acceptance candidates are separately bounded; one producer has been consumed. No old reservation is reset or replayed. This initial batch exercises one Windows instance through both 30-second SDK-host streams with actual AGain, a reused mapping, stop/restart and preserved gain. Bitwig and stream-active observations remain separate required work before final AP3 acceptance; this diagnostic cannot support an acceptance claim.
+The active AP3 ruling authorizes this exact repaired source, native artifact and closed continuation in the SAME campaign. Two reservations remain consumed: D1 retained a first-stream comparison but failed during the second stream; its missing first-fault detail remains unknown. D2 verified 5,764,096 samples at maximum error 0.0 and clean unchanged protected state. Neither diagnostic can be promoted. One Windows producer is consumed; its inputs remain unchanged and its retained artifact is reused.
 
-Native SDK-loaded positive and failure tests passed before this binding, including full-length substituted-peer timeline/digest verification and callback instrumentation. Sunshine/Moonlight setup and actual agent control are recorded in docs/DECK_REMOTE_DESKTOP.md. Primary timing uses no active stream. Planned desktop changes preceded this baseline; preserve historical installs, source, fixtures and evidence. Existing custody, bounded supervision, checkpoints, cleanup and protected-state checks own the run. Retain any original error before retirement and fix ordinary scoped bugs within the remaining allowance. AP2 remains accepted.
+The scoped old-to-current plan adjustment preserves both reservations and the ten-batch ceiling. The current four-instance batch contains the primary 30-second 128/256-frame streams without active Moonlight, a separately confirmed short stream-active SDK run, and two fresh disposable Bitwig sessions with the exact native publication. Failed native, Windows, GUI or reporting admission stops further segments. All useful facts are checkpointed before validation/retirement. Existing ownership, timeouts, mappings, cleanup and artifact custody remain responsible. No new campaign, count reset or automatic replay is permitted.
+
+Bitwig setup was completed before the comparison baseline: only test search locations and 48 kHz/256-frame audio settings changed; original preference bytes are privately backed up. Existing projects and plug-in installations are preserved. Actual agent-through-Moonlight control is separately established. AP2 remains accepted; final AP3 acceptance requires a fresh complete candidate and review.
 
 ```json
 {
@@ -36,15 +41,15 @@ Native SDK-loaded positive and failure tests passed before this binding, includi
   "plan_id": "ap3-sustained-audio-diagnostic-v1",
   "execution_class": "DIAGNOSTIC_NON_AUTHORITATIVE",
   "product_contract_identity": "ap3-sustained-audio-v1",
-  "product_contract_sha256": "d60bc93960b282957018c47b5e017efc7d3d11078905fc0f638ef9eb529723c0",
+  "product_contract_sha256": "cba129f770a8d16b1def770c99bd56fe632aa5d6352ebf08a4445b75ea2834aa",
   "plan_content": {
     "artifact_requirement": {
       "artifact_id": 9974517171,
       "host_manifest_sha256": "155d7bcea5d201da647c170f10ad7df0cf163e00710c8a4a4611099ae30a2ec1",
       "native_client": {
-        "input_sha256": "42750af1837e25b74b3e21a521193e9b7ccf9bd3f115c4552eeacca9aff00c9b",
-        "manifest_sha256": "86fc51ebb49943205f40e1abdcb27743017e0c8acec37328a90a46f1b1441ec9",
-        "source_commit": "9cefdb317f00896a7f9cf1b531e222d31bc03c3e"
+        "input_sha256": "1eae06fc129e3d79ce617e3f8a81b944661419b4e62d7f1bcbe18b81b5c746c6",
+        "manifest_sha256": "609e5e6ce3ec9334fd8506ac19594f4546de828167cc092f973958035a02319d",
+        "source_commit": "52e12cfbcee1d2c2c033a274be45ff89e84c9cc1"
       },
       "producer_run_attempt": 1,
       "producer_run_id": 33983608691,
@@ -63,7 +68,7 @@ Native SDK-loaded positive and failure tests passed before this binding, includi
       "again_bundle_manifest_sha256": "bfaa1dce4d2e189f89cee41493838824efe647e361e81436676b7b3a86ff5164",
       "again_module_sha256": "60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f"
     },
-    "operation": "ap3-sdk-host-paced-streams",
+    "operation": "ap3-paced-streams-and-bitwig-reopen",
     "runtime_requirement": {
       "declared_runtime_inputs_sha256": "e701be47751c64e1cef522a4021cc5e283f110ab1124fd535286a53b657c1925",
       "remote_pc0_plan_sha256": "501829c4bf88988afb13ad984d5220839b73315d1ba89c8ca2e77600e58dc248",
@@ -74,14 +79,6 @@ Native SDK-loaded positive and failure tests passed before this binding, includi
     },
     "schema": "linux-vst-bridge-closed-proof-plan/v1"
   },
-  "plan_content_sha256": "d86da4df6439ea762ee0776f093053e1258e7e80fabb74d49b90cc10339922d6"
+  "plan_content_sha256": "65e5dff0225daa148511dbfaa0d6cdf8bb83ac33ebb5d130cde409b328b42d70"
 }
 ```
-
-Continuation: the first reservation remains consumed. Its 128-frame stream
-reported 2,882,048 samples and zero maximum error; the second interval failed.
-Cleanup completed and protected state was unchanged. The older checkpoint
-omitted AP3 fault/timing fields, which remain unknown for that transaction.
-This tested retention repair preserves those fields and sanitized original
-errors; it changes neither native nor Windows artifact inputs. Nine diagnostic
-batches remained before this new source binding. No diagnostic is acceptance.
