@@ -8,6 +8,7 @@ def input_records(source):
     return [{'path':p,'git_blob':run(['git','rev-parse',source+':'+p])} for p in PATHS]
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--source',required=True);parser.add_argument('--output',type=pathlib.Path,required=True);args=parser.parse_args()
+    args.source=run(["git","rev-parse",args.source+"^{commit}"])
     records=input_records(args.source)
     for r in records:
         b=(ROOT/r['path']).read_bytes()
