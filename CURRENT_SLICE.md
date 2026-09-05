@@ -1,6 +1,8 @@
 # Current Work: AP0 — Offline AGain Sample Processing
 
-**Active and authorized for implementation.** Basis: `82bc56fb16ddb999430f6cab6cd0a5c3598da91c`. Branch: `codex/ap0-offline-again-processing`. PC0 is accepted through PR #47; preserve its code/evidence and completed budgets. The active ruling in AGENTS.md authorizes this whole task before merge, including the new processing calls and changed Windows host build.
+**Implemented and freshly verified; awaiting independent review.** Basis: `82bc56fb16ddb999430f6cab6cd0a5c3598da91c`. Branch: `codex/ap0-offline-again-processing`. PC0 is accepted through PR #47; preserve its code/evidence and completed budgets. The active ruling in AGENTS.md authorizes this whole task before merge, including the new processing calls and changed Windows host build.
+
+Fresh acceptance: 96/96 samples matched at gains 0.5 and 0.25 plus silence; maximum absolute error 0.0. Shutdown/containment completed and protected state remained unchanged. See [AP0 result](docs/slices/AP0/RESULT.md) and its retained acceptance packet. Task execution is complete; no further live run is needed. PC0 remains accepted pending AP0 review and merge.
 
 ## Goal and reason
 
