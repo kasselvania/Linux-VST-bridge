@@ -6,17 +6,13 @@ Build a managed Windows-audio compatibility platform for native Linux DAWs. A su
 
 The Steam Deck, SteamOS, Bitwig, AGain, Serum, and Kontakt are fixtures. They do not define the universal product boundary.
 
-## Active AP0 ruling — Offline AGain sample processing
+## Completed AP0 ruling — Offline AGain sample processing
 
-PC0 is accepted through PR #47. Under the operator's approval of the offline known-buffer milestone, the technical lead selects and authorizes **AP0**, on `codex/ap0-offline-again-processing`, based on `82bc56fb16ddb999430f6cab6cd0a5c3598da91c`. `CURRENT_SLICE.md` is the bounded product work order and owns its proof and spending limits.
+AP0 is accepted through PR #49 after exact-head technical-lead review. PC0 remains an accepted prerequisite. `CURRENT_SLICE.md` owns current status, the bounded accepted claim and the next proposed product direction.
 
-The same engineer may implement, test, build the changed Windows host, deliver that artifact, run scoped diagnostics, bind a tested acceptance candidate, obtain fresh verification and open one implementation PR. Necessary VST3 setup/activation/processing/teardown, fixture-specific gain input and ordinary activation callbacks are explicitly in scope. This is a new product increment, not permission to alter historical PC0 claims.
+The AP0 work order authorized implementation, necessary host builds, scoped diagnostics and fresh acceptance in one task. That task is now complete. Its original instructions and spending limits remain in Git history and the retained AP0 records; they do not authorize another build, workload, candidate or successor after this merge. Preserve the immutable evidence and all cumulative failed/diagnostic histories. Do not rerun successful work for status closure.
 
-This ruling supersedes historical PC0/PX/DX restrictions that would forbid those operations, a changed host build, current-branch delivery, or ordinary in-scope repair. No separate design dossier, pre-run review handoff or process-only PR is required. The engineer chooses the smallest implementation and records only necessary lifecycle/interface decisions with it. Mechanical exact-source/artifact/plan/candidate binding is delegated after local tests, using existing classified commands; do not invent readiness or bypass executable checks. Thin AP0 registration and build-branch/input-roster updates are authorized; new harness frameworks are not.
-
-The default CLI mapping remains disabled for unspecified workloads, not for the work order. AP0 uses its own scoped diagnostic/candidate receipts and counters; PC0 histories are unchanged. Final independent technical review and merge remain the lead's responsibility. PC0 remains the accepted frontier until AP0 passes review and merges. Follow the budgets and recovery rules in CURRENT_SLICE.md without requesting renewed permission for routine work within them.
-
-Prior PC0 completion instructions are history, not the active assignment. Do not force AP0 through PC0's Initialized-only call/count assertions, and do not weaken those assertions for PC0. Preserve process containment, useful failure retention, private-state protection and honest evidence classification.
+No implementation successor is active. Read-only investigation and review remain permitted; a subsequent scoped work order must define any new audio transport or processing capability. Preserve process containment, useful failure retention, private-state protection and honest evidence classification.
 
 ## Authority order
 
