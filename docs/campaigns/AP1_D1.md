@@ -14,11 +14,11 @@ permitted_execution_class: DIAGNOSTIC_NON_AUTHORITATIVE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: false
-authorized_source_commit: 0cf4dc38067ccccfa4662a8de5962d9f20e603b4
-authorized_source_tree: c52e7d76bec3e365641394cb642199223d8029b2
+authorized_source_commit: a2e12c52df0db34c6476c1b337065e1f53e92638
+authorized_source_tree: 33c582b8e40572732dc145b1626fc8d23c804e44
 authorized_plan_id: ap1-linux-windows-audio-diagnostic-v1
 authorized_product_contract_identity: ap1-linux-windows-audio-v1
-authorized_product_contract_sha256: d414eefe66c6db4cfbd3bc96ee09b323825c27cd59bc119ae8c41fe4f4797fb5
+authorized_product_contract_sha256: 4ce972f4f68bc38bf1795896dc2f1c9478a6bce4d7330c28bdb85bf6991b856a
 authorized_plan_content_sha256: 95fdac448b5934502bde990cb875b561e1750c30a9bb638a5d8126c73b602166
 diagnostic_campaign_identity: 78c32c41080c2afb3f8bf85967474dfe49016eb84c76f62ac0bb272118fbd755
 diagnostic_batch_budget: 10
@@ -81,7 +81,7 @@ Exact source/artifact/plan revisions for tested in-scope repairs use the existin
   "plan_content_sha256": "95fdac448b5934502bde990cb875b561e1750c30a9bb638a5d8126c73b602166",
   "plan_id": "ap1-linux-windows-audio-diagnostic-v1",
   "product_contract_identity": "ap1-linux-windows-audio-v1",
-  "product_contract_sha256": "d414eefe66c6db4cfbd3bc96ee09b323825c27cd59bc119ae8c41fe4f4797fb5",
+  "product_contract_sha256": "4ce972f4f68bc38bf1795896dc2f1c9478a6bce4d7330c28bdb85bf6991b856a",
   "schema": "linux-vst-bridge-proof-plan-descriptor/v1"
 }
 ```
