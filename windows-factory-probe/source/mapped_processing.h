@@ -6,9 +6,11 @@
 namespace linux_vst_bridge::wf0 {
 class MappedSession final : public ExternalProcessing {
 public:
-    MappedSession(const std::wstring& directory, const std::string& session, EventWriter&, bool hosted=false);
+    MappedSession(const std::wstring& directory, const std::string& session, EventWriter&, bool hosted=false, bool sustained=false);
     ~MappedSession();
     bool hosted() const override;
+    bool sustained() const override;
+    uint16_t next_transition() override;
     uint32_t lifecycle_request(uint16_t) override;
     void lifecycle_ack(uint16_t) override;
     void ready() override;

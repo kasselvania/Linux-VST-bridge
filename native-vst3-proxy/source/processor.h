@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <thread>
 namespace AP2 {
+inline const Steinberg::FUID controllerID(0xD1444DE3, 0x38814391, 0xA916DC9C,
+                                          0xFCC67008);
 class Processor final : public Steinberg::Vst::AudioEffect {
 public:
   static Steinberg::FUnknown *create(void *) {
@@ -29,9 +31,16 @@ public:
       Steinberg::Vst::SpeakerArrangement *, Steinberg::int32) override;
   Steinberg::tresult PLUGIN_API canProcessSampleSize(Steinberg::int32) override;
   Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData &) override;
-  Steinberg::uint32 PLUGIN_API getLatencySamples() override { return 0; }
+  Steinberg::uint32 PLUGIN_API getLatencySamples() override {
+    return queued_ ? 1024 : 0;
+  }
   Steinberg::uint32 PLUGIN_API getTailSamples() override { return 0; }
-  Steinberg::tresult PLUGIN_API getControllerClassId(Steinberg::TUID) override {
+  Steinberg::tresult PLUGIN_API
+  getControllerClassId(Steinberg::TUID id) override {
+    if (preview_) {
+      controllerID.toTUID(id);
+      return Steinberg::kResultOk;
+    }
     return Steinberg::kNotImplemented;
   }
   Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream *) override {
@@ -59,6 +68,13 @@ private:
   int maximum_ = 0;
   unsigned blocks_ = 0;
   double gain_ = 1.;
+  int process_mode_ = Steinberg::Vst::kOffline;
+  bool queued_ = false;
+#ifdef AP3_PREVIEW
+  const bool preview_ = true;
+#else
+  const bool preview_ = false;
+#endif
   bool input_active_ = true, output_active_ = true;
   std::thread::id owner_;
 };

@@ -1,5 +1,6 @@
 #include "processor.h"
 #include "ap2_backend.h"
+#include "ap3_backend.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include <algorithm>
@@ -77,7 +78,7 @@ bool overlap(const float *a, const float *b, int n) {
 } // namespace
 Processor::~Processor() {
   if (handle_)
-    ap2_close(handle_);
+    queued_ ? (void)ap3_close(handle_) : (void)ap2_close(handle_);
 }
 tresult PLUGIN_API Processor::initialize(FUnknown *context) {
   Guard g(busy_);
@@ -123,13 +124,16 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id() ||
       (phase_ != Initialized && phase_ != Setup) ||
-      setup.processMode != kOffline || setup.symbolicSampleSize != kSample32 ||
-      setup.sampleRate != 48000. || setup.maxSamplesPerBlock < 1 ||
-      setup.maxSamplesPerBlock > 256)
+      (setup.processMode != kOffline &&
+       !(preview_ && setup.processMode == kRealtime)) ||
+      setup.symbolicSampleSize != kSample32 || setup.sampleRate != 48000. ||
+      setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > 256)
     return kResultFalse;
   auto r = AudioEffect::setupProcessing(setup);
   if (r == kResultOk) {
     maximum_ = setup.maxSamplesPerBlock;
+    process_mode_ = setup.processMode;
+    queued_ = process_mode_ == kRealtime;
     phase_ = Setup;
   }
   return r;
@@ -141,7 +145,8 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
   if (active) {
     if (phase_ != Setup || !input_active_ || !output_active_)
       return kResultFalse;
-    if (ap2_open(static_cast<uint32_t>(maximum_), &handle_)) {
+    if (queued_ ? ap3_open(static_cast<uint32_t>(maximum_), &handle_)
+                : ap2_open(static_cast<uint32_t>(maximum_), &handle_)) {
       report();
       phase_ = Failed;
       return kResultFalse;
@@ -151,22 +156,37 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
   }
   if (phase_ != Stopped)
     return kResultFalse;
-  if (ap2_transition(handle_, 14)) {
+  if (queued_ ? ap3_transition(handle_, 14) : ap2_transition(handle_, 14)) {
     report();
     phase_ = Failed;
     return kResultFalse;
   }
   phase_ = Deactivated;
+  if (queued_) {
+    ap3_stats_t s{};
+    if (!ap3_stats(handle_, &s))
+      std::fprintf(stdout,
+                   "{\"event\":\"ap3_proxy_stats\",\"fault\":%llu,"
+                   "\"processed\":%llu,\"request_high\":%llu,\"result_high\":%"
+                   "llu,\"position\":%llu,\"epoch\":%llu}\n",
+                   (unsigned long long)s.fault, (unsigned long long)s.processed,
+                   (unsigned long long)s.request_high,
+                   (unsigned long long)s.result_high,
+                   (unsigned long long)s.position, (unsigned long long)s.epoch);
+  }
   return kResultOk;
 }
 tresult PLUGIN_API Processor::setProcessing(TBool running) {
   Guard g(busy_);
   if (!g.held)
     return kResultFalse;
-  if (running ? phase_ != Active : phase_ != Running)
+  if (running ? (phase_ != Active && !(queued_ && phase_ == Stopped))
+              : phase_ != Running)
     return kResultFalse;
-  if (ap2_transition(handle_, running ? 10 : 12)) {
-    report();
+  if (queued_ ? ap3_transition(handle_, running ? 10 : 12)
+              : ap2_transition(handle_, running ? 10 : 12)) {
+    if (!queued_)
+      report();
     phase_ = Failed;
     return kResultFalse;
   }
@@ -177,7 +197,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   Guard g(busy_);
   if (!g.held)
     return kResultFalse;
-  if (phase_ != Running || d.processMode != kOffline ||
+  if (phase_ != Running || d.processMode != process_mode_ ||
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||
       d.numSamples > maximum_)
     return failure(d, maximum_);
@@ -191,9 +211,10 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     gain_ = pending;
     return kResultOk;
   }
-  if (blocks_ >= 64 || !outputs(d, maximum_) || d.numInputs != 1 || !d.inputs ||
-      d.inputs[0].numChannels != 2 || !d.inputs[0].channelBuffers32 ||
-      !d.inputs[0].channelBuffers32[0] || !d.inputs[0].channelBuffers32[1] ||
+  if ((!queued_ && blocks_ >= 64) || !outputs(d, maximum_) ||
+      d.numInputs != 1 || !d.inputs || d.inputs[0].numChannels != 2 ||
+      !d.inputs[0].channelBuffers32 || !d.inputs[0].channelBuffers32[0] ||
+      !d.inputs[0].channelBuffers32[1] ||
       (d.inputs[0].silenceFlags & ~uint64(3)))
     return failure(d, maximum_);
   auto **in = d.inputs[0].channelBuffers32;
@@ -211,11 +232,16 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
           ((d.inputs[0].silenceFlags & (uint64(1) << ch)) && in[ch][i] != 0.f))
         return failure(d, maximum_);
   uint64_t silence = 0;
-  auto r = ap2_process(handle_, static_cast<uint32_t>(d.numSamples), pending,
-                       d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
-                       &silence);
+  auto r = queued_ ? static_cast<int32_t>(ap3_process(
+                         handle_, static_cast<uint32_t>(d.numSamples), pending,
+                         d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
+                         &silence))
+                   : ap2_process(handle_, static_cast<uint32_t>(d.numSamples),
+                                 pending, d.inputs[0].silenceFlags, in[0],
+                                 in[1], out[0], out[1], &silence);
   if (r) {
-    report();
+    if (!queued_)
+      report();
     phase_ = Failed;
     return failure(d, maximum_);
   }
@@ -232,7 +258,10 @@ tresult PLUGIN_API Processor::terminate() {
   bool clean =
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated;
   if (handle_) {
-    clean = ap2_close(handle_) == 0 && clean;
+    clean =
+        (queued_ ? ap3_close(handle_) == 0 : ap2_close(handle_) == 0) && clean;
+    if (!clean)
+      report();
     handle_ = 0;
   }
   auto r = AudioEffect::terminate();

@@ -1,6 +1,18 @@
 # Deck desktop access from the development Mac
 
-**Status: selected operational setup, not yet installed or verified by this preparation.** Issue #55. Supporting work for AP3 #54; not a VST runtime dependency.
+**Status: actual Codex-through-Moonlight control verified on 2026-09-05.** Issue #55. Supporting work for AP3 #54; not a VST runtime dependency.
+
+## Observed setup and control
+
+Video observed: **true**. Keyboard/mouse verified: **true**. Codex-through-Moonlight verified: **true**. The actual Mac Computer Use session clicked KWrite's New File button, typed a unique two-line AP3 marker, disconnected with Ctrl+Alt+Shift+Q, reconnected to the same document, and typed a third reconnect marker. Fresh stream images showed each result. SSH and Sunshine remained available. The agent closed KWrite and discarded only this unsaved scratch document, then disconnected streaming. No streamed terminal was operated; the editor was started through SSH as a temporary user service.
+
+The Deck uses Wayland, a 1280×800 logical desktop, portal capture and AMD VAAPI H.264 encoding. The operator approved portal capture, the local certificate/credential flow and pairing normally. Sunshine is the official user Flatpak `dev.lizardbyte.app.Sunshine`, version `2026.516.143833`, commit `62e90ef28d2c760d77e85233e1c5754c29f56e430b726947cdd79867915901e2`. The existing Mac Moonlight 6.1.0 was reused. An initial black stream resolved after capture negotiated; the observed control test used the live desktop.
+
+Specific setup changes: installed that user Flatpak; copied its packaged `app-dev.lizardbyte.app.Sunshine.service` into the user's systemd directory and started it without enabling autostart; imported the existing graphical session variables into the user service manager; created Sunshine configuration under its Flatpak config directory. Existing uinput access worked, so no root, udev, firewall, immutable-base or input-permission changes were made. Pairing and portal material remain private. Configuration selects portal/VAAPI, IPv4, PC-only administration, mandatory LAN/WAN encryption, disabled UPnP, stream audio and gamepad, and H.264 only. Administration uses a loopback-only SSH forward. Existing pairings were preserved.
+
+Moonlight now uses windowed 1280×800, 30 fps, 5 Mbps and desktop mouse mode. Host-speaker muting is disabled. Prior settings were 720p/60 fps/10 Mbps, borderless windowed, desktop mouse mode off and host-speaker muting on; VSync remains on and frame pacing off. No audio sink, microphone or Bitwig routing was changed. Sunshine is a separate development service and must not be counted as a leaked product process.
+
+Start/stop on the Deck with `systemctl --user start app-dev.lizardbyte.app.Sunshine.service` / `systemctl --user stop app-dev.lizardbyte.app.Sunshine.service`. Connect the paired Deck entry in Moonlight and choose Desktop; Ctrl+Alt+Shift+Q disconnects while preserving Deck applications. SSH remains independent. Rollback: stop the service, remove only the copied user service and run `systemctl --user daemon-reload`, then uninstall the added user Flatpak if desired; retain its private configuration unless the operator explicitly chooses to remove pairing data. Restore the listed Moonlight settings if desired. This requires a reachable, logged-in, awake Desktop Mode session; cold boot, login screens and Gaming Mode were not tested.
 
 ## Topology and purpose
 

@@ -10,8 +10,28 @@ target_compile_features(AGainOfflineBridge PRIVATE cxx_std_20)
 target_compile_options(AGainOfflineBridge PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-error=stringop-truncation)
 set_target_properties(AGainOfflineBridge PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 target_link_options(AGainOfflineBridge PRIVATE "-Wl,--exclude-libs,ALL" "-Wl,-z,defs")
+smtg_add_vst3plugin(AGainQueuedBridge
+ "${VST3_SDK_ROOT}/public.sdk/source/main/linuxmain.cpp"
+ source/processor.cpp source/factory.cpp)
+target_include_directories(AGainQueuedBridge PRIVATE include)
+target_compile_definitions(AGainQueuedBridge PRIVATE AP3_PREVIEW=1)
+target_link_libraries(AGainQueuedBridge PRIVATE sdk "${AP2_RUST_LIBRARY}" pthread dl m)
+target_compile_features(AGainQueuedBridge PRIVATE cxx_std_20)
+target_compile_options(AGainQueuedBridge PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-error=stringop-truncation)
+set_target_properties(AGainQueuedBridge PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
+target_link_options(AGainQueuedBridge PRIVATE "-Wl,--exclude-libs,ALL" "-Wl,-z,defs")
 add_executable(ap2-offline-host host/main.cpp
  "${VST3_SDK_ROOT}/public.sdk/source/vst/hosting/module_linux.cpp")
 target_link_libraries(ap2-offline-host PRIVATE sdk_hosting pthread dl)
 target_compile_features(ap2-offline-host PRIVATE cxx_std_20)
 target_compile_options(ap2-offline-host PRIVATE -Wall -Wextra -Wpedantic -Werror)
+
+add_executable(ap3-sustained-host host/sustained.cpp
+ "${VST3_SDK_ROOT}/public.sdk/source/vst/hosting/module_linux.cpp")
+target_link_libraries(ap3-sustained-host PRIVATE sdk_hosting pthread dl)
+target_compile_features(ap3-sustained-host PRIVATE cxx_std_20)
+target_compile_options(ap3-sustained-host PRIVATE -Wall -Wextra -Wpedantic -Werror)
+add_library(ap3-callback-audit SHARED tests/callback_audit.cpp)
+target_link_libraries(ap3-callback-audit PRIVATE dl)
+target_compile_features(ap3-callback-audit PRIVATE cxx_std_20)
+target_compile_options(ap3-callback-audit PRIVATE -Wall -Wextra -Wpedantic -Werror)
