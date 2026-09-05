@@ -35,9 +35,9 @@ def command_vector(environment,session,component_case,mode):
 
 StreamState=ap0.StreamState
 
-def supervise(environment,*,mode,checkpoint,profile):
-    if _client is None:raise RuntimeError('native caller was not admitted')
-    session=secrets.token_hex(16)
+def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_env=None,windows_run=None,accepted_events=None,session=None):
+    if _client is None and caller_command is None:raise RuntimeError('native caller was not admitted')
+    session=session or secrets.token_hex(16)
     out_path=environment.session/'ap1-client.jsonl';err_path=environment.session/'ap1-client.stderr'
     client=None;identity=None;observed=None;primary=None;windows_started=False;caller={'records':[],'raw_exit':None,'cleanup':{'owned_descendants_zero':False,'process_group_empty':False}}
     windows_cleanup={'owned_descendants_zero':False,'process_group_empty':False}
@@ -48,13 +48,13 @@ def supervise(environment,*,mode,checkpoint,profile):
             captured={**captured,**available}
             if 'cleanup' in available:windows_cleanup=available['cleanup']
         # The Windows group alone cannot authorize retirement while Linux lives.
-        projected={**available,'cleanup':{'owned_descendants_zero':False,'process_group_empty':False}} if available else None
+        projected={**captured,'cleanup':{'owned_descendants_zero':False,'process_group_empty':False}} if available else None
         checkpoint(stage,projected,error)
     with out_path.open('xb') as out,err_path.open('xb') as err:
         try:
-            client=subprocess.Popen([str(_client),'--session-dir','.','--session',session],cwd=environment.session,
+            client=subprocess.Popen(caller_command or [str(_client),'--session-dir','.','--session',session],cwd=environment.session,
                 stdin=subprocess.DEVNULL,stdout=out,stderr=err,start_new_session=True,
-                env=inherited.controlled_environment(environment))
+                env=caller_env or inherited.controlled_environment(environment))
             identity=inherited.process_identity(client.pid)
             deadline=time.monotonic()+5
             while not (environment.session/'ap1.control').exists():
@@ -62,7 +62,7 @@ def supervise(environment,*,mode,checkpoint,profile):
                 if time.monotonic()>deadline:raise RuntimeError('native caller setup timeout')
                 time.sleep(.01)
             windows_started=True
-            observed=diagnostic.supervise(environment,mode=mode,checkpoint=capture,profile=profile,session_override=session)
+            observed=(windows_run(capture) if windows_run else diagnostic.supervise(environment,mode=mode,checkpoint=capture,profile=profile,session_override=session))
             windows_cleanup=observed['cleanup']
         except Exception as error:
             primary=error
@@ -82,13 +82,16 @@ def supervise(environment,*,mode,checkpoint,profile):
     if not windows_started:windows_cleanup={'owned_descendants_zero':True,'process_group_empty':True}
     import hashlib
     caller['stderr_sha256']=hashlib.sha256(err_path.read_bytes()).hexdigest()
+    if caller_command is not None and err_path.stat().st_size:
+        from pc0_diagnostic_runtime import sanitized_supervision_error
+        caller['stderr_detail']=sanitized_supervision_error(RuntimeError(err_path.read_bytes()[:2048].decode('utf-8','replace')))
     try:
         raw=out_path.read_bytes()
         if len(raw)>192*1024:raise RuntimeError('native report exceeds bound')
         lines=raw.splitlines()
         for line in lines:
             value=json.loads(line)
-            if not isinstance(value,dict) or value.get('event') not in {'ap1_client_ready','ap1_client_block','ap1_client_closed','ap1_client_error'}:raise RuntimeError('native report event differs')
+            if not isinstance(value,dict) or value.get('event') not in (accepted_events or {'ap1_client_ready','ap1_client_block','ap1_client_closed','ap1_client_error'}):raise RuntimeError('native report event differs')
             caller['records'].append(value)
         if raw and not raw.endswith(b'\n'):raise RuntimeError('native report was truncated')
     except Exception as error:primary=primary or error

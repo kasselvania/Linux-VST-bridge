@@ -288,7 +288,7 @@ def compare_builds(a: pathlib.Path, b: pathlib.Path) -> dict[str, Any]:
     }
 
 
-def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = False) -> dict[str, Any]:
+def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = False, ap2: bool = False) -> dict[str, Any]:
     """Require the five inherited plus two WA0 calls and reject audio methods."""
     root = source_root / "windows-factory-probe"
     texts = {
@@ -325,6 +325,11 @@ def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = Fal
                      "setBusArrangements", "setupProcessing", "activateBus", "setActive",
                      "setProcessing", "process"}
         forbidden_calls = tuple(value for value in forbidden_calls if value not in permitted)
+    if ap2:
+        if not ap0:
+            fail("AP2 requires the existing offline processing surface")
+        forbidden_calls = tuple(value for value in forbidden_calls
+                                if value not in {"getLatencySamples", "getTailSamples"})
     production = "\n".join(
         text for path, text in texts.items()
         if path.startswith("source/")
@@ -343,7 +348,7 @@ def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = Fal
     ):
         fail("WA0 one-owner or eight-state interface boundary differs")
     return {
-        "closed_plugin_operation_count": 17 if ap0 else 7,
+        "closed_plugin_operation_count": 19 if ap2 else 17 if ap0 else 7,
         "new_audio_interface_operation_count": 2,
         "operation_call_counts": counts,
         "controller_creation_absent": True,

@@ -621,7 +621,7 @@ def render_ap0_packet(output, result, *, consumer_source, validate, product="AP0
         digest=sha256_bytes(canonical_json(value))
         write_atomic(directory/'TRANSACTION.json',canonical_json({
             'schema':'linux-vst-bridge-'+product.lower()+'-acceptance-packet/v1',
-            'status':'acceptance verified, awaiting technical-lead review','accepted_frontier':'PC0' if product=='AP0' else 'AP0',
+            'status':'acceptance verified, awaiting technical-lead review','accepted_frontier':{'AP0':'PC0','AP1':'AP0','AP2':'AP1'}[product],
             'consumer_source':consumer_source,'result_sha256':digest,'result':value}))
         write_atomic(directory/'BASIS.md',_markdown(product+' acceptance basis',[
             f"Fresh executed source `{value['source_commit']}`; consumer `{consumer_source}`; result `{digest}`.",

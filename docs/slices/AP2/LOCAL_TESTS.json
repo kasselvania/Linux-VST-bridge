@@ -1,0 +1,166 @@
+{
+  "classification": "LOCAL_SUBSTITUTED_PEER_TESTS",
+  "windows_workloads": 0,
+  "cases": [
+    {
+      "case": "discovery",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 0,
+        "start": 0,
+        "process": 0
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "discovery",
+        "terminate_result": 0,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "unavailable",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 0,
+        "start": 0,
+        "process": 0
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "unavailable",
+        "terminate_result": 1,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "zero",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 1,
+        "start": 1,
+        "process": 0
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "zero",
+        "terminate_result": 0,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "positive",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 1,
+        "start": 1,
+        "process": 13
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "positive",
+        "terminate_result": 0,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "disconnect",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 1,
+        "start": 1,
+        "process": 1
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "disconnect",
+        "terminate_result": 1,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "timeout",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 1,
+        "start": 1,
+        "process": 1
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "timeout",
+        "terminate_result": 1,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "invalid",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 1,
+        "start": 1,
+        "process": 1
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "invalid",
+        "terminate_result": 1,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "flags",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 1,
+        "start": 1,
+        "process": 1
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "flags",
+        "terminate_result": 1,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "silence",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 1,
+        "start": 1,
+        "process": 1
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "silence",
+        "terminate_result": 1,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    },
+    {
+      "case": "nonfinite",
+      "returncode": 0,
+      "peer_counts": {
+        "activate": 1,
+        "start": 1,
+        "process": 1
+      },
+      "closure": {
+        "event": "ap2_host_closed",
+        "case": "nonfinite",
+        "terminate_result": 1,
+        "references_released": true,
+        "module_unloaded": true
+      }
+    }
+  ]
+}

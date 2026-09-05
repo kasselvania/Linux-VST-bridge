@@ -24,7 +24,7 @@ ACCEPTANCE = "ACCEPTANCE_CANDIDATE"
 
 
 def schema_for(binding):
-    if binding.get("product") in {"AP0", "AP1"}:
+    if binding.get("product") in {"AP0", "AP1", "AP2"}:
         return "linux-vst-bridge-" + binding["product"].lower() + "-reservation/v1"
     return "linux-vst-bridge-pc0-reservation-acceptance/v1" if binding["execution_class"] == ACCEPTANCE else SCHEMA
 
@@ -144,7 +144,7 @@ def preflight(binding):
         c.dx0_deck_source_parent() / source["commit"], source["commit"], reconstruct=False)
     c.process_guard()  # Includes this process; code must never be sent in argv.
     c.deck_fixture_identity()
-    if binding.get("product") == "AP1":
+    if binding.get("product") in {"AP1", "AP2"}:
         from ap1_runtime import verify_runtime
     else:
         from pc0_diagnostic_runtime import verify_diagnostic_runner as verify_runtime
@@ -156,8 +156,11 @@ def preflight(binding):
     before = c.protected_snapshot()
     host_root = c.dx0_deck_host_artifact_parent() / binding["host_manifest_sha256"]
     build_input = a.read_canonical_json(host_root / "DX0_WINDOWS_HOST_BUILD_RECEIPT.json")["windows_build_input"]["sha256"]
-    if binding.get("product") in {"AP0", "AP1"}:
-        if binding.get("product") == "AP1":
+    if binding.get("product") in {"AP0", "AP1", "AP2"}:
+        if binding.get("product") == "AP2":
+            from ap2_worker_support import verify_host, bind_client
+            bind_client(binding["native_client"])
+        elif binding.get("product") == "AP1":
             from ap1_worker_support import verify_host, bind_client
             bind_client(binding["native_client"])
         else:
@@ -184,7 +187,7 @@ def preflight(binding):
                         "observed_runtime_sha256": runner["launch_critical_manifest_sha256"],
                         "declared_runtime_inputs_sha256": runner["declared_inputs_sha256"]}
     execution_sha = digest(canonical(diagnostic_input))
-    if is_acceptance(binding) or binding.get("product") in {"AP0", "AP1"}:
+    if is_acceptance(binding) or binding.get("product") in {"AP0", "AP1", "AP2"}:
         from pc0_contract import acceptance_execution_input_sha256
         execution_sha = acceptance_execution_input_sha256(binding,runner)
     return c, r, source, host, fixture, before, execution_sha, handoff, runner
@@ -235,8 +238,10 @@ def execute(proof, binding):
     c, r, source, host, fixture, before, deck_sha, _handoff, runtime = preflight(binding)
     import pc0_diagnostic_primitives as diagnostic
     ap0 = None
-    if binding.get("product") in {"AP0", "AP1"}:
-        if binding.get("product") == "AP1":
+    if binding.get("product") in {"AP0", "AP1", "AP2"}:
+        if binding.get("product") == "AP2":
+            import ap2_worker_support as ap0
+        elif binding.get("product") == "AP1":
             import ap1_worker_support as ap0
         else:
             import ap0_worker_support as ap0
@@ -295,7 +300,7 @@ def execute(proof, binding):
         raw = canonical({"observation": value, "sha256": digest(canonical(value))})
         temporary = None
         try:
-            if len(raw) > (256 if binding.get("product") == "AP1" else 128) * 1024:
+            if len(raw) > (512 if binding.get("product") == "AP2" else 256 if binding.get("product") == "AP1" else 128) * 1024:
                 raise RuntimeError("checkpoint exceeds declared byte bound")
             # One ordinary atomic file; failed writes leave the earlier checkpoint.
             with tempfile.NamedTemporaryFile(dir=root, prefix=".checkpoint-", delete=False) as stream:

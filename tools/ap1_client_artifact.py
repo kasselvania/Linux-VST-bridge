@@ -1,7 +1,7 @@
 """Small exact-binary verifier for the AP1 native caller; no execution API."""
 import hashlib,json,pathlib,struct
 PATHS=('native-audio-client/Cargo.toml','native-audio-client/Cargo.lock',
-       'native-audio-client/src/lib.rs','native-audio-client/src/main.rs')
+       'native-audio-client/src/lib.rs','native-audio-client/src/main.rs','native-audio-client/src/mapping.rs','native-audio-client/src/endpoint.rs')
 def canonical(v):return (json.dumps(v,sort_keys=True,separators=(',',':'))+'\n').encode()
 def digest(b):return hashlib.sha256(b).hexdigest()
 def elf(raw):

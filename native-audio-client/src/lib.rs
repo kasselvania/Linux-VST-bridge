@@ -1,4 +1,6 @@
-//! AP1 bounded wire codec and Linux-owned slot state. No external dependencies.
+pub mod endpoint;
+pub mod mapping;
+// AP1 bounded wire codec and Linux-owned slot state. No external dependencies.
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
@@ -47,14 +49,19 @@ pub struct Frame {
 }
 impl Frame {
     pub fn encode(&self) -> io::Result<Vec<u8>> {
+        self.encode_version(1)
+    }
+    pub fn encode_version(&self, minor: u64) -> io::Result<Vec<u8>> {
         need(
-            (1..=7).contains(&self.kind) && self.payload.len() <= 4040,
+            (1..=if minor == 2 { 15 } else { 7 }).contains(&self.kind)
+                && (1..=2).contains(&minor)
+                && self.payload.len() <= 4040,
             "frame kind/length",
         )?;
         let mut b = vec![0; HEADER + self.payload.len()];
         put(&mut b[0..4], 0x3141504c);
         put(&mut b[4..6], 1);
-        put(&mut b[6..8], 1);
+        put(&mut b[6..8], minor);
         put(&mut b[8..10], self.kind as u64);
         put(&mut b[12..16], self.payload.len() as u64);
         b[16..32].copy_from_slice(&self.session);
@@ -64,8 +71,11 @@ impl Frame {
         Ok(b)
     }
     pub fn decode(b: &[u8]) -> io::Result<Self> {
+        Self::decode_version(b, 1)
+    }
+    pub fn decode_version(b: &[u8], minor: u64) -> io::Result<Self> {
         need(b.len() >= HEADER, "truncated header")?;
-        let n = payload_length(&b[..HEADER])?;
+        let n = payload_length_version(&b[..HEADER], minor)?;
         need(b.len() == HEADER + n, "truncated/extra payload")?;
         Ok(Self {
             kind: get(&b[8..10]) as u16,
@@ -76,16 +86,22 @@ impl Frame {
     }
 }
 pub fn payload_length(b: &[u8]) -> io::Result<usize> {
+    payload_length_version(b, 1)
+}
+pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
     need(
         b.len() == HEADER
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
-            && get(&b[6..8]) == 1
+            && get(&b[6..8]) == minor
+            && (1..=2).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
     need(
-        (1..=7).contains(&get(&b[8..10])) && get(&b[32..40]) == 1 && get(&b[48..56]) == 0,
+        (1..=if minor == 2 { 15 } else { 7 }).contains(&get(&b[8..10]))
+            && get(&b[32..40]) == 1
+            && get(&b[48..56]) == 0,
         "kind/instance/parent",
     )?;
     let n = get(&b[12..16]);
@@ -93,12 +109,15 @@ pub fn payload_length(b: &[u8]) -> io::Result<usize> {
     Ok(n as usize)
 }
 pub fn read_frame<R: Read>(r: &mut R) -> io::Result<Frame> {
+    read_frame_version(r, 1)
+}
+pub fn read_frame_version<R: Read>(r: &mut R, minor: u64) -> io::Result<Frame> {
     let mut b = vec![0; HEADER];
     r.read_exact(&mut b)?;
-    let n = payload_length(&b)?;
+    let n = payload_length_version(&b, minor)?;
     b.resize(HEADER + n, 0);
     r.read_exact(&mut b[HEADER..])?;
-    Frame::decode(&b)
+    Frame::decode_version(&b, minor)
 }
 // Each socket operation shares one absolute deadline, including fragmentation.
 pub struct Deadline<'a> {

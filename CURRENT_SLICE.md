@@ -1,43 +1,63 @@
-# Current Work: AP1 Accepted
+# Current Work: AP2 — Host-loaded Native VST3 Offline Bridge
 
-**AP1 is accepted.** PR #51 merged as `af4f988420cefe3c4cc20c01c3d1b0d29d11efaa` after technical-lead review `5121807388` of exact head `32379eec7ea8964d4f3ab6f1e918630c02637e34`. AP0 and PC0 remain accepted prerequisites. No implementation successor is active.
+**Active implementation work order.** Issue #52; branch `codex/ap2-native-vst3-offline-bridge`; basis `a39760c071a95182b79faa9ee759bb271acc07b7`. AP1 is accepted through PR #51. AGENTS.md authorizes this whole task before merge; there is no intermediate design or activation handoff.
 
-## Accepted capability
+## Outcome and why it is next
 
-A native Linux Rust caller supplies samples and gain requests through one shared mapping and authenticated loopback control connection. The supervised Windows host processes them through one retained AGain instance. Linux reads actual mapped output and checks it against independently determined expectations.
+Deliver a native Linux ELF `.vst3` bundle whose standard VST3 processing interface drives the actual Windows AGain through the accepted mapped-audio backend. A Linux SDK-based host loads the bundle, owns its buffers, sets up and runs the processor, reads its returned audio, and tears it down. The host must not call private proxy exports, manipulate AP1 memory directly, or run the AP1 recipe executable as a substitute for the plug-in interface.
 
-The second acceptance on the Steam Deck / Steam Linux Runtime 4 / explicitly bound Proton 11.0-2c composition verified **1,502/1,502 float32 samples with maximum absolute error 0.0** across ten blocks. The original eight changing-input/gain/length cases remain, including silence. Zero gain on non-silent input returned zero samples and actual output mask 3; correctly formed left-channel silence returned exact samples and mask 0; the all-silent case returned mask 3. Output flags are validated independently of input flags, including all 64 SDK bits and the samples of any channel claimed silent. Protocol 1.1 retains those actual flags in Done.
+This connects the working Windows/transport side to the interface a native DAW will load. It is **offline-only and processor-only**, not yet a usable realtime Bitwig insert. Do not put AP1's seconds-long waits on an audio-device callback. Native factory discovery alone or another standalone socket client is insufficient.
 
-One host, instance, mapping and connection served the session. The reported execution stopped and joined processing before deactivation/release/unload, retired both mappings, exited both endpoints cleanly, removed owned processes and staging, and left protected state unchanged. Local peer/fault tests cover malformed/stale responses, disconnects, deadlines, invalid output claims and failure retention without replay. These are not live hostile-plug-in tests.
+## Selected surface and ownership
 
-This is bounded offline numerical and transport correctness on the recorded fixture. It is not a DAW-ready or real-time bridge, a portable shared-memory proof, general plug-in compatibility, an editor/state implementation or a sandbox-security certification.
+- Add a separate native proxy target. Reuse `native-probe/` SDK/bundle techniques, not its local gain DSP, class IDs or installed publication. Preserve the accepted LabHostProbe and Serum installations. Bind the proxy's processor class to the retained Windows AGain processor FUID and module digest; labels/capability description must identify the limited offline bridge. Expose no controller/view class in this cut; return the SDK's unsupported result for unavailable controller/state/editor functionality. Do not advertise complete AGain interface coverage or successful preset persistence. Keep the bundle in private test staging, outside normal DAW search paths.
+- The C++20 shell owns official module/factory/IComponent/IAudioProcessor objects, SDK references and conversions. Rust owns the reusable session/mapping/control endpoint, extracted narrowly from `native-audio-client`. Their small versioned C ABI uses opaque handles and bounded borrowed buffers/results; no C++/Rust objects, exceptions or panics cross it. Host buffers are borrowed only for the call and never retained after return. Use the native host's compatible libc/PIC build, not AP1's standalone musl executable as a loadable library.
+- The existing external supervisor owns environments, launching and cleanup. It supplies one exact private session binding to the proxy process, and launches Windows when the endpoint is ready. The module does not execute Wine/Proton, select paths from a peer, modify prefixes, or become another broker. Discovery and initialize without activation must not launch Windows. Reuse AP1's authenticated loopback control, fixed shared mapping, single-slot ownership and no-replay law.
+- Host lifecycle is authoritative: initialize/setup -> activate -> start -> process -> stop -> deactivate -> terminate/release. Reflect successful transitions at the Windows owner/processing threads; do not merely return success while an unrelated pre-scripted run executes. Preallocate during setup/activation. Windows processes only in the host-requested processing interval; stop is acknowledged before deactivation/release, with its processing thread quiescent/joined before unloading. A zero-call start/stop is valid. Necessary narrow lifecycle messages and a versioned successor mode are included; preserve AP1's existing mode/contract. One active instance at a time is supported. Refuse conflicting attachment rather than sharing state by class ID. Fresh reopen creates a fresh session/instance.
 
-## Evidence and runtime history
+## Processing contract
 
-- [Current contract](docs/slices/AP1/CONTRACT.md), [usage](docs/slices/AP1/USAGE.md), and [second acceptance result](docs/slices/AP1/RESULT_A2.md).
-- [Second acceptance packet](evidence/ap1-linux-windows-audio-roundtrip-a2/FINDINGS.md).
-- [Preserved first result](docs/slices/AP1/RESULT.md) and [first packet](evidence/ap1-linux-windows-audio-roundtrip/FINDINGS.md).
-- Executed source: `a2e12c52df0db34c6476c1b337065e1f53e92638`.
-- Second acceptance result: `c018835588a05a3e8fb7092ef95f262338b003060897b7f0d7a1c6f470f0a628`.
-- Proton: `1788504981 proton-11.0-2c-x86_64`, build `25118279`, depot `2978628887517351791`; runtime contract `20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7`.
+Accept only `kOffline`, `kSample32`, 48000 Hz and one active stereo audio input/output, with negotiated maximum block size in 1..256. Reject realtime/prefetch, 64-bit processing, unsupported arrangements or state before dispatch. Report only capabilities actually implemented. Query interface/reference/lifecycle behavior follows the pinned SDK; supporting mandatory cheap queries is part of this cut, not another milestone. Do not claim transport waiting adds audio sample delay; report the actual processing latency/tail for this retained fixture.
 
-The runtime transition was explicitly authorized and bound for AP1; historical WR0/PC0/AP0 and the first AP1 runtime records remain unchanged. The reported new selection matched preflight, launch and post-run. The first 1,344-sample result remains valid for its original code/runtime/vectors; it does not prove the later silence repair. Because code and Proton both changed, the second result is not an isolated comparison of Proton versions.
+For each nonempty `process`, validate the actual ProcessData against setup before touching backend state. Copy host inputs into the owned slot, delegate to AGain, wait for the matching response within a finite offline deadline, and copy actual samples and output silence flags back before returning success. Support normal separate buffers and same-channel in-place buffers by snapshotting inputs before output writes. Input silence flags are optional hints, not output predictions; preserve AP1's independent full-width output-mask and zero-sample validation.
 
-Review inspected the repaired C++ result handler, Rust protocol/checker, independent Python checker, runtime verifier/binding, source comparison and retained evidence/report. Final CI run `33973617513`, job `101326364729`, passed compilation, 95 Python/integration tests (91 focused tests plus four native mapped-peer tests), eight Rust tests and C++ protocol/result-handler checks on merge candidate `bd968f01c35d0319940df96c31bc80929357de9f`. Windows producer `33971421519` also succeeded. The lead did not independently rerun the Deck workload or recompute every sample from private raw stores during review.
+Gain uses AGain ParamID 0, normalized finite [0,1], with at most one point at offset zero per block. Missing/empty queues retain the last accepted gain, initialized to the retained AGain default. Bypass remains off; a supplied bypass-off value may be admitted, but enabling it, other nonempty parameter queues, musical events or intra-block automation is explicitly unsupported. Reject malformed/unsupported requests without silently dropping them or changing the cached gain. For `numSamples == 0`, permit the SDK's parameter-flush form with zero audio buses/null audio arrays: update the validated pending gain without a backend audio request; the next nonempty call delivers it. This is parameter delivery, not saved plug-in state.
 
-The evidence packets retain their publication-time pending-review status. This record and the merge review establish subsequent acceptance; do not rewrite immutable observations merely to update status.
+Retain the backend's declared 64 nonempty-block bound per activation for this first cut; reaching it must yield an explicit refusal, never restart the plug-in. Zero-frame flushes do not consume an audio sequence. No extra sample is generated locally; no native gain/bypass DSP fallback exists.
 
-## Completed task
+A timeout, disconnect, invalid response or processing failure latches the session unusable. Return an explicit VST3 failure and clear only validated writable output spans defensively; clearing is not a successful silent result. Never replay, reconnect silently, use last-good output or reuse an outstanding slot. Stop/terminate must still permit bounded cleanup. No host reference, Rust handle or mapping may be released while an owned worker can use it. Unknown containment blocks a new attempt. Use the existing finite setup/request/close watchdogs, documenting any necessary narrow change before measurement. No production security or realtime guarantee is inferred from this test.
 
-Cumulative usage remains **2/6 Windows producers, 2/10 diagnostics, 2/2 acceptance candidates**. Both diagnostics remain acceptance-ineligible. Both acceptance candidates retain their original source, authority and result. No budget, reservation or unknown outcome is reset. AP1 is complete: no further build, diagnostic or acceptance workload is authorized by its former work order or this closure. Read-only inspection and supported retained-result reporting remain available without relaunch.
+## Proof that must run
 
-## Next product direction
+Use the pinned SDK's module/hosting helpers for a small independent offline test host, or a selected validator extension. It must discover the ELF bundle, instantiate/query through standard VST3, pass standard ProcessData/parameter queues, and inspect its own returned buffers. The orchestration supplies private launch binding out of band; the audio test knows no shared-memory offsets, private C ABI or transport recipe. Full stock-validator success is not required for this declared subset; do not fake unsupported capabilities to obtain it.
 
-Move this working audio crossing toward the native Linux VST3 proxy and a real DAW consumer, rather than another fixed-buffer fixture. The next work order should close the necessary session ownership and callback behavior against those actual consumers. AP1's offline socket waits, allocation and logging must not simply be placed on a real-time DAW callback. Reuse the working Windows processing and mapped-data implementation; no successor execution is authorized by this review.
+In a persistent activation, have the host select fresh reproducible signed binary-fraction inputs after activation, exercise the ten AP1-A2 cases through VST3, and independently compare every sample at zero tolerance. Include changing block lengths/gains, zero gain, whole/one-channel silence, an empty gain queue after a change, a zero-frame gain flush before real audio, and same-channel in-place buffers. Retain actual host request/return words, masks, maximum error and matched backend call counts. A correct Windows-side report without correct host-owned output is not success.
+
+Prove clean close/unload and a fresh reopen with no inherited gain/session/handle state. Local tests through the actual loaded proxy/C ABI cover wrong setup/order/shape, double/invalid ownership, unsupported realtime calls, backend disconnect/timeout/invalid replies and failure teardown. Prove backend unavailability cannot fall back to local gain calculation. Use local peers/substituted platform effects for faults, not a new hostile-plug-in campaign. Keep prior regression tests; add tests for changed code, not a certification framework.
+
+Fresh Deck verification runs the Linux SDK host and real Windows plug-in, with exact native/Windows artifacts, runtime selection, thread/lifecycle observations, mapping/process retirement and unchanged protected state. A batch may contain the bounded positive activation and one clean reopen; it is not a reservation per VST3 call. Offline CPU time is not evidence of meeting a realtime deadline.
+
+## Execute and deliver
+
+One engineer owns implementation, target-compatible Linux builds, necessary Windows builds, artifact delivery, focused tests, source/plan binding, diagnostics and fresh verification. Native CMake/SDK/FFI integration, narrow supervisor/adapter changes and stale build-branch/input-roster repairs are included. Reuse unchanged Windows artifacts when possible; do not rebuild merely to bind new Linux code. Do not import historical execution authority or rewrite accepted evidence. No separate adapter, governance or status-only PR is required.
+
+Task ceilings: **six Windows producer attempts, ten diagnostic batches in one AP2 campaign, two acceptance candidates with one batch each**. Local builds/tests are ordinary development. The second candidate is authorized after a specific tested implementation/review repair, including a defect found after a successful first observation; preserve the first and all cumulative counts. No blind retries, reset or redundant successful runs. Reporting-only repair reuses its retained observation. Source/artifact/plan rebinding within this contract is delegated through the existing exact/atomic paths after local tests; do not pretend backend readiness exists before it does.
+
+Use AP1's explicit Proton 11.0-2c/Runtime 4 selection and unchanged SDK/AGain. If Steam completes another official update in that same selected release line during AP2, the engineer may explicitly bind it for a new unreserved candidate, with old/new records and strict preflight/launch/post-run checks. Do not auto-trust arbitrary installed bytes, change runner family, rewrite historical locks or migrate protected seeds. Runtime-only changes do not force an endpoint rebuild. Ordinary in-scope repair requires no new approval; genuine ownership/claim changes, unknown containment, changed protected state or exhausted allowance stop live work, not local diagnosis.
+
+Open one non-draft PR closing #52 with implementation, focused tests, a compact ABI/usage note and the actual host-returned sample/cleanup results. Leave it unmerged for review; AP1 remains accepted until then. No Bitwig launch/publication, audio device, real-time synchronization/optimization, arbitrary plug-in support, controller proxying, state/presets, editor, multi-instance broker or runtime-management project belongs here.
+
+## Targeted basis
+
+- `docs/ARCHITECTURE.md` §§2, 5.7–5.9, 6–7: SDK edge, Rust ownership, host/supervisor distinction and separate control/audio.
+- `native-probe/source/processor.cpp` and root `CMakeLists.txt`: accepted local effect/build reference, not the bridge implementation.
+- AP1 `CONTRACT.md`, `RESULT_A2.md`, native Rust client and Windows mapped/offline processing sources: accepted transport and processing basis.
+- [Pinned processing interface](https://github.com/steinbergmedia/vst3_pluginterfaces/blob/4f547e8e102b47de4a8b8aaf343c73b700786372/vst/ivstaudioprocessor.h): offline/realtime distinction, buffer rules and lifecycle/thread requirements.
+- [SDK validator](https://steinbergmedia.github.io/vst3_dev_portal/pages/What%2Bis%2Bthe%2BVST%2B3%2BSDK/Validator.html): standard host/test integration. Keep the repository's existing SDK revision; no SDK migration is needed.
 
 ## Authority — default command guard
 
-The default guard remains closed for unspecified work. Historical scoped receipts do not renew completed task permission or permit duplicate execution.
+This mapping continues to refuse unspecified live commands. The active AP2 work order/ruling authorizes implementation; its exact scoped receipts authorize tested AP2 executions. Registry readiness below describes accepted adapters, not an already-implemented AP2 adapter.
 
 ```yaml
 status: no_active_slice
@@ -54,7 +74,7 @@ classified_backend_core_ready: true
 classified_backend_ready: true
 production_adapter_registry: pc0_ap0_ap1_diagnostic_and_acceptance
 accepted_product_frontier: AP1
-current_product_target: none
+current_product_target: AP2
 pc0_status: accepted
 ap0_status: accepted
 ap1_status: accepted

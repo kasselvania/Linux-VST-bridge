@@ -194,6 +194,7 @@ def sanitized_supervision_error(error):
 # protocol fields can enter a troubleshooting checkpoint; no process identities,
 # command lines, environment, factory account metadata or paths are retained.
 CHECKPOINT_KEYS = frozenset("""
+stderr_detail latency_samples tail_samples activations host_records seed_after_activation reopen audio_calls samples max_error comparison_ok in_place terminate_result references_released module_unloaded next_sequence kind case
 caller seed seed_chosen_after_ready mapping_witness mapping_count connection_count instance_count mapping_unmapped closed_received replays silent detail stage error transport_lifecycle
 rejected origin thread_role enclosing_attempt_sequence enclosing_operation reference_count output_null
 event sequence attempt_sequence operation interface ordinal tier return_kind

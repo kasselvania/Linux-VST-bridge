@@ -29,6 +29,11 @@ jobs:
           tools/pc0_acceptance_worker.py
           tools/pc0_acceptance_adapter.py
           tools/pc0_contract.py
+          tools/ap2_adapter.py
+          tools/ap2_contract.py
+          tools/ap2_native_artifact.py
+          tools/ap2_worker_support.py
+          tools/ap2_build_native.py
           tools/ap1_runtime.py
           tools/ap1_adapter.py
           tools/ap1_contract.py
@@ -65,8 +70,10 @@ jobs:
           tools/test_ap1_runtime.py
           tools/test_ap1_execution.py
           tools/test_ap1_client.py
-      - name: Check AP1 native codec and ownership
+          tools/test_ap2_execution.py
+      - name: Check native codec and ownership
         run: |
           RUSTC="$(rustup which --toolchain stable rustc)" rustup run stable cargo test --manifest-path native-audio-client/Cargo.toml --locked --offline
+          RUSTC="$(rustup which --toolchain stable rustc)" rustup run stable cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --offline
           c++ -std=c++20 -Wall -Wextra -Werror -I windows-factory-probe/source tools/ap1-tests/codec.cpp -o /tmp/ap1-codec-tests
           /tmp/ap1-codec-tests "$(cat tools/ap1-tests/golden.txt)"

@@ -6,13 +6,17 @@ Build a managed Windows-audio compatibility platform for native Linux DAWs. A su
 
 The Steam Deck, SteamOS, Bitwig, AGain, Serum, and Kontakt are fixtures. They do not define the universal product boundary.
 
-## Completed AP1 ruling — Native Linux / Windows audio round trip
+## Active AP2 ruling — Host-loaded native VST3 offline bridge
 
-AP1 is accepted through PR #51 after exact-head technical-lead review. AP0 and PC0 remain accepted prerequisites. `CURRENT_SLICE.md` owns current status, the bounded accepted claim, runtime/evidence references and the next proposed product direction.
+AP1 is accepted through PR #51; AP0 and PC0 remain accepted prerequisites. Under the operator's request to prepare the next native-host capability, the technical lead selects and authorizes **AP2** on `codex/ap2-native-vst3-offline-bridge`, based on `a39760c071a95182b79faa9ee759bb271acc07b7`. Issue #52 tracks it. `CURRENT_SLICE.md` owns the selected processor-only/offline surface, session/lifecycle/parameter/failure decisions, required proof and task limits.
 
-The AP1 work order, silence repair and explicitly authorized Proton 11.0-2c transition are complete. Their prior implementation/build/diagnostic/candidate permissions do not authorize another workload after merge. Preserve both acceptance observations, all consumed counts and diagnostic history, and the separate historical runtime bindings. Do not rerun successful work for status closure or relabel an old result under the new runtime.
+One engineer owns the complete implementation, target-compatible native Linux and necessary Windows builds, private bundle staging, focused tests, narrow runner integration, mechanical exact source/artifact/plan/candidate binding and fresh Deck verification before one implementation PR. No separate selection, design dossier, pre-run approval or process-only PR is required inside that work order. Final technical-lead review and merge remain separate. This is PRODUCT_CONTRACT_CHANGE; diagnostics and fresh acceptance retain their distinct existing execution classes.
 
-No implementation successor is active. Read-only investigation and review remain permitted; the next scoped work order must define the new capability and its execution boundaries. Keep useful failure retention, process/mapping ownership, protected-state checks and honest evidence classification. The accepted offline crossing does not waive the real-time or native-proxy requirements below.
+The official C++ VST3 shell and SDK-based test host are permitted edges; Rust owns reusable session/transport logic through a narrow versioned C ABI. Reuse the existing external supervisor for process/environment ownership. This ruling permits the required module/factory/interface, offline setup/activation/processing/teardown, gain-queue/flush and bounded shared-transport work. It supersedes prior restrictions that would forbid a native proxy, changed host mode, lifecycle messages, current-branch builds or narrow corresponding adapter/roster changes. It does not permit placing the blocking offline path in realtime/prefetch callbacks or presenting the limited proxy as a fully compatible AGain/Bitwig plug-in.
+
+Read the work order and relevant source; choose the smallest implementation, with ordinary freedom over private types, modules, codec details and focused refactoring. Preserve the accepted native-probe installation and prior Windows modes/evidence. The task's build/test ceilings include review-driven correction; source/plan rebinding and the explicitly bounded official-runtime-update contingency in CURRENT_SLICE.md are delegated without resetting history. Verify actual backend readiness before execution. The disabled default CLI guard below the work order blocks unspecified workloads, not this authorized task.
+
+Do not return merely because a loader, C ABI, build or adapter exists. Continue to host-returned audio and clean shutdown within the recorded allowance. No renewed permission is required for routine in-scope repairs. No new proof/transaction framework, general broker, DAW publication, realtime engine, editor, state/preset or commercial-plug-in work is authorized. AP1 remains the accepted frontier until AP2 passes final review and merges; historical work orders do not grant new live runs of their old candidates.
 
 ## Authority order
 

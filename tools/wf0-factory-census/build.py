@@ -27,9 +27,9 @@ from common import (
     sha256_file, source_manifest_sha256, write_atomic,
 )
 from common import (
-    AP1_BRANCH as DX0_BRANCH, AP1_WINDOWS_BUILD_PATHS, DX0_HOST_ARTIFACT_SCHEMA, DX0_HOST_BUILD_SCHEMA, DX0_HOST_MODE,
-    AP1_REF as DX0_REF, DX0_WINDOWS_BUILD_INPUT_SCHEMA, ap1_complete_source as dx0_complete_source,
-    dx0_identity_sha256, dx0_source_role, ap1_windows_build_input as dx0_windows_build_input,
+    AP2_BRANCH as DX0_BRANCH, AP1_WINDOWS_BUILD_PATHS, DX0_HOST_ARTIFACT_SCHEMA, DX0_HOST_BUILD_SCHEMA, DX0_HOST_MODE,
+    AP2_REF as DX0_REF, DX0_WINDOWS_BUILD_INPUT_SCHEMA, ap2_complete_source as dx0_complete_source,
+    dx0_identity_sha256, dx0_source_role, ap2_windows_build_input as dx0_windows_build_input,
 )
 from verify import (
     artifact_file_records, artifact_manifest, compare_builds,
@@ -881,7 +881,7 @@ def build_dx0_workflow(source_commit: str, sdk: pathlib.Path,
                        transaction: pathlib.Path, output: pathlib.Path) -> dict[str, Any]:
     source, build_input, workflow_blob = dx0_source_identity(source_commit)
     build_input_sha = dx0_identity_sha256(build_input)
-    call_surface = scanner_component_call_surface(repo_root(), ap0=True)
+    call_surface = scanner_component_call_surface(repo_root(), ap0=True, ap2=True)
     sdk_identity = verify_sdk(sdk)
     sdk_identity["checkout_regression"] = eol_checkout_regression()
     observed, cl_bv = toolchain_identity()
