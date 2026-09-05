@@ -986,3 +986,24 @@ def dx0_deck_source_parent() -> pathlib.Path:
 
 def dx0_deck_worktree_parent() -> pathlib.Path:
     return real_home() / ".local/share/linux-vst-bridge/worktrees/dx0"
+
+# AP0 extends only the existing producer's exact input roster and source role.
+AP0_BRANCH = "codex/ap0-offline-again-processing"
+AP0_REF = "refs/heads/" + AP0_BRANCH
+AP0_WINDOWS_BUILD_PATHS = tuple(sorted((*DX0_WINDOWS_BUILD_PATHS,
+    "windows-factory-probe/source/offline_processing.cpp",
+    "windows-factory-probe/source/offline_processing.h")))
+
+def ap0_complete_source(commit, *, root=None):
+    repository = root or repo_root()
+    command(["git", "merge-base", "--is-ancestor",
+             "b07cd337823a12fd0100a47d66733675ebf8bbb3", commit], cwd=repository)
+    value = dx0_complete_source(commit, root=repository, strict=False)
+    value["ref"] = AP0_REF
+    return value
+
+def ap0_windows_build_input(commit, *, root=None):
+    value = dx0_windows_build_input(commit, root=root)
+    value["records"] = dx0_records(commit, AP0_WINDOWS_BUILD_PATHS, root=root)
+    value["record_count"] = len(value["records"])
+    return value
