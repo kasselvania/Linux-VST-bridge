@@ -1,78 +1,79 @@
-# Current Work: PC0 Diagnostic Recovered — Complete Acceptance Next
+# Current Work: Complete PC0 Acceptance
 
-PR #46 is reviewed and merged as proof-harness maintenance at `3b556ea2712da7694272b8b32720ae3eb62ec654`, from exact head `044e082c219590ea6b26e1a2cc7d4daa42751708`. The diagnostic recovery task is complete. Do not rerun it merely because unused budget remains.
+**One task: connect the repaired, working AGain execution to acceptance, test the complete path locally, run one fresh acceptance workload, retain its evidence, and publish one implementation PR.** Do not stop after adapter preparation when the authorized run can proceed.
 
-## What the diagnostic established
+Branch: `codex/pc0-acceptance-completion`.
+Accepted starting main: `c33c23267fcc1c59606bdad25a5cf1b10a947a54`.
+The scoped ruling in `AGENTS.md` authorizes implementation, exact candidate/plan binding by the implementation agent, and one acceptance reservation. No intermediate approval or main-branch merge is required. The previous inactive acceptance notice and historical four-path/topology restrictions do not block this task.
 
-The execution agent reported the following retained result from source `9c2413154b4e4b87a3071d76aafad81ea32e30ee`:
+## Starting facts
 
-- audio buses: one input and one output, each two-channel stereo (`0x3`);
-- event buses: one input with one event channel, no output;
-- names: Stereo In, Stereo Out, Event In; each index zero, main and default-active;
-- `kSample32` and `kSample64`: return value zero, supported;
-- scanner exit zero, clean shutdown, owned processes gone, stage retired and protected state unchanged.
+PR #46 merged as harness maintenance at `3b556ea2712da7694272b8b32720ae3eb62ec654`. Reported diagnostic source `9c2413154b4e4b87a3071d76aafad81ea32e30ee` obtained audio buses 1 in / 1 out, each stereo; event buses 1 in / 0 out; main/default-active BusInfo; and supported returns for kSample32 and kSample64. It exited zero with clean shutdown, process containment, stage retirement and unchanged protected state. The relevant CI suite passed 65 tests.
 
-This is an Initialized-state capability query, not processed audio. Default-active is a reported bus flag, not evidence of an activation or processing call.
+That private observation is permanently acceptance-ineligible. WA0 remains accepted. PC0 is observed diagnostically, not accepted. PC0-D1 consumed three of eight reservations; its five unused reservations need not be spent. Preserve every old observation, unknown result, intent, lock and campaign record.
 
-The private observation remains `acceptance_eligible=false`. WA0 remains the accepted product frontier. Neither PC0 acceptance nor audio processing has been claimed by this merge.
+`tools/proof-run.py` currently registers only the PC0 diagnostic adapter. An `accept` parser is not an implemented acceptance path. Completing that path is part of THIS task, not another prerequisite project.
 
-The technical-lead code review covered observation retention, runtime metadata separation, normalizer correction, cumulative budget extension, reconciliation and focused regressions. GitHub Actions run `33931189157`, job `101209931338`, compiled the code and passed all 65 tests for the reviewed PR merge candidate. The review did not independently operate the Deck or read the private Mac receipt.
+## Implementation
 
-## Budget and history
+Read the existing PC0 selection, design and approval for the product behavior and proof obligations, plus the repaired worker/adapter/runtime helpers and existing renderer. Do not reread unrelated historical process dossiers. Preserve local work and use the prepared branch; do not reopen merged PR #46.
 
-PC0-D1 campaign `be62c45243de799f2474b26d4b20ac3593f16fc0392f58f42a10ce922500281b` has three consumed reservations against its cumulative ceiling of eight. Five are unused, not a requirement to spend them. The previous unknown observation remains unknown; earlier attempts are not refunded, rewritten or promoted.
+1. Add the smallest PC0 acceptance adapter and closed plan through the existing classified backend and `proof-run.py`. Reuse the existing acceptance interfaces, result admission and renderer where compatible. No second transaction framework, new supervisor copy or new Windows host.
+2. Share the repaired supervision/retention/normalization code where needed; thin class-specific entrypoints and storage boundaries remain distinct. Keep the diagnostic command diagnostic. Its old results and failed runs cannot become acceptance evidence.
+3. Identify every actual execution-source dependency: the new worker/helpers and any retained frozen Deck source they import. Reuse pinned historical code where practical; do not silently substitute a new source or report only the old stopped source while executing changed helpers. Import required existing product implementation files only where necessary and preserve Windows build-input equivalence; do not merge an archived branch wholesale or restore stale authority.
+4. Preserve bounded checkpoints before normalization/retirement and independent error reporting. Reuse the corrected normalizer; do not reintroduce the undefined `expected_calls` reference. Do not weaken product assertions to make acceptance pass.
+5. Bind the unchanged deployed runtime/installed selection using the reviewed PR #46 verifier semantics, with actual full observed metadata and declared-input digests recorded separately. Historical WR0 evidence stays unchanged. New executable/selection drift or active runtime staging is not covered.
 
-The dated recovery instructions in AGENTS.md, GOVERNANCE.md and [PC0_D1.md](docs/campaigns/PC0_D1.md) explain the completed task and the authority under which it ran. Their original two-consumed/six-available wording describes the start of recovery, not the current count. This current-work record supersedes instructions to continue that completed diagnostic or keep PR #46 unmerged. Preserve its private historical records and executed authority binding.
+Keep the existing host artifact **9915439437**, AGain module/bundle, VST3 call sequence, ownership, timeouts, cleanup and protected-state checks. No Windows rebuild/download, fixture reseed, runtime replacement, live negative plug-in tests, Bitwig/Serum launch, processing setup or audio processing.
 
-## Next technical step
+## Local tests before live spending
 
-Complete acceptance of the already approved PC0 pre-setup contract, then move toward a separately scoped known-buffer audio-processing test. Do not select another broad proof-harness project.
+Exercise the real acceptance command → adapter → worker → normalizer → result admission → renderer chain with effectful platform/process operations substituted. An empty fabricated success dictionary is insufficient.
 
-There is a concrete remaining integration task: `proof-run.py` currently registers the PC0 diagnostic adapter, not a production PC0 acceptance adapter. The generic `accept` subcommand is not by itself an executable acceptance path. Do not send an agent an accept command and assume this wiring already exists.
+Prove a complete synthetic AGain result can be retained and rendered; diagnostic/checkpoint/failure/wrong-class records cannot satisfy acceptance; wrong source/artifact/runtime/plan and malformed or incomplete census/shutdown records are rejected; lost acknowledgement/reinvocation does not duplicate a launch; and renderer-only failure can use the same immutable acceptance result without rerunning the plug-in. Keep the existing 65 relevant tests passing. Use focused tests, not a new test framework or broad build matrix.
 
-The acceptance completion should reuse the working execution, containment, result retention and validators, plus the existing PC0 evidence renderer where compatible. It must not copy a diagnostic record into acceptance or reintroduce the undefined `expected_calls` bug through the historical normalizer. Candidate identities must name the actual executed helper/source bytes and the observed runtime composition; do not report the historical full Steam-manifest digest for changed bookkeeping bytes.
+## Freeze and run — already delegated
 
-Before a fresh acceptance workload, the technical lead must bind its exact candidate and closed plan, including the reviewed metadata-only runtime treatment. Keep the same AGain module, Windows host artifact `9915439437`, VST3 call roster and shutdown requirements. No new Windows build/download, fixture reseed, runtime replacement, live negative exercise, Bitwig/Serum launch or audio-processing call is justified by this diagnostic result.
+After local validation, commit the actual candidate source. Compute its exact worker/helper/build-input, artifact, fixture, runtime and closed-plan identities. Create `docs/campaigns/PC0_A1.md` as the executable authority with the existing policy's acceptance posture (`status: active_acceptance_candidate`, `authority_phase: implementation`, `change_class: PRODUCT_CONTRACT_CHANGE`, product/live authorization true, `permitted_execution_class: ACCEPTANCE_CANDIDATE`, backend readiness true), the actual bound fields, an `acceptance_candidate_identity`, and `acceptance_batch_budget: 1`.
 
-The next acceptance task has not been activated by this maintenance-review closure. No new live work was performed during review. Do not invent an enabled acceptance adapter or bypass the classified command to work around its absence.
+The machine posture identifies the acceptance lane for the already approved PC0 contract; it does not authorize new VST3 behavior. Record the previously approved product-contract identity and the new plan's computed content hash. Do not invent a digest, copy the diagnostic plan's hash onto different content, or set readiness true before the real path exists and passes tests. Candidate source and authority may be separate commits/checkouts to avoid a self-referential source hash.
+
+This mechanical freeze and binding is explicitly delegated by `AGENTS.md`; do not ask the lead to return and fill in identifiers. Read-only exact-runtime binding, necessary narrow source delivery and private result transfer are included. Credentials remain private and the Deck receives no GitHub token or forwarded SSH agent.
+
+Run the registered acceptance path with explicit `--authority`, `--source`, `--plan` and `--candidate`. Use `--preflight-only` first. Preflight must not reserve or launch. Fix routine preflight/implementation errors locally and rebind source before reservation as needed; this requires no new approval.
+
+Once reserved, the candidate is immutable and exactly one workload is permitted. Reconciliation never relaunches. A failed/unknown acceptance is retained honestly and does not authorize another candidate. Fix reporting-only defects without a new run when the original execution remains valid; record the renderer revision separately. Unknown containment or changed protected state stops live work, not read-only investigation.
+
+## Result and publication
+
+Read the actual fresh acceptance result and verify the complete expected pre-setup census and inherited shutdown. Use the existing PC0 proof obligations and appropriate renderer outputs, but ensure the implementation checks observed values rather than filling in expected constants. Default-active is a bus flag, not proof of activation. Sample-format support is not processed audio.
+
+Retain private raw/checkpoint material privately and commit only sanitized, useful acceptance evidence with correct source/result bindings. Keep exploratory history unchanged. Update current status to `acceptance verified, awaiting technical-lead review` only when that is true; do not mark PC0 accepted or merge your own PR.
+
+Open one non-draft implementation PR against main containing the necessary code, focused tests, exact candidate authority, evidence and concise usage/status notes. No process-only or separate status-closure PR. Return actual bus/arrangement/sample-format results, shutdown/cleanup, tests, acceptance reservation/result identity and PR/head. If blocked, give the literal stage/error and retained facts, not merely INCONCLUSIVE.
+
+Known-buffer processing is the next proposed product milestone after PC0 review; it is not part of this task.
 
 ## Authority
 
-This is the disabled default CLI circuit breaker, not an acceptance candidate. The diagnostic receipt remains retained for historical verification; an unused diagnostic reservation is not acceptance authority.
+The following is the unchanged disabled default CLI circuit breaker while candidate code is prepared. It is not a revocation of the active implementation ruling above. Live execution uses the separately frozen PC0_A1 authority only after the actual path is tested.
 
 ```yaml
 status: no_active_slice
 authority_phase: no_active_slice
 change_class: PROOF_HARNESS_MAINTENANCE
-maintenance_id: PC0-D1
-maintenance_status: complete
-maintenance_title: Reviewed AGain diagnostic recovery
+maintenance_id: PC0-A1
+maintenance_status: implementation_authorized_by_scoped_ruling
 repository: kasselvania/Linux-VST-bridge
-basis_commit: 3b556ea2712da7694272b8b32720ae3eb62ec654
-basis_tree: a6a53f28465cb1f109f4c1f307e6b5781b2e6486
-maintenance_receipt: docs/campaigns/PC0_D1.md
-maintenance_implementation_authorized: false
+maintenance_implementation_authorized: true
 product_implementation_authorized: false
 live_execution_authorized: false
 permitted_execution_class: none
 classified_backend_core_ready: true
 classified_backend_ready: true
 production_adapter_registry: pc0_diagnostic_only
-registered_diagnostic_plan: pc0-pre-setup-processing-contract-diagnostic-v1
-registered_product_contract_identity: pc0-selection-v2
-registered_product_contract_sha256: daa042e4184cb5fffdf1ff08d59cc51f7755b4635c85e02597adc2584c4b4c1d
-registered_plan_content_sha256: a5303e12d644fefba2ca4003555ebe30f578e60c0a334e5f0bb96b7498decc92
-diagnostic_campaign_authorized: false
-acceptance_candidate_authorized: false
-windows_workload_authorized: false
-deck_workload_authorized: false
-policy_core_ci_required: true
 accepted_product_frontier: WA0
 current_product_target: PC0
-pc0_status: diagnostic_observed_maintenance_merged_acceptance_pending
-scoped_diagnostic_authority: docs/campaigns/PC0_D1.md
-stopped_pc0_source: 309b8918c128c0b9e6701d0453dc841a111d5ac5
-stopped_pc0_source_tree: a6a123b554eb220cbdfb9bf9afab3d08d4a8ac92
-stopped_pc0_archive_ref: refs/heads/codex/archive/pc0-v3-stopped-309b8918
+pc0_status: acceptance_completion_active_candidate_not_yet_frozen
 successor_selection_authorized: false
 ```
