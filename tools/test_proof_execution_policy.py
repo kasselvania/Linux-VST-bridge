@@ -143,9 +143,9 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(status["status"], "no_active_slice")
         self.assertEqual(status["authority_phase"], "no_active_slice")
         self.assertFalse(authority.boolean("maintenance_implementation_authorized"))
-        self.assertEqual(authority.fields["accepted_product_frontier"], "AP1")
+        self.assertEqual(authority.fields["accepted_product_frontier"], "AP2")
         self.assertEqual(
-            authority.fields["production_adapter_registry"], "pc0_ap0_ap1_diagnostic_and_acceptance",
+            authority.fields["production_adapter_registry"], "pc0_ap0_ap1_ap2_diagnostic_and_acceptance",
         )
         self.assertNotEqual(authority.fields.get("diagnostic_campaign_authorized"), "true")
         self.assertNotEqual(authority.fields.get("acceptance_candidate_authorized"), "true")
@@ -179,9 +179,7 @@ class PolicyTests(unittest.TestCase):
             {"permitted_execution_class": "UNKNOWN_CLASS"},
             {"live_execution_authorized": "yes"},
         ):
-            authority = self.load(authority_text(
-                mode="maintenance", overrides=overrides,
-            ))
+            authority = self.load(authority_text(mode="maintenance", overrides=overrides))
             with self.assertRaises(PolicyError):
                 authority_status(authority)
 
