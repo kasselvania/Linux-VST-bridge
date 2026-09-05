@@ -27,6 +27,7 @@ struct Session {
     minor: u64,
     epoch: u64,
     position: u64,
+    witness: Option<state::Witness>,
 }
 // Mapping has no escaping references; the registry serializes every access.
 unsafe impl Send for Session {}
@@ -81,6 +82,11 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
+            witness: if minor == 4 && std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1") {
+                Some(state::Witness::new())
+            } else {
+                None
+            },
         };
         if minor == 4 {
             s.phase = 17;
@@ -294,6 +300,9 @@ impl Session {
                         "invalid output claim",
                     )?;
                 }
+            }
+            if let Some(w) = &mut self.witness {
+                w.compare(n, gain, input, &output)?;
             }
             self.position += n as u64;
             Ok((output, flags))

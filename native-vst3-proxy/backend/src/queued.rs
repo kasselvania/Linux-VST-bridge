@@ -60,6 +60,7 @@ struct Shared {
     control: std::sync::Mutex<Option<Control>>,
     pending_control: AtomicBool,
     state_capable: AtomicBool,
+    witness: std::sync::Mutex<state::WitnessReport>,
 }
 impl Shared {
     fn new() -> Self {
@@ -76,6 +77,7 @@ impl Shared {
             control: std::sync::Mutex::new(None),
             pending_control: AtomicBool::new(false),
             state_capable: AtomicBool::new(false),
+            witness: std::sync::Mutex::new(state::WitnessReport::default()),
         }
     }
     fn fail(&self, code: u64, position: u64) {
@@ -264,12 +266,17 @@ fn worker(mut session: Session, s: Arc<Shared>) {
                             18 => session
                                 .component_state(Some(&c.bytes))
                                 .and_then(|p| state::envelope(&p)),
-                            8 => session
-                                .activate(
-                                    ap1_native_client::get(&c.bytes[..4]) as usize,
-                                    ap1_native_client::get(&c.bytes[4..]) as u32,
-                                )
-                                .map(|_| vec![]),
+                            8 => (|| {
+                                if session.witness.as_ref().is_some_and(|w| !w.ready) {
+                                    session.component_state(None)?;
+                                }
+                                session
+                                    .activate(
+                                        ap1_native_client::get(&c.bytes[..4]) as usize,
+                                        ap1_native_client::get(&c.bytes[4..]) as u32,
+                                    )
+                                    .map(|_| vec![])
+                            })(),
                             14 => session.transition(14).map(|_| {
                                 s.ack.store(15, Ordering::Release);
                                 vec![]
@@ -284,6 +291,11 @@ fn worker(mut session: Session, s: Arc<Shared>) {
                         }
                     }
                 }
+            }
+            if let Some(w) = &session.witness {
+                *s.witness
+                    .lock()
+                    .map_err(|_| invalid("fixture observer poisoned"))? = w.report;
             }
             let Some(mut item) = s.requests.pop() else {
                 thread::sleep(Duration::from_micros(50));
@@ -663,6 +675,24 @@ pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
         2
     }
 }
+#[no_mangle]
+pub unsafe extern "C" fn ap4_witness(id: u64, out: *mut state::WitnessReport) -> u32 {
+    crate::ffi(|| {
+        let p = ACTIVE.load(Ordering::Acquire);
+        if p.is_null() || (*p).id != id || out.is_null() {
+            return 1;
+        }
+        let live = &*p;
+        match live.shared.witness.lock() {
+            Ok(v) => {
+                *out = *v;
+                0
+            }
+            Err(_) => 2,
+        }
+    }) as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

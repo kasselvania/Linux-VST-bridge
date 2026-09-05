@@ -64,7 +64,7 @@ def run(host,bundle,audit):
   root=pathlib.Path(tmp);store=root/'state';store.mkdir()
   for case in ('state-local','state-gain','state-mute','state-error','state-stale','state-lost-set'):
    directory=root/case;directory.mkdir();counts=dict(get=0,set=0,activate=0,start=0,stop=0,process=0,zero_frame=0,closed=0);errors=[]
-   env={**os.environ,'LVB_AP2_SESSION_DIR':str(directory),'LVB_AP2_SESSION':os.urandom(16).hex(),'LVB_AP4_STATE_STORE':str(store),'LD_PRELOAD':audit,'LVB_AP3_REPORT':str(directory/'proxy.jsonl')}
+   env={**os.environ,'LVB_AP2_SESSION_DIR':str(directory),'LVB_AP2_SESSION':os.urandom(16).hex(),'LVB_AP4_STATE_STORE':str(store),'LVB_AP4_COMPARE':'1','LD_PRELOAD':audit,'LVB_AP3_REPORT':str(directory/'proxy.jsonl')}
    def target():
     try:peer(directory,case,counts)
     except BaseException as e:errors.append(type(e).__name__+': '+str(e))

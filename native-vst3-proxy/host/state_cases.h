@@ -120,6 +120,8 @@ void stateAudio(IAudioProcessor &p, double gain, double factor,
   uint64_t x = seed, position = 0, samples = 0,
            input_hash = 14695981039346656037ULL, output_hash = input_hash,
            overruns = 0;
+  const double initial_factor = factor;
+  uint64_t mute_position = UINT64_MAX;
   double max_error = 0.;
   bool flushed = false;
   ok(callback([&] { return p.setProcessing(true); }), "state audio start");
@@ -135,6 +137,7 @@ void stateAudio(IAudioProcessor &p, double gain, double factor,
       q.addParameterData(0, i)->addPoint(0, 0., j);
       d.inputParameterChanges = &q;
       ok(callback([&] { return p.process(d); }), "parameter-only mute");
+      mute_position = position;
       gain = factor = 0.;
       flushed = true;
       progress.flushed.store(true, std::memory_order_release);
@@ -198,6 +201,8 @@ void stateAudio(IAudioProcessor &p, double gain, double factor,
             << ",\"input_fnv1a64\":" << input_hash
             << ",\"output_fnv1a64\":" << output_hash
             << ",\"initial_gain_sent\":" << (initial_update ? "true" : "false")
+            << ",\"initial_factor\":" << initial_factor
+            << ",\"mute_position\":" << mute_position
             << ",\"restored_factor\":" << factor
             << ",\"parameter_only_mute\":" << (flushed ? "true" : "false")
             << ",\"callback_max_ns\":" << durations.back()

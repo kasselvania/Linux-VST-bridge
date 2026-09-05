@@ -66,12 +66,13 @@ def await_stream(environment):
  if gate.is_symlink() or gate.stat().st_size>1024:raise RuntimeError('unsafe stream confirmation')
  if json.loads(gate.read_bytes())!={'run_id':environment.run_id,'stream_active':True}:raise RuntimeError('stream confirmation binding differs')
 
-def gui(environment,*,mode,checkpoint,profile,label):
- root=gui_root();project=root/'AP3-Test/AP3-Test.bwproject'
+def gui(environment,*,mode,checkpoint,profile,label,root=None,project=None,native=None,accepted_events=None,extra_env=None):
+ root=gui_root() if root is None else root;project=root/'AP3-Test/AP3-Test.bwproject' if project is None else project
+ native=_native if native is None else native
  if not project.is_file():raise RuntimeError('prepared disposable Bitwig project missing')
  # This one test publication must match the admitted retained native artifact.
  relative='AGainQueuedBridge.vst3/Contents/x86_64-linux/AGainQueuedBridge.so'
- if hashlib.sha256((root/'plugins'/relative).read_bytes()).digest()!=hashlib.sha256((_native/relative).read_bytes()).digest():raise RuntimeError('Bitwig publication differs from native artifact')
+ if hashlib.sha256((root/'plugins'/relative).read_bytes()).digest()!=hashlib.sha256((native/relative).read_bytes()).digest():raise RuntimeError('Bitwig publication differs from native artifact')
  if subprocess.check_output(['flatpak','info','--show-commit','com.bitwig.BitwigStudio'],text=True).strip()!='8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231':raise RuntimeError('Bitwig installation changed')
  session=secrets.token_hex(16);report=environment.session/'ap3-gui-report.jsonl'
  # Import only the session-display keys. Never export the service environment.
@@ -86,6 +87,7 @@ def gui(environment,*,mode,checkpoint,profile,label):
   '--env=LVB_AP2_SESSION_DIR='+str(environment.session),'--env=LVB_AP2_SESSION='+session,'--env=LVB_AP3_REPORT='+str(report),
   '--nofilesystem='+str(real_home()/'.vst3/yabridge'),'--nofilesystem='+str(real_home()/'.vst3/VCV Rack 2'),
   '--nofilesystem='+str(real_home()/'.vst'),'--nofilesystem='+str(real_home()/'.clap'),
+  *['--env='+k+'='+v for k,v in (extra_env or {}).items()],
   'com.bitwig.BitwigStudio',str(project)]
  def retained_report():
   if report.is_symlink() or not report.is_file() or report.stat().st_size>8192:raise RuntimeError('bounded native Bitwig report missing')
@@ -100,7 +102,7 @@ def gui(environment,*,mode,checkpoint,profile,label):
  progress(environment,label)
  return companion.supervise(environment,mode=mode,checkpoint=checkpoint,profile=profile,session=session,
   caller_command=command,caller_env=env,ready_seconds=180,exit_seconds=60,caller_report=retained_report,track_descendants=True,
-  accepted_events={'ap3_proxy_stats','ap3_proxy_lifecycle','ap3_bitwig_ui'})
+  accepted_events=accepted_events or {'ap3_proxy_stats','ap3_proxy_lifecycle','ap3_bitwig_ui'})
 
 def supervise(environment,*,mode,checkpoint,profile):
  segments={};clean={'owned_descendants_zero':True,'process_group_empty':True}

@@ -421,6 +421,26 @@ tresult PLUGIN_API Processor::terminate() {
   if (handle_) {
     if (queued_)
       report_stats(handle_);
+    if (preview_ && std::getenv("LVB_AP4_COMPARE")) {
+      ap4_witness_t w{};
+      if (!ap4_witness(handle_, &w)) {
+        char text[512];
+        auto n = std::snprintf(
+            text, sizeof(text),
+            "{\"event\":\"ap4_sample_comparison\",\"samples\":%llu,\"restored_"
+            "samples\":%llu,\"before_edit_samples\":%llu,\"restores\":%llu,"
+            "\"edits\":%llu,\"nonzero_samples\":%llu,\"maximum_error\":%.17g,"
+            "\"restored_gain\":%.9g}\n",
+            (unsigned long long)w.samples,
+            (unsigned long long)w.restored_samples,
+            (unsigned long long)w.before_edit_samples,
+            (unsigned long long)w.restores, (unsigned long long)w.edits,
+            (unsigned long long)w.nonzero_samples, w.maximum_error,
+            w.restored_gain);
+        if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+          diagnostic_report(text, static_cast<size_t>(n));
+      }
+    }
     clean =
         (queued_ ? ap3_close(handle_) == 0 : ap2_close(handle_) == 0) && clean;
     if (!clean)

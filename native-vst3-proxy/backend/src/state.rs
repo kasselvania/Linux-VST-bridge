@@ -114,6 +114,9 @@ impl Session {
                     "restored Windows state readback differs",
                 )?;
             }
+            if let Some(w) = &mut self.witness {
+                w.state(&reply.payload, restore.is_some())?;
+            }
             self.state.next = self
                 .state
                 .next
@@ -126,6 +129,100 @@ impl Session {
             self.state.failed();
         }
         result
+    }
+}
+// Optional fixture observer on the transport worker. It never writes an audio
+// buffer or supplies/restores a parameter. Actual snapshots seed its reference;
+// actual returned samples are compared independently, including hidden fields.
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct WitnessReport {
+    pub samples: u64,
+    pub restored_samples: u64,
+    pub before_edit_samples: u64,
+    pub restores: u64,
+    pub edits: u64,
+    pub nonzero_samples: u64,
+    pub maximum_error: f64,
+    pub restored_gain: f64,
+}
+pub struct Witness {
+    pub report: WitnessReport,
+    pub ready: bool,
+    gain: f32,
+    reduction: f32,
+    bypass: bool,
+    edited: bool,
+}
+impl Witness {
+    pub fn new() -> Self {
+        Self {
+            report: WitnessReport::default(),
+            ready: false,
+            gain: 0.,
+            reduction: 0.,
+            bypass: false,
+            edited: false,
+        }
+    }
+    pub fn state(&mut self, p: &[u8], restore: bool) -> io::Result<()> {
+        reference(p)?;
+        self.gain = f32::from_le_bytes(p[..4].try_into().unwrap());
+        self.reduction = f32::from_le_bytes(p[4..8].try_into().unwrap());
+        self.bypass = get(&p[8..]) != 0;
+        self.ready = true;
+        if restore {
+            self.report.restores += 1;
+            self.report.restored_gain = self.gain as f64;
+            self.edited = false;
+        }
+        Ok(())
+    }
+    pub fn compare(
+        &mut self,
+        n: usize,
+        gain: f64,
+        input: [&[f32]; 2],
+        output: &[[u32; CAP + 2]; 2],
+    ) -> io::Result<()> {
+        need(
+            self.ready,
+            "fixture comparison requires actual state readback",
+        )?;
+        if !gain.is_nan() {
+            if self.gain != gain as f32 {
+                self.edited = true;
+                self.report.edits += 1;
+            }
+            self.gain = gain as f32;
+        }
+        let factor = if self.bypass {
+            1.
+        } else {
+            let f = self.gain - self.reduction;
+            if f < 0.0000001 {
+                0.
+            } else {
+                f
+            }
+        };
+        for ch in 0..2 {
+            for i in 0..n {
+                let expected = input[ch][i] * factor;
+                let actual = f32::from_bits(output[ch][i + 1]);
+                self.report.maximum_error = self
+                    .report
+                    .maximum_error
+                    .max((actual as f64 - expected as f64).abs());
+                self.report.samples += 1;
+                self.report.nonzero_samples += u64::from(actual != 0.);
+                if self.report.restores > 0 {
+                    self.report.restored_samples += 1;
+                    self.report.before_edit_samples += u64::from(!self.edited);
+                }
+            }
+        }
+        Ok(())
     }
 }
 #[cfg(test)]

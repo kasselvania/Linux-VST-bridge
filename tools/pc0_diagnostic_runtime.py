@@ -194,7 +194,9 @@ def sanitized_supervision_error(error):
 # protocol fields can enter a troubleshooting checkpoint; no process identities,
 # command lines, environment, factory account metadata or paths are retained.
 CHECKPOINT_KEYS = frozenset("""
+initial_factor mute_position expected_before_sha256
 phase callback_rejections
+state_capture state_gain state_mute bitwig_gain bitwig_mute envelope_hex payload_hex payload_bytes controller_gain sha256 restored initial_gain_sent restored_factor parameter_only_mute restored_samples before_edit_samples restores edits nonzero_samples maximum_error restored_gain project_sha256 project_before_sha256 project_unchanged saved quit restored_control restored_playback observed_before_edit later_edit
     segments current core stream_active bitwig_first bitwig_reopen requested_maximum requested_rate requested_mode frames blocks gain_min gain_max clean scan_load playback gain_changed muted stopped removed responsive moonlight_control
 
 frames_per_callback active_frames callback_median_ns callback_p99_ns callback_max_ns
@@ -230,7 +232,8 @@ def checkpoint_projection(value, depth=0):
         return "<depth bound>"
     if isinstance(value, dict):
         return {
-k: (sanitized_supervision_error(RuntimeError(v))[len("RuntimeError: "):]
+k: (v if k in {"envelope_hex","payload_hex"} and isinstance(v,str) and len(v)<=232 and re.fullmatch(r"[0-9a-f]*",v)
+                    else sanitized_supervision_error(RuntimeError(v))[len("RuntimeError: "):]
                     if k in {"detail", "stderr_detail"} and isinstance(v,str)
                     else checkpoint_projection(v, depth+1)) for k,v in value.items()
                 if k in CHECKPOINT_KEYS}
