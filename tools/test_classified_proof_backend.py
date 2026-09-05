@@ -309,6 +309,23 @@ class BackendTests(unittest.TestCase):
         self.base = pathlib.Path(self.temporary.name)
         self.state_root = self.base / "state"
 
+    def test_combined_result_bound_recovers_observed_without_reexecution(self):
+        from dataclasses import replace
+        plan = descriptor(ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE)
+        authority, delegation = write_authority(self.base, plan)
+        observation = replace(successful_observation(), payload={'bounded_facts':'a'*(132*1024)})
+        behavior = Behavior(observation)
+        behavior.admit = lambda context, value: dict(value.payload)
+        backend = ClassifiedProofBackend(self.state_root, {plan.plan_id:diagnostic_adapter(plan,behavior)})
+        with unittest.mock.patch('classified_proof_backend.RESULT_ENVELOPE_MAX_BYTES',256*1024):
+            with self.assertRaises(DurableStateError):backend.execute(authority,delegation)
+        receipt=backend.execute(authority,delegation)
+        self.assertEqual(receipt.state,'CLOSED');self.assertEqual(receipt.budget_consumed,1)
+        self.assertEqual(behavior.invoke_calls,1);self.assertEqual(behavior.reconcile_calls,0)
+        # Re-read and re-admit the larger envelope; neither component limit changed.
+        backend.execute(authority,delegation);self.assertEqual(behavior.invoke_calls,1)
+        with self.assertRaises(BackendError):replace(observation,payload={'bounded_facts':'a'*(257*1024)}).record()
+
     def test_production_registry_is_empty_and_unsupported_adapter_writes_nothing(self):
         self.assertEqual(dict(PRODUCTION_ADAPTERS), {})
         plan = descriptor(ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE)
