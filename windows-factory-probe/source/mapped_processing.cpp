@@ -19,29 +19,46 @@ using namespace ap1;
 namespace {
 void barrier(){_ReadWriteBarrier();MemoryBarrier();_ReadWriteBarrier();}
 struct Socket {
- SOCKET value=INVALID_SOCKET; uint16_t minor=1;
+ SOCKET value=INVALID_SOCKET; uint16_t minor=1; bool eager=false;
  ~Socket(){if(value!=INVALID_SOCKET)closesocket(value);}
+ // Try a nonblocking operation before asking Wine to wait. In the legacy
+ // path every already-ready read/write still made a select round trip.
  void transfer(uint8_t* p,size_t n,bool writing,std::chrono::steady_clock::time_point end){
-  while(n){auto us=std::chrono::duration_cast<std::chrono::microseconds>(end-std::chrono::steady_clock::now()).count();require(us>0,"control deadline");
+  while(n){
+   auto us=std::chrono::duration_cast<std::chrono::microseconds>(end-std::chrono::steady_clock::now()).count();require(us>0,"control deadline");
+   if(eager){
+    int k=writing?send(value,reinterpret_cast<const char*>(p),int(n),0):recv(value,reinterpret_cast<char*>(p),int(n),0);
+    if(k>0){p+=k;n-=size_t(k);continue;}
+    require(k==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK,"control disconnected/IO");
+   }
    fd_set f;FD_ZERO(&f);FD_SET(value,&f);timeval t{};t.tv_sec=static_cast<decltype(t.tv_sec)>(us/1000000);t.tv_usec=static_cast<decltype(t.tv_usec)>(us%1000000);
    require(select(0,writing?nullptr:&f,writing?&f:nullptr,nullptr,&t)>0,"control timeout/select");
-   int k=writing?send(value,reinterpret_cast<const char*>(p),int(n),0):recv(value,reinterpret_cast<char*>(p),int(n),0);
-   if(k==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK)continue;require(k>0,"control disconnected/IO");p+=k;n-=size_t(k);
+   if(!eager){
+    int k=writing?send(value,reinterpret_cast<const char*>(p),int(n),0):recv(value,reinterpret_cast<char*>(p),int(n),0);
+    if(k==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK)continue;require(k>0,"control disconnected/IO");p+=k;n-=size_t(k);
+   }
   }
  }
  Frame receive(bool command=false){
-  // Idle is not an issued request. Poll for the first byte (or EOF) without
-  // expiring a healthy stopped/deactivated instance. Once a frame starts,
-  // header and payload share the original five-second deadline.
+  std::vector<uint8_t>b(header_bytes);size_t received=0;
+  // Idle has no issued-request deadline. The first received byte starts one
+  // five-second deadline shared by the rest of the header and payload.
   if(command)for(;;){
+   if(eager){
+    int n=recv(value,reinterpret_cast<char*>(b.data()),int(header_bytes),0);
+    if(n>0){received=size_t(n);break;}
+    require(n==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK,"control disconnected/IO");
+   }
    fd_set f;FD_ZERO(&f);FD_SET(value,&f);timeval t{1,0};
    auto ready=select(0,&f,nullptr,nullptr,&t);require(ready!=SOCKET_ERROR,"command select");
-   if(!ready)continue;
+   if(!ready||eager)continue;
    char first;auto n=recv(value,&first,1,MSG_PEEK);
    if(n==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK)continue;
    require(n>0,"control disconnected/IO");break;
   }
-  auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);std::vector<uint8_t>b(header_bytes);transfer(b.data(),b.size(),false,end);auto n=payload_length(b.data(),minor);b.resize(header_bytes+n);if(n)transfer(b.data()+header_bytes,n,false,end);return decode(b,minor);
+  auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+  transfer(b.data()+received,b.size()-received,false,end);auto n=payload_length(b.data(),minor);b.resize(header_bytes+n);
+  if(n)transfer(b.data()+header_bytes,n,false,end);return decode(b,minor);
  }
  void write(const Frame& f){auto b=encode(f,minor);transfer(b.data(),b.size(),true,std::chrono::steady_clock::now()+std::chrono::seconds(5));}
 };
@@ -103,7 +120,7 @@ struct MappedSession::Impl {
   require(performance&&processor&&std::this_thread::get_id()==owner&&!active&&!timeline.running&&!state.outstanding,"configuration requires inactive owner");
   require(f.session==state.session&&f.sequence==state.next&&f.payload.size()==24,"configuration correlation/extent");
   auto p=f.payload.data();auto m=uint32_t(get(p,4)),md=uint32_t(get(p+4,4));double hz;std::memcpy(&hz,p+8,8);
-  require(m>=1&&m<=capacity&&md<=1&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)==0&&get(p+20,4)==0,"unsupported processing configuration");
+  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)==0&&get(p+20,4)==0,"unsupported processing configuration");
   const bool support32=processor->canProcessSampleSize(kSample32)==kResultTrue,support64=processor->canProcessSampleSize(kSample64)==kResultTrue;
   require(support32,"Windows plugin does not support float32");
   SpeakerArrangement input=SpeakerArr::kStereo,output=SpeakerArr::kStereo;auto inputs=component->getBusCount(kAudio,kInput);
@@ -128,7 +145,7 @@ struct MappedSession::Impl {
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
 MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful,bool commercial,bool performance):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.minor=performance?(commercial?7:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
+ auto& x=*impl_;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?7:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
@@ -139,6 +156,7 @@ MappedSession::MappedSession(const std::wstring& directory,const std::string& se
   require(get(x.view,4)==0x4d315041&&get(x.view+4,4)==1&&get(x.view+8,4)==capacity&&get(x.view+12,4)==2&&get(x.view+16,4)==mapping_bytes&&get(x.view+20,4)==input_offset&&get(x.view+24,4)==output_offset&&get(x.view+28,4)==stride,"mapping layout");
   auto witness=get(x.view+32,8)^witness_mask;put(x.view+40,witness,8);barrier();
   WSADATA data{};require(WSAStartup(MAKEWORD(2,2),&data)==0,"WSAStartup");x.winsock=true;x.socket.value=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);require(x.socket.value!=INVALID_SOCKET,"socket create");
+  if(performance){int enabled=1;require(setsockopt(x.socket.value,IPPROTO_TCP,TCP_NODELAY,reinterpret_cast<const char*>(&enabled),sizeof(enabled))==0,"TCP_NODELAY");}
   u_long nonblock=1;require(ioctlsocket(x.socket.value,FIONBIO,&nonblock)==0,"socket nonblocking");sockaddr_in address{};address.sin_family=AF_INET;address.sin_port=htons(u_short(port));address.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
   int connected=connect(x.socket.value,reinterpret_cast<const sockaddr*>(&address),sizeof(address));if(connected==SOCKET_ERROR){require(WSAGetLastError()==WSAEWOULDBLOCK,"loopback connect");fd_set f;FD_ZERO(&f);FD_SET(x.socket.value,&f);timeval t{5,0};require(select(0,nullptr,&f,nullptr,&t)>0,"loopback connect timeout");int e=0,n=sizeof(e);require(getsockopt(x.socket.value,SOL_SOCKET,SO_ERROR,reinterpret_cast<char*>(&e),&n)==0&&e==0,"loopback connection failed");}
   std::vector<uint8_t> hello(40);std::copy(b.begin()+20,b.end(),hello.begin());put(hello.data()+32,capacity,4);put(hello.data()+36,mapping_bytes,4);x.socket.write(x.frame(Hello,0,hello));auto reply=x.socket.receive();require(reply.kind==Hello&&reply.session==x.state.session&&reply.sequence==0&&reply.payload.empty(),"Hello acknowledgement");barrier();require(get(x.view+56,8)==(witness^1),"Linux mapping witness");
@@ -171,7 +189,7 @@ uint16_t MappedSession::next_transition(){auto&x=*impl_;try{
 uint32_t MappedSession::lifecycle_request(uint16_t kind){auto&x=*impl_;try{
  require(x.hosted&&!x.state.failed&&!x.state.outstanding,"lifecycle ownership");auto f=x.has_pending?std::move(x.pending):x.receive();x.has_pending=false;
  require(f.kind==kind&&f.session==x.state.session&&f.sequence==x.state.next,"lifecycle correlation");
- if(kind==Activate){require(f.payload.size()==(x.sustained?8:4),"activation extent");if(x.sustained){x.mode=uint32_t(get(f.payload.data()+4,4));require(x.mode<=(x.stateful?1u:0u),"processing mode required");}auto n=get(f.payload.data(),4);require(n>=1&&n<=capacity,"activation maximum");if(x.performance)require(x.configured&&n==x.maximum&&x.mode==get(f.payload.data()+4,4),"activation differs from setup");x.active=true;return uint32_t(n);}
+ if(kind==Activate){require(f.payload.size()==(x.sustained?8:4),"activation extent");if(x.sustained){auto mode=uint32_t(get(f.payload.data()+4,4));if(x.performance)require(x.configured&&mode==x.mode,"activation mode differs from setup");else {require(mode<=(x.stateful?1u:0u),"processing mode required");x.mode=mode;}}auto n=get(f.payload.data(),4);require(n>=1&&n<=capacity,"activation maximum");if(x.performance)require(x.configured&&n==x.maximum&&x.mode==get(f.payload.data()+4,4),"activation differs from setup");x.active=true;return uint32_t(n);}
  if(x.sustained&&kind==Start){x.timeline.start(f);return 0;}
  require(f.payload.empty(),"lifecycle payload");if(kind==Close){x.state.close(f);x.closed=true;}return 0;
  }catch(const std::exception&e){x.error(e);throw;}}

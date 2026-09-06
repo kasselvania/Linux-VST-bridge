@@ -202,7 +202,11 @@ impl Session {
             self.minor >= 4
                 && matches!(self.phase, 17 | 15)
                 && (1..=CAP).contains(&maximum)
-                && mode <= 1,
+                && if self.minor >= 6 {
+                    matches!(mode, 0 | 2)
+                } else {
+                    mode <= 1
+                },
             "state session activation",
         )?;
         self.exchange(

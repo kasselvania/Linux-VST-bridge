@@ -21,7 +21,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     let rate = f64::from_le_bytes(b[8..16].try_into().unwrap());
     need(
         (1..=256).contains(&get(&b[..4]))
-            && get(&b[4..8]) <= 1
+            && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
             && get(&b[16..24]) == 0,
         "unsupported setup",
@@ -78,7 +78,7 @@ mod tests {
         }
         assert!(wire(1025, 0, 48000.).is_err());
         assert!(wire(64, 0, 47999.).is_err());
-        assert!(wire(64, 2, 48000.).is_err());
+        assert!(wire(64, 1, 48000.).is_err());
         let mut b = wire(64, 0, 48000.).unwrap();
         b[16] = 1;
         assert!(validate_wire(&b).is_err());
