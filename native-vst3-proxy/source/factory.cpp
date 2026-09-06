@@ -34,7 +34,7 @@ public:
   }
   Steinberg::IPlugView *PLUGIN_API createView(Steinberg::FIDString name) override {
     if (!name || std::strcmp(name, Steinberg::Vst::ViewType::kEditor) || owner_ != std::this_thread::get_id()) return nullptr;
-    return new RecoveryView(this);
+    try { return new RecoveryView(this); } catch (...) { return nullptr; }
   }
   Steinberg::tresult PLUGIN_API connect(Steinberg::Vst::IConnectionPoint *peer) override {
     auto r = EditController::connect(peer);
@@ -84,7 +84,8 @@ public:
         auto n = std::min<size_t>(size - 1, sizeof(status_) - 1);
         std::memcpy(status_, bytes, n); status_[n] = 0;
       }
-      if (componentHandler) componentHandler->restartComponent(Vst::kParamValuesChanged);
+      // Status is bridge metadata. Only a restored control value invalidates
+      // the host parameter cache; captures must not dirty a just-saved project.
       return kResultOk;
     }
     if (!std::strcmp(id, "AP6.restored")) {

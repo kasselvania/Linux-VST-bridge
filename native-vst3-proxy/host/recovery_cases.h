@@ -1,3 +1,4 @@
+#include "pluginterfaces/gui/iplugview.h"
 // AP6 uses only public SDK interfaces, including the same controller action as
 // the desktop host. Windows peers are substituted by recovery_proxy.py locally.
 class RecoveryHandler final : public IComponentHandler {
@@ -5,6 +6,7 @@ class RecoveryHandler final : public IComponentHandler {
 public:
   IEditController *controller;
   double cached = 1.;
+  unsigned refreshes = 0;
   explicit RecoveryHandler(IEditController *c) : controller(c) {}
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
     if (!out) return kInvalidArgument;
@@ -19,6 +21,7 @@ public:
   tresult PLUGIN_API performEdit(ParamID, ParamValue) override { return kResultOk; }
   tresult PLUGIN_API endEdit(ParamID) override { return kResultOk; }
   tresult PLUGIN_API restartComponent(int32 flags) override {
+    ++refreshes;
     if (flags & kParamValuesChanged) cached = controller->getParamNormalized(0);
     return kResultOk;
   }
@@ -78,6 +81,13 @@ void recoveryCases(const Factory &factory, HostApplication *host, const std::str
       ok(i.controller->getParameterInfo(index, info), "parameter info");
       need(info.id == (index == 0 ? 0u : 0x41503600u + unsigned(index)), "independent parameter ids");
     }
+    auto view = owned(i.controller->createView(ViewType::kEditor));
+    need(bool(view), "native recovery view available without a Windows editor");
+    ViewRect rectangle{};
+    ok(view->getSize(&rectangle), "recovery view size");
+    need(rectangle.getWidth() == 640 && rectangle.getHeight() == 210, "bounded view geometry");
+    need(view->attached(nullptr, kPlatformTypeX11EmbedWindowID) != kResultOk, "view rejects missing parent");
+    ok(view->removed(), "unattached view cleanup");
     if (file) restore(*i.component, *i.controller, loadBytes(file), gain);
     ProcessSetup setup{kRealtime, kSample32, 256, 48000.};
     ok(i.processor->setupProcessing(setup), "recovery setup");
@@ -111,7 +121,9 @@ void recoveryCases(const Factory &factory, HostApplication *host, const std::str
       need(a.controller->getParamNormalized(0) == .25 && handler->cached == .25, "restored controller and host cache");
       const auto ready = Clock::now() + std::chrono::seconds(5);
       while (first.recovered_samples < 8192) { need(Clock::now() < ready, "recovered processing deadline"); std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
+      auto refreshes = handler->refreshes;
       auto saved = snapshot(*a.component, *a.controller, .25, "recovered_complete_state");
+      need(handler->refreshes == refreshes, "snapshot metadata does not dirty host controls");
       need(saved == loadBytes("instance-a.state"), "non-gain complete payload round trip");
     } else {
       need(first.recovered_samples == 0, "failed recovery never resumes defaults");
