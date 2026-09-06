@@ -30,7 +30,7 @@ def run(host, bundle, audit):
                             response = (token+'\n'+str(directory)).encode()
                             lease.sendall(struct.pack('<H',len(response))+response)
                             mode = ('state-callback-fault' if index == 0 and case == 'recovery-late'
-                                    else 'recovery-bad-readback' if index == 2 and case == 'recovery-bad-readback' else case)
+                                    else 'recovery-bad-readback' if index == 2 and case == 'recovery-bad-readback' else 'recovery-peer')
                             try:
                                 peer(directory, mode, counter, fail_after=64 if index == 0 else None)
                             except (BrokenPipeError, ConnectionResetError):
