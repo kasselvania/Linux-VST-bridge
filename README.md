@@ -16,7 +16,7 @@ The accepted fixture remains AGain: float32 stereo at 48 kHz, 1–256-frame call
 
 ## Current goal
 
-**AP9 — Lower bridge latency and measure practical limits**, tracked in #68 and [CURRENT_SLICE.md](CURRENT_SLICE.md). The candidate adds coherent processing setup, configurable presentation delay, larger host blocks and correlated Windows/native timing. A measured Winsock bottleneck is reduced. [AP9 measurements and settings](docs/AP9.md) distinguish fast light-Serum operation from the headroom needed for heavier chord attacks, with explicit gap accounting.
+**AP9 — Lower bridge latency and measure practical limits**, tracked in #68 and [CURRENT_SLICE.md](CURRENT_SLICE.md). The candidate adds coherent processing setup, configurable presentation delay, larger host blocks and correlated Windows/native timing. A measured Winsock bottleneck is reduced. The candidate default halves added delay to 512 frames (10.67 ms at 48 kHz), the gap-free setting observed in normally launched Bitwig. Lower 128/256 settings passed selected SDK loads but exposed desktop gaps. [AP9 measurements and settings](docs/AP9.md) distinguish fast light-Serum operation from the headroom needed for heavier chord attacks, with explicit gap accounting.
 
 The branch retains the reviewed AP8 implementation and its [real Serum result](docs/AP8_RESULT.md). PR #67 remains untouched. AP9 is a separate, unmerged candidate; the accepted AP7 boundary above and earlier evidence retain their original status.
 

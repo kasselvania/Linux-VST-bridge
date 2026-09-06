@@ -1,0 +1,2185 @@
+{
+  "schema": 1,
+  "scope": "Normal Bitwig launch; local numerical audio monitor; Moonlight connected/control active. No physical latency oracle.",
+  "cases": [
+    {
+      "name": "bitwig-512",
+      "source_commit": "bcb6b81891da176f844d30c1187c4ac654514254",
+      "native_sha256": "4bb5b628cb735b0819beedda04b3b77a370333b1a069a80e39ce472660fd13c6",
+      "status": "completed_without_bridge_gaps",
+      "launch": "Applications -> All Applications -> Bitwig Studio",
+      "project": "AP9 copy of AP8 Serum Recall; existing repeating note clip at 110 BPM; restored MainVol 0.1150; track gain -10 dB",
+      "visible_transport_seconds": 44.783,
+      "processed_seconds_including_stopped_audio": 76.29866666666666,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 256,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 256,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 14306,
+          "request_high": 1,
+          "result_high": 2,
+          "position": 3662336,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 7324672,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 7324672,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 9634,
+          "mean_ns": 70307,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 128000,
+          "p99_upper_ns": 192000,
+          "max_ns": 1042323
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 9634,
+          "mean_ns": 10669,
+          "p50_upper_ns": 10000,
+          "p95_upper_ns": 12000,
+          "p99_upper_ns": 72000,
+          "max_ns": 301527
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 9634,
+          "mean_ns": 83611,
+          "p50_upper_ns": 80000,
+          "p95_upper_ns": 192000,
+          "p99_upper_ns": 224000,
+          "max_ns": 605053
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 9634,
+          "mean_ns": 569234,
+          "p50_upper_ns": 576000,
+          "p95_upper_ns": 832000,
+          "p99_upper_ns": 1024000,
+          "max_ns": 6152967
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 9634,
+          "mean_ns": 5048,
+          "p50_upper_ns": 5000,
+          "p95_upper_ns": 6500,
+          "p99_upper_ns": 8000,
+          "max_ns": 500791
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 9634,
+          "mean_ns": 4631,
+          "p50_upper_ns": 5000,
+          "p95_upper_ns": 6500,
+          "p99_upper_ns": 8000,
+          "max_ns": 116423
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 9634,
+          "mean_ns": 743502,
+          "p50_upper_ns": 768000,
+          "p95_upper_ns": 1024000,
+          "p99_upper_ns": 1280000,
+          "max_ns": 6371032
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 9634,
+          "mean_ns": 152225,
+          "p50_upper_ns": 176000,
+          "p95_upper_ns": 288000,
+          "p99_upper_ns": 384000,
+          "max_ns": 1273200
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 9634,
+          "mean_ns": 591276,
+          "p50_upper_ns": 576000,
+          "p95_upper_ns": 768000,
+          "p99_upper_ns": 960000,
+          "max_ns": 6121632
+        },
+        {
+          "event": "ap9_clock_resolution",
+          "negative_correlated_residuals": 0
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 4970,
+          "position": 1271040,
+          "service_ns": 6371032,
+          "windows_process_ns": 249400
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 13992,
+          "position": 3580672,
+          "service_ns": 2848392,
+          "windows_process_ns": 531000
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 12071,
+          "position": 3088896,
+          "service_ns": 2315511,
+          "windows_process_ns": 442800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9774,
+          "position": 2500864,
+          "service_ns": 2122267,
+          "windows_process_ns": 205400
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 12153,
+          "position": 3109888,
+          "service_ns": 2079756,
+          "windows_process_ns": 88600
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9588,
+          "position": 2453248,
+          "service_ns": 2059295,
+          "windows_process_ns": 195800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 7899,
+          "position": 2020864,
+          "service_ns": 2044516,
+          "windows_process_ns": 200800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 4971,
+          "position": 1271296,
+          "service_ns": 1915303,
+          "windows_process_ns": 245500
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1195200,
+          "samples": 7936,
+          "nonzero": 7932,
+          "rms": 0.006025024008869956,
+          "peak": 0.014914524741470814,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1200000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.007284311412259857,
+          "peak": 0.02432820200920105,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1204800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.00854218861339363,
+          "peak": 0.02665426954627037,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1209600,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008850042175927553,
+          "peak": 0.02952234074473381,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1214400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.0065154512061280125,
+          "peak": 0.0229008961468935,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1219200,
+          "samples": 9600,
+          "nonzero": 7936,
+          "rms": 0.00489167942992882,
+          "peak": 0.01492862869054079,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1224000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1228800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1233600,
+          "samples": 9600,
+          "nonzero": 6186,
+          "rms": 0.004830784713430202,
+          "peak": 0.014961021952331066,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1238400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006078122731805031,
+          "peak": 0.014962268061935902,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1243200,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006067373000518071,
+          "peak": 0.014963477849960327,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1248000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006060283312233898,
+          "peak": 0.014964036643505096,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1252800,
+          "samples": 9600,
+          "nonzero": 6272,
+          "rms": 0.004128687361477995,
+          "peak": 0.014964566566050053,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1257600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1262400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1267200,
+          "samples": 9600,
+          "nonzero": 7932,
+          "rms": 0.005480107661396293,
+          "peak": 0.014911876991391182,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1272000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006043427299937978,
+          "peak": 0.014912649057805538,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1276800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.00604931370300395,
+          "peak": 0.014914436265826225,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1281600,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006070065491052906,
+          "peak": 0.014913252554833889,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1286400,
+          "samples": 9600,
+          "nonzero": 4608,
+          "rms": 0.0032364944140162825,
+          "peak": 0.014907247386872768,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1291200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1296000,
+          "samples": 9600,
+          "nonzero": 76,
+          "rms": 0.00037140807917685994,
+          "peak": 0.009001701138913631,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1300800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006060533162454661,
+          "peak": 0.01491073053330183,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1305600,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008070534084849278,
+          "peak": 0.028719402849674225,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1310400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008384614747667045,
+          "peak": 0.025115830823779106,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1315200,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008411871208640911,
+          "peak": 0.02562970481812954,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1320000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.0065766382683119535,
+          "peak": 0.02363033965229988,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1324800,
+          "samples": 9600,
+          "nonzero": 6144,
+          "rms": 0.004117926634706393,
+          "peak": 0.014920586720108986,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1329600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1334400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1339200,
+          "samples": 9600,
+          "nonzero": 7932,
+          "rms": 0.005496065757226397,
+          "peak": 0.014967205002903938,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 1344000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006056175826713231,
+          "peak": 0.014967785216867924,
+          "unretained_window_samples": 4627072
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 3662336,
+          "blocks": 14306,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 8744,
+          "successful_silent_frames": 2238464,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 3661824,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "owner": {
+        "containment_confirmed": true,
+        "retired": true,
+        "error": null,
+        "reporting_errors": [],
+        "retirement_error": null,
+        "raw_exit": 0,
+        "classification": "scanner_completed",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "supervision_error": null,
+        "setup": [
+          {
+            "event": "lifecycle",
+            "latency_samples": 0,
+            "maximum": 256,
+            "precision": "float32",
+            "sample_rate": 48000.0,
+            "sequence": 167,
+            "state": "ap9_processing_setup",
+            "tail_samples": 0,
+            "vendor_float64": false
+          },
+          {
+            "event": "lifecycle",
+            "latency_samples": 0,
+            "maximum": 256,
+            "precision": "float32",
+            "sample_rate": 48000.0,
+            "sequence": 172,
+            "state": "ap9_processing_setup",
+            "tail_samples": 0,
+            "vendor_float64": false
+          }
+        ]
+      },
+      "local_audio": {
+        "graph_rate": 48000,
+        "graph_quantum": 256,
+        "ports": "F32P, stereo",
+        "speaker_format": "S16LE 2ch 48000Hz",
+        "speaker_alsa_period_size": 1024,
+        "speaker_alsa_headroom": 1024,
+        "observed_bitwig_node_error_counter": 0,
+        "observed_speaker_node_error_counter": 3,
+        "error_counter_scope": "Snapshot, not a complete event log. Speaker value stayed 3 across all selected snapshots; Bitwig values 0,0,1. No zero-error device-path claim.",
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 950272,
+          "nonzero": 618762,
+          "rms": 0.0016726383704763626,
+          "peak": 0.009323225356638432,
+          "stderr": ""
+        },
+        "capture_wall_seconds": 12.016530752996914
+      },
+      "cpu": {
+        "owner_seconds": 14.331771,
+        "window_seconds": 12.016530752996914,
+        "owner_percent_one_core": 119.26712704850912,
+        "owner_memory_begin_bytes": 568819712,
+        "owner_memory_end_bytes": 560119808,
+        "native_daw_cpu": "not instrumented; SDK-native CPU is separate"
+      }
+    },
+    {
+      "name": "bitwig-256",
+      "source_commit": "03ea36672421ddef4a1779b146a64bf36d699f90",
+      "native_sha256": "7622114c1f1218e4f2b3944bcf99f7bd7fab588056371faa387152fa9849a5f4",
+      "status": "completed_with_gaps",
+      "launch": "Applications -> All Applications -> Bitwig Studio",
+      "project": "AP9 copy of AP8 Serum Recall; existing repeating note clip at 110 BPM; restored MainVol 0.1150; track gain -10 dB",
+      "visible_transport_seconds": 57.229,
+      "processed_seconds_including_stopped_audio": 85.192,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 256,
+          "vendor_frames": 0,
+          "total_frames": 256,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 256,
+          "vendor_frames": 0,
+          "total_frames": 256,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 31947,
+          "request_high": 4,
+          "result_high": 3,
+          "position": 4089216,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 8178432,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 8178432,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 26612,
+          "mean_ns": 68912,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 128000,
+          "p99_upper_ns": 176000,
+          "max_ns": 8140902
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 26612,
+          "mean_ns": 9167,
+          "p50_upper_ns": 9000,
+          "p95_upper_ns": 11000,
+          "p99_upper_ns": 80000,
+          "max_ns": 468399
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 26612,
+          "mean_ns": 77288,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 160000,
+          "p99_upper_ns": 192000,
+          "max_ns": 703734
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 26612,
+          "mean_ns": 510248,
+          "p50_upper_ns": 512000,
+          "p95_upper_ns": 704000,
+          "p99_upper_ns": 896000,
+          "max_ns": 10559229
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 26612,
+          "mean_ns": 4383,
+          "p50_upper_ns": 4500,
+          "p95_upper_ns": 6000,
+          "p99_upper_ns": 7000,
+          "max_ns": 449409
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 26612,
+          "mean_ns": 4334,
+          "p50_upper_ns": 4500,
+          "p95_upper_ns": 6000,
+          "p99_upper_ns": 8000,
+          "max_ns": 339797
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 26612,
+          "mean_ns": 674334,
+          "p50_upper_ns": 704000,
+          "p95_upper_ns": 896000,
+          "p99_upper_ns": 1152000,
+          "max_ns": 10765864
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 26612,
+          "mean_ns": 98704,
+          "p50_upper_ns": 112000,
+          "p95_upper_ns": 176000,
+          "p99_upper_ns": 240000,
+          "max_ns": 1133800
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 26612,
+          "mean_ns": 575629,
+          "p50_upper_ns": 576000,
+          "p95_upper_ns": 768000,
+          "p99_upper_ns": 960000,
+          "max_ns": 10699164
+        },
+        {
+          "event": "ap9_clock_resolution",
+          "negative_correlated_residuals": 0
+        },
+        {
+          "event": "ap9_unpublished",
+          "requests": 0
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9922,
+          "position": 1269376,
+          "service_ns": 10765864,
+          "windows_process_ns": 66700
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9923,
+          "position": 1269504,
+          "service_ns": 9689352,
+          "windows_process_ns": 66300
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9924,
+          "position": 1269632,
+          "service_ns": 8433317,
+          "windows_process_ns": 74800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9925,
+          "position": 1269760,
+          "service_ns": 6755974,
+          "windows_process_ns": 70300
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9926,
+          "position": 1269888,
+          "service_ns": 5035410,
+          "windows_process_ns": 67600
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 8608,
+          "position": 1101184,
+          "service_ns": 4007660,
+          "windows_process_ns": 77100
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9306,
+          "position": 1190528,
+          "service_ns": 3711543,
+          "windows_process_ns": 163800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9927,
+          "position": 1270016,
+          "service_ns": 3079671,
+          "windows_process_ns": 148900
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 681600,
+          "samples": 7040,
+          "nonzero": 7036,
+          "rms": 0.005992562416135061,
+          "peak": 0.014913825318217278,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 686400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.007278968378994465,
+          "peak": 0.02432820200920105,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 691200,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008393165524929516,
+          "peak": 0.02665426954627037,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 696000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008552331911848851,
+          "peak": 0.02952234074473381,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 700800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.007110457334831099,
+          "peak": 0.0229008961468935,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 705600,
+          "samples": 9600,
+          "nonzero": 8832,
+          "rms": 0.005222799135040052,
+          "peak": 0.01492862869054079,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 710400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 715200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 720000,
+          "samples": 9600,
+          "nonzero": 5290,
+          "rms": 0.004475124029158592,
+          "peak": 0.014961021952331066,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 724800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006068740631529476,
+          "peak": 0.014962268061935902,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 729600,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006061100396833226,
+          "peak": 0.01496288925409317,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 734400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006056937244344685,
+          "peak": 0.014964036643505096,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 739200,
+          "samples": 9600,
+          "nonzero": 7168,
+          "rms": 0.004537222767247558,
+          "peak": 0.014964566566050053,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 744000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 748800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 753600,
+          "samples": 9600,
+          "nonzero": 7036,
+          "rms": 0.00513164937948926,
+          "peak": 0.014911876991391182,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 758400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006062561764172494,
+          "peak": 0.014912649057805538,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 763200,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006079480249615316,
+          "peak": 0.014914436265826225,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 768000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006058192005613602,
+          "peak": 0.014913252554833889,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 772800,
+          "samples": 9600,
+          "nonzero": 5504,
+          "rms": 0.0037039343898547994,
+          "peak": 0.014907247386872768,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 777600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 782400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 787200,
+          "samples": 9600,
+          "nonzero": 8780,
+          "rms": 0.0057595424786767435,
+          "peak": 0.01491073053330183,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 792000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.007833624010907852,
+          "peak": 0.028719402849674225,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 796800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008602511483533807,
+          "peak": 0.025115830823779106,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 801600,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008394996340381522,
+          "peak": 0.02562970481812954,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 806400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006597216401424388,
+          "peak": 0.02363033965229988,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 811200,
+          "samples": 9600,
+          "nonzero": 7040,
+          "rms": 0.00455323320655599,
+          "peak": 0.014924252405762672,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 816000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 820800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 825600,
+          "samples": 9600,
+          "nonzero": 7036,
+          "rms": 0.00516329346945192,
+          "peak": 0.014967205002903938,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 830400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006058303325784234,
+          "peak": 0.014967785216867924,
+          "unretained_window_samples": 6508032
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1269376,
+          "gap_frames": 128,
+          "request_position": 1269376,
+          "request_frames": 128,
+          "sequence": 9922,
+          "output_published": true,
+          "queue_us": 66,
+          "prepare_us": 10,
+          "send_us": 118,
+          "reply_us": 10559,
+          "validation_us": 5,
+          "publication_us": 5,
+          "publication_after_gap_us": 5426,
+          "admission_to_gap_us": 5339
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1269504,
+          "gap_frames": 128,
+          "request_position": 1269504,
+          "request_frames": 128,
+          "sequence": 9923,
+          "output_published": true,
+          "queue_us": 8140,
+          "prepare_us": 6,
+          "send_us": 36,
+          "reply_us": 1494,
+          "validation_us": 5,
+          "publication_us": 5,
+          "publication_after_gap_us": 4288,
+          "admission_to_gap_us": 5400
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1269632,
+          "gap_frames": 128,
+          "request_position": 1269632,
+          "request_frames": 128,
+          "sequence": 9924,
+          "output_published": true,
+          "queue_us": 6994,
+          "prepare_us": 5,
+          "send_us": 36,
+          "reply_us": 1378,
+          "validation_us": 5,
+          "publication_us": 12,
+          "publication_after_gap_us": 3019,
+          "admission_to_gap_us": 5413
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1269760,
+          "gap_frames": 128,
+          "request_position": 1269760,
+          "request_frames": 128,
+          "sequence": 9925,
+          "output_published": true,
+          "queue_us": 5747,
+          "prepare_us": 7,
+          "send_us": 76,
+          "reply_us": 913,
+          "validation_us": 5,
+          "publication_us": 6,
+          "publication_after_gap_us": 1260,
+          "admission_to_gap_us": 5495
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 128,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 4089216,
+          "blocks": 31947,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 17815,
+          "successful_silent_frames": 2280320,
+          "priming_frames": 256,
+          "underrun_frames": 512,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 4,
+          "expired_output_frames": 512,
+          "delivered_frames": 4088448,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "owner": {
+        "containment_confirmed": true,
+        "retired": true,
+        "error": null,
+        "reporting_errors": [],
+        "retirement_error": null,
+        "raw_exit": 0,
+        "classification": "scanner_completed",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "supervision_error": null,
+        "setup": [
+          {
+            "event": "lifecycle",
+            "latency_samples": 0,
+            "maximum": 128,
+            "precision": "float32",
+            "sample_rate": 48000.0,
+            "sequence": 167,
+            "state": "ap9_processing_setup",
+            "tail_samples": 0,
+            "vendor_float64": false
+          },
+          {
+            "event": "lifecycle",
+            "latency_samples": 0,
+            "maximum": 128,
+            "precision": "float32",
+            "sample_rate": 48000.0,
+            "sequence": 172,
+            "state": "ap9_processing_setup",
+            "tail_samples": 0,
+            "vendor_float64": false
+          }
+        ]
+      },
+      "local_audio": {
+        "graph_rate": 48000,
+        "graph_quantum": 128,
+        "ports": "F32P, stereo",
+        "speaker_format": "S16LE 2ch 48000Hz",
+        "speaker_alsa_period_size": 1024,
+        "speaker_alsa_headroom": 1024,
+        "observed_bitwig_node_error_counter": 1,
+        "observed_speaker_node_error_counter": 3,
+        "error_counter_scope": "Snapshot, not a complete event log. Speaker value stayed 3 across all selected snapshots; Bitwig values 0,0,1. No zero-error device-path claim.",
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 950272,
+          "nonzero": 618224,
+          "rms": 0.0016791112872962903,
+          "peak": 0.009363681077957153,
+          "stderr": ""
+        },
+        "capture_wall_seconds": 12.002119706012309
+      },
+      "cpu": {
+        "owner_seconds": 15.646279,
+        "window_seconds": 12.002119706012309,
+        "owner_percent_one_core": 130.3626307956435,
+        "owner_memory_begin_bytes": 570892288,
+        "owner_memory_end_bytes": 570937344,
+        "native_daw_cpu": "not instrumented; SDK-native CPU is separate"
+      }
+    },
+    {
+      "name": "bitwig-128",
+      "source_commit": "bcb6b81891da176f844d30c1187c4ac654514254",
+      "native_sha256": "4bb5b628cb735b0819beedda04b3b77a370333b1a069a80e39ce472660fd13c6",
+      "status": "completed_with_gaps",
+      "launch": "Applications -> All Applications -> Bitwig Studio",
+      "project": "AP9 copy of AP8 Serum Recall; existing repeating note clip at 110 BPM; restored MainVol 0.1150; track gain -10 dB",
+      "visible_transport_seconds": 27.501,
+      "processed_seconds_including_stopped_audio": 57.370666666666665,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 128,
+          "vendor_frames": 0,
+          "total_frames": 128,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 128,
+          "vendor_frames": 0,
+          "total_frames": 128,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 21514,
+          "request_high": 2,
+          "result_high": 3,
+          "position": 2753792,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 5507584,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 5507584,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 17780,
+          "mean_ns": 67834,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 128000,
+          "p99_upper_ns": 176000,
+          "max_ns": 5259873
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 17780,
+          "mean_ns": 9079,
+          "p50_upper_ns": 9000,
+          "p95_upper_ns": 11000,
+          "p99_upper_ns": 72000,
+          "max_ns": 356547
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 17780,
+          "mean_ns": 74637,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 144000,
+          "p99_upper_ns": 176000,
+          "max_ns": 735845
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 17780,
+          "mean_ns": 477402,
+          "p50_upper_ns": 480000,
+          "p95_upper_ns": 704000,
+          "p99_upper_ns": 896000,
+          "max_ns": 7822768
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 17780,
+          "mean_ns": 4508,
+          "p50_upper_ns": 4500,
+          "p95_upper_ns": 6000,
+          "p99_upper_ns": 8000,
+          "max_ns": 160613
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 17780,
+          "mean_ns": 4167,
+          "p50_upper_ns": 4500,
+          "p95_upper_ns": 6000,
+          "p99_upper_ns": 7500,
+          "max_ns": 161524
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 17780,
+          "mean_ns": 637629,
+          "p50_upper_ns": 640000,
+          "p95_upper_ns": 896000,
+          "p99_upper_ns": 1152000,
+          "max_ns": 7935770
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 17780,
+          "mean_ns": 85677,
+          "p50_upper_ns": 64000,
+          "p95_upper_ns": 176000,
+          "p99_upper_ns": 224000,
+          "max_ns": 1272200
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 17780,
+          "mean_ns": 551951,
+          "p50_upper_ns": 576000,
+          "p95_upper_ns": 768000,
+          "p99_upper_ns": 896000,
+          "max_ns": 7796670
+        },
+        {
+          "event": "ap9_clock_resolution",
+          "negative_correlated_residuals": 0
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9913,
+          "position": 1268224,
+          "service_ns": 7935770,
+          "windows_process_ns": 139100
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9914,
+          "position": 1268352,
+          "service_ns": 6251684,
+          "windows_process_ns": 137900
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9915,
+          "position": 1268480,
+          "service_ns": 4373183,
+          "windows_process_ns": 117200
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 17604,
+          "position": 2252672,
+          "service_ns": 2710217,
+          "windows_process_ns": 65500
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 14704,
+          "position": 1881472,
+          "service_ns": 2632086,
+          "windows_process_ns": 53700
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 8071,
+          "position": 1032448,
+          "service_ns": 2407901,
+          "windows_process_ns": 78700
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 9916,
+          "position": 1268608,
+          "service_ns": 2372421,
+          "windows_process_ns": 122300
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 3893,
+          "position": 497664,
+          "service_ns": 2368491,
+          "windows_process_ns": 196100
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 475200,
+          "samples": 4096,
+          "nonzero": 4092,
+          "rms": 0.005945861162546172,
+          "peak": 0.014913825318217278,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 480000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.0061498108396951376,
+          "peak": 0.019298259168863297,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 484800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008773060638184362,
+          "peak": 0.02665426954627037,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 489600,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008760540934777161,
+          "peak": 0.02952234074473381,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 494400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.007466633242056521,
+          "peak": 0.0229008961468935,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 499200,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006062286376051767,
+          "peak": 0.01492862869054079,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 504000,
+          "samples": 9600,
+          "nonzero": 2176,
+          "rms": 0.0012735705223726164,
+          "peak": 0.014313253574073315,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 508800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 513600,
+          "samples": 9600,
+          "nonzero": 2346,
+          "rms": 0.0029038932312393942,
+          "peak": 0.014961021952331066,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 518400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006059045490088965,
+          "peak": 0.01496161799877882,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 523200,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006065238815249854,
+          "peak": 0.01496288925409317,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 528000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006074840409966903,
+          "peak": 0.014964036643505096,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 532800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.005659569694702218,
+          "peak": 0.014964566566050053,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 537600,
+          "samples": 9600,
+          "nonzero": 512,
+          "rms": 1.9190619851789012e-09,
+          "peak": 3.559369332606366e-08,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 542400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 547200,
+          "samples": 9600,
+          "nonzero": 4092,
+          "rms": 0.003884324520812793,
+          "peak": 0.014911876991391182,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 552000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006060112459711329,
+          "peak": 0.014909682795405388,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 556800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.00607985264911144,
+          "peak": 0.014914232306182384,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 561600,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006060431245279298,
+          "peak": 0.014914436265826225,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 566400,
+          "samples": 9600,
+          "nonzero": 8448,
+          "rms": 0.004996299212828433,
+          "peak": 0.014910676516592503,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 571200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 576000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 580800,
+          "samples": 9600,
+          "nonzero": 5836,
+          "rms": 0.004683426589946241,
+          "peak": 0.014907149598002434,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 585600,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006987930746275119,
+          "peak": 0.028719402849674225,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 590400,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008376849570769184,
+          "peak": 0.025115830823779106,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 595200,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.008538819550249278,
+          "peak": 0.023893089964985847,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 600000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.007597409726723516,
+          "peak": 0.02562970481812954,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 604800,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.005630543102661194,
+          "peak": 0.014924252405762672,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 609600,
+          "samples": 9600,
+          "nonzero": 384,
+          "rms": 2.4400938749200873e-09,
+          "peak": 6.622764914254731e-08,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 614400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 619200,
+          "samples": 9600,
+          "nonzero": 4092,
+          "rms": 0.0039403159437833,
+          "peak": 0.014967205002903938,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 624000,
+          "samples": 9600,
+          "nonzero": 9600,
+          "rms": 0.006078314180975125,
+          "peak": 0.014967511408030987,
+          "unretained_window_samples": 4249984
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1217536,
+          "gap_frames": 128,
+          "request_position": 1217536,
+          "request_frames": 128,
+          "sequence": 9517,
+          "output_published": true,
+          "queue_us": 114,
+          "prepare_us": 13,
+          "send_us": 85,
+          "reply_us": 1335,
+          "validation_us": 6,
+          "publication_us": 7,
+          "publication_after_gap_us": 83,
+          "admission_to_gap_us": 1479
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1268224,
+          "gap_frames": 128,
+          "request_position": 1268224,
+          "request_frames": 128,
+          "sequence": 9913,
+          "output_published": true,
+          "queue_us": 34,
+          "prepare_us": 7,
+          "send_us": 62,
+          "reply_us": 7822,
+          "validation_us": 4,
+          "publication_us": 4,
+          "publication_after_gap_us": 5250,
+          "admission_to_gap_us": 2685
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1268352,
+          "gap_frames": 128,
+          "request_position": 1268352,
+          "request_frames": 128,
+          "sequence": 9914,
+          "output_published": true,
+          "queue_us": 5259,
+          "prepare_us": 4,
+          "send_us": 31,
+          "reply_us": 945,
+          "validation_us": 5,
+          "publication_us": 5,
+          "publication_after_gap_us": 3577,
+          "admission_to_gap_us": 2673
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1268480,
+          "gap_frames": 128,
+          "request_position": 1268480,
+          "request_frames": 128,
+          "sequence": 9915,
+          "output_published": true,
+          "queue_us": 3588,
+          "prepare_us": 4,
+          "send_us": 36,
+          "reply_us": 731,
+          "validation_us": 5,
+          "publication_us": 6,
+          "publication_after_gap_us": 1659,
+          "admission_to_gap_us": 2713
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2387072,
+          "gap_frames": 128,
+          "request_position": 2387072,
+          "request_frames": 128,
+          "sequence": 18654,
+          "output_published": true,
+          "queue_us": 72,
+          "prepare_us": 8,
+          "send_us": 141,
+          "reply_us": 413,
+          "validation_us": 3,
+          "publication_us": 3,
+          "publication_after_gap_us": 123,
+          "admission_to_gap_us": 519
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2671872,
+          "gap_frames": 128,
+          "request_position": 2671872,
+          "request_frames": 128,
+          "sequence": 20879,
+          "output_published": true,
+          "queue_us": 69,
+          "prepare_us": 9,
+          "send_us": 70,
+          "reply_us": 449,
+          "validation_us": 4,
+          "publication_us": 3,
+          "publication_after_gap_us": 14,
+          "admission_to_gap_us": 591
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2681472,
+          "gap_frames": 128,
+          "request_position": 2681472,
+          "request_frames": 128,
+          "sequence": 20954,
+          "output_published": true,
+          "queue_us": 23,
+          "prepare_us": 8,
+          "send_us": 75,
+          "reply_us": 550,
+          "validation_us": 4,
+          "publication_us": 4,
+          "publication_after_gap_us": 31,
+          "admission_to_gap_us": 634
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2719872,
+          "gap_frames": 128,
+          "request_position": 2719872,
+          "request_frames": 128,
+          "sequence": 21254,
+          "output_published": true,
+          "queue_us": 93,
+          "prepare_us": 9,
+          "send_us": 75,
+          "reply_us": 694,
+          "validation_us": 6,
+          "publication_us": 5,
+          "publication_after_gap_us": 294,
+          "admission_to_gap_us": 590
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2729472,
+          "gap_frames": 128,
+          "request_position": 2729472,
+          "request_frames": 128,
+          "sequence": 21329,
+          "output_published": true,
+          "queue_us": 22,
+          "prepare_us": 8,
+          "send_us": 71,
+          "reply_us": 758,
+          "validation_us": 5,
+          "publication_us": 5,
+          "publication_after_gap_us": 205,
+          "admission_to_gap_us": 667
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 128,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 2753792,
+          "blocks": 21514,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 14707,
+          "successful_silent_frames": 1882496,
+          "priming_frames": 128,
+          "underrun_frames": 1152,
+          "underrun_gaps": 7,
+          "underrun_callbacks": 9,
+          "expired_output_frames": 1152,
+          "delivered_frames": 2752512,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "owner": {
+        "containment_confirmed": true,
+        "retired": true,
+        "error": null,
+        "reporting_errors": [],
+        "retirement_error": null,
+        "raw_exit": 0,
+        "classification": "scanner_completed",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "supervision_error": null,
+        "setup": [
+          {
+            "event": "lifecycle",
+            "latency_samples": 0,
+            "maximum": 128,
+            "precision": "float32",
+            "sample_rate": 48000.0,
+            "sequence": 167,
+            "state": "ap9_processing_setup",
+            "tail_samples": 0,
+            "vendor_float64": false
+          },
+          {
+            "event": "lifecycle",
+            "latency_samples": 0,
+            "maximum": 128,
+            "precision": "float32",
+            "sample_rate": 48000.0,
+            "sequence": 172,
+            "state": "ap9_processing_setup",
+            "tail_samples": 0,
+            "vendor_float64": false
+          }
+        ]
+      },
+      "local_audio": {
+        "graph_rate": 48000,
+        "graph_quantum": 128,
+        "ports": "F32P, stereo",
+        "speaker_format": "S16LE 2ch 48000Hz",
+        "speaker_alsa_period_size": 1024,
+        "speaker_alsa_headroom": 1024,
+        "observed_bitwig_node_error_counter": 0,
+        "observed_speaker_node_error_counter": 3,
+        "error_counter_scope": "Snapshot, not a complete event log. Speaker value stayed 3 across all selected snapshots; Bitwig values 0,0,1. No zero-error device-path claim.",
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 950272,
+          "nonzero": 605150,
+          "rms": 0.0016325266097216757,
+          "peak": 0.009257192723453045,
+          "stderr": ""
+        },
+        "capture_wall_seconds": 12.001920371083543
+      },
+      "cpu": {
+        "owner_seconds": 15.858797,
+        "window_seconds": 12.001920371083543,
+        "owner_percent_one_core": 132.1354959012135,
+        "owner_memory_begin_bytes": 561758208,
+        "owner_memory_end_bytes": 566243328,
+        "native_daw_cpu": "not instrumented; SDK-native CPU is separate"
+      }
+    }
+  ]
+}
