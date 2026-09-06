@@ -60,12 +60,17 @@ def compare_gui(records,label):
  ui=[r for r in records if r['event']=='ap4_bitwig_ui'];life=[r for r in records if r['event']=='ap3_proxy_lifecycle' and r.get('blocks',0)>0];q=[r for r in records if r['event']=='ap3_proxy_stats'];w=[r for r in records if r['event']=='ap4_sample_comparison'];project=[r for r in records if r['event']=='ap4_project']
  require(len(ui)==len(life)==len(q)==len(w)==len(project)==1,'AP4 one DAW session/result')
  u,l,q,w,project=ui[0],life[0],q[0],w[0],project[0]
- require(u['case']==label and all(u.get(k)is True for k in ('playback','saved','quit','responsive','moonlight_control')),'AP4 direct DAW observations')
+ require(u['case']==label and all(u.get(k)is True for k in ('playback','quit','responsive','moonlight_control')),'AP4 direct DAW observations')
  require(l['clean'] is True and l['callback_rejections']==0 and l['requested_rate']==48000 and 1<=l['requested_maximum']<=256 and l['frames']>=48000 and q['fault']==0 and q['processed']>=l['blocks'],'AP4 DAW processing/cleanup')
  require(w['samples']==2*l['frames'] and w['maximum_error']==0,'AP4 actual DAW samples differ')
  native=[r for r in records if r['event']=='ap4_native_state']
  wanted=.25 if label=='bitwig_first' else 0.
- require(any(r['operation']=='get' and r['gain']==wanted for r in native),'AP4 saved processor value')
+ # The final reopen deliberately does not save: the unchanged project is the
+ # carrier, and setState includes actual Windows readback. The two capture
+ # sessions still require fresh getState results after an actual edit.
+ if label!='bitwig_mute':
+  require(u.get('saved')is True,'AP4 direct DAW save observation')
+  require(any(r['operation']=='get' and r['gain']==wanted for r in native),'AP4 saved processor value')
  if label!='bitwig_first':
   restored=.25 if label=='bitwig_gain' else 0.
   require(all(u.get(k)is True for k in ('restored_control','restored_playback','observed_before_edit')),'AP4 reopen observation before edit')
@@ -73,7 +78,7 @@ def compare_gui(records,label):
   require(any(r['operation']=='set' and r['gain']==restored for r in native),'AP4 actual processor restore')
   require(project['project_before_sha256']==project['expected_before_sha256'],'AP4 saved project changed before reopen')
  if label=='bitwig_mute':require(u.get('later_edit')is True and w['nonzero_samples']>0 and project['project_sha256']==project['project_before_sha256'],'AP4 deliberate edit after mute, unchanged saved carrier')
- return dict(queue=q,processing=l,gui=u,project=project,comparison=w,intervals=q['epoch'],samples_compared=w['samples'],maximum_absolute_error=w['maximum_error'])
+ return dict(queue=q,processing=l,gui=u,project=project,comparison=w,states=native,intervals=q['epoch'],samples_compared=w['samples'],maximum_absolute_error=w['maximum_error'])
 
 def normalize_session(observed,label):
  caller=observed['caller'];require(caller['raw_exit']==0 and caller['cleanup']==CLEAN,'AP4 native containment')
@@ -86,8 +91,19 @@ def normalize_session(observed,label):
  for r in readback:require(r['payload_bytes']==12 and len(bytes.fromhex(r['payload_hex']))==12,'AP4 Windows state extent')
  if label in SDK:
   require(all(any(r['payload_hex']==v['payload_hex'] for r in readback) for v in comparison['states']),'AP4 host state not corroborated by Windows')
+ if label in GUI:
+  for state in comparison['states']:
+   require(state['payload_bytes']==12 and any(hashlib.sha256(bytes.fromhex(r['payload_hex'])).hexdigest()==state['sha256'] and struct.unpack('<ffi',bytes.fromhex(r['payload_hex']))[0]==state['gain'] for r in readback),'AP4 native state not corroborated by Windows')
  result['comparison']['windows_state']=readback
  return result
+
+def join_gui_states(sessions):
+ first,second,third=[sessions[k]['project'] for k in GUI]
+ require(first['project_sha256']==second['project_before_sha256'] and second['project_sha256']==third['project_before_sha256'],'AP4 same saved project across fresh processes')
+ for before,after,gain in [('bitwig_first','bitwig_gain',.25),('bitwig_gain','bitwig_mute',0.)]:
+  saved=[r for r in sessions[before]['states'] if r['operation']=='get' and r['gain']==gain]
+  restored=[r for r in sessions[after]['states'] if r['operation']=='set' and r['gain']==gain]
+  require(saved and restored and saved[-1]['sha256']==restored[0]['sha256'],'AP4 saved state bytes differ on fresh Bitwig restore')
 
 def normalize(observed):
  require(set(observed['segments']) in (set(SDK),set(SDK+GUI)) and observed['cleanup']==CLEAN,'AP4 complete bounded batch')
@@ -95,9 +111,7 @@ def normalize(observed):
  captured={r['case']:r['payload_hex'] for r in sessions['state_capture']['comparison']['states']}
  for label,case in [('state_gain','overlapping_save'),('state_mute','parameter_only_mute')]:
   require(any(r['case']=='restore_readback' and r['payload_hex']==captured[case] for r in sessions[label]['comparison']['states']),'AP4 fresh-session saved bytes differ')
- if set(GUI)<=set(sessions):
-  first,second,third=[sessions[k]['comparison']['project'] for k in GUI]
-  require(first['project_sha256']==second['project_before_sha256'] and second['project_sha256']==third['project_before_sha256'],'AP4 same saved project across fresh processes')
+ if set(GUI)<=set(sessions):join_gui_states({k:sessions[k]['comparison'] for k in GUI})
  return dict(raw=dict(segments={k:v['raw'] for k,v in sessions.items()},cleanup=CLEAN),comparison=dict(samples_compared=sum(v['comparison']['samples_compared'] for v in sessions.values()),maximum_absolute_error=0.,latency_samples=1024),sessions={k:v['comparison'] for k,v in sessions.items()},cleanup=CLEAN)
 
 def validate_summary(summary):
