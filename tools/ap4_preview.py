@@ -115,7 +115,15 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
     observed = None
     containment = True  # no Windows process until supervise is entered
     failure = None
-    checkpoint_error = None
+    reporting_errors = []
+
+    def contained(observation):
+        cleanup = observation.get('cleanup') if isinstance(observation, dict) else None
+        return isinstance(cleanup, dict) and all(cleanup.get(key) is True
+            for key in ('owned_descendants_zero', 'process_group_empty'))
+
+    def report_error(stage, error):
+        reporting_errors.append({'stage': stage, 'error': f'{type(error).__name__}: {error}'})
     # Linux records the connecting native process directly from the socket,
     # independently of DAW hosting settings or a client-supplied identifier.
     native_process_id = None
@@ -133,47 +141,81 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
         connection = Connection(peer, stopping)
         wait_control(environment, connection)
         def checkpoint(stage, available=None, error=None):
-            nonlocal observed, containment, checkpoint_error
+            nonlocal observed, containment
             if available is not None:
                 observed = available
-                containment = all(available.get('cleanup', {}).get(k) is True
-                                  for k in ('owned_descendants_zero', 'process_group_empty'))
+                containment = contained(available)
             # Useful private records, before any stage retirement.
             try:
                 write_atomic(output / (environment.run_id + '.json'), canonical_json({
                     'stage': stage, 'observation': observed,
                     'error': str(error) if error else None}))
-            except OSError as error:
-                checkpoint_error = str(error)  # never interrupt owned cleanup
+            except Exception as error:
+                report_error(stage, error)  # never interrupt owned cleanup
         containment = False
         observed = runtime.supervise(environment, mode=profile.MODE, profile=profile,
             session_override=session, checkpoint=checkpoint,
             post_gate_seconds=None, stop_requested=connection.stopped)
-        containment = all(observed['cleanup'].values())
-        failure = checkpoint_error
+        containment = contained(observed)
     except Exception as error:
         failure = str(error)
     finally:
         if environment is not None:
             report = environment.session / 'ap3-gui-report.jsonl'
             native = None
-            if report.is_file() and not report.is_symlink() and report.stat().st_size <= 65536:
-                native = report.read_text()
+            try:
+                if report.is_file() and not report.is_symlink() and report.stat().st_size <= 65536:
+                    native = report.read_text()
+            except Exception as error:
+                report_error('native_report', error)
             record = {'run_id': environment.run_id, 'native_process_id': native_process_id, 'observation': observed,
-                      'native_report': native, 'error': failure, 'retired': False}
+                      'native_report': native, 'error': failure, 'reporting_errors': reporting_errors,
+                      'containment_confirmed': containment, 'retirement_error': None, 'retired': False}
             target = output / (environment.run_id + '.json')
-            write_atomic(target, canonical_json(record))
+
+            def persist(stage):
+                try:
+                    write_atomic(target, canonical_json(record))
+                except Exception as error:
+                    report_error(stage, error)
+
+            persist('before_retirement')
             if containment:
-                retire_environment(environment)
-                record['retired'] = True
-                write_atomic(target, canonical_json(record))
+                # Reporting is best effort; only the owned cleanup/disposition
+                # result decides whether another session can be admitted.
+                try:
+                    retire_environment(environment)
+                    record['retired'] = True
+                except Exception as error:
+                    record['retirement_error'] = f'{type(error).__name__}: {error}'
+                persist('after_retirement')
+                if not record['retired']:
+                    raise ContainmentError('preview retirement incomplete; stage disposition unresolved', record)
             else:
-                raise ContainmentError('preview containment incomplete; stage retained')
-    if failure:
+                raise ContainmentError('preview containment incomplete; stage retained', record)
+            if failure is not None or reporting_errors:
+                raise SessionError('preview instance failed', record)
+    if failure is not None:
         raise RuntimeError(failure)
 
 
-class ContainmentError(RuntimeError):
+class SessionError(RuntimeError):
+    """Keep the final outcome available even when no diagnostic can be written."""
+    def __init__(self, message, record=None):
+        self.record = record
+        details = []
+        if record is not None:
+            details.append(f"containment_confirmed={record['containment_confirmed']}, retired={record['retired']}")
+            if record['error'] is not None:
+                details.append('primary: ' + record['error'])
+            if record['retirement_error']:
+                details.append('retirement: ' + record['retirement_error'])
+            details.extend('reporting (' + item['stage'] + '): ' + item['error']
+                           for item in record['reporting_errors'])
+        super().__init__('; '.join([message] + details))
+
+
+class ContainmentError(SessionError):
     pass
 
 
