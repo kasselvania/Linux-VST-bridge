@@ -1,0 +1,454 @@
+[
+  {
+    "private_source_basename": "pure-inspection-2.private.json",
+    "fixture": "Pure LoFi",
+    "readiness": {
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "4f975dff2b670a5947d954baca23ca8e",
+      "scanner_sha256": "afb1a4f299c728b19ea778659ddea0abde0caed6bd1d507ecf6e2ec251ffc41a",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "bundle_manifest_sha256": "b1f2267b0e65563c579b0ab72979ac7a7eea7b2ab7a778ebe1c736dd73e7225d",
+      "implementation_source_manifest_sha256": "b85c27f4c00adc24707e7fb1708686ae0653ccdad1cfb21f8ab7203fc4243165",
+      "mode": "ap8-module-inspection",
+      "component_case": "first-audio",
+      "run_ordinal": 1
+    },
+    "raw_exit": 90,
+    "classification": "scanner_blocked",
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "records": [
+      {
+        "event": "lifecycle",
+        "sequence": 35,
+        "state": "ap8_result",
+        "operation": "setHostContext",
+        "result": -2147467263
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 36,
+        "state": "ap8_failure",
+        "reason": "setHostContext"
+      }
+    ],
+    "windows_source": "16113101dbe033d915a6663bd161839c38d93cee",
+    "boundary": "Optional factory setHostContext was incorrectly mandatory; repaired."
+  },
+  {
+    "private_source_basename": "pure-inspection-3.private.json",
+    "fixture": "Pure LoFi",
+    "readiness": {
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "da92c81ce3aedc7de46e8ebb2a073be3",
+      "scanner_sha256": "f87d57fe315bad4496e3f48ac1f8577db3e3c0f711099310b8df27b2937167fc",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "bundle_manifest_sha256": "b1f2267b0e65563c579b0ab72979ac7a7eea7b2ab7a778ebe1c736dd73e7225d",
+      "implementation_source_manifest_sha256": "47aa0e07e7f6586d10144a97f262325fdced5467e44d71e83d7f1b9954c8bb80",
+      "mode": "ap8-module-inspection",
+      "component_case": "first-audio",
+      "run_ordinal": 1
+    },
+    "raw_exit": -15,
+    "classification": "supervision_failed",
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "records": [
+      {
+        "event": "lifecycle",
+        "sequence": 35,
+        "state": "ap8_result",
+        "operation": "setHostContext",
+        "result": -2147467263
+      }
+    ],
+    "windows_source": "d7173aac66615b890686c61b0d55d448a80759ca",
+    "boundary": "Vendor stdout was incorrectly parsed as bridge JSONL and supervision terminated it; repaired."
+  },
+  {
+    "private_source_basename": "pure-inspection-4.private.json",
+    "fixture": "Pure LoFi",
+    "readiness": {
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "79e8f84d154186b4ec7c80b4398cef13",
+      "scanner_sha256": "f87d57fe315bad4496e3f48ac1f8577db3e3c0f711099310b8df27b2937167fc",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "bundle_manifest_sha256": "b1f2267b0e65563c579b0ab72979ac7a7eea7b2ab7a778ebe1c736dd73e7225d",
+      "implementation_source_manifest_sha256": "47aa0e07e7f6586d10144a97f262325fdced5467e44d71e83d7f1b9954c8bb80",
+      "mode": "ap8-module-inspection",
+      "component_case": "first-audio",
+      "run_ordinal": 1
+    },
+    "raw_exit": 90,
+    "classification": "scanner_blocked",
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "records": [
+      {
+        "event": "lifecycle",
+        "sequence": 35,
+        "state": "ap8_result",
+        "operation": "setHostContext",
+        "result": -2147467263
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 39,
+        "state": "ap8_result",
+        "operation": "createComponent",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 41,
+        "state": "ap8_result",
+        "operation": "initializeComponent",
+        "result": 1
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 42,
+        "state": "ap8_failure",
+        "reason": "initializeComponent"
+      }
+    ],
+    "windows_source": "d7173aac66615b890686c61b0d55d448a80759ca",
+    "boundary": "Component initialize returned kResultFalse; vendor cause not established."
+  },
+  {
+    "private_source_basename": "pure-inspection-5.private.json",
+    "fixture": "Pure LoFi",
+    "readiness": {
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "bf47207e8838659b267b3ee1d71d1c24",
+      "scanner_sha256": "f87d57fe315bad4496e3f48ac1f8577db3e3c0f711099310b8df27b2937167fc",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "bundle_manifest_sha256": "b1f2267b0e65563c579b0ab72979ac7a7eea7b2ab7a778ebe1c736dd73e7225d",
+      "implementation_source_manifest_sha256": "47aa0e07e7f6586d10144a97f262325fdced5467e44d71e83d7f1b9954c8bb80",
+      "mode": "ap8-module-inspection",
+      "component_case": "first-audio",
+      "run_ordinal": 1
+    },
+    "raw_exit": 90,
+    "classification": "scanner_blocked",
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "records": [
+      {
+        "event": "lifecycle",
+        "sequence": 35,
+        "state": "ap8_result",
+        "operation": "setHostContext",
+        "result": -2147467263
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 39,
+        "state": "ap8_result",
+        "operation": "createComponent",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 41,
+        "state": "ap8_result",
+        "operation": "initializeComponent",
+        "result": 1
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 42,
+        "state": "ap8_failure",
+        "reason": "initializeComponent"
+      }
+    ],
+    "windows_source": "d7173aac66615b890686c61b0d55d448a80759ca",
+    "boundary": "Observed resource-path registry setting in the owned prefix did not change initialization failure."
+  },
+  {
+    "private_source_basename": "pure-inspection-6.private.json",
+    "fixture": "Pure LoFi",
+    "readiness": {
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "d9696263c67045c2d06c0d7271c5b161",
+      "scanner_sha256": "f87d57fe315bad4496e3f48ac1f8577db3e3c0f711099310b8df27b2937167fc",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "bundle_manifest_sha256": "b1f2267b0e65563c579b0ab72979ac7a7eea7b2ab7a778ebe1c736dd73e7225d",
+      "implementation_source_manifest_sha256": "47aa0e07e7f6586d10144a97f262325fdced5467e44d71e83d7f1b9954c8bb80",
+      "mode": "ap8-module-inspection",
+      "component_case": "first-audio",
+      "run_ordinal": 1
+    },
+    "raw_exit": 90,
+    "classification": "scanner_blocked",
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "records": [
+      {
+        "event": "lifecycle",
+        "sequence": 35,
+        "state": "ap8_result",
+        "operation": "setHostContext",
+        "result": -2147467263
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 39,
+        "state": "ap8_result",
+        "operation": "createComponent",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 41,
+        "state": "ap8_result",
+        "operation": "initializeComponent",
+        "result": 1
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 42,
+        "state": "ap8_failure",
+        "reason": "initializeComponent"
+      }
+    ],
+    "windows_source": "d7173aac66615b890686c61b0d55d448a80759ca",
+    "boundary": "Existing graphical session did not change initialization failure."
+  },
+  {
+    "private_source_basename": "efx-inspection-1.private.json",
+    "fixture": "Efx FRAGMENTS",
+    "readiness": {
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "1535bdccb37565295620aca579407211",
+      "scanner_sha256": "f87d57fe315bad4496e3f48ac1f8577db3e3c0f711099310b8df27b2937167fc",
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "bundle_manifest_sha256": "2aa30280b1916766d7138775b5e53d540e9888b76fe5ccf247516a56f2df935e",
+      "implementation_source_manifest_sha256": "47aa0e07e7f6586d10144a97f262325fdced5467e44d71e83d7f1b9954c8bb80",
+      "mode": "ap8-module-inspection",
+      "component_case": "first-audio",
+      "run_ordinal": 1
+    },
+    "raw_exit": 82,
+    "classification": "scanner_blocked",
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "records": [
+      {
+        "event": "lifecycle",
+        "sequence": 33,
+        "state": "ap8_result",
+        "operation": "setHostContext",
+        "result": -2147467263
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 36,
+        "state": "ap8_result",
+        "operation": "createComponent",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 38,
+        "state": "ap8_result",
+        "operation": "initializeComponent",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 45,
+        "state": "ap8_bus",
+        "media": 0,
+        "direction": 0,
+        "index": 0,
+        "channels": 2,
+        "type": 0,
+        "flags": 1,
+        "name": "Stereo In"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 47,
+        "state": "ap8_bus",
+        "media": 0,
+        "direction": 0,
+        "index": 1,
+        "channels": 2,
+        "type": 1,
+        "flags": 1,
+        "name": "Sidechain"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 50,
+        "state": "ap8_bus",
+        "media": 0,
+        "direction": 1,
+        "index": 0,
+        "channels": 2,
+        "type": 0,
+        "flags": 1,
+        "name": "Stereo Out"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 53,
+        "state": "ap8_bus",
+        "media": 1,
+        "direction": 0,
+        "index": 0,
+        "channels": 0,
+        "type": 0,
+        "flags": 1,
+        "name": "Midi In"
+      }
+    ],
+    "windows_source": "d7173aac66615b890686c61b0d55d448a80759ca",
+    "boundary": "Lifecycle initialized, then per-parameter output exhausted the diagnostic event bound; compact output repaired. This is a stereo effect, not instrument proof."
+  },
+  {
+    "private_source_basename": "serum-inspection-1.private.json",
+    "fixture": "Serum2",
+    "readiness": {
+      "event": "lifecycle",
+      "sequence": 2,
+      "state": "readiness_announced",
+      "session": "07f2143f3ddb2660a9b8f5a8418ffb87",
+      "scanner_sha256": "c0f58bb487e4c154e796ca0ccfbcd24a379ce3c23b617a921ddef7a3af6ce100",
+      "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175",
+      "bundle_manifest_sha256": "78ddca1a95b96e4ae08730948943610c6a3c93fa2f321e563b6fd72cd66ac755",
+      "implementation_source_manifest_sha256": "f667e00da26d8b6cfda34c67b5b46524f673cb536e8fc9f598b5eabbd2c6b18f",
+      "mode": "ap8-module-inspection",
+      "component_case": "class:56534558667350736572756D20320000",
+      "run_ordinal": 1
+    },
+    "raw_exit": 0,
+    "classification": "scanner_completed",
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "records": [
+      {
+        "event": "lifecycle",
+        "sequence": 39,
+        "state": "ap8_result",
+        "operation": "setHostContext",
+        "result": -2147467263
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 45,
+        "state": "ap8_result",
+        "operation": "createComponent",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 47,
+        "state": "ap8_result",
+        "operation": "initializeComponent",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 55,
+        "state": "ap8_result",
+        "operation": "initializeController",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 65,
+        "state": "ap8_bus",
+        "media": 0,
+        "direction": 1,
+        "index": 0,
+        "channels": 2,
+        "type": 0,
+        "flags": 1,
+        "name": "Audio Output"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 68,
+        "state": "ap8_bus",
+        "media": 1,
+        "direction": 0,
+        "index": 0,
+        "channels": 16,
+        "type": 0,
+        "flags": 1,
+        "name": "Event Input"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 71,
+        "state": "ap8_bus",
+        "media": 1,
+        "direction": 1,
+        "index": 0,
+        "channels": 16,
+        "type": 0,
+        "flags": 1,
+        "name": "Event Output"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 72,
+        "state": "ap8_parameter_count",
+        "count": 2623
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 158,
+        "state": "ap8_result",
+        "operation": "getComponentState",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 160,
+        "state": "ap8_result",
+        "operation": "synchronizeController",
+        "result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 161,
+        "state": "ap8_inspected",
+        "controller_separate": true,
+        "state_bytes": 1248,
+        "latency_samples": 0,
+        "float32_result": 0
+      }
+    ],
+    "windows_source": "6b5a6353f621ab7b448a53a4fdf8fd52d04e234c",
+    "boundary": "Selected instrument lifecycle and opaque state capture/controller synchronization succeeded."
+  }
+]

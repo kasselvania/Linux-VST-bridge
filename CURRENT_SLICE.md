@@ -1,5 +1,22 @@
 # Current work: AP8 — First playable installed commercial instrument
 
+## Result — implemented, awaiting review
+
+PR #67 now contains the installed Serum 2.0.18 instrument path and a completed
+Bitwig 6.1 desktop save/close/reopen check. Main Vol restored to 0.1150 before
+any edit; the recalled clip played and stopped. Both desktop instances closed
+with zero underruns, rejected callbacks or terminal faults. The separate SDK
+check measured two real notes, release to silence and Windows state/control
+readback. Desktop numerical windows covered idle setup, so desktop RMS/peak
+and exact waveform recall are not claimed. [Results, source identities,
+candidate failures and cleanup](docs/AP8_RESULT.md) retain those distinctions.
+
+Original test preferences and plug-in metadata are restored, the temporary
+publication is retired, and no test workload remains. The vendor environment,
+test project and build are retained privately. This is an exact-fixture result,
+not production support or a reboot/authorization claim. Leave #67 unmerged for
+review; no successor is selected here.
+
 ## Outcome
 
 Play a note clip through an **actual installed Windows commercial instrument** in Bitwig launched normally from Applications, change a real exposed parameter, and save/reopen that sound if permitted. The operator's updated order is Pure LoFi first, then Efx FRAGMENTS, existing Serum 2, and useful installed Scaler/imagiro fallbacks. Serum remains the preferred second pressure fixture. Issue #66; branch `codex/ap8-serum-first-sound`. Necessary code changes, builds, ordinary debugging and focused verification are included under AGENTS.md. No per-source approvals, campaign replay or GUI countdown.

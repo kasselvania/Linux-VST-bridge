@@ -1,0 +1,30 @@
+{
+  "source": "31e020e3f1a5b93e9758d156d35f66c39ad6c325 plus two semantics-preserving OR-pattern lint edits in native-audio-client/src/lib.rs",
+  "commands": [
+    {
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml",
+      "result": "PASS",
+      "tests": 9
+    },
+    {
+      "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml",
+      "result": "PASS",
+      "tests": 27
+    },
+    {
+      "command": "PYTHONPATH=tools python3 -m unittest test_ap8_fixture test_owned_cleanup test_ap4_preview test_ap5_preview",
+      "result": "PASS",
+      "tests": 18
+    },
+    {
+      "command": "cargo clippy --manifest-path native-audio-client/Cargo.toml --lib -- -D warnings",
+      "result": "PASS"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --all-targets -- -D warnings",
+      "result": "PASS"
+    }
+  ],
+  "initial_invocation_error": "The first Python invocation lacked PYTHONPATH=tools and named a nonexistent test_ap5_owner module. The corrected invocation passed.",
+  "lint_scope": "Native library and backend; the unchanged historical native-audio-client CLI has a pre-existing needless_range_loop warning under --all-targets."
+}

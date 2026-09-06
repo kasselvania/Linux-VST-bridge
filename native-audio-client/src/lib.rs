@@ -64,7 +64,7 @@ impl Frame {
                 .contains(&self.kind)
                 && (1..=5).contains(&minor)
                 && self.payload.len()
-                    <= if minor >= 4 && matches!(self.kind, 17 | 18 | 19) {
+                    <= if minor >= 4 && matches!(self.kind, 17..=19) {
                         1 << 20
                     } else if minor == 5 && self.kind == PROCESS {
                         8248
@@ -128,7 +128,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
     )?;
     let n = get(&b[12..16]);
     need(
-        n <= if minor >= 4 && matches!(get(&b[8..10]), 17 | 18 | 19) {
+        n <= if minor >= 4 && matches!(get(&b[8..10]), 17..=19) {
             1 << 20
         } else if minor == 5 && get(&b[8..10]) == PROCESS as u64 {
             8248
