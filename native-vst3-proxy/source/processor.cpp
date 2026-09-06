@@ -36,8 +36,10 @@ void report() {
 void diagnostic_report(const char *text, size_t size) {
   std::fwrite(text, 1, size, stdout);
   const char *path = std::getenv("LVB_AP3_REPORT");
-  if (!path)
+  if (!path) {
+    ap4_report(reinterpret_cast<const uint8_t *>(text), static_cast<uint32_t>(size));
     return;
+  }
   int fd = ::open(path, O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW | O_CLOEXEC,
                   0600);
   struct stat st{};
@@ -465,7 +467,7 @@ tresult PLUGIN_API Processor::terminate() {
   if (handle_) {
     if (queued_)
       report_stats(handle_);
-    if (preview_ && std::getenv("LVB_AP4_COMPARE")) {
+    if (preview_) {
       ap4_witness_t w{};
       if (!ap4_witness(handle_, &w)) {
         char text[512];
@@ -492,7 +494,7 @@ tresult PLUGIN_API Processor::terminate() {
     handle_ = 0;
   }
   auto r = AudioEffect::terminate();
-  if (preview_ && std::getenv("LVB_AP3_REPORT")) {
+  if (preview_) {
     char text[768];
     auto n = std::snprintf(
         text, sizeof(text),

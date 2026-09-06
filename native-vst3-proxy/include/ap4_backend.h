@@ -8,6 +8,8 @@ extern "C" {
    ap4_state releases registry ownership before waiting; callbacks may continue.
    restore=null snapshots; restore!=null applies and reads back. No retry. */
 uint32_t ap4_open(uint64_t *handle);
+/* Optional private preview diagnostic sink, non-RT owner thread only. */
+uint32_t ap4_report(const uint8_t *bytes, uint32_t length);
 uint32_t ap4_activate(uint64_t handle, uint32_t maximum, uint32_t mode);
 uint32_t ap4_deactivate(uint64_t handle);
 uint32_t ap4_state(uint64_t handle, const uint8_t *restore, uint32_t length,

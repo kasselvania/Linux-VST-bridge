@@ -78,6 +78,9 @@ impl Prepared {
         })
     }
     pub fn accept(self, minor: u64) -> io::Result<(Mapping, TcpStream)> {
+        self.accept_while(minor, || Ok(()))
+    }
+    pub fn accept_while(self, minor: u64, mut alive: impl FnMut() -> io::Result<()>) -> io::Result<(Mapping, TcpStream)> {
         let Self {
             mut mapping,
             listener,
@@ -87,6 +90,7 @@ impl Prepared {
         } = self;
         let until = Instant::now() + Duration::from_secs(180);
         let mut socket: TcpStream = loop {
+            alive()?;
             match listener.accept() {
                 Ok((s, a)) => {
                     need(a.ip().is_loopback(), "nonlocal peer")?;

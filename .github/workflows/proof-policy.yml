@@ -82,3 +82,5 @@ jobs:
           RUSTC="$(rustup which --toolchain stable rustc)" rustup run stable cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --offline
           c++ -std=c++20 -Wall -Wextra -Werror -I windows-factory-probe/source tools/ap1-tests/codec.cpp -o /tmp/ap1-codec-tests
           /tmp/ap1-codec-tests "$(cat tools/ap1-tests/golden.txt)"
+      - name: Check private preview lifetime and cleanup
+        run: python3 tools/test_ap4_preview.py -v

@@ -1,4 +1,5 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
+mod preview;
 mod queue;
 mod queued;
 mod state;
@@ -28,6 +29,7 @@ struct Session {
     epoch: u64,
     position: u64,
     witness: Option<state::Witness>,
+    owner: Option<std::os::unix::net::UnixStream>,
 }
 // Mapping has no escaping references; the registry serializes every access.
 unsafe impl Send for Session {}
@@ -49,7 +51,13 @@ fn ffi(f: impl FnOnce() -> i32) -> i32 {
         4
     })
 }
-fn binding() -> io::Result<(PathBuf, [u8; 16])> {
+fn binding(preview: bool) -> io::Result<preview::Binding> {
+    if preview
+        && std::env::var_os("LVB_AP2_SESSION_DIR").is_none()
+        && std::env::var_os("LVB_AP2_SESSION").is_none()
+    {
+        return preview::discover();
+    }
     let path = std::env::var_os("LVB_AP2_SESSION_DIR")
         .ok_or_else(|| invalid("missing private binding"))?;
     let path = PathBuf::from(path);
@@ -63,12 +71,32 @@ fn binding() -> io::Result<(PathBuf, [u8; 16])> {
         "session syntax",
     )?;
     let session = std::array::from_fn(|i| u8::from_str_radix(&id[i * 2..i * 2 + 2], 16).unwrap());
-    Ok((path, session))
+    Ok(preview::Binding {
+        directory: path,
+        session,
+        owner: None,
+    })
 }
 impl Session {
-    fn open_at(path: &std::path::Path, id: [u8; 16], max: usize, minor: u64) -> io::Result<Self> {
+    fn open(binding: preview::Binding, max: usize, minor: u64) -> io::Result<Self> {
+        Self::open_bound(
+            &binding.directory,
+            binding.session,
+            max,
+            minor,
+            binding.owner,
+        )
+    }
+    fn open_bound(
+        path: &std::path::Path,
+        id: [u8; 16],
+        max: usize,
+        minor: u64,
+        mut owner: Option<std::os::unix::net::UnixStream>,
+    ) -> io::Result<Self> {
         let prepared = Prepared::create(path, id)?;
-        let (mapping, socket) = prepared.accept(minor)?;
+        let (mapping, socket) =
+            prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
             mapping: Some(mapping),
             socket,
@@ -82,11 +110,14 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if minor == 4 && std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1") {
+            witness: if minor == 4
+                && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
+            {
                 Some(state::Witness::new())
             } else {
                 None
             },
+            owner,
         };
         if minor == 4 {
             s.phase = 17;
@@ -351,10 +382,7 @@ pub unsafe extern "C" fn ap2_open(max: u32, handle: *mut u64) -> i32 {
         if slot.is_some() {
             return 3;
         }
-        let result = (|| {
-            let (path, id) = binding()?;
-            Session::open_at(&path, id, max as usize, 2)
-        })();
+        let result = binding(false).and_then(|b| Session::open(b, max as usize, 2));
         match result {
             Ok(s) => {
                 let id = NEXT.fetch_add(1, Ordering::Relaxed);

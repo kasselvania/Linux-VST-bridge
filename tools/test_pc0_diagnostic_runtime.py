@@ -134,10 +134,16 @@ class RuntimeTests(unittest.TestCase):
                 actual=actual.replace('            "supervision_exception": exception_detail(supervision_error),\n','')
                 # AP0 supplies only mode/stream and host-verification seams;
                 # remove those selections to compare the unchanged PC0 path.
-                actual=actual.replace(', checkpoint=None, profile=None, session_override=None, observe_companion=None, post_gate_seconds=POST_GATE_SECONDS)', ')')
-                # Only the AP4 GUI opts into the declared 180-second window.
-                actual=actual.replace('    # AP4 interactive sessions use a declared finite GUI window. Call, class,\n    # readiness and owned cleanup deadlines remain independent and unchanged.\n    if type(post_gate_seconds) not in (int, float) or not 0 < post_gate_seconds <= 180:\n        fail("post-gate stage deadline must be positive and at most 180 seconds")\n', '')
-                actual=actual.replace('now - gated_at > post_gate_seconds', 'now - gated_at > POST_GATE_SECONDS')
+                actual=actual.replace(', checkpoint=None, profile=None, session_override=None, observe_companion=None, post_gate_seconds=POST_GATE_SECONDS, stop_requested=None)', ')')
+                # Strip the explicit interactive owner seam; legacy defaults and
+                # readiness/call/class/cleanup behavior remain compared verbatim.
+                start = actual.find('    # Automated runs retain their duration.')
+                if start >= 0:
+                    end = actual.index('    runner_identity =', start)
+                    actual = actual[:start] + actual[end:]
+                actual = actual.replace('            if stop_requested is not None and stop_requested():\n                break\n', '')
+                actual = actual.replace('post_gate_seconds is not None and gated_at is not None', 'gated_at is not None')
+                actual = actual.replace('now - gated_at > post_gate_seconds', 'now - gated_at > POST_GATE_SECONDS')
                 # AP3 observes only its additional owned DAW descendants.
                 actual=actual.replace('            if observe_companion is not None:\n                observe_companion()\n','')
                 actual=actual.replace('session_override or secrets.token_hex(16)', 'secrets.token_hex(16)')

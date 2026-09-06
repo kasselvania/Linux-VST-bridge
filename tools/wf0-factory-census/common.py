@@ -1072,7 +1072,7 @@ def ap3_windows_build_input(commit, *, root=None):
 
 AP4_BRANCH = "codex/ap4-plugin-state-project-recall"
 AP4_REF = "refs/heads/" + AP4_BRANCH
-AP4_WINDOWS_BUILD_PATHS = tuple(sorted((*AP3_WINDOWS_BUILD_PATHS, "vst-state/stream.h")))
+AP4_WINDOWS_BUILD_PATHS = tuple(sorted((*AP3_WINDOWS_BUILD_PATHS, "vst-state/stream.h", "tools/test_ap4_socket.py")))
 
 def ap4_complete_source(commit, *, root=None):
     repository = root or repo_root()

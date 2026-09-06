@@ -21,13 +21,26 @@ struct Socket {
  ~Socket(){if(value!=INVALID_SOCKET)closesocket(value);}
  void transfer(uint8_t* p,size_t n,bool writing,std::chrono::steady_clock::time_point end){
   while(n){auto us=std::chrono::duration_cast<std::chrono::microseconds>(end-std::chrono::steady_clock::now()).count();require(us>0,"control deadline");
-   fd_set f;FD_ZERO(&f);FD_SET(value,&f);timeval t{long(us/1000000),long(us%1000000)};
+   fd_set f;FD_ZERO(&f);FD_SET(value,&f);timeval t{};t.tv_sec=static_cast<decltype(t.tv_sec)>(us/1000000);t.tv_usec=static_cast<decltype(t.tv_usec)>(us%1000000);
    require(select(0,writing?nullptr:&f,writing?&f:nullptr,nullptr,&t)>0,"control timeout/select");
    int k=writing?send(value,reinterpret_cast<const char*>(p),int(n),0):recv(value,reinterpret_cast<char*>(p),int(n),0);
    if(k==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK)continue;require(k>0,"control disconnected/IO");p+=k;n-=size_t(k);
   }
  }
- Frame receive(){auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);std::vector<uint8_t>b(header_bytes);transfer(b.data(),b.size(),false,end);auto n=payload_length(b.data(),minor);b.resize(header_bytes+n);if(n)transfer(b.data()+header_bytes,n,false,end);return decode(b,minor);}
+ Frame receive(bool command=false){
+  // Idle is not an issued request. Poll for the first byte (or EOF) without
+  // expiring a healthy stopped/deactivated instance. Once a frame starts,
+  // header and payload share the original five-second deadline.
+  if(command)for(;;){
+   fd_set f;FD_ZERO(&f);FD_SET(value,&f);timeval t{1,0};
+   auto ready=select(0,&f,nullptr,nullptr,&t);require(ready!=SOCKET_ERROR,"command select");
+   if(!ready)continue;
+   char first;auto n=recv(value,&first,1,MSG_PEEK);
+   if(n==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK)continue;
+   require(n>0,"control disconnected/IO");break;
+  }
+  auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);std::vector<uint8_t>b(header_bytes);transfer(b.data(),b.size(),false,end);auto n=payload_length(b.data(),minor);b.resize(header_bytes+n);if(n)transfer(b.data()+header_bytes,n,false,end);return decode(b,minor);
+ }
  void write(const Frame& f){auto b=encode(f,minor);transfer(b.data(),b.size(),true,std::chrono::steady_clock::now()+std::chrono::seconds(5));}
 };
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
@@ -74,7 +87,7 @@ struct MappedSession::Impl {
   require(condition.wait_for(lock,std::chrono::seconds(10),[&]{return serviced;}),"owner state service timeout");
   waiting=false;if(state_error)std::rethrow_exception(state_error);
  }
- Frame receive(){for(;;){auto f=socket.receive();if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
+ Frame receive(){for(;;){auto f=socket.receive(true);if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
 
  ~Impl(){if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
  void error(const std::exception& e){

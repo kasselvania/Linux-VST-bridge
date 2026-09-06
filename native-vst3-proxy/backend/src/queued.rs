@@ -249,6 +249,7 @@ unsafe fn live(id: u64) -> Option<&'static Live> {
 fn worker(mut session: Session, s: Arc<Shared>) {
     let run = (|| -> io::Result<()> {
         loop {
+            crate::preview::check_owner(&mut session.owner)?;
             if s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
                 return Err(invalid("queued session fault or cancelled"));
             }
@@ -389,8 +390,7 @@ unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
         return 3;
     }
     let result = std::panic::catch_unwind(|| {
-        let (path, id) = binding()?;
-        let session = Session::open_at(&path, id, max as usize, minor)?;
+        let session = Session::open(binding(minor == 4)?, max as usize, minor)?;
         let shared = Arc::new(Shared::new());
         shared.state_capable.store(minor == 4, Ordering::Release);
         if minor == 4 {

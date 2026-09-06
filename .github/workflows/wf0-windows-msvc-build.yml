@@ -87,6 +87,8 @@ jobs:
         run: |
           call "%WF0_VS_INSTALLATION%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 -winsdk=10.0.19041.0
           if errorlevel 1 exit /b %errorlevel%
+          python tools\test_ap4_socket.py
+          if errorlevel 1 exit /b %errorlevel%
           python tools\wf0-factory-census\build.py dx0-workflow-build --sdk-root "%RUNNER_TEMP%\dx0-vst3sdk" --transaction-root "%RUNNER_TEMP%\dx0-host-build" --output "%RUNNER_TEMP%\dx0-host-envelope" --source-commit "%DX0_SOURCE_SHA%"
           if errorlevel 1 exit /b %errorlevel%
 
