@@ -5,7 +5,7 @@ from ap2_build_native import ROOT,SDK,SDK_RUNTIME,transfer_port
 from pc0_proof_adapter import StrictSSHPort,SubprocessCommandPort
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--descriptor',type=pathlib.Path,required=True);p.add_argument('--output',type=pathlib.Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--descriptor',type=pathlib.Path,required=True);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--performance',action='store_true');a=p.parse_args()
     if subprocess.check_output(['git','status','--porcelain'],cwd=ROOT):raise RuntimeError('commit build inputs first')
     source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     compiler=subprocess.check_output(['rustup','which','--toolchain','stable','rustc'],text=True).strip()
@@ -15,10 +15,10 @@ def main():
     with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED) as z:
         for f in files:z.write(ROOT/f,f)
         z.write(a.descriptor,'ap8_descriptor.h');z.write(ROOT/'native-vst3-proxy/backend/target/x86_64-unknown-linux-gnu/release/libap2_backend.a','libap2_backend.a')
-    key=hashlib.sha256(archive.read_bytes()).hexdigest();parent='/home/deck/.cache/linux-vst-bridge/ap8-builds';ssh=transfer_port();ssh.run('mkdir -p '+parent);ssh.copy(archive,parent+'/'+key+'.zip')
-    program=f'KEY={key!r}\nSDK={SDK!r}\nSDK_RUNTIME={SDK_RUNTIME!r}\n'+r'''
+    key=hashlib.sha256(archive.read_bytes()).hexdigest();parent='/home/deck/.cache/linux-vst-bridge/'+('ap9-builds' if a.performance else 'ap8-builds');ssh=transfer_port();ssh.run('mkdir -p '+parent);ssh.copy(archive,parent+'/'+key+'.zip')
+    program=f'PARENT={parent!r}\nKEY={key!r}\nSDK={SDK!r}\nSDK_RUNTIME={SDK_RUNTIME!r}\n'+r'''
 import pathlib,hashlib,zipfile,subprocess,json
-root=pathlib.Path.home()/'.cache/linux-vst-bridge/ap8-builds';archive=root/(KEY+'.zip');source=root/KEY
+root=pathlib.Path(PARENT);archive=root/(KEY+'.zip');source=root/KEY
 assert hashlib.sha256(archive.read_bytes()).hexdigest()==KEY
 source.mkdir(mode=0o700)
 with zipfile.ZipFile(archive) as z:

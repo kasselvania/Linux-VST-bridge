@@ -9,8 +9,8 @@ import ap8_fixture as fixture
 owner=fixture.owner
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--environment',type=pathlib.Path,required=True);p.add_argument('--class-id',required=True);a=p.parse_args()
-    if len(a.class_id)!=32:raise ValueError('class ID length')
+    p=argparse.ArgumentParser();p.add_argument('--environment',type=pathlib.Path,required=True);p.add_argument('--class-id',default='');p.add_argument('--performance',choices=['reference','serum']);a=p.parse_args()
+    if a.performance!='reference' and len(a.class_id)!=32:raise ValueError('class ID length')
     cid=bytes.fromhex(a.class_id)
     os.chdir(owner.ROOT);os.umask(0o077)
     root=a.environment;marker=json.loads((root/'.wf0-owner.json').read_bytes());env=fixture.Environment(marker['run_id'],root,marker)
@@ -23,10 +23,10 @@ def main():
         k,_,v=line.partition('=')
         if k in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY'):desktop[k]=v
     if not desktop.get('DISPLAY'):raise RuntimeError('existing desktop display absent')
-    profile=types.SimpleNamespace(MODE='ap8-commercial-preview',verify_runtime=fixture.verify_runtime,
+    profile=types.SimpleNamespace(MODE=('ap9-'+('commercial' if a.performance=='serum' else 'reference')) if a.performance else 'ap8-commercial-preview',verify_runtime=fixture.verify_runtime,
         verify_environment=fixture.verify_environment,command_vector=fixture.command_vector,StreamState=fixture.StreamState,
         controlled_environment=lambda e:{**owner.runtime.controlled_environment(e),**desktop})
-    address_root=pathlib.Path.home()/'AP8-Commercial-Test/preview';owner.private_directory(address_root)
+    address_root=pathlib.Path.home()/(('AP9-Performance/'+a.performance) if a.performance else 'AP8-Commercial-Test/preview');owner.private_directory(address_root)
     output=address_root/'results';owner.private_directory(output)
     profile.native_report_directory=output
     stopping=threading.Event()
@@ -41,7 +41,8 @@ def main():
     def run(peer):
         attempt=output/('instance-'+secrets.token_hex(16));owner.private_directory(attempt)
         owner.serve_connected(peer,create,retire,attempt,stopping.is_set,supervision=profile,
-            component_case='class:'+a.class_id,greeting_data=b'AP8\n'+cid+bytes.fromhex(marker['module_sha256']))
+            component_case='exact-again' if a.performance=='reference' else 'class:'+a.class_id,
+            greeting_data=(b'AP9\n' if a.performance else b'AP8\n')+(b'' if a.performance=='reference' else cid+bytes.fromhex(marker['module_sha256'])))
     address=address_root/'owner.sock'
     with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as listener:
         listener.bind(str(address));inode=address.stat().st_ino;listener.listen(4);listener.setblocking(False)

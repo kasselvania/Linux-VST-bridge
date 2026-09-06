@@ -15,6 +15,9 @@ pub struct Trace {
     pub position: u64,
     pub frames: u64,
     pub sequence: u64,
+    pub process_ns: Option<u64>,
+    pub armed: bool,
+    pub sample_rate: u32,
     pub queued: Option<Instant>,
     pub started: Option<Instant>,
     pub prepared: Option<Instant>,
@@ -57,6 +60,7 @@ pub struct Report {
     pub unchecked: u64,
     pub reader_skips: u64,
     pub traces: Vec<(Gap, Option<Trace>)>,
+    pub timing: crate::performance::Timings,
 }
 pub struct Shared {
     jobs: Queue<Job>,
@@ -198,6 +202,7 @@ struct Consumer {
     reader_skips: u64,
     recent: std::collections::VecDeque<Trace>,
     gaps: Vec<(Gap, Option<Trace>)>,
+    timing: crate::performance::Timings,
 }
 fn covers(t: Trace, g: Gap) -> bool {
     t.epoch == g.epoch && t.position < g.position + g.frames && g.position < t.position + t.frames
@@ -214,6 +219,7 @@ impl Consumer {
             reader_skips: 0,
             recent: std::collections::VecDeque::with_capacity(CAPACITY),
             gaps: Vec::with_capacity(32),
+            timing: Default::default(),
         }
     }
     fn step(&mut self, s: &Shared) -> bool {
@@ -240,11 +246,19 @@ impl Consumer {
                     self.witness.ready = false;
                 }
             } else {
+                if job.trace.armed {
+                    self.timing.add(job.trace);
+                }
                 if self.commercial {
                     // Numerical observations, explicitly not a reference-DSP oracle.
                     self.unchecked += (job.n * 2) as u64;
-                    for i in 0..job.n {
-                        let position = (job.trace.position + i as u64) / 4800 * 4800;
+                    for i in 0..if job.trace.process_ns.is_none() || job.trace.armed {
+                        job.n
+                    } else {
+                        0
+                    } {
+                        let width = (job.trace.sample_rate.max(48000) / 10) as u64;
+                        let position = (job.trace.position + i as u64) / width * width;
                         let same = self
                             .audio_windows
                             .last()
@@ -304,6 +318,7 @@ impl Consumer {
             report.audio_unretained = self.audio_unretained;
             report.reader_skips = self.reader_skips;
             report.traces.clone_from(&self.gaps);
+            report.timing = self.timing.clone();
         } else {
             self.reader_skips += 1;
         }
@@ -334,6 +349,7 @@ pub fn report_text(s: &Shared) -> String {
         s.dropped.load(Ordering::Relaxed), s.dropped_samples.load(Ordering::Relaxed),
         r.reader_skips, s.gap_drops.load(Ordering::Relaxed), w.maximum_error,
         w.before_edit_samples, w.edits);
+    text.push_str(&r.timing.json());
     for w in &r.audio_windows {
         let _=writeln!(text,"{{\"event\":\"ap8_returned_audio\",\"epoch\":{},\"position\":{},\"samples\":{},\"nonzero\":{},\"rms\":{},\"peak\":{},\"unretained_window_samples\":{}}}",w.epoch,w.position,w.samples,w.nonzero,(w.energy/w.samples.max(1) as f64).sqrt(),w.peak,r.audio_unretained);
     }
@@ -377,6 +393,7 @@ mod tests {
                     replied: Some(now),
                     validated: Some(now),
                     published: Some(now),
+                    ..Default::default()
                 }),
             ));
         }

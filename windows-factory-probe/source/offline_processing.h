@@ -12,6 +12,9 @@ struct ExternalBlock { int frames; double gain; unsigned silence; bool gain_pres
 class ExternalProcessing {
 public:
     virtual ~ExternalProcessing() = default;
+    virtual bool performance() const {return false;}
+    virtual void bind_processor(Steinberg::Vst::IAudioProcessor*) {}
+    virtual double sample_rate() const {return 48000.;}
     virtual bool commercial() const {return false;}
     virtual void bind_controller(Steinberg::Vst::IEditController*,bool) {}
     virtual bool hosted() const { return false; }
@@ -30,7 +33,7 @@ public:
     virtual void lifecycle_ack(uint16_t) {}
     virtual void ready() = 0;
     virtual bool next(ExternalBlock&, float* left, float* right) = 0;
-    virtual void done(const float* left, const float* right, uint64_t silence) = 0;
+    virtual void done(const float* left, const float* right, uint64_t silence, uint64_t process_ns = 0) = 0;
 };
 struct OfflineResult { bool success; bool quiescent; };
 OfflineResult run_offline_processing(Steinberg::Vst::IComponent& component,

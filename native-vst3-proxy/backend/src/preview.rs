@@ -153,6 +153,21 @@ pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
     })
 }
 
+pub(crate) fn performance_root(commercial: bool) -> PathBuf {
+    PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(if commercial {
+        "AP9-Performance/serum"
+    } else {
+        "AP9-Performance/reference"
+    })
+}
+pub fn discover_performance(identity: Option<crate::state::Identity>) -> io::Result<Binding> {
+    let mut greeting = b"AP9\n".to_vec();
+    if let Some(i) = identity {
+        greeting.extend_from_slice(&i.class);
+        greeting.extend_from_slice(&i.module);
+    }
+    connect_greeting(&performance_root(identity.is_some()), &greeting)
+}
 pub fn discover() -> io::Result<Binding> {
     let home = std::env::var_os("HOME").ok_or_else(|| invalid("preview home absent"))?;
     connect(&PathBuf::from(home).join("AP4-State-Test/preview"))

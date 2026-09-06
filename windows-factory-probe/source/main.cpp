@@ -104,8 +104,8 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
          result["--mode"] != "ap0-offline-again-processing" &&
          result["--mode"] != "ap1-linux-windows-audio-roundtrip" &&
          result["--mode"] != "ap2-native-vst3-offline-bridge" &&
-         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap8-module-inspection" && result["--mode"] != "ap8-commercial-preview") ||
-        ((result["--mode"] == "ap8-module-inspection" || result["--mode"] == "ap8-commercial-preview")
+         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap8-module-inspection" && result["--mode"] != "ap8-commercial-preview" && result["--mode"] != "ap9-reference" && result["--mode"] != "ap9-commercial") ||
+        ((result["--mode"] == "ap8-module-inspection" || result["--mode"] == "ap8-commercial-preview" || result["--mode"] == "ap9-commercial")
             ? (result["--component-case"]!="first-audio" &&
                 !(result["--component-case"].size()==38 && result["--component-case"].rfind("class:",0)==0 &&
                     std::all_of(result["--component-case"].begin()+6,result["--component-case"].end(),[](unsigned char c){return std::isxdigit(c)!=0;})))
@@ -267,14 +267,15 @@ int main(int argc, char** argv) {
         if (wf0::sha256_file(module_path) != args.at("--module-sha256")) return 65;
         events.lifecycle("supervisor_gate_accepted");
 
-        const bool ap8_mode=args.at("--mode")=="ap8-commercial-preview";
-        const bool ap4_mode=args.at("--mode")=="ap4-plugin-state-recall";
+        const bool ap9_mode=args.at("--mode")=="ap9-commercial"||args.at("--mode")=="ap9-reference";
+        const bool ap8_mode=args.at("--mode")=="ap8-commercial-preview"||args.at("--mode")=="ap9-commercial";
+        const bool ap4_mode=args.at("--mode")=="ap4-plugin-state-recall"||args.at("--mode")=="ap9-reference";
         const bool ap3_mode=args.at("--mode")=="ap3-queued-audio-preview";
         const bool ap2_mode=args.at("--mode")=="ap2-native-vst3-offline-bridge";
         const bool ap1_mode=args.at("--mode")=="ap1-linux-windows-audio-roundtrip";
         std::unique_ptr<wf0::MappedSession> mapped;
         if(ap1_mode||ap2_mode||ap3_mode||ap4_mode||ap8_mode) mapped=std::make_unique<wf0::MappedSession>(
-            ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events,ap2_mode||ap3_mode||ap4_mode||ap8_mode,ap3_mode||ap4_mode||ap8_mode,ap4_mode||ap8_mode,ap8_mode);
+            ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events,ap2_mode||ap3_mode||ap4_mode||ap8_mode,ap3_mode||ap4_mode||ap8_mode,ap4_mode||ap8_mode,ap8_mode,ap9_mode);
         wf0::ModuleBinding module;
         int primary = wf0::open_module(module_path, module, events);
         first_primary = primary;

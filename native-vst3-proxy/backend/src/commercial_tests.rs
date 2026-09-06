@@ -134,6 +134,8 @@ fn real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization() {
         position: 0,
         witness: None,
         trace: Default::default(),
+        sample_rate: 48000,
+        armed: false,
         owner: None,
         identity: Some(state::Identity {
             class: [8; 16],

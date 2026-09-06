@@ -165,6 +165,7 @@ pub struct Delivery {
     pub priming_frames: u64,
 }
 struct Callback {
+    delay: u64,
     epoch: u64,
     position: u64,
     running: bool,
@@ -178,6 +179,7 @@ struct Callback {
 impl Callback {
     fn new() -> Self {
         Self {
+            delay: DELAY,
             epoch: 0,
             position: 0,
             running: false,
@@ -246,8 +248,8 @@ impl Callback {
         let mut i = 0;
         while i < n {
             let position = self.position + i as u64;
-            if position < DELAY {
-                let count = (DELAY - position).min((n - i) as u64) as usize;
+            if position < self.delay {
+                let count = (self.delay - position).min((n - i) as u64) as usize;
                 for plane in out.iter_mut() {
                     plane[i..i + count].fill(0.);
                 }
@@ -255,7 +257,7 @@ impl Callback {
                 i += count;
                 continue;
             }
-            let expected = position - DELAY;
+            let expected = position - self.delay;
             if !self.have {
                 // One bound for the entire callback, including expired and
                 // old-epoch output. Admitted inputs are never discarded.
@@ -398,6 +400,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                     )
                                     .map(|_| vec![])
                             }
+                            20 => session.configure(c.bytes.clone()),
                             14 => session.transition(14).map(|_| {
                                 s.ack.store(15, Ordering::Release);
                                 vec![]
@@ -592,19 +595,33 @@ pub unsafe extern "C" fn ap3_open(max: u32, handle: *mut u64) -> u32 {
 pub unsafe extern "C" fn ap4_open(handle: *mut u64) -> u32 {
     open(256, handle, 4, None)
 }
-unsafe fn open(max: u32, handle: *mut u64, minor: u64, identity: Option<state::Identity>) -> u32 {
+pub(crate) unsafe fn open(
+    max: u32,
+    handle: *mut u64,
+    minor: u64,
+    identity: Option<state::Identity>,
+) -> u32 {
     if handle.is_null() || !(1..=256).contains(&max) {
         return 1;
     }
     crate::ffi(|| {
         match INSTANCES.insert(|| {
-            let binding = if let Some(identity) = identity {
+            let binding = if minor >= 6 {
+                crate::preview::discover_performance(identity)?
+            } else if let Some(identity) = identity {
                 crate::preview::discover_commercial(identity)?
             } else {
                 binding(minor == 4)?
             };
             let report = binding.owner.as_ref().map(|_| {
-                if identity.is_some() {
+                if minor >= 6 {
+                    crate::preview::performance_root(identity.is_some())
+                        .join("results")
+                        .join(format!(
+                            "native-{:032x}.jsonl",
+                            u128::from_be_bytes(binding.session)
+                        ))
+                } else if identity.is_some() {
                     crate::preview::commercial_report_path(binding.session)
                 } else {
                     crate::preview::report_path(binding.session)
@@ -845,6 +862,45 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
     }
 }
 #[no_mangle]
+pub unsafe extern "C" fn ap9_setup(
+    id: u64,
+    maximum: u32,
+    mode: u32,
+    rate: f64,
+    out: *mut u32,
+) -> u32 {
+    crate::ffi(|| {
+        if out.is_null() {
+            return 1;
+        }
+        let result = (|| -> io::Result<()> {
+            let delay = crate::performance::selected_delay(maximum)?;
+            let bytes = crate::performance::wire(maximum, mode, rate)?;
+            let reply = control(id, 20, bytes)?;
+            let vendor = ap1_native_client::get(&reply[..4]) as u32;
+            let total = vendor
+                .checked_add(delay)
+                .ok_or_else(|| invalid("latency overflow"))?;
+            INSTANCES.update(id,|l| -> io::Result<()> {
+                let callback=l.callback.get_mut();
+                if callback.running {return Err(invalid("configuration during playback"));}
+                callback.delay=u64::from(delay);l.max=maximum as usize;
+                if let Some(path)=&l.report {
+                    crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",maximum.min(256),ap1_native_client::get(&reply[8..12])).as_bytes());
+                }
+                Ok(())
+            }).map_err(|_|invalid("setup instance ownership"))??;
+            *out = total;
+            *out.add(1) = ap1_native_client::get(&reply[4..8]) as u32;
+            Ok(())
+        })();
+        match result {
+            Ok(()) => 0,
+            Err(e) => retain(&e),
+        }
+    }) as u32
+}
+#[no_mangle]
 pub unsafe extern "C" fn ap4_activate(id: u64, max: u32, mode: u32) -> u32 {
     crate::ffi(
         || match control(id, 8, [max.to_le_bytes(), mode.to_le_bytes()].concat()) {
@@ -1024,35 +1080,66 @@ unsafe fn process_events(
     {
         return 1;
     }
-    let mut item = Item::control(AUDIO, 0);
-    item.event_count = events.len() as u32;
-    item.events[..events.len()].copy_from_slice(events);
-    item.n = n as u32;
-    item.gain = gain;
-    item.flags = flags;
+    // Validate all host input before admitting any subblock. In-place output
+    // can replace earlier samples only after their input has been copied.
     for (ch, p) in [left, right].into_iter().enumerate() {
-        for (i, &v) in std::slice::from_raw_parts(p, n).iter().enumerate() {
-            if !v.is_finite() || (flags & (1 << ch) != 0 && v != 0.) {
-                return 1;
-            }
-            item.data[ch][i] = v;
+        if std::slice::from_raw_parts(p, n)
+            .iter()
+            .any(|v| !v.is_finite() || (flags & (1 << ch) != 0 && *v != 0.))
+        {
+            return 1;
         }
     }
-    let mut out = [[0.; CAP]; 2];
-    match (&mut *l.callback.get()).process(&l.shared, item, &mut out) {
-        Ok(f) => {
-            for (ch, p) in [out_left, out_right].into_iter().enumerate() {
-                std::ptr::copy_nonoverlapping(out[ch].as_ptr(), p, n);
+    let mut total = Delivery::default();
+    let mut combined = 3;
+    let mut offset = 0;
+    loop {
+        let count = (n - offset).min(CAP);
+        let mut item = Item::control(AUDIO, 0);
+        item.n = count as u32;
+        item.flags = flags;
+        item.gain = if offset == 0 { gain } else { f64::NAN };
+        for e in events {
+            if n == 0 || e.offset as usize >= offset && (e.offset as usize) < offset + count {
+                let mut local = *e;
+                local.offset -= offset as u32;
+                item.events[item.event_count as usize] = local;
+                item.event_count += 1;
             }
-            *out_flags = f;
-            if !delivery.is_null() {
-                *delivery = (*l.callback.get()).delivery;
-            }
-            0
         }
-        Err(code) => code,
+        for (ch, p) in [left, right].into_iter().enumerate() {
+            item.data[ch][..count]
+                .copy_from_slice(std::slice::from_raw_parts(p.add(offset), count));
+        }
+        let mut out = [[0.; CAP]; 2];
+        let callback = &mut *l.callback.get();
+        match callback.process(&l.shared, item, &mut out) {
+            Ok(f) => {
+                combined &= f;
+                for (ch, p) in [out_left, out_right].into_iter().enumerate() {
+                    std::ptr::copy_nonoverlapping(out[ch].as_ptr(), p.add(offset), count);
+                }
+                let d = callback.delivery;
+                total.missing_frames += d.missing_frames;
+                total.gaps += d.gaps;
+                total.expired_frames += d.expired_frames;
+                total.delivered_frames += d.delivered_frames;
+                total.priming_frames += d.priming_frames;
+            }
+            Err(code) => return code,
+        }
+        offset += count;
+        if offset == n {
+            break;
+        }
     }
+    *out_flags = combined;
+    if !delivery.is_null() {
+        *delivery = total;
+    }
+    0
 }
+
 #[repr(C)]
 #[derive(Default)]
 pub struct Stats {
@@ -1215,6 +1302,24 @@ pub unsafe extern "C" fn ap4_failure(id: u64, out: *mut Failure) -> u32 {
     }) as u32
 }
 #[no_mangle]
+pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 {
+    let identity = if identity.is_null() {
+        None
+    } else {
+        let b = std::slice::from_raw_parts(identity, 48);
+        Some(state::Identity {
+            class: b[..16].try_into().unwrap(),
+            module: b[16..].try_into().unwrap(),
+        })
+    };
+    open(
+        256,
+        handle,
+        if identity.is_some() { 7 } else { 6 },
+        identity,
+    )
+}
+#[no_mangle]
 pub unsafe extern "C" fn ap8_open(identity: *const u8, handle: *mut u64) -> u32 {
     if identity.is_null() {
         return 1;
@@ -1361,6 +1466,8 @@ mod tests {
             position: 0,
             witness: Some(observer),
             trace: Default::default(),
+            sample_rate: 48000,
+            armed: false,
             owner: None,
         };
         let mut shared = Shared::new();
