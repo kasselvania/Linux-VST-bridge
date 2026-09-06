@@ -3,9 +3,9 @@
 import json, os, pathlib, shutil, socket, struct, subprocess, sys, tempfile, threading
 from state_proxy import peer, envelope
 
-def run(host, bundle, audit):
+def run(host, bundle, audit, cases=None):
     results = []
-    for case in ('recovery-complete', 'recovery-late', 'recovery-missing', 'recovery-bad-readback', 'recovery-uncertain'):
+    for case in cases or ('recovery-complete', 'recovery-late', 'recovery-missing', 'recovery-bad-readback', 'recovery-uncertain'):
         with tempfile.TemporaryDirectory(prefix='ap6-recovery-') as temp:
             home = pathlib.Path(temp)
             root = home/'AP4-State-Test/preview'; root.mkdir(parents=True, mode=0o700)
@@ -62,6 +62,20 @@ def run(host, bundle, audit):
                 fault = next(r for group in records for r in group if r['event'] == 'ap5_worker_fault')
                 assert fault['detail'] and fault['fault'] != 0
                 if case == 'recovery-late': assert fault['fault'] == 1
+                progress = next(r for group in records for r in group if r['event'] == 'ap7_fault_progress')
+                assert progress['context_ready'] and progress['epoch'] == 1
+                if case == 'recovery-late':
+                    assert progress['worker_op'] == 3 and progress['worker_epoch'] == 1
+                    assert progress['result_consumed'] == progress['result_published'] == 0
+                lifecycle = [r for group in records for r in group if r['event']=='ap3_proxy_lifecycle']
+                assert len(lifecycle) == 2
+                failed = next(r for r in lifecycle if r['callback_rejections'])
+                healthy = next(r for r in lifecycle if not r['callback_rejections'])
+                assert failed['discontinuities'] == 1 and failed['rejected_silent_frames'] > 0
+                assert healthy['discontinuities'] == healthy['rejected_silent_frames'] == 0
+                assert healthy['priming_frames'] == 1024
+                if case in ('recovery-complete', 'recovery-late'):
+                    assert failed['priming_frames'] == 2048
                 summary = next(json.loads(line) for line in process.stdout.splitlines() if '"ap6_recovery"' in line)
                 if case in ('recovery-complete','recovery-late'):
                     assert summary['recovered_samples'] >= 8192 and counts[2]['set'] == 1 and counts[2]['closed'] == 1
