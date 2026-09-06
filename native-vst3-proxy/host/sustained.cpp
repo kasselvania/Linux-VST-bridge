@@ -241,6 +241,7 @@ void interval(IAudioProcessor &p, int block_size, int active_frames, bool fault,
 #include "state_cases.h"
 #include "instances_cases.h"
 #include "recovery_cases.h"
+#include "playback_cases.h"
 } // namespace
 int main(int argc, char **argv) {
   try {
@@ -268,6 +269,10 @@ int main(int argc, char **argv) {
     need(classes.size() == 2, "preview processor/controller factory");
     need(classes[0].ID().toString() == "84E8DE5F92554F5396FAE4133C935A18",
          "processor identity");
+    if (scenario.starts_with("playback-")) {
+      playbackCases(module->getFactory(), host, scenario);
+      return 0;
+    }
     if (scenario.starts_with("instances-")) {
       instanceCases(module->getFactory(), host, scenario);
       host = nullptr; module.reset(); return 0;

@@ -514,16 +514,21 @@ tresult PLUGIN_API Processor::setProcessing(TBool running) {
   want_processing_ = running != 0;
   return kResultOk;
 }
+// A discontinuity is one contiguous run of rejected non-empty callbacks.
+// Successful silence and latency priming are counted separately at return.
+tresult Processor::rejected(ProcessData &d) {
+  callback_rejections_.fetch_add(1, std::memory_order_relaxed);
+  if (outputs(d, maximum_)) {
+    rejected_frames_.fetch_add(static_cast<uint64_t>(d.numSamples), std::memory_order_relaxed);
+    if (!last_callback_rejected_.exchange(true, std::memory_order_relaxed))
+      discontinuities_.fetch_add(1, std::memory_order_relaxed);
+  }
+  return failure(d, maximum_);
+}
 tresult PLUGIN_API Processor::process(ProcessData &d) {
   Guard g(busy_);
-  auto reject = [&] {
-    callback_rejections_.fetch_add(1, std::memory_order_relaxed);
-    return failure(d, maximum_);
-  };
-  if (!g.held) {
-    callback_rejections_.fetch_add(1, std::memory_order_relaxed);
-    return failure(d, maximum_);
-  }
+  auto reject = [&] { return rejected(d); };
+  if (!g.held) return reject();
   if (phase_ != Running || d.processMode != process_mode_ ||
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||
       d.numSamples > maximum_)
@@ -569,14 +574,15 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
           ((d.inputs[0].silenceFlags & (uint64(1) << ch)) && in[ch][i] != 0.f))
         return reject();
   uint64_t silence = 0;
+  ap7_delivery_t delivery{};
   auto r =
       queued_
-          ? static_cast<int32_t>(ap3_process(
+          ? static_cast<int32_t>(ap7_process(
                 handle_, static_cast<uint32_t>(d.numSamples),
                 preview_ && !changed ? std::numeric_limits<double>::quiet_NaN()
                                      : pending,
                 d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
-                &silence))
+                &silence, &delivery))
           : ap2_process(handle_, static_cast<uint32_t>(d.numSamples), pending,
                         d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
                         &silence);
@@ -586,6 +592,17 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     phase_ = Failed;
     return reject();
   }
+  last_callback_rejected_.store(false, std::memory_order_relaxed);
+  if (silence == 3 && !delivery.missing_frames) {
+    ++silent_callbacks_;
+    silent_frames_ += static_cast<uint64_t>(d.numSamples);
+  }
+  priming_frames_ += delivery.priming_frames;
+  underrun_frames_ += delivery.missing_frames;
+  underrun_gaps_ += delivery.gaps;
+  expired_frames_ += delivery.expired_frames;
+  delivered_frames_ += delivery.delivered_frames;
+  underrun_callbacks_ += delivery.missing_frames != 0;
   gain_ = pending;
   frames_ += d.numSamples;
   zero_gain_blocks_ += pending == 0.;
@@ -634,13 +651,18 @@ tresult PLUGIN_API Processor::terminate() {
   }
   auto r = AudioEffect::terminate();
   if (preview_) {
-    char text[768];
+    char text[1280];
     auto n = std::snprintf(
         text, sizeof(text),
         "{\"event\":\"ap3_proxy_lifecycle\",\"phase\":%d,\"requested_maximum\":"
         "%d,"
         "\"requested_rate\":%.0f,\"requested_mode\":%d,\"frames\":%llu,"
-        "\"blocks\":%u,\"callback_rejections\":%llu,\"zero_gain_blocks\":%llu,"
+        "\"blocks\":%u,\"callback_rejections\":%llu,"
+        "\"rejected_silent_frames\":%llu,\"discontinuities\":%llu,"
+        "\"successful_silent_callbacks\":%llu,\"successful_silent_frames\":%llu,"
+        "\"priming_frames\":%llu,\"underrun_frames\":%llu,\"underrun_gaps\":%llu,"
+        "\"underrun_callbacks\":%llu,\"expired_output_frames\":%llu,\"delivered_frames\":%llu,"
+        "\"zero_gain_blocks\":%llu,"
         "\"gain_min\":%.9g,\"gain_"
         "max\":%.9g,"
         "\"clean\":%s}\n",
@@ -648,6 +670,13 @@ tresult PLUGIN_API Processor::terminate() {
         requested_mode_, (unsigned long long)frames_, blocks_,
         (unsigned long long)callback_rejections_.load(
             std::memory_order_relaxed),
+        (unsigned long long)rejected_frames_.load(std::memory_order_relaxed),
+        (unsigned long long)discontinuities_.load(std::memory_order_relaxed),
+        (unsigned long long)silent_callbacks_, (unsigned long long)silent_frames_,
+        (unsigned long long)priming_frames_,
+        (unsigned long long)underrun_frames_, (unsigned long long)underrun_gaps_,
+        (unsigned long long)underrun_callbacks_, (unsigned long long)expired_frames_,
+        (unsigned long long)delivered_frames_,
         (unsigned long long)zero_gain_blocks_, gain_min_, gain_max_,
         clean ? "true" : "false");
     if (n > 0 && static_cast<size_t>(n) < sizeof(text))

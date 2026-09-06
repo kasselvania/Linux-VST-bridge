@@ -68,6 +68,13 @@ def run(host, bundle, audit):
                 survivor = next(r for r in reports[1] if r['event']=='ap4_sample_comparison')
                 assert survivor['maximum_error']==0 and survivor['edits']==0 and survivor['before_edit_samples']>0
                 assert counts[1]['closed']==1
+                lifecycle = [next(r for r in group if r['event']=='ap3_proxy_lifecycle') for group in reports]
+                for index, record in enumerate(lifecycle):
+                    failed = case == 'instances-failure' and index == 0
+                    assert record['discontinuities'] == int(failed)
+                    assert (record['rejected_silent_frames'] > 0) == failed
+                    assert record['priming_frames'] == 1024
+                    assert record['successful_silent_callbacks'] >= 4
                 if case=='instances-failure':
                     assert counts[1]['process']>counts[0]['process']
                     assert summary['a_failed'] and counts[0]['closed']==0

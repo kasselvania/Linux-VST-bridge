@@ -67,6 +67,9 @@ private:
   Steinberg::tresult recover(uint64_t revision);
   bool controller_synced_ = false;
   std::atomic<bool> want_active_{false}, want_processing_{false};
+  Steinberg::tresult rejected(Steinberg::Vst::ProcessData &data);
+  std::atomic<uint64_t> rejected_frames_{0}, discontinuities_{0};
+  std::atomic<bool> last_callback_rejected_{false};
   void stateFailure(const char *operation, const char *stage);
   bool state_error_reported_ = false;
   std::atomic_flag busy_ = ATOMIC_FLAG_INIT;
@@ -76,6 +79,9 @@ private:
   unsigned blocks_ = 0;
   std::atomic<uint64_t> callback_rejections_{0};
   uint64_t frames_ = 0, zero_gain_blocks_ = 0;
+  uint64_t silent_callbacks_ = 0, silent_frames_ = 0;
+  uint64_t priming_frames_ = 0, underrun_frames_ = 0, underrun_gaps_ = 0;
+  uint64_t expired_frames_ = 0, delivered_frames_ = 0, underrun_callbacks_ = 0;
   double gain_min_ = 1., gain_max_ = 0.;
   int requested_maximum_ = 0, requested_mode_ = -1;
   double requested_rate_ = 0.;

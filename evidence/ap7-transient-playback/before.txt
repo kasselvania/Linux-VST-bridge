@@ -1,0 +1,4 @@
+Actual previous native bundle; final SDK test driver.
+playback-partial: FAIL at first missing callback: underrun remains successful.
+The peer was holding the actual first request. Native terminal policy rejects the callback before the driver releases it.
+Raw private capture SHA-256: d9680dc03bfd2d22b05de76c6deb72ab88f6a6f1f888c18e6895e78357fae318

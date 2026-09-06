@@ -16,7 +16,9 @@ The callback uses preallocated queues and separate transport workers. The retain
 
 ## Current goal
 
-**AP6 — Recover one failed Windows instance**, tracked in #62 and [CURRENT_SLICE.md](CURRENT_SLICE.md). Keep Bitwig and healthy tracks running, explicitly restart the affected instance and restore its last confirmed complete state. Keep recovery independent of AGain's gain/byte layout, use focused failure evidence, and preserve the unresolved earlier loss honestly. Do not turn recovery into an indefinite test campaign or a new broker framework.
+**AP7 — Survive transient playback underruns**, tracked in #64 and PR #65. The repair counts missing presentation spans and resumes aligned audio on the existing instance; optional comparison no longer delays transport. Focused SDK tests pass, and the normally launched two-instance Bitwig check recorded zero gaps, terminal failures or sample errors with complete comparison coverage. Review is pending; historical transport/timing losses remain unexplained. See [the repair result and source-specific limits](docs/AP7_PLAYBACK_REPAIR.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md).
+
+AP6 recovery is accepted at `c861993b886dc89e1358a3005be899f46492bfb7`: explicit recovery restores the last confirmed complete state while the healthy sibling continues. [Its results and snapshot-age limits](docs/AP6_RESULT.md) remain unchanged.
 
 AP4's D9 diagnostic and failed A2 remain unchanged in [the attempt record](docs/AP4_ATTEMPT_STATUS.md). No repeat of completed AP4/AP5 campaigns is required.
 

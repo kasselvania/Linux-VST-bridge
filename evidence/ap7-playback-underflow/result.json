@@ -1,0 +1,1545 @@
+{
+  "status": "INCOMPLETE: diagnostic contention fixed locally; ordinary desktop playback still underflowed",
+  "issue": 64,
+  "preparation_commit": "e38d0f18c5af707ad1ccda7d290f11fec9563213",
+  "accepted_ap6_commit": "c861993b886dc89e1358a3005be899f46492bfb7",
+  "implementation_native_build": {
+    "input_sha256": "2ee4f13e7aef960dabf07b43acf19827b807747fa4f087848cf1659780bb06e3",
+    "manifest_sha256": "c2f47288fa8409f76519fcb9fec7880a5b3138609c7f2fb7ef5616df6d9e4a72",
+    "source_commit": "3438fcb099942406c219e62d60fe1ff3bc7d5807"
+  },
+  "native_binary_sha256": "46fcf9f21056530f8542421448e1838220261757fd4c2ee72895e8c384f08c60",
+  "sdk_test_source": "0eff1e6",
+  "windows_host_manifest": "f00325df1cefe08c4496d3007211d7ecebdd02a49d4dc42a6a2e0a94881ec615",
+  "windows_build_and_runner": "Reused unchanged AP4 host and accepted AP6 Proton 11.0-2c / Steam Linux Runtime 4 fixture",
+  "contract": {
+    "sample_rate": 48000,
+    "maximum_frames": 256,
+    "channels": 2,
+    "format": "float32",
+    "latency_samples": 1024,
+    "queue_capacity_unchanged": true
+  },
+  "before_after": {
+    "baseline": "e38d0f1 with the existing blocking witness publication extracted unchanged into a helper, plus the regression test",
+    "test": "queued::tests::paused_diagnostic_reader_cannot_starve_due_audio",
+    "stimulus": "Hold a diagnostic reader lock while worker publication precedes queued audio service; the fifth 256-frame callback needs position zero at the unchanged 1024-sample deadline.",
+    "before": "FAIL: fifth callback returned Err(2), starvation underflow",
+    "after": "PASS: fifth callback returns exact 0.125 samples; publication skipped once; no fault",
+    "bounds": "The test allows 200ms for a worker progress signal; the reader lock stays held until after the due callback. It is a forced-contention unit reproduction, not real Windows timing evidence.",
+    "rust_tests": 22,
+    "owner_tests": 7
+  },
+  "sdk_loaded": [
+    {
+      "classification": "LOCAL_SUBSTITUTED_PEER_TESTS",
+      "windows_workloads": 0,
+      "results": [
+        {
+          "case": "instances-isolation",
+          "counts": [
+            {
+              "get": 2,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 1,
+              "process": 139,
+              "zero_frame": 0,
+              "closed": 1
+            },
+            {
+              "get": 3,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 1,
+              "process": 229,
+              "zero_frame": 0,
+              "closed": 1
+            }
+          ],
+          "summary": {
+            "event": "ap5_two_instances",
+            "case": "instances-isolation",
+            "same_native_process": true,
+            "callback_threads": 2,
+            "callback_effects": 0,
+            "a_samples": 71168,
+            "b_samples": 117248,
+            "maximum_error": 0,
+            "a_failed": false,
+            "survivor_after_close_frames": 48000,
+            "latency_samples": 1024
+          },
+          "per_instance_reports": [
+            [
+              {
+                "event": "ap3_proxy_stats",
+                "fault": 0,
+                "first_position": 18446744073709551615,
+                "processed": 139,
+                "request_high": 2,
+                "result_high": 4,
+                "position": 35584,
+                "epoch": 1
+              },
+              {
+                "event": "ap4_sample_comparison",
+                "samples": 71168,
+                "restored_samples": 71168,
+                "before_edit_samples": 60928,
+                "restores": 1,
+                "edits": 1,
+                "nonzero_samples": 65664,
+                "maximum_error": 0,
+                "restored_gain": 0.25
+              },
+              {
+                "event": "ap3_proxy_lifecycle",
+                "phase": 6,
+                "requested_maximum": 256,
+                "requested_rate": 48000,
+                "requested_mode": 0,
+                "frames": 35584,
+                "blocks": 139,
+                "callback_rejections": 0,
+                "rejected_silent_frames": 0,
+                "discontinuities": 0,
+                "successful_silent_callbacks": 4,
+                "successful_silent_frames": 1024,
+                "priming_frames": 1024,
+                "zero_gain_blocks": 0,
+                "gain_min": 0.25,
+                "gain_max": 0.5,
+                "clean": true
+              }
+            ],
+            [
+              {
+                "event": "ap3_proxy_stats",
+                "fault": 0,
+                "first_position": 18446744073709551615,
+                "processed": 229,
+                "request_high": 2,
+                "result_high": 4,
+                "position": 58624,
+                "epoch": 1
+              },
+              {
+                "event": "ap4_sample_comparison",
+                "samples": 117248,
+                "restored_samples": 117248,
+                "before_edit_samples": 117248,
+                "restores": 1,
+                "edits": 0,
+                "nonzero_samples": 111812,
+                "maximum_error": 0,
+                "restored_gain": 0.75
+              },
+              {
+                "event": "ap3_proxy_lifecycle",
+                "phase": 6,
+                "requested_maximum": 256,
+                "requested_rate": 48000,
+                "requested_mode": 0,
+                "frames": 58624,
+                "blocks": 229,
+                "callback_rejections": 0,
+                "rejected_silent_frames": 0,
+                "discontinuities": 0,
+                "successful_silent_callbacks": 4,
+                "successful_silent_frames": 1024,
+                "priming_frames": 1024,
+                "zero_gain_blocks": 0,
+                "gain_min": 0.75,
+                "gain_max": 0.75,
+                "clean": true
+              }
+            ]
+          ]
+        },
+        {
+          "case": "instances-failure",
+          "counts": [
+            {
+              "get": 1,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 0,
+              "process": 64,
+              "zero_frame": 0,
+              "closed": 0
+            },
+            {
+              "get": 2,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 1,
+              "process": 258,
+              "zero_frame": 0,
+              "closed": 1
+            }
+          ],
+          "summary": {
+            "event": "ap5_two_instances",
+            "case": "instances-failure",
+            "same_native_process": true,
+            "callback_threads": 2,
+            "callback_effects": 0,
+            "a_samples": 32768,
+            "b_samples": 132096,
+            "maximum_error": 0,
+            "a_failed": true,
+            "survivor_after_close_frames": 48000,
+            "latency_samples": 1024
+          },
+          "per_instance_reports": [
+            [
+              {
+                "event": "ap5_worker_fault",
+                "generation": 1,
+                "fault": 3,
+                "first_position": 16128,
+                "processed": 63,
+                "request_high": 2,
+                "result_high": 4,
+                "detail": "UnexpectedEof: failed to fill whole buffer"
+              },
+              {
+                "event": "ap7_fault_progress",
+                "context_ready": true,
+                "epoch": 1,
+                "worker_op": 3,
+                "worker_epoch": 1,
+                "worker_position": 16128,
+                "request_published": 65,
+                "request_consumed": 65,
+                "result_published": 63,
+                "result_consumed": 60,
+                "service_us_max_at_report": 494,
+                "observation_skips": 0
+              },
+              {
+                "event": "ap3_proxy_stats",
+                "fault": 3,
+                "first_position": 16128,
+                "processed": 63,
+                "request_high": 2,
+                "result_high": 4,
+                "position": 16384,
+                "epoch": 1
+              },
+              {
+                "event": "ap4_sample_comparison",
+                "samples": 32256,
+                "restored_samples": 32256,
+                "before_edit_samples": 32256,
+                "restores": 1,
+                "edits": 0,
+                "nonzero_samples": 30644,
+                "maximum_error": 0,
+                "restored_gain": 0.25
+              },
+              {
+                "event": "ap3_proxy_lifecycle",
+                "phase": 7,
+                "requested_maximum": 256,
+                "requested_rate": 48000,
+                "requested_mode": 0,
+                "frames": 16384,
+                "blocks": 64,
+                "callback_rejections": 2,
+                "rejected_silent_frames": 512,
+                "discontinuities": 1,
+                "successful_silent_callbacks": 4,
+                "successful_silent_frames": 1024,
+                "priming_frames": 1024,
+                "zero_gain_blocks": 0,
+                "gain_min": 0.25,
+                "gain_max": 0.25,
+                "clean": false
+              }
+            ],
+            [
+              {
+                "event": "ap3_proxy_stats",
+                "fault": 0,
+                "first_position": 18446744073709551615,
+                "processed": 258,
+                "request_high": 2,
+                "result_high": 4,
+                "position": 66048,
+                "epoch": 1
+              },
+              {
+                "event": "ap4_sample_comparison",
+                "samples": 132096,
+                "restored_samples": 132096,
+                "before_edit_samples": 132096,
+                "restores": 1,
+                "edits": 0,
+                "nonzero_samples": 126224,
+                "maximum_error": 0,
+                "restored_gain": 0.75
+              },
+              {
+                "event": "ap3_proxy_lifecycle",
+                "phase": 6,
+                "requested_maximum": 256,
+                "requested_rate": 48000,
+                "requested_mode": 0,
+                "frames": 66048,
+                "blocks": 258,
+                "callback_rejections": 0,
+                "rejected_silent_frames": 0,
+                "discontinuities": 0,
+                "successful_silent_callbacks": 4,
+                "successful_silent_frames": 1024,
+                "priming_frames": 1024,
+                "zero_gain_blocks": 0,
+                "gain_min": 0.75,
+                "gain_max": 0.75,
+                "clean": true
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "classification": "LOCAL_SUBSTITUTED_PEER_TESTS",
+      "windows_workloads": 0,
+      "results": [
+        {
+          "case": "recovery-complete",
+          "summary": {
+            "event": "ap6_recovery",
+            "case": "recovery-complete",
+            "recovered_samples": 15872,
+            "sibling_samples": 52224,
+            "maximum_error": 0,
+            "callback_effects": 0
+          },
+          "counts": [
+            {
+              "get": 1,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 0,
+              "process": 64,
+              "zero_frame": 0,
+              "closed": 0
+            },
+            {
+              "get": 1,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 1,
+              "process": 102,
+              "zero_frame": 0,
+              "closed": 1
+            },
+            {
+              "get": 1,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 1,
+              "process": 31,
+              "zero_frame": 0,
+              "closed": 1
+            }
+          ],
+          "first_fault": {
+            "event": "ap5_worker_fault",
+            "generation": 1,
+            "fault": 3,
+            "first_position": 16128,
+            "processed": 63,
+            "request_high": 2,
+            "result_high": 4,
+            "detail": "UnexpectedEof: failed to fill whole buffer"
+          },
+          "records": [
+            [
+              {
+                "event": "ap5_worker_fault",
+                "generation": 1,
+                "fault": 3,
+                "first_position": 16128,
+                "processed": 63,
+                "request_high": 2,
+                "result_high": 4,
+                "detail": "UnexpectedEof: failed to fill whole buffer"
+              },
+              {
+                "event": "ap7_fault_progress",
+                "context_ready": true,
+                "epoch": 1,
+                "worker_op": 3,
+                "worker_epoch": 1,
+                "worker_position": 16128,
+                "request_published": 65,
+                "request_consumed": 65,
+                "result_published": 63,
+                "result_consumed": 60,
+                "service_us_max_at_report": 533,
+                "observation_skips": 0
+              }
+            ],
+            [
+              {
+                "event": "ap3_proxy_stats",
+                "fault": 0,
+                "first_position": 18446744073709551615,
+                "processed": 102,
+                "request_high": 2,
+                "result_high": 4,
+                "position": 26112,
+                "epoch": 1
+              },
+              {
+                "event": "ap4_sample_comparison",
+                "samples": 52224,
+                "restored_samples": 52224,
+                "before_edit_samples": 52224,
+                "restores": 1,
+                "edits": 0,
+                "nonzero_samples": 48701,
+                "maximum_error": 0,
+                "restored_gain": 0.75
+              },
+              {
+                "event": "ap3_proxy_lifecycle",
+                "phase": 6,
+                "requested_maximum": 256,
+                "requested_rate": 48000,
+                "requested_mode": 0,
+                "frames": 26112,
+                "blocks": 102,
+                "callback_rejections": 0,
+                "rejected_silent_frames": 0,
+                "discontinuities": 0,
+                "successful_silent_callbacks": 4,
+                "successful_silent_frames": 1024,
+                "priming_frames": 1024,
+                "zero_gain_blocks": 0,
+                "gain_min": 0.75,
+                "gain_max": 0.75,
+                "clean": true
+              }
+            ],
+            [
+              {
+                "event": "ap3_proxy_stats",
+                "fault": 0,
+                "first_position": 18446744073709551615,
+                "processed": 31,
+                "request_high": 2,
+                "result_high": 4,
+                "position": 7936,
+                "epoch": 1
+              },
+              {
+                "event": "ap4_sample_comparison",
+                "samples": 15872,
+                "restored_samples": 15872,
+                "before_edit_samples": 15872,
+                "restores": 1,
+                "edits": 0,
+                "nonzero_samples": 15872,
+                "maximum_error": 0,
+                "restored_gain": 0.25
+              },
+              {
+                "event": "ap3_proxy_lifecycle",
+                "phase": 6,
+                "requested_maximum": 256,
+                "requested_rate": 48000,
+                "requested_mode": 0,
+                "frames": 24320,
+                "blocks": 95,
+                "callback_rejections": 3,
+                "rejected_silent_frames": 768,
+                "discontinuities": 1,
+                "successful_silent_callbacks": 8,
+                "successful_silent_frames": 2048,
+                "priming_frames": 2048,
+                "zero_gain_blocks": 0,
+                "gain_min": 0.25,
+                "gain_max": 0.875,
+                "clean": true
+              }
+            ]
+          ]
+        },
+        {
+          "case": "recovery-late",
+          "summary": {
+            "event": "ap6_recovery",
+            "case": "recovery-late",
+            "recovered_samples": 12288,
+            "sibling_samples": 21504,
+            "maximum_error": 0,
+            "callback_effects": 0
+          },
+          "counts": [
+            {
+              "get": 1,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 0,
+              "process": 1,
+              "zero_frame": 0,
+              "closed": 0
+            },
+            {
+              "get": 1,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 1,
+              "process": 42,
+              "zero_frame": 0,
+              "closed": 1
+            },
+            {
+              "get": 1,
+              "set": 1,
+              "activate": 1,
+              "start": 1,
+              "stop": 1,
+              "process": 24,
+              "zero_frame": 0,
+              "closed": 1
+            }
+          ],
+          "first_fault": {
+            "event": "ap5_worker_fault",
+            "generation": 1,
+            "fault": 1,
+            "first_position": 1024,
+            "processed": 1,
+            "request_high": 4,
+            "result_high": 1,
+            "detail": "InvalidData: queued session fault or cancelled"
+          },
+          "records": [
+            [
+              {
+                "event": "ap5_worker_fault",
+                "generation": 1,
+                "fault": 1,
+                "first_position": 1024,
+                "processed": 1,
+                "request_high": 4,
+                "result_high": 1,
+                "detail": "InvalidData: queued session fault or cancelled"
+              },
+              {
+                "event": "ap7_fault_progress",
+                "context_ready": true,
+                "epoch": 1,
+                "worker_op": 3,
+                "worker_epoch": 1,
+                "worker_position": 0,
+                "request_published": 6,
+                "request_consumed": 2,
+                "result_published": 0,
+                "result_consumed": 0,
+                "service_us_max_at_report": 60315,
+                "observation_skips": 0
+              }
+            ],
+            [
+              {
+                "event": "ap3_proxy_stats",
+                "fault": 0,
+                "first_position": 18446744073709551615,
+                "processed": 42,
+                "request_high": 2,
+                "result_high": 4,
+                "position": 10752,
+                "epoch": 1
+              },
+              {
+                "event": "ap4_sample_comparison",
+                "samples": 21504,
+                "restored_samples": 21504,
+                "before_edit_samples": 21504,
+                "restores": 1,
+                "edits": 0,
+                "nonzero_samples": 18884,
+                "maximum_error": 0,
+                "restored_gain": 0.75
+              },
+              {
+                "event": "ap3_proxy_lifecycle",
+                "phase": 6,
+                "requested_maximum": 256,
+                "requested_rate": 48000,
+                "requested_mode": 0,
+                "frames": 10752,
+                "blocks": 42,
+                "callback_rejections": 0,
+                "rejected_silent_frames": 0,
+                "discontinuities": 0,
+                "successful_silent_callbacks": 4,
+                "successful_silent_frames": 1024,
+                "priming_frames": 1024,
+                "zero_gain_blocks": 0,
+                "gain_min": 0.75,
+                "gain_max": 0.75,
+                "clean": true
+              }
+            ],
+            [
+              {
+                "event": "ap3_proxy_stats",
+                "fault": 0,
+                "first_position": 18446744073709551615,
+                "processed": 24,
+                "request_high": 2,
+                "result_high": 4,
+                "position": 6144,
+                "epoch": 1
+              },
+              {
+                "event": "ap4_sample_comparison",
+                "samples": 12288,
+                "restored_samples": 12288,
+                "before_edit_samples": 12288,
+                "restores": 1,
+                "edits": 0,
+                "nonzero_samples": 12288,
+                "maximum_error": 0,
+                "restored_gain": 0.25
+              },
+              {
+                "event": "ap3_proxy_lifecycle",
+                "phase": 6,
+                "requested_maximum": 256,
+                "requested_rate": 48000,
+                "requested_mode": 0,
+                "frames": 7168,
+                "blocks": 28,
+                "callback_rejections": 10,
+                "rejected_silent_frames": 2560,
+                "discontinuities": 1,
+                "successful_silent_callbacks": 8,
+                "successful_silent_frames": 2048,
+                "priming_frames": 2048,
+                "zero_gain_blocks": 0,
+                "gain_min": 0.25,
+                "gain_max": 0.875,
+                "clean": true
+              }
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "desktop": {
+    "route": "KDE Applications > Multimedia > Bitwig Studio, both launches via Moonlight CUA",
+    "project": "Disposable AP7-Playback copy of AP6-Recovered; only the first track label changed; no gain re-entry",
+    "initial_project_sha256": "1849faf11a683e83f52e0ca07f64ef3b4e91c2aff852f67dd660d925d49e8231",
+    "two_stages_in_same_native_process": true,
+    "normal_daw_has_no_lvb_environment": true,
+    "recovery_kept_native_process": true,
+    "recovery_kept_bitwig_process": true,
+    "sibling_run_id": "d9751587958b5876f1d3f259b62b7995",
+    "original_a_run_id": "560d9e05c901fc0e90865daff5a774e6",
+    "recovered_a_run_id": "19e76ec5cc3f65132e68f73ea84754d3",
+    "sequence": [
+      "Read restored A=0.6750 and B=0.3500; compare actual mapped input/output before edits",
+      "Play both tracks, stop/pause, rename A track only and save, resume; disconnect and reconnect Moonlight only",
+      "Before any planned kill, observe A already retired following underflow; retain first fault; sibling still processes",
+      "Use the observed failure for explicit AP6 recovery from snapshot 3; verify recovered audio without entering settings",
+      "Save recovered project; stop and close Bitwig",
+      "Normally Applications-launched fresh Bitwig: reopen saved project, read both gains, verify processing without edits, stop and close"
+    ],
+    "closed_native_records": {
+      "native-1a26ef37db8f2adecd531f964b608af7.jsonl": [
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "gain": 0.675000012
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 1,
+          "first_position": 1553408,
+          "processed": 18328,
+          "request_high": 4,
+          "result_high": 4,
+          "detail": "InvalidData: queued session fault or cancelled"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 3,
+          "worker_op": 3,
+          "worker_epoch": 3,
+          "worker_position": 1552384,
+          "request_published": 18337,
+          "request_consumed": 18333,
+          "result_published": 18325,
+          "result_consumed": 18325,
+          "service_us_max_at_report": 30474,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "detail": "Last confirmed snapshot; later edits may be lost"
+        }
+      ],
+      "native-6773ef24f9f0cdf1060c3c52055af994.jsonl": [
+        {
+          "event": "ap4_native_state",
+          "operation": "recover",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "gain": 0.675000012
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 18,
+          "generation": 2,
+          "uncaptured_changes_possible": 1,
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "detail": "Recovered identified snapshot; later edits were not restored"
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "gain": 0.675000012
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 4,
+          "source": 16,
+          "generation": 2,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 29184,
+          "before_edit_samples": 29184,
+          "edits": 0,
+          "nonzero_samples": 29146,
+          "maximum_error": 0,
+          "restored_gain": 0.675000012,
+          "input_fnv1a64": 18086039334270552187,
+          "output_fnv1a64": 6024085656416649296
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "gain": 0.675000012
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 5,
+          "source": 16,
+          "generation": 2,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 8533504,
+          "before_edit_samples": 8533504,
+          "edits": 0,
+          "nonzero_samples": 8522676,
+          "maximum_error": 0,
+          "restored_gain": 0.675000012,
+          "input_fnv1a64": 12098954497061652571,
+          "output_fnv1a64": 7085778080392520503
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "gain": 0.675000012
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 6,
+          "source": 16,
+          "generation": 2,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 11682304,
+          "before_edit_samples": 11682304,
+          "edits": 0,
+          "nonzero_samples": 8580457,
+          "maximum_error": 0,
+          "restored_gain": 0.675000012,
+          "input_fnv1a64": 1918985741784520145,
+          "output_fnv1a64": 5751673968705643593
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 22826,
+          "request_high": 1,
+          "result_high": 4,
+          "position": 5843456,
+          "epoch": 1
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 11686912,
+          "before_edit_samples": 11686912,
+          "edits": 0,
+          "nonzero_samples": 8580457,
+          "maximum_error": 0,
+          "restored_gain": 0.675000012,
+          "input_fnv1a64": 4262972788520662481,
+          "output_fnv1a64": 1844560927956517961
+        },
+        {
+          "event": "ap4_sample_comparison",
+          "samples": 11686912,
+          "restored_samples": 11686912,
+          "before_edit_samples": 11686912,
+          "restores": 1,
+          "edits": 0,
+          "nonzero_samples": 8580457,
+          "maximum_error": 0,
+          "restored_gain": 0.675000012
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 10536192,
+          "blocks": 41157,
+          "callback_rejections": 23877,
+          "rejected_silent_frames": 6112512,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 17575,
+          "successful_silent_frames": 4499200,
+          "priming_frames": 4096,
+          "zero_gain_blocks": 0,
+          "gain_min": 0.675000012,
+          "gain_max": 0.675000012,
+          "clean": true
+        }
+      ],
+      "native-5004806040adb1fba9e1f8b442cbf4eb.jsonl": [
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+          "gain": 0.349999994
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "c48254c0c546f5ba0b46804e9774ff207f26706c3fac65d214af1e6817d3ba7e",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 54767,
+          "request_high": 2,
+          "result_high": 4,
+          "position": 10729216,
+          "epoch": 3
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 28040704,
+          "before_edit_samples": 28040704,
+          "edits": 0,
+          "nonzero_samples": 24294131,
+          "maximum_error": 0,
+          "restored_gain": 0.349999994,
+          "input_fnv1a64": 17667725789636941414,
+          "output_fnv1a64": 11378526668921798514
+        },
+        {
+          "event": "ap4_sample_comparison",
+          "samples": 28040704,
+          "restored_samples": 28040704,
+          "before_edit_samples": 28040704,
+          "restores": 1,
+          "edits": 0,
+          "nonzero_samples": 24294131,
+          "maximum_error": 0,
+          "restored_gain": 0.349999994
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 14020352,
+          "blocks": 54767,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 7304,
+          "successful_silent_frames": 1869824,
+          "priming_frames": 3072,
+          "zero_gain_blocks": 0,
+          "gain_min": 0.349999994,
+          "gain_max": 0.349999994,
+          "clean": true
+        }
+      ]
+    },
+    "owned_retirements": {
+      "d9751587958b5876f1d3f259b62b7995.json": {
+        "containment_confirmed": true,
+        "retired": true,
+        "retirement_error": null,
+        "reporting_errors": [],
+        "error": null
+      },
+      "560d9e05c901fc0e90865daff5a774e6.json": {
+        "containment_confirmed": true,
+        "retired": true,
+        "retirement_error": null,
+        "reporting_errors": [],
+        "error": null
+      },
+      "19e76ec5cc3f65132e68f73ea84754d3.json": {
+        "containment_confirmed": true,
+        "retired": true,
+        "retirement_error": null,
+        "reporting_errors": [],
+        "error": null
+      }
+    },
+    "audio_checks": {
+      "audio-initial.private.json": {
+        "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement",
+        "instances": [
+          {
+            "run_id": "560d9e05c901fc0e90865daff5a774e6",
+            "gain": 0.675000012,
+            "at": 1788714853.7617695,
+            "state_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+            "snapshots": [
+              {
+                "input_sha256": "cf4f9b66bc841a1630929f479f9d438b3a39628aa8b08349c223f58c5f67d10f",
+                "output_sha256": "3d250179b78e55957e64e46f06425feaed867a6765d14350a54b52dcfc676521",
+                "samples": 512,
+                "maximum_error": 0
+              },
+              {
+                "input_sha256": "6188d60b63ceaf63a970df1fb95f8d2e335a69d86cd1c58a3cba5554d23a75bd",
+                "output_sha256": "fccb53c529eda0fabeca6d84b88ede0f7ccd40f389554fc9bd35a5b4d63ebd54",
+                "samples": 512,
+                "maximum_error": 0
+              }
+            ]
+          },
+          {
+            "run_id": "d9751587958b5876f1d3f259b62b7995",
+            "gain": 0.349999994,
+            "at": 1788714853.7698894,
+            "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+            "snapshots": [
+              {
+                "input_sha256": "a640504080311e01285a49d4a4da26289ed6a26fd8bc5c4885d3654268e7373a",
+                "output_sha256": "8d4aae47aa721b9acf97d1de4c3b78be1c1c48eeb88236304ada055d875b4ff2",
+                "samples": 512,
+                "maximum_error": 0
+              },
+              {
+                "input_sha256": "d7cacfa30dbb1196f5b904a2a3dc9dad2008d711ab4427ff13c9f78a4d3111ff",
+                "output_sha256": "5fc17d840083bcf975707a28dcf74fd39a134ba20c8dea918e610bf11382cab2",
+                "samples": 512,
+                "maximum_error": 0
+              }
+            ]
+          }
+        ]
+      },
+      "audio-resumed.private.json": {
+        "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement",
+        "instances": [
+          {
+            "run_id": "d9751587958b5876f1d3f259b62b7995",
+            "gain": 0.349999994,
+            "at": 1788714958.5658872,
+            "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+            "snapshots": [
+              {
+                "input_sha256": "d032530d93796ec4df16052f46c6c46d2af1f92bd6014eb5402a3f04a88c6f27",
+                "output_sha256": "9c6f5f2684a7215b57b3a8f7017d5c25e53279970d098b6a7a7a9ca4ba37baff",
+                "samples": 512,
+                "maximum_error": 0
+              },
+              {
+                "input_sha256": "9181ae1f9b678edd544a3b7875849381d20ae5efde88a02067d5cdace6e4c6d2",
+                "output_sha256": "50c3b6a11cecf22337b6781bf4410c31f64e18ff89de56c3e7446cabc2395d9f",
+                "samples": 512,
+                "maximum_error": 0
+              }
+            ]
+          }
+        ]
+      },
+      "audio-recovered.private.json": {
+        "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement",
+        "instances": [
+          {
+            "run_id": "19e76ec5cc3f65132e68f73ea84754d3",
+            "gain": 0.675000012,
+            "at": 1788715125.1334827,
+            "state_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+            "snapshots": [
+              {
+                "input_sha256": "704d914528de0d7fd36ba700da18239e26aac9e60dbd39cbbece7296fa9d02bd",
+                "output_sha256": "9263a2c91f5dcfc493c634879519914cac966623fdf339d8f9bb08aaf880147a",
+                "samples": 512,
+                "maximum_error": 0
+              },
+              {
+                "input_sha256": "f0e0c45d8a17c8d0bbf58041517cc4197bc30c8000e85d20386df2d09950f013",
+                "output_sha256": "97aee2b684d1b88d99a43032e54e2388b4bafa677270e4e6de0207be2f3ceec0",
+                "samples": 512,
+                "maximum_error": 0
+              }
+            ]
+          },
+          {
+            "run_id": "d9751587958b5876f1d3f259b62b7995",
+            "gain": 0.349999994,
+            "at": 1788715125.1410985,
+            "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+            "snapshots": [
+              {
+                "input_sha256": "aa94bdd8bbb39b3312f0178966caf5c4a38ed36ddf18c343887188966518915f",
+                "output_sha256": "67f2bc428042cfce308047bb1a80e9a4034641ade5a52e28f9a52878fe4db943",
+                "samples": 512,
+                "maximum_error": 0
+              },
+              {
+                "input_sha256": "f8fda7affdf1c8f1ad1f04a3114427799452d994ada3c62441e4ce9b53ccbb87",
+                "output_sha256": "70f5764e2efe59836cffdae24832c4f7150d7e69f9537fc08e51c455856afbb1",
+                "samples": 512,
+                "maximum_error": 0
+              }
+            ]
+          }
+        ]
+      },
+      "audio-reopened.private.json": {
+        "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement",
+        "instances": [
+          {
+            "run_id": "f693c8ac54efdb2f4dc105bd306fc792",
+            "gain": 0.675000012,
+            "at": 1788715416.6072156,
+            "state_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+            "snapshots": [
+              {
+                "input_sha256": "375e3f58a0bde211cc0cba466aa4bfb660a3de65fb8ce08305cdd9cc16d3cda6",
+                "output_sha256": "8a99c5bb747ecfa488022b28f3d59ee84e81c6256e123bf3e6ed3c7691bbcb3f",
+                "samples": 512,
+                "maximum_error": 0
+              },
+              {
+                "input_sha256": "3e696e883f7297f38fe5650d528b0973a478d1b4b974b32a6d3ac17fcc98375d",
+                "output_sha256": "442a4337e726b5dd552eac3bf3582c831d0942c7a4dfd265f824e4e11619db88",
+                "samples": 512,
+                "maximum_error": 0
+              }
+            ]
+          },
+          {
+            "run_id": "b55dccded9d4a984b04c50fa45210365",
+            "gain": 0.349999994,
+            "at": 1788715416.6149244,
+            "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+            "snapshots": [
+              {
+                "input_sha256": "278178795bc7ff60da434e542537f5e60c6ba8e77a2c80caf016e13226bc186b",
+                "output_sha256": "df60c55b0881c54ff08c6fb98de23d5647ff2f5f09025fa180b576eceb3d5eeb",
+                "samples": 512,
+                "maximum_error": 0
+              },
+              {
+                "input_sha256": "a641d3af961d05291cb732288dadbfc9d0cbe1ecce3188f22415d2425c7d334a",
+                "output_sha256": "6ad4f1461fe4b7524e223df2e88824402faadcff560e376bc0ff4f88323eeed1",
+                "samples": 512,
+                "maximum_error": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "audio_check_limit": "Read-only mapped-plane samples are supplemental matching observations, not exhaustive output proof. Full worker sample comparisons and native callback rejection/silence counters are retained separately.",
+    "missing_audio": "A has one contiguous rejection interval from unexpected fault through recovery; the total includes diagnosis/recovery time. B has none.",
+    "fault_inference_limit": "Epoch 3 and due worker position match; result queue observed empty; worker op 3. 30474us is the maximum completed native service duration by reporting time, not a timestamped latency of the particular missing response. Native scheduling versus peer response delay, and the temporal relationship to stop/resume or Moonlight reconnect, remain unestablished.",
+    "historical_limit": "No cause is attributed to the AP6 retained underflow or the separately unexplained AP5 transport loss.",
+    "reopen_native_records": {
+      "native-da7c164993cdee4fd82e14e4e530fe61.jsonl": [
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+          "gain": 0.349999994
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "c48254c0c546f5ba0b46804e9774ff207f26706c3fac65d214af1e6817d3ba7e",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 22630,
+          "request_high": 2,
+          "result_high": 4,
+          "position": 5697024,
+          "epoch": 2
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 11586560,
+          "before_edit_samples": 11586560,
+          "edits": 0,
+          "nonzero_samples": 7306454,
+          "maximum_error": 0,
+          "restored_gain": 0.349999994,
+          "input_fnv1a64": 17502609879751051435,
+          "output_fnv1a64": 72996064847592840
+        },
+        {
+          "event": "ap4_sample_comparison",
+          "samples": 11586560,
+          "restored_samples": 11586560,
+          "before_edit_samples": 11586560,
+          "restores": 1,
+          "edits": 0,
+          "nonzero_samples": 7306454,
+          "maximum_error": 0,
+          "restored_gain": 0.349999994
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 5793280,
+          "blocks": 22630,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 8355,
+          "successful_silent_frames": 2138880,
+          "priming_frames": 2048,
+          "zero_gain_blocks": 0,
+          "gain_min": 0.349999994,
+          "gain_max": 0.349999994,
+          "clean": true
+        }
+      ],
+      "native-7b73c986835687c6e8f13fd2937d981b.jsonl": [
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "gain": 0.675000012
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 30923,
+          "request_high": 2,
+          "result_high": 4,
+          "position": 3751680,
+          "epoch": 2
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 15832576,
+          "before_edit_samples": 15832576,
+          "edits": 0,
+          "nonzero_samples": 7299154,
+          "maximum_error": 0,
+          "restored_gain": 0.675000012,
+          "input_fnv1a64": 4821977188811586629,
+          "output_fnv1a64": 348851443201299554
+        },
+        {
+          "event": "ap4_sample_comparison",
+          "samples": 15832576,
+          "restored_samples": 15832576,
+          "before_edit_samples": 15832576,
+          "restores": 1,
+          "edits": 0,
+          "nonzero_samples": 7299154,
+          "maximum_error": 0,
+          "restored_gain": 0.675000012
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7916288,
+          "blocks": 30923,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 16648,
+          "successful_silent_frames": 4261888,
+          "priming_frames": 2048,
+          "zero_gain_blocks": 0,
+          "gain_min": 0.675000012,
+          "gain_max": 0.675000012,
+          "clean": true
+        }
+      ]
+    },
+    "reopen_owned_retirements": {
+      "f693c8ac54efdb2f4dc105bd306fc792.json": {
+        "containment_confirmed": true,
+        "retired": true,
+        "retirement_error": null,
+        "reporting_errors": [],
+        "error": null
+      },
+      "b55dccded9d4a984b04c50fa45210365.json": {
+        "containment_confirmed": true,
+        "retired": true,
+        "retirement_error": null,
+        "reporting_errors": [],
+        "error": null
+      }
+    },
+    "post_fault_scheduling_snapshot": {
+      "limit": "Not a trace of the failure",
+      "transport_and_windows_workers_observed_policy": "SCHED_OTHER",
+      "source_sha256": "a7da6bfb18a7552631066afa265925b8da37bedb1bbe6763e506eed5cde026d5"
+    }
+  },
+  "cleanup": {
+    "at": 1788715582.1580923,
+    "owned_stages_remaining": 0,
+    "bitwig_native_windows_processes_remaining": 0,
+    "publication_removed": true,
+    "owner_socket_removed": true,
+    "owner_state": "ExecMainStatus=0\nActiveState=inactive\nSubState=dead\n",
+    "preferences_restored": true,
+    "preferences_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "metadata_restored": true,
+    "original_ap6_project_unchanged": true,
+    "original_ap6_sha256": "1849faf11a683e83f52e0ca07f64ef3b4e91c2aff852f67dd660d925d49e8231",
+    "original_ap5_sha256": "367f5df6bc703a7c3b8aec87193ac027f7f50b60e6c47c2c841637fb7c7fce9f",
+    "ap7_saved_project_sha256": "41f855770e4c61daca456171ab6f61af3717c5213fd598cf5e1afce56d2a3f79",
+    "ap4_sha256": "d8acb2fbb487cfa0039a43ef92619f5e06a2fbd63e1b0be988fe721615541a05",
+    "sunshine_state": "active"
+  },
+  "source_captures": {
+    "cleanup.private.json": "92073a5e9a31a39337650ed976e9d30e920c7ea4a341fd49ac3c4c92fba45f22",
+    "desktop-recovered.private.json": "32d8cbe806e3af235a3e325b881e8a668d006c7122c3ee41f3abcbc2f30e5d00",
+    "desktop-reopened.private.json": "418062e6f42faa2811f3f6de5f6722174869ff9083b2f87ce0b514fc86d5637f",
+    "audio-initial.private.json": "7cf9dba5568a0671f5ec2d5f26eba0b36697e064be2c4a477bc955f2ea0d1f8f",
+    "reports-save.private.json": "683cb7babf86afb954f85fbabb919b505c0136eb7119e2d793ee7dd35cc7b2d6",
+    "topology-initial.private.json": "b8009fee3866c63bccdc6979fd2747f42fd0ffde845e5240644b3ad0a3abb2b7",
+    "desktop-before-kill.private.json": "e068fa0e7bf3dd4bf71901803c5bf7e2c8d7dcf380cc4d298adb09fb25c7f268",
+    "reports-pause.private.json": "683cb7babf86afb954f85fbabb919b505c0136eb7119e2d793ee7dd35cc7b2d6",
+    "audio-reopened.private.json": "15b774f15061b909c7643ef1822fed532d78adc908b2314529560b7923f21562",
+    "audio-recovered.private.json": "42c20cd7eff297d87f9195b1a626bc967857ad1c2e1cc7a6090029efaa730509",
+    "reports-closed.private.json": "62f68c333ad585f8f46c820daf7d7cd9058b563d883ed9ad7e5d38d7fb6c0398",
+    "desktop-preparation.private.json": "d5128420aa40a250a6b13a9888f8bd6b9a25f7f3ae063aab8480a24b59900bc0",
+    "reports-closed-final.private.json": "397f199612de20427349cbfa26048308dd16c659b357791f89cb5da4f401dd1e",
+    "desktop-initial.private.json": "d503c3e435fb1ef2389aab6058f0443e8387dcaebb2fe0b6cabda54e6a16befa",
+    "reports-reopened-final.private.json": "c07dcb5c209c4dd37bd2aaf96d5783a1bc229e0e15ecc7195db1042f20473e4f",
+    "audio-resumed.private.json": "047f335f7da8344a243e5a61425efcce901829926421807d1d332b4155736833",
+    "reports-unexpected.private.json": "a2cb576b657eaa7ec07a0f6dc38d0eae38bf17eb900f2a994e831e00207dded5",
+    "loaded-1.private.json": "8af0be518b00d05f2dc877b58ce1e490e3aff6faae131ee744610c372e2f3bdc",
+    "scheduling.private.json": "a7da6bfb18a7552631066afa265925b8da37bedb1bbe6763e506eed5cde026d5"
+  }
+}

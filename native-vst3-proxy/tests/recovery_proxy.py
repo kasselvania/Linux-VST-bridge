@@ -3,9 +3,9 @@
 import json, os, pathlib, shutil, socket, struct, subprocess, sys, tempfile, threading
 from state_proxy import peer, envelope
 
-def run(host, bundle, audit):
+def run(host, bundle, audit, cases=None):
     results = []
-    for case in ('recovery-complete', 'recovery-late', 'recovery-missing', 'recovery-bad-readback', 'recovery-uncertain'):
+    for case in cases or ('recovery-complete', 'recovery-missing', 'recovery-bad-readback', 'recovery-uncertain'):
         with tempfile.TemporaryDirectory(prefix='ap6-recovery-') as temp:
             home = pathlib.Path(temp)
             root = home/'AP4-State-Test/preview'; root.mkdir(parents=True, mode=0o700)
@@ -29,8 +29,7 @@ def run(host, bundle, audit):
                             assert lease.recv(4) == b'AP4\n'
                             response = (token+'\n'+str(directory)).encode()
                             lease.sendall(struct.pack('<H',len(response))+response)
-                            mode = ('state-callback-fault' if index == 0 and case == 'recovery-late'
-                                    else 'recovery-bad-readback' if index == 2 and case == 'recovery-bad-readback' else 'recovery-peer')
+                            mode = ('recovery-bad-readback' if index == 2 and case == 'recovery-bad-readback' else 'recovery-peer')
                             try:
                                 peer(directory, mode, counter, fail_after=64 if index == 0 else None)
                             except (BrokenPipeError, ConnectionResetError):
@@ -61,9 +60,19 @@ def run(host, bundle, audit):
                 records = [[json.loads(line) for line in path.read_text().splitlines()] for path in reports if path.exists()]
                 fault = next(r for group in records for r in group if r['event'] == 'ap5_worker_fault')
                 assert fault['detail'] and fault['fault'] != 0
-                if case == 'recovery-late': assert fault['fault'] == 1
+                progress = next(r for group in records for r in group if r['event'] == 'ap7_fault_progress')
+                assert progress['context_ready'] and progress['epoch'] == 1
+                lifecycle = [r for group in records for r in group if r['event']=='ap3_proxy_lifecycle']
+                assert len(lifecycle) == 2
+                failed = next(r for r in lifecycle if r['callback_rejections'])
+                healthy = next(r for r in lifecycle if not r['callback_rejections'])
+                assert failed['discontinuities'] == 1 and failed['rejected_silent_frames'] > 0
+                assert healthy['discontinuities'] == healthy['rejected_silent_frames'] == 0
+                assert healthy['priming_frames'] == 1024
+                if case == 'recovery-complete':
+                    assert failed['priming_frames'] == 2048
                 summary = next(json.loads(line) for line in process.stdout.splitlines() if '"ap6_recovery"' in line)
-                if case in ('recovery-complete','recovery-late'):
+                if case == 'recovery-complete':
                     assert summary['recovered_samples'] >= 8192 and counts[2]['set'] == 1 and counts[2]['closed'] == 1
                 else: assert summary['recovered_samples'] == 0
                 assert summary['sibling_samples'] > 0 and counts[1]['closed'] == 1
