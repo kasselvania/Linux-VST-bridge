@@ -6,7 +6,7 @@ The demonstrated defect was the old policy: an empty due-output queue permanentl
 
 Reference comparison and fingerprints now run on a separate consumer. The transport publishes validated output first, then makes a bounded copy into a 64-entry observation queue. Neither the next request nor result publication waits for comparison or diagnostic readers. Overflow loses observation coverage, invalidates the reference until another actual state readback, and does not count unchecked samples as verified. Activation no longer issues a state request solely to seed observation. Bounds, sequence/epoch/position, guards, unchanged inputs, finite output and silence claims remain mandatory.
 
-Callback work is bounded by the existing 2048 descriptors and 256 frames, with preallocated storage, scalar operations, atomics and monotonic timestamp reads. It adds no allocation, blocking, logging, process or transport I/O. Optional traces connect a missing span to a particular request's queue wait, preparation, send, reply, validation and publication. Only the first 32 span traces are retained; missing trace coverage is reported. No queue enlargement, priority escalation, Windows rebuild or automatic restart was used.
+Callback work is bounded by the existing 2048 descriptors and 256 frames, with preallocated storage, scalar operations, atomics and monotonic timestamp reads. It adds no allocation, blocking, logging, process or transport I/O. Optional traces connect a missing span to a particular request's queue wait, preparation, send, reply, validation and publication. Only the first 32 span traces are retained; missing trace coverage is reported. The final trace-only correction explicitly marks output discarded after an epoch stops as unpublished, with no publication timestamp. It leaves the tested publication predicate and playback behavior unchanged and passes the 23 Rust tests and Clippy. No queue enlargement, priority escalation, Windows rebuild or automatic restart was used.
 
 ## Focused verification
 
@@ -14,7 +14,7 @@ Callback work is bounded by the existing 2048 descriptors and 256 frames, with p
 - The final Linux SDK-loaded build passes both delayed-output cases, genuine disconnect with complete-state recovery and sibling continuity, and corrupt output-guard rejection. The callback audit records zero forbidden effects. All checked samples have zero error.
 - Seven owner cleanup/isolation tests and Clippy with `-D warnings` pass. Hosted CI is tracked on PR #65.
 
-The final SDK-tested native build is source `60e2cf7a9db7d2071b289e27688cf7f5f82586de`, manifest `667c8cc73a2769a088347f892172f0eb7118ea35713fffbb70aef527339bd244`. The 23-test actual-worker regression source is `f2b0f6cfe686a0c89deebe75d7e92a7a16ac88a0`; only results documentation follows it in the native build source. The same final test driver rejects the previous native bundle (manifest `c2f47288fa8409f76519fcb9fec7880a5b3138609c7f2fb7ef5616df6d9e4a72`) at its terminal-underrun policy.
+The SDK-tested native build is source `60e2cf7a9db7d2071b289e27688cf7f5f82586de`, manifest `667c8cc73a2769a088347f892172f0eb7118ea35713fffbb70aef527339bd244`. The 23-test actual-worker regression source is `f2b0f6cfe686a0c89deebe75d7e92a7a16ac88a0`; only results documentation follows it in the native build source. The same final test driver rejects the previous native bundle (manifest `c2f47288fa8409f76519fcb9fec7880a5b3138609c7f2fb7ef5616df6d9e4a72`) at its terminal-underrun policy.
 
 ## Normal desktop result and provenance
 

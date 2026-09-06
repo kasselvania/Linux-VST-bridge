@@ -455,15 +455,13 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         Ordering::Relaxed,
                     );
                     s.processed.fetch_add(1, Ordering::Relaxed);
-                    if n > 0
-                        && s.wanted.load(Ordering::Acquire) == item.epoch
-                        && !s.results.push(item)
-                    {
+                    let publish = n > 0 && s.wanted.load(Ordering::Acquire) == item.epoch;
+                    if publish && !s.results.push(item) {
                         s.fail(OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
                     }
                     session.trace.queued = item.queued;
-                    session.trace.published = Some(Instant::now());
+                    session.trace.published = publish.then(Instant::now);
                     // Only a bounded copy after output publication. The next request
                     // never waits for comparison, hashing or report readers.
                     if let Some(observer) = &mut session.witness {

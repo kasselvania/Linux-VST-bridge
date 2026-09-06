@@ -281,8 +281,8 @@ pub fn report_text(s: &Shared) -> String {
         w.before_edit_samples, w.edits);
     for (g, t) in &r.traces {
         if let Some(t) = t {
-            let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{}}}",
-                g.epoch, g.position, g.frames, t.position, t.frames, t.sequence,
+            let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"output_published\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{}}}",
+                g.epoch, g.position, g.frames, t.position, t.frames, t.sequence, t.published.is_some(),
                 micros(t.queued,t.started), micros(t.started,t.prepared), micros(t.prepared,t.sent),
                 micros(t.sent,t.replied), micros(t.replied,t.validated), micros(t.validated,t.published),
                 micros(Some(g.at),t.published), micros(t.queued,Some(g.at)));

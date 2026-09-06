@@ -1570,5 +1570,10 @@
     "preferences_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
     "ap4_project_sha256": "d8acb2fbb487cfa0039a43ef92619f5e06a2fbd63e1b0be988fe721615541a05",
     "sunshine_active": "active"
+  },
+  "post_build_observation_fix": "The final trace-only follow-up records output_published=false and no publication timestamp for completed output discarded after an epoch stops. Queue admission, publication predicate and all playback behavior are unchanged; 23 Rust tests and Clippy rerun. Prior SDK/desktop publication records retain their tested source.",
+  "rust_test_source_blobs": {
+    "native-vst3-proxy/backend/src/queued.rs": "6fb4ff5c2365d9f49f61348ea4aac94e07a9bddf",
+    "native-vst3-proxy/backend/src/observer.rs": "1dc60ab27c2dc2a14454f8399627e77c3d94b38c"
   }
 }
