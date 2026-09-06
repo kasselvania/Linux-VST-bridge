@@ -1,0 +1,1693 @@
+{
+  "status": "AP5 focused development observations; pending review, not product acceptance",
+  "base_commit": "ffbc4d2",
+  "implementation_source": "f678c4e0eaa85215855f231c3ea4b4fa8409dfc1",
+  "owner_source": "d1bf7353c28c355cf11d39b817a67b7c04799ca5",
+  "native_builds": [
+    {
+      "input_sha256": "2cee42ab3cad684e7ba9d0044840fadec66806d1ef53d162dfaf42e5a3ceea5f",
+      "manifest_sha256": "cfe336744921bce6df21e6d23eb25db1e71b42a6c5aece25acbb07b8df1697cf",
+      "source_commit": "3e9fee96c3c850ea5bb57c6e0eec38c3f45b9276"
+    },
+    {
+      "input_sha256": "cfe87bbd9d005000807efdf13dc61582b4f0cea5c3f9db67e76151a92f2cfef2",
+      "manifest_sha256": "ed2ee1ebe614e8f41377162b3a1977e8b6f02edabebb55e0b21118a7bb65ed0c",
+      "source_commit": "f678c4e0eaa85215855f231c3ea4b4fa8409dfc1"
+    }
+  ],
+  "native_binary_sha256": "cb73415087c661cbc5009ba4b97d85c4b8aa0c92ffc57ffdf014123cbea166cf",
+  "windows_host": {
+    "reused_AP4_artifact": true,
+    "manifest_sha256": "f00325df1cefe08c4496d3007211d7ecebdd02a49d4dc42a6a2e0a94881ec615",
+    "build_input_sha256": "df6480f32eb04197f59001928d79beaf28b61f91af29fc4808b82b0998c4e99a",
+    "source_commit": "da56fb80cb4d689c9ba24d1fdb3803de912ed725",
+    "producer_run": 34010088604,
+    "producer_artifact": 9982219826
+  },
+  "fixture": {
+    "bitwig": {
+      "commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+      "origin": "flathub",
+      "permissions_sha256": "c7f5a34dce104cc3d347dcaf89e135cc5ad73b891101d7587f78423858ad5c73",
+      "ref": "app/com.bitwig.BitwigStudio/x86_64/stable",
+      "runtime_commit": "bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8",
+      "runtime_ref": "org.freedesktop.Platform/x86_64/25.08",
+      "system_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "user_override_sha256": "1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e",
+      "user_shadow_absent": true,
+      "version": "6.1"
+    },
+    "runner": "Proton 11.0-2c / Steam Linux Runtime 4",
+    "again_module_sha256": "60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f",
+    "format": "float32 stereo 48000 Hz; 256 frames observed; 1024 samples added latency",
+    "inputs": {
+      "AP5-A.wav": "804739a1f604dd02d376050b37e2834106017fbfc9a41d3f019b4fe98b326db0",
+      "AP5-B.wav": "5965b9412e511ce1e02e45457f7d66edd448caffb56daa652a3db0f05a030501"
+    }
+  },
+  "desktop": {
+    "launch": "Bitwig Studio Applications entry on each launch, through Moonlight; no special DAW launcher",
+    "hosting_mode_observed": "Together, AGain individual override off",
+    "initial_native_topology": [
+      {
+        "pid": 2214711,
+        "executable": "/app/bin/BitwigStudio",
+        "lvb_environment_keys": [],
+        "preview_mapped": false
+      },
+      {
+        "pid": 2218713,
+        "executable": "/app/bin/BitwigPluginHost-X64-AVX2",
+        "lvb_environment_keys": [],
+        "preview_mapped": true
+      }
+    ],
+    "recall_native_topology": [
+      {
+        "pid": 2222767,
+        "executable": "/app/bin/BitwigStudio",
+        "lvb_environment_keys": [],
+        "preview_mapped": false
+      },
+      {
+        "pid": 2223125,
+        "executable": "/app/bin/BitwigPluginHost-X64-AVX2",
+        "lvb_environment_keys": [],
+        "preview_mapped": true
+      }
+    ],
+    "records": [
+      {
+        "run_id": "209271a88fe0136aa4d883e85be9fddc",
+        "native_process_id": 2218713,
+        "phase": "first_save",
+        "native_report": [
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+            "gain": 0.349999994
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 10504704,
+            "before_edit_samples": 0,
+            "edits": 1,
+            "nonzero_samples": 7922695,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 6091394073256449290,
+            "output_fnv1a64": 4876293996318881602
+          }
+        ],
+        "windows_records": [
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 80,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 81,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 1,
+            "payload_bytes": 12,
+            "payload_hex": "0000803f0000000000000000",
+            "restored": false,
+            "sequence": 82,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 83,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 84,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 2,
+            "payload_bytes": 12,
+            "payload_hex": "0000803f0000000000000000",
+            "restored": false,
+            "sequence": 85,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 108,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 109,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 20520,
+            "payload_bytes": 12,
+            "payload_hex": "3333b33e0000000000000000",
+            "restored": false,
+            "sequence": 110,
+            "state": "ap4_state_readback"
+          },
+          {
+            "detail": "control disconnected/IO",
+            "event": "lifecycle",
+            "sequence": 111,
+            "state": "ap1_transport_error"
+          },
+          {
+            "event": "lifecycle",
+            "intervals": 1,
+            "process_mode": "kRealtime",
+            "processed_blocks": 21441,
+            "sequence": 115,
+            "state": "ap3_processing_summary"
+          },
+          {
+            "detail": "control disconnected/IO",
+            "event": "lifecycle",
+            "sequence": 116,
+            "state": "ap3_processing_error"
+          }
+        ],
+        "windows_raw_exit": 110,
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "retired": true,
+        "owner_error": null
+      },
+      {
+        "run_id": "e2d9452df31fdd762146bdd74cf57b03",
+        "native_process_id": 2223125,
+        "phase": "fresh_recall",
+        "native_report": [
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "set",
+            "payload_bytes": 12,
+            "sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+            "gain": 0.349999994
+          },
+          {
+            "event": "ap3_proxy_stats",
+            "fault": 0,
+            "first_position": 18446744073709551615,
+            "processed": 67252,
+            "request_high": 2,
+            "result_high": 4,
+            "position": 15881472,
+            "epoch": 2
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 34433024,
+            "before_edit_samples": 34433024,
+            "edits": 0,
+            "nonzero_samples": 30234286,
+            "maximum_error": 0,
+            "restored_gain": 0.349999994,
+            "input_fnv1a64": 14555730322559703132,
+            "output_fnv1a64": 9794356737786688414
+          },
+          {
+            "event": "ap4_sample_comparison",
+            "samples": 34433024,
+            "restored_samples": 34433024,
+            "before_edit_samples": 34433024,
+            "restores": 1,
+            "edits": 0,
+            "nonzero_samples": 30234286,
+            "maximum_error": 0,
+            "restored_gain": 0.349999994
+          },
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 256,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 17216512,
+            "blocks": 67252,
+            "callback_rejections": 0,
+            "zero_gain_blocks": 0,
+            "gain_min": 0.349999994,
+            "gain_max": 0.349999994,
+            "clean": true
+          }
+        ],
+        "windows_records": [
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 80,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 81,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 1,
+            "payload_bytes": 12,
+            "payload_hex": "0000803f0000000000000000",
+            "restored": false,
+            "sequence": 82,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 83,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 84,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 2,
+            "payload_bytes": 12,
+            "payload_hex": "0000803f0000000000000000",
+            "restored": false,
+            "sequence": 85,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "set",
+            "owner_thread": true,
+            "sequence": 86,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "set",
+            "result": 0,
+            "sequence": 87,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 88,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 89,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 3,
+            "payload_bytes": 12,
+            "payload_hex": "3333b33e0000000000000000",
+            "restored": true,
+            "sequence": 90,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "intervals": 2,
+            "process_mode": "kRealtime",
+            "processed_blocks": 67252,
+            "sequence": 125,
+            "state": "ap3_processing_summary"
+          }
+        ],
+        "windows_raw_exit": 0,
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "retired": true,
+        "owner_error": null
+      },
+      {
+        "run_id": "c54a71964aed47e3dda7e2914f867587",
+        "native_process_id": 2223125,
+        "phase": "fresh_recall",
+        "native_report": [
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "set",
+            "payload_bytes": 12,
+            "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+            "gain": 0.675000012
+          },
+          {
+            "event": "ap3_proxy_stats",
+            "fault": 0,
+            "first_position": 18446744073709551615,
+            "processed": 52857,
+            "request_high": 2,
+            "result_high": 4,
+            "position": 13435136,
+            "epoch": 2
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 27062784,
+            "before_edit_samples": 27062784,
+            "edits": 0,
+            "nonzero_samples": 26059576,
+            "maximum_error": 0,
+            "restored_gain": 0.675000012,
+            "input_fnv1a64": 5384908703579994046,
+            "output_fnv1a64": 17769019230442377325
+          },
+          {
+            "event": "ap4_sample_comparison",
+            "samples": 27062784,
+            "restored_samples": 27062784,
+            "before_edit_samples": 27062784,
+            "restores": 1,
+            "edits": 0,
+            "nonzero_samples": 26059576,
+            "maximum_error": 0,
+            "restored_gain": 0.675000012
+          },
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 256,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 13531392,
+            "blocks": 52857,
+            "callback_rejections": 0,
+            "zero_gain_blocks": 0,
+            "gain_min": 0.675000012,
+            "gain_max": 0.675000012,
+            "clean": true
+          }
+        ],
+        "windows_records": [
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 80,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 81,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 1,
+            "payload_bytes": 12,
+            "payload_hex": "0000803f0000000000000000",
+            "restored": false,
+            "sequence": 82,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 83,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 84,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 2,
+            "payload_bytes": 12,
+            "payload_hex": "0000803f0000000000000000",
+            "restored": false,
+            "sequence": 85,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "set",
+            "owner_thread": true,
+            "sequence": 86,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "set",
+            "result": 0,
+            "sequence": 87,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 88,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 89,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 3,
+            "payload_bytes": 12,
+            "payload_hex": "cdcc2c3f0000000000000000",
+            "restored": true,
+            "sequence": 90,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "intervals": 2,
+            "process_mode": "kRealtime",
+            "processed_blocks": 52857,
+            "sequence": 125,
+            "state": "ap3_processing_summary"
+          }
+        ],
+        "windows_raw_exit": 0,
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "retired": true,
+        "owner_error": null
+      },
+      {
+        "run_id": "40afd126a2dbb2504a38e5cb1ff08f7e",
+        "native_process_id": 2218713,
+        "phase": "first_save",
+        "native_report": [
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+            "gain": 0.675000012
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 9729536,
+            "before_edit_samples": 0,
+            "edits": 1,
+            "nonzero_samples": 7916352,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 3114192329761271996,
+            "output_fnv1a64": 5228818486673124020
+          },
+          {
+            "event": "ap3_proxy_stats",
+            "fault": 0,
+            "first_position": 18446744073709551615,
+            "processed": 26910,
+            "request_high": 2,
+            "result_high": 4,
+            "position": 5987584,
+            "epoch": 2
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 13777920,
+            "before_edit_samples": 0,
+            "edits": 1,
+            "nonzero_samples": 11765287,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 1238642854749262541,
+            "output_fnv1a64": 1163166073774278772
+          },
+          {
+            "event": "ap4_sample_comparison",
+            "samples": 13777920,
+            "restored_samples": 0,
+            "before_edit_samples": 0,
+            "restores": 0,
+            "edits": 1,
+            "nonzero_samples": 11765287,
+            "maximum_error": 0,
+            "restored_gain": 0
+          },
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 256,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 6888960,
+            "blocks": 26910,
+            "callback_rejections": 0,
+            "zero_gain_blocks": 0,
+            "gain_min": 0.675,
+            "gain_max": 1,
+            "clean": true
+          }
+        ],
+        "windows_records": [
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 80,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 81,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 1,
+            "payload_bytes": 12,
+            "payload_hex": "0000803f0000000000000000",
+            "restored": false,
+            "sequence": 82,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 83,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 84,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 2,
+            "payload_bytes": 12,
+            "payload_hex": "0000803f0000000000000000",
+            "restored": false,
+            "sequence": 85,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "owner_thread": true,
+            "sequence": 116,
+            "state": "ap4_state_started"
+          },
+          {
+            "event": "lifecycle",
+            "operation": "get",
+            "result": 0,
+            "sequence": 117,
+            "state": "ap4_state_result"
+          },
+          {
+            "event": "lifecycle",
+            "next_sequence": 19006,
+            "payload_bytes": 12,
+            "payload_hex": "cdcc2c3f0000000000000000",
+            "restored": false,
+            "sequence": 118,
+            "state": "ap4_state_readback"
+          },
+          {
+            "event": "lifecycle",
+            "intervals": 2,
+            "process_mode": "kRealtime",
+            "processed_blocks": 26910,
+            "sequence": 123,
+            "state": "ap3_processing_summary"
+          }
+        ],
+        "windows_raw_exit": 0,
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "retired": true,
+        "owner_error": null
+      }
+    ],
+    "before_removal_topology": {
+      "at": 1788674036.0194151,
+      "stages": [
+        {
+          "run_id": "c54a71964aed47e3dda7e2914f867587",
+          "processes_mapping_stage": [
+            {
+              "pid": 2223125,
+              "start_ticks": 47691046,
+              "comm": "BitwigPluginHos"
+            },
+            {
+              "pid": 2223278,
+              "start_ticks": 47691271,
+              "comm": "start.exe"
+            },
+            {
+              "pid": 2223436,
+              "start_ticks": 47692367,
+              "comm": "winedevice.exe"
+            },
+            {
+              "pid": 2223457,
+              "start_ticks": 47692470,
+              "comm": "wf0-factory-pro"
+            }
+          ]
+        },
+        {
+          "run_id": "e2d9452df31fdd762146bdd74cf57b03",
+          "processes_mapping_stage": [
+            {
+              "pid": 2223125,
+              "start_ticks": 47691046,
+              "comm": "BitwigPluginHos"
+            },
+            {
+              "pid": 2223650,
+              "start_ticks": 47692763,
+              "comm": "start.exe"
+            },
+            {
+              "pid": 2223778,
+              "start_ticks": 47693858,
+              "comm": "winedevice.exe"
+            },
+            {
+              "pid": 2223799,
+              "start_ticks": 47693950,
+              "comm": "wf0-factory-pro"
+            }
+          ]
+        }
+      ]
+    },
+    "after_removal_topology": {
+      "at": 1788674059.974493,
+      "stages": [
+        {
+          "run_id": "e2d9452df31fdd762146bdd74cf57b03",
+          "processes_mapping_stage": [
+            {
+              "pid": 2223125,
+              "start_ticks": 47691046,
+              "comm": "BitwigPluginHos"
+            },
+            {
+              "pid": 2223650,
+              "start_ticks": 47692763,
+              "comm": "start.exe"
+            },
+            {
+              "pid": 2223778,
+              "start_ticks": 47693858,
+              "comm": "winedevice.exe"
+            },
+            {
+              "pid": 2223799,
+              "start_ticks": 47693950,
+              "comm": "wf0-factory-pro"
+            }
+          ]
+        }
+      ]
+    },
+    "before_control_change_audio": {
+      "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement",
+      "instances": [
+        {
+          "run_id": "c54a71964aed47e3dda7e2914f867587",
+          "gain": 0.675000012,
+          "at": 1788673999.1417456,
+          "state_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "snapshots": [
+            {
+              "input_sha256": "36b3dc82734b9f8506099a64c74da3e2007271c8a0062227e38589673241a45f",
+              "output_sha256": "b03469b362f61247d6f3912cb8b5c163cb11c979f34f5683bdea44840c0eed52",
+              "samples": 512,
+              "maximum_error": 0
+            },
+            {
+              "input_sha256": "6a88ff0f87405f70a73092ac6dcfdee590ea199d8be695b61ff49623b78211af",
+              "output_sha256": "3f5532529ce84d30851e9af5accb1ba02288517ce5fcf98dc13d41877b3f3361",
+              "samples": 512,
+              "maximum_error": 0
+            }
+          ]
+        },
+        {
+          "run_id": "e2d9452df31fdd762146bdd74cf57b03",
+          "gain": 0.349999994,
+          "at": 1788673999.1501544,
+          "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+          "snapshots": [
+            {
+              "input_sha256": "c3fedcbb6c531abd22e2b30646bad470971090e0fb6d0fb77fb66b3c7ebd9040",
+              "output_sha256": "a0683dc50510b690fde5998e2cefe4b95a853860ca626ff89570c1e9249565bf",
+              "samples": 512,
+              "maximum_error": 0
+            },
+            {
+              "input_sha256": "01f1c930713f444ecbedaffa15cefb16ae50b2415f87b34ce219fdfaeb73aa69",
+              "output_sha256": "ca370419f6c3e1e2e6a03e7f9f442168863e439e9f710a3c50e99c86775b6692",
+              "samples": 512,
+              "maximum_error": 0
+            }
+          ]
+        }
+      ]
+    },
+    "after_removal_audio": {
+      "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement",
+      "instances": [
+        {
+          "run_id": "e2d9452df31fdd762146bdd74cf57b03",
+          "gain": 0.349999994,
+          "at": 1788674060.5012465,
+          "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+          "snapshots": [
+            {
+              "input_sha256": "4c976675cb8c4196f0befae1b6ec492dc1a904036909462abd377987172ab832",
+              "output_sha256": "e63d4dca49ea2b1ac8d78857fbd4cfb58d351c9c18699e5eefe325221b4dffb9",
+              "samples": 512,
+              "maximum_error": 0
+            },
+            {
+              "input_sha256": "8ec9cf976944cea98d2e656b6653d4f6ed7700e65004a9d60147f348f3cef205",
+              "output_sha256": "f9351f98d0f2cb23f0f9c2b161eefe56e7f6095126a11c12c403fbb959f8c3ae",
+              "samples": 512,
+              "maximum_error": 0
+            }
+          ]
+        }
+      ]
+    },
+    "projects": [
+      {
+        "path": "AP5-Instances-Test/AP5-Two-Instances/AP5-Reclaled.bwproject",
+        "sha256": "4e4f6421f79bb73499db3f9e731f4f7ee4b15c3dca977b2bc47464b95f1dd737",
+        "size": 43215
+      },
+      {
+        "path": "AP5-Instances-Test/AP5-Two-Instances/AP5-Two-Instances.bwproject",
+        "sha256": "367f5df6bc703a7c3b8aec87193ac027f7f50b60e6c47c2c841637fb7c7fce9f",
+        "size": 43220
+      },
+      {
+        "path": "AP5-Instances-Test/AP5-Two-Instances/auto-backups/AP5-Two-Instances/AP5-Two-Instances [2026-09-05 224224].bwproject",
+        "sha256": "6277fcd8a55cd226aea69a83e8213175e94f69cd31f66db65dda4fa68c85cc31",
+        "size": 43440
+      }
+    ],
+    "first_saved_project_sha256": "6277fcd8a55cd226aea69a83e8213175e94f69cd31f66db65dda4fa68c85cc31",
+    "removal_discarded_on_quit": true,
+    "cleanup": {
+      "at": 1788674161.03028,
+      "native_processes_zero": true,
+      "windows_processes_zero": true,
+      "stages_zero": true,
+      "owner_stopped": true,
+      "owner_socket_absent": true,
+      "publication_entries": [],
+      "preferences_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+      "preferences_restored": true,
+      "ap4_project_sha256": "d8acb2fbb487cfa0039a43ef92619f5e06a2fbd63e1b0be988fe721615541a05",
+      "sunshine_state": "active",
+      "ap5_project_preserved": true
+    }
+  },
+  "local_regressions": {
+    "rust_tests_passed": 18,
+    "clippy_warnings_denied": true,
+    "owner_tests_passed": 7,
+    "loaded_tests": [
+      {
+        "test": "instances_proxy.py",
+        "exit_code": 0,
+        "result": {
+          "classification": "LOCAL_SUBSTITUTED_PEER_TESTS",
+          "windows_workloads": 0,
+          "results": [
+            {
+              "case": "instances-isolation",
+              "counts": [
+                {
+                  "get": 2,
+                  "set": 1,
+                  "activate": 1,
+                  "start": 1,
+                  "stop": 1,
+                  "process": 139,
+                  "zero_frame": 0,
+                  "closed": 1
+                },
+                {
+                  "get": 3,
+                  "set": 1,
+                  "activate": 1,
+                  "start": 1,
+                  "stop": 1,
+                  "process": 229,
+                  "zero_frame": 0,
+                  "closed": 1
+                }
+              ],
+              "summary": {
+                "event": "ap5_two_instances",
+                "case": "instances-isolation",
+                "same_native_process": true,
+                "callback_threads": 2,
+                "callback_effects": 0,
+                "a_samples": 71168,
+                "b_samples": 117248,
+                "maximum_error": 0,
+                "a_failed": false,
+                "survivor_after_close_frames": 48000,
+                "latency_samples": 1024
+              },
+              "per_instance_reports": [
+                [
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "set",
+                    "payload_bytes": 12,
+                    "sha256": "6ef72e55f3fa262c4e8b4494185f5896ac47904afb4075e29266f1620fe3ca57",
+                    "gain": 0.25
+                  },
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "get",
+                    "payload_bytes": 12,
+                    "sha256": "6ef72e55f3fa262c4e8b4494185f5896ac47904afb4075e29266f1620fe3ca57",
+                    "gain": 0.25
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 0,
+                    "before_edit_samples": 0,
+                    "edits": 0,
+                    "nonzero_samples": 0,
+                    "maximum_error": 0,
+                    "restored_gain": 0.25,
+                    "input_fnv1a64": 14695981039346656037,
+                    "output_fnv1a64": 14695981039346656037
+                  },
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "get",
+                    "payload_bytes": 12,
+                    "sha256": "fa14b3028836eb2e189db1f6cca553cb5b6b6f4ed29c78770608992907bf2683",
+                    "gain": 0.5
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 68608,
+                    "before_edit_samples": 60928,
+                    "edits": 1,
+                    "nonzero_samples": 65178,
+                    "maximum_error": 0,
+                    "restored_gain": 0.25,
+                    "input_fnv1a64": 2987766430196762226,
+                    "output_fnv1a64": 13029062906474978928
+                  },
+                  {
+                    "event": "ap3_proxy_stats",
+                    "fault": 0,
+                    "first_position": 18446744073709551615,
+                    "processed": 139,
+                    "request_high": 2,
+                    "result_high": 4,
+                    "position": 35584,
+                    "epoch": 1
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 71168,
+                    "before_edit_samples": 60928,
+                    "edits": 1,
+                    "nonzero_samples": 65664,
+                    "maximum_error": 0,
+                    "restored_gain": 0.25,
+                    "input_fnv1a64": 4429319088803496261,
+                    "output_fnv1a64": 4385976174790335120
+                  },
+                  {
+                    "event": "ap4_sample_comparison",
+                    "samples": 71168,
+                    "restored_samples": 71168,
+                    "before_edit_samples": 60928,
+                    "restores": 1,
+                    "edits": 1,
+                    "nonzero_samples": 65664,
+                    "maximum_error": 0,
+                    "restored_gain": 0.25
+                  },
+                  {
+                    "event": "ap3_proxy_lifecycle",
+                    "phase": 6,
+                    "requested_maximum": 256,
+                    "requested_rate": 48000,
+                    "requested_mode": 0,
+                    "frames": 35584,
+                    "blocks": 139,
+                    "callback_rejections": 0,
+                    "zero_gain_blocks": 0,
+                    "gain_min": 0.25,
+                    "gain_max": 0.5,
+                    "clean": true
+                  }
+                ],
+                [
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "set",
+                    "payload_bytes": 12,
+                    "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+                    "gain": 0.75
+                  },
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "get",
+                    "payload_bytes": 12,
+                    "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+                    "gain": 0.75
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 0,
+                    "before_edit_samples": 0,
+                    "edits": 0,
+                    "nonzero_samples": 0,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75,
+                    "input_fnv1a64": 14695981039346656037,
+                    "output_fnv1a64": 14695981039346656037
+                  },
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "get",
+                    "payload_bytes": 12,
+                    "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+                    "gain": 0.75
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 16384,
+                    "before_edit_samples": 16384,
+                    "edits": 0,
+                    "nonzero_samples": 15903,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75,
+                    "input_fnv1a64": 5129511383093777068,
+                    "output_fnv1a64": 851784285177221936
+                  },
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "get",
+                    "payload_bytes": 12,
+                    "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+                    "gain": 0.75
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 114688,
+                    "before_edit_samples": 114688,
+                    "edits": 0,
+                    "nonzero_samples": 111315,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75,
+                    "input_fnv1a64": 2591057279648045100,
+                    "output_fnv1a64": 11492350721261032361
+                  },
+                  {
+                    "event": "ap3_proxy_stats",
+                    "fault": 0,
+                    "first_position": 18446744073709551615,
+                    "processed": 229,
+                    "request_high": 2,
+                    "result_high": 4,
+                    "position": 58624,
+                    "epoch": 1
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 117248,
+                    "before_edit_samples": 117248,
+                    "edits": 0,
+                    "nonzero_samples": 111812,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75,
+                    "input_fnv1a64": 17657708040497990064,
+                    "output_fnv1a64": 12619486452392352821
+                  },
+                  {
+                    "event": "ap4_sample_comparison",
+                    "samples": 117248,
+                    "restored_samples": 117248,
+                    "before_edit_samples": 117248,
+                    "restores": 1,
+                    "edits": 0,
+                    "nonzero_samples": 111812,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75
+                  },
+                  {
+                    "event": "ap3_proxy_lifecycle",
+                    "phase": 6,
+                    "requested_maximum": 256,
+                    "requested_rate": 48000,
+                    "requested_mode": 0,
+                    "frames": 58624,
+                    "blocks": 229,
+                    "callback_rejections": 0,
+                    "zero_gain_blocks": 0,
+                    "gain_min": 0.75,
+                    "gain_max": 0.75,
+                    "clean": true
+                  }
+                ]
+              ]
+            },
+            {
+              "case": "instances-failure",
+              "counts": [
+                {
+                  "get": 1,
+                  "set": 1,
+                  "activate": 1,
+                  "start": 1,
+                  "stop": 0,
+                  "process": 64,
+                  "zero_frame": 0,
+                  "closed": 0
+                },
+                {
+                  "get": 2,
+                  "set": 1,
+                  "activate": 1,
+                  "start": 1,
+                  "stop": 1,
+                  "process": 258,
+                  "zero_frame": 0,
+                  "closed": 1
+                }
+              ],
+              "summary": {
+                "event": "ap5_two_instances",
+                "case": "instances-failure",
+                "same_native_process": true,
+                "callback_threads": 2,
+                "callback_effects": 0,
+                "a_samples": 32768,
+                "b_samples": 132096,
+                "maximum_error": 0,
+                "a_failed": true,
+                "survivor_after_close_frames": 48000,
+                "latency_samples": 1024
+              },
+              "per_instance_reports": [
+                [
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "set",
+                    "payload_bytes": 12,
+                    "sha256": "6ef72e55f3fa262c4e8b4494185f5896ac47904afb4075e29266f1620fe3ca57",
+                    "gain": 0.25
+                  },
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "get",
+                    "payload_bytes": 12,
+                    "sha256": "6ef72e55f3fa262c4e8b4494185f5896ac47904afb4075e29266f1620fe3ca57",
+                    "gain": 0.25
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 0,
+                    "before_edit_samples": 0,
+                    "edits": 0,
+                    "nonzero_samples": 0,
+                    "maximum_error": 0,
+                    "restored_gain": 0.25,
+                    "input_fnv1a64": 14695981039346656037,
+                    "output_fnv1a64": 14695981039346656037
+                  },
+                  {
+                    "event": "ap5_worker_fault",
+                    "fault": 3,
+                    "first_position": 16128,
+                    "processed": 63,
+                    "request_high": 2,
+                    "result_high": 4
+                  },
+                  {
+                    "event": "ap4_native_error",
+                    "operation": "get",
+                    "stage": "failed_instance",
+                    "fault": 3,
+                    "first_position": 16128,
+                    "processed": 63,
+                    "callback_rejections": 2,
+                    "detail": "UnexpectedEof: failed to fill whole buffer"
+                  },
+                  {
+                    "event": "ap3_proxy_stats",
+                    "fault": 3,
+                    "first_position": 16128,
+                    "processed": 63,
+                    "request_high": 2,
+                    "result_high": 4,
+                    "position": 16384,
+                    "epoch": 1
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 32256,
+                    "before_edit_samples": 32256,
+                    "edits": 0,
+                    "nonzero_samples": 30644,
+                    "maximum_error": 0,
+                    "restored_gain": 0.25,
+                    "input_fnv1a64": 5570811023045948162,
+                    "output_fnv1a64": 15391938435378096656
+                  },
+                  {
+                    "event": "ap4_sample_comparison",
+                    "samples": 32256,
+                    "restored_samples": 32256,
+                    "before_edit_samples": 32256,
+                    "restores": 1,
+                    "edits": 0,
+                    "nonzero_samples": 30644,
+                    "maximum_error": 0,
+                    "restored_gain": 0.25
+                  },
+                  {
+                    "event": "ap3_proxy_lifecycle",
+                    "phase": 7,
+                    "requested_maximum": 256,
+                    "requested_rate": 48000,
+                    "requested_mode": 0,
+                    "frames": 16384,
+                    "blocks": 64,
+                    "callback_rejections": 2,
+                    "zero_gain_blocks": 0,
+                    "gain_min": 0.25,
+                    "gain_max": 0.25,
+                    "clean": false
+                  }
+                ],
+                [
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "set",
+                    "payload_bytes": 12,
+                    "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+                    "gain": 0.75
+                  },
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "get",
+                    "payload_bytes": 12,
+                    "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+                    "gain": 0.75
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 0,
+                    "before_edit_samples": 0,
+                    "edits": 0,
+                    "nonzero_samples": 0,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75,
+                    "input_fnv1a64": 14695981039346656037,
+                    "output_fnv1a64": 14695981039346656037
+                  },
+                  {
+                    "event": "ap4_native_state",
+                    "operation": "get",
+                    "payload_bytes": 12,
+                    "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+                    "gain": 0.75
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 129536,
+                    "before_edit_samples": 129536,
+                    "edits": 0,
+                    "nonzero_samples": 125727,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75,
+                    "input_fnv1a64": 11343361816665475436,
+                    "output_fnv1a64": 7971739914930734352
+                  },
+                  {
+                    "event": "ap3_proxy_stats",
+                    "fault": 0,
+                    "first_position": 18446744073709551615,
+                    "processed": 258,
+                    "request_high": 2,
+                    "result_high": 4,
+                    "position": 66048,
+                    "epoch": 1
+                  },
+                  {
+                    "event": "ap5_sample_progress",
+                    "samples": 132096,
+                    "before_edit_samples": 132096,
+                    "edits": 0,
+                    "nonzero_samples": 126224,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75,
+                    "input_fnv1a64": 13875626953045339813,
+                    "output_fnv1a64": 12350746815123635437
+                  },
+                  {
+                    "event": "ap4_sample_comparison",
+                    "samples": 132096,
+                    "restored_samples": 132096,
+                    "before_edit_samples": 132096,
+                    "restores": 1,
+                    "edits": 0,
+                    "nonzero_samples": 126224,
+                    "maximum_error": 0,
+                    "restored_gain": 0.75
+                  },
+                  {
+                    "event": "ap3_proxy_lifecycle",
+                    "phase": 6,
+                    "requested_maximum": 256,
+                    "requested_rate": 48000,
+                    "requested_mode": 0,
+                    "frames": 66048,
+                    "blocks": 258,
+                    "callback_rejections": 0,
+                    "zero_gain_blocks": 0,
+                    "gain_min": 0.75,
+                    "gain_max": 0.75,
+                    "clean": true
+                  }
+                ]
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "test": "preview_proxy.py",
+        "exit_code": 0,
+        "result": {
+          "classification": "LOCAL_SUBSTITUTED_PEER_TESTS",
+          "windows_workloads": 0,
+          "results": [
+            {
+              "case": "state-gain",
+              "counts": {
+                "get": 3,
+                "set": 1,
+                "activate": 1,
+                "start": 2,
+                "stop": 2,
+                "process": 228,
+                "zero_frame": 0,
+                "closed": 1
+              },
+              "records": [
+                {
+                  "event": "ap4_native_state",
+                  "operation": "get",
+                  "payload_bytes": 12,
+                  "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+                  "gain": 1
+                },
+                {
+                  "event": "ap5_sample_progress",
+                  "samples": 0,
+                  "before_edit_samples": 0,
+                  "edits": 0,
+                  "nonzero_samples": 0,
+                  "maximum_error": 0,
+                  "restored_gain": 0,
+                  "input_fnv1a64": 14695981039346656037,
+                  "output_fnv1a64": 14695981039346656037
+                },
+                {
+                  "event": "ap4_native_state",
+                  "operation": "set",
+                  "payload_bytes": 12,
+                  "sha256": "6ef72e55f3fa262c4e8b4494185f5896ac47904afb4075e29266f1620fe3ca57",
+                  "gain": 0.25
+                },
+                {
+                  "event": "ap4_native_state",
+                  "operation": "get",
+                  "payload_bytes": 12,
+                  "sha256": "6ef72e55f3fa262c4e8b4494185f5896ac47904afb4075e29266f1620fe3ca57",
+                  "gain": 0.25
+                },
+                {
+                  "event": "ap5_sample_progress",
+                  "samples": 0,
+                  "before_edit_samples": 0,
+                  "edits": 0,
+                  "nonzero_samples": 0,
+                  "maximum_error": 0,
+                  "restored_gain": 0.25,
+                  "input_fnv1a64": 14695981039346656037,
+                  "output_fnv1a64": 14695981039346656037
+                },
+                {
+                  "event": "ap4_native_state",
+                  "operation": "get",
+                  "payload_bytes": 12,
+                  "sha256": "fa14b3028836eb2e189db1f6cca553cb5b6b6f4ed29c78770608992907bf2683",
+                  "gain": 0.5
+                },
+                {
+                  "event": "ap5_sample_progress",
+                  "samples": 116480,
+                  "before_edit_samples": 98048,
+                  "edits": 1,
+                  "nonzero_samples": 99780,
+                  "maximum_error": 0,
+                  "restored_gain": 0.25,
+                  "input_fnv1a64": 11640067717994204157,
+                  "output_fnv1a64": 3620922861438742376
+                },
+                {
+                  "event": "ap3_proxy_stats",
+                  "fault": 0,
+                  "first_position": 18446744073709551615,
+                  "processed": 228,
+                  "request_high": 2,
+                  "result_high": 4,
+                  "position": 9216,
+                  "epoch": 2
+                },
+                {
+                  "event": "ap5_sample_progress",
+                  "samples": 116480,
+                  "before_edit_samples": 98048,
+                  "edits": 1,
+                  "nonzero_samples": 99780,
+                  "maximum_error": 0,
+                  "restored_gain": 0.25,
+                  "input_fnv1a64": 11640067717994204157,
+                  "output_fnv1a64": 3620922861438742376
+                },
+                {
+                  "event": "ap4_sample_comparison",
+                  "samples": 116480,
+                  "restored_samples": 116480,
+                  "before_edit_samples": 98048,
+                  "restores": 1,
+                  "edits": 1,
+                  "nonzero_samples": 99780,
+                  "maximum_error": 0,
+                  "restored_gain": 0.25
+                },
+                {
+                  "event": "ap3_proxy_lifecycle",
+                  "phase": 6,
+                  "requested_maximum": 256,
+                  "requested_rate": 48000,
+                  "requested_mode": 0,
+                  "frames": 58240,
+                  "blocks": 228,
+                  "callback_rejections": 0,
+                  "zero_gain_blocks": 0,
+                  "gain_min": 0.25,
+                  "gain_max": 0.5,
+                  "clean": true
+                }
+              ]
+            },
+            {
+              "case": "state-lost-set",
+              "counts": {
+                "get": 1,
+                "set": 1,
+                "activate": 0,
+                "start": 0,
+                "stop": 0,
+                "process": 0,
+                "zero_frame": 0,
+                "closed": 0
+              },
+              "records": [
+                {
+                  "event": "ap4_native_state",
+                  "operation": "get",
+                  "payload_bytes": 12,
+                  "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+                  "gain": 1
+                },
+                {
+                  "event": "ap5_sample_progress",
+                  "samples": 0,
+                  "before_edit_samples": 0,
+                  "edits": 0,
+                  "nonzero_samples": 0,
+                  "maximum_error": 0,
+                  "restored_gain": 0,
+                  "input_fnv1a64": 14695981039346656037,
+                  "output_fnv1a64": 14695981039346656037
+                },
+                {
+                  "event": "ap5_worker_fault",
+                  "fault": 3,
+                  "first_position": 0,
+                  "processed": 0,
+                  "request_high": 0,
+                  "result_high": 0
+                },
+                {
+                  "event": "ap4_native_error",
+                  "operation": "set",
+                  "stage": "state_response",
+                  "fault": 3,
+                  "first_position": 0,
+                  "processed": 0,
+                  "callback_rejections": 0,
+                  "detail": "UnexpectedEof: failed to fill whole buffer"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "limitations": [
+    "First-save instance B later lost its transport (Windows control disconnected/IO, exit 110); A continued. Root cause was not retained before that stage retired and remains unresolved. The terminal worker record added at f678c4e fixes this diagnostic gap, not the unknown cause.",
+    "The final fresh-recall/removal check passed, but does not erase the earlier transport loss.",
+    "Capacity four in each native process and four active owner sessions; real desktop validation used two.",
+    "Prepared private owner/runtime/artifacts remain necessary. No commercial, instrument, editor, reboot, general packaging or low-latency claim.",
+    "Supplemental read-only audio-plane snapshots are stable double reads checked against the saved gain; they are not protocol acknowledgements. Full comparisons come from each worker and its final native report.",
+    "AP4 and D9 remain historical evidence with their original provenance; no AP4 campaign replay."
+  ],
+  "private_raw_sha256": {
+    "desktop-final.private.json": "19e51c30fdfb5368642d174f12346f8eb50100a44e2f6c79e3a5a44e273c8e7a",
+    "local-loaded-2.private.json": "827c0bad5a8faf79baf29cf6a6f1a405a1f244ae24d5aaeef305400814a37718",
+    "before-removal-topology.private.json": "5bb418ddd482806d2652af178c2faa4649a564e0e22b41ce81ad35d766843603",
+    "after-removal-topology.private.json": "510c0250caf9c65084d3ad8977d661e82780681610248c6e010f2074c02daf03",
+    "reopen-2-audio-before-change.private.json": "4cb53ef1b371eb105c3209367653454b0a41b9d3bd60e34bbd8773c070cb1187",
+    "after-removal-audio.private.json": "e8133f251cb1e383e8d231d5b451baf00c1c7f0876bc0a5bf41b9a60f8eae149",
+    "cleanup.private.json": "0a099e14bddb006f6c37776db07a0edaed22ca8ec899ef590e999ddd8dd0f22c"
+  }
+}
