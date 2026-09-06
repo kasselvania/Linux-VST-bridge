@@ -28,8 +28,13 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     )
 }
 pub fn selected_delay(max: u32) -> io::Result<u32> {
+    need((1..=1024).contains(&max), "host maximum outside 1..1024")?;
     let path = PathBuf::from(std::env::var_os("HOME").ok_or_else(|| invalid("home absent"))?)
         .join("AP9-Performance/delay-frames");
+    read_delay(&path, max)
+}
+fn read_delay(path: &std::path::Path, max: u32) -> io::Result<u32> {
+    need((1..=1024).contains(&max), "host maximum outside 1..1024")?;
     #[cfg(target_os = "linux")]
     const NOFOLLOW: i32 = 0x20000;
     #[cfg(target_os = "macos")]
@@ -39,7 +44,7 @@ pub fn selected_delay(max: u32) -> io::Result<u32> {
         .custom_flags(NOFOLLOW)
         .open(path)
     {
-        Err(e) if e.kind() == io::ErrorKind::NotFound => 1024,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => 512.max(max.next_power_of_two()),
         Err(e) => return Err(e),
         Ok(f) => {
             let m = f.metadata()?;
@@ -71,6 +76,34 @@ pub fn selected_delay(max: u32) -> io::Result<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn private_settings_default_floor_and_invalid_values() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!(
+            "ap9-setting-{:032x}",
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+        ));
+        std::fs::create_dir(&dir).unwrap();
+        let file = dir.join("delay");
+        assert_eq!(read_delay(&file, 128).unwrap(), 512);
+        assert_eq!(read_delay(&file, 1024).unwrap(), 1024);
+        assert!(read_delay(&file, 1025).is_err());
+        std::fs::write(&file, "128\n").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert_eq!(read_delay(&file, 128).unwrap(), 128);
+        assert!(read_delay(&file, 256).is_err());
+        for value in ["0", "127", "128.0", "4096", "01234567890123456789"] {
+            std::fs::write(&file, value).unwrap();
+            assert!(read_delay(&file, 64).is_err());
+        }
+        std::fs::write(&file, "128").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(read_delay(&file, 64).is_err());
+        let link = dir.join("link");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        assert!(read_delay(&link, 64).is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn setup_bounds_and_no_precision_conversion() {
         for r in [44100., 48000., 88200., 96000., 192000.] {

@@ -16,9 +16,9 @@ The accepted fixture remains AGain: float32 stereo at 48 kHz, 1–256-frame call
 
 ## Current goal
 
-**AP8 — First playable Serum 2 instrument**, tracked in #66 and [CURRENT_SLICE.md](CURRENT_SLICE.md). Play a real note clip through the Windows instrument in normal Bitwig, control a real parameter and save/reopen the sound. Replace the relevant AGain-only metadata, event, parameter and state assumptions by following the actual module's SDK interfaces. The recorded installed Serum candidate is a starting point, not proof of current authorization or compatibility.
+**AP9 — Lower bridge latency and measure practical limits**, tracked in #68 and [CURRENT_SLICE.md](CURRENT_SLICE.md). The candidate adds coherent processing setup, configurable presentation delay, larger host blocks and correlated Windows/native timing. A measured Winsock bottleneck is reduced. [AP9 measurements and settings](docs/AP9.md) distinguish fast light-Serum operation from the headroom needed for heavier chord attacks, with explicit gap accounting.
 
-One simple patch and one instrument instance are the target. Necessary module setup and ordinary vendor activation are included; a general installer, polished editor, preset manager and broad compatibility claims are not. An SDK fixture may isolate an interface problem but cannot substitute for the real Serum outcome.
+The branch retains the reviewed AP8 implementation and its [real Serum result](docs/AP8_RESULT.md). PR #67 remains untouched. AP9 is a separate, unmerged candidate; the accepted AP7 boundary above and earlier evidence retain their original status.
 
 ## Start here
 
