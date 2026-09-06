@@ -237,7 +237,7 @@ impl Drop for Guard<'_> {
         self.0.store(false, Ordering::Release);
     }
 }
-fn worker(mut session: Session, s: Arc<Shared>) {
+fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
     let run = (|| -> io::Result<()> {
         loop {
             crate::preview::check_owner(&mut session.owner)?;
@@ -348,6 +348,18 @@ fn worker(mut session: Session, s: Arc<Shared>) {
                 .collect();
         }
         session.phase = ERROR;
+        // Retain the first fault before Session::close permits the preview
+        // owner to retire this instance's stage. No callback performs I/O.
+        if let Some(path) = &report {
+            let text = format!(
+                "{{\"event\":\"ap5_worker_fault\",\"fault\":{},\"first_position\":{},\"processed\":{},\"request_high\":{},\"result_high\":{}}}\n",
+                s.fault.load(Ordering::Acquire),
+                s.first_position.load(Ordering::Acquire),
+                s.processed.load(Ordering::Acquire),
+                s.requests.high_water(), s.results.high_water()
+            );
+            crate::preview::append_report(path, text.as_bytes());
+        }
     }
     if let Err(error) = session.close() {
         s.fail(WORKER, u64::MAX);
@@ -392,9 +404,10 @@ unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
                 shared.ack.store(17, Ordering::Release);
             }
             let peer = shared.clone();
+            let worker_report = report.clone();
             let t = thread::Builder::new()
                 .name("ap3-transport".into())
-                .spawn(move || worker(session, peer))?;
+                .spawn(move || worker(session, peer, worker_report))?;
             Ok::<_, io::Error>(Live {
                 shared,
                 callback: UnsafeCell::new(Callback::new()),

@@ -68,6 +68,8 @@ def run(host, bundle, audit):
                     assert counts[1]['process']>counts[0]['process']
                     assert summary['a_failed'] and counts[0]['closed']==0
                     assert any(r['event']=='ap4_native_error' for r in reports[0])
+                    assert any(r['event']=='ap5_worker_fault' and r['fault'] != 0 for r in reports[0])
+                    assert not any(r['event']=='ap5_worker_fault' for r in reports[1])
                 else:
                     assert counts[0]['closed']==1 and not summary['a_failed']
                 results.append(dict(case=case,counts=counts,summary=summary,per_instance_reports=reports))

@@ -5,7 +5,7 @@ use std::{
     fs,
     io::{self, Read, Write},
     os::unix::{
-        fs::{FileTypeExt, MetadataExt},
+        fs::{FileTypeExt, MetadataExt, OpenOptionsExt},
         net::UnixStream,
     },
     path::{Path, PathBuf},
@@ -14,6 +14,33 @@ use std::{
 
 unsafe extern "C" {
     fn getuid() -> u32;
+}
+
+/// Best-effort terminal worker diagnostic, before its owned stage is retired.
+/// The SDK creates the private sink; never follow a replacement symlink.
+pub fn append_report(path: &Path, bytes: &[u8]) {
+    #[cfg(target_os = "linux")]
+    const NOFOLLOW: i32 = 0x20000;
+    #[cfg(target_os = "macos")]
+    const NOFOLLOW: i32 = 0x100;
+    let Ok(mut file) = fs::OpenOptions::new()
+        .append(true)
+        .custom_flags(NOFOLLOW)
+        .open(path)
+    else {
+        return;
+    };
+    let Ok(meta) = file.metadata() else {
+        return;
+    };
+    if meta.is_file()
+        && meta.uid() == unsafe { getuid() }
+        && meta.mode() & 0o077 == 0
+        && bytes.len() <= 2048
+        && meta.len() <= 65536 - bytes.len() as u64
+    {
+        let _ = file.write_all(bytes);
+    }
 }
 
 pub struct Binding {
