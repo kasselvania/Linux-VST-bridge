@@ -45,6 +45,14 @@ pub fn append_report(path: &Path, bytes: &[u8]) {
     }
 }
 
+/// Emit bounded JSONL records individually; the sink retains its per-record
+/// and total-file caps even when a report contains several gap traces.
+pub fn append_records(path: &Path, jsonl: &str) {
+    for record in jsonl.split_inclusive('\n') {
+        append_report(path, record.as_bytes());
+    }
+}
+
 pub struct Binding {
     pub directory: PathBuf,
     pub session: [u8; 16],

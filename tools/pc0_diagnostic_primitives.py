@@ -137,7 +137,8 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     elif type(post_gate_seconds) not in (int, float) or not 0 < post_gate_seconds <= 180:
         fail("post-gate stage deadline must be positive and at most 180 seconds")
     runner_identity = getattr(profile, "verify_runtime", verify_diagnostic_runner)()
-    verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
+    check_environment = getattr(profile, "verify_environment", verify_environment)
+    check_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
     session = session_override or secrets.token_hex(16)
     ready = environment.session / f"{session}.ready"
     gate = environment.session / f"{session}.gate"
@@ -186,7 +187,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
                 topology_receipt = topology(
                     root, session, root_identity, spawn_command_vector_sha256
                 )
-                verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
+                check_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
                 if protected_snapshot() != before:
                     fail("protected state drifted before supervisor gate")
                 if hold_gate:

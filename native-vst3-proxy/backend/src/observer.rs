@@ -296,6 +296,51 @@ pub fn report_text(s: &Shared) -> String {
 mod tests {
     use super::*;
     #[test]
+    fn eight_complete_traces_reach_the_capped_jsonl_sink() {
+        let shared = Shared::new();
+        let now = Instant::now();
+        for sequence in 0..8 {
+            shared.report.lock().unwrap().traces.push((
+                Gap {
+                    epoch: 1,
+                    position: sequence * 256,
+                    frames: 256,
+                    at: now,
+                },
+                Some(Trace {
+                    epoch: 1,
+                    sequence,
+                    position: sequence * 256,
+                    frames: 256,
+                    queued: Some(now),
+                    started: Some(now),
+                    prepared: Some(now),
+                    sent: Some(now),
+                    replied: Some(now),
+                    validated: Some(now),
+                    published: Some(now),
+                }),
+            ));
+        }
+        let text = report_text(&shared);
+        assert!(text.len() > 2048);
+        let dir = std::env::temp_dir().join(format!("ap8-jsonl-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("report.jsonl");
+        crate::preview::append_records(&path, &text);
+        let retained = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(retained, text);
+        assert_eq!(retained.lines().count(), 9);
+        // Oversized records still fail closed and the file cap is unchanged.
+        crate::preview::append_records(&path, &("x".repeat(2048) + "\n"));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
+        for _ in 0..30 {
+            crate::preview::append_records(&path, &text);
+        }
+        assert!(std::fs::metadata(&path).unwrap().len() <= 65536);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
     fn paused_consumer_and_reader_drop_only_observation_coverage() {
         let shared = Shared::new();
         let mut producer = Observer {

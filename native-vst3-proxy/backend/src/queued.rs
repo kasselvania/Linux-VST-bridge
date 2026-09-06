@@ -517,10 +517,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     if let Some(observer) = &mut session.witness {
         observer.finish();
         if let Some(path) = &report {
-            crate::preview::append_report(
-                path,
-                crate::observer::report_text(&observer.shared).as_bytes(),
-            );
+            crate::preview::append_records(path, &crate::observer::report_text(&observer.shared));
         }
     }
     if session.witness.is_none() {
