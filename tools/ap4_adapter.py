@@ -5,7 +5,7 @@ import ap3_adapter as ap3
 import ap0_adapter as base
 import ap1_runtime as runtime
 import pc0_proof_adapter as d
-from ap4_contract import validate_summary,GUI
+from ap4_contract import validate_summary,GUI,GUI_POST_GATE_SECONDS
 from classified_proof_backend import PlanDescriptor,DiagnosticPlanAdapter,AcceptancePlanAdapter,Observation
 from proof_execution_policy import ExecutionClass,canonical_json,sha256_bytes
 ROOT=previous.ROOT
@@ -19,7 +19,7 @@ def descriptor(cls,artifact,native):
  return PlanDescriptor.create(plan_id='ap4-state-recall-'+('acceptance' if cls is ExecutionClass.ACCEPTANCE_CANDIDATE else 'diagnostic')+'-v1',execution_class=cls,
   product_contract_identity='ap4-plugin-state-recall-v1',product_contract_bytes=(ROOT/CONTRACT).read_bytes(),operation='ap4-state-three-sdk-and-three-bitwig' if full else 'ap4-state-three-sdk',
   artifact_requirement={**artifact,'native_client':native},fixture_requirement=d.FIXTURE_REQUIREMENT,
-  runtime_requirement={**d.RUNTIME_REQUIREMENT,'runtime_proton_identity_sha256':runtime.identity(),'declared_runtime_inputs_sha256':runtime.declared_inputs()})
+  runtime_requirement={**d.RUNTIME_REQUIREMENT,**({'ap4_gui_post_gate_seconds':GUI_POST_GATE_SECONDS} if full else {}),'runtime_proton_identity_sha256':runtime.identity(),'declared_runtime_inputs_sha256':runtime.declared_inputs()})
 class AP4Runtime(previous.AP2Runtime):
  product='AP4';diagnostic_budget=10;windows_branch='codex/ap4-plugin-state-project-recall';windows_input_count=23
  candidate_key=staticmethod(candidate_identity);check_summary=staticmethod(validate_summary)

@@ -6,6 +6,7 @@ MODE='ap4-plugin-state-recall'
 CLEAN=previous.CLEAN
 SDK=('state_capture','state_gain','state_mute')
 GUI=('bitwig_first','bitwig_gain','bitwig_mute')
+GUI_POST_GATE_SECONDS=180
 MODULE=bytes.fromhex('60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f')
 CLASS=bytes.fromhex('84e8de5f92554f5396fae4133c935a18')
 def decode(hexadecimal):

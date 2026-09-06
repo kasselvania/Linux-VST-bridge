@@ -82,15 +82,70 @@ class AP4ExecutionTests(AP2ExecutionTests):
    if case=='delayed':(session/'bitwig_first-ui.json').write_text(json.dumps(note)+'\n')
   def completed_caller(*args,**kwargs):
    # Effectful caller has exited; exercise the actual GUI report callback.
+   self.assertEqual(kwargs['post_gate_seconds'],180)
    raw=kwargs['caller_report']();return [json.loads(line) for line in raw.splitlines()]
   def command(args,**kwargs):
    return '8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231\n' if args[0]=='flatpak' else ''
   with patch.object(profile.subprocess,'check_output',side_effect=command),patch.object(profile.inherited,'controlled_environment',return_value={}),patch.object(profile,'progress'),patch.object(profile,'real_home',return_value=self.base),patch.object(profile.companion,'supervise',side_effect=completed_caller),patch.object(profile.time,'monotonic',side_effect=lambda:ticks[0]),patch.object(profile.time,'sleep',side_effect=sleep):
-   result=profile.gui(env,mode='local',checkpoint=lambda *v:None,profile=self.profile,label='bitwig_first',root=root,project=project,native=native,ui_note_wait_seconds=60)
+   result=profile.gui(env,mode='local',checkpoint=lambda *v:None,profile=self.profile,label='bitwig_first',root=root,project=project,native=native,ui_note_wait_seconds=60,post_gate_seconds=180)
   self.assertEqual(result[:2],records)
   self.assertEqual(result[2:],[note] if case=='delayed' else [])
   self.assertEqual(len(sleeps),{'delayed':1,'missing':2,'failed':0}[case])
   self.assertTrue(report.is_file());self.assertTrue(project.is_file())
+
+ def test_ap4_gui_deadline_allows_bounded_interaction_then_cleans_up(self):
+  self.deadline_case(180,3)
+ def test_ap4_default_stage_deadline_remains_120_seconds(self):
+  self.deadline_case(None,2)
+ def test_ap4_gui_window_does_not_extend_plugin_call_deadline(self):
+  self.deadline_case(180,2,in_flight=True)
+ def test_ap4_invalid_stage_deadline_rejected_before_spawn(self):
+  from unittest.mock import MagicMock
+  for value in (0,-1,181,float('inf'),float('nan'),True,'180'):
+   with self.subTest(value=value),patch.object(self.diagnostic.subprocess,'Popen') as spawn:
+    with self.assertRaisesRegex(RuntimeError,'post-gate stage deadline'):
+     self.actual_supervise(MagicMock(),post_gate_seconds=value)
+    spawn.assert_not_called()
+ def deadline_case(self,limit,pumps,in_flight=False):
+  from unittest.mock import MagicMock
+  import contextlib
+  session=self.base/'deadline';session.mkdir()
+  env=types.SimpleNamespace(session=session,run_id='a'*32,marker={'fixture':'again'})
+  root=MagicMock(pid=123,returncode=None);root.poll.return_value=None
+  selector=MagicMock();ticks=[0.];calls=[];captures=[]
+  expected=b'exact-ready-binding'
+  def pump(*args):
+   streams=args[1];calls.append(ticks[0])
+   if len(calls)==1:
+    (session/('b'*32+'.ready')).write_bytes(expected)
+    streams.records.append({'event':'lifecycle','state':'readiness_announced'})
+    if in_flight:
+     streams.in_flight_at=.1
+     streams.in_flight={'operation':'load_library'}
+   else:ticks[0]=121. if len(calls)==2 else 181.
+  def cleanup(*args):
+   root.returncode=-15
+   return {'owned_descendants_zero':True,'process_group_empty':True}
+  with contextlib.ExitStack() as stack:
+   for name,value in {'verify_diagnostic_runner':self.runtime_observation,'verify_environment':None,
+    'handshake':expected,'command_vector':['inert-test-command'],'controlled_environment':{},
+    'process_identity':{'pid':123,'start_ticks':1},'descendants':[],'topology':{},
+    'protected_snapshot':self.protected}.items():
+    stack.enter_context(patch.object(self.diagnostic,name,return_value=value))
+   clean=stack.enter_context(patch.object(self.diagnostic,'cleanup_process',side_effect=cleanup))
+   stack.enter_context(patch.object(self.diagnostic.subprocess,'Popen',return_value=root))
+   stack.enter_context(patch.object(self.diagnostic.selectors,'DefaultSelector',return_value=selector))
+   stack.enter_context(patch.object(self.diagnostic.secrets,'token_hex',return_value='b'*32))
+   stack.enter_context(patch.object(self.diagnostic.time,'monotonic',side_effect=lambda:ticks[0]))
+   stack.enter_context(patch.object(self.diagnostic,'pump',side_effect=pump))
+   kwargs={} if limit is None else {'post_gate_seconds':limit}
+   result=self.actual_supervise(env,mode=self.common.PC0_MODE,checkpoint=lambda *v:captures.append(v),**kwargs)
+  self.assertEqual(len(calls),pumps)
+  self.assertIn(result['classification'],('stage_timeout','call_timeout'))
+  clean.assert_called_once_with(root,[(123,1)])
+  selector.close.assert_called_once()
+  self.assertTrue(captures[-1][1]['cleanup']['owned_descendants_zero'])
+  self.assertEqual(result['protected_snapshot'],self.protected)
 
  def test_ap4_batch_stops_before_next_instance_when_normalization_fails(self):
   env=types.SimpleNamespace(session=self.base/'ap4-batch',run_id='f'*32);env.session.mkdir()

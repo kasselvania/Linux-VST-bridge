@@ -128,7 +128,11 @@ def create_dx0_environment(run_id: str, *, host: dict[str, Any],
 
 def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
               component_case: str = "exact-again",
-              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None, session_override=None, observe_companion=None) -> dict[str, Any]:
+              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None, session_override=None, observe_companion=None, post_gate_seconds=POST_GATE_SECONDS) -> dict[str, Any]:
+    # AP4 interactive sessions use a declared finite GUI window. Call, class,
+    # readiness and owned cleanup deadlines remain independent and unchanged.
+    if type(post_gate_seconds) not in (int, float) or not 0 < post_gate_seconds <= 180:
+        fail("post-gate stage deadline must be positive and at most 180 seconds")
     runner_identity = getattr(profile, "verify_runtime", verify_diagnostic_runner)()
     verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
     session = session_override or secrets.token_hex(16)
@@ -219,7 +223,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             if streams.class_started_at is not None and now - streams.class_started_at > CLASS_SECONDS:
                 timed_out = True
                 break
-            if gated_at is not None and now - gated_at > POST_GATE_SECONDS:
+            if gated_at is not None and now - gated_at > post_gate_seconds:
                 timed_out = True
                 break
             if root.poll() is not None:

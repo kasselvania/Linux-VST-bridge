@@ -66,7 +66,7 @@ def await_stream(environment):
  if gate.is_symlink() or gate.stat().st_size>1024:raise RuntimeError('unsafe stream confirmation')
  if json.loads(gate.read_bytes())!={'run_id':environment.run_id,'stream_active':True}:raise RuntimeError('stream confirmation binding differs')
 
-def gui(environment,*,mode,checkpoint,profile,label,root=None,project=None,native=None,accepted_events=None,extra_env=None,ui_note_wait_seconds=0):
+def gui(environment,*,mode,checkpoint,profile,label,root=None,project=None,native=None,accepted_events=None,extra_env=None,ui_note_wait_seconds=0,post_gate_seconds=120):
  root=gui_root() if root is None else root;project=root/'AP3-Test/AP3-Test.bwproject' if project is None else project
  native=_native if native is None else native
  if not project.is_file():raise RuntimeError('prepared disposable Bitwig project missing')
@@ -110,7 +110,7 @@ def gui(environment,*,mode,checkpoint,profile,label,root=None,project=None,nativ
   return raw
  progress(environment,label)
  return companion.supervise(environment,mode=mode,checkpoint=checkpoint,profile=profile,session=session,
-  caller_command=command,caller_env=env,ready_seconds=180,exit_seconds=60,caller_report=retained_report,track_descendants=True,
+  caller_command=command,caller_env=env,ready_seconds=180,exit_seconds=60,caller_report=retained_report,track_descendants=True,post_gate_seconds=post_gate_seconds,
   accepted_events=accepted_events or {'ap3_proxy_stats','ap3_proxy_lifecycle','ap3_bitwig_ui'})
 
 def supervise(environment,*,mode,checkpoint,profile):

@@ -35,7 +35,7 @@ def command_vector(environment,session,component_case,mode):
 
 StreamState=ap0.StreamState
 
-def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_env=None,windows_run=None,accepted_events=None,session=None,ready_seconds=5,exit_seconds=2,caller_report=None,track_descendants=False):
+def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_env=None,windows_run=None,accepted_events=None,session=None,ready_seconds=5,exit_seconds=2,caller_report=None,track_descendants=False,post_gate_seconds=120):
     if _client is None and caller_command is None:raise RuntimeError('native caller was not admitted')
     session=session or secrets.token_hex(16)
     out_path=environment.session/'ap1-client.jsonl';err_path=environment.session/'ap1-client.stderr'
@@ -69,7 +69,7 @@ def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_e
                 if time.monotonic()>deadline:raise RuntimeError('native caller setup timeout')
                 time.sleep(.01)
             windows_started=True
-            observed=(windows_run(capture) if windows_run else diagnostic.supervise(environment,mode=mode,checkpoint=capture,profile=profile,session_override=session,observe_companion=observe_caller))
+            observed=(windows_run(capture) if windows_run else diagnostic.supervise(environment,mode=mode,checkpoint=capture,profile=profile,session_override=session,observe_companion=observe_caller,post_gate_seconds=post_gate_seconds))
             windows_cleanup=observed['cleanup']
         except Exception as error:
             primary=error

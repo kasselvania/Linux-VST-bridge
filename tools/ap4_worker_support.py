@@ -7,7 +7,7 @@ from ap0_worker_support import StreamState
 from ap1_runtime import verify_runtime
 from ap0_artifacts import verify_host_store
 from ap2_native_artifact import verify_native
-from ap4_contract import MODE,SDK,GUI,CLEAN,normalize,normalize_session,validate_summary
+from ap4_contract import MODE,SDK,GUI,GUI_POST_GATE_SECONDS,CLEAN,normalize,normalize_session,validate_summary
 from common import real_home
 _native=None
 _gui=False
@@ -61,7 +61,7 @@ def gui(environment,*,mode,checkpoint,profile,label,prior):
  before=project_digest();expected=prior if prior is not None else before
  if before!=expected:raise RuntimeError('saved project changed before reopen')
  result=previous.gui(environment,mode=mode,checkpoint=checkpoint,profile=profile,label=label,
-  root=gui_root(),project=project_path(),native=_native,extra_env={'LVB_AP4_COMPARE':'1'},ui_note_wait_seconds=60,
+  root=gui_root(),project=project_path(),native=_native,extra_env={'LVB_AP4_COMPARE':'1'},ui_note_wait_seconds=60,post_gate_seconds=GUI_POST_GATE_SECONDS,
   accepted_events={'ap4_bitwig_ui','ap4_native_state','ap4_native_error','ap4_sample_comparison','ap3_proxy_stats','ap3_proxy_lifecycle'})
  result['caller']['records'].append(dict(event='ap4_project',case=label,project_before_sha256=before,expected_before_sha256=expected,project_sha256=project_digest()))
  return result
