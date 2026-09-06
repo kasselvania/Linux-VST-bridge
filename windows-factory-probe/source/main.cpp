@@ -332,6 +332,10 @@ int main(int argc, char** argv) {
             else if(primary==0) mapped->finish(true);
         }
         if (primary != 0) return primary;
+        if(args.at("--mode")=="ap8-module-inspection") {
+            events.final_lifecycle("scanner_completed", ",\"inspection_complete\":true");
+            return 0;
+        }
 
         const std::string fields =
             ",\"module_entry\":{\"present\":" + bool_json(module.init_present) +

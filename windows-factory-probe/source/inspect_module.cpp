@@ -62,7 +62,15 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events) {
     };
     try {
         FUnknownPtr<IPluginFactory3> f3(factory);
-        if(f3){step("setHostContext");ok(f3->setHostContext(&host),"setHostContext");}
+        if(f3){
+            step("setHostContext");auto result=f3->setHostContext(&host);
+            events.lifecycle("ap8_result",",\"operation\":\"setHostContext\",\"result\":"+std::to_string(result));
+            // Optional factory context: the official SDK hosting wrapper also
+            // permits factories that do not implement this callback. Component
+            // initialize still receives the actual host context below.
+            if(result!=kResultOk&&result!=kNotImplemented&&result!=kResultFalse)
+                throw std::runtime_error("setHostContext failed");
+        }
         PClassInfo selected{};bool found=false;
         int count=factory->countClasses();
         if(count<1||count>256)throw std::runtime_error("class count bound");
