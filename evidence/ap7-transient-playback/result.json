@@ -4,9 +4,9 @@
   "pr": 65,
   "work_order_commit": "94474d2f1450751c9d22bf23f0224066421dd338",
   "final_native_build": {
-    "input_sha256": "8bdcd8cbcb908c82d11b79c7e304584ba4ab5f6e2dd0a7b7adee3d04c6d1d93b",
-    "manifest_sha256": "f4ea321dd0f0ef44d2ed616b5211cd9873f20f0217924be9228922a6aa6518fa",
-    "source_commit": "b61e43b31e8742bb40b3ca4e7581b147e4a7506b"
+    "input_sha256": "8d0e7dc029ab210f2c646d25d24392d01a14da7eff1146c54dd6be3d1583942f",
+    "manifest_sha256": "667c8cc73a2769a088347f892172f0eb7118ea35713fffbb70aef527339bd244",
+    "source_commit": "60e2cf7a9db7d2071b289e27688cf7f5f82586de"
   },
   "desktop_native_build": {
     "input_sha256": "f48104ce67d2345bbe923cba8f590f9065c099d975242926b9351822442d7596",
@@ -14,7 +14,7 @@
     "source_commit": "a8a8318099ec6a733792e4f4ae5e8671cf2c5d6f"
   },
   "desktop_native_binary_sha256": "163da5498e9fd2f1f354d48598accfad9dec552f760731aacddc737404a5031c",
-  "desktop_provenance_note": "Desktop ran a8a8318. Final b61e43b changes only the deterministic test gate and removes an observer-only pre-activation state query. Both desktop instances already supplied real get/set state before activation, so the removed conditional query did not run there. Final source rebuilt and SDK cases rerun; no additional desktop or recall replay.",
+  "desktop_provenance_note": "Desktop ran a8a8318. Final b61e43b changes only the deterministic test gate and removes an observer-only pre-activation state query. Both desktop instances already supplied real get/set state before activation, so the removed conditional query did not run there. Final source rebuilt and SDK cases rerun; no additional desktop or recall replay. Subsequent source adds a test-only paused-observer constructor, actual-worker regression and removes a redundant immediate closure around activation; final native build and focused SDK cases passed again.",
   "windows_host_manifest": "f00325df1cefe08c4496d3007211d7ecebdd02a49d4dc42a6a2e0a94881ec615",
   "windows_runtime": "Unchanged real AGain/AP4 Windows endpoint, Proton 11.0-2c and Steam Linux Runtime 4",
   "contract": {
@@ -113,7 +113,7 @@
           "edits": 0,
           "nonzero_samples": 0,
           "maximum_error": 0,
-          "restored_gain": 0,
+          "restored_gain": 0.75,
           "input_fnv1a64": 14695981039346656037,
           "output_fnv1a64": 14695981039346656037
         },
@@ -314,14 +314,14 @@
           "request_position": 0,
           "request_frames": 256,
           "sequence": 3,
-          "queue_us": 103,
-          "prepare_us": 22,
-          "send_us": 17,
-          "reply_us": 1703,
+          "queue_us": 9,
+          "prepare_us": 23,
+          "send_us": 15,
+          "reply_us": 1579,
           "validation_us": 3,
           "publication_us": 1,
-          "publication_after_gap_us": 710,
-          "admission_to_gap_us": 1141
+          "publication_after_gap_us": 497,
+          "admission_to_gap_us": 1136
         },
         {
           "event": "ap3_proxy_lifecycle",
@@ -425,7 +425,7 @@
           "edits": 0,
           "nonzero_samples": 0,
           "maximum_error": 0,
-          "restored_gain": 0,
+          "restored_gain": 0.75,
           "input_fnv1a64": 14695981039346656037,
           "output_fnv1a64": 14695981039346656037
         },
@@ -590,7 +590,7 @@
           "first_position": 18446744073709551615,
           "processed": 32,
           "request_high": 6,
-          "result_high": 6,
+          "result_high": 7,
           "position": 8192,
           "epoch": 1
         },
@@ -626,14 +626,14 @@
           "request_position": 0,
           "request_frames": 256,
           "sequence": 3,
-          "queue_us": 17,
-          "prepare_us": 24,
-          "send_us": 24,
-          "reply_us": 1583,
-          "validation_us": 3,
+          "queue_us": 63,
+          "prepare_us": 22,
+          "send_us": 15,
+          "reply_us": 1633,
+          "validation_us": 4,
           "publication_us": 1,
-          "publication_after_gap_us": 511,
-          "admission_to_gap_us": 1143
+          "publication_after_gap_us": 595,
+          "admission_to_gap_us": 1144
         },
         {
           "event": "ap7_gap_request",
@@ -643,14 +643,14 @@
           "request_position": 256,
           "request_frames": 256,
           "sequence": 4,
-          "queue_us": 544,
+          "queue_us": 619,
           "prepare_us": 3,
-          "send_us": 26,
-          "reply_us": 241,
+          "send_us": 32,
+          "reply_us": 316,
           "validation_us": 2,
-          "publication_us": 6,
-          "publication_after_gap_us": 795,
-          "admission_to_gap_us": 27
+          "publication_us": 4,
+          "publication_after_gap_us": 957,
+          "admission_to_gap_us": 21
         },
         {
           "event": "ap7_gap_request",
@@ -660,14 +660,14 @@
           "request_position": 512,
           "request_frames": 256,
           "sequence": 5,
-          "queue_us": 824,
-          "prepare_us": 3,
-          "send_us": 24,
-          "reply_us": 244,
-          "validation_us": 4,
-          "publication_us": 1,
-          "publication_after_gap_us": 1072,
-          "admission_to_gap_us": 30
+          "queue_us": 979,
+          "prepare_us": 2,
+          "send_us": 16,
+          "reply_us": 272,
+          "validation_us": 2,
+          "publication_us": 0,
+          "publication_after_gap_us": 1250,
+          "admission_to_gap_us": 23
         },
         {
           "event": "ap3_proxy_lifecycle",
@@ -822,7 +822,7 @@
             "request_consumed": 65,
             "result_published": 63,
             "result_consumed": 60,
-            "service_us_max_at_report": 482,
+            "service_us_max_at_report": 408,
             "observation_skips": 0
           },
           {
@@ -1541,6 +1541,8 @@
     "sdk-final-after.private.json": "85dfc4f739ccc2e061bc3347a614605f409816f78cde2828206d1abee0b4a626",
     "cleanup.private.json": "f5cf027ffd60fb20c27c6c27e60103051f7c9a969a19f5f18b00013d08f3f7dd",
     "sdk-before.private.json": "77ff70963fc5c8b76e4c7a07a9827f57dbce3cde7d50b1689dfd4d6a8ce6da5b",
+    "sdk-delivered-after.private.json": "5804d093004b64436106514a914c7f1ae554cb7a65c377a84b06b60cbf8ca6a5",
+    "final-preflight.private.json": "bf96b53f2c72e75661e5c48bbddeac1f0df094eec3dfc9f00bf5128d547f733f",
     "live-playing.private.json": "36bbc4c2df934c7520123af4bffc18f5e4dfd95bb7a056384f828415145c7362",
     "live-closed.private.json": "0efe35d23db106926c6c478d930f42b95b493faf39530a625be4e484c61bb85a",
     "live-restored.private.json": "935e4472565b97718fb4c72d16319f0f4eb6b00f29dd6ab1d5f80d282b6ecded",
@@ -1552,6 +1554,21 @@
     "preflight.private.json": "bf96b53f2c72e75661e5c48bbddeac1f0df094eec3dfc9f00bf5128d547f733f",
     "sdk-after.private.json": "3bf3312595867b91cc0b401c22e5d6d15628aecf4c0a1002c882fb8d53fe0ce1"
   },
-  "rust_test_source": "f2b0f6c",
-  "test_only_followup": "Actual mapped/TCP worker exercised with paused observer and reader; the only release-source edit removes a redundant immediately called closure around activation."
+  "rust_test_source": "f2b0f6cfe686a0c89deebe75d7e92a7a16ac88a0",
+  "test_only_followup": "Actual mapped/TCP worker exercised with paused observer and reader; the only release-source edit removes a redundant immediately called closure around activation.",
+  "prior_sdk_native_build": {
+    "input_sha256": "8bdcd8cbcb908c82d11b79c7e304584ba4ab5f6e2dd0a7b7adee3d04c6d1d93b",
+    "manifest_sha256": "f4ea321dd0f0ef44d2ed616b5211cd9873f20f0217924be9228922a6aa6518fa",
+    "source_commit": "b61e43b31e8742bb40b3ca4e7581b147e4a7506b"
+  },
+  "sdk_loaded_prior_capture_sha256": "85dfc4f739ccc2e061bc3347a614605f409816f78cde2828206d1abee0b4a626",
+  "final_readback": {
+    "processes": [],
+    "bitwig_commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+    "owner_socket_exists": false,
+    "test_plugin_entries": [],
+    "preferences_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "ap4_project_sha256": "d8acb2fbb487cfa0039a43ef92619f5e06a2fbd63e1b0be988fe721615541a05",
+    "sunshine_active": "active"
+  }
 }
