@@ -1,5 +1,6 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
 mod instances;
+mod observer;
 mod preview;
 mod queue;
 mod queued;
@@ -30,7 +31,9 @@ struct Session {
     minor: u64,
     epoch: u64,
     position: u64,
-    witness: Option<state::Witness>,
+    witness: Option<observer::Observer>,
+    state_captured: bool,
+    trace: observer::Trace,
     owner: Option<preview::Owner>,
 }
 // Mapping has no escaping references; the registry serializes every access.
@@ -115,11 +118,13 @@ impl Session {
             witness: if minor == 4
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
             {
-                Some(state::Witness::new())
+                observer::Observer::new().ok()
             } else {
                 None
             },
             owner,
+            state_captured: false,
+            trace: observer::Trace::default(),
         };
         if minor == 4 {
             s.phase = 17;
@@ -246,6 +251,14 @@ impl Session {
             (self.minor == 4 && gain.is_nan()) || gain.is_finite() && (0.0..=1.0).contains(&gain),
             "gain",
         )?;
+        self.trace = observer::Trace {
+            epoch: self.epoch,
+            position: self.position,
+            frames: n as u64,
+            sequence: self.state.next,
+            started: Some(std::time::Instant::now()),
+            ..Default::default()
+        };
         let mut snapshot = [[0u32; CAP + 2]; 2];
         let mut poison = [POISON; CAP + 2];
         poison[0] = GUARD;
@@ -303,8 +316,11 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
+            self.trace.prepared = Some(std::time::Instant::now());
             send_version(&mut self.socket, &request, 5, self.minor)?;
+            self.trace.sent = Some(std::time::Instant::now());
             let mut reply = receive_version(&mut self.socket, 5, self.minor)?;
+            self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
                 need(
                     reply.payload.len() == 32
@@ -334,9 +350,7 @@ impl Session {
                     )?;
                 }
             }
-            if let Some(w) = &mut self.witness {
-                w.compare(n, gain, input, &output)?;
-            }
+            self.trace.validated = Some(std::time::Instant::now());
             self.position += n as u64;
             Ok((output, flags))
         })();

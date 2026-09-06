@@ -80,7 +80,8 @@ private:
   std::atomic<uint64_t> callback_rejections_{0};
   uint64_t frames_ = 0, zero_gain_blocks_ = 0;
   uint64_t silent_callbacks_ = 0, silent_frames_ = 0;
-  uint64_t latency_remaining_ = 0, priming_frames_ = 0;
+  uint64_t priming_frames_ = 0, underrun_frames_ = 0, underrun_gaps_ = 0;
+  uint64_t expired_frames_ = 0, delivered_frames_ = 0, underrun_callbacks_ = 0;
   double gain_min_ = 1., gain_max_ = 0.;
   int requested_maximum_ = 0, requested_mode_ = -1;
   double requested_rate_ = 0.;

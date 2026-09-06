@@ -9,11 +9,11 @@ PATHS=tuple(sorted(('CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0Mode
 # The AP3 build reuses the same exact producer/store verification with a closed
 # successor roster. Existing AP2 manifests keep their original binary roster.
 PATHS=tuple(sorted((*PATHS,
- 'native-vst3-proxy/source/recovery_view.h','native-vst3-proxy/backend/src/recovery.rs','native-vst3-proxy/host/recovery_cases.h',
+ 'native-vst3-proxy/source/recovery_view.h','native-vst3-proxy/backend/src/recovery.rs','native-vst3-proxy/host/recovery_cases.h','native-vst3-proxy/host/playback_cases.h',
  'native-vst3-proxy/backend/src/instances.rs','native-vst3-proxy/backend/src/queue.rs','native-vst3-proxy/backend/src/queued.rs','native-vst3-proxy/backend/src/preview.rs',
  'native-vst3-proxy/include/ap3_backend.h','native-vst3-proxy/host/sustained.cpp',
   'native-vst3-proxy/tests/callback_audit.cpp','tools/ap2_native_artifact.py',
- 'vst-state/stream.h','native-vst3-proxy/backend/src/state.rs','native-vst3-proxy/include/ap4_backend.h','native-vst3-proxy/host/state_cases.h','native-vst3-proxy/host/instances_cases.h')))
+ 'vst-state/stream.h','native-vst3-proxy/backend/src/state.rs','native-vst3-proxy/backend/src/observer.rs','native-vst3-proxy/include/ap4_backend.h','native-vst3-proxy/host/state_cases.h','native-vst3-proxy/host/instances_cases.h')))
 AP3_NAMES=(*NAMES,'ap3-sustained-host','AGainQueuedBridge.vst3/Contents/x86_64-linux/AGainQueuedBridge.so','libap3-callback-audit.so')
 def verify_native(root,binding,ap3=False,ap4=False):
  import json

@@ -66,7 +66,7 @@ void recoveryAudio(IAudioProcessor &processor, RecoveryAudio &state, bool missin
 template<class Factory>
 void recoveryCases(const Factory &factory, HostApplication *host, const std::string &scenario) {
   const bool missing = scenario == "recovery-missing";
-  const bool success = scenario == "recovery-complete" || scenario == "recovery-late";
+  const bool success = scenario == "recovery-complete";
   auto classes = factory.classInfos();
   auto create = [&](const char *file, double gain) {
     IndependentInstance i;

@@ -1,4 +1,5 @@
-//! AP3 callback operations contain only bounded copies, scalar checks and atomics.
+//! Callback operations contain bounded copies, scalar checks, atomics and
+//! monotonic timestamp reads. No allocation, waiting, logging or transport I/O.
 //! All mapping/socket/session work and error formatting belong to the worker.
 use crate::{binding, queue::Queue, retain, state, Session};
 use ap1_native_client::{invalid, CAP, ERROR};
@@ -19,7 +20,7 @@ const STOP: u32 = 12;
 const DEACTIVATE: u32 = 14;
 const CLOSE: u32 = 5;
 const AUDIO: u32 = 3;
-pub const UNDERFLOW: u64 = 1;
+// Fault code 1 was the retired terminal-underrun policy. Never reuse it.
 const OVERFLOW: u64 = 2;
 const WORKER: u64 = 3;
 const CORRELATION: u64 = 4;
@@ -31,6 +32,7 @@ pub struct Item {
     pub position: u64,
     pub gain: f64,
     pub flags: u64,
+    pub queued: Option<Instant>,
     pub data: [[f32; CAP]; 2],
 }
 impl Item {
@@ -42,6 +44,7 @@ impl Item {
             position: 0,
             gain: 0.,
             flags: 0,
+            queued: None,
             data: [[0.; CAP]; 2],
         }
     }
@@ -64,8 +67,7 @@ struct Shared {
     control: std::sync::Mutex<Option<Control>>,
     pending_control: AtomicBool,
     state_capable: AtomicBool,
-    witness: std::sync::Mutex<Observation>,
-    observation_skips: AtomicU64,
+    observer: Option<Arc<crate::observer::Shared>>,
     worker_op: AtomicU64,
     worker_epoch: AtomicU64,
     worker_position: AtomicU64,
@@ -97,8 +99,7 @@ impl Shared {
             control: std::sync::Mutex::new(None),
             pending_control: AtomicBool::new(false),
             state_capable: AtomicBool::new(false),
-            witness: std::sync::Mutex::new(Observation::default()),
-            observation_skips: AtomicU64::new(0),
+            observer: None,
             worker_op: AtomicU64::new(0),
             worker_epoch: AtomicU64::new(0),
             worker_position: AtomicU64::new(0),
@@ -145,6 +146,15 @@ struct Control {
     bytes: Vec<u8>,
     result: Option<io::Result<Vec<u8>>>,
 }
+#[repr(C)]
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+pub struct Delivery {
+    pub missing_frames: u64,
+    pub gaps: u64,
+    pub expired_frames: u64,
+    pub delivered_frames: u64,
+    pub priming_frames: u64,
+}
 struct Callback {
     epoch: u64,
     position: u64,
@@ -152,6 +162,9 @@ struct Callback {
     have: bool,
     offset: usize,
     current: Item,
+    next_result: u64,
+    in_gap: bool,
+    delivery: Delivery,
 }
 impl Callback {
     fn new() -> Self {
@@ -162,6 +175,9 @@ impl Callback {
             have: false,
             offset: 0,
             current: Item::control(0, 0),
+            next_result: 0,
+            in_gap: false,
+            delivery: Delivery::default(),
         }
     }
     fn transition(&mut self, s: &Shared, op: u32) -> u32 {
@@ -174,6 +190,8 @@ impl Callback {
                 self.position = 0;
                 self.have = false;
                 self.offset = 0;
+                self.next_result = 0;
+                self.in_gap = false;
                 s.results.discard_published();
                 s.wanted.store(self.epoch, Ordering::Release);
                 self.running = true;
@@ -204,6 +222,7 @@ impl Callback {
         }
         request.epoch = self.epoch;
         request.position = self.position;
+        request.queued = Some(Instant::now());
         if !s.requests.push(request) {
             s.fail(OVERFLOW, self.position);
             return Err(2);
@@ -211,50 +230,98 @@ impl Callback {
         if !request.gain.is_nan() {
             s.last_edit.store(s.requests.published(), Ordering::Release);
         }
+        self.delivery = Delivery::default();
+        let n = request.n as usize;
         let mut flags = 3;
-        // Two planar channels share one sample cursor; indexing expresses the layout.
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..request.n as usize {
+        let mut popped = 0;
+        let mut i = 0;
+        while i < n {
             let position = self.position + i as u64;
             if position < DELAY {
-                out[0][i] = 0.;
-                out[1][i] = 0.;
+                let count = (DELAY - position).min((n - i) as u64) as usize;
+                for plane in out.iter_mut() {
+                    plane[i..i + count].fill(0.);
+                }
+                self.delivery.priming_frames += count as u64;
+                i += count;
                 continue;
             }
             let expected = position - DELAY;
             if !self.have {
-                // At most one old epoch result can race discard_published at restart. A
-                // bounded loop also rejects a violated queue/epoch invariant explicitly.
-                for _ in 0..DESCRIPTORS {
-                    match s.results.pop() {
-                        Some(item) if item.epoch < self.epoch => continue,
-                        Some(item) => {
-                            self.current = item;
-                            self.offset = 0;
-                            self.have = true;
-                            break;
-                        }
-                        None => break,
-                    }
-                }
-                if !self.have {
-                    s.fail(UNDERFLOW, position);
+                // One bound for the entire callback, including expired and
+                // old-epoch output. Admitted inputs are never discarded.
+                if popped == DESCRIPTORS {
+                    s.fail(OVERFLOW, position);
                     return Err(2);
                 }
+                match s.results.pop() {
+                    Some(item) => {
+                        popped += 1;
+                        if item.epoch < self.epoch {
+                            continue;
+                        }
+                        if item.epoch != self.epoch
+                            || item.n == 0
+                            || item.n as usize > CAP
+                            || item.position != self.next_result
+                            || item.position.checked_add(item.n as u64).is_none()
+                        {
+                            s.fail(CORRELATION, position);
+                            return Err(2);
+                        }
+                        self.next_result += item.n as u64;
+                        self.current = item;
+                        self.offset = 0;
+                        self.have = true;
+                    }
+                    None => {
+                        // The buffer is filled successfully, with a counted
+                        // missing presentation span. Continue the same epoch.
+                        let count = n - i;
+                        for plane in out.iter_mut() {
+                            plane[i..n].fill(0.);
+                        }
+                        if let Some(observer) = &s.observer {
+                            if !observer.gaps.push(crate::observer::Gap {
+                                epoch: self.epoch,
+                                position: expected,
+                                frames: count as u64,
+                                at: Instant::now(),
+                            }) {
+                                observer.gap_drops.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
+                        self.delivery.missing_frames += count as u64;
+                        self.delivery.gaps += u64::from(!self.in_gap);
+                        self.in_gap = true;
+                        break;
+                    }
+                }
             }
-            if self.current.epoch != self.epoch
-                || self.current.n == 0
-                || self.current.n as usize > CAP
-                || self.current.position + self.offset as u64 != expected
-            {
+            let expired = expected
+                .saturating_sub(self.current.position)
+                .min(self.current.n as u64) as usize;
+            if expired > self.offset {
+                self.delivery.expired_frames += (expired - self.offset) as u64;
+                self.offset = expired;
+            }
+            if self.offset == self.current.n as usize {
+                self.have = false;
+                continue;
+            }
+            if self.current.position + self.offset as u64 != expected {
                 s.fail(CORRELATION, position);
                 return Err(2);
             }
+            let count = (n - i).min(self.current.n as usize - self.offset);
             flags &= self.current.flags;
-            for ch in 0..2 {
-                out[ch][i] = self.current.data[ch][self.offset];
+            for (out, input) in out.iter_mut().zip(&self.current.data) {
+                out[i..i + count].copy_from_slice(&input[self.offset..self.offset + count]);
             }
-            self.offset += 1;
+            self.delivery.delivered_frames += count as u64;
+            self.in_gap = false;
+            self.offset += count;
+            i += count;
             if self.offset == self.current.n as usize {
                 self.have = false;
             }
@@ -313,7 +380,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                 .component_state(Some(&c.bytes))
                                 .and_then(|p| state::envelope(&p)),
                             8 => (|| {
-                                if session.witness.as_ref().is_some_and(|w| !w.ready) {
+                                if session.witness.is_some() && !session.state_captured {
                                     session.component_state(None)?;
                                 }
                                 session
@@ -358,16 +425,6 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 }
             }
             s.worker_op.store(0, Ordering::Release);
-            if let Some(w) = &session.witness {
-                publish_observation(
-                    &s,
-                    Observation {
-                        comparison: w.report,
-                        input_hash: w.input_hash,
-                        output_hash: w.output_hash,
-                    },
-                )?;
-            }
             let Some(mut item) = s.requests.pop() else {
                 thread::sleep(Duration::from_micros(50));
                 continue;
@@ -379,6 +436,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 AUDIO => {
                     let started = Instant::now();
                     let n = item.n as usize;
+                    let original = item.data;
                     let (words, flags) = session.process_positioned(
                         n,
                         item.gain,
@@ -404,6 +462,19 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     {
                         s.fail(OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
+                    }
+                    session.trace.queued = item.queued;
+                    session.trace.published = Some(Instant::now());
+                    // Only a bounded copy after output publication. The next request
+                    // never waits for comparison, hashing or report readers.
+                    if let Some(observer) = &mut session.witness {
+                        observer.audio(
+                            n,
+                            item.gain,
+                            [&original[0][..n], &original[1][..n]],
+                            words,
+                            session.trace,
+                        );
                     }
                 }
                 START | STOP => {
@@ -446,6 +517,20 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             crate::preview::append_report(path, progress_text(&s).as_bytes());
         }
     }
+    if let Some(observer) = &mut session.witness {
+        observer.finish();
+        if let Some(path) = &report {
+            crate::preview::append_report(
+                path,
+                crate::observer::report_text(&observer.shared).as_bytes(),
+            );
+        }
+    }
+    if session.witness.is_none() {
+        if let Some(path) = &report {
+            crate::preview::append_report(path, b"{\"event\":\"ap7_observation\",\"enabled\":false,\"verified_returned_samples\":0}\n");
+        }
+    }
     let owner = session.owner.take();
     if let Err(error) = session.close() {
         s.fail(WORKER, u64::MAX);
@@ -465,20 +550,6 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     }
     s.ack.store(6, Ordering::Release);
 }
-fn publish_observation(s: &Shared, observation: Observation) -> io::Result<()> {
-    // Diagnostic readers may be descheduled with the lock held. Publishing a
-    // cumulative observation is optional; audio service never waits for it.
-    match s.witness.try_lock() {
-        Ok(mut slot) => *slot = observation,
-        Err(std::sync::TryLockError::WouldBlock) => {
-            s.observation_skips.fetch_add(1, Ordering::Relaxed);
-        }
-        Err(std::sync::TryLockError::Poisoned(_)) => {
-            return Err(invalid("fixture observer poisoned"));
-        }
-    }
-    Ok(())
-}
 fn progress_text(s: &Shared) -> String {
     let ready = s.first_context_ready.load(Ordering::Acquire);
     format!(
@@ -487,7 +558,7 @@ fn progress_text(s: &Shared) -> String {
         s.first_worker_epoch.load(Ordering::Relaxed), s.first_worker_position.load(Ordering::Relaxed),
         s.first_requests[0].load(Ordering::Relaxed), s.first_requests[1].load(Ordering::Relaxed),
         s.first_results[0].load(Ordering::Relaxed), s.first_results[1].load(Ordering::Relaxed),
-        s.service_us_max.load(Ordering::Relaxed), s.observation_skips.load(Ordering::Relaxed))
+        s.service_us_max.load(Ordering::Relaxed), s.observer.as_ref().map_or(0, |o| o.dropped.load(Ordering::Relaxed)))
 }
 fn bounded_detail(error: &io::Error) -> String {
     format!("{:?}: {}", error.kind(), error)
@@ -530,7 +601,9 @@ unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
                 .as_ref()
                 .map(|_| crate::preview::report_path(binding.session));
             let session = Session::open(binding, max as usize, minor)?;
-            let shared = Arc::new(Shared::new());
+            let mut shared = Shared::new();
+            shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
+            let shared = Arc::new(shared);
             shared.state_capable.store(minor == 4, Ordering::Release);
             if minor == 4 {
                 shared.ack.store(17, Ordering::Release);
@@ -663,13 +736,7 @@ pub unsafe extern "C" fn ap6_recover(
             shared.snapshots = l.shared.snapshots.clone();
             shared.state_capable.store(true, Ordering::Release);
             shared.ack.store(17, Ordering::Release);
-            if let Some(w) = &session.witness {
-                *shared.witness.lock().unwrap() = Observation {
-                    comparison: w.report,
-                    input_hash: w.input_hash,
-                    output_hash: w.output_hash,
-                };
-            }
+            shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
             let shared = Arc::new(shared);
             let peer = shared.clone();
             let worker_report = report.clone();
@@ -858,6 +925,32 @@ pub unsafe extern "C" fn ap3_process(
     out_right: *mut f32,
     out_flags: *mut u64,
 ) -> u32 {
+    ap7_process(
+        id,
+        n,
+        gain,
+        flags,
+        left,
+        right,
+        out_left,
+        out_right,
+        out_flags,
+        std::ptr::null_mut(),
+    )
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap7_process(
+    id: u64,
+    n: u32,
+    gain: f64,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
     };
@@ -897,6 +990,9 @@ pub unsafe extern "C" fn ap3_process(
                 std::ptr::copy_nonoverlapping(out[ch].as_ptr(), p, n);
             }
             *out_flags = f;
+            if !delivery.is_null() {
+                *delivery = (*l.callback.get()).delivery;
+            }
             0
         }
         Err(code) => code,
@@ -975,9 +1071,9 @@ pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
 pub struct Observation {
-    comparison: state::WitnessReport,
-    input_hash: u64,
-    output_hash: u64,
+    pub comparison: state::WitnessReport,
+    pub input_hash: u64,
+    pub output_hash: u64,
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap5_observation(id: u64, out: *mut Observation) -> u32 {
@@ -990,9 +1086,12 @@ pub unsafe extern "C" fn ap5_observation(id: u64, out: *mut Observation) -> u32 
         };
         let shared = live.shared.clone();
         drop(live);
-        let result = match shared.witness.lock() {
+        let Some(observer) = &shared.observer else {
+            return 2;
+        };
+        let result = match observer.report.lock() {
             Ok(v) => {
-                *out = *v;
+                *out = v.observation;
                 0
             }
             Err(_) => 2,
@@ -1011,9 +1110,12 @@ pub unsafe extern "C" fn ap4_witness(id: u64, out: *mut state::WitnessReport) ->
         };
         let shared = live.shared.clone();
         drop(live);
-        let result = match shared.witness.lock() {
+        let Some(observer) = &shared.observer else {
+            return 2;
+        };
+        let result = match observer.report.lock() {
             Ok(v) => {
-                *out = v.comparison;
+                *out = v.observation.comparison;
                 0
             }
             Err(_) => 2,
@@ -1061,55 +1163,18 @@ pub unsafe extern "C" fn ap4_failure(id: u64, out: *mut Failure) -> u32 {
 mod tests {
     use super::*;
     #[test]
-    fn paused_diagnostic_reader_cannot_starve_due_audio() {
-        let s = Arc::new(Shared::new());
-        let mut cb = Callback::new();
-        cb.transition(&s, START);
-        let mut r = Item::control(AUDIO, 0);
-        r.n = 256;
-        r.gain = 0.5;
-        r.data = [[0.25; CAP]; 2];
-        let mut out = [[0.; CAP]; 2];
-        // A diagnostic reader is descheduled while holding its short lock.
-        // The same publication operation used by worker must not delay audio.
-        let reader = s.witness.lock().unwrap();
-        for _ in 0..4 {
-            cb.process(&s, r, &mut out).unwrap();
-        }
-        let peer = s.clone();
-        let (done, progress) = std::sync::mpsc::channel();
-        let t = thread::spawn(move || {
-            publish_observation(&peer, Observation::default()).unwrap();
-            pump(&peer);
-            done.send(()).unwrap();
-        });
-        let progressed = progress.recv_timeout(Duration::from_millis(200)).is_ok();
-        let result = cb.process(&s, r, &mut out);
-        drop(reader);
-        t.join().unwrap();
-        assert_eq!(
-            result,
-            Ok(0),
-            "diagnostic contention caused a due-audio underflow"
-        );
-        assert!(progressed);
-        assert_eq!(s.observation_skips.load(Ordering::Relaxed), 1);
-        assert_eq!(out, [[0.125; CAP]; 2]);
-        assert_eq!(s.fault.load(Ordering::Acquire), 0);
-    }
-    #[test]
     fn first_callback_fault_survives_later_worker_failure() {
         let s = Shared::new();
         s.wanted.store(2, Ordering::Release);
         s.worker_op.store(AUDIO as u64, Ordering::Release);
         s.worker_epoch.store(2, Ordering::Release);
         s.worker_position.store(0, Ordering::Release);
-        s.fail(UNDERFLOW, 1024);
+        s.fail(CORRELATION, 1024);
         s.worker_op.store(18, Ordering::Release);
         s.fail(WORKER, 2048);
         *s.detail.lock().unwrap() = "queued session fault or cancelled".into();
         let report = failure_snapshot(&s);
-        assert_eq!(report.fault, UNDERFLOW);
+        assert_eq!(report.fault, CORRELATION);
         assert_eq!(report.first_position, 1024);
         assert_eq!(report.processed, 0);
         assert!(s.first_context_ready.load(Ordering::Acquire));
@@ -1175,23 +1240,52 @@ mod tests {
         assert_eq!(cb.transition(&s, STOP), 0);
     }
     #[test]
-    fn absent_due_output_latches_and_never_replays() {
+    fn late_output_expires_only_past_samples_and_preserves_ordered_inputs() {
         let s = Shared::new();
         let mut cb = Callback::new();
         cb.transition(&s, START);
-        let mut r = Item::control(AUDIO, 0);
-        r.n = 256;
-        r.gain = 0.5;
-        let mut out = [[0.; CAP]; 2];
+        let mut request = Item::control(AUDIO, 0);
+        request.n = 256;
+        request.gain = 0.5;
+        request.data = [[0.25; CAP]; 2];
+        let mut out = [[99.; CAP]; 2];
         for _ in 0..4 {
-            assert!(cb.process(&s, r, &mut out).is_ok());
+            cb.process(&s, request, &mut out).unwrap();
         }
-        assert_eq!(cb.process(&s, r, &mut out), Err(2));
-        let w = s.requests.high_water();
-        assert_eq!(cb.process(&s, r, &mut out), Err(2));
-        assert_eq!(s.requests.high_water(), w);
-        assert_eq!(s.fault.load(Ordering::Acquire), UNDERFLOW);
-        assert_eq!(cb.transition(&s, START), 2);
+        // First half of source block zero misses its presentation deadline.
+        request.n = 128;
+        cb.process(&s, request, &mut out).unwrap();
+        assert_eq!(cb.delivery.missing_frames, 128);
+        assert_eq!(cb.delivery.gaps, 1);
+        assert_eq!(s.fault.load(Ordering::Acquire), 0);
+        assert_eq!(cb.position, 1152);
+        // All five admitted requests, including the gap callback, run once.
+        assert_eq!(s.requests.published(), 6); // includes START
+        pump(&s);
+        cb.process(&s, request, &mut out).unwrap();
+        assert_eq!(cb.delivery.expired_frames, 128);
+        assert_eq!(cb.delivery.delivered_frames, 128);
+        assert_eq!(cb.delivery.missing_frames, 0);
+        assert_eq!(&out[0][..128], &[0.125; 128]);
+        assert_eq!(cb.epoch, 1);
+        assert_eq!(cb.next_result, 256);
+        pump(&s);
+        // A second gap can outlive several complete returned blocks.
+        let s = Shared::new();
+        let mut cb = Callback::new();
+        cb.transition(&s, START);
+        request.n = 256;
+        for _ in 0..7 {
+            cb.process(&s, request, &mut out).unwrap();
+        }
+        assert_eq!(cb.delivery.missing_frames, 256);
+        assert_eq!(cb.delivery.gaps, 0); // one contiguous gap, not three
+        pump(&s);
+        cb.process(&s, request, &mut out).unwrap();
+        assert_eq!(cb.delivery.expired_frames, 768);
+        assert_eq!(out, [[0.125; CAP]; 2]);
+        assert_eq!(cb.delivery.missing_frames, 0);
+        assert_eq!(cb.epoch, 1);
     }
     #[test]
     fn stop_restart_discards_old_epoch_and_resets_delay() {

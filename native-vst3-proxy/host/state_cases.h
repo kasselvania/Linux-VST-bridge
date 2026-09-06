@@ -271,7 +271,7 @@ void stateCases(IComponent &c, IAudioProcessor &p, IEditController &controller,
   }
   audio.join();
   if (failure) {
-    if (scenario == "state-callback-fault") {
+    if (scenario == "state-corrupt-output") {
       LVBState::Stream unsaved;
       need(c.getState(&unsaved) != kResultOk,
            "failed callback instance allowed a state snapshot");

@@ -114,8 +114,10 @@ impl Session {
                     "restored Windows state readback differs",
                 )?;
             }
+            reference(&reply.payload)?;
+            self.state_captured = true;
             if let Some(w) = &mut self.witness {
-                w.state(&reply.payload, restore.is_some())?;
+                w.state(&reply.payload, restore.is_some());
             }
             self.state.next = self
                 .state
@@ -131,7 +133,7 @@ impl Session {
         result
     }
 }
-// Optional fixture observer on the transport worker. It never writes an audio
+// Optional fixture observer on its independent consumer thread. It never writes an audio
 // buffer or supplies/restores a parameter. Actual snapshots seed its reference;
 // actual returned samples are compared independently, including hidden fields.
 #[repr(C)]
@@ -218,7 +220,7 @@ impl Witness {
                     .report
                     .maximum_error
                     .max((actual as f64 - expected as f64).abs());
-                // Per-instance routing fingerprints, only on the transport worker.
+                // Per-instance routing fingerprints, only on the observation consumer.
                 for (hash, value) in [
                     (&mut self.input_hash, input[ch][i]),
                     (&mut self.output_hash, actual),
