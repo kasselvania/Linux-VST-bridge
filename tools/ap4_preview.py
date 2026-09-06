@@ -135,7 +135,7 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
         greeting(peer) if greeting_data is None else greeting(peer, greeting_data)
         environment = create_environment()
         session = secrets.token_hex(16)
-        native_report = output / ('native-' + session + '.jsonl')
+        native_report = getattr(supervision, 'native_report_directory', output) / ('native-' + session + '.jsonl')
         reply = (session + '\n' + str(environment.session)).encode()
         if len(reply) > 1024:
             raise RuntimeError('preview startup reply bound')

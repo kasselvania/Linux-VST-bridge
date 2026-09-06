@@ -28,6 +28,7 @@ def main():
         controlled_environment=lambda e:{**owner.runtime.controlled_environment(e),**desktop})
     address_root=pathlib.Path.home()/'AP8-Commercial-Test/preview';owner.private_directory(address_root)
     output=address_root/'results';owner.private_directory(output)
+    profile.native_report_directory=output
     stopping=threading.Event()
     signal.signal(signal.SIGTERM,lambda *_:stopping.set());signal.signal(signal.SIGINT,lambda *_:stopping.set())
     def create():

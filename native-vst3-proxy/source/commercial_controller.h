@@ -19,7 +19,8 @@ public:
  Steinberg::tresult PLUGIN_API setComponentState(Steinberg::IBStream*s)override {
   if(owner_!=std::this_thread::get_id())return Steinberg::kResultFalse;
   try {std::vector<uint8_t>b;if(!LVBState::readEnvelope(s,b)||!apply(b))return Steinberg::kResultFalse;
-   if(connected_)return request();return Steinberg::kResultOk;
+   if(connected_)return request();
+   return Steinberg::kResultOk;
   }catch(...){return Steinberg::kResultFalse;}
  }
  Steinberg::tresult PLUGIN_API notify(Steinberg::Vst::IMessage*m)override {

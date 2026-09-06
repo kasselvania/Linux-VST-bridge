@@ -115,7 +115,9 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if minor == 4
+            witness: if minor == 5 {
+                observer::Observer::commercial().ok()
+            } else if minor == 4
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
             {
                 observer::Observer::new().ok()

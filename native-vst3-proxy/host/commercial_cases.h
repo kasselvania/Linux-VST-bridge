@@ -1,6 +1,6 @@
 // Focused standard-SDK consumer of the commercial native proxy. No Windows DSP
 // implementation, state decoder or AGain sample oracle lives in this host.
-void commercialCase(VST3::Hosting::PluginFactory& factory,HostApplication*host) {
+void commercialCase(const VST3::Hosting::PluginFactory& factory,HostApplication*host) {
  auto classes=factory.classInfos();auto component=factory.createInstance<IComponent>(classes[0].ID());
  need(bool(component),"commercial component");ok(component->initialize(host),"commercial initialize");
  FUnknownPtr<IAudioProcessor> p(component);need(bool(p),"commercial processor");
