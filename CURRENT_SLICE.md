@@ -1,35 +1,25 @@
-# Current work: AP4 — Save and reopen a Bitwig project
-
-## Goal
-
-Make the current bridged Windows AGain setting survive normal project save, application exit and reopening. The restored control and actual audio processing must agree without a driver or agent re-entering the saved value.
-
-The AP4 execution agent is already working on `codex/ap4-plugin-state-project-recall` under the operator's direct outcome-focused instruction. Continue that work. No new selection, execution receipt, diagnostic-to-acceptance replay or timed GUI ceremony is required by repository policy. Normal tool approvals and explicit spending limits still apply.
-
-## Current result — awaiting review
-
-PR #59 now demonstrates normal Applications-launch save/close/reopen at gain **0.1650**, including a stopped pause and Moonlight reconnect beyond the former 180-second expiry. Fresh recall returned **5,250,048 compared samples with maximum error 0 and zero control edits**. Real Windows component state and controller synchronization are preserved. Owned cleanup and restoration of test preferences/publication completed; the saved project remains private. See [the result and limits](docs/AP4_RESULT.md) and [private preview use](docs/AP4_PREVIEW.md).
-
-The final approved development batch is consumed: 10/10 development batches, 2/2 historical acceptance candidates, 3/6 Windows producers. D9/A2 keep their original labels and records. No further live test is scheduled; leave the same PR unmerged for review. AP4 is not accepted until review.
-
-## Enough evidence to finish
-
-Use a disposable Bitwig project, set a clearly nondefault value, save it, close the DAW and owned plug-in processes, and reopen the same project with fresh processes. Observe restored state and actual processing before touching the control. Preserve the saved project and useful supporting state/audio results. Add focused regression tests for implementation defects discovered.
-
-Use the real Windows component state, preserve audio-thread behavior and clean up the owned session. Do not fabricate restoration from a test-driver gain value or claim success from a serializer alone. Prior SDK and local results may be used with their exact provenance; they need not all be rerun because a GUI step or report failed. Additional cases are driven by a concrete risk, not a compulsory multi-stage campaign.
-
-Open one reviewable PR when this outcome works. Include a concise result and current-status update; leave unmerged for technical review. AP4 is not accepted by this process cleanup.
+# Current work: AP5 — Two independent plug-in instances
 
 ## Accepted baseline
 
-AP3 is accepted through PR #56, merge `953217dd50c120a86c93acb69c2baf8cdfbea35f`; PC0 and AP0–AP2 remain accepted prerequisites. AP3 demonstrated a single-instance Windows AGain preview in Bitwig, 6,366,144 independently checked samples with maximum error 0.0, and explicit 1024-sample added latency. The reported configuration is float32 stereo, 48 kHz and 1–256-frame callbacks, not universal real-time or commercial compatibility.
+**AP4 is accepted and merged.** PR #59 was reviewed at `93a00ede0044c4d9e0ac28bee0836d97675865ce` (review 5124120833) and merged with operator approval as `a45a30b916f847d1cc683ef7e07121b57d52491c`; #57 is complete. Normal Applications launches saved and recalled 0.1650 through actual Windows component state, with 5,250,048 fresh-recall samples at zero error and no control edits. The interactive instance survived ordinary waiting and Moonlight disconnection. See [result](docs/AP4_RESULT.md) and [preview setup](docs/AP4_PREVIEW.md). Their pending-review text records publication time; this later review/merge closes AP4. D9 and failed A2 stay unchanged. No further AP4 verification is needed.
 
-See [AP3 result](docs/slices/AP3/RESULT.md) and [retained evidence](evidence/ap3-sustained-native-audio/FINDINGS.md). The old packets retain their publication-time labels. Save/recall, lower latency, vendor editors, instruments and commercial support are separate claims.
+## Goal and scope
 
-## Access and concurrent work
+Use two copies of the bridged Windows AGain effect in one Bitwig project, with independent audio, controls and saved state. Save, close and reopen both correctly; changing or removing one must not disturb the other. Issue #60; implementation branch `codex/ap5-independent-instances`.
 
-Reuse [Moonlight/Sunshine and SSH](docs/DECK_REMOTE_DESKTOP.md). Preserve ordinary permissions, existing music projects and installations. Restore only settings/publications changed by the test.
+The lead has selected this successor under the operator's request. The implementation task includes necessary builds, focused tests and routine repairs. AP4's consumed limits remain its history, not a renewed campaign or a gate on AP5. Use normal development commands; do not create per-source approval receipts or a diagnostic/acceptance replay. Normal tool approvals and spending safeguards in AGENTS.md still apply.
 
-Repository-process cleanup is independent of AP4. It does not alter that branch's code, receipts, running sessions or evidence. Do not interrupt the experiment or rebuild unchanged binaries to adopt documentation changes. During merge, retain these outcome-led rules rather than restoring the retired permission choreography from the older branch.
+The existing queued backend has global ACTIVE/BUSY state; the private owner rejects every second connection. Replace those single-instance assumptions in the working path. Each live instance owns its queues, mapping, state, reports, connection and Windows process/environment. Share immutable artifacts/runtime, not mutable instance data. Preserve stable class identity and project-state format; temporary instance IDs do not belong in saved blobs. Support two instances within one Linux plug-in process as well as separate host processes; do not depend on Bitwig's Individually mode to hide globals. Sibling creation, callbacks and teardown must not block or fail unrelated audio. An explicit capacity limit is fine if at least two work and excess is refused safely. Private types and implementation organization belong to the engineer.
 
-`tools/proof-run.py` is legacy/optional. Its closed default is stored separately in `tools/legacy-proof-default.md`; it is not this task's status or a revocation of the operator's instruction.
+## Enough evidence
+
+Use focused local tests for two loaded instances in one process, including concurrent callbacks and a failure/close of one while the other continues. In normally launched Bitwig, use two separate tracks with distinct inputs and gains, check their respective returned audio, save/close/reopen without re-entering values, and remove one while the other keeps playing. Exercise a shared native hosting mode and record the actual topology; no all-modes matrix. Compare enough samples to expose crossed routes or shared state, with no arbitrary sample-count target. Reuse unaffected AP4 evidence; fix and retest only affected behavior unless a real integration uncertainty requires more.
+
+## Boundaries and delivery
+
+Keep actual Windows DSP/state, nonblocking audio callbacks, independent owned cleanup, prepared runtime and truthful 1024-sample per-instance latency. Retain float32 stereo at 48 kHz and up-to-256-frame blocks. Reuse the preview owner and transport; no general broker, installer, reboot-persistence, editor, commercial-plug-in or latency-tuning project. Serum remains the commercial target, not a claim made by AP5.
+
+Use established SSH/Moonlight access and Bitwig from Applications. Preserve existing projects and restore only temporary test settings/publication. One implementation PR referencing #60, with observed results, tests and limitations; leave it unmerged for review.
+
+Targeted basis: [architecture](docs/ARCHITECTURE.md) §§5.7–5.9 and 6.5; `native-vst3-proxy/backend/src/queued.rs`, `backend/src/preview.rs` under the same directory, and `tools/ap4_preview.py`; [Bitwig hosting modes](https://www.bitwig.com/userguide/latest/vst_plug-in_handling_and_options/).

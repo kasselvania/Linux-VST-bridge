@@ -6,21 +6,21 @@ Working repository name; not affiliated with Bitwig, Valve, Steinberg or a plug-
 
 ## What works
 
-**AP3 is accepted:** a native Linux VST3 preview sends audio to actual Windows AGain under the tested Proton/Steam Linux Runtime combination and returns processed audio to Bitwig. The callback uses preallocated queues and a separate transport worker. The measured preview adds **1024 samples of latency (21.33 ms at 48 kHz)**.
+**AP4 is accepted through PR #59**, merge `a45a30b916f847d1cc683ef7e07121b57d52491c`. A normal Bitwig Applications launch can use the native Linux preview, send audio to actual Windows AGain, save its complete component state and recall it with fresh processes. The private preview owner starts only the Windows endpoint; no special DAW launch or injected session environment is required on the tested fixture.
 
-The retained verification checked 6,366,144 samples with maximum numerical error 0.0 and demonstrated controlled Bitwig playback, gain/mute, removal and fresh reopening. It also established Mac-to-Deck Moonlight/Sunshine control for development. See [AP3 results](docs/slices/AP3/RESULT.md) and [desktop access](docs/DECK_REMOTE_DESKTOP.md).
+The saved 0.1650 setting returned after reopening, with 5,250,048 fresh-recall samples checked at zero error before any control edit. Ordinary pauses and a Moonlight disconnection exceeding three minutes did not expire the instance. See [AP4 result](docs/AP4_RESULT.md), [preview setup and limits](docs/AP4_PREVIEW.md), and [desktop access](docs/DECK_REMOTE_DESKTOP.md). Historical reports retain their publication-time status and provenance; review 5124120833 and the merge record acceptance.
 
-This accepted baseline is a single-instance, float32 stereo, 48-kHz reference-effect preview with 1–256-frame callbacks. It does not establish low-latency suitability, commercial plug-in compatibility, instruments, vendor editors, general installation management or release readiness. Serum remains an intended commercial fixture, not a proven capability.
+The callback uses preallocated queues and a separate transport worker. This remains a **single-instance**, float32 stereo, 48-kHz reference-effect preview with 1–256-frame callbacks and **1024 samples of added latency (21.33 ms at 48 kHz)**. Prepared artifacts/runtime and a running private owner are still required. It does not establish low-latency suitability, commercial compatibility, instruments, vendor editors, automatic installation or reboot persistence. Serum remains the intended commercial fixture, not a proven capability.
 
 ## Current goal
 
-[AP4 is working and awaiting review in PR #59](docs/AP4_RESULT.md): ordinary Applications launches saved and reopened the real Windows AGain setting at **0.1650**, with **5,250,048 returned samples checked at zero error before any control edit**. The save session survived stopped transport and more than three minutes disconnected from Moonlight. A private preview owner reuses the existing launcher and cleanup; no special DAW launch is required. Test settings/publication were restored and the saved project retained.
+**AP5 — Two independent plug-in instances**, tracked in #60 and [CURRENT_SLICE.md](CURRENT_SLICE.md). Put two copies on separate Bitwig tracks, keep their audio/settings independent, save/reopen both, and remove one without disturbing the other. Extend the working bridge rather than building a new framework.
 
-This extends the observed development result, pending review; AP3 remains the accepted baseline. See [current work](CURRENT_SLICE.md), [preview setup and limits](docs/AP4_PREVIEW.md), and the unchanged [historical D9/A2 record](docs/AP4_ATTEMPT_STATUS.md). No new acceptance campaign is required or scheduled.
+AP4's prior D9 diagnostic and failed A2 remain unchanged in [the attempt record](docs/AP4_ATTEMPT_STATUS.md). No repeat of that completed campaign is required.
 
 ## Start here
 
-Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then the code and design sections relevant to the task. [Development guidance](docs/DEVELOPMENT_PROCESS.md) explains normal iteration; [governance](GOVERNANCE.md) explains decisions and evidence. The lead's [design dossier](docs/DESIGN_DOSSIER.md) and [architecture](docs/ARCHITECTURE.md) describe the broader product, not a checklist to implement in every slice.
+Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then relevant code and design sections. [Development guidance](docs/DEVELOPMENT_PROCESS.md) covers iteration; [governance](GOVERNANCE.md) covers decisions and evidence. The [design dossier](docs/DESIGN_DOSSIER.md) and [architecture](docs/ARCHITECTURE.md) describe the broader product, not a checklist to implement in every slice.
 
 An approved task includes implementation, focused tests and routine repair. No mandatory receipt-writing, two-run diagnostic rule, duplicated acceptance campaign or separate status-closure PR. Review the actual result and its limitations. Preserve safe process ownership, real-time behavior and existing user work.
 
@@ -29,13 +29,12 @@ An approved task includes implementation, focused tests and routine repair. No m
 - `native-vst3-proxy/`: official SDK-facing Linux plug-in shell and Rust backend.
 - `native-audio-client/`: Linux transport/client code and tests.
 - `windows-factory-probe/`: Windows SDK host, lifecycle and processing.
-- `tools/`: existing builds, supervised test helpers, validation and legacy transaction tooling.
-- `docs/`: product architecture, current guidance and historical task records.
-- `evidence/`: retained observations; original labels and failures are preserved.
+- `tools/`: builds, preview owner, supervised test helpers and legacy transaction tooling.
+- `docs/` and `evidence/`: product design, guidance and retained observations with original labels/failures.
 
 Rust is primary. C++20 is used at the official VST3 edges; C++ objects do not cross the C ABI. A Linux host loads a native proxy, not a Windows DLL directly. The supervised Windows endpoint runs the real plug-in.
 
-`tools/proof-run.py` is an optional legacy exact-transaction interface. It remains available for recorded results and deliberately selected legacy runs, but is not the default development permission system. Its fail-closed defaults and old ledgers do not define the current task.
+`tools/proof-run.py` is an optional legacy exact-transaction interface, not the default development permission system. Its fail-closed defaults and old ledgers do not define the current task.
 
 ## Product direction and licensing
 

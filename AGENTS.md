@@ -32,8 +32,8 @@ Ask before changing the goal, making destructive changes to unrelated/user-owned
 
 Publish one PR with what works, how it was checked, relevant versions, remaining limitations and cleanup. Review before merge; include the current-status update in the same PR. No separate audit/closure artifact is required by default. Write additional design only for a consequential unresolved decision, not to memorialize every implementation choice.
 
-## Concurrent work
+## Concurrent work and access
 
-Do not change another agent's branch, checkout or running experiment. The active AP4 agent continues the operator's direct save/reopen goal. This cleanup does not require it to stop, rebuild, restart its tests or adopt new orchestration. Reconcile process-document conflicts when its PR is integrated, preserving its product code and original observations.
+Do not change another agent's branch, checkout or running experiment. Reconcile current instructions when integrating branches; preserve product code and original observations instead of restoring retired process requirements.
 
-Reuse established Moonlight/Sunshine and SSH under their existing permissions. No streamed terminal or alternate tool route to bypass Computer Use restrictions. Remote access is development tooling, not a plug-in runtime dependency.
+Reuse established Moonlight/Sunshine and SSH under their existing permissions. Launch Bitwig normally from Applications for desktop use. No streamed terminal or alternate tool route to bypass Computer Use restrictions. Remote access is development tooling, not a plug-in runtime dependency.
