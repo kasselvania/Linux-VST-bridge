@@ -46,7 +46,6 @@ def create(scanner, module, *, source_sha256, resources=()):
             raise RuntimeError('AP8 input must be an existing regular Windows file')
     run_id = secrets.token_hex(16)
     root = environment_parent() / ('.wf0-factory-census.stage-' + run_id)
-    root.mkdir(mode=0o700)
     relative = module.name + '/Contents/x86_64-win/' + module.name
     marker = dict(schema='linux-vst-bridge-ap8-owned-stage/v1', run_id=run_id,
         fixture=module.stem, module_relative=relative, scanner_sha256=sha256_file(scanner),
@@ -55,24 +54,30 @@ def create(scanner, module, *, source_sha256, resources=()):
     bundle = dict(module=relative, sha256=marker['module_sha256'])
     marker['bundle_manifest'] = {'sha256': hashlib.sha256(canonical_json(bundle)).hexdigest()}
     environment = Environment(run_id, root, marker)
-    for relative_dir in ('runtime-var', 'host-cache', 'host-config', 'host-data', 'host-tmp',
-                         'compatdata/pfx/drive_c/wf0/bin', 'compatdata/pfx/drive_c/wf0/session'):
-        (root / relative_dir).mkdir(parents=True, mode=0o700, exist_ok=True)
-    environment.module.parent.mkdir(parents=True, mode=0o700)
-    shutil.copy2(scanner, environment.scanner)
-    shutil.copy2(module, environment.module)
-    # Only explicit resource directories selected after inspection. Never copy
-    # .wine, registry hives, activation databases or a vendor account directory.
-    for source, relative_dir in resources:
-        source, relative_dir = pathlib.Path(source), pathlib.PurePosixPath(relative_dir)
-        if relative_dir.is_absolute() or '..' in relative_dir.parts or not source.is_dir():
-            raise RuntimeError('AP8 resource source/destination differs')
-        for p in source.rglob('*'):
-            if p.is_symlink():
-                raise RuntimeError('AP8 resource symlink requires explicit resolution')
-        shutil.copytree(source, environment.prefix / 'drive_c' / relative_dir, copy_function=shutil.copy2)
-    write_atomic(root / '.wf0-owner.json', canonical_json(marker))
-    verify_environment(environment, runner_identity_sha256=marker['runner_identity_sha256'])
+    root.mkdir(mode=0o700)
+    try:
+        for relative_dir in ('runtime-var', 'host-cache', 'host-config', 'host-data', 'host-tmp',
+                             'compatdata/pfx/drive_c/wf0/bin', 'compatdata/pfx/drive_c/wf0/session'):
+            (root / relative_dir).mkdir(parents=True, mode=0o700, exist_ok=True)
+        environment.module.parent.mkdir(parents=True, mode=0o700)
+        shutil.copy2(scanner, environment.scanner)
+        shutil.copy2(module, environment.module)
+        # Only explicit resource directories selected after inspection. Never copy
+        # .wine, registry hives, activation databases or a vendor account directory.
+        for source, relative_dir in resources:
+            source, relative_dir = pathlib.Path(source), pathlib.PurePosixPath(relative_dir)
+            if relative_dir.is_absolute() or '..' in relative_dir.parts or not source.is_dir():
+                raise RuntimeError('AP8 resource source/destination differs')
+            for p in source.rglob('*'):
+                if p.is_symlink():
+                    raise RuntimeError('AP8 resource symlink requires explicit resolution')
+            shutil.copytree(source, environment.prefix / 'drive_c' / relative_dir, copy_function=shutil.copy2)
+        write_atomic(root / '.wf0-owner.json', canonical_json(marker))
+        verify_environment(environment, runner_identity_sha256=marker['runner_identity_sha256'])
+    except Exception:
+        # No process has been launched; this function created this exact root.
+        shutil.rmtree(root)
+        raise
     return environment
 
 
@@ -99,16 +104,26 @@ def inspect(environment, output):
     import sys
     output = pathlib.Path(output)
     owner.private_directory(output)
+    reporting_errors = []
     def checkpoint(stage, available=None, error=None):
         # Reporting cannot interrupt process cleanup.
         try:
             write_atomic(output / (environment.run_id + '-checkpoint.json'),
                 canonical_json(dict(stage=stage, observation=available, error=str(error) if error else None)))
-        except Exception:
-            pass
+        except Exception as failure:
+            reporting_errors.append(dict(stage=stage, error=str(failure)))
     result = owner.runtime.supervise(environment, mode=MODE, component_case='first-audio',
         profile=sys.modules[__name__], checkpoint=checkpoint, post_gate_seconds=45)
-    write_atomic(output / (environment.run_id + '.json'), canonical_json(result))
+    result['reporting_errors'] = reporting_errors
+    try:
+        write_atomic(output / (environment.run_id + '.json'), canonical_json(result))
+    except Exception as failure:
+        reporting_errors.append(dict(stage='final_report', error=str(failure)))
+        record = dict(observation=result, error=None, reporting_errors=reporting_errors,
+            containment_confirmed=all(result.get('cleanup', {}).get(k) is True
+                for k in ('owned_descendants_zero', 'process_group_empty')),
+            retired=False, retirement_error=None)
+        raise owner.SessionError('AP8 inspection report failed', record) from failure
     # Keep the owned environment for targeted repair/readback. Retirement is an
     # explicit later operation, conditional on confirmed physical containment.
     return result
