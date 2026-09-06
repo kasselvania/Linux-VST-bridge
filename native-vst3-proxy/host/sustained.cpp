@@ -9,6 +9,8 @@
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/module.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
+#include "public.sdk/source/vst/hosting/eventlist.h"
+#include "pluginterfaces/vst/vstspeaker.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -238,6 +240,7 @@ void interval(IAudioProcessor &p, int block_size, int active_frames, bool fault,
     need(overruns == 0, "measured callback deadline overrun");
   // Leave a known gain for the next processing interval in this same instance.
 }
+#include "commercial_cases.h"
 #include "state_cases.h"
 #include "instances_cases.h"
 #include "recovery_cases.h"
@@ -267,6 +270,7 @@ int main(int argc, char **argv) {
     module->getFactory().setHostContext(host);
     auto classes = module->getFactory().classInfos();
     need(classes.size() == 2, "preview processor/controller factory");
+    if(scenario=="commercial"){commercialCase(module->getFactory(),host);return 0;}
     need(classes[0].ID().toString() == "84E8DE5F92554F5396FAE4133C935A18",
          "processor identity");
     if (scenario.starts_with("playback-")) {

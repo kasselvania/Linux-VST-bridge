@@ -10,7 +10,7 @@ def main():
     source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     compiler=subprocess.check_output(['rustup','which','--toolchain','stable','rustc'],text=True).strip()
     subprocess.run(['rustup','run','stable','cargo','build','--manifest-path','native-vst3-proxy/backend/Cargo.toml','--release','--locked','--offline','--target','x86_64-unknown-linux-gnu'],cwd=ROOT,env={**os.environ,'RUSTC':compiler,'RUSTFLAGS':'-C relocation-model=pic'},check=True)
-    files=subprocess.check_output(['git','ls-files','CMakeLists.txt','native-vst3-proxy','vst-state'],cwd=ROOT,text=True).splitlines()
+    files=subprocess.check_output(['git','ls-files','CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0ModernGcc.cmake','native-vst3-proxy','vst-state'],cwd=ROOT,text=True).splitlines()
     a.output.mkdir(parents=True,exist_ok=False);archive=a.output/'native-input.zip'
     with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED) as z:
         for f in files:z.write(ROOT/f,f)
