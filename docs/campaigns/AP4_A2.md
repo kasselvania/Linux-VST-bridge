@@ -1,6 +1,6 @@
-# AP4-A2 — Operator-approved final fresh acceptance candidate
+# AP4-A2 — Lead-approved remaining fresh acceptance candidate
 
-The operator approved this exact replacement after the tested state-capture and recall verification repair, conditional on the full AP4-D4 diagnostic passing at the same source. This is the remaining fresh acceptance candidate within the existing two-candidate allowance. It does not revise or replay AP4-A1, promote diagnostic evidence, or claim product acceptance.
+The technical lead approves this exact replacement after reviewing the GUI-window repair at `871e074e9ec3d3b6652bbcb7278b5812fdc6d12d`, conditional on a complete AP4-D5 diagnostic pass at that same source. This uses the remaining candidate in the existing two-candidate allowance. It is permission to measure, not product acceptance; AP3 remains accepted pending AP4 review and merge.
 
 ## Authority
 
@@ -16,26 +16,28 @@ permitted_execution_class: ACCEPTANCE_CANDIDATE
 classified_backend_core_ready: true
 classified_backend_ready: true
 acceptance_eligible: true
+authorized_source_commit: 871e074e9ec3d3b6652bbcb7278b5812fdc6d12d
+authorized_source_tree: 10cfdea375dcbe203657831176ce36de90062fa3
 authorized_plan_id: ap4-state-recall-acceptance-v1
-acceptance_candidate_identity: 9d0a274a1d28a02e251376ebfeebc693e5c9a41ac55962bd2f8e844f9579ef2d
-acceptance_batch_budget: 1
-authorized_source_commit: 6ad538cf8c750c3ed2f196e9fad4b3e1aa952c61
-authorized_source_tree: 6590b786d8c32062e477efd0b6bbde64119f7681
 authorized_product_contract_identity: ap4-plugin-state-recall-v1
 authorized_product_contract_sha256: f8d45e3ae48d573e520a9b03fb1b81de08378feb1c84a25f17b12ac9ddd8d89f
-authorized_plan_content_sha256: 82764316e38d95d7f55cbefe1d92bfab4d984501980c78fcdc7c1b25d9f81e21
+authorized_plan_content_sha256: 1917c0475dd109e4a3430fee1321ee7d676c57f1b33a0c7c2c42a13ad9c38068
+acceptance_candidate_identity: fa7dced3d29e9253a1579016af8ff2eb7f952ec47592108f4f01ec42d67697a8
+acceptance_batch_budget: 1
 accepted_product_frontier: AP3
 current_product_target: AP4
 ```
 
-## Conditional execution and delivery
+## Conditions and execution
 
-Execute the normal `proof-run.py accept` route only after AP4-D4's full real-Windows SDK and Bitwig recall diagnostic succeeds at this exact source, with ordinary readiness/preflight, cleanup and remaining allowance verified. Use the clean executable checkout and this newer authority checkout separately. The closed operation is `ap4-state-three-sdk-and-three-bitwig`; native manifest `0add784f5f8c996768909792243f7a18ea8d9e08bf148db166fb57d9455fb017`, retained Windows artifact `9978188887`, AGain and runtime identities remain exactly descriptor-bound.
+First reconcile actual spending and confirm that earlier A2 bindings have no consumed or unknown reservation. The operator reports 2/6 Windows producers, 4/10 diagnostics and 1/2 acceptance candidates consumed: the first acceptance stays historical. This replaces only an unreserved A2 binding; it does not alter any transaction. If another A2 reservation exists or its outcome is unknown, reconcile it and do not launch this replacement. Prior receipt revisions remain preserved in Git and in any original delegations.
 
-Obtain fresh actual state bytes, independent restored-audio comparisons, controller readback and disposable Bitwig project gain/mute recall across fully fresh processes. Never re-enter saved values on reopen or accept a local peer as Windows proof. Reuse existing lifecycle, bounds, ownership, failure retention and cleanup. Preserve the saved private project, restore preferences, remove only temporary publication and verify protected state.
+Run only after AP4-D5's complete real-Windows SDK and Bitwig diagnostic succeeds at this exact source, including normal Quit, fresh-process gain and mute recall, retained observations and final cleanup. The same repaired source must pass ordinary local and read-only preflight checks. An SDK-only pass, a missing GUI result or a forced exit is insufficient. Once all conditions pass, proceed directly without an additional planning or lead-approval handoff.
 
-The total allowance remains six Windows producers, ten diagnostic batches in the same campaign, and two fresh acceptance candidates. At approval: 2/6 producers, 3/10 diagnostics, 1/2 acceptance candidates consumed. This candidate may execute once; lost acknowledgement requires reconciliation. Preserve every historical count/outcome and do not run changed bindings under this receipt.
+Use the normal `proof-run.py accept` route from a clean checkout of the bound source, reading this file from the newer authority checkout. The closed operation remains `ap4-state-three-sdk-and-three-bitwig`, now explicitly binding the 180-second GUI post-gate window. Automated-stage, plug-in-call, readiness and cleanup limits remain unchanged. Reuse native manifest `0add784f5f8c996768909792243f7a18ea8d9e08bf148db166fb57d9455fb017`, Windows artifact `9978188887`, and the descriptor's exact AGain/runtime identities. No native or Windows rebuild is needed solely for this timing/authority change.
 
-Publish one non-draft PR closing #57 only after full verification passes; leave it unmerged. AP3 remains accepted pending AP4 review/merge. Tool and sandbox approvals remain applicable.
+Obtain fresh actual state bytes, independent restored-audio comparisons, controller readback and the disposable Bitwig project's gain/mute recall across fresh processes. Observe restored values and playback before editing; do not re-enter saved values through a driver. Preserve the same saved project between the batch's reopen stages. Have Moonlight and the action sequence ready before the timed GUI work, perform normal Save/Quit promptly after the required observations, and inspect extended logs after exit. Preserve callback safety, useful failure retention, ownership, preferences/publication restoration and protected state.
 
-This file was mechanically rebound with explicit operator approval before any A2 reservation. The prior A2 binding was never executed; A1 remains the sole consumed acceptance candidate. Native/Windows artifact and plan identities are unchanged.
+This candidate may launch once within the existing task ceiling, not once per segment. Lost acknowledgement or renderer failure requires retained-result recovery, never re-execution. No failed run, diagnostic, consumed count or old candidate is relabelled. Changing the source or descriptor invalidates this exact permission; preserve historical records rather than editing an executed candidate.
+
+Publish one non-draft PR closing #57 only when the full result passes; leave it unmerged. If it does not pass, report the specific failed stage and retained evidence without claiming project recall. Tool, sandbox and administrator approvals still apply; use their normal approval flow rather than working around a denial.
