@@ -1,32 +1,13 @@
-## Primary claim
+## What works now
 
-State one bounded claim this pull request makes true.
+Describe the user-visible result and the change that delivers it.
 
-## Exact basis
+## How it was checked
 
-- base commit:
-- base tree:
-- current-slice identity:
-- relevant design/architecture headings:
+Relevant tests or real-device observations, tested build/environment, and failures fixed. Distinguish mocked results from actual Windows/DAW behavior. Reuse existing valid evidence; no mandatory duplicate campaign or receipt packet.
 
-## Changed-path envelope
+## Limits and cleanup
 
-List all permitted changed paths and explain any deviation.
+What remains unsupported? Were changed settings restored and owned resources retired? Confirm no credentials, proprietary content or unrelated user work were changed/published.
 
-## Explicit nonclaims
-
-State what this pull request does not prove.
-
-## Verification
-
-- [ ] exact changed paths inspected
-- [ ] required tests passed
-- [ ] real fixture evidence retained where the claim requires it
-- [ ] no proprietary binaries, presets, activation files, credentials, tokens, account data, or personal identifiers committed
-- [ ] audio-thread restrictions preserved
-- [ ] failure and recovery behavior exercised
-- [ ] documentation does not claim more than the implementation proves
-
-## Evidence
-
-Link sanitized evidence and identify local-only evidence that was intentionally not committed.
+Update current task/status here when appropriate; no separate status-closure PR is required.
