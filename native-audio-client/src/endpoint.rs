@@ -80,7 +80,11 @@ impl Prepared {
     pub fn accept(self, minor: u64) -> io::Result<(Mapping, TcpStream)> {
         self.accept_while(minor, || Ok(()))
     }
-    pub fn accept_while(self, minor: u64, mut alive: impl FnMut() -> io::Result<()>) -> io::Result<(Mapping, TcpStream)> {
+    pub fn accept_while(
+        self,
+        minor: u64,
+        mut alive: impl FnMut() -> io::Result<()>,
+    ) -> io::Result<(Mapping, TcpStream)> {
         let Self {
             mut mapping,
             listener,

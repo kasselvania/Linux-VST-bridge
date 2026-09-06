@@ -91,7 +91,8 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events) {
         step("setComponentHandler");ok(controller->setComponentHandler(&handler),"setComponentHandler");handler_set=true;
         component->queryInterface(IConnectionPoint::iid,reinterpret_cast<void**>(&cp));
         controller->queryInterface(IConnectionPoint::iid,reinterpret_cast<void**>(&cc));
-        if(cp&&cc){step("connectComponent");ok(cp->connect(cc),"connectComponent");connected_pc=true;step("connectController");ok(cc->connect(cp),"connectController");connected_cp=true;}
+        // A combined component/controller is already connected to itself.
+        if(controller_initialized&&cp&&cc){step("connectComponent");ok(cp->connect(cc),"connectComponent");connected_pc=true;step("connectController");ok(cc->connect(cp),"connectController");connected_cp=true;}
         for(int media=0;media<2;++media)for(int dir=0;dir<2;++dir){
             step("getBusCount");int n=component->getBusCount(media,dir);
             if(n<0||n>64)throw std::runtime_error("bus count bound");
@@ -103,9 +104,9 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events) {
             events.lifecycle("ap8_parameter",",\"id\":"+std::to_string(p.id)+",\"title\":"+text16(p.title)+",\"units\":"+text16(p.units)+",\"steps\":"+std::to_string(p.stepCount)+",\"flags\":"+std::to_string(p.flags)+",\"default\":"+std::to_string(p.defaultNormalizedValue)+",\"value\":"+std::to_string(controller->getParamNormalized(p.id)));}
         LVBState::Stream state;step("getComponentState");ok(component->getState(&state),"getComponentState");
         if(state.failed||!state.quiescent())throw std::runtime_error("state stream bounds/lifetime");
-        state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");
+        if(controller_initialized){state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");}
         if(state.failed||!state.quiescent())throw std::runtime_error("controller state stream lifetime");
-        events.lifecycle("ap8_inspected",",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32)));
+        events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32)));
     } catch(const std::exception& e){primary=90;events.lifecycle("ap8_failure",",\"reason\":"+quoted(e.what()));}
     // A crashing/hung vendor call is contained by the existing outer process owner.
     // Ordinary failures retain the first operation and still unwind every lease.
