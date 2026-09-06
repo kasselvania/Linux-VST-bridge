@@ -52,6 +52,7 @@ int main() {
 
 #include "component_instance_session.h"
 #include "factory_census.h"
+#include "inspect_module.h"
 #include "mapped_processing.h"
 #include "win32_module.h"
 
@@ -103,8 +104,8 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
          result["--mode"] != "ap0-offline-again-processing" &&
          result["--mode"] != "ap1-linux-windows-audio-roundtrip" &&
          result["--mode"] != "ap2-native-vst3-offline-bridge" &&
-         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall") ||
-        result["--component-case"] != "exact-again") {
+         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap8-module-inspection") ||
+        result["--component-case"] != (result["--mode"] == "ap8-module-inspection" ? "first-audio" : "exact-again")) {
         throw std::runtime_error("argument value mismatch");
     }
     const std::string suffix = result["--session"] + ".ready";
@@ -297,7 +298,11 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (factory != nullptr && primary == 0) {
+        if (factory != nullptr && primary == 0 && args.at("--mode")=="ap8-module-inspection") {
+            events.lifecycle("ap8_factory", wf0::census_json_fields(census.census));
+            primary=wf0::inspect_module(factory,events);
+            if(first_primary==0)first_primary=primary;
+        } else if (factory != nullptr && primary == 0) {
             component = wf0::admit_component(
                 factory, events, component_case(args.at("--component-case")),
                 pc0_mode || ap1_mode || ap2_mode || ap3_mode || ap4_mode || args.at("--mode") == "ap0-offline-again-processing",

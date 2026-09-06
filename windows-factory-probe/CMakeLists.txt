@@ -5,6 +5,7 @@ add_executable(wf0-factory-probe
     source/mapped_processing.cpp
     source/win32_module.cpp
     source/factory_census.cpp)
+target_sources(wf0-factory-probe PRIVATE source/inspect_module.cpp)
 
 target_include_directories(wf0-factory-probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
