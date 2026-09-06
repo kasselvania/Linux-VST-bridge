@@ -1,4 +1,6 @@
 #include "inspect_module.h"
+#include "offline_processing.h"
+#include "component_instance_session.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
@@ -49,7 +51,7 @@ public:
     tresult PLUGIN_API restartComponent(int32)override{return kResultOk;}
 };
 }
-int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id) {
+int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external) {
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;Handler handler;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
@@ -120,6 +122,13 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         if(controller_initialized){state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");}
         if(state.failed||!state.quiescent())throw std::runtime_error("controller state stream lifetime");
         events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32)));
+        if(external){
+            external->bind_controller(controller,controller_initialized);
+            HostCallbackSink calls(&events,GetCurrentThreadId());
+            auto result=run_offline_processing(*component,*audio,calls,events,external);
+            if(!result.quiescent)ExitProcess(92); // outer owner contains; no release of live processing objects
+            if(!result.success)throw std::runtime_error("commercial processing failed");
+        }
     } catch(const std::exception& e){primary=90;events.lifecycle("ap8_failure",",\"reason\":"+quoted(e.what()));}
     // A crashing/hung vendor call is contained by the existing outer process owner.
     // Ordinary failures retain the first operation and still unwind every lease.
@@ -132,6 +141,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
     if(controller)controller->release();if(audio)audio->release();
     if(initialized)cleanup("terminateComponent",[&]{return component->terminate();});
     if(component)component->release();
+    {FUnknownPtr<IPluginFactory3> f3(factory);if(f3)f3->setHostContext(nullptr);}
     events.lifecycle("ap8_inspection_closed",",\"exit_code\":"+std::to_string(primary));
     return primary;
 }

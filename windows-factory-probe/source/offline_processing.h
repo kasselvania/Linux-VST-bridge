@@ -1,15 +1,19 @@
 #pragma once
 #include <cstdint>
+#include "ap8_events.h"
+#include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 namespace linux_vst_bridge::wf0 {
 class HostCallbackSink;
 class EventWriter;
-struct ExternalBlock { int frames; double gain; unsigned silence; bool gain_present=true; };
+struct ExternalBlock { int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
 // Private C++ edge interface; no object/layout crosses the process boundary.
 class ExternalProcessing {
 public:
     virtual ~ExternalProcessing() = default;
+    virtual bool commercial() const {return false;}
+    virtual void bind_controller(Steinberg::Vst::IEditController*,bool) {}
     virtual bool hosted() const { return false; }
     virtual bool sustained() const { return false; }
     virtual bool stateful() const { return false; }

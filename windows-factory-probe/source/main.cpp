@@ -104,8 +104,8 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
          result["--mode"] != "ap0-offline-again-processing" &&
          result["--mode"] != "ap1-linux-windows-audio-roundtrip" &&
          result["--mode"] != "ap2-native-vst3-offline-bridge" &&
-         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap8-module-inspection") ||
-        (result["--mode"] == "ap8-module-inspection"
+         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap8-module-inspection" && result["--mode"] != "ap8-commercial-preview") ||
+        ((result["--mode"] == "ap8-module-inspection" || result["--mode"] == "ap8-commercial-preview")
             ? (result["--component-case"]!="first-audio" &&
                 !(result["--component-case"].size()==38 && result["--component-case"].rfind("class:",0)==0 &&
                     std::all_of(result["--component-case"].begin()+6,result["--component-case"].end(),[](unsigned char c){return std::isxdigit(c)!=0;})))
@@ -267,13 +267,14 @@ int main(int argc, char** argv) {
         if (wf0::sha256_file(module_path) != args.at("--module-sha256")) return 65;
         events.lifecycle("supervisor_gate_accepted");
 
+        const bool ap8_mode=args.at("--mode")=="ap8-commercial-preview";
         const bool ap4_mode=args.at("--mode")=="ap4-plugin-state-recall";
         const bool ap3_mode=args.at("--mode")=="ap3-queued-audio-preview";
         const bool ap2_mode=args.at("--mode")=="ap2-native-vst3-offline-bridge";
         const bool ap1_mode=args.at("--mode")=="ap1-linux-windows-audio-roundtrip";
         std::unique_ptr<wf0::MappedSession> mapped;
-        if(ap1_mode||ap2_mode||ap3_mode||ap4_mode) mapped=std::make_unique<wf0::MappedSession>(
-            ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events,ap2_mode||ap3_mode||ap4_mode,ap3_mode||ap4_mode,ap4_mode);
+        if(ap1_mode||ap2_mode||ap3_mode||ap4_mode||ap8_mode) mapped=std::make_unique<wf0::MappedSession>(
+            ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events,ap2_mode||ap3_mode||ap4_mode||ap8_mode,ap3_mode||ap4_mode||ap8_mode,ap4_mode||ap8_mode,ap8_mode);
         wf0::ModuleBinding module;
         int primary = wf0::open_module(module_path, module, events);
         first_primary = primary;
@@ -302,9 +303,9 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (factory != nullptr && primary == 0 && args.at("--mode")=="ap8-module-inspection") {
+        if (factory != nullptr && primary == 0 && (args.at("--mode")=="ap8-module-inspection"||ap8_mode)) {
             events.lifecycle("ap8_factory", wf0::census_json_fields(census.census));
-            primary=wf0::inspect_module(factory,events,args.at("--component-case")=="first-audio"?"":args.at("--component-case").substr(6));
+            primary=wf0::inspect_module(factory,events,args.at("--component-case")=="first-audio"?"":args.at("--component-case").substr(6),mapped.get());
             if(first_primary==0)first_primary=primary;
         } else if (factory != nullptr && primary == 0) {
             component = wf0::admit_component(
@@ -332,11 +333,11 @@ int main(int argc, char** argv) {
                     !component.audio_processor.audio_interface_quiescence);
         }
         if(mapped) {
-            if(!component.object_quiescence) mapped.release(); // OS containment; no premature unmap.
+            if(!ap8_mode&&!component.object_quiescence) mapped.release(); // OS containment; no premature unmap.
             else if(primary==0) mapped->finish(true);
         }
         if (primary != 0) return primary;
-        if(args.at("--mode")=="ap8-module-inspection") {
+        if((args.at("--mode")=="ap8-module-inspection"||ap8_mode)) {
             events.final_lifecycle("scanner_completed", ",\"inspection_complete\":true");
             return 0;
         }
