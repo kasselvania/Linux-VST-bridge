@@ -94,7 +94,7 @@ def command_vector(environment, session, component_case, mode):
     return vector
 
 
-class StreamState(owner.runtime.StreamState):
+class StreamState(owner.profile.StreamState):
     def __init__(self):
         super().__init__()
         self.vendor = bytearray()

@@ -257,7 +257,11 @@ impl Consumer {
                     } else {
                         0
                     } {
-                        let width = (job.trace.sample_rate.max(48000) / 10) as u64;
+                        let width = (if job.trace.sample_rate == 0 {
+                            48000
+                        } else {
+                            job.trace.sample_rate
+                        } / 10) as u64;
                         let position = (job.trace.position + i as u64) / width * width;
                         let same = self
                             .audio_windows

@@ -349,6 +349,8 @@ struct Live {
     report: Option<std::path::PathBuf>,
     max: usize,
     recovery_blocked: bool,
+    minor: u64,
+    setup: Option<Vec<u8>>,
 }
 // Callback interior state is accessed only under this instance's nonblocking
 // guard. The worker owns Shared/Session; removal excludes every live lease.
@@ -650,6 +652,8 @@ pub(crate) unsafe fn open(
                 report,
                 max: max as usize,
                 recovery_blocked: false,
+                minor,
+                setup: None,
             })
         }) {
             Ok(Ok(id)) => {
@@ -723,7 +727,7 @@ pub unsafe extern "C" fn ap6_recover(
                 .lock()
                 .map_err(|_| invalid("snapshot store poisoned"))?
                 .select(revision)?;
-            let payload = state::payload(&snapshot.bytes)?;
+            let payload = state::bound_payload(l.shared.identity, &snapshot.bytes)?;
             let end = Instant::now() + Duration::from_secs(80);
             while l.worker.as_ref().is_some_and(|t| !t.is_finished()) {
                 if Instant::now() >= end {
@@ -742,13 +746,32 @@ pub unsafe extern "C" fn ap6_recover(
             // A failed new startup/restore cannot silently authorize another
             // replacement. The owner still contains any newly owned endpoint.
             l.recovery_blocked = true;
-            let binding = binding(true)?;
+            let binding = if l.minor >= 6 {
+                crate::preview::discover_performance(l.shared.identity)?
+            } else {
+                binding(true)?
+            };
             if binding.owner.is_none() {
                 return Err(invalid("recovery requires the private owner"));
             }
-            let report = Some(crate::preview::report_path(binding.session));
-            let mut session = Session::open(binding, l.max, 4)?;
-            if let Err(error) = session.component_state(Some(payload)) {
+            let report = Some(if l.minor >= 6 {
+                crate::preview::performance_root(l.shared.identity.is_some())
+                    .join("results")
+                    .join(format!(
+                        "native-{:032x}.jsonl",
+                        u128::from_be_bytes(binding.session)
+                    ))
+            } else {
+                crate::preview::report_path(binding.session)
+            });
+            let mut session = Session::open(binding, l.max.min(CAP), l.minor)?;
+            session.identity = l.shared.identity;
+            if let Err(error) = session.component_state(Some(payload)).and_then(|_| {
+                if let Some(setup) = &l.setup {
+                    session.configure(setup.clone())?;
+                }
+                Ok(())
+            }) {
                 let owner = session.owner.take();
                 let _ = session.close();
                 if let Some(owner) = owner {
@@ -763,6 +786,7 @@ pub unsafe extern "C" fn ap6_recover(
                 .checked_add(1)
                 .ok_or_else(|| invalid("transport generation exhausted"))?;
             shared.snapshots = l.shared.snapshots.clone();
+            shared.identity = l.shared.identity;
             shared.state_capable.store(true, Ordering::Release);
             shared.ack.store(17, Ordering::Release);
             shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
@@ -775,7 +799,9 @@ pub unsafe extern "C" fn ap6_recover(
             l.shared = shared;
             l.worker = Some(t);
             l.report = report;
+            let delay = l.callback.get_mut().delay;
             l.callback = UnsafeCell::new(Callback::new());
+            l.callback.get_mut().delay = delay;
             l.recovery_blocked = false;
             std::ptr::copy_nonoverlapping(snapshot.bytes.as_ptr(), out, snapshot.bytes.len());
             *size = snapshot.bytes.len() as u32;
@@ -876,7 +902,7 @@ pub unsafe extern "C" fn ap9_setup(
         let result = (|| -> io::Result<()> {
             let delay = crate::performance::selected_delay(maximum)?;
             let bytes = crate::performance::wire(maximum, mode, rate)?;
-            let reply = control(id, 20, bytes)?;
+            let reply = control(id, 20, bytes.clone())?;
             let vendor = ap1_native_client::get(&reply[..4]) as u32;
             let total = vendor
                 .checked_add(delay)
@@ -1076,7 +1102,7 @@ unsafe fn process_events(
     }
     if events.len() > MAX_EVENTS
         || (!events.is_empty() && l.shared.identity.is_none())
-        || events.iter().any(|e| !e.valid(n))
+        || events.iter().any(|e| !e.valid_host(n))
     {
         return 1;
     }
@@ -1374,6 +1400,120 @@ pub unsafe extern "C" fn ap8_process(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn large_host_blocks_preserve_notes_and_parameter_offsets() {
+        let mut shared = Shared::new();
+        shared.state_capable.store(true, Ordering::Relaxed);
+        shared.identity = Some(state::Identity {
+            class: [1; 16],
+            module: [2; 32],
+        });
+        let shared = Arc::new(shared);
+        let mut cb = Callback::new();
+        assert_eq!(cb.transition(&shared, START), 0);
+        let id = INSTANCES
+            .insert(|| {
+                Ok::<_, ()>(Live {
+                    shared: shared.clone(),
+                    callback: UnsafeCell::new(cb),
+                    busy: AtomicBool::new(false),
+                    worker: None,
+                    report: None,
+                    max: 1024,
+                    recovery_blocked: false,
+                    minor: 7,
+                    setup: None,
+                })
+            })
+            .unwrap()
+            .unwrap();
+        let input = [0f32; 1024];
+        let mut left = [0f32; 1024];
+        let mut right = [0f32; 1024];
+        let mut flags = 0;
+        let mut delivery = Delivery::default();
+        let events = [
+            Event {
+                offset: 7,
+                kind: 0,
+                id: 1,
+                pitch: 60,
+                value: 0.7,
+                ..Default::default()
+            },
+            Event {
+                offset: 511,
+                kind: 2,
+                id: 900,
+                value: 0.25,
+                ..Default::default()
+            },
+            Event {
+                offset: 1023,
+                kind: 1,
+                id: 1,
+                pitch: 60,
+                value: 0.2,
+                ..Default::default()
+            },
+        ];
+        unsafe {
+            assert_eq!(
+                ap8_process(
+                    id,
+                    1024,
+                    events.as_ptr(),
+                    3,
+                    input.as_ptr(),
+                    input.as_ptr(),
+                    left.as_mut_ptr(),
+                    right.as_mut_ptr(),
+                    &mut flags,
+                    &mut delivery
+                ),
+                0
+            );
+        }
+        assert_eq!(delivery.priming_frames, 1024);
+        assert_eq!(shared.requests.pop().unwrap().kind, START);
+        let mut observed = Vec::new();
+        for position in [0, 256, 512, 768] {
+            let item = shared.requests.pop().unwrap();
+            assert_eq!(item.position, position);
+            assert_eq!(item.n, 256);
+            for e in &item.events[..item.event_count as usize] {
+                assert!(e.valid(256));
+                let mut e = *e;
+                e.offset += position as u32;
+                observed.push(e);
+            }
+        }
+        assert_eq!(observed, events);
+        let count = shared.requests.published();
+        let bad = Event {
+            offset: 1024,
+            ..events[0]
+        };
+        unsafe {
+            assert_eq!(
+                ap8_process(
+                    id,
+                    1024,
+                    &bad,
+                    1,
+                    input.as_ptr(),
+                    input.as_ptr(),
+                    left.as_mut_ptr(),
+                    right.as_mut_ptr(),
+                    &mut flags,
+                    &mut delivery
+                ),
+                1
+            );
+        }
+        assert_eq!(shared.requests.published(), count);
+        INSTANCES.remove(id, |_| ()).unwrap();
+    }
     #[test]
     fn actual_transport_progresses_with_paused_observation_consumer_and_reader() {
         use ap1_native_client::{

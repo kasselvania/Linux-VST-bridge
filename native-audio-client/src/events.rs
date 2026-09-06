@@ -21,7 +21,10 @@ pub struct Event {
 }
 impl Event {
     pub fn valid(&self, frames: usize) -> bool {
-        frames <= CAP
+        frames <= CAP && self.valid_host(frames)
+    }
+    pub fn valid_host(&self,frames:usize)->bool {
+        frames <= 1024
             && (self.offset as usize) < frames.max(1)
             && self.value.is_finite()
             && (0.0..=1.0).contains(&self.value)
