@@ -77,6 +77,14 @@ pub struct Observer {
     thread: Option<JoinHandle<()>>,
 }
 impl Observer {
+    #[cfg(test)]
+    pub(crate) fn paused() -> Self {
+        Self {
+            shared: Shared::new(),
+            sequence: 0,
+            thread: None,
+        }
+    }
     pub fn new() -> std::io::Result<Self> {
         let shared = Shared::new();
         let peer = shared.clone();

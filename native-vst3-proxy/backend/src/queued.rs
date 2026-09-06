@@ -379,7 +379,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             18 => session
                                 .component_state(Some(&c.bytes))
                                 .and_then(|p| state::envelope(&p)),
-                            8 => (|| {
+                            8 => {
                                 // Observation waits for a real state operation;
                                 // it cannot add a prerequisite transport request.
                                 session
@@ -388,7 +388,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                         ap1_native_client::get(&c.bytes[4..]) as u32,
                                     )
                                     .map(|_| vec![])
-                            })(),
+                            }
                             14 => session.transition(14).map(|_| {
                                 s.ack.store(15, Ordering::Release);
                                 vec![]
@@ -1161,6 +1161,137 @@ pub unsafe extern "C" fn ap4_failure(id: u64, out: *mut Failure) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn actual_transport_progresses_with_paused_observation_consumer_and_reader() {
+        use ap1_native_client::{
+            endpoint::{receive_version, send_version},
+            mapping::Mapping,
+            ClientState, Frame, Slot, INPUT, OUTPUT, STRIDE,
+        };
+        use std::os::unix::fs::FileExt;
+        let path = std::env::temp_dir().join(format!(
+            "ap7-observer-{}.audio",
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+        ));
+        let mapping = Mapping::new(&path).unwrap();
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let socket = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        socket.set_nodelay(true).unwrap();
+        let (mut remote, _) = listener.accept().unwrap();
+        remote.set_nodelay(true).unwrap();
+        let peer = thread::spawn(move || {
+            let mut processed = 0;
+            loop {
+                let f = receive_version(&mut remote, 5, 4).unwrap();
+                let payload = if f.kind == 3 {
+                    assert_eq!(ap1_native_client::get(&f.payload[40..48]), processed * 256);
+                    let mut bytes = [0u8; CAP * 4];
+                    for ch in 0..2 {
+                        file.read_exact_at(&mut bytes, (INPUT + ch * STRIDE + 4) as u64)
+                            .unwrap();
+                        for value in bytes.chunks_exact_mut(4) {
+                            let sample = f32::from_le_bytes(value.try_into().unwrap()) * 0.5;
+                            value.copy_from_slice(&sample.to_le_bytes());
+                        }
+                        file.write_all_at(&bytes, (OUTPUT + ch * STRIDE + 4) as u64)
+                            .unwrap();
+                    }
+                    processed += 1;
+                    [
+                        256u32.to_le_bytes().as_slice(),
+                        (OUTPUT as u32).to_le_bytes().as_slice(),
+                        0u64.to_le_bytes().as_slice(),
+                        &f.payload[32..48],
+                    ]
+                    .concat()
+                } else if matches!(f.kind, 10 | 12) {
+                    f.payload.clone()
+                } else {
+                    vec![]
+                };
+                send_version(
+                    &mut remote,
+                    &Frame {
+                        kind: f.kind + 1,
+                        session: f.session,
+                        sequence: f.sequence,
+                        payload,
+                    },
+                    5,
+                    4,
+                )
+                .unwrap();
+                if f.kind == 5 {
+                    return processed;
+                }
+            }
+        });
+        let mut observer = crate::observer::Observer::paused();
+        observer.state(
+            &[0.5f32.to_le_bytes(), 0f32.to_le_bytes(), 0u32.to_le_bytes()].concat(),
+            true,
+        );
+        let observation = observer.shared.clone();
+        let session = Session {
+            mapping: Some(mapping),
+            socket,
+            state: ClientState {
+                session: [1; 16],
+                next: 1,
+                slot: Slot::Writable,
+            },
+            phase: 9,
+            max: CAP,
+            minor: 4,
+            epoch: 0,
+            position: 0,
+            witness: Some(observer),
+            trace: Default::default(),
+            owner: None,
+        };
+        let mut shared = Shared::new();
+        shared.observer = Some(observation.clone());
+        let shared = Arc::new(shared);
+        let service = shared.clone();
+        // Both diagnostic endpoints are unavailable throughout real mapped/TCP
+        // processing. This catches waits added anywhere in the worker loop.
+        let reader = observation.report.lock().unwrap();
+        let transport = thread::spawn(move || worker(session, service, None));
+        let mut callback = Callback::new();
+        assert_eq!(callback.transition(&shared, START), 0);
+        let mut item = Item::control(AUDIO, 0);
+        item.n = 256;
+        item.gain = 0.5;
+        item.data = [[0.25; CAP]; 2];
+        let mut output = [[0.; CAP]; 2];
+        for n in 0..128 {
+            callback.process(&shared, item, &mut output).unwrap();
+            assert_eq!(callback.delivery.missing_frames, 0);
+            assert_eq!(output, [[if n < 4 { 0. } else { 0.125 }; CAP]; 2]);
+            let end = Instant::now() + Duration::from_secs(2);
+            while shared.processed.load(Ordering::Acquire) <= n {
+                assert!(Instant::now() < end, "observer stalled actual transport");
+                assert_eq!(shared.fault.load(Ordering::Acquire), 0);
+                thread::sleep(Duration::from_millis(1));
+            }
+        }
+        assert!(observation.dropped.load(Ordering::Relaxed) > 0);
+        assert_eq!(callback.transition(&shared, STOP), 0);
+        assert!(shared.requests.push(Item::control(DEACTIVATE, 0)));
+        assert!(shared.requests.push(Item::control(CLOSE, 0)));
+        transport.join().unwrap();
+        assert_eq!(peer.join().unwrap(), 128);
+        assert_eq!(shared.fault.load(Ordering::Acquire), 0);
+        assert_eq!(observation.offered.load(Ordering::Relaxed), 128 * 512);
+        assert_eq!(reader.observation.comparison.samples, 0); // none checked
+        drop(reader);
+        std::fs::remove_file(path).unwrap();
+    }
     #[test]
     fn first_callback_fault_survives_later_worker_failure() {
         let s = Shared::new();
