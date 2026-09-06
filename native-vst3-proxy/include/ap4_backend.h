@@ -35,6 +35,18 @@ struct ap4_failure_t {
 };
 uint32_t ap4_failure(uint64_t handle, struct ap4_failure_t *out);
 
+/* AP6: owner-thread operations. Opaque snapshots remain per logical instance.
+   recover leaves the fresh endpoint inactive until SDK/controller synchronization.
+   The revision must still match the explicitly selected snapshot. */
+struct ap6_snapshot_t {
+  uint64_t revision, generation;
+  uint32_t source, uncaptured;
+  uint8_t digest[32];
+};
+uint32_t ap6_snapshot(uint64_t handle, struct ap6_snapshot_t *out);
+uint32_t ap6_recover(uint64_t handle, uint64_t revision, uint8_t *out,
+                    uint32_t capacity, uint32_t *written);
+
 #ifdef __cplusplus
 }
 #endif

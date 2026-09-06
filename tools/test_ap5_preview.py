@@ -200,6 +200,7 @@ class ReportingFailures(unittest.TestCase):
                 self.assertTrue(admitted)
                 sessions.threads[-1].join(2)
                 self.assertFalse(sessions.threads[-1].is_alive())
+                if not blocked: self.assertEqual(failed_client.recv(1), b'R')
                 self.assertEqual(failed_client.recv(1), b'')
                 self.assertEqual(retired.count('failed'), int(complete))
                 self.assertEqual(failed.session.exists(), blocked)

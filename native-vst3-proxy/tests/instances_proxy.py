@@ -19,12 +19,13 @@ def run(host, bundle, audit):
         with tempfile.TemporaryDirectory(prefix='ap5-instances-') as temp:
             home = pathlib.Path(temp)
             root = home/'AP4-State-Test/preview'; root.mkdir(parents=True, mode=0o700)
+            (root/'results').mkdir(mode=0o700)
             store = home/'state'; store.mkdir()
             (store/'instance-a.state').write_bytes(envelope(.25))
             (store/'instance-b.state').write_bytes(envelope(.75))
             directories = [home/'a', home/'b']
             for directory in directories: directory.mkdir(mode=0o700)
-            errors = []; workers = []
+            errors = []; workers = []; reports_at = {}
             counts = [dict(get=0, set=0, activate=0, start=0, stop=0, process=0, zero_frame=0, closed=0) for _ in directories]
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
                 address = root/'owner.sock'; listener.bind(str(address)); address.chmod(0o600)
@@ -34,13 +35,16 @@ def run(host, bundle, audit):
                         with lease:
                             lease.settimeout(25)
                             assert lease.recv(4) == b'AP4\n'
-                            response = (os.urandom(16).hex()+'\n'+str(directories[index])).encode()
+                            token = os.urandom(16).hex()
+                            reports_at[index] = root/'results'/('native-'+token+'.jsonl')
+                            response = (token+'\n'+str(directories[index])).encode()
                             lease.sendall(struct.pack('<H', len(response))+response)
                             if case == 'instances-isolation' and index == 1: time.sleep(.5)
                             peer(directories[index], case, counts[index],
                                  fail_after=64 if case == 'instances-failure' and index == 0 else None,
                                  close_delay=.5 if index == 0 else 0)
                             assert lease.recv(1) == b''
+                            lease.sendall(b'R')
                     except BaseException as error: errors.append((index, repr(error)))
                 def accept():
                     try:
@@ -56,7 +60,7 @@ def run(host, bundle, audit):
                 for worker in workers: worker.join(25)
                 assert not admission.is_alive() and all(not w.is_alive() for w in workers)
                 assert p.returncode == 0 and not errors, (case, p.returncode, errors, p.stdout, p.stderr)
-                reports = [[json.loads(line) for line in (d/'ap3-gui-report.jsonl').read_text().splitlines()] for d in directories]
+                reports = [[json.loads(line) for line in reports_at[index].read_text().splitlines()] for index in range(2)]
                 summary = next(json.loads(line) for line in p.stdout.splitlines() if '"ap5_two_instances"' in line)
                 for index, records in enumerate(reports):
                     assert any(r['event']=='ap4_native_state' and r['operation']=='set' and r['gain']==(.25, .75)[index] for r in records)

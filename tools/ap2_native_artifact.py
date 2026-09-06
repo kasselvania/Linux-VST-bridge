@@ -9,6 +9,7 @@ PATHS=tuple(sorted(('CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0Mode
 # The AP3 build reuses the same exact producer/store verification with a closed
 # successor roster. Existing AP2 manifests keep their original binary roster.
 PATHS=tuple(sorted((*PATHS,
+ 'native-vst3-proxy/source/recovery_view.h','native-vst3-proxy/backend/src/recovery.rs','native-vst3-proxy/host/recovery_cases.h',
  'native-vst3-proxy/backend/src/instances.rs','native-vst3-proxy/backend/src/queue.rs','native-vst3-proxy/backend/src/queued.rs','native-vst3-proxy/backend/src/preview.rs',
  'native-vst3-proxy/include/ap3_backend.h','native-vst3-proxy/host/sustained.cpp',
   'native-vst3-proxy/tests/callback_audit.cpp','tools/ap2_native_artifact.py',

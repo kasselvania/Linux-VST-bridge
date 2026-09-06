@@ -1,9 +1,11 @@
 // AP3 independent SDK consumer. Only standard VST3 interfaces process audio.
 #include "../../vst-state/stream.h"
 #include "pluginterfaces/base/funknown.h"
+#include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
+#include "pluginterfaces/vst/ivstmessage.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/module.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
@@ -238,6 +240,7 @@ void interval(IAudioProcessor &p, int block_size, int active_frames, bool fault,
 }
 #include "state_cases.h"
 #include "instances_cases.h"
+#include "recovery_cases.h"
 } // namespace
 int main(int argc, char **argv) {
   try {
@@ -269,6 +272,10 @@ int main(int argc, char **argv) {
       instanceCases(module->getFactory(), host, scenario);
       host = nullptr; module.reset(); return 0;
     }
+    if (scenario.starts_with("recovery-")) {
+      recoveryCases(module->getFactory(), host, scenario);
+      host = nullptr; module.reset(); return 0;
+    }
     auto component =
         module->getFactory().createInstance<IComponent>(classes[0].ID());
     need(bool(component), "factory component");
@@ -285,7 +292,7 @@ int main(int argc, char **argv) {
     ok(controller->initialize(host), "controller initialize");
     ParameterInfo info{};
     ok(controller->getParameterInfo(0, info), "gain metadata");
-    need(controller->getParameterCount() == 1 && info.id == 0 &&
+    need(controller->getParameterCount() == 3 && info.id == 0 &&
              info.defaultNormalizedValue == 1.,
          "reference gain definition");
     const bool state_case = scenario.starts_with("state-");

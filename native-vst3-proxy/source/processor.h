@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <thread>
 namespace AP2 {
+inline constexpr Steinberg::Vst::ParamID recoveryID = 0x41503601;
+inline constexpr Steinberg::Vst::ParamID snapshotID = 0x41503602;
 inline const Steinberg::FUID controllerID(0xD1444DE3, 0x38814391, 0xA916DC9C,
                                           0xFCC67008);
 class Processor final : public Steinberg::Vst::AudioEffect {
@@ -45,6 +47,7 @@ public:
   }
   Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream *) override;
   Steinberg::tresult PLUGIN_API setState(Steinberg::IBStream *) override;
+  Steinberg::tresult PLUGIN_API notify(Steinberg::Vst::IMessage *) override;
 
 private:
   enum Phase {
@@ -60,6 +63,10 @@ private:
   };
   std::atomic<Phase> phase_{New};
   bool stateSession();
+  void snapshotStatus(const char *status);
+  Steinberg::tresult recover(uint64_t revision);
+  bool controller_synced_ = false;
+  std::atomic<bool> want_active_{false}, want_processing_{false};
   void stateFailure(const char *operation, const char *stage);
   bool state_error_reported_ = false;
   std::atomic_flag busy_ = ATOMIC_FLAG_INIT;

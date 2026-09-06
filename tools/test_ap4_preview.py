@@ -53,6 +53,7 @@ class PreviewTests(unittest.TestCase):
                         token, directory = data.decode().split('\n')
                         self.assertEqual(len(token),32); self.assertEqual(pathlib.Path(directory),session)
                         (session/'ap1.control').write_bytes(b'ready')
+                        if not cleanup_failure: self.assertEqual(b.recv(1), b'R')
                         self.assertEqual(b.recv(1), b'')
                 except Exception as error: native_errors.append(error)
             thread = threading.Thread(target=native); thread.start()

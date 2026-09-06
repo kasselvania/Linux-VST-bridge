@@ -17,7 +17,10 @@ def run(host, bundle, audit):
         with tempfile.TemporaryDirectory(prefix='ap4-preview-') as temp:
             home=pathlib.Path(temp)
             root=home/'AP4-State-Test/preview';root.mkdir(parents=True,mode=0o700)
+            (root/'results').mkdir(mode=0o700)
             session=home/'session';session.mkdir(mode=0o700)
+            token=os.urandom(16).hex()
+            report=root/'results'/('native-'+token+'.jsonl')
             store=home/'state';store.mkdir();(store/'gain.state').write_bytes(envelope())
             address=root/'owner.sock'
             errors=[];counts=dict(get=0,set=0,activate=0,start=0,stop=0,process=0,zero_frame=0,closed=0)
@@ -28,10 +31,11 @@ def run(host, bundle, audit):
                         with listener.accept()[0] as lease:
                             lease.settimeout(30)
                             assert lease.recv(4)==b'AP4\n'
-                            response=(os.urandom(16).hex()+'\n'+str(session)).encode()
+                            response=(token+'\n'+str(session)).encode()
                             lease.sendall(struct.pack('<H',len(response))+response)
                             peer(session,case,counts)
                             assert lease.recv(1)==b''
+                            lease.sendall(b'R')
                     except BaseException as error:errors.append(repr(error))
                 thread=threading.Thread(target=owner);thread.start()
                 env={k:v for k,v in os.environ.items() if not k.startswith('LVB_')}
@@ -40,7 +44,7 @@ def run(host, bundle, audit):
                 thread.join(20)
                 assert not thread.is_alive() and not errors,(case,errors,process.stderr)
                 assert process.returncode==(0 if case=='state-gain' else 1),(case,process.stdout,process.stderr)
-                records=[json.loads(line) for line in (session/'ap3-gui-report.jsonl').read_text().splitlines()]
+                records=[json.loads(line) for line in report.read_text().splitlines()]
                 if case=='state-gain':
                     comparison=next(r for r in records if r['event']=='ap4_sample_comparison')
                     assert comparison['before_edit_samples']>0 and comparison['maximum_error']==0

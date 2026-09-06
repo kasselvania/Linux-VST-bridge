@@ -103,6 +103,19 @@ impl<T> Registry<T> {
     /// Only the owner thread removes. Stop admission first; outstanding leases
     /// protect memory until they return. A stuck caller retains the slot on timeout.
     pub fn remove<R>(&self, id: u64, finish: impl FnOnce(&mut T) -> R) -> Result<R, u32> {
+        self.exclusive(id, true, finish)
+    }
+    /// Non-RT replacement of one transport. Its logical instance and saved state
+    /// survive; callbacks cannot lease the old transport during replacement.
+    pub fn update<R>(&self, id: u64, replace: impl FnOnce(&mut T) -> R) -> Result<R, u32> {
+        self.exclusive(id, false, replace)
+    }
+    fn exclusive<R>(
+        &self,
+        id: u64,
+        remove: bool,
+        finish: impl FnOnce(&mut T) -> R,
+    ) -> Result<R, u32> {
         let index = id.checked_sub(1).ok_or(1u32)? as usize % CAPACITY;
         let slot = &self.slots[index];
         let _owner = Owner::acquire(&slot.owner).ok_or(3u32)?;
@@ -119,9 +132,13 @@ impl<T> Registry<T> {
             thread::sleep(Duration::from_micros(50));
         }
         let result = finish(unsafe { &mut (*p).value });
-        slot.entry.store(ptr::null_mut(), Ordering::Release);
-        unsafe {
-            drop(Box::from_raw(p));
+        if remove {
+            slot.entry.store(ptr::null_mut(), Ordering::Release);
+            unsafe {
+                drop(Box::from_raw(p));
+            }
+        } else {
+            slot.users.fetch_and(!CLOSED, Ordering::Release);
         }
         Ok(result)
     }
@@ -145,6 +162,22 @@ impl<T> Drop for Lease<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn transport_replacement_excludes_old_readers_and_keeps_sibling_live() {
+        let r = Registry::new();
+        let a = r.insert(|| Ok::<_, ()>(vec![1])).unwrap().unwrap();
+        let b = r.insert(|| Ok::<_, ()>(vec![2])).unwrap().unwrap();
+        r.update(a, |transport| {
+            assert!(r.lease(a).is_none());
+            assert_eq!(*r.lease(b).unwrap(), vec![2]);
+            *transport = vec![3];
+        })
+        .unwrap();
+        assert_eq!(*r.lease(a).unwrap(), vec![3]);
+        assert_eq!(*r.lease(b).unwrap(), vec![2]);
+        r.remove(a, |_| ()).unwrap();
+        r.remove(b, |_| ()).unwrap();
+    }
     #[test]
     fn capacity_stale_handles_and_sibling_removal() {
         let r = Registry::new();

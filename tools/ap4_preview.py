@@ -116,6 +116,7 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
     containment = True  # no Windows process until supervise is entered
     failure = None
     reporting_errors = []
+    native_report = None
 
     def contained(observation):
         cleanup = observation.get('cleanup') if isinstance(observation, dict) else None
@@ -133,6 +134,7 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
         greeting(peer)
         environment = create_environment()
         session = secrets.token_hex(16)
+        native_report = output / ('native-' + session + '.jsonl')
         reply = (session + '\n' + str(environment.session)).encode()
         if len(reply) > 1024:
             raise RuntimeError('preview startup reply bound')
@@ -164,6 +166,8 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
             report = environment.session / 'ap3-gui-report.jsonl'
             native = None
             try:
+                if native_report is not None and native_report.exists():
+                    report = native_report
                 if report.is_file() and not report.is_symlink() and report.stat().st_size <= 65536:
                     native = report.read_text()
             except Exception as error:
@@ -191,6 +195,13 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
                 persist('after_retirement')
                 if not record['retired']:
                     raise ContainmentError('preview retirement incomplete; stage disposition unresolved', record)
+                # AP6 recovery waits for positive owned-resource disposition;
+                # EOF alone is also possible after containment failure.
+                try:
+                    peer.settimeout(5)
+                    peer.sendall(b'R')
+                except OSError:
+                    pass  # a departed client cannot undo completed retirement
             else:
                 raise ContainmentError('preview containment incomplete; stage retained', record)
             if failure is not None or reporting_errors:

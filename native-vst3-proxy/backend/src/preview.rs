@@ -25,6 +25,8 @@ pub fn append_report(path: &Path, bytes: &[u8]) {
     const NOFOLLOW: i32 = 0x100;
     let Ok(mut file) = fs::OpenOptions::new()
         .append(true)
+        .create(true)
+        .mode(0o600)
         .custom_flags(NOFOLLOW)
         .open(path)
     else {
@@ -47,7 +49,32 @@ pub struct Binding {
     pub directory: PathBuf,
     pub session: [u8; 16],
     // Held through Session::close. EOF tells the owner to clean up after a crash.
-    pub owner: Option<UnixStream>,
+    pub owner: Option<Owner>,
+}
+
+pub struct Owner {
+    stream: UnixStream,
+    retired: bool,
+}
+impl Owner {
+    fn new(stream: UnixStream) -> Self {
+        Self {
+            stream,
+            retired: false,
+        }
+    }
+    pub fn finish(mut self) -> io::Result<()> {
+        if self.retired {
+            return Ok(());
+        }
+        self.stream.shutdown(std::net::Shutdown::Write)?;
+        self.stream.set_nonblocking(false)?;
+        self.stream
+            .set_read_timeout(Some(Duration::from_secs(60)))?;
+        let mut reply = [0];
+        self.stream.read_exact(&mut reply)?;
+        need(reply == [b'R'], "owner did not confirm complete retirement")
+    }
 }
 
 fn private(path: &Path, directory: bool) -> io::Result<()> {
@@ -111,7 +138,7 @@ pub fn connect(root: &Path) -> io::Result<Binding> {
     Ok(Binding {
         directory,
         session,
-        owner: Some(owner),
+        owner: Some(Owner::new(owner)),
     })
 }
 
@@ -120,16 +147,27 @@ pub fn discover() -> io::Result<Binding> {
     connect(&PathBuf::from(home).join("AP4-State-Test/preview"))
 }
 
+// Faults outlive disposable Windows stages, including a peer that exits before
+// the native worker can publish its first useful explanation.
+pub fn report_path(session: [u8; 16]) -> PathBuf {
+    let name: String = session.iter().map(|b| format!("{b:02x}")).collect();
+    PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
+        .join("AP4-State-Test/preview/results")
+        .join(format!("native-{name}.jsonl"))
+}
+
 /// Owner loss is checked by the transport worker while idle, never by audio.
-pub fn check_owner(owner: &mut Option<UnixStream>) -> io::Result<()> {
+pub fn check_owner(owner: &mut Option<Owner>) -> io::Result<()> {
     if let Some(owner) = owner {
-        match owner.read(&mut [0]) {
+        let mut reply = [0];
+        match owner.stream.read(&mut reply) {
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => (),
             Err(e) => return Err(e),
-            _ => {
+            result => {
+                owner.retired = result.ok() == Some(1) && reply == [b'R'];
                 return Err(invalid(
                     "preview owner disconnected or sent unsolicited data",
-                ))
+                ));
             }
         }
     }
@@ -158,6 +196,25 @@ mod tests {
         fn drop(&mut self) {
             fs::remove_dir_all(&self.0).unwrap();
         }
+    }
+    #[test]
+    fn retirement_requires_positive_owner_disposition() {
+        for reply in [b"R".as_slice(), b"".as_slice(), b"F".as_slice()] {
+            let (mut peer, socket) = UnixStream::pair().unwrap();
+            let t = std::thread::spawn(move || {
+                let mut byte = [0];
+                assert_eq!(peer.read(&mut byte).unwrap(), 0);
+                peer.write_all(reply).unwrap();
+            });
+            assert_eq!(Owner::new(socket).finish().is_ok(), reply == b"R");
+            t.join().unwrap();
+        }
+        let (mut peer, socket) = UnixStream::pair().unwrap();
+        socket.set_nonblocking(true).unwrap();
+        let mut owner = Some(Owner::new(socket));
+        peer.write_all(b"R").unwrap();
+        assert!(check_owner(&mut owner).is_err());
+        owner.unwrap().finish().unwrap(); // acknowledged before the fault was noticed
     }
     #[test]
     fn private_discovery_fragmented_reply_and_owner_disconnect() {
@@ -198,7 +255,7 @@ mod tests {
             Binding {
                 directory: dir.0.clone(),
                 session: [3; 16],
-                owner: Some(owner)
+                owner: Some(Owner::new(owner))
             },
             256,
             4

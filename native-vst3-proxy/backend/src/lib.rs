@@ -3,6 +3,7 @@ mod instances;
 mod preview;
 mod queue;
 mod queued;
+mod recovery;
 mod state;
 use ap1_native_client::{
     endpoint::{receive_version, send_version, Prepared},
@@ -30,7 +31,7 @@ struct Session {
     epoch: u64,
     position: u64,
     witness: Option<state::Witness>,
-    owner: Option<std::os::unix::net::UnixStream>,
+    owner: Option<preview::Owner>,
 }
 // Mapping has no escaping references; the registry serializes every access.
 unsafe impl Send for Session {}
@@ -93,7 +94,7 @@ impl Session {
         id: [u8; 16],
         max: usize,
         minor: u64,
-        mut owner: Option<std::os::unix::net::UnixStream>,
+        mut owner: Option<preview::Owner>,
     ) -> io::Result<Self> {
         let prepared = Prepared::create(path, id)?;
         let (mapping, socket) =
