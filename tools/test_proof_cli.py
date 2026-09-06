@@ -103,6 +103,38 @@ class ProofCliTests(unittest.TestCase):
         self.assertLessEqual(len(cli.safe_detail("x" * 50000)), 768)
         self.assertEqual(cli.safe_detail(b""), "no error detail returned")
 
+    def test_local_plan_and_validation_do_not_load_execution_permission(self):
+        for operation in ("plan", "validate"):
+            with self.subTest(operation=operation):
+                args = cli.build_parser().parse_args([
+                    operation, "--source", "1" * 40, "--plan", PLAN_ID])
+                local = Mock(return_value=0)
+                with patch.object(cli, "load_authority", side_effect=AssertionError("not a live operation")), \
+                     patch.object(cli, "_production_adapters", side_effect=AssertionError("no remote adapters")), \
+                     patch.object(cli, "ClassifiedProofBackend", side_effect=AssertionError("no transaction")):
+                    self.assertEqual(cli.dispatch(args, local_runner=local), 0)
+                local.assert_called_once_with(operation, "1" * 40, PLAN_ID)
+
+    def test_legacy_status_is_not_current_task_authority(self):
+        self.assertEqual(cli.AUTHORITY, TOOLS / "legacy-proof-default.md")
+        with patch.object(cli, "_production_adapters", side_effect=AssertionError("status cannot launch")):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(cli.main(["status"]), 0)
+        result = json.loads(out.getvalue())
+        self.assertEqual(result["interface"], "legacy_proof_transactions")
+        self.assertFalse(result["live_execution_authorized"])
+        self.assertIn("CURRENT_SLICE.md", result["project_task_status"])
+
+    def test_legacy_default_does_not_read_the_current_work_document(self):
+        original = Path.read_bytes
+        def read(path):
+            if path == TOOLS.parent / "CURRENT_SLICE.md":
+                raise AssertionError("task prose is not a legacy permission source")
+            return original(path)
+        with patch.object(Path, "read_bytes", read), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(["status"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

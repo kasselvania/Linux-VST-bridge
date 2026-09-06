@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Classified proof command; explicit scoped authority and actionable failures."""
+"""Optional legacy proof transactions; not the project's development workflow."""
 from __future__ import annotations
 
 import argparse
@@ -25,7 +25,8 @@ from proof_execution_policy import (
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-AUTHORITY = ROOT / "CURRENT_SLICE.md"
+# Keep legacy transaction permissions separate from the human current-work note.
+AUTHORITY = ROOT / "tools/legacy-proof-default.md"
 LOCAL_BACKEND = ROOT / "tools/host-proof.py"
 
 
@@ -130,13 +131,17 @@ def _live_request(args: argparse.Namespace) -> LiveRequest:
 def dispatch(args: argparse.Namespace, *,
              local_runner: Callable[[str, str, str], int] = _run_local,
              classified_runner: Callable[[object, bytes], object] | None = None) -> int:
+    # Local planning/validation never needs a live-execution permission document.
+    if args.operation in {"plan", "validate"}:
+        return local_runner(args.operation, args.source, args.plan)
     authority_path = pathlib.Path(getattr(args, "authority", None) or AUTHORITY)
     authority = load_authority(authority_path)
     if args.operation == "status":
-        print(canonical_json(authority_status(authority)).decode(), end="")
+        output = authority_status(authority)
+        output["interface"] = "legacy_proof_transactions"
+        output["project_task_status"] = "See CURRENT_SLICE.md; this is not task authority"
+        print(canonical_json(output).decode(), end="")
         return 0
-    if args.operation in {"plan", "validate"}:
-        return local_runner(args.operation, args.source, args.plan)
 
     delegation = authorize_live_request(authority, _live_request(args))
     encoded = canonical_json(delegation)
@@ -185,7 +190,7 @@ def dispatch(args: argparse.Namespace, *,
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="operation", required=True)
-    status = sub.add_parser("status")
+    status = sub.add_parser("status", help="Legacy transaction status, not current project work")
     status.add_argument("--authority", type=pathlib.Path)
     for name in ("plan", "validate"):
         item = sub.add_parser(name)
@@ -197,7 +202,7 @@ def build_parser() -> argparse.ArgumentParser:
         item.add_argument("--plan", required=True)
         item.add_argument(f"--{identity}", required=True)
         item.add_argument("--authority", type=pathlib.Path,
-                          help="Explicit scoped receipt; default CURRENT_SLICE remains fail-closed")
+                          help="Explicit legacy receipt; default tools/legacy-proof-default.md launches nothing")
         if name == "accept":
             item.add_argument("--render-only", action="store_true",
                               help="Render the immutable retained acceptance result; no remote calls")
