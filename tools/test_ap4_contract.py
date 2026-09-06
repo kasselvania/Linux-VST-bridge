@@ -49,6 +49,29 @@ class AP4ContractTests(unittest.TestCase):
    native[1]['sha256']=state('set',0.,.125)['sha256']
    with self.assertRaisesRegex(ValueError,'not corroborated'):c.normalize_session(observed,'bitwig_mute')
 
+ def test_native_decimal_readback_matches_exact_float32_bits(self):
+  native=records('bitwig_mute')
+  payload=struct.pack('<ffi',.505,0.,0)
+  actual=struct.unpack('<f',payload[:4])[0]
+  logged=float(format(actual,'.9g'))
+  self.assertNotEqual(logged,actual)
+  snapshot=dict(event='ap4_native_state',operation='get',gain=logged,payload_bytes=12,sha256=hashlib.sha256(payload).hexdigest())
+  native.append(snapshot)
+  windows=[dict(state='ap4_state_started',operation='set',owner_thread=True),dict(state='ap4_state_result',operation='set',result=0)]
+  windows += [dict(state='ap4_state_readback',payload_bytes=12,payload_hex=struct.pack('<ffi',gain,0.,0).hex()) for gain in (1.,0.,.505)]
+  observed=dict(caller=dict(raw_exit=0,cleanup=c.CLEAN,records=native),records=windows)
+  with patch.object(c.previous,'validate_windows_session',side_effect=lambda o,comparison,label,ap4:dict(comparison=comparison)):
+   result=c.normalize_session(observed,'bitwig_mute')
+   self.assertEqual(result['comparison']['states'][-1],snapshot)
+   # A numerically close but different float32 must still fail: no tolerance.
+   adjacent=struct.unpack('<f',struct.pack('<I',struct.unpack('<I',payload[:4])[0]+1))[0]
+   for invalid in (adjacent,.5,float('nan'),float('inf'),-1.,2.,True):
+    snapshot['gain']=invalid
+    with self.subTest(invalid=invalid),self.assertRaises(ValueError):c.normalize_session(observed,'bitwig_mute')
+   snapshot['gain']=logged
+   snapshot['sha256']=hashlib.sha256(struct.pack('<ffi',.505,.125,0)).hexdigest()
+   with self.assertRaisesRegex(ValueError,'not corroborated'):c.normalize_session(observed,'bitwig_mute')
+
  def test_saved_full_payload_must_match_fresh_restore(self):
   sessions={label:c.compare_gui(records(label),label) for label in c.GUI};c.join_gui_states(sessions)
   for field in ('gain','hidden_reduction'):

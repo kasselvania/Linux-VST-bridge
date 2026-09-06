@@ -94,7 +94,11 @@ def normalize_session(observed,label):
   require(all(any(r['payload_hex']==v['payload_hex'] for r in readback) for v in comparison['states']),'AP4 host state not corroborated by Windows')
  if label in GUI:
   for state in comparison['states']:
-   require(state['payload_bytes']==12 and any(hashlib.sha256(bytes.fromhex(r['payload_hex'])).hexdigest()==state['sha256'] and struct.unpack('<ffi',bytes.fromhex(r['payload_hex']))[0]==state['gain'] for r in readback),'AP4 native state not corroborated by Windows')
+   # The native logger prints nine significant digits: round-trip its JSON
+   # number to binary32 before comparing with the opaque Windows payload.
+   gain=state['gain'];require(type(gain) in (int,float) and math.isfinite(gain) and 0<=gain<=1,'AP4 invalid native gain')
+   gain_bits=struct.pack('<f',gain)
+   require(state['payload_bytes']==12 and any(hashlib.sha256(bytes.fromhex(r['payload_hex'])).hexdigest()==state['sha256'] and bytes.fromhex(r['payload_hex'])[:4]==gain_bits for r in readback),'AP4 native state not corroborated by Windows')
  result['comparison']['windows_state']=readback
  return result
 
