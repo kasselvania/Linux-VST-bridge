@@ -373,6 +373,7 @@ tresult Processor::recover(uint64_t revision) {
       phase_ = Active;
       if (want_processing_) {
         if (ap3_transition(handle_, 10)) { phase_ = Failed; return kResultFalse; }
+        latency_remaining_ = 1024;
         phase_ = Running;
       }
     }
@@ -510,20 +511,26 @@ tresult PLUGIN_API Processor::setProcessing(TBool running) {
     phase_ = Failed;
     return kResultFalse;
   }
+  if (running && queued_) latency_remaining_ = 1024;
   phase_ = running ? Running : Stopped;
   want_processing_ = running != 0;
   return kResultOk;
 }
+// A discontinuity is one contiguous run of rejected non-empty callbacks.
+// Successful silence and latency priming are counted separately at return.
+tresult Processor::rejected(ProcessData &d) {
+  callback_rejections_.fetch_add(1, std::memory_order_relaxed);
+  if (outputs(d, maximum_)) {
+    rejected_frames_.fetch_add(static_cast<uint64_t>(d.numSamples), std::memory_order_relaxed);
+    if (!last_callback_rejected_.exchange(true, std::memory_order_relaxed))
+      discontinuities_.fetch_add(1, std::memory_order_relaxed);
+  }
+  return failure(d, maximum_);
+}
 tresult PLUGIN_API Processor::process(ProcessData &d) {
   Guard g(busy_);
-  auto reject = [&] {
-    callback_rejections_.fetch_add(1, std::memory_order_relaxed);
-    return failure(d, maximum_);
-  };
-  if (!g.held) {
-    callback_rejections_.fetch_add(1, std::memory_order_relaxed);
-    return failure(d, maximum_);
-  }
+  auto reject = [&] { return rejected(d); };
+  if (!g.held) return reject();
   if (phase_ != Running || d.processMode != process_mode_ ||
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||
       d.numSamples > maximum_)
@@ -586,6 +593,14 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     phase_ = Failed;
     return reject();
   }
+  last_callback_rejected_.store(false, std::memory_order_relaxed);
+  if (silence == 3) {
+    ++silent_callbacks_;
+    silent_frames_ += static_cast<uint64_t>(d.numSamples);
+  }
+  const auto primed = std::min(latency_remaining_, static_cast<uint64_t>(d.numSamples));
+  priming_frames_ += primed;
+  latency_remaining_ -= primed;
   gain_ = pending;
   frames_ += d.numSamples;
   zero_gain_blocks_ += pending == 0.;
@@ -640,7 +655,10 @@ tresult PLUGIN_API Processor::terminate() {
         "{\"event\":\"ap3_proxy_lifecycle\",\"phase\":%d,\"requested_maximum\":"
         "%d,"
         "\"requested_rate\":%.0f,\"requested_mode\":%d,\"frames\":%llu,"
-        "\"blocks\":%u,\"callback_rejections\":%llu,\"zero_gain_blocks\":%llu,"
+        "\"blocks\":%u,\"callback_rejections\":%llu,"
+        "\"rejected_silent_frames\":%llu,\"discontinuities\":%llu,"
+        "\"successful_silent_callbacks\":%llu,\"successful_silent_frames\":%llu,"
+        "\"priming_frames\":%llu,\"zero_gain_blocks\":%llu,"
         "\"gain_min\":%.9g,\"gain_"
         "max\":%.9g,"
         "\"clean\":%s}\n",
@@ -648,6 +666,10 @@ tresult PLUGIN_API Processor::terminate() {
         requested_mode_, (unsigned long long)frames_, blocks_,
         (unsigned long long)callback_rejections_.load(
             std::memory_order_relaxed),
+        (unsigned long long)rejected_frames_.load(std::memory_order_relaxed),
+        (unsigned long long)discontinuities_.load(std::memory_order_relaxed),
+        (unsigned long long)silent_callbacks_, (unsigned long long)silent_frames_,
+        (unsigned long long)priming_frames_,
         (unsigned long long)zero_gain_blocks_, gain_min_, gain_max_,
         clean ? "true" : "false");
     if (n > 0 && static_cast<size_t>(n) < sizeof(text))

@@ -65,6 +65,18 @@ struct Shared {
     pending_control: AtomicBool,
     state_capable: AtomicBool,
     witness: std::sync::Mutex<Observation>,
+    observation_skips: AtomicU64,
+    worker_op: AtomicU64,
+    worker_epoch: AtomicU64,
+    worker_position: AtomicU64,
+    service_us_max: AtomicU64,
+    first_context_ready: AtomicBool,
+    first_epoch: AtomicU64,
+    first_worker_op: AtomicU64,
+    first_worker_epoch: AtomicU64,
+    first_worker_position: AtomicU64,
+    first_requests: [AtomicU64; 2],
+    first_results: [AtomicU64; 2],
 }
 impl Shared {
     fn new() -> Self {
@@ -86,15 +98,44 @@ impl Shared {
             pending_control: AtomicBool::new(false),
             state_capable: AtomicBool::new(false),
             witness: std::sync::Mutex::new(Observation::default()),
+            observation_skips: AtomicU64::new(0),
+            worker_op: AtomicU64::new(0),
+            worker_epoch: AtomicU64::new(0),
+            worker_position: AtomicU64::new(0),
+            service_us_max: AtomicU64::new(0),
+            first_context_ready: AtomicBool::new(false),
+            first_epoch: AtomicU64::new(0),
+            first_worker_op: AtomicU64::new(0),
+            first_worker_epoch: AtomicU64::new(0),
+            first_worker_position: AtomicU64::new(0),
+            first_requests: std::array::from_fn(|_| AtomicU64::new(0)),
+            first_results: std::array::from_fn(|_| AtomicU64::new(0)),
         }
     }
     fn fail(&self, code: u64, position: u64) {
         if self
             .fault
-            .compare_exchange(0, code, Ordering::AcqRel, Ordering::Relaxed)
+            .compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
         {
-            self.first_position.store(position, Ordering::Release);
+            self.first_position.store(position, Ordering::Relaxed);
+            self.first_epoch
+                .store(self.wanted.load(Ordering::Acquire), Ordering::Relaxed);
+            self.first_worker_op
+                .store(self.worker_op.load(Ordering::Acquire), Ordering::Relaxed);
+            self.first_worker_epoch
+                .store(self.worker_epoch.load(Ordering::Acquire), Ordering::Relaxed);
+            self.first_worker_position.store(
+                self.worker_position.load(Ordering::Acquire),
+                Ordering::Relaxed,
+            );
+            // Independent progress counters: bounded observations, not an
+            // atomic queue snapshot or a wall-clock claim about the peer.
+            self.first_requests[0].store(self.requests.published(), Ordering::Relaxed);
+            self.first_requests[1].store(self.requests.consumed(), Ordering::Relaxed);
+            self.first_results[0].store(self.results.published(), Ordering::Relaxed);
+            self.first_results[1].store(self.results.consumed(), Ordering::Relaxed);
+            self.first_context_ready.store(true, Ordering::Release);
         }
     }
 }
@@ -263,6 +304,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     .map_err(|_| invalid("state mailbox poisoned"))?;
                 if let Some(c) = mailbox.as_mut() {
                     if c.result.is_none() && s.requests.consumed() >= c.barrier {
+                        s.worker_op.store(c.op as u64, Ordering::Release);
                         let result = match c.op {
                             16 => session
                                 .component_state(None)
@@ -315,21 +357,27 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     }
                 }
             }
+            s.worker_op.store(0, Ordering::Release);
             if let Some(w) = &session.witness {
-                *s.witness
-                    .lock()
-                    .map_err(|_| invalid("fixture observer poisoned"))? = Observation {
-                    comparison: w.report,
-                    input_hash: w.input_hash,
-                    output_hash: w.output_hash,
-                };
+                publish_observation(
+                    &s,
+                    Observation {
+                        comparison: w.report,
+                        input_hash: w.input_hash,
+                        output_hash: w.output_hash,
+                    },
+                )?;
             }
             let Some(mut item) = s.requests.pop() else {
                 thread::sleep(Duration::from_micros(50));
                 continue;
             };
+            s.worker_epoch.store(item.epoch, Ordering::Relaxed);
+            s.worker_position.store(item.position, Ordering::Relaxed);
+            s.worker_op.store(item.kind as u64, Ordering::Release);
             match item.kind {
                 AUDIO => {
+                    let started = Instant::now();
                     let n = item.n as usize;
                     let (words, flags) = session.process_positioned(
                         n,
@@ -345,6 +393,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         }
                     }
                     item.flags = flags;
+                    s.service_us_max.fetch_max(
+                        started.elapsed().as_micros().min(u64::MAX as u128) as u64,
+                        Ordering::Relaxed,
+                    );
                     s.processed.fetch_add(1, Ordering::Relaxed);
                     if n > 0
                         && s.wanted.load(Ordering::Acquire) == item.epoch
@@ -391,6 +443,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 json_text(&s.detail.lock().map(|d| d.clone()).unwrap_or_default())
             );
             crate::preview::append_report(path, text.as_bytes());
+            crate::preview::append_report(path, progress_text(&s).as_bytes());
         }
     }
     let owner = session.owner.take();
@@ -411,6 +464,30 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         s.retired.store(owner.finish().is_ok(), Ordering::Release);
     }
     s.ack.store(6, Ordering::Release);
+}
+fn publish_observation(s: &Shared, observation: Observation) -> io::Result<()> {
+    // Diagnostic readers may be descheduled with the lock held. Publishing a
+    // cumulative observation is optional; audio service never waits for it.
+    match s.witness.try_lock() {
+        Ok(mut slot) => *slot = observation,
+        Err(std::sync::TryLockError::WouldBlock) => {
+            s.observation_skips.fetch_add(1, Ordering::Relaxed);
+        }
+        Err(std::sync::TryLockError::Poisoned(_)) => {
+            return Err(invalid("fixture observer poisoned"));
+        }
+    }
+    Ok(())
+}
+fn progress_text(s: &Shared) -> String {
+    let ready = s.first_context_ready.load(Ordering::Acquire);
+    format!(
+        "{{\"event\":\"ap7_fault_progress\",\"context_ready\":{},\"epoch\":{},\"worker_op\":{},\"worker_epoch\":{},\"worker_position\":{},\"request_published\":{},\"request_consumed\":{},\"result_published\":{},\"result_consumed\":{},\"service_us_max_at_report\":{},\"observation_skips\":{}}}\n",
+        ready, s.first_epoch.load(Ordering::Relaxed), s.first_worker_op.load(Ordering::Relaxed),
+        s.first_worker_epoch.load(Ordering::Relaxed), s.first_worker_position.load(Ordering::Relaxed),
+        s.first_requests[0].load(Ordering::Relaxed), s.first_requests[1].load(Ordering::Relaxed),
+        s.first_results[0].load(Ordering::Relaxed), s.first_results[1].load(Ordering::Relaxed),
+        s.service_us_max.load(Ordering::Relaxed), s.observation_skips.load(Ordering::Relaxed))
 }
 fn bounded_detail(error: &io::Error) -> String {
     format!("{:?}: {}", error.kind(), error)
@@ -984,15 +1061,60 @@ pub unsafe extern "C" fn ap4_failure(id: u64, out: *mut Failure) -> u32 {
 mod tests {
     use super::*;
     #[test]
+    fn paused_diagnostic_reader_cannot_starve_due_audio() {
+        let s = Arc::new(Shared::new());
+        let mut cb = Callback::new();
+        cb.transition(&s, START);
+        let mut r = Item::control(AUDIO, 0);
+        r.n = 256;
+        r.gain = 0.5;
+        r.data = [[0.25; CAP]; 2];
+        let mut out = [[0.; CAP]; 2];
+        // A diagnostic reader is descheduled while holding its short lock.
+        // The same publication operation used by worker must not delay audio.
+        let reader = s.witness.lock().unwrap();
+        for _ in 0..4 {
+            cb.process(&s, r, &mut out).unwrap();
+        }
+        let peer = s.clone();
+        let (done, progress) = std::sync::mpsc::channel();
+        let t = thread::spawn(move || {
+            publish_observation(&peer, Observation::default()).unwrap();
+            pump(&peer);
+            done.send(()).unwrap();
+        });
+        let progressed = progress.recv_timeout(Duration::from_millis(200)).is_ok();
+        let result = cb.process(&s, r, &mut out);
+        drop(reader);
+        t.join().unwrap();
+        assert_eq!(
+            result,
+            Ok(0),
+            "diagnostic contention caused a due-audio underflow"
+        );
+        assert!(progressed);
+        assert_eq!(s.observation_skips.load(Ordering::Relaxed), 1);
+        assert_eq!(out, [[0.125; CAP]; 2]);
+        assert_eq!(s.fault.load(Ordering::Acquire), 0);
+    }
+    #[test]
     fn first_callback_fault_survives_later_worker_failure() {
         let s = Shared::new();
+        s.wanted.store(2, Ordering::Release);
+        s.worker_op.store(AUDIO as u64, Ordering::Release);
+        s.worker_epoch.store(2, Ordering::Release);
+        s.worker_position.store(0, Ordering::Release);
         s.fail(UNDERFLOW, 1024);
+        s.worker_op.store(18, Ordering::Release);
         s.fail(WORKER, 2048);
         *s.detail.lock().unwrap() = "queued session fault or cancelled".into();
         let report = failure_snapshot(&s);
         assert_eq!(report.fault, UNDERFLOW);
         assert_eq!(report.first_position, 1024);
         assert_eq!(report.processed, 0);
+        assert!(s.first_context_ready.load(Ordering::Acquire));
+        assert_eq!(s.first_epoch.load(Ordering::Relaxed), 2);
+        assert_eq!(s.first_worker_op.load(Ordering::Relaxed), AUDIO as u64);
         assert!(report.detail.starts_with(b"queued session fault"));
     }
     fn pump(s: &Shared) {
