@@ -32,7 +32,6 @@ struct Session {
     epoch: u64,
     position: u64,
     witness: Option<observer::Observer>,
-    state_captured: bool,
     trace: observer::Trace,
     owner: Option<preview::Owner>,
 }
@@ -123,7 +122,6 @@ impl Session {
                 None
             },
             owner,
-            state_captured: false,
             trace: observer::Trace::default(),
         };
         if minor == 4 {

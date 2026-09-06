@@ -21,13 +21,15 @@ def run(host, bundle, audit):
       def hook(position,n,present,gain):
        if index: return
        if position==0:
+        assert not (store/'release-a').exists()
+        (store/'a-held').write_text('held')
         until=time.monotonic()+3
         while not (store/'release-a').exists():
          if time.monotonic()>until:raise TimeoutError('driver did not release delayed output')
          time.sleep(.001)
        if present:counter['edits']+=1;assert gain==.5 and position==4096
-       # This marks admission, not reply publication; the driver sleeps below
-       # after observing it, while its next due result was admitted >=1024 ago.
+       # This marks admission, not reply publication; the next due result
+       # belongs to a request at least 1024 source frames before this one.
        pending=store/'a-through.tmp';pending.write_text(str(position+n));pending.replace(store/'a-through')
       with lease:
        lease.settimeout(20);assert lease.recv(4)==b'AP4\n'

@@ -115,7 +115,6 @@ impl Session {
                 )?;
             }
             reference(&reply.payload)?;
-            self.state_captured = true;
             if let Some(w) = &mut self.witness {
                 w.state(&reply.payload, restore.is_some());
             }

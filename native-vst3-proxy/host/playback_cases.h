@@ -55,7 +55,15 @@ void playbackCases(const Factory &factory, HostApplication *host, const std::str
       if (missing) gaps += unsigned(n);
       position += unsigned(n);
     };
-    for (int i = 0; i < 4; ++i) process(256, false);
+    process(256, false);
+    {
+      auto end = Clock::now() + std::chrono::seconds(3);
+      while (!std::ifstream(store + "/a-held").good()) {
+        need(Clock::now() < end, "peer holding the actual first request");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    }
+    for (int i = 0; i < 3; ++i) process(256, false);
     if (scenario == "playback-partial") process(128, true);
     else for (int i = 0; i < 3; ++i) process(256, true);
     { std::ofstream release(store + "/release-a"); release << "release\n"; }

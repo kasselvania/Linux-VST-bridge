@@ -380,9 +380,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                 .component_state(Some(&c.bytes))
                                 .and_then(|p| state::envelope(&p)),
                             8 => (|| {
-                                if session.witness.is_some() && !session.state_captured {
-                                    session.component_state(None)?;
-                                }
+                                // Observation waits for a real state operation;
+                                // it cannot add a prerequisite transport request.
                                 session
                                     .activate(
                                         ap1_native_client::get(&c.bytes[..4]) as usize,
