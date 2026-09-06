@@ -116,6 +116,11 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
     containment = True  # no Windows process until supervise is entered
     failure = None
     checkpoint_error = None
+    # Linux records the connecting native process directly from the socket,
+    # independently of DAW hosting settings or a client-supplied identifier.
+    native_process_id = None
+    if hasattr(socket, 'SO_PEERCRED'):
+        native_process_id = struct.unpack('3i', peer.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[0]
     try:
         greeting(peer)
         environment = create_environment()
@@ -154,7 +159,7 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
             native = None
             if report.is_file() and not report.is_symlink() and report.stat().st_size <= 65536:
                 native = report.read_text()
-            record = {'run_id': environment.run_id, 'observation': observed,
+            record = {'run_id': environment.run_id, 'native_process_id': native_process_id, 'observation': observed,
                       'native_report': native, 'error': failure, 'retired': False}
             target = output / (environment.run_id + '.json')
             write_atomic(target, canonical_json(record))
