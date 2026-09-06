@@ -89,9 +89,18 @@ def gui(environment,*,mode,checkpoint,profile,label,root=None,project=None,nativ
   '--nofilesystem='+str(real_home()/'.vst'),'--nofilesystem='+str(real_home()/'.clap'),
   *['--env='+k+'='+v for k,v in (extra_env or {}).items()],
   'com.bitwig.BitwigStudio',str(project)]
+ native_raw=None;native_error=None
+ def checkpoint_report():
+  nonlocal native_raw,native_error
+  if native_error is not None:raise native_error
+  if native_raw is None:
+   try:
+    if report.is_symlink() or not report.is_file() or report.stat().st_size>8192:raise RuntimeError('bounded native Bitwig report missing')
+    native_raw=report.read_bytes()
+   except Exception as error:native_error=error;raise
+  return native_raw
  def retained_report():
-  if report.is_symlink() or not report.is_file() or report.stat().st_size>8192:raise RuntimeError('bounded native Bitwig report missing')
-  raw=report.read_bytes()
+  raw=checkpoint_report()
   # The UI note is an agent observation, never the numerical/timing oracle.
   note=environment.session/(label+'-ui.json')
   # AP4 records the observed Quit action after the actual GUI call returns.
@@ -110,7 +119,7 @@ def gui(environment,*,mode,checkpoint,profile,label,root=None,project=None,nativ
   return raw
  progress(environment,label)
  return companion.supervise(environment,mode=mode,checkpoint=checkpoint,profile=profile,session=session,
-  caller_command=command,caller_env=env,ready_seconds=180,exit_seconds=60,caller_report=retained_report,track_descendants=True,post_gate_seconds=post_gate_seconds,
+  caller_command=command,caller_env=env,ready_seconds=180,exit_seconds=60,caller_report=retained_report,caller_checkpoint_report=checkpoint_report,track_descendants=True,post_gate_seconds=post_gate_seconds,
   accepted_events=accepted_events or {'ap3_proxy_stats','ap3_proxy_lifecycle','ap3_bitwig_ui'})
 
 def supervise(environment,*,mode,checkpoint,profile):

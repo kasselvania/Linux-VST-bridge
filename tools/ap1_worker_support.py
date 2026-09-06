@@ -1,5 +1,5 @@
 """AP1 companion process uses the accepted supervisor and owned cleanup primitive."""
-import json,pathlib,os,secrets,subprocess,time
+import json,pathlib,os,secrets,subprocess,time,hashlib,re,copy
 import supervise as inherited
 import pc0_diagnostic_primitives as diagnostic
 import ap0_worker_support as ap0
@@ -7,7 +7,7 @@ from ap1_contract import MODE,normalize,validate_summary
 from ap1_runtime import verify_runtime
 from ap1_client_artifact import verify_client
 from ap0_artifacts import verify_host_store
-from pc0_diagnostic_runtime import exception_detail
+from pc0_diagnostic_runtime import exception_detail,sanitized_supervision_error
 
 _client=None
 
@@ -35,7 +35,24 @@ def command_vector(environment,session,component_case,mode):
 
 StreamState=ap0.StreamState
 
-def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_env=None,windows_run=None,accepted_events=None,session=None,ready_seconds=5,exit_seconds=2,caller_report=None,track_descendants=False,post_gate_seconds=120):
+def retained_stream(path):
+    """Hash the stream without retaining it; keep only a bounded error excerpt."""
+    if path.is_symlink() or not path.is_file():raise RuntimeError('unsafe caller diagnostic stream')
+    digest=hashlib.sha256();tail=b''
+    with path.open('rb') as stream:
+        # Snapshot the current extent. A still-live child cannot extend this read.
+        remaining=os.fstat(stream.fileno()).st_size
+        if remaining>8*1024*1024:raise RuntimeError('caller diagnostic stream exceeds read bound')
+        while remaining:
+            block=stream.read(min(65536,remaining))
+            if not block:raise RuntimeError('caller diagnostic stream truncated during read')
+            remaining-=len(block);digest.update(block);tail=(tail+block)[-8192:]
+    lines=[line for line in tail.decode('utf-8','replace').splitlines()
+           if re.search(r'(?i)\b(error|exception|fatal|assertion|aborted|crash|terminate|what)\b',line)]
+    detail=sanitized_supervision_error(RuntimeError(' | '.join(lines[-4:]))) if lines else None
+    return digest.hexdigest(),detail
+
+def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_env=None,windows_run=None,accepted_events=None,session=None,ready_seconds=5,exit_seconds=2,caller_report=None,track_descendants=False,post_gate_seconds=120,caller_checkpoint_report=None):
     if _client is None and caller_command is None:raise RuntimeError('native caller was not admitted')
     session=session or secrets.token_hex(16)
     out_path=environment.session/'ap1-client.jsonl';err_path=environment.session/'ap1-client.stderr'
@@ -43,6 +60,52 @@ def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_e
     windows_cleanup={'owned_descendants_zero':False,'process_group_empty':False}
     captured={}
     seen_caller=set()
+    def failed(field,error):
+        nonlocal primary
+        caller.setdefault(field,exception_detail(error))
+        primary=primary or error
+    def snapshot():
+        available=observed or captured or {'records':[],'classification':'native_setup_failed','raw_exit':None}
+        return {**available,'caller':copy.deepcopy(caller),'cleanup':{
+            k:windows_cleanup.get(k) is True and caller['cleanup'][k] is True for k in windows_cleanup}}
+    def read_report(reader):
+        records=[]
+        try:
+            if reader is None:
+                with out_path.open('rb') as stream:raw=stream.read(192*1024+1)
+            else:raw=reader()
+            if len(raw)>192*1024:raise RuntimeError('native report exceeds bound')
+            for line in raw.splitlines():
+                value=json.loads(line)
+                if not isinstance(value,dict) or value.get('event') not in (accepted_events or {'ap1_client_ready','ap1_client_block','ap1_client_closed','ap1_client_error'}):raise RuntimeError('native report event differs')
+                records.append(value)
+            if raw and not raw.endswith(b'\n'):raise RuntimeError('native report was truncated')
+        except Exception as error:
+            # Retain a valid prefix, or an earlier complete checkpoint if the
+            # later GUI-note/report path fails. This is never product admission.
+            if len(records)>len(caller['records']):caller['records']=records
+            failed('reporting_error',error)
+        else:caller['records']=records
+    def retain_caller():
+        # Capture native facts before cleanup. GUI-note waiting stays AFTER
+        # owned cleanup, using the GUI helper's cached native bytes.
+        read_report(caller_checkpoint_report or caller_report)
+        for name,path in [('stderr',err_path),*([('stdout',out_path)] if caller_report is not None else [])]:
+            try:
+                digest,detail=retained_stream(path);caller[name+'_sha256']=digest
+                if caller_command is not None and detail is not None:caller[name+'_detail']=detail
+            except Exception as error:failed('retention_error',error)
+        if caller_report is not None:
+            # Bitwig may leave this fixed-name text report in its disposable cwd.
+            # No directory scan, core dump, private environment or raw log export.
+            crash=environment.session/'BITWIG_ENGINE_CRASH.txt'
+            if crash.exists() or crash.is_symlink():
+                try:
+                    digest,detail=retained_stream(crash);caller['crash_sha256']=digest
+                    if detail is not None:caller['crash_detail']=detail
+                except Exception as error:failed('retention_error',error)
+        if primary is not None:caller['error']=exception_detail(primary)
+        checkpoint('native_caller_before_cleanup',snapshot(),primary)
     def observe_caller():
         if track_descendants and client is not None:
             for process in inherited.descendants(client.pid):
@@ -74,41 +137,33 @@ def supervise(environment,*,mode,checkpoint,profile,caller_command=None,caller_e
         except Exception as error:
             primary=error
         finally:
+            if not windows_started:windows_cleanup={'owned_descendants_zero':True,'process_group_empty':True}
             if client is not None:
                 try:
                     end=time.monotonic()+exit_seconds
                     while client.poll() is None and time.monotonic()<end:
                         observe_caller();time.sleep(.05)
-                except Exception as error:primary=primary or error
+                except Exception as error:failed('cleanup_error',error)
                 caller['raw_exit']=client.poll()
                 if caller['raw_exit'] is None:primary=primary or RuntimeError('native caller exit timeout after Windows completion')
+            # Retention/checkpoint errors must not prevent owned-process cleanup.
+            try:
+                out.flush();err.flush();retain_caller()
+            except Exception as error:failed('retention_error',error)
+            if client is not None:
                 # Same PID/start-time and process-group cleanup used for Windows.
                 try:
                     caller['cleanup']=inherited.cleanup_process(client,sorted(seen_caller))
                 except Exception as error:
-                    primary=primary or error
+                    failed('cleanup_error',error)
             else:
                 caller['cleanup']={'owned_descendants_zero':True,'process_group_empty':True}
                 windows_cleanup=caller['cleanup']
-    if not windows_started:windows_cleanup={'owned_descendants_zero':True,'process_group_empty':True}
-    import hashlib
-    caller['stderr_sha256']=hashlib.sha256(err_path.read_bytes()).hexdigest()
-    if caller_command is not None and caller_report is None and err_path.stat().st_size:
-        from pc0_diagnostic_runtime import sanitized_supervision_error
-        caller['stderr_detail']=sanitized_supervision_error(RuntimeError(err_path.read_bytes()[:2048].decode('utf-8','replace')))
-    try:
-        raw=out_path.read_bytes() if caller_report is None else caller_report()
-        if len(raw)>192*1024:raise RuntimeError('native report exceeds bound')
-        lines=raw.splitlines()
-        for line in lines:
-            value=json.loads(line)
-            if not isinstance(value,dict) or value.get('event') not in (accepted_events or {'ap1_client_ready','ap1_client_block','ap1_client_closed','ap1_client_error'}):raise RuntimeError('native report event differs')
-            caller['records'].append(value)
-        if raw and not raw.endswith(b'\n'):raise RuntimeError('native report was truncated')
-    except Exception as error:primary=primary or error
     if primary is not None:caller['error']=exception_detail(primary)
-    available=observed or captured or {'records':[],'classification':'native_setup_failed','raw_exit':None}
-    available={**available,'caller':caller,'cleanup':{k:windows_cleanup.get(k) is True and caller['cleanup'][k] is True for k in windows_cleanup}}
+    if caller_checkpoint_report is not None:
+        read_report(caller_report)
+        if primary is not None:caller['error']=exception_detail(primary)
+    available=snapshot()
     checkpoint('native_caller_retained',available,primary)
     if primary is not None:raise primary
     return available

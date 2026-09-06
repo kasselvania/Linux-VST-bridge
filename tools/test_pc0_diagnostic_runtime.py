@@ -69,8 +69,8 @@ class RuntimeTests(unittest.TestCase):
 
     def test_supervision_error_is_useful_and_private(self):
         self.assertIn("missing runtime identity",d.sanitized_supervision_error(TypeError("missing runtime identity")))
-        text=d.sanitized_supervision_error(RuntimeError("/home/private/file token=secret user@example.com 192.0.2.1 pid=999"))
-        for private in ('/home/private','token=secret','user@example.com','192.0.2.1','pid=999'):
+        text=d.sanitized_supervision_error(RuntimeError("/home/private/file token=secret user@example.com 192.0.2.1 pid=999 0xdeadbeef https://private-host.example/crash process 345"))
+        for private in ('/home/private','token=secret','user@example.com','192.0.2.1','pid=999','0xdeadbeef','private-host','process 345'):
             self.assertNotIn(private,text)
         self.assertLessEqual(len(d.sanitized_supervision_error(RuntimeError('a'*1000))),768)
 
