@@ -1,0 +1,32 @@
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling libc v0.2.189
+   Compiling cfg-if v1.0.4
+   Compiling ap1-native-client v0.1.0 (<checkout>/native-audio-client)
+   Compiling generic-array v0.14.7
+   Compiling cpufeatures v0.2.17
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling ap2-backend v0.1.0 (<checkout>/native-vst3-proxy/backend)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.61s
+     Running unittests src/lib.rs (native-vst3-proxy/backend/target/debug/deps/ap2_backend-612cef963325d74a)
+
+running 1 test
+
+thread 'queued::tests::paused_diagnostic_reader_cannot_starve_due_audio' (21433975) panicked at src/queued.rs:1015:9:
+assertion `left == right` failed: diagnostic contention caused a due-audio underflow
+  left: Err(2)
+ right: Ok(0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test queued::tests::paused_diagnostic_reader_cannot_starve_due_audio ... FAILED
+
+failures:
+
+failures:
+    queued::tests::paused_diagnostic_reader_cannot_starve_due_audio
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.20s
+
+error: test failed, to rerun pass `--lib`

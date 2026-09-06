@@ -31,3 +31,11 @@ Reuse the prepared runtime/artifacts and established SSH/Moonlight under their p
 ## Delivery
 
 Continue on this branch and publish one implementation PR referencing #64, left unmerged for technical review. Include the cause established, fix, focused before/after checks, actual desktop result, remaining limits and cleanup. Preserve failed observations; distinguish any new explanation from the still-unresolved historical AP5 loss. Update this status in the same PR. Use normal commits; no cosmetic history rewrite, separate audit artifact or closure PR. If no defensible fix is established, return concise findings and the next specific engineering decision without claiming AP7 complete.
+
+## Current status — 2026-09-06
+
+**AP7 remains incomplete.** The diagnostic-reader mutex can no longer block the audio transport worker; the same forced-contention regression fails before and passes after the change. Focused Rust and SDK-loaded checks pass, with genuine failure silence, sibling isolation and recovery preserved.
+
+The normal Applications-launched desktop check still produced an underflow in A (epoch 3, due output absent, maximum service duration by reporting time 30.474 ms); B continued with zero rejected callbacks. A recovered its identified complete snapshot without gain entry, and both subsequently saved/reopened with correct processing. This establishes neither the remaining timing cause nor a historical AP5/AP6 root cause. No buffer/latency increase or Windows rebuild was used.
+
+[AP7 results](docs/AP7_RESULT.md) retain the failure, before/after checks, callback silence/discontinuity counts, actual recall result and verified cleanup. The implementation PR references #64 and is left unmerged. The next engineering question is where the specific late request loses its output lead: native scheduling, peer response, or native post-response service. Decide that before selecting another repair; no general reliability or AP7 completion claim is made.
