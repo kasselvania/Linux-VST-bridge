@@ -1,4 +1,5 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
+mod instances;
 mod preview;
 mod queue;
 mod queued;

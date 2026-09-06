@@ -23,3 +23,7 @@ Keep actual Windows DSP/state, nonblocking audio callbacks, independent owned cl
 Use established SSH/Moonlight access and Bitwig from Applications. Preserve existing projects and restore only temporary test settings/publication. One implementation PR referencing #60, with observed results, tests and limitations; leave it unmerged for review.
 
 Targeted basis: [architecture](docs/ARCHITECTURE.md) §§5.7–5.9 and 6.5; `native-vst3-proxy/backend/src/queued.rs`, `backend/src/preview.rs` under the same directory, and `tools/ap4_preview.py`; [Bitwig hosting modes](https://www.bitwig.com/userguide/latest/vst_plug-in_handling_and_options/).
+
+## Implementation result pending review
+
+PR #61 contains the AP5 implementation and [focused result](docs/AP5_RESULT.md). Two fresh recalled instances in one native Bitwig host compared 61,495,808 samples at zero error with no gain edits; removing A left B processing in the same Windows process. Both recalled instances cleaned up. An earlier isolated transport loss remains unexplained and is retained as a limitation; the terminal-fault diagnostic gap was repaired. AP5 is not marked accepted.

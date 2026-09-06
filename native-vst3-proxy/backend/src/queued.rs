@@ -6,7 +6,7 @@ use std::{
     cell::UnsafeCell,
     io,
     sync::{
-        atomic::{AtomicBool, AtomicPtr, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
     thread::{self, JoinHandle},
@@ -60,7 +60,7 @@ struct Shared {
     control: std::sync::Mutex<Option<Control>>,
     pending_control: AtomicBool,
     state_capable: AtomicBool,
-    witness: std::sync::Mutex<state::WitnessReport>,
+    witness: std::sync::Mutex<Observation>,
 }
 impl Shared {
     fn new() -> Self {
@@ -77,7 +77,7 @@ impl Shared {
             control: std::sync::Mutex::new(None),
             pending_control: AtomicBool::new(false),
             state_capable: AtomicBool::new(false),
-            witness: std::sync::Mutex::new(state::WitnessReport::default()),
+            witness: std::sync::Mutex::new(Observation::default()),
         }
     }
     fn fail(&self, code: u64, position: u64) {
@@ -212,41 +212,32 @@ impl Callback {
     }
 }
 struct Live {
-    id: u64,
     shared: Arc<Shared>,
     callback: UnsafeCell<Callback>,
-    worker: UnsafeCell<Option<JoinHandle<()>>>,
+    busy: AtomicBool,
+    worker: Option<JoinHandle<()>>,
+    report: Option<std::path::PathBuf>,
     max: usize,
 }
-static ACTIVE: AtomicPtr<Live> = AtomicPtr::new(std::ptr::null_mut());
-static BUSY: AtomicBool = AtomicBool::new(false);
-static NEXT: AtomicU64 = AtomicU64::new(1);
-struct Guard;
-impl Guard {
-    fn acquire() -> Option<Self> {
-        BUSY.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+// Callback interior state is accessed only under this instance's nonblocking
+// guard. The worker owns Shared/Session; removal excludes every live lease.
+unsafe impl Sync for Live {}
+static INSTANCES: crate::instances::Registry<Live> = crate::instances::Registry::new();
+struct Guard<'a>(&'a AtomicBool);
+impl<'a> Guard<'a> {
+    fn acquire(live: &'a Live) -> Option<Self> {
+        live.busy
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
             .ok()
-            .map(|_| Self)
+            .map(|_| Self(&live.busy))
     }
 }
-impl Drop for Guard {
+impl Drop for Guard<'_> {
     fn drop(&mut self) {
-        BUSY.store(false, Ordering::Release);
+        self.0.store(false, Ordering::Release);
     }
 }
-// The nonblocking registry guard serializes lifecycle/callback/close, including
-// invalid handles. Worker only owns Shared and Session, never Live/host buffers.
-unsafe fn live(id: u64) -> Option<&'static Live> {
-    let p = ACTIVE.load(Ordering::Acquire);
-    if p.is_null() {
-        None
-    } else if (*p).id == id {
-        Some(&*p)
-    } else {
-        None
-    }
-}
-fn worker(mut session: Session, s: Arc<Shared>) {
+fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
     let run = (|| -> io::Result<()> {
         loop {
             crate::preview::check_owner(&mut session.owner)?;
@@ -296,7 +287,11 @@ fn worker(mut session: Session, s: Arc<Shared>) {
             if let Some(w) = &session.witness {
                 *s.witness
                     .lock()
-                    .map_err(|_| invalid("fixture observer poisoned"))? = w.report;
+                    .map_err(|_| invalid("fixture observer poisoned"))? = Observation {
+                    comparison: w.report,
+                    input_hash: w.input_hash,
+                    output_hash: w.output_hash,
+                };
             }
             let Some(mut item) = s.requests.pop() else {
                 thread::sleep(Duration::from_micros(50));
@@ -353,6 +348,18 @@ fn worker(mut session: Session, s: Arc<Shared>) {
                 .collect();
         }
         session.phase = ERROR;
+        // Retain the first fault before Session::close permits the preview
+        // owner to retire this instance's stage. No callback performs I/O.
+        if let Some(path) = &report {
+            let text = format!(
+                "{{\"event\":\"ap5_worker_fault\",\"fault\":{},\"first_position\":{},\"processed\":{},\"request_high\":{},\"result_high\":{}}}\n",
+                s.fault.load(Ordering::Acquire),
+                s.first_position.load(Ordering::Acquire),
+                s.processed.load(Ordering::Acquire),
+                s.requests.high_water(), s.results.high_water()
+            );
+            crate::preview::append_report(path, text.as_bytes());
+        }
     }
     if let Err(error) = session.close() {
         s.fail(WORKER, u64::MAX);
@@ -380,52 +387,78 @@ pub unsafe extern "C" fn ap4_open(handle: *mut u64) -> u32 {
     open(256, handle, 4)
 }
 unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
-    let Some(_guard) = Guard::acquire() else {
-        return 3;
-    };
     if handle.is_null() || !(1..=256).contains(&max) {
         return 1;
     }
-    if !ACTIVE.load(Ordering::Acquire).is_null() {
-        return 3;
-    }
-    let result = std::panic::catch_unwind(|| {
-        let session = Session::open(binding(minor == 4)?, max as usize, minor)?;
-        let shared = Arc::new(Shared::new());
-        shared.state_capable.store(minor == 4, Ordering::Release);
-        if minor == 4 {
-            shared.ack.store(17, Ordering::Release);
+    crate::ffi(|| {
+        match INSTANCES.insert(|| {
+            let binding = binding(minor == 4)?;
+            let report = binding
+                .owner
+                .as_ref()
+                .map(|_| binding.directory.join("ap3-gui-report.jsonl"));
+            let session = Session::open(binding, max as usize, minor)?;
+            let shared = Arc::new(Shared::new());
+            shared.state_capable.store(minor == 4, Ordering::Release);
+            if minor == 4 {
+                shared.ack.store(17, Ordering::Release);
+            }
+            let peer = shared.clone();
+            let worker_report = report.clone();
+            let t = thread::Builder::new()
+                .name("ap3-transport".into())
+                .spawn(move || worker(session, peer, worker_report))?;
+            Ok::<_, io::Error>(Live {
+                shared,
+                callback: UnsafeCell::new(Callback::new()),
+                busy: AtomicBool::new(false),
+                worker: Some(t),
+                report,
+                max: max as usize,
+            })
+        }) {
+            Ok(Ok(id)) => {
+                *handle = id;
+                0
+            }
+            Ok(Err(e)) => retain(&e),
+            Err(code) => code as i32,
         }
-        let peer = shared.clone();
-        let t = thread::Builder::new()
-            .name("ap3-transport".into())
-            .spawn(move || worker(session, peer))?;
-        Ok::<_, io::Error>(Box::new(Live {
-            id: NEXT.fetch_add(1, Ordering::Relaxed),
-            shared,
-            callback: UnsafeCell::new(Callback::new()),
-            worker: UnsafeCell::new(Some(t)),
-            max: max as usize,
-        }))
-    });
-    match result {
-        Ok(Ok(value)) => {
-            *handle = value.id;
-            ACTIVE.store(Box::into_raw(value), Ordering::Release);
-            0
-        }
-        Ok(Err(e)) => retain(&e) as u32,
-        Err(_) => 4,
-    }
+    }) as u32
 }
-// Caller is the SDK owner thread; it must not close concurrently. Arc retains
-// worker storage throughout I/O. This does not touch Live's callback state or BUSY.
+// Copy a diagnostic location once to its SDK instance. It remains usable after
+// backend close for the final lifecycle report, without thread-local routing.
+#[no_mangle]
+pub unsafe extern "C" fn ap5_report_path(id: u64, out: *mut u8, capacity: u32) -> u32 {
+    crate::ffi(|| {
+        use std::os::unix::ffi::OsStrExt;
+        if out.is_null() || capacity == 0 {
+            return 1;
+        }
+        let Some(live) = INSTANCES.lease(id) else {
+            return 1;
+        };
+        let bytes = live
+            .report
+            .as_ref()
+            .map(|p| p.as_os_str().as_bytes())
+            .unwrap_or(&[]);
+        if bytes.len() >= capacity as usize {
+            return 1;
+        }
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, bytes.len());
+        *out.add(bytes.len()) = 0;
+        0
+    }) as u32
+}
+// The lifetime lease is released before any blocking control work. Arc retains
+// this instance's mailbox through I/O; audio never takes the control mutex.
 unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
-    let p = ACTIVE.load(Ordering::Acquire);
-    if p.is_null() || (*p).id != id {
-        return Err(invalid("state handle"));
-    }
-    let s = (*p).shared.clone();
+    let s = INSTANCES
+        .lease(id)
+        .ok_or_else(|| invalid("state handle"))?
+        .shared
+        .clone();
     if !s.state_capable.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
         return Err(invalid("state unavailable"));
     }
@@ -521,11 +554,11 @@ pub unsafe extern "C" fn ap4_state(
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_transition(id: u64, op: u32) -> u32 {
-    let Some(_guard) = Guard::acquire() else {
-        return 3;
-    };
-    let Some(l) = live(id) else {
+    let Some(l) = INSTANCES.lease(id) else {
         return 1;
+    };
+    let Some(_guard) = Guard::acquire(&l) else {
+        return 3;
     };
     if matches!(op, START | STOP) {
         return (&mut *l.callback.get()).transition(&l.shared, op);
@@ -560,11 +593,11 @@ pub unsafe extern "C" fn ap3_process(
     out_right: *mut f32,
     out_flags: *mut u64,
 ) -> u32 {
-    let Some(_guard) = Guard::acquire() else {
-        return 3;
-    };
-    let Some(l) = live(id) else {
+    let Some(l) = INSTANCES.lease(id) else {
         return 1;
+    };
+    let Some(_guard) = Guard::acquire(&l) else {
+        return 3;
     };
     let n = n as usize;
     if (n == 0 && !l.shared.state_capable.load(Ordering::Acquire))
@@ -617,11 +650,11 @@ pub struct Stats {
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_stats(id: u64, out: *mut Stats) -> u32 {
-    let Some(_g) = Guard::acquire() else {
-        return 3;
-    };
-    let Some(l) = live(id) else {
+    let Some(l) = INSTANCES.lease(id) else {
         return 1;
+    };
+    let Some(_guard) = Guard::acquire(&l) else {
+        return 3;
     };
     if out.is_null() {
         return 1;
@@ -639,57 +672,88 @@ pub unsafe extern "C" fn ap3_stats(id: u64, out: *mut Stats) -> u32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
-    let Some(_guard) = Guard::acquire() else {
-        return 3;
-    };
-    let Some(l) = live(id) else {
-        return 1;
-    };
-    let clean = matches!(l.shared.ack.load(Ordering::Acquire), 15 | 17)
-        && l.shared.fault.load(Ordering::Acquire) == 0;
-    if clean {
-        if !l.shared.requests.push(Item::control(CLOSE, 0)) {
-            l.shared.quit.store(true, Ordering::Release);
-        }
-    } else {
-        l.shared.quit.store(true, Ordering::Release);
-    }
-    if let Some(t) = (&mut *l.worker.get()).take() {
-        if t.join().is_err() {
-            l.shared.fail(WORKER, u64::MAX);
-        }
-    }
-    let ok = clean && l.shared.fault.load(Ordering::Acquire) == 0;
-    if !ok {
-        if let Ok(d) = l.shared.detail.lock() {
-            if !d.is_empty() {
-                retain(&invalid(d.as_str()));
+    crate::ffi(|| {
+        match INSTANCES.remove(id, |l| {
+            let clean = matches!(l.shared.ack.load(Ordering::Acquire), 15 | 17)
+                && l.shared.fault.load(Ordering::Acquire) == 0;
+            if clean {
+                if !l.shared.requests.push(Item::control(CLOSE, 0)) {
+                    l.shared.quit.store(true, Ordering::Release);
+                }
+            } else {
+                l.shared.quit.store(true, Ordering::Release);
             }
+            if let Some(t) = l.worker.take() {
+                if t.join().is_err() {
+                    l.shared.fail(WORKER, u64::MAX);
+                }
+            }
+            let ok = clean && l.shared.fault.load(Ordering::Acquire) == 0;
+            if !ok {
+                if let Ok(d) = l.shared.detail.lock() {
+                    if !d.is_empty() {
+                        retain(&invalid(d.as_str()));
+                    }
+                }
+            }
+            if ok {
+                0
+            } else {
+                2
+            }
+        }) {
+            Ok(code) => code,
+            Err(code) => code as i32,
         }
-    }
-    let p = ACTIVE.swap(std::ptr::null_mut(), Ordering::AcqRel);
-    drop(Box::from_raw(p));
-    if ok {
-        0
-    } else {
-        2
-    }
+    }) as u32
+}
+#[repr(C)]
+#[derive(Default, Clone, Copy)]
+pub struct Observation {
+    comparison: state::WitnessReport,
+    input_hash: u64,
+    output_hash: u64,
 }
 #[no_mangle]
-pub unsafe extern "C" fn ap4_witness(id: u64, out: *mut state::WitnessReport) -> u32 {
+pub unsafe extern "C" fn ap5_observation(id: u64, out: *mut Observation) -> u32 {
     crate::ffi(|| {
-        let p = ACTIVE.load(Ordering::Acquire);
-        if p.is_null() || (*p).id != id || out.is_null() {
+        if out.is_null() {
             return 1;
         }
-        let live = &*p;
-        match live.shared.witness.lock() {
+        let Some(live) = INSTANCES.lease(id) else {
+            return 1;
+        };
+        let shared = live.shared.clone();
+        drop(live);
+        let result = match shared.witness.lock() {
             Ok(v) => {
                 *out = *v;
                 0
             }
             Err(_) => 2,
+        };
+        result
+    }) as u32
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_witness(id: u64, out: *mut state::WitnessReport) -> u32 {
+    crate::ffi(|| {
+        if out.is_null() {
+            return 1;
         }
+        let Some(live) = INSTANCES.lease(id) else {
+            return 1;
+        };
+        let shared = live.shared.clone();
+        drop(live);
+        let result = match shared.witness.lock() {
+            Ok(v) => {
+                *out = v.comparison;
+                0
+            }
+            Err(_) => 2,
+        };
+        result
     }) as u32
 }
 
@@ -716,11 +780,15 @@ fn failure_snapshot(s: &Shared) -> Failure {
 #[no_mangle]
 pub unsafe extern "C" fn ap4_failure(id: u64, out: *mut Failure) -> u32 {
     crate::ffi(|| {
-        let p = ACTIVE.load(Ordering::Acquire);
-        if p.is_null() || (*p).id != id || out.is_null() {
+        if out.is_null() {
             return 1;
         }
-        *out = failure_snapshot(&(*p).shared);
+        let Some(live) = INSTANCES.lease(id) else {
+            return 1;
+        };
+        let shared = live.shared.clone();
+        drop(live);
+        *out = failure_snapshot(&shared);
         0
     }) as u32
 }

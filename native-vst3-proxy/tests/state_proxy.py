@@ -15,7 +15,7 @@ def envelope(gain=.25,reduction=0.,bypass=0):
  p=struct.pack('<ffi',gain,reduction,bypass)
  return b'LVBSTATE'+struct.pack('<II',1,104)+bytes.fromhex('84e8de5f92554f5396fae4133c935a18')+bytes.fromhex('60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f')+struct.pack('<II',len(p),0)+hashlib.sha256(p).digest()+p
 
-def peer(directory,case,counts):
+def peer(directory,case,counts,*,fail_after=None,close_delay=0):
  until=time.monotonic()+10
  while not (directory/'ap1.control').exists():
   if time.monotonic()>until:raise TimeoutError('endpoint not created')
@@ -50,11 +50,12 @@ def peer(directory,case,counts):
    if k==10:assert active and not running and p==struct.pack('<Q',epoch+1);epoch+=1;position=0;running=True;counts['start']+=1;s.sendall(frame(11,session,seq,p));continue
    if k==12:assert running and p==struct.pack('<Q',epoch);running=False;counts['stop']+=1;s.sendall(frame(13,session,seq,p));continue
    if k==14:assert active and not running and not p;active=False;s.sendall(frame(15,session,seq));continue
-   if k==5:assert not active and not running and not p;s.sendall(frame(6,session,seq));counts['closed']+=1;return
+   if k==5:assert not active and not running and not p;time.sleep(close_delay);s.sendall(frame(6,session,seq));counts['closed']+=1;return
    assert k==3 and running and len(p)==48
    n,ino,outo,stride,g,flags,present,e,pos=struct.unpack('<IIIIdIIQQ',p)
    assert (ino,outo,stride,e,pos)==(64,2128,1032,epoch,position) and present in (0,1)
    counts['process']+=1;counts['zero_frame']+=n==0
+   if fail_after and counts['process']>=fail_after:return
    if case=='state-callback-fault':time.sleep(.06)
    if present:gain=struct.unpack('<f',struct.pack('<f',g))[0]
    factor=1 if bypass else max(0,gain-reduction)

@@ -8,8 +8,8 @@ extern "C" {
    ap4_state releases registry ownership before waiting; callbacks may continue.
    restore=null snapshots; restore!=null applies and reads back. No retry. */
 uint32_t ap4_open(uint64_t *handle);
-/* Optional private preview diagnostic sink, non-RT owner thread only. */
-uint32_t ap4_report(const uint8_t *bytes, uint32_t length);
+/* Copy this instance's private report path; non-RT, caller-owned buffer. */
+uint32_t ap5_report_path(uint64_t handle, uint8_t *path, uint32_t capacity);
 uint32_t ap4_activate(uint64_t handle, uint32_t maximum, uint32_t mode);
 uint32_t ap4_deactivate(uint64_t handle);
 uint32_t ap4_state(uint64_t handle, const uint8_t *restore, uint32_t length,
@@ -21,6 +21,12 @@ struct ap4_witness_t {
   double maximum_error, restored_gain;
 };
 uint32_t ap4_witness(uint64_t handle, struct ap4_witness_t *out);
+/* AP5 diagnostic extension; preserves the AP4 witness layout and state format. */
+struct ap5_observation_t {
+  struct ap4_witness_t comparison;
+  uint64_t input_hash, output_hash;
+};
+uint32_t ap5_observation(uint64_t handle, struct ap5_observation_t *out);
 /* Owner-thread failure readback; atomics and the worker detail only. This never
    reads mutable callback buffers or holds the callback registry guard. */
 struct ap4_failure_t {

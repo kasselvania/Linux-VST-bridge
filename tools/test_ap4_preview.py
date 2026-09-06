@@ -68,8 +68,8 @@ class PreviewTests(unittest.TestCase):
             with patch.object(p.runtime,'supervise',side_effect=supervise):
                 if cleanup_failure:
                     with self.assertRaisesRegex(RuntimeError,'containment incomplete'):
-                        p.serve(a,lambda:environment,retire,output,lambda:False,lambda:None)
-                else: p.serve(a,lambda:environment,retire,output,lambda:False,lambda:None)
+                        p.serve(a,lambda:environment,retire,output,lambda:False)
+                else: p.serve(a,lambda:environment,retire,output,lambda:False)
             thread.join(3); self.assertFalse(thread.is_alive()); self.assertFalse(native_errors,native_errors)
             self.assertEqual(retire.call_count,0 if cleanup_failure else 1)
             result=json.loads((output/('a'*32+'.json')).read_text())
@@ -86,7 +86,7 @@ class PreviewTests(unittest.TestCase):
                 b.sendall(b'bad!')
                 create=MagicMock()
                 with self.assertRaisesRegex(RuntimeError,'greeting differs'):
-                    p.serve(a,create,MagicMock(),pathlib.Path(temp),lambda:False,lambda:None)
+                    p.serve(a,create,MagicMock(),pathlib.Path(temp),lambda:False)
                 create.assert_not_called(); self.assertEqual(b.recv(1),b'')
 
     def test_actual_supervisor_survives_180_seconds_then_uses_owned_cleanup(self):
