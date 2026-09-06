@@ -1,4 +1,6 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
+#[cfg(test)]
+mod commercial_tests;
 mod instances;
 mod observer;
 mod preview;

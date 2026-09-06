@@ -16,6 +16,44 @@ from normalize import (validate_wa0_event_order, decode_field, logical_fuid,
 from pc0_diagnostic_runtime import verify_diagnostic_runner, sanitized_supervision_error, exception_detail
 
 
+def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]]) -> dict[str, Any]:
+    # Cleanup ownership is an observed PID/start identity or this root's
+    # process group/session, never a stage-shaped string in another command.
+    deadline = time.monotonic() + CLEANUP_SECONDS
+    live_owned = {
+        (record["pid"], record["start_ticks"]) for record in process_census()
+    } & set(owned)
+    if root.poll() is None or live_owned:
+        try:
+            os.killpg(root.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    while time.monotonic() < deadline - 3:
+        live_owned = {
+            (record["pid"], record["start_ticks"]) for record in process_census()
+        } & set(owned)
+        if root.poll() is not None and not live_owned:
+            break
+        time.sleep(POLL_SECONDS)
+    if root.poll() is None or live_owned:
+        try:
+            os.killpg(root.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        root.wait(timeout=max(0.1, deadline - time.monotonic()))
+    except subprocess.TimeoutExpired:
+        fail("Runtime root did not terminate inside cleanup bound")
+    remaining = []
+    for record in process_census():
+        if ((record["pid"], record["start_ticks"]) in owned or
+                (record["pgrp"] == root.pid and record["session"] == root.pid)):
+            remaining.append(record["comm"])
+    if remaining:
+        fail(f"owned descendants survived cleanup: {remaining}")
+    return {"owned_descendants_zero": True, "process_group_empty": True}
+
+
 def verify_environment(environment: ScanEnvironment, *, runner_identity_sha256: str) -> None:
     parent = environment_parent()
     require_contained(environment.root, parent, "WF0 stage")
