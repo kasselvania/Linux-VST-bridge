@@ -1,6 +1,11 @@
 name: AP8 Windows host
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/ap8-windows.yml'
+      - 'windows-factory-probe/**'
+      - 'vst-state/**'
 permissions:
   contents: read
 jobs:
