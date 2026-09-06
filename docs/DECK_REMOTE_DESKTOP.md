@@ -20,6 +20,8 @@ The operator explicitly authorized a persistent Sunshine-only KDE capture grant 
 
 Live desktop video, agent clicks and one disconnect/reconnect succeeded after the grant. A later reconnect still produced no video and Sunshine aborted; restarting only its user service restored the stream without a physical Share prompt. The tray workaround is therefore not a proven cure. For the remaining test, stop the service after disconnecting the primary measurement stream and start it fresh before GUI work; keep that stream connected through all three GUI stages. This changes the supporting service lifecycle, not plug-in processing or measurement criteria.
 
+For ordinary manual Bitwig use, open it from the Deck **Applications list**. The operator verified that route on the same installed Flatpak. The old AP4 test launch conditions failed during startup; the corrected classified runner completed D9 with a desktop-only environment and home working directory. Do not describe every CLI launch as broken. AP4 acceptance later failed after the GUI time limit during remote-video recovery; see [the preserved attempt](AP4_ATTEMPT_STATUS.md).
+
 ## Topology and purpose
 
 Mac-side permitted Codex Computer Use -> Moonlight window -> Sunshine -> the existing Steam Deck Desktop Mode session. The existing authenticated SSH channel remains independent for commands, builds, logs, files and recovery. Do not install Sunshine on the Mac or confuse the Deck's usual Moonlight client role with this reverse direction.
