@@ -39,6 +39,7 @@ def peer(directory,case,counts,*,fail_after=None,close_delay=0):
     if case=='state-error':s.sendall(frame(7,session,seq,b'\x01\x00\x00\x00'))
     elif case=='state-stale':s.sendall(frame(k+1,session,seq+1,payload))
     elif case=='state-lost-set' and k==18:s.shutdown(socket.SHUT_WR)
+    elif case=='recovery-bad-readback' and k==18:s.sendall(frame(k+1,session,seq,bytes([payload[0]^1])+payload[1:]))
     else:
      # Delay a coherent save less than the retained audio pipeline latency.
      if running:time.sleep(.001)

@@ -86,7 +86,7 @@ bool parameters(IParameterChanges *p, double &gain, bool &changed) {
   if (!p)
     return true;
   int32 count = p->getParameterCount();
-  if (count < 0 || count > 2)
+  if (count < 0 || count > 4)
     return false;
   bool gain_seen = false, bypass_seen = false;
   for (int32 i = 0; i < count; ++i) {
@@ -104,7 +104,9 @@ bool parameters(IParameterChanges *p, double &gain, bool &changed) {
     if (q->getPoint(0, offset, value) != kResultOk || offset != 0 ||
         !std::isfinite(value) || value < 0. || value > 1.)
       return false;
-    if (id == 0 && !gain_seen) {
+    if (id == recoveryID || id == snapshotID) {
+      continue; // non-automatable bridge actions run only on the controller thread
+    } else if (id == 0 && !gain_seen) {
       gain = value;
       gain_seen = true;
       changed = true;
@@ -232,6 +234,7 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
         !LVBState::transfer(stream, blob.data(), blob.size(), true))
       return kResultFalse;
     stateReport(report_path_, "get", blob, gain);
+    snapshotStatus("Captured complete state; not necessarily a project save");
     sample_progress(handle_, report_path_);
     return kResultOk;
   } catch (...) {
@@ -272,9 +275,114 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
     }
     gain_ = restored;
     stateReport(report_path_, "set", readback, restored);
+    snapshotStatus("Confirmed project/component restore");
     return kResultOk;
   } catch (...) {
     phase_ = Failed;
+    return kResultFalse;
+  }
+}
+void Processor::snapshotStatus(const char *status) {
+  ap6_snapshot_t snapshot{};
+  const bool confirmed = handle_ && !ap6_snapshot(handle_, &snapshot);
+  char hash[65]{}, escaped[771]{};
+  if (confirmed) for (size_t i = 0; i < 32; ++i)
+    std::snprintf(hash + i * 2, 3, "%02x", snapshot.digest[i]);
+  size_t used = 0;
+  for (size_t i = 0; i < 384 && status[i]; ++i) {
+    unsigned char ch = status[i];
+    if (ch == '"' || ch == '\\') escaped[used++] = '\\';
+    escaped[used++] = ch < 32 || ch > 126 ? '?' : char(ch);
+  }
+  char text[1200];
+  auto n = std::snprintf(text, sizeof(text),
+      "{\"event\":\"ap6_status\",\"snapshot_revision\":%llu,\"source\":%u,\"generation\":%llu,"
+      "\"uncaptured_changes_possible\":%u,\"envelope_sha256\":\"%s\",\"detail\":\"%s\"}\n",
+      (unsigned long long)snapshot.revision, snapshot.source, (unsigned long long)snapshot.generation,
+      snapshot.uncaptured, hash, escaped);
+  if (n > 0 && static_cast<size_t>(n) < sizeof(text)) diagnostic_report(report_path_, text, static_cast<size_t>(n));
+  auto *message = allocateMessage();
+  if (!message) return;
+  message->setMessageID("AP6.snapshot");
+  if (confirmed)
+    message->getAttributes()->setBinary("snapshot", &snapshot, sizeof(snapshot));
+  message->getAttributes()->setBinary("status", status, static_cast<uint32>(std::strlen(status) + 1));
+  sendMessage(message);
+  message->release();
+}
+tresult PLUGIN_API Processor::notify(IMessage *message) {
+  if (!preview_ || !message || owner_ != std::this_thread::get_id())
+    return kResultFalse;
+  const auto *id = message->getMessageID();
+  if (!id) return kResultFalse;
+  if (!std::strcmp(id, "AP6.synced")) {
+    controller_synced_ = true;
+    return kResultOk;
+  }
+  if (!std::strcmp(id, "AP6.status")) {
+    snapshotStatus("Last confirmed snapshot; later edits may be lost");
+    return kResultOk;
+  }
+  if (!std::strcmp(id, "AP6.recover")) {
+    int64 revision = 0;
+    if (message->getAttributes()->getInt("revision", revision) != kResultOk || revision < 1)
+      return kResultFalse;
+    return recover(static_cast<uint64_t>(revision));
+  }
+  return AudioEffect::notify(message);
+}
+tresult Processor::recover(uint64_t revision) {
+  Guard guard(busy_);
+  if (!guard.held || !handle_) return kResultFalse;
+  ap4_failure_t fault{};
+  if (ap4_failure(handle_, &fault) || !fault.fault) {
+    snapshotStatus("Recovery refused: this endpoint has not failed");
+    return kResultFalse;
+  }
+  phase_ = Failed; // callbacks remain silent until state AND controller agree
+  try {
+    std::vector<uint8_t> state(LVBState::payloadLimit + LVBState::overhead);
+    uint32_t written = 0;
+    if (ap6_recover(handle_, revision, state.data(), static_cast<uint32_t>(state.size()), &written)) {
+      uint8_t detail[385]{}; ap2_error(detail, sizeof(detail));
+      snapshotStatus(reinterpret_cast<const char *>(detail));
+      return kResultFalse;
+    }
+    state.resize(written);
+    if (ap5_report_path(handle_, reinterpret_cast<uint8_t *>(report_path_), sizeof(report_path_)))
+      return kResultFalse;
+    double restored = 0.;
+    if (ap4_validate(state.data(), written, &restored)) return kResultFalse;
+    controller_synced_ = false;
+    auto *message = allocateMessage();
+    if (!message) return kResultFalse;
+    message->setMessageID("AP6.restored");
+    message->getAttributes()->setBinary("state", state.data(), written);
+    auto result = sendMessage(message);
+    message->release();
+    if (result != kResultOk || !controller_synced_) {
+      snapshotStatus("Restore halted: controller/host synchronization not confirmed");
+      return kResultFalse;
+    }
+    gain_ = restored; // existing reference validator; recovery transports opaque bytes
+    phase_ = Deactivated;
+    if (want_active_) {
+      if (ap4_activate(handle_, static_cast<uint32_t>(maximum_), static_cast<uint32_t>(process_mode_))) {
+        phase_ = Failed; snapshotStatus("Recovered state but activation failed"); return kResultFalse;
+      }
+      phase_ = Active;
+      if (want_processing_) {
+        if (ap3_transition(handle_, 10)) { phase_ = Failed; return kResultFalse; }
+        phase_ = Running;
+      }
+    }
+    state_error_reported_ = false;
+    stateReport(report_path_, "recover", state, restored);
+    snapshotStatus("Recovered identified snapshot; later edits were not restored");
+    return kResultOk;
+  } catch (...) {
+    phase_ = Failed;
+    snapshotStatus("Recovery failed; no default state substituted");
     return kResultFalse;
   }
 }
@@ -349,6 +457,10 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id())
     return kResultFalse;
+  if (!active && phase_ == Failed) {
+    want_active_ = false;
+    return kResultOk;
+  }
   if (active) {
     if ((phase_ != Setup && phase_ != Deactivated) || !input_active_ ||
         !output_active_)
@@ -364,6 +476,7 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
       return kResultFalse;
     }
     phase_ = Active;
+    want_active_ = true;
     return kResultOk;
   }
   if (phase_ != Stopped && !(preview_ && phase_ == Active))
@@ -376,12 +489,17 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     return kResultFalse;
   }
   phase_ = Deactivated;
+  want_active_ = false;
   return kResultOk;
 }
 tresult PLUGIN_API Processor::setProcessing(TBool running) {
   Guard g(busy_);
   if (!g.held)
     return kResultFalse;
+  if (!running && phase_ == Failed) {
+    want_processing_ = false;
+    return kResultOk;
+  }
   if (running ? (phase_ != Active && !(queued_ && phase_ == Stopped))
               : phase_ != Running)
     return kResultFalse;
@@ -393,6 +511,7 @@ tresult PLUGIN_API Processor::setProcessing(TBool running) {
     return kResultFalse;
   }
   phase_ = running ? Running : Stopped;
+  want_processing_ = running != 0;
   return kResultOk;
 }
 tresult PLUGIN_API Processor::process(ProcessData &d) {
@@ -403,7 +522,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   };
   if (!g.held) {
     callback_rejections_.fetch_add(1, std::memory_order_relaxed);
-    return kResultFalse;
+    return failure(d, maximum_);
   }
   if (phase_ != Running || d.processMode != process_mode_ ||
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||

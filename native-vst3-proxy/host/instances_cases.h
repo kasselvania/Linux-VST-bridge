@@ -52,7 +52,7 @@ void independentAudio(IAudioProcessor &p, IndependentAudio &result,
     }
     need(result.fault == expect_fault, "fault disposition");
     auto r = callback([&] { return p.setProcessing(false); });
-    need(expect_fault ? r != kResultOk : r == kResultOk, "independent stop");
+    need(r == kResultOk, "independent stop, including a failed endpoint");
   } catch (...) { result.error = std::current_exception(); }
 }
 void waitFrames(IndependentAudio &audio, uint64_t count) {

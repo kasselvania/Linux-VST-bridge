@@ -47,6 +47,10 @@ impl Item {
     }
 }
 struct Shared {
+    snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
+    generation: u64,
+    last_edit: AtomicU64,
+    retired: AtomicBool,
     requests: Queue<Item>,
     results: Queue<Item>,
     wanted: AtomicU64,
@@ -65,6 +69,10 @@ struct Shared {
 impl Shared {
     fn new() -> Self {
         Self {
+            snapshots: Arc::new(std::sync::Mutex::new(crate::recovery::Store::default())),
+            generation: 1,
+            last_edit: AtomicU64::new(0),
+            retired: AtomicBool::new(false),
             requests: Queue::new(DESCRIPTORS),
             results: Queue::new(DESCRIPTORS),
             wanted: AtomicU64::new(0),
@@ -159,6 +167,9 @@ impl Callback {
             s.fail(OVERFLOW, self.position);
             return Err(2);
         }
+        if !request.gain.is_nan() {
+            s.last_edit.store(s.requests.published(), Ordering::Release);
+        }
         let mut flags = 3;
         // Two planar channels share one sample cursor; indexing expresses the layout.
         #[allow(clippy::needless_range_loop)]
@@ -218,6 +229,7 @@ struct Live {
     worker: Option<JoinHandle<()>>,
     report: Option<std::path::PathBuf>,
     max: usize,
+    recovery_blocked: bool,
 }
 // Callback interior state is accessed only under this instance's nonblocking
 // guard. The worker owns Shared/Session; removal excludes every live lease.
@@ -276,6 +288,25 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             _ => Err(invalid("unknown owner operation")),
                         };
                         let failed = result.is_err();
+                        if let Ok(bytes) = &result {
+                            if matches!(c.op, 16 | 18) {
+                                s.snapshots
+                                    .lock()
+                                    .map_err(|_| invalid("snapshot store poisoned"))?
+                                    .confirm(
+                                        bytes.clone(),
+                                        c.op,
+                                        s.generation,
+                                        s.requests.consumed(),
+                                    )?;
+                            }
+                        } else if let Err(error) = &result {
+                            if let Ok(mut detail) = s.detail.lock() {
+                                if detail.is_empty() {
+                                    *detail = bounded_detail(error);
+                                }
+                            }
+                        }
                         c.result = Some(result);
                         s.pending_control.store(false, Ordering::Release);
                         if failed {
@@ -342,25 +373,27 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     if let Err(ref error) = run {
         s.fail(WORKER, session.position);
         if let Ok(mut d) = s.detail.lock() {
-            *d = format!("{:?}: {}", error.kind(), error)
-                .chars()
-                .take(384)
-                .collect();
+            if d.is_empty() {
+                *d = bounded_detail(error);
+            }
         }
         session.phase = ERROR;
         // Retain the first fault before Session::close permits the preview
         // owner to retire this instance's stage. No callback performs I/O.
         if let Some(path) = &report {
             let text = format!(
-                "{{\"event\":\"ap5_worker_fault\",\"fault\":{},\"first_position\":{},\"processed\":{},\"request_high\":{},\"result_high\":{}}}\n",
+                "{{\"event\":\"ap5_worker_fault\",\"generation\":{},\"fault\":{},\"first_position\":{},\"processed\":{},\"request_high\":{},\"result_high\":{},\"detail\":\"{}\"}}\n",
+                s.generation,
                 s.fault.load(Ordering::Acquire),
                 s.first_position.load(Ordering::Acquire),
                 s.processed.load(Ordering::Acquire),
-                s.requests.high_water(), s.results.high_water()
+                s.requests.high_water(), s.results.high_water(),
+                json_text(&s.detail.lock().map(|d| d.clone()).unwrap_or_default())
             );
             crate::preview::append_report(path, text.as_bytes());
         }
     }
+    let owner = session.owner.take();
     if let Err(error) = session.close() {
         s.fail(WORKER, u64::MAX);
         if let Ok(mut d) = s.detail.lock() {
@@ -372,7 +405,29 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             }
         }
     }
+    // Positive owner acknowledgement includes process containment AND stage
+    // retirement. EOF, timeout or a missing owner cannot authorize recovery.
+    if let Some(owner) = owner {
+        s.retired.store(owner.finish().is_ok(), Ordering::Release);
+    }
     s.ack.store(6, Ordering::Release);
+}
+fn bounded_detail(error: &io::Error) -> String {
+    format!("{:?}: {}", error.kind(), error)
+        .chars()
+        .take(384)
+        .collect()
+}
+fn json_text(detail: &str) -> String {
+    detail
+        .chars()
+        .flat_map(|c| match c {
+            '"' => vec!['\\', '"'],
+            '\\' => vec!['\\', '\\'],
+            c if c.is_control() => vec!['?'],
+            c => vec![c],
+        })
+        .collect()
 }
 #[no_mangle]
 pub extern "C" fn ap3_abi_version() -> u32 {
@@ -396,7 +451,7 @@ unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
             let report = binding
                 .owner
                 .as_ref()
-                .map(|_| binding.directory.join("ap3-gui-report.jsonl"));
+                .map(|_| crate::preview::report_path(binding.session));
             let session = Session::open(binding, max as usize, minor)?;
             let shared = Arc::new(Shared::new());
             shared.state_capable.store(minor == 4, Ordering::Release);
@@ -415,6 +470,7 @@ unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
                 worker: Some(t),
                 report,
                 max: max as usize,
+                recovery_blocked: false,
             })
         }) {
             Ok(Ok(id)) => {
@@ -422,6 +478,138 @@ unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
                 0
             }
             Ok(Err(e)) => retain(&e),
+            Err(code) => code as i32,
+        }
+    }) as u32
+}
+#[repr(C)]
+#[derive(Default)]
+pub struct RecoveryInfo {
+    revision: u64,
+    generation: u64,
+    source: u32,
+    uncaptured: u32,
+    digest: [u8; 32],
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap6_snapshot(id: u64, out: *mut RecoveryInfo) -> u32 {
+    crate::ffi(|| {
+        if out.is_null() {
+            return 1;
+        }
+        let Some(l) = INSTANCES.lease(id) else {
+            return 1;
+        };
+        let Ok(store) = l.shared.snapshots.lock() else {
+            return 2;
+        };
+        let Some(snapshot) = store.latest() else {
+            return 2;
+        };
+        *out = RecoveryInfo {
+            revision: snapshot.revision,
+            generation: l.shared.generation,
+            source: snapshot.source,
+            digest: snapshot.digest,
+            uncaptured: u32::from(
+                snapshot.generation != l.shared.generation
+                    || l.shared.last_edit.load(Ordering::Acquire) > snapshot.through,
+            ),
+        };
+        0
+    }) as u32
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap6_recover(
+    id: u64,
+    revision: u64,
+    out: *mut u8,
+    capacity: u32,
+    size: *mut u32,
+) -> u32 {
+    crate::ffi(|| {
+        if out.is_null()
+            || size.is_null()
+            || (capacity as usize) < state::HEADER_SIZE + state::LIMIT
+        {
+            return 1;
+        }
+        match INSTANCES.update(id, |l| -> io::Result<()> {
+            if l.recovery_blocked || l.shared.fault.load(Ordering::Acquire) == 0 {
+                return Err(invalid("recovery requires a failed, contained instance"));
+            }
+            let snapshot = l
+                .shared
+                .snapshots
+                .lock()
+                .map_err(|_| invalid("snapshot store poisoned"))?
+                .select(revision)?;
+            let payload = state::payload(&snapshot.bytes)?;
+            let end = Instant::now() + Duration::from_secs(80);
+            while l.worker.as_ref().is_some_and(|t| !t.is_finished()) {
+                if Instant::now() >= end {
+                    return Err(invalid("failed worker containment deadline"));
+                }
+                thread::sleep(Duration::from_millis(1));
+            }
+            if let Some(t) = l.worker.take() {
+                t.join().map_err(|_| invalid("failed worker panicked"))?;
+            }
+            if !l.shared.retired.load(Ordering::Acquire) {
+                return Err(invalid(
+                    "owner has not confirmed failed endpoint retirement",
+                ));
+            }
+            // A failed new startup/restore cannot silently authorize another
+            // replacement. The owner still contains any newly owned endpoint.
+            l.recovery_blocked = true;
+            let binding = binding(true)?;
+            if binding.owner.is_none() {
+                return Err(invalid("recovery requires the private owner"));
+            }
+            let report = Some(crate::preview::report_path(binding.session));
+            let mut session = Session::open(binding, l.max, 4)?;
+            if let Err(error) = session.component_state(Some(payload)) {
+                let owner = session.owner.take();
+                let _ = session.close();
+                if let Some(owner) = owner {
+                    let _ = owner.finish();
+                }
+                return Err(error);
+            }
+            let mut shared = Shared::new();
+            shared.generation = l
+                .shared
+                .generation
+                .checked_add(1)
+                .ok_or_else(|| invalid("transport generation exhausted"))?;
+            shared.snapshots = l.shared.snapshots.clone();
+            shared.state_capable.store(true, Ordering::Release);
+            shared.ack.store(17, Ordering::Release);
+            if let Some(w) = &session.witness {
+                *shared.witness.lock().unwrap() = Observation {
+                    comparison: w.report,
+                    input_hash: w.input_hash,
+                    output_hash: w.output_hash,
+                };
+            }
+            let shared = Arc::new(shared);
+            let peer = shared.clone();
+            let worker_report = report.clone();
+            let t = thread::Builder::new()
+                .name("ap6-transport".into())
+                .spawn(move || worker(session, peer, worker_report))?;
+            l.shared = shared;
+            l.worker = Some(t);
+            l.report = report;
+            l.callback = UnsafeCell::new(Callback::new());
+            l.recovery_blocked = false;
+            std::ptr::copy_nonoverlapping(snapshot.bytes.as_ptr(), out, snapshot.bytes.len());
+            *size = snapshot.bytes.len() as u32;
+            Ok(())
+        }) {
+            Ok(Ok(())) => 0,
+            Ok(Err(error)) => retain(&error),
             Err(code) => code as i32,
         }
     }) as u32
