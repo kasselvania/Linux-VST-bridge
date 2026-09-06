@@ -1,6 +1,7 @@
 // AP3 independent SDK consumer. Only standard VST3 interfaces process audio.
 #include "../../vst-state/stream.h"
 #include "pluginterfaces/base/funknown.h"
+#include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"

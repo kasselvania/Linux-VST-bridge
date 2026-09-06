@@ -1,4 +1,3 @@
-#include "pluginterfaces/gui/iplugview.h"
 // AP6 uses only public SDK interfaces, including the same controller action as
 // the desktop host. Windows peers are substituted by recovery_proxy.py locally.
 class RecoveryHandler final : public IComponentHandler {
