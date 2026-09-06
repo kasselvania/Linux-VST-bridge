@@ -138,7 +138,8 @@ def inspect(environment, output):
         try:
             write_atomic(output / (environment.run_id + '-checkpoint.json'),
                 canonical_json(dict(stage=stage, observation=available, error=str(error) if error else None,
-                    vendor_stdout=streams.vendor.decode('utf-8', 'replace'), vendor_stdout_bytes=streams.vendor_bytes)))
+                    vendor_stdout=streams.vendor.decode('utf-8', 'replace'), vendor_stdout_bytes=streams.vendor_bytes,
+                    runtime_stderr=streams.stderr[-16384:].decode('utf-8', 'replace'))))
         except Exception as failure:
             reporting_errors.append(dict(stage=stage, error=str(failure)))
     profile = types.SimpleNamespace(verify_runtime=verify_runtime, verify_environment=verify_environment,
@@ -148,6 +149,7 @@ def inspect(environment, output):
     result['reporting_errors'] = reporting_errors
     result['vendor_stdout'] = streams.vendor.decode('utf-8', 'replace')
     result['vendor_stdout_bytes'] = streams.vendor_bytes
+    result['runtime_stderr'] = streams.stderr[-16384:].decode('utf-8', 'replace')
     try:
         write_atomic(output / (environment.run_id + '.json'), canonical_json(result))
     except Exception as failure:
