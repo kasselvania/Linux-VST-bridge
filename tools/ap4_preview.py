@@ -79,19 +79,19 @@ class Connection:
         return time.monotonic() - self.disconnected_at >= 2
 
 
-def greeting(peer):
+def greeting(peer, expected=b'AP4\n'):
     end = time.monotonic() + 5
     data = b''
-    while len(data) < 4:
+    while len(data) < len(expected):
         remaining = end - time.monotonic()
         if remaining <= 0:
             raise TimeoutError('preview greeting deadline')
         peer.settimeout(remaining)
-        chunk = peer.recv(4 - len(data))
+        chunk = peer.recv(len(expected) - len(data))
         if not chunk:
             raise RuntimeError('preview startup disconnected')
         data += chunk
-    if data != b'AP4\n':
+    if data != expected:
         raise RuntimeError('preview greeting differs')
 
 
@@ -110,7 +110,8 @@ def serve(peer, create_environment, retire_environment, output, stopping):
         return serve_connected(peer, create_environment, retire_environment, output, stopping)
 
 
-def serve_connected(peer, create_environment, retire_environment, output, stopping):
+def serve_connected(peer, create_environment, retire_environment, output, stopping, *, supervision=None, component_case='exact-again', greeting_data=None):
+    supervision = supervision or profile
     environment = None
     observed = None
     containment = True  # no Windows process until supervise is entered
@@ -131,7 +132,7 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
     if hasattr(socket, 'SO_PEERCRED'):
         native_process_id = struct.unpack('3i', peer.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[0]
     try:
-        greeting(peer)
+        greeting(peer) if greeting_data is None else greeting(peer, greeting_data)
         environment = create_environment()
         session = secrets.token_hex(16)
         native_report = output / ('native-' + session + '.jsonl')
@@ -155,7 +156,7 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
             except Exception as error:
                 report_error(stage, error)  # never interrupt owned cleanup
         containment = False
-        observed = runtime.supervise(environment, mode=profile.MODE, profile=profile,
+        observed = runtime.supervise(environment, mode=supervision.MODE, profile=supervision, component_case=component_case,
             session_override=session, checkpoint=checkpoint,
             post_gate_seconds=None, stop_requested=connection.stopped)
         containment = contained(observed)

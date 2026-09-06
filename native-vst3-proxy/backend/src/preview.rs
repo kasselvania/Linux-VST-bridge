@@ -100,12 +100,15 @@ fn private(path: &Path, directory: bool) -> io::Result<()> {
 }
 
 pub fn connect(root: &Path) -> io::Result<Binding> {
+    connect_greeting(root, b"AP4\n")
+}
+pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
     private(root, true)?;
     let address = root.join("owner.sock");
     private(&address, false)?;
     let mut owner = UnixStream::connect(address)?;
     owner.set_write_timeout(Some(Duration::from_secs(5)))?;
-    owner.write_all(b"AP4\n")?;
+    owner.write_all(greeting)?;
     // One absolute startup-message deadline, including fragmented replies.
     let end = Instant::now() + Duration::from_secs(10);
     let mut read = |bytes: &mut [u8]| -> io::Result<()> {
@@ -180,6 +183,23 @@ pub fn check_owner(owner: &mut Option<Owner>) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+pub fn discover_commercial(identity: crate::state::Identity) -> io::Result<Binding> {
+    let home = std::env::var_os("HOME").ok_or_else(|| invalid("preview home absent"))?;
+    let mut greeting = b"AP8\n".to_vec();
+    greeting.extend_from_slice(&identity.class);
+    greeting.extend_from_slice(&identity.module);
+    connect_greeting(
+        &PathBuf::from(home).join("AP8-Commercial-Test/preview"),
+        &greeting,
+    )
+}
+pub fn commercial_report_path(session: [u8; 16]) -> PathBuf {
+    let name: String = session.iter().map(|b| format!("{b:02x}")).collect();
+    PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
+        .join("AP8-Commercial-Test/preview/results")
+        .join(format!("native-{name}.jsonl"))
 }
 
 #[cfg(test)]

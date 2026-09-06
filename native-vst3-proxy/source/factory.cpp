@@ -157,7 +157,14 @@ namespace AP2 {
 static constexpr Steinberg::TUID processorID =
     INLINE_UID(0x84E8DE5F, 0x92554F53, 0x96FAE413, 0x3C935A18);
 } // namespace AP2
-#ifdef AP3_PREVIEW
+#ifdef AP8_PREVIEW
+#include "commercial_controller.h"
+#define AP8_UID(...) INLINE_UID(__VA_ARGS__)
+namespace AP8 {static constexpr Steinberg::TUID processorID=AP8_UID(AP8_PROCESSOR_UID);static constexpr Steinberg::TUID controlID=AP8_UID(AP8_CONTROLLER_UID);}
+BEGIN_FACTORY_DEF("Kasselvania Research", "https://github.com/kasselvania/Linux-VST-bridge", "", 2)
+DEF_CLASS(AP8::processorID,Steinberg::PClassInfo::kManyInstances,kVstAudioEffectClass,"Commercial Instrument Bridge",0,"Instrument|Synth","0.8.0",kVstVersionString,AP2::Processor::create,nullptr)
+DEF_CLASS(AP8::controlID,Steinberg::PClassInfo::kManyInstances,kVstComponentControllerClass,"Commercial Instrument Controls",0,"","0.8.0",kVstVersionString,AP8::Controller::create,nullptr)
+#elif defined(AP3_PREVIEW)
 BEGIN_FACTORY_DEF("Kasselvania Research",
                   "https://github.com/kasselvania/Linux-VST-bridge", "", 2)
 DEF_CLASS(AP2::processorID, Steinberg::PClassInfo::kManyInstances, kVstAudioEffectClass, "AGain Queued Preview", 0,

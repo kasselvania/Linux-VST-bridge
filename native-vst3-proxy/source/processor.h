@@ -3,6 +3,10 @@
 #include <atomic>
 #include <cstdint>
 #include <thread>
+#ifdef AP8_PREVIEW
+#include "ap8_descriptor.h"
+#include <vector>
+#endif
 namespace AP2 {
 inline constexpr Steinberg::Vst::ParamID recoveryID = 0x41503601;
 inline constexpr Steinberg::Vst::ParamID snapshotID = 0x41503602;
@@ -40,7 +44,11 @@ public:
   Steinberg::tresult PLUGIN_API
   getControllerClassId(Steinberg::TUID id) override {
     if (preview_) {
+#ifdef AP8_PREVIEW
+      Steinberg::FUID(AP8_CONTROLLER_UID).toTUID(id);
+#else
       controllerID.toTUID(id);
+#endif
       return Steinberg::kResultOk;
     }
     return Steinberg::kNotImplemented;
@@ -63,6 +71,10 @@ private:
   };
   std::atomic<Phase> phase_{New};
   bool stateSession();
+#ifdef AP8_PREVIEW
+  std::vector<uint8_t> state_readback_;
+  Steinberg::tresult readback();
+#endif
   void snapshotStatus(const char *status);
   Steinberg::tresult recover(uint64_t revision);
   bool controller_synced_ = false;

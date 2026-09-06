@@ -85,7 +85,7 @@ def create(scanner, module, *, source_sha256, resources=()):
 
 
 def command_vector(environment, session, component_case, mode):
-    if (component_case != 'first-audio' and not re.fullmatch(r'class:[0-9A-Fa-f]{32}', component_case)) or mode != MODE:
+    if (component_case != 'first-audio' and not re.fullmatch(r'class:[0-9A-Fa-f]{32}', component_case)) or mode not in (MODE, 'ap8-commercial-preview'):
         raise RuntimeError('AP8 inspection command differs')
     vector = owner.runtime.command_vector(environment, session, 'exact-again', owner.runtime.PC0_MODE)
     vector[vector.index('--mode') + 1] = mode

@@ -32,6 +32,7 @@ struct Session {
     epoch: u64,
     position: u64,
     witness: Option<observer::Observer>,
+    identity: Option<state::Identity>,
     trace: observer::Trace,
     owner: Option<preview::Owner>,
 }
@@ -123,8 +124,9 @@ impl Session {
             },
             owner,
             trace: observer::Trace::default(),
+            identity: None,
         };
-        if minor == 4 {
+        if minor >= 4 {
             s.phase = 17;
             return Ok(s);
         }
@@ -173,7 +175,7 @@ impl Session {
     }
     fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
         need(
-            self.minor == 4
+            self.minor >= 4
                 && matches!(self.phase, 17 | 15)
                 && (1..=CAP).contains(&maximum)
                 && mode <= 1,
@@ -220,14 +222,14 @@ impl Session {
         gain: f64,
         silence: u64,
         input: [&[f32]; 2],
-        epoch: u64,
-        position: u64,
+        timeline: (u64, u64),
+        events: &[events::Event],
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            self.minor >= 3 && epoch == self.epoch && position == self.position,
+            self.minor >= 3 && timeline == (self.epoch, self.position),
             "queued audio epoch/position",
         )?;
-        self.process(n, gain, silence, input)
+        self.process_events(n, gain, silence, input, events)
     }
     fn process(
         &mut self,
@@ -236,17 +238,35 @@ impl Session {
         silence: u64,
         input: [&[f32]; 2],
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+        self.process_events(n, gain, silence, input, &[])
+    }
+    fn process_events(
+        &mut self,
+        n: usize,
+        gain: f64,
+        silence: u64,
+        input: [&[f32]; 2],
+        events: &[events::Event],
+    ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+        need(
+            self.minor == 5 || events.is_empty(),
+            "events require negotiated protocol",
+        )?;
+        need(
+            self.minor != 5 || gain.is_nan(),
+            "commercial legacy gain refused",
+        )?;
         need(
             self.phase == 11
                 && self.state.slot == Slot::Writable
                 && (self.minor >= 3 || self.state.next <= 64)
-                && (n > 0 || self.minor == 4)
+                && (n > 0 || self.minor >= 4)
                 && n <= self.max
                 && silence <= 3,
             "process state/extent",
         )?;
         need(
-            (self.minor == 4 && gain.is_nan()) || gain.is_finite() && (0.0..=1.0).contains(&gain),
+            (self.minor >= 4 && gain.is_nan()) || gain.is_finite() && (0.0..=1.0).contains(&gain),
             "gain",
         )?;
         self.trace = observer::Trace {
@@ -279,7 +299,7 @@ impl Session {
                 map.write_plane(OUTPUT, ch, &poison)?;
             }
             barrier();
-            let mut request = if self.minor == 4 {
+            let mut request = if self.minor >= 4 {
                 let mut payload = vec![0; 32];
                 for (offset, value) in [
                     (0, n as u64),
@@ -313,6 +333,11 @@ impl Session {
                 request
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
+            }
+            if self.minor == 5 {
+                request
+                    .payload
+                    .extend_from_slice(&events::encode(events, n)?);
             }
             self.trace.prepared = Some(std::time::Instant::now());
             send_version(&mut self.socket, &request, 5, self.minor)?;
@@ -359,7 +384,7 @@ impl Session {
         result
     }
     fn close(mut self) -> io::Result<()> {
-        let result = if self.phase == 15 || self.minor == 4 && self.phase == 17 {
+        let result = if self.phase == 15 || self.minor >= 4 && self.phase == 17 {
             let f = self.state.close()?;
             send_version(&mut self.socket, &f, 5, self.minor)
                 .and_then(|_| receive_version(&mut self.socket, 10, self.minor))

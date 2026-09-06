@@ -3,6 +3,9 @@
 #include "ap2_backend.h"
 #include "ap3_backend.h"
 #include "ap4_backend.h"
+#ifdef AP8_PREVIEW
+#include "ap8_backend.h"
+#endif
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include <algorithm>
@@ -82,6 +85,7 @@ void sample_progress(uint64_t handle, const char *path) {
   if (n > 0 && static_cast<size_t>(n) < sizeof(text))
     diagnostic_report(path, text, static_cast<size_t>(n));
 }
+#ifndef AP8_PREVIEW
 bool parameters(IParameterChanges *p, double &gain, bool &changed) {
   if (!p)
     return true;
@@ -117,6 +121,7 @@ bool parameters(IParameterChanges *p, double &gain, bool &changed) {
   }
   return true;
 }
+#endif
 bool outputs(ProcessData &d, int maximum) {
   return d.symbolicSampleSize == kSample32 && d.numSamples > 0 &&
          d.numSamples <= maximum && d.numOutputs == 1 && d.outputs &&
@@ -143,7 +148,13 @@ bool Processor::stateSession() {
   if (handle_)
     return true;
   queued_ = true;
-  if (ap4_open(&handle_)) {
+  if (
+#ifdef AP8_PREVIEW
+      ap8_open(AP8::identity,&handle_)
+#else
+      ap4_open(&handle_)
+#endif
+  ) {
     phase_ = Failed;
     report();
     return false;
@@ -229,13 +240,21 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
       return kResultFalse;
     }
     blob.resize(size);
+#ifndef AP8_PREVIEW
     double gain = 0.;
+#endif
+#ifdef AP8_PREVIEW
+    if(ap8_validate(AP8::identity,blob.data(),size)||!LVBState::transfer(stream,blob.data(),blob.size(),true))return kResultFalse;
+    state_readback_=blob;
+    stateReport(report_path_,"opaque_get",blob,0.);
+#else
     if (ap4_validate(blob.data(), size, &gain) ||
         !LVBState::transfer(stream, blob.data(), blob.size(), true))
       return kResultFalse;
     stateReport(report_path_, "get", blob, gain);
     snapshotStatus("Captured complete state; not necessarily a project save");
     sample_progress(handle_, report_path_);
+#endif
     return kResultOk;
   } catch (...) {
     return kResultFalse;
@@ -251,10 +270,15 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
     return kResultFalse;
   try {
     std::vector<uint8_t> blob;
+#ifndef AP8_PREVIEW
     double restored = 0.;
+#endif
     if (!LVBState::readEnvelope(stream, blob) ||
-        ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()),
-                     &restored))
+#ifdef AP8_PREVIEW
+        ap8_validate(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
+#else
+        ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
+#endif
       return kResultFalse;
     if (!stateSession())
       return kResultFalse;
@@ -269,6 +293,11 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       return kResultFalse;
     }
     readback.resize(size);
+#ifdef AP8_PREVIEW
+    if(ap8_validate(AP8::identity,readback.data(),size)){phase_=Failed;return kResultFalse;}
+    state_readback_=std::move(readback);this->readback();
+    stateReport(report_path_,"opaque_set",state_readback_,0.);
+#else
     if (readback != blob) {
       phase_ = Failed;
       return kResultFalse;
@@ -276,6 +305,7 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
     gain_ = restored;
     stateReport(report_path_, "set", readback, restored);
     snapshotStatus("Confirmed project/component restore");
+#endif
     return kResultOk;
   } catch (...) {
     phase_ = Failed;
@@ -315,6 +345,9 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
     return kResultFalse;
   const auto *id = message->getMessageID();
   if (!id) return kResultFalse;
+#ifdef AP8_PREVIEW
+  if(!std::strcmp(id,"AP8.readback"))return readback();
+#endif
   if (!std::strcmp(id, "AP6.synced")) {
     controller_synced_ = true;
     return kResultOk;
@@ -397,7 +430,11 @@ tresult PLUGIN_API Processor::initialize(FUnknown *context) {
   auto result = AudioEffect::initialize(context);
   if (result != kResultOk)
     return result;
+#ifdef AP8_PREVIEW
+  addEventInput(STR16("Note Input"),16);
+#else
   addAudioInput(STR16("Offline Stereo In"), SpeakerArr::kStereo);
+#endif
   addAudioOutput(STR16("Offline Stereo Out"), SpeakerArr::kStereo);
   owner_ = std::this_thread::get_id();
   phase_ = Initialized;
@@ -409,7 +446,12 @@ tresult PLUGIN_API Processor::activateBus(MediaType media,
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id() ||
       (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
-      media != kAudio || index != 0 ||
+#ifdef AP8_PREVIEW
+      !((media==kAudio&&direction==kOutput)||(media==kEvent&&direction==kInput)) ||
+#else
+      media != kAudio ||
+#endif
+      index != 0 ||
       (direction != kInput && direction != kOutput))
     return kResultFalse;
   auto r = AudioEffect::activateBus(media, direction, index, active);
@@ -424,7 +466,11 @@ tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement *in,
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id() ||
       (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
+#ifdef AP8_PREVIEW
+      ni != 0 || no != 1 || !out ||
+#else
       ni != 1 || no != 1 || !in || !out || *in != SpeakerArr::kStereo ||
+#endif
       *out != SpeakerArr::kStereo)
     return kResultFalse;
   return AudioEffect::setBusArrangements(in, ni, out, no);
@@ -534,6 +580,17 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       d.numSamples > maximum_)
     return reject();
   double pending = gain_;
+#ifdef AP8_PREVIEW
+  ap8_event_t events[256]{};uint32_t event_count=0;
+  auto append=[&](ap8_event_t e){if(event_count==256)return false;events[event_count++]=e;return true;};
+  if(d.inputEvents){auto n=d.inputEvents->getEventCount();if(n<0||n>256)return reject();for(int i=0;i<n;++i){Event e{};if(d.inputEvents->getEvent(i,e)!=kResultOk||e.busIndex!=0)return reject();
+    ap8_event_t v{};v.offset=static_cast<uint32_t>(e.sampleOffset);
+    if(e.type==Event::kNoteOnEvent){v.kind=0;v.id=static_cast<uint32_t>(e.noteOn.noteId);v.channel=e.noteOn.channel;v.pitch=e.noteOn.pitch;v.value=e.noteOn.velocity;v.tuning=e.noteOn.tuning;}
+    else if(e.type==Event::kNoteOffEvent){v.kind=1;v.id=static_cast<uint32_t>(e.noteOff.noteId);v.channel=e.noteOff.channel;v.pitch=e.noteOff.pitch;v.value=e.noteOff.velocity;v.tuning=e.noteOff.tuning;}else return reject();
+    if(!append(v))return reject();}}
+  if(d.inputParameterChanges){auto n=d.inputParameterChanges->getParameterCount();if(n<0||n>256)return reject();for(int i=0;i<n;++i){auto*q=d.inputParameterChanges->getParameterData(i);if(!q)return reject();auto id=q->getParameterId();bool known=false;for(const auto&p:AP8::parameters)if(p.id==id){known=true;break;}if(!known)return reject();auto points=q->getPointCount();if(points<0||points>256)return reject();int previous=-1;for(int j=0;j<points;++j){int offset=0;double value=0;if(q->getPoint(j,offset,value)!=kResultOk||offset<previous)return reject();previous=offset;if(!append({static_cast<uint32_t>(offset),2,id,0,0,value,0,0}))return reject();}}}
+  if(d.numSamples==0){if(d.numInputs||d.numOutputs)return reject();float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};if(event_count&&ap8_process(handle_,0,events,event_count,&dummy,&dummy,&dummy,&dummy,&flags,&delivery)){phase_=Failed;return reject();}return kResultOk;}
+#else
   bool changed = false;
   if (!parameters(d.inputParameterChanges, pending, changed) ||
       (d.inputEvents && d.inputEvents->getEventCount() != 0))
@@ -553,14 +610,24 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     gain_ = pending;
     return kResultOk;
   }
+  #endif
   if ((!queued_ && blocks_ >= 64) || !outputs(d, maximum_) ||
+#ifdef AP8_PREVIEW
+      d.numInputs != 0)
+    return reject();
+  float silent_input[256]{};float* in[2]={silent_input,silent_input};
+#else
       d.numInputs != 1 || !d.inputs || d.inputs[0].numChannels != 2 ||
       !d.inputs[0].channelBuffers32 || !d.inputs[0].channelBuffers32[0] ||
       !d.inputs[0].channelBuffers32[1] ||
       (d.inputs[0].silenceFlags & ~uint64(3)))
     return reject();
   auto **in = d.inputs[0].channelBuffers32;
+  #endif
   auto **out = d.outputs[0].channelBuffers32;
+#ifdef AP8_PREVIEW
+  if(overlap(out[0],out[1],d.numSamples))return reject();
+#else
   if (overlap(out[0], out[1], d.numSamples) ||
       overlap(in[0], in[1], d.numSamples) ||
       overlap(out[0], in[1], d.numSamples) ||
@@ -573,9 +640,13 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       if (!std::isfinite(in[ch][i]) ||
           ((d.inputs[0].silenceFlags & (uint64(1) << ch)) && in[ch][i] != 0.f))
         return reject();
+  #endif
   uint64_t silence = 0;
   ap7_delivery_t delivery{};
   auto r =
+#ifdef AP8_PREVIEW
+      ap8_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,in[0],in[1],out[0],out[1],&silence,&delivery);
+#else
       queued_
           ? static_cast<int32_t>(ap7_process(
                 handle_, static_cast<uint32_t>(d.numSamples),
@@ -586,6 +657,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
           : ap2_process(handle_, static_cast<uint32_t>(d.numSamples), pending,
                         d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
                         &silence);
+  #endif
   if (r) {
     if (!queued_)
       report();
@@ -686,3 +758,16 @@ tresult PLUGIN_API Processor::terminate() {
   return clean ? r : kResultFalse;
 }
 } // namespace AP2
+
+#ifdef AP8_PREVIEW
+namespace AP2 {
+Steinberg::tresult Processor::readback(){
+ if(state_readback_.empty()){
+  if(!stateSession())return Steinberg::kResultFalse;
+  state_readback_.resize(LVBState::payloadLimit+LVBState::overhead);uint32_t size=0;
+  if(ap4_state(handle_,nullptr,0,state_readback_.data(),static_cast<uint32_t>(state_readback_.size()),&size)){state_readback_.clear();return Steinberg::kResultFalse;}state_readback_.resize(size);
+ }
+ auto*m=allocateMessage();if(!m)return Steinberg::kResultFalse;m->setMessageID("AP8.readback");m->getAttributes()->setBinary("state",state_readback_.data(),static_cast<uint32_t>(state_readback_.size()));auto r=sendMessage(m);m->release();return r;
+}
+}
+#endif

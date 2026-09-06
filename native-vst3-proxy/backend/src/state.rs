@@ -102,7 +102,7 @@ pub unsafe extern "C" fn ap4_validate(blob: *const u8, n: u32, gain: *mut f64) -
 impl Session {
     pub fn component_state(&mut self, restore: Option<&[u8]>) -> io::Result<Vec<u8>> {
         need(
-            self.minor == 4
+            self.minor >= 4
                 && self.phase != ERROR
                 && self.state.slot == Slot::Writable
                 && (restore.is_none() || self.phase != 11),
@@ -116,8 +116,8 @@ impl Session {
             payload: restore.unwrap_or(&[]).to_vec(),
         };
         let result = (|| {
-            send_version(&mut self.socket, &request, 5, 4)?;
-            let reply = receive_version(&mut self.socket, 10, 4)?;
+            send_version(&mut self.socket, &request, 5, self.minor)?;
+            let reply = receive_version(&mut self.socket, 10, self.minor)?;
             need(
                 reply.kind == kind + 1
                     && reply.session == request.session
@@ -125,13 +125,17 @@ impl Session {
                 "state response correlation",
             )?;
             need(reply.payload.len() <= LIMIT, "state response cap")?;
-            if let Some(p) = restore {
+            if let Some(p) = restore.filter(|_| self.minor == 4) {
                 need(
                     reply.payload == p,
                     "restored Windows state readback differs",
                 )?;
             }
-            reference(&reply.payload)?;
+            if self.minor == 4 {
+                reference(&reply.payload)?;
+            } else {
+                commercial_payload(&reply.payload)?;
+            }
             if let Some(w) = &mut self.witness {
                 w.state(&reply.payload, restore.is_some());
             }
@@ -259,6 +263,65 @@ impl Witness {
         Ok(())
     }
 }
+pub fn commercial_payload(p: &[u8]) -> io::Result<()> {
+    need(p.len() >= 16, "commercial state header")?;
+    let a = get(&p[..4]) as usize;
+    let b = get(&p[4..8]) as usize;
+    let n = get(&p[8..12]) as usize;
+    let flags = get(&p[12..16]);
+    need(
+        flags <= 1
+            && n <= 8192
+            && (flags == 1 || b == 0)
+            && p.len() == 16 + a + b + n * 12
+            && p.len() <= LIMIT,
+        "commercial state extent",
+    )?;
+    let mut ids = std::collections::HashSet::new();
+    for b in p[16 + a + b..].chunks_exact(12) {
+        let v = f64::from_le_bytes(b[4..].try_into().unwrap());
+        need(
+            v.is_finite() && (0.0..=1.0).contains(&v) && ids.insert(get(&b[..4])),
+            "state parameter value/identity",
+        )?;
+    }
+    Ok(())
+}
+pub fn bound_envelope(identity: Option<Identity>, p: &[u8]) -> io::Result<Vec<u8>> {
+    if let Some(id) = identity {
+        commercial_payload(p)?;
+        envelope_for(id, 2, p)
+    } else {
+        envelope(p)
+    }
+}
+pub fn bound_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> {
+    if let Some(id) = identity {
+        let p = payload_for(id, 2, b)?;
+        commercial_payload(p)?;
+        Ok(p)
+    } else {
+        payload(b)
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap8_validate(identity: *const u8, blob: *const u8, n: u32) -> u32 {
+    crate::ffi(|| {
+        if identity.is_null() || blob.is_null() || n as usize > LIMIT + HEADER_SIZE {
+            return 1;
+        }
+        let b = std::slice::from_raw_parts(identity, 48);
+        let id = Identity {
+            class: b[..16].try_into().unwrap(),
+            module: b[16..].try_into().unwrap(),
+        };
+        match bound_payload(Some(id), std::slice::from_raw_parts(blob, n as usize)) {
+            Ok(_) => 0,
+            Err(e) => retain(&e),
+        }
+    }) as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
