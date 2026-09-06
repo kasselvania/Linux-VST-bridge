@@ -24,8 +24,6 @@ h=pathlib.Path.home();task=h/'AP9-Performance';role=CASE['role'];os.umask(0o077)
 assert task.is_dir() and not task.is_symlink(), 'prepared private AP9 task directory required'
 output=task/'runs'/CASE['name'];output.mkdir(mode=0o700)
 build=h/('.cache/linux-vst-bridge/ap9-builds/'+CASE['build']+'/build');host=build/'native-vst3-proxy/ap3-sustained-host';audit=build/'native-vst3-proxy/libap3-callback-audit.so';bundle=build/('VST3/Release/'+('CommercialInstrumentBridge' if role=='serum' else 'AGainQueuedBridge')+'.vst3')
-assert task.is_dir() and not task.is_symlink(), 'prepared private AP9 task directory required'
-os.umask(0o077)
 setting=task/'delay-frames'
 fd=os.open(setting,os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600)
 with os.fdopen(fd,'w') as setting_file: setting_file.write(str(CASE['delay'])+'\n')
@@ -47,7 +45,10 @@ def usage():
 usage_before=usage();wall=time.monotonic();active_before=None;active_after=None
 with (output/'stderr.txt').open('w') as err:
  p=subprocess.Popen([str(host),str(bundle),'ap9-'+role,str(CASE['rate']),str(CASE['block']),str(CASE['seconds']),str(CASE['voices'])],env={**os.environ,'LD_PRELOAD':str(audit)},stdout=subprocess.PIPE,stderr=err,text=True)
- def timeout(*_):p.kill();raise TimeoutError('AP9 caller bound')
+ timed_out=False
+ def timeout(*_):
+  p.kill()
+  raise TimeoutError('AP9 caller bound')
  signal.signal(signal.SIGALRM,timeout);signal.alarm(CASE['seconds']+60);lines=[]
  try:
   for line in p.stdout:
@@ -55,8 +56,11 @@ with (output/'stderr.txt').open('w') as err:
    if '"event":"ap9_audio_begin"' in line:active_before=usage()
    if '"event":"ap9_audio_end"' in line:active_after=usage()
   code=p.wait(timeout=5)
+ except TimeoutError:
+  timed_out=True
+  code=p.wait(timeout=5)
  finally:signal.alarm(0)
-record={'case':CASE,'returncode':code,'wall_seconds':time.monotonic()-wall,'unit_before':usage_before,'unit_after':usage(),'active_before':active_before,'active_after':active_after,'native_sha256':hashlib.sha256((bundle/('Contents/x86_64-linux/'+bundle.stem+'.so')).read_bytes()).hexdigest(),'stdout':''.join(lines),'stderr':(output/'stderr.txt').read_text()}
+record={'timed_out':timed_out,'case':CASE,'returncode':code,'wall_seconds':time.monotonic()-wall,'unit_before':usage_before,'unit_after':usage(),'active_before':active_before,'active_after':active_after,'native_sha256':hashlib.sha256((bundle/('Contents/x86_64-linux/'+bundle.stem+'.so')).read_bytes()).hexdigest(),'stdout':''.join(lines),'stderr':(output/'stderr.txt').read_text()}
 (output/'run.json').write_text(json.dumps(record))
 new=set(results.glob('*'))-before
 for path in new:

@@ -911,6 +911,7 @@ pub unsafe extern "C" fn ap9_setup(
                 let callback=l.callback.get_mut();
                 if callback.running {return Err(invalid("configuration during playback"));}
                 callback.delay=u64::from(delay);l.max=maximum as usize;
+                l.setup=Some(bytes);
                 if let Some(path)=&l.report {
                     crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",maximum.min(256),ap1_native_client::get(&reply[8..12])).as_bytes());
                 }
@@ -1400,6 +1401,67 @@ pub unsafe extern "C" fn ap8_process(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn acknowledged_setup_is_retained_for_recovery() {
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = INSTANCES
+            .insert(|| {
+                Ok::<_, ()>(Live {
+                    shared: shared.clone(),
+                    callback: UnsafeCell::new(Callback::new()),
+                    busy: AtomicBool::new(false),
+                    worker: None,
+                    report: None,
+                    max: 256,
+                    recovery_blocked: false,
+                    minor: 6,
+                    setup: None,
+                })
+            })
+            .unwrap()
+            .unwrap();
+        let peer = shared.clone();
+        let responder = thread::spawn(move || {
+            let until = Instant::now() + Duration::from_secs(5);
+            loop {
+                if peer.pending_control.load(Ordering::Acquire) {
+                    let mut mailbox = peer.control.lock().unwrap();
+                    let c = mailbox.as_mut().unwrap();
+                    assert_eq!(c.op, 20);
+                    assert_eq!(c.bytes, crate::performance::wire(128, 0, 96000.).unwrap());
+                    c.result = Some(Ok([
+                        7u32.to_le_bytes(),
+                        18u32.to_le_bytes(),
+                        1u32.to_le_bytes(),
+                        0u32.to_le_bytes(),
+                    ]
+                    .concat()));
+                    peer.pending_control.store(false, Ordering::Release);
+                    break;
+                }
+                assert!(Instant::now() < until);
+                thread::yield_now();
+            }
+        });
+        let mut traits = [0u32; 2];
+        assert_eq!(
+            unsafe { ap9_setup(id, 128, 0, 96000., traits.as_mut_ptr()) },
+            0
+        );
+        responder.join().unwrap();
+        INSTANCES
+            .remove(id, |l| {
+                assert_eq!(
+                    l.setup,
+                    Some(crate::performance::wire(128, 0, 96000.).unwrap())
+                );
+                assert_eq!(l.max, 128);
+                assert_eq!(u64::from(traits[0]), l.callback.get_mut().delay + 7);
+                assert_eq!(traits[1], 18);
+            })
+            .unwrap();
+    }
     #[test]
     fn large_host_blocks_preserve_notes_and_parameter_offsets() {
         let mut shared = Shared::new();

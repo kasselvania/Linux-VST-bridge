@@ -170,6 +170,7 @@ pub struct Timings {
     stages: [Distribution; 9],
     slow: Vec<(u64, u64, u64, u64, u64)>,
     negative_residuals: u64,
+    unpublished: u64,
 }
 impl Timings {
     pub fn add(&mut self, t: crate::observer::Trace) {
@@ -194,7 +195,9 @@ impl Timings {
             Some(win),
             elapsed(t.queued, t.published).and_then(|n| n.checked_sub(win)),
         ];
-        if durations[8].is_none() {
+        if durations[6].is_none() {
+            self.unpublished += 1;
+        } else if durations[8].is_none() {
             self.negative_residuals += 1;
         }
         for (s, n) in self.stages.iter_mut().zip(durations) {
@@ -230,6 +233,10 @@ impl Timings {
         text.push_str(&format!(
             "{{\"event\":\"ap9_clock_resolution\",\"negative_correlated_residuals\":{}}}\n",
             self.negative_residuals
+        ));
+        text.push_str(&format!(
+            "{{\"event\":\"ap9_unpublished\",\"requests\":{}}}\n",
+            self.unpublished
         ));
         for (total, epoch, seq, pos, win) in &self.slow {
             text.push_str(&format!("{{\"event\":\"ap9_slow_request\",\"epoch\":{epoch},\"sequence\":{seq},\"position\":{pos},\"service_ns\":{total},\"windows_process_ns\":{win}}}\n"));
