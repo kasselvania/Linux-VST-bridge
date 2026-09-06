@@ -41,11 +41,12 @@ void performanceCase(const VST3::Hosting::PluginFactory& factory,HostApplication
     if(!commercial){float want=position+i<delay?0.f:expected[ch][(position+i-delay)%8192];double error=std::abs(v-want);wrong+=error!=0;returned_zero+=error!=0&&v==0;max_error=std::max(max_error,error);++compared;}}}
    position+=size;
   }
-  getrusage(RUSAGE_SELF,&after);wall=std::chrono::duration<double>(Clock::now()-start).count();ok(callback([&]{return p->setProcessing(false);}),"performance stop");
+  getrusage(RUSAGE_SELF,&after);std::cout<<"{\"event\":\"ap9_audio_end\"}"<<std::endl;wall=std::chrono::duration<double>(Clock::now()-start).count();ok(callback([&]{return p->setProcessing(false);}),"performance stop");
  }catch(...){failure=std::current_exception();}});audio.join();
  if(!failure){LVBState::Stream state;ok(component->getState(&state),"performance capture");ok(component->setActive(false),"performance deactivate");state.position=0;ok(component->setState(&state),"performance restore");std::cout<<"{\"event\":\"ap9_state_roundtrip\",\"bytes\":"<<state.bytes.size()<<"}"<<std::endl;}
  cc->disconnect(cp);cp->disconnect(cc);cc=nullptr;cp=nullptr;auto terminated=component->terminate();p=nullptr;component=nullptr;controller->terminate();controller=nullptr;
- if(failure)std::rethrow_exception(failure);ok(terminated,"performance terminate");
+ if(failure){std::rethrow_exception(failure);}
+ ok(terminated,"performance terminate");
  std::sort(durations.begin(),durations.end());auto pct=[&](double q){return durations[std::min(durations.size()-1,size_t(q*durations.size()))];};auto cpu=[](const rusage&r){return double(r.ru_utime.tv_sec+r.ru_stime.tv_sec)+double(r.ru_utime.tv_usec+r.ru_stime.tv_usec)/1e6;};
  std::cout<<"{\"event\":\"ap9_host_result\",\"commercial\":"<<commercial<<",\"voices\":"<<voices<<",\"sample_rate\":"<<rate<<",\"block\":"<<size<<",\"latency_frames\":"<<delay<<",\"frames\":"<<position<<",\"wall_seconds\":"<<wall<<",\"native_cpu_seconds\":"<<cpu(after)-cpu(before)<<",\"maxrss_kib\":"<<after.ru_maxrss<<",\"callback_p50_ns\":"<<pct(.5)<<",\"callback_p99_ns\":"<<pct(.99)<<",\"callback_max_ns\":"<<callback_max<<",\"callback_deadline_misses\":"<<deadline<<",\"host_schedule_misses\":"<<late<<",\"rejections\":"<<rejections<<",\"compared_samples\":"<<compared<<",\"wrong_samples\":"<<wrong<<",\"wrong_zero_samples\":"<<returned_zero<<",\"maximum_error\":"<<max_error<<",\"rms\":"<<sqrt(energy/double(position*2))<<",\"peak\":"<<peak<<",\"nonzero_samples\":"<<nonzero<<",\"callback_effects\":0}"<<std::endl;
  for(int i=0;i<seconds;++i)std::cout<<"{\"event\":\"ap9_host_audio_second\",\"second\":"<<i<<",\"rms\":"<<sqrt(per_second_energy[i]/double(std::max<uint64_t>(1,per_second_samples[i])))<<"}"<<std::endl;
