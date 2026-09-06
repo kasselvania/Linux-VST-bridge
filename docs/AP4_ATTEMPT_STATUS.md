@@ -1,5 +1,7 @@
 # AP4 attempt preserved — incomplete
 
+> Historical checkpoint, preserved as recorded. The later authorized continuation fixed the desktop lifetime/binding defects and completed a focused save/reopen check: see [current AP4 result](AP4_RESULT.md). The old counts, labels and continuation requirements below describe this checkpoint; they are not the current task instructions.
+
 The operator requested that this attempt be preserved on GitHub and work stop. This is an implementation checkpoint, not completed AP4 acceptance. Keep issue #57 open and the PR draft/unmerged. AP3 remains the accepted frontier; all earlier accepted evidence and consumed reservations remain unchanged.
 
 ## What actually worked
