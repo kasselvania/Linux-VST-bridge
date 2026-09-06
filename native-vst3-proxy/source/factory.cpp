@@ -75,9 +75,9 @@ static constexpr Steinberg::TUID processorID =
 #ifdef AP3_PREVIEW
 BEGIN_FACTORY_DEF("Kasselvania Research",
                   "https://github.com/kasselvania/Linux-VST-bridge", "", 2)
-DEF_CLASS(AP2::processorID, 1, kVstAudioEffectClass, "AGain Queued Preview", 0,
+DEF_CLASS(AP2::processorID, Steinberg::PClassInfo::kManyInstances, kVstAudioEffectClass, "AGain Queued Preview", 0,
           "Fx", "0.2.0", kVstVersionString, AP2::Processor::create, nullptr)
-DEF_CLASS(AP2::controlID, 1, kVstComponentControllerClass,
+DEF_CLASS(AP2::controlID, Steinberg::PClassInfo::kManyInstances, kVstComponentControllerClass,
           "Bridge Reference Gain", 0, "", "0.2.0", kVstVersionString,
           AP2::Controller::create, nullptr)
 #else

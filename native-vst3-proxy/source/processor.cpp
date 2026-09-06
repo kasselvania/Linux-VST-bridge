@@ -33,25 +33,22 @@ void report() {
 }
 // Optional bounded test report, written only on the non-RT owner thread. The
 // DAW's own plug-in host may redirect stdout; this preserves the same facts.
-void diagnostic_report(const char *text, size_t size) {
+void diagnostic_report(const char *path, const char *text, size_t size) {
   std::fwrite(text, 1, size, stdout);
-  const char *path = std::getenv("LVB_AP3_REPORT");
-  if (!path) {
-    ap4_report(reinterpret_cast<const uint8_t *>(text), static_cast<uint32_t>(size));
-    return;
-  }
+  if (!path || !*path) path = std::getenv("LVB_AP3_REPORT");
+  if (!path) return;
   int fd = ::open(path, O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW | O_CLOEXEC,
                   0600);
   struct stat st{};
   bool valid = fd >= 0 && !::fstat(fd, &st) && S_ISREG(st.st_mode) &&
                st.st_uid == ::getuid() && (st.st_mode & 077) == 0 &&
-               st.st_size >= 0 && st.st_size + static_cast<off_t>(size) <= 8192;
+               st.st_size >= 0 && st.st_size + static_cast<off_t>(size) <= 65536;
   if (!valid || ::write(fd, text, size) != static_cast<ssize_t>(size))
     std::fputs("AP3 diagnostic persistence failed\n", stderr);
   if (fd >= 0)
     ::close(fd);
 }
-void report_stats(uint64_t handle) {
+void report_stats(uint64_t handle, const char *path) {
   ap3_stats_t s{};
   if (!ap3_stats(handle, &s)) {
     char text[512];
@@ -65,8 +62,25 @@ void report_stats(uint64_t handle) {
         (unsigned long long)s.result_high, (unsigned long long)s.position,
         (unsigned long long)s.epoch);
     if (n > 0 && static_cast<size_t>(n) < sizeof(text))
-      diagnostic_report(text, static_cast<size_t>(n));
+      diagnostic_report(path, text, static_cast<size_t>(n));
   }
+}
+void sample_progress(uint64_t handle, const char *path) {
+  ap5_observation_t observation{};
+  if (ap5_observation(handle, &observation)) return;
+  const auto &w = observation.comparison;
+  char text[768];
+  auto n = std::snprintf(text, sizeof(text),
+      "{\"event\":\"ap5_sample_progress\",\"samples\":%llu,"
+      "\"before_edit_samples\":%llu,\"edits\":%llu,\"nonzero_samples\":%llu,"
+      "\"maximum_error\":%.17g,\"restored_gain\":%.9g,"
+      "\"input_fnv1a64\":%llu,\"output_fnv1a64\":%llu}\n",
+      (unsigned long long)w.samples, (unsigned long long)w.before_edit_samples,
+      (unsigned long long)w.edits, (unsigned long long)w.nonzero_samples,
+      w.maximum_error, w.restored_gain, (unsigned long long)observation.input_hash,
+      (unsigned long long)observation.output_hash);
+  if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+    diagnostic_report(path, text, static_cast<size_t>(n));
 }
 bool parameters(IParameterChanges *p, double &gain, bool &changed) {
   if (!p)
@@ -132,10 +146,14 @@ bool Processor::stateSession() {
     report();
     return false;
   }
+  if (ap5_report_path(handle_, reinterpret_cast<uint8_t *>(report_path_), sizeof(report_path_))) {
+    phase_ = Failed;
+    return false;
+  }
   return true;
 }
 namespace {
-void stateReport(const char *operation, const std::vector<uint8_t> &blob,
+void stateReport(const char *path, const char *operation, const std::vector<uint8_t> &blob,
                  double gain) {
   char hex[65]{};
   for (size_t i = 0; i < 32; ++i)
@@ -147,7 +165,7 @@ void stateReport(const char *operation, const std::vector<uint8_t> &blob,
                     "\"payload_bytes\":%zu,\"sha256\":\"%s\",\"gain\":%.9g}\n",
                     operation, blob.size() - LVBState::overhead, hex, gain);
   if (n > 0 && static_cast<size_t>(n) < sizeof(text))
-    diagnostic_report(text, static_cast<size_t>(n));
+    diagnostic_report(path, text, static_cast<size_t>(n));
 }
 } // namespace
 
@@ -186,7 +204,7 @@ void Processor::stateFailure(const char *operation, const char *stage) {
       (unsigned long long)callback_rejections_.load(std::memory_order_relaxed),
       escaped);
   if (n > 0 && static_cast<size_t>(n) < sizeof(text))
-    diagnostic_report(text, static_cast<size_t>(n));
+    diagnostic_report(report_path_, text, static_cast<size_t>(n));
 }
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
@@ -213,7 +231,8 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     if (ap4_validate(blob.data(), size, &gain) ||
         !LVBState::transfer(stream, blob.data(), blob.size(), true))
       return kResultFalse;
-    stateReport("get", blob, gain);
+    stateReport(report_path_, "get", blob, gain);
+    sample_progress(handle_, report_path_);
     return kResultOk;
   } catch (...) {
     return kResultFalse;
@@ -252,7 +271,7 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       return kResultFalse;
     }
     gain_ = restored;
-    stateReport("set", readback, restored);
+    stateReport(report_path_, "set", readback, restored);
     return kResultOk;
   } catch (...) {
     phase_ = Failed;
@@ -466,8 +485,9 @@ tresult PLUGIN_API Processor::terminate() {
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated;
   if (handle_) {
     if (queued_)
-      report_stats(handle_);
+      report_stats(handle_, report_path_);
     if (preview_) {
+      sample_progress(handle_, report_path_);
       ap4_witness_t w{};
       if (!ap4_witness(handle_, &w)) {
         char text[512];
@@ -484,7 +504,7 @@ tresult PLUGIN_API Processor::terminate() {
             (unsigned long long)w.nonzero_samples, w.maximum_error,
             w.restored_gain);
         if (n > 0 && static_cast<size_t>(n) < sizeof(text))
-          diagnostic_report(text, static_cast<size_t>(n));
+          diagnostic_report(report_path_, text, static_cast<size_t>(n));
       }
     }
     clean =
@@ -512,7 +532,7 @@ tresult PLUGIN_API Processor::terminate() {
         (unsigned long long)zero_gain_blocks_, gain_min_, gain_max_,
         clean ? "true" : "false");
     if (n > 0 && static_cast<size_t>(n) < sizeof(text))
-      diagnostic_report(text, static_cast<size_t>(n));
+      diagnostic_report(report_path_, text, static_cast<size_t>(n));
   }
   phase_ = Terminated;
   return clean ? r : kResultFalse;

@@ -237,6 +237,7 @@ void interval(IAudioProcessor &p, int block_size, int active_frames, bool fault,
   // Leave a known gain for the next processing interval in this same instance.
 }
 #include "state_cases.h"
+#include "instances_cases.h"
 } // namespace
 int main(int argc, char **argv) {
   try {
@@ -264,6 +265,10 @@ int main(int argc, char **argv) {
     need(classes.size() == 2, "preview processor/controller factory");
     need(classes[0].ID().toString() == "84E8DE5F92554F5396FAE4133C935A18",
          "processor identity");
+    if (scenario.starts_with("instances-")) {
+      instanceCases(module->getFactory(), host, scenario);
+      host = nullptr; module.reset(); return 0;
+    }
     auto component =
         module->getFactory().createInstance<IComponent>(classes[0].ID());
     need(bool(component), "factory component");

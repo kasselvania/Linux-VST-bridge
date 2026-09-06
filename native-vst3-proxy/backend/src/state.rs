@@ -149,6 +149,8 @@ pub struct WitnessReport {
 pub struct Witness {
     pub report: WitnessReport,
     pub ready: bool,
+    pub input_hash: u64,
+    pub output_hash: u64,
     gain: f32,
     reduction: f32,
     bypass: bool,
@@ -159,6 +161,8 @@ impl Witness {
         Self {
             report: WitnessReport::default(),
             ready: false,
+            input_hash: 14695981039346656037,
+            output_hash: 14695981039346656037,
             gain: 0.,
             reduction: 0.,
             bypass: false,
@@ -214,6 +218,18 @@ impl Witness {
                     .report
                     .maximum_error
                     .max((actual as f64 - expected as f64).abs());
+                // Per-instance routing fingerprints, only on the transport worker.
+                for (hash, value) in [
+                    (&mut self.input_hash, input[ch][i]),
+                    (&mut self.output_hash, actual),
+                ] {
+                    for byte in (if value == 0. { 0f32 } else { value })
+                        .to_bits()
+                        .to_le_bytes()
+                    {
+                        *hash = (*hash ^ u64::from(byte)).wrapping_mul(1099511628211);
+                    }
+                }
                 self.report.samples += 1;
                 self.report.nonzero_samples += u64::from(actual != 0.);
                 if self.report.restores > 0 {

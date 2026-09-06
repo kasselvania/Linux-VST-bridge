@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Private, single-instance AGain preview owner for ordinary desktop Bitwig.
+"""Private, bounded multi-instance AGain preview owner for ordinary desktop Bitwig.
 
 Uses the existing pinned host/fixture, disposable stage, supervisor and cleanup.
 No DAW launcher, public service, vendor selection or general broker API.
@@ -18,6 +18,7 @@ import time
 import tempfile
 import subprocess
 import importlib.util
+import threading
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # These are the same six frozen dependencies used by AP4's existing launcher.
@@ -56,15 +57,13 @@ def private_directory(path):
 
 class Connection:
     """Native lifetime is independent of the screenshare and SSH connection."""
-    def __init__(self, peer, stopping, reject_waiters=lambda: None):
+    def __init__(self, peer, stopping):
         self.peer = peer
         self.stopping = stopping
-        self.reject_waiters = reject_waiters
         self.disconnected_at = None
         peer.setblocking(False)
 
     def stopped(self):
-        self.reject_waiters()
         if self.stopping():
             return True
         if self.disconnected_at is None:
@@ -106,12 +105,12 @@ def wait_control(environment, connection, seconds=10):
         time.sleep(.02)
 
 
-def serve(peer, create_environment, retire_environment, output, stopping, reject_waiters):
+def serve(peer, create_environment, retire_environment, output, stopping):
     with peer:
-        return serve_connected(peer, create_environment, retire_environment, output, stopping, reject_waiters)
+        return serve_connected(peer, create_environment, retire_environment, output, stopping)
 
 
-def serve_connected(peer, create_environment, retire_environment, output, stopping, reject_waiters):
+def serve_connected(peer, create_environment, retire_environment, output, stopping):
     environment = None
     observed = None
     containment = True  # no Windows process until supervise is entered
@@ -126,7 +125,7 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
             raise RuntimeError('preview startup reply bound')
         peer.settimeout(5)
         peer.sendall(struct.pack('<H', len(reply)) + reply)
-        connection = Connection(peer, stopping, reject_waiters)
+        connection = Connection(peer, stopping)
         wait_control(environment, connection)
         def checkpoint(stage, available=None, error=None):
             nonlocal observed, containment, checkpoint_error
@@ -164,9 +163,56 @@ def serve_connected(peer, create_environment, retire_environment, output, stoppi
                 record['retired'] = True
                 write_atomic(target, canonical_json(record))
             else:
-                raise RuntimeError('preview containment incomplete; stage retained')
+                raise ContainmentError('preview containment incomplete; stage retained')
     if failure:
         raise RuntimeError(failure)
+
+
+class ContainmentError(RuntimeError):
+    pass
+
+
+class Sessions:
+    """One existing supervisor per connection; mutable session state is never shared."""
+    capacity = 4
+
+    def __init__(self, run):
+        self.run = run
+        self.threads = []  # admission/reaping belong exclusively to the listener
+        self.blocked = threading.Event()
+
+    def reap(self):
+        for thread in self.threads:
+            if not thread.is_alive():
+                thread.join()
+        self.threads = [thread for thread in self.threads if thread.is_alive()]
+
+    def admit(self, peer):
+        self.reap()
+        if self.blocked.is_set() or len(self.threads) >= self.capacity:
+            peer.close()
+            return False
+        def owned():
+            try:
+                self.run(peer)
+            except ContainmentError as error:
+                # Refuse NEW work when containment is uncertain. Existing healthy
+                # siblings keep their own lifetime and supervisor.
+                self.blocked.set()
+                print(str(error), file=sys.stderr, flush=True)
+            except Exception as error:
+                print('preview instance failed: ' + str(error), file=sys.stderr, flush=True)
+            finally:
+                peer.close()
+        thread = threading.Thread(target=owned, name='ap5-preview-instance')
+        self.threads.append(thread)
+        thread.start()
+        return True
+
+    def join(self):
+        for thread in self.threads:
+            thread.join()
+        self.threads.clear()
 
 
 def main():
@@ -195,10 +241,9 @@ def main():
     output = root / 'results'
     private_directory(output)
     address = root / 'owner.sock'
-    stopping = False
+    stopping = threading.Event()
     def stop(signum, frame):
-        nonlocal stopping
-        stopping = True
+        stopping.set()
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     # Refuse an existing socket, including a stale one; never steal ownership.
@@ -207,23 +252,20 @@ def main():
         inode = address.stat().st_ino
         listener.listen(8)
         listener.setblocking(False)
-        def reject_waiters():
-            for _ in range(8):
-                try:
-                    extra, _ = listener.accept()
-                except BlockingIOError:
-                    break
-                extra.close()  # one instance only; fail promptly, never queue a restore
+        sessions = Sessions(lambda peer: serve(peer, create, retire, output, stopping.is_set))
         try:
-            print('AP4 preview ready for normal desktop launch', flush=True)
-            while not stopping:
+            print('AP5 preview ready for normal desktop launch (capacity 4)', flush=True)
+            while not stopping.is_set():
+                sessions.reap()
                 try:
                     peer, _ = listener.accept()
                 except BlockingIOError:
                     time.sleep(.05)
                     continue
-                serve(peer, create, retire, output, lambda: stopping, reject_waiters)
+                sessions.admit(peer)
         finally:
+            stopping.set()
+            sessions.join()
             if address.is_socket() and address.stat().st_ino == inode:
                 address.unlink()
 

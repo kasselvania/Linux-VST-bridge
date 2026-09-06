@@ -64,6 +64,7 @@ private:
   bool state_error_reported_ = false;
   std::atomic_flag busy_ = ATOMIC_FLAG_INIT;
   uint64_t handle_ = 0;
+  char report_path_[4096]{};
   int maximum_ = 0;
   unsigned blocks_ = 0;
   std::atomic<uint64_t> callback_rejections_{0};

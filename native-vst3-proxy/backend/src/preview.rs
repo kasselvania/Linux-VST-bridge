@@ -1,19 +1,17 @@
-//! Single-instance AP4 preview discovery. Never called from the audio callback.
+//! Per-instance preview discovery. Never called from the audio callback.
 //! The owner launches only the pinned reference host; it does not launch a DAW.
 use crate::{invalid, need};
 use std::{
-    cell::RefCell,
-    fs::{self, OpenOptions},
+    fs,
     io::{self, Read, Write},
     os::unix::{
-        fs::{FileTypeExt, MetadataExt, OpenOptionsExt},
+        fs::{FileTypeExt, MetadataExt},
         net::UnixStream,
     },
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
-thread_local! { static REPORT: RefCell<Option<PathBuf>> = const { RefCell::new(None) }; }
 unsafe extern "C" {
     fn getuid() -> u32;
 }
@@ -40,7 +38,6 @@ fn private(path: &Path, directory: bool) -> io::Result<()> {
 }
 
 pub fn connect(root: &Path) -> io::Result<Binding> {
-    REPORT.with(|p| *p.borrow_mut() = None);
     private(root, true)?;
     let address = root.join("owner.sock");
     private(&address, false)?;
@@ -83,7 +80,6 @@ pub fn connect(root: &Path) -> io::Result<Binding> {
     )?;
     private(&directory, true)?;
     let session = std::array::from_fn(|i| u8::from_str_radix(&id[i * 2..i * 2 + 2], 16).unwrap());
-    REPORT.with(|p| *p.borrow_mut() = Some(directory.join("ap3-gui-report.jsonl")));
     owner.set_nonblocking(true)?;
     Ok(Binding {
         directory,
@@ -111,46 +107,6 @@ pub fn check_owner(owner: &mut Option<UnixStream>) -> io::Result<()> {
         }
     }
     Ok(())
-}
-
-// Optional private observer sink; failures never manufacture a state result.
-#[no_mangle]
-pub unsafe extern "C" fn ap4_report(bytes: *const u8, n: u32) -> u32 {
-    crate::ffi(|| {
-        if bytes.is_null() || n == 0 || n > 2048 {
-            return 1;
-        }
-        REPORT.with(|p| {
-            let p = p.borrow();
-            let Some(path) = p.as_ref() else {
-                return 1;
-            };
-            let result = (|| -> io::Result<()> {
-                if path.is_symlink() {
-                    return Err(invalid("preview report symlink"));
-                }
-                let mut file = OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .mode(0o600)
-                    .open(path)?;
-                let meta = file.metadata()?;
-                need(
-                    meta.is_file()
-                        && meta.uid() == getuid()
-                        && meta.mode() & 0o077 == 0
-                        && meta.len() + n as u64 <= 65536,
-                    "preview report bound",
-                )?;
-                file.write_all(std::slice::from_raw_parts(bytes, n as usize))
-            })();
-            if result.is_ok() {
-                0
-            } else {
-                2
-            }
-        })
-    }) as u32
 }
 
 #[cfg(test)]
