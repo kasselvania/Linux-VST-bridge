@@ -11,6 +11,7 @@ import secrets
 import shutil
 import time
 import types
+import subprocess
 
 import ap4_preview as owner
 from common import canonical_json, environment_parent, sha256_file, write_atomic
@@ -128,7 +129,7 @@ class StreamState(owner.runtime.StreamState):
             self.in_flight_at = None
 
 
-def inspect(environment, output):
+def inspect(environment, output, *, graphical=False):
     output = pathlib.Path(output)
     owner.private_directory(output)
     reporting_errors = []
@@ -144,6 +145,15 @@ def inspect(environment, output):
             reporting_errors.append(dict(stage=stage, error=str(failure)))
     profile = types.SimpleNamespace(verify_runtime=verify_runtime, verify_environment=verify_environment,
         command_vector=command_vector, StreamState=lambda: streams)
+    if graphical:
+        desktop = {}
+        for line in subprocess.check_output(['systemctl', '--user', 'show-environment'], text=True).splitlines():
+            name, separator, value = line.partition('=')
+            if separator and name in ('DISPLAY', 'XAUTHORITY', 'WAYLAND_DISPLAY'):
+                desktop[name] = value
+        if not desktop.get('DISPLAY'):
+            raise RuntimeError('existing desktop display unavailable')
+        profile.controlled_environment = lambda env: {**owner.runtime.controlled_environment(env), **desktop}
     result = owner.runtime.supervise(environment, mode=MODE, component_case='first-audio',
         profile=profile, checkpoint=checkpoint, post_gate_seconds=45)
     result['reporting_errors'] = reporting_errors

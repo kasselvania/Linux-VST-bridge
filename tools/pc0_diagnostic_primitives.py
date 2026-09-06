@@ -149,7 +149,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     command_line = (profile.command_vector if profile else command_vector)(environment, session, component_case, mode)
     spawn_command_vector_sha256 = sha256_bytes(canonical_json(command_line))
     started = time.monotonic()
-    root = subprocess.Popen(command_line, env=controlled_environment(environment),
+    root = subprocess.Popen(command_line, env=getattr(profile, "controlled_environment", controlled_environment)(environment),
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, start_new_session=True, bufsize=0)
     root_identity = process_identity(root.pid)
