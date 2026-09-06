@@ -29,6 +29,15 @@ for _name in ('common', 'artifacts', 'environment', 'normalize', 'supervise', 'r
         '309b8918c128c0b9e6701d0453dc841a111d5ac5:tools/wf0-factory-census/' + _name + '.py'], cwd=ROOT)
     (pathlib.Path(_helpers.name) / (_name + '.py')).write_bytes(_bytes)
 sys.path.insert(0, _helpers.name)
+import common as _common
+# The frozen helpers normally live inside a checkout. Their repository reads
+# belong to this owner checkout, not the temporary Python import directory.
+def _repository():
+    observed = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], cwd=ROOT, text=True).strip()
+    if pathlib.Path(observed).resolve() != ROOT.resolve():
+        raise RuntimeError('preview source checkout differs')
+    return ROOT
+_common.repo_root = _repository
 _spec = importlib.util.spec_from_file_location('ap0_artifacts', ROOT / 'tools/wf0-factory-census/artifacts.py')
 artifacts = importlib.util.module_from_spec(_spec)
 sys.modules['ap0_artifacts'] = artifacts
