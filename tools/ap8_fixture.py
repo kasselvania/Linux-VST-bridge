@@ -94,7 +94,7 @@ def command_vector(environment, session, component_case, mode):
     return vector
 
 
-class StreamState(owner.profile.StreamState):
+class StreamState(owner.runtime.StreamState):
     def __init__(self):
         super().__init__()
         self.vendor = bytearray()
@@ -129,6 +129,10 @@ class StreamState(owner.profile.StreamState):
         elif record.get('state') in ('ap8_result', 'ap8_failure', 'ap8_inspection_closed'):
             self.in_flight_at = None
 
+
+class ReferenceStreamState(StreamState, owner.profile.StreamState):
+    """Retain AP0 activation attribution for the real reference effect."""
+    pass
 
 def inspect(environment, output, *, graphical=False, class_id=None):
     output = pathlib.Path(output)

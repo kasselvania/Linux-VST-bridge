@@ -24,7 +24,7 @@ def main():
         if k in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY'):desktop[k]=v
     if not desktop.get('DISPLAY'):raise RuntimeError('existing desktop display absent')
     profile=types.SimpleNamespace(MODE=('ap9-'+('commercial' if a.performance=='serum' else 'reference')) if a.performance else 'ap8-commercial-preview',verify_runtime=fixture.verify_runtime,
-        verify_environment=fixture.verify_environment,command_vector=fixture.command_vector,StreamState=fixture.StreamState,
+        verify_environment=fixture.verify_environment,command_vector=fixture.command_vector,StreamState=fixture.ReferenceStreamState if a.performance=='reference' else fixture.StreamState,
         controlled_environment=lambda e:{**owner.runtime.controlled_environment(e),**desktop})
     address_root=pathlib.Path.home()/(('AP9-Performance/'+a.performance) if a.performance else 'AP8-Commercial-Test/preview');owner.private_directory(address_root)
     output=address_root/'results';owner.private_directory(output)
