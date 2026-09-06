@@ -25,3 +25,7 @@ Then check two real Windows instances in Bitwig launched normally from Applicati
 Keep the current float32 stereo, 48-kHz, up-to-256-frame and 1024-sample-latency configuration. No larger buffer to conceal the defect, automatic process-restart loop or unsupported priority escalation. Reuse SSH/Moonlight, owner, transport and artifacts; rebuild only changed components. Necessary native/Windows changes supported by the diagnosis are in scope, not blocked by the previous binary's pin.
 
 Preserve projects and original observations, restore temporary setup and clean only owned resources. Publish the repair, focused evidence and remaining limits in this same PR; leave it unmerged for review. Report survivable injected gaps separately from ordinary-playback reliability. No arbitrary sample quota, GUI deadline or replay of historical campaigns.
+
+## Implementation status for review
+
+The playback repair is implemented in PR #65. The final native source passes delayed/partially late output, complete-state preservation, sibling continuity, disconnect recovery and corruption checks. The retained normal Applications-launch desktop check recorded zero gaps or terminal rejections and complete zero-error sample comparison. [The repair result](docs/AP7_PLAYBACK_REPAIR.md) identifies the desktop and final SDK sources separately, cleanup and remaining limits. Original results above remain unchanged. Review/acceptance is pending; this status does not claim a historical root cause or select another slice.

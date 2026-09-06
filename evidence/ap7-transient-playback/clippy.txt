@@ -1,0 +1,2 @@
+    Checking ap2-backend v0.1.0 (<source>/native-vst3-proxy/backend)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.58s

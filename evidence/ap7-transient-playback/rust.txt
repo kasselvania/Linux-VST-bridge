@@ -1,0 +1,31 @@
+   Compiling ap2-backend v0.1.0 (<source>/native-vst3-proxy/backend)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
+     Running unittests src/lib.rs (native-vst3-proxy/backend/target/debug/deps/ap2_backend-612cef963325d74a)
+
+running 23 tests
+test instances::tests::transport_replacement_excludes_old_readers_and_keeps_sibling_live ... ok
+test instances::tests::capacity_stale_handles_and_sibling_removal ... ok
+test queue::tests::capacity_wrap_and_discard ... ok
+test preview::tests::absent_stale_and_public_endpoints_refuse_without_fallback ... ok
+test instances::tests::close_waits_for_its_readers_and_failed_startup_releases_capacity ... ok
+test preview::tests::retirement_requires_positive_owner_disposition ... ok
+test instances::tests::blocked_startup_and_teardown_do_not_block_sibling_leases ... ok
+test queued::tests::first_callback_fault_survives_later_worker_failure ... ok
+test queued::tests::invalid_ffi_handle_refuses_without_work ... ok
+test queued::tests::descriptor_overflow_and_wrong_position_fail ... ok
+test observer::tests::paused_consumer_and_reader_drop_only_observation_coverage ... ok
+test recovery::tests::opaque_snapshot_isolation_identity_and_stale_selection ... ok
+test state::tests::full_reference_payload_and_identity ... ok
+test state::tests::nonfinite_and_unsupported_values_refused ... ok
+test tests::invalid_ownership_has_no_effect ... ok
+test tests::successor_does_not_change_ap1_codec ... ok
+test queued::tests::stop_restart_discards_old_epoch_and_resets_delay ... ok
+test queued::tests::late_output_expires_only_past_samples_and_preserves_ordered_inputs ... ok
+test queue::tests::two_threads_preserve_values ... ok
+test preview::tests::private_discovery_fragmented_reply_and_owner_disconnect ... ok
+test preview::tests::startup_owner_loss_cancels_transport_accept ... ok
+test queued::tests::variable_lengths_delayed_gain_and_silence_are_exact ... ok
+test queued::tests::actual_transport_progresses_with_paused_observation_consumer_and_reader ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+

@@ -1,0 +1,1557 @@
+{
+  "status": "Transient playback repair implemented; bounded local and desktop results retained for review",
+  "issue": 64,
+  "pr": 65,
+  "work_order_commit": "94474d2f1450751c9d22bf23f0224066421dd338",
+  "final_native_build": {
+    "input_sha256": "8bdcd8cbcb908c82d11b79c7e304584ba4ab5f6e2dd0a7b7adee3d04c6d1d93b",
+    "manifest_sha256": "f4ea321dd0f0ef44d2ed616b5211cd9873f20f0217924be9228922a6aa6518fa",
+    "source_commit": "b61e43b31e8742bb40b3ca4e7581b147e4a7506b"
+  },
+  "desktop_native_build": {
+    "input_sha256": "f48104ce67d2345bbe923cba8f590f9065c099d975242926b9351822442d7596",
+    "manifest_sha256": "bcabc84cd2b29c412d0bbc9dca76cbeb6a5a6a36841a418129e281534c3fd837",
+    "source_commit": "a8a8318099ec6a733792e4f4ae5e8671cf2c5d6f"
+  },
+  "desktop_native_binary_sha256": "163da5498e9fd2f1f354d48598accfad9dec552f760731aacddc737404a5031c",
+  "desktop_provenance_note": "Desktop ran a8a8318. Final b61e43b changes only the deterministic test gate and removes an observer-only pre-activation state query. Both desktop instances already supplied real get/set state before activation, so the removed conditional query did not run there. Final source rebuilt and SDK cases rerun; no additional desktop or recall replay.",
+  "windows_host_manifest": "f00325df1cefe08c4496d3007211d7ecebdd02a49d4dc42a6a2e0a94881ec615",
+  "windows_runtime": "Unchanged real AGain/AP4 Windows endpoint, Proton 11.0-2c and Steam Linux Runtime 4",
+  "contract": {
+    "rate": 48000,
+    "channels": 2,
+    "format": "float32",
+    "maximum_frames": 256,
+    "latency_samples": 1024,
+    "audio_queue_capacity": 2048,
+    "observation_queue_capacity": 64
+  },
+  "before_after": {
+    "baseline_native_manifest": "c2f47288fa8409f76519fcb9fec7880a5b3138609c7f2fb7ef5616df6d9e4a72",
+    "test_host_source": "b61e43b31e8742bb40b3ca4e7581b147e4a7506b",
+    "stimulus": "Peer acknowledges holding the actual first request; driver advances the host sample timeline to an exact missing span and then releases the reply. Wall-clock service latency is not inferred from this accelerated driver.",
+    "before": "Actual old SDK proxy rejects the due callback; host reports underrun remains successful assertion failure.",
+    "after": "Exact 128-frame partial gap and 768-frame whole-block gap expire only missing output; later samples align, same state/connection closes once, one ordered edit, sibling continuous.",
+    "rust_tests": 23,
+    "owner_tests": 7,
+    "clippy": "PASS -D warnings"
+  },
+  "sdk_loaded": [
+    {
+      "case": "playback-partial",
+      "counts": [
+        {
+          "get": 3,
+          "set": 1,
+          "activate": 1,
+          "start": 1,
+          "stop": 1,
+          "process": 33,
+          "zero_frame": 0,
+          "closed": 1,
+          "edits": 1
+        },
+        {
+          "get": 1,
+          "set": 1,
+          "activate": 1,
+          "start": 1,
+          "stop": 1,
+          "process": 36,
+          "zero_frame": 0,
+          "closed": 1,
+          "edits": 0
+        }
+      ],
+      "summary": {
+        "event": "ap7_playback",
+        "case": "playback-partial",
+        "missing_frames": 128,
+        "compared_samples": 16384,
+        "sibling_samples": 18432,
+        "terminal_failures": 0,
+        "maximum_error": 0,
+        "callback_effects": 0
+      },
+      "records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+          "gain": 0.75
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "1e4c2bc998ec09c157c2b03679aa08101bd8390c1b9fbc2b4ed211d5ad532fd0",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+          "gain": 0.75
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "1e4c2bc998ec09c157c2b03679aa08101bd8390c1b9fbc2b4ed211d5ad532fd0",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 36,
+          "request_high": 2,
+          "result_high": 4,
+          "position": 9216,
+          "epoch": 1
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 17920,
+          "before_edit_samples": 17920,
+          "edits": 0,
+          "nonzero_samples": 15903,
+          "maximum_error": 0,
+          "restored_gain": 0.75,
+          "input_fnv1a64": 9837105169156870828,
+          "output_fnv1a64": 13737340262801314608
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 18432,
+          "verified_returned_samples": 18432,
+          "unchecked_samples": 0,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 18432,
+          "edits": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 9216,
+          "blocks": 36,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 4,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 8192,
+          "zero_gain_blocks": 0,
+          "gain_min": 0.75,
+          "gain_max": 0.75,
+          "clean": true
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+          "gain": 0.25
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+          "gain": 0.25
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+          "gain": 0.25
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 2560,
+          "before_edit_samples": 2560,
+          "edits": 0,
+          "nonzero_samples": 2560,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 13213736437778833206,
+          "output_fnv1a64": 18318195712326767993
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "6d800fadef24ab68bfe62e8ee1f381618824d4b3d5a19569ca3e1f24d75c0de2",
+          "gain": 0.5
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 4,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "6ffd8a12d4edfb30efc393b4ed76c4572b3293f0009a7442118e2d8e53339345",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 16384,
+          "before_edit_samples": 8192,
+          "edits": 1,
+          "nonzero_samples": 16384,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 2198604275997783054,
+          "output_fnv1a64": 4429381045708874197
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 33,
+          "request_high": 4,
+          "result_high": 5,
+          "position": 8192,
+          "epoch": 1
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 16384,
+          "before_edit_samples": 8192,
+          "edits": 1,
+          "nonzero_samples": 16384,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 2198604275997783054,
+          "output_fnv1a64": 4429381045708874197
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 16384,
+          "verified_returned_samples": 16384,
+          "unchecked_samples": 0,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 8192,
+          "edits": 1
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 0,
+          "gap_frames": 128,
+          "request_position": 0,
+          "request_frames": 256,
+          "sequence": 3,
+          "queue_us": 103,
+          "prepare_us": 22,
+          "send_us": 17,
+          "reply_us": 1703,
+          "validation_us": 3,
+          "publication_us": 1,
+          "publication_after_gap_us": 710,
+          "admission_to_gap_us": 1141
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 8192,
+          "blocks": 33,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 4,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 128,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 128,
+          "delivered_frames": 7040,
+          "zero_gain_blocks": 0,
+          "gain_min": 0.25,
+          "gain_max": 0.5,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "case": "playback-expired",
+      "counts": [
+        {
+          "get": 3,
+          "set": 1,
+          "activate": 1,
+          "start": 1,
+          "stop": 1,
+          "process": 32,
+          "zero_frame": 0,
+          "closed": 1,
+          "edits": 1
+        },
+        {
+          "get": 1,
+          "set": 1,
+          "activate": 1,
+          "start": 1,
+          "stop": 1,
+          "process": 35,
+          "zero_frame": 0,
+          "closed": 1,
+          "edits": 0
+        }
+      ],
+      "summary": {
+        "event": "ap7_playback",
+        "case": "playback-expired",
+        "missing_frames": 768,
+        "compared_samples": 16384,
+        "sibling_samples": 17920,
+        "terminal_failures": 0,
+        "maximum_error": 0,
+        "callback_effects": 0
+      },
+      "records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+          "gain": 0.75
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "1e4c2bc998ec09c157c2b03679aa08101bd8390c1b9fbc2b4ed211d5ad532fd0",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+          "gain": 0.75
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "1e4c2bc998ec09c157c2b03679aa08101bd8390c1b9fbc2b4ed211d5ad532fd0",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 35,
+          "request_high": 2,
+          "result_high": 4,
+          "position": 8960,
+          "epoch": 1
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 17408,
+          "before_edit_samples": 17408,
+          "edits": 0,
+          "nonzero_samples": 15406,
+          "maximum_error": 0,
+          "restored_gain": 0.75,
+          "input_fnv1a64": 1388116842888415216,
+          "output_fnv1a64": 8601672586999870137
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 17920,
+          "verified_returned_samples": 17920,
+          "unchecked_samples": 0,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 17920,
+          "edits": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 8960,
+          "blocks": 35,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 4,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 7936,
+          "zero_gain_blocks": 0,
+          "gain_min": 0.75,
+          "gain_max": 0.75,
+          "clean": true
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+          "gain": 0.25
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+          "gain": 0.25
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+          "gain": 0.25
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 4096,
+          "before_edit_samples": 4096,
+          "edits": 0,
+          "nonzero_samples": 4096,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 5446442421845749065,
+          "output_fnv1a64": 2346499453374312510
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "6d800fadef24ab68bfe62e8ee1f381618824d4b3d5a19569ca3e1f24d75c0de2",
+          "gain": 0.5
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 4,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "6ffd8a12d4edfb30efc393b4ed76c4572b3293f0009a7442118e2d8e53339345",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 16384,
+          "before_edit_samples": 8192,
+          "edits": 1,
+          "nonzero_samples": 16384,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 5963465304477496142,
+          "output_fnv1a64": 7709164865913316885
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 32,
+          "request_high": 6,
+          "result_high": 6,
+          "position": 8192,
+          "epoch": 1
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 16384,
+          "before_edit_samples": 8192,
+          "edits": 1,
+          "nonzero_samples": 16384,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 5963465304477496142,
+          "output_fnv1a64": 7709164865913316885
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 16384,
+          "verified_returned_samples": 16384,
+          "unchecked_samples": 0,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 8192,
+          "edits": 1
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 0,
+          "gap_frames": 256,
+          "request_position": 0,
+          "request_frames": 256,
+          "sequence": 3,
+          "queue_us": 17,
+          "prepare_us": 24,
+          "send_us": 24,
+          "reply_us": 1583,
+          "validation_us": 3,
+          "publication_us": 1,
+          "publication_after_gap_us": 511,
+          "admission_to_gap_us": 1143
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 256,
+          "gap_frames": 256,
+          "request_position": 256,
+          "request_frames": 256,
+          "sequence": 4,
+          "queue_us": 544,
+          "prepare_us": 3,
+          "send_us": 26,
+          "reply_us": 241,
+          "validation_us": 2,
+          "publication_us": 6,
+          "publication_after_gap_us": 795,
+          "admission_to_gap_us": 27
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 512,
+          "gap_frames": 256,
+          "request_position": 512,
+          "request_frames": 256,
+          "sequence": 5,
+          "queue_us": 824,
+          "prepare_us": 3,
+          "send_us": 24,
+          "reply_us": 244,
+          "validation_us": 4,
+          "publication_us": 1,
+          "publication_after_gap_us": 1072,
+          "admission_to_gap_us": 30
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 8192,
+          "blocks": 32,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 4,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 768,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 3,
+          "expired_output_frames": 768,
+          "delivered_frames": 6400,
+          "zero_gain_blocks": 0,
+          "gain_min": 0.25,
+          "gain_max": 0.5,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "case": "recovery-complete",
+      "summary": {
+        "event": "ap6_recovery",
+        "case": "recovery-complete",
+        "recovered_samples": 15872,
+        "sibling_samples": 52224,
+        "maximum_error": 0,
+        "callback_effects": 0
+      },
+      "counts": [
+        {
+          "get": 1,
+          "set": 1,
+          "activate": 1,
+          "start": 1,
+          "stop": 0,
+          "process": 64,
+          "zero_frame": 0,
+          "closed": 0
+        },
+        {
+          "get": 1,
+          "set": 1,
+          "activate": 1,
+          "start": 1,
+          "stop": 1,
+          "process": 102,
+          "zero_frame": 0,
+          "closed": 1
+        },
+        {
+          "get": 1,
+          "set": 1,
+          "activate": 1,
+          "start": 1,
+          "stop": 1,
+          "process": 31,
+          "zero_frame": 0,
+          "closed": 1
+        }
+      ],
+      "first_fault": {
+        "event": "ap5_worker_fault",
+        "generation": 1,
+        "fault": 3,
+        "first_position": 16128,
+        "processed": 63,
+        "request_high": 2,
+        "result_high": 4,
+        "detail": "UnexpectedEof: failed to fill whole buffer"
+      },
+      "records": [
+        [
+          {
+            "event": "ap4_native_state",
+            "operation": "set",
+            "payload_bytes": 12,
+            "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+            "gain": 0.25
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 1,
+            "source": 18,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+            "detail": "Confirmed project/component restore"
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+            "gain": 0.25
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 2,
+            "source": 16,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+            "detail": "Captured complete state; not necessarily a project save"
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0.25,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 2,
+            "source": 16,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+            "detail": "Last confirmed snapshot; later edits may be lost"
+          },
+          {
+            "event": "ap5_worker_fault",
+            "generation": 1,
+            "fault": 3,
+            "first_position": 16128,
+            "processed": 63,
+            "request_high": 2,
+            "result_high": 4,
+            "detail": "UnexpectedEof: failed to fill whole buffer"
+          },
+          {
+            "event": "ap7_fault_progress",
+            "context_ready": true,
+            "epoch": 1,
+            "worker_op": 3,
+            "worker_epoch": 1,
+            "worker_position": 16128,
+            "request_published": 65,
+            "request_consumed": 65,
+            "result_published": 63,
+            "result_consumed": 60,
+            "service_us_max_at_report": 482,
+            "observation_skips": 0
+          },
+          {
+            "event": "ap7_observation",
+            "offered_samples": 32256,
+            "verified_returned_samples": 32256,
+            "unchecked_samples": 0,
+            "dropped_jobs": 0,
+            "dropped_samples": 0,
+            "reader_skips": 0,
+            "unretained_gap_traces": 0,
+            "maximum_error": 0,
+            "before_edit_samples": 0,
+            "edits": 1
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 2,
+            "source": 16,
+            "generation": 1,
+            "uncaptured_changes_possible": 1,
+            "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+            "detail": "Last confirmed snapshot; later edits may be lost"
+          }
+        ],
+        [
+          {
+            "event": "ap4_native_state",
+            "operation": "set",
+            "payload_bytes": 12,
+            "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+            "gain": 0.75
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 1,
+            "source": 18,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "1e4c2bc998ec09c157c2b03679aa08101bd8390c1b9fbc2b4ed211d5ad532fd0",
+            "detail": "Confirmed project/component restore"
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "26576e9bc28009c4b0e33c9020d34ab0cc0b65f3677917720c353afdb2157e9e",
+            "gain": 0.75
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 2,
+            "source": 16,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "1e4c2bc998ec09c157c2b03679aa08101bd8390c1b9fbc2b4ed211d5ad532fd0",
+            "detail": "Captured complete state; not necessarily a project save"
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0.75,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap3_proxy_stats",
+            "fault": 0,
+            "first_position": 18446744073709551615,
+            "processed": 102,
+            "request_high": 2,
+            "result_high": 4,
+            "position": 26112,
+            "epoch": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 52224,
+            "before_edit_samples": 52224,
+            "edits": 0,
+            "nonzero_samples": 48701,
+            "maximum_error": 0,
+            "restored_gain": 0.75,
+            "input_fnv1a64": 5121748741043785756,
+            "output_fnv1a64": 1820598826097357489
+          },
+          {
+            "event": "ap7_observation",
+            "offered_samples": 52224,
+            "verified_returned_samples": 52224,
+            "unchecked_samples": 0,
+            "dropped_jobs": 0,
+            "dropped_samples": 0,
+            "reader_skips": 0,
+            "unretained_gap_traces": 0,
+            "maximum_error": 0,
+            "before_edit_samples": 52224,
+            "edits": 0
+          },
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 256,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 26112,
+            "blocks": 102,
+            "callback_rejections": 0,
+            "rejected_silent_frames": 0,
+            "discontinuities": 0,
+            "successful_silent_callbacks": 4,
+            "successful_silent_frames": 1024,
+            "priming_frames": 1024,
+            "underrun_frames": 0,
+            "underrun_gaps": 0,
+            "underrun_callbacks": 0,
+            "expired_output_frames": 0,
+            "delivered_frames": 25088,
+            "zero_gain_blocks": 0,
+            "gain_min": 0.75,
+            "gain_max": 0.75,
+            "clean": true
+          }
+        ],
+        [
+          {
+            "event": "ap4_native_state",
+            "operation": "recover",
+            "payload_bytes": 12,
+            "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+            "gain": 0.25
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 2,
+            "source": 16,
+            "generation": 2,
+            "uncaptured_changes_possible": 1,
+            "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+            "detail": "Recovered identified snapshot; later edits were not restored"
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "25d333eedf82eae509dce06e8ce3efece12da4dcd1aaa16f05ddc1bf65f052aa",
+            "gain": 0.25
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 3,
+            "source": 16,
+            "generation": 2,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "02869cc9bb4ca14e6c316f653edde4eb84b7a4d44aa8767a55a9f22a10d7a85f",
+            "detail": "Captured complete state; not necessarily a project save"
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 15360,
+            "before_edit_samples": 15360,
+            "edits": 0,
+            "nonzero_samples": 15360,
+            "maximum_error": 0,
+            "restored_gain": 0.25,
+            "input_fnv1a64": 14865160776716182309,
+            "output_fnv1a64": 224563357515658021
+          },
+          {
+            "event": "ap3_proxy_stats",
+            "fault": 0,
+            "first_position": 18446744073709551615,
+            "processed": 31,
+            "request_high": 2,
+            "result_high": 4,
+            "position": 7936,
+            "epoch": 1
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 15872,
+            "before_edit_samples": 15872,
+            "edits": 0,
+            "nonzero_samples": 15872,
+            "maximum_error": 0,
+            "restored_gain": 0.25,
+            "input_fnv1a64": 16635085778849465125,
+            "output_fnv1a64": 4232648872459873061
+          },
+          {
+            "event": "ap7_observation",
+            "offered_samples": 15872,
+            "verified_returned_samples": 15872,
+            "unchecked_samples": 0,
+            "dropped_jobs": 0,
+            "dropped_samples": 0,
+            "reader_skips": 0,
+            "unretained_gap_traces": 0,
+            "maximum_error": 0,
+            "before_edit_samples": 15872,
+            "edits": 0
+          },
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 256,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 24320,
+            "blocks": 95,
+            "callback_rejections": 3,
+            "rejected_silent_frames": 768,
+            "discontinuities": 1,
+            "successful_silent_callbacks": 8,
+            "successful_silent_frames": 2048,
+            "priming_frames": 2048,
+            "underrun_frames": 0,
+            "underrun_gaps": 0,
+            "underrun_callbacks": 0,
+            "expired_output_frames": 0,
+            "delivered_frames": 22272,
+            "zero_gain_blocks": 0,
+            "gain_min": 0.25,
+            "gain_max": 0.875,
+            "clean": true
+          }
+        ]
+      ]
+    },
+    {
+      "case": "mandatory_corrupt_bounds",
+      "counts": {
+        "get": 2,
+        "set": 1,
+        "activate": 1,
+        "start": 1,
+        "stop": 0,
+        "process": 1,
+        "zero_frame": 0,
+        "closed": 0
+      },
+      "records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "gain": 1
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 1,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "6ef72e55f3fa262c4e8b4494185f5896ac47904afb4075e29266f1620fe3ca57",
+          "gain": 0.25
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 2,
+          "source": 18,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "c89e733c1319a43c246c1ebaaf7595e29be740d45e556de4b13d245da7ae22be",
+          "detail": "Confirmed project/component restore"
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "6ef72e55f3fa262c4e8b4494185f5896ac47904afb4075e29266f1620fe3ca57",
+          "gain": 0.25
+        },
+        {
+          "event": "ap6_status",
+          "snapshot_revision": 3,
+          "source": 16,
+          "generation": 1,
+          "uncaptured_changes_possible": 0,
+          "envelope_sha256": "c89e733c1319a43c246c1ebaaf7595e29be740d45e556de4b13d245da7ae22be",
+          "detail": "Captured complete state; not necessarily a project save"
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0.25,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        }
+      ]
+    }
+  ],
+  "desktop": {
+    "classification": "REAL_WINDOWS_BITWIG_DEVELOPMENT_CHECK",
+    "launch": "KDE Applications > Multimedia > Bitwig Studio through existing Moonlight",
+    "bitwig_version": "6.1",
+    "bitwig_flatpak_commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+    "same_native_process": true,
+    "windows_instances": 2,
+    "daw_lvb_environment_keys": [],
+    "input_fixture": "Existing A 330/440 Hz and B 517/733 Hz clips; restored A .675000012 and B .349999994 before playback, no control edits.",
+    "operations": [
+      "normal launch",
+      "open disposable copy of existing AP7 two-track project",
+      "verify restored controls and complete payload hashes",
+      "play both tracks",
+      "ordinary pause",
+      "resume",
+      "stop and close"
+    ],
+    "instances": {
+      "A": {
+        "records": [
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 1,
+            "source": 16,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+            "detail": "Captured complete state; not necessarily a project save"
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 2,
+            "source": 16,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+            "detail": "Captured complete state; not necessarily a project save"
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "set",
+            "payload_bytes": 12,
+            "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+            "gain": 0.675000012
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 3,
+            "source": 18,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+            "detail": "Confirmed project/component restore"
+          },
+          {
+            "event": "ap3_proxy_stats",
+            "fault": 0,
+            "first_position": 18446744073709551615,
+            "processed": 19820,
+            "request_high": 2,
+            "result_high": 4,
+            "position": 890368,
+            "epoch": 3
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 10147840,
+            "before_edit_samples": 10147840,
+            "edits": 0,
+            "nonzero_samples": 5689417,
+            "maximum_error": 0,
+            "restored_gain": 0.675000012,
+            "input_fnv1a64": 359376040414434024,
+            "output_fnv1a64": 11992965599359881987
+          },
+          {
+            "event": "ap7_observation",
+            "offered_samples": 10147840,
+            "verified_returned_samples": 10147840,
+            "unchecked_samples": 0,
+            "dropped_jobs": 0,
+            "dropped_samples": 0,
+            "reader_skips": 0,
+            "unretained_gap_traces": 0,
+            "maximum_error": 0,
+            "before_edit_samples": 10147840,
+            "edits": 0
+          },
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 256,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 5073920,
+            "blocks": 19820,
+            "callback_rejections": 0,
+            "rejected_silent_frames": 0,
+            "discontinuities": 0,
+            "successful_silent_callbacks": 8693,
+            "successful_silent_frames": 2225408,
+            "priming_frames": 3072,
+            "underrun_frames": 0,
+            "underrun_gaps": 0,
+            "underrun_callbacks": 0,
+            "expired_output_frames": 0,
+            "delivered_frames": 5070848,
+            "zero_gain_blocks": 0,
+            "gain_min": 0.675000012,
+            "gain_max": 0.675000012,
+            "clean": true
+          }
+        ],
+        "delivered_channel_samples": 10141696
+      },
+      "B": {
+        "records": [
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 1,
+            "source": 16,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+            "detail": "Captured complete state; not necessarily a project save"
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "get",
+            "payload_bytes": 12,
+            "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+            "gain": 1
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 2,
+            "source": 16,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+            "detail": "Captured complete state; not necessarily a project save"
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 0,
+            "before_edit_samples": 0,
+            "edits": 0,
+            "nonzero_samples": 0,
+            "maximum_error": 0,
+            "restored_gain": 0,
+            "input_fnv1a64": 14695981039346656037,
+            "output_fnv1a64": 14695981039346656037
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "set",
+            "payload_bytes": 12,
+            "sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+            "gain": 0.349999994
+          },
+          {
+            "event": "ap6_status",
+            "snapshot_revision": 3,
+            "source": 18,
+            "generation": 1,
+            "uncaptured_changes_possible": 0,
+            "envelope_sha256": "c48254c0c546f5ba0b46804e9774ff207f26706c3fac65d214af1e6817d3ba7e",
+            "detail": "Confirmed project/component restore"
+          },
+          {
+            "event": "ap3_proxy_stats",
+            "fault": 0,
+            "first_position": 18446744073709551615,
+            "processed": 21674,
+            "request_high": 2,
+            "result_high": 4,
+            "position": 5452288,
+            "epoch": 2
+          },
+          {
+            "event": "ap5_sample_progress",
+            "samples": 11097088,
+            "before_edit_samples": 11097088,
+            "edits": 0,
+            "nonzero_samples": 5695112,
+            "maximum_error": 0,
+            "restored_gain": 0.349999994,
+            "input_fnv1a64": 1243787737210976244,
+            "output_fnv1a64": 6696309002925981716
+          },
+          {
+            "event": "ap7_observation",
+            "offered_samples": 11097088,
+            "verified_returned_samples": 11097088,
+            "unchecked_samples": 0,
+            "dropped_jobs": 0,
+            "dropped_samples": 0,
+            "reader_skips": 0,
+            "unretained_gap_traces": 0,
+            "maximum_error": 0,
+            "before_edit_samples": 11097088,
+            "edits": 0
+          },
+          {
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 256,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 5548544,
+            "blocks": 21674,
+            "callback_rejections": 0,
+            "rejected_silent_frames": 0,
+            "discontinuities": 0,
+            "successful_silent_callbacks": 10547,
+            "successful_silent_frames": 2700032,
+            "priming_frames": 2048,
+            "underrun_frames": 0,
+            "underrun_gaps": 0,
+            "underrun_callbacks": 0,
+            "expired_output_frames": 0,
+            "delivered_frames": 5546496,
+            "zero_gain_blocks": 0,
+            "gain_min": 0.349999994,
+            "gain_max": 0.349999994,
+            "clean": true
+          }
+        ],
+        "delivered_channel_samples": 11092992
+      }
+    },
+    "verified_returned_channel_samples": 21244928,
+    "delivered_channel_samples": 21234688,
+    "comparison_scope": "All returned audio compared, including source output not ultimately presented because of latency tails. Delivered counters are separate. Complete comparison coverage here includes every delivered sample; idle valid silence and priming do not establish audible program duration.",
+    "scheduling": [
+      {
+        "process": "native",
+        "threads": [
+          {
+            "comm": "bitwig-remote-p",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          },
+          {
+            "comm": "ap7-observer",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          },
+          {
+            "comm": "ap3-transport",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          },
+          {
+            "comm": "bitwig-remote-p",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          },
+          {
+            "comm": "ap7-observer",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          },
+          {
+            "comm": "ap3-transport",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          }
+        ]
+      },
+      {
+        "process": "Windows",
+        "threads": [
+          {
+            "comm": "wf0-factory-pro",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          },
+          {
+            "comm": "wf0-factory-pro",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          }
+        ]
+      },
+      {
+        "process": "Windows",
+        "threads": [
+          {
+            "comm": "wf0-factory-pro",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          },
+          {
+            "comm": "wf0-factory-pro",
+            "policy": 0,
+            "rt_priority": 0,
+            "nice": 0
+          }
+        ]
+      }
+    ],
+    "underflow_request_trace": "No ordinary underrun in this run; no fault-specific desktop delay to diagnose. Injected local request traces retained above.",
+    "no_historical_cause_claim": true
+  },
+  "cleanup": {
+    "at": 1788719263.7383428,
+    "owned_stages_remaining": 0,
+    "bitwig_native_windows_processes_remaining": 0,
+    "publication_removed": true,
+    "owner_socket_removed": true,
+    "owner_state": "ExecMainStatus=0\nActiveState=inactive\nSubState=dead\n",
+    "preferences_restored": true,
+    "preferences_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "metadata_restored": true,
+    "original_ap7_project_unchanged": true,
+    "original_ap7_sha256": "41f855770e4c61daca456171ab6f61af3717c5213fd598cf5e1afce56d2a3f79",
+    "original_ap5_sha256": "367f5df6bc703a7c3b8aec87193ac027f7f50b60e6c47c2c841637fb7c7fce9f",
+    "ap7_repair_project_sha256": "41f855770e4c61daca456171ab6f61af3717c5213fd598cf5e1afce56d2a3f79",
+    "original_ap6_sha256": "1849faf11a683e83f52e0ca07f64ef3b4e91c2aff852f67dd660d925d49e8231",
+    "ap4_sha256": "d8acb2fbb487cfa0039a43ef92619f5e06a2fbd63e1b0be988fe721615541a05",
+    "sunshine_state": "active"
+  },
+  "retained_unaffected": "Original AP4/D9, AP5, AP6 and AP7 evidence unchanged. Prior real save/reopen/recovery results retain their source, not relabelled as this build.",
+  "limits": [
+    "Explicit counted gaps remain possible when valid output is late; queue capacity, disconnect, request timeout and corrupt output remain terminal.",
+    "No claim that an unreproduced AP5/AP6/AP7 historical transport/timing event shares a root cause.",
+    "Observer overflow discards optional observations, invalidates its reference until actual state readback, and never counts unchecked samples as verified.",
+    "First 32 missing-span request traces retained, with trace overflow reported. Trace stages are native elapsed intervals, not separate proof of Windows CPU time.",
+    "This is bounded two-instance AGain evidence, not long-run reliability, commercial plug-in qualification or physical acoustic listening proof."
+  ],
+  "private_capture_sha256": {
+    "sdk-final-after.private.json": "85dfc4f739ccc2e061bc3347a614605f409816f78cde2828206d1abee0b4a626",
+    "cleanup.private.json": "f5cf027ffd60fb20c27c6c27e60103051f7c9a969a19f5f18b00013d08f3f7dd",
+    "sdk-before.private.json": "77ff70963fc5c8b76e4c7a07a9827f57dbce3cde7d50b1689dfd4d6a8ce6da5b",
+    "live-playing.private.json": "36bbc4c2df934c7520123af4bffc18f5e4dfd95bb7a056384f828415145c7362",
+    "live-closed.private.json": "0efe35d23db106926c6c478d930f42b95b493faf39530a625be4e484c61bb85a",
+    "live-restored.private.json": "935e4472565b97718fb4c72d16319f0f4eb6b00f29dd6ab1d5f80d282b6ecded",
+    "desktop-1.private.json": "c6803045de0712f01deb7205faf353762fc6a129c7a934ffef7b9937bad71e50",
+    "desktop-preparation.private.json": "f296b1601f9986242b03304e5f46fbc579533361645ad1d26350be1b1bd40ba3",
+    "live-open.private.json": "f223688f94f1b6c2274d4ee6d05022172efc2c5290b1327098a305399083bb11",
+    "sdk-final-before.private.json": "d9680dc03bfd2d22b05de76c6deb72ab88f6a6f1f888c18e6895e78357fae318",
+    "scheduling.private.json": "35aafd0c8e8408bfd4ca48f1cad9a77a314b332d7fbc2b23fd2ca507ed746337",
+    "preflight.private.json": "bf96b53f2c72e75661e5c48bbddeac1f0df094eec3dfc9f00bf5128d547f733f",
+    "sdk-after.private.json": "3bf3312595867b91cc0b401c22e5d6d15628aecf4c0a1002c882fb8d53fe0ce1"
+  },
+  "rust_test_source": "f2b0f6c",
+  "test_only_followup": "Actual mapped/TCP worker exercised with paused observer and reader; the only release-source edit removes a redundant immediately called closure around activation."
+}

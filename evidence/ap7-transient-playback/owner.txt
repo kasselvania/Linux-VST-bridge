@@ -1,0 +1,12 @@
+test_sibling_failure_cleanup_and_capacity (__main__.IndependentOwners.test_sibling_failure_cleanup_and_capacity) ... ok
+test_uncertain_containment_refuses_new_work_without_stopping_sibling (__main__.IndependentOwners.test_uncertain_containment_refuses_new_work_without_stopping_sibling) ... ok
+test_failed_post_retirement_report_still_admits_new_work (__main__.ReportingFailures.test_failed_post_retirement_report_still_admits_new_work) ... ok
+test_missing_cleanup_confirmation_cannot_admit_new_work (__main__.ReportingFailures.test_missing_cleanup_confirmation_cannot_admit_new_work) ... ok
+test_primary_and_reporting_failures_survive_separately (__main__.ReportingFailures.test_primary_and_reporting_failures_survive_separately) ... ok
+test_reporting_failures_do_not_decide_containment_or_retirement (__main__.ReportingFailures.test_reporting_failures_do_not_decide_containment_or_retirement) ... ok
+test_retirement_failure_blocks_admission_even_when_reports_fail (__main__.ReportingFailures.test_retirement_failure_blocks_admission_even_when_reports_fail) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.194s
+
+OK
