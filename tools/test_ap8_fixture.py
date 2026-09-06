@@ -7,6 +7,20 @@ import ap8_fixture as fixture
 
 
 class FixtureTests(unittest.TestCase):
+    def test_vendor_stdout_is_bounded_and_host_validation_remains_mandatory(self):
+        stream = fixture.StreamState()
+        stream.feed('stdout', b'vendor initialization\n{"event":"lifecycle","sequence":1,"state":"ap8_call","operation":"createComponent"}\n')
+        stream.feed('stdout', b'x' * 100000)
+        stream.feed('stdout', b'\n{"event":"lifecycle","sequence":2,"state":"ap8_result","operation":"createComponent","result":0}\n')
+        self.assertEqual(len(stream.records), 2)
+        self.assertEqual(len(stream.vendor), 65536)
+        self.assertGreater(stream.vendor_bytes, 100000)
+        with self.assertRaises(Exception):
+            stream.feed('stdout', b'{"event":"lifecycle","sequence":4,"state":"ap8_call"}\n')
+        bad = fixture.StreamState()
+        with self.assertRaises(Exception):
+            bad.feed('stdout', b'{"event": broken\n')
+
     def test_installed_input_is_copied_and_verified_without_modifying_it(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

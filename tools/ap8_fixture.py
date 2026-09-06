@@ -10,6 +10,7 @@ import pathlib
 import secrets
 import shutil
 import time
+import types
 
 import ap4_preview as owner
 from common import canonical_json, environment_parent, sha256_file, write_atomic
@@ -92,6 +93,33 @@ def command_vector(environment, session, component_case, mode):
 
 
 class StreamState(owner.runtime.StreamState):
+    def __init__(self):
+        super().__init__()
+        self.vendor = bytearray()
+        self.vendor_bytes = 0
+        self._incoming = bytearray()
+
+    def feed(self, name, data):
+        if name != 'stdout':
+            return super().feed(name, data)
+        self._incoming.extend(data)
+        while b'\n' in self._incoming:
+            line, _, rest = self._incoming.partition(b'\n')
+            self._incoming = bytearray(rest)
+            if line.startswith(b'{"event":'):
+                # Host records retain mandatory JSON, sequence and call pairing
+                # checks. Ordinary vendor stdout is not a protocol frame.
+                super().feed(name, line + b'\n')
+            else:
+                self.vendor_bytes += len(line) + 1
+                self.vendor.extend((line + b'\n')[:max(0, 65536-len(self.vendor))])
+        if len(self._incoming) > 65536:
+            if self._incoming.startswith(b'{"event":'):
+                raise RuntimeError('AP8 host record length bound')
+            self.vendor_bytes += len(self._incoming)
+            self.vendor.extend(self._incoming[:max(0, 65536-len(self.vendor))])
+            self._incoming.clear()
+
     def accept(self, record):
         super().accept(record)
         if record.get('state') == 'ap8_call':
@@ -101,20 +129,25 @@ class StreamState(owner.runtime.StreamState):
 
 
 def inspect(environment, output):
-    import sys
     output = pathlib.Path(output)
     owner.private_directory(output)
     reporting_errors = []
+    streams = StreamState()
     def checkpoint(stage, available=None, error=None):
         # Reporting cannot interrupt process cleanup.
         try:
             write_atomic(output / (environment.run_id + '-checkpoint.json'),
-                canonical_json(dict(stage=stage, observation=available, error=str(error) if error else None)))
+                canonical_json(dict(stage=stage, observation=available, error=str(error) if error else None,
+                    vendor_stdout=streams.vendor.decode('utf-8', 'replace'), vendor_stdout_bytes=streams.vendor_bytes)))
         except Exception as failure:
             reporting_errors.append(dict(stage=stage, error=str(failure)))
+    profile = types.SimpleNamespace(verify_runtime=verify_runtime, verify_environment=verify_environment,
+        command_vector=command_vector, StreamState=lambda: streams)
     result = owner.runtime.supervise(environment, mode=MODE, component_case='first-audio',
-        profile=sys.modules[__name__], checkpoint=checkpoint, post_gate_seconds=45)
+        profile=profile, checkpoint=checkpoint, post_gate_seconds=45)
     result['reporting_errors'] = reporting_errors
+    result['vendor_stdout'] = streams.vendor.decode('utf-8', 'replace')
+    result['vendor_stdout_bytes'] = streams.vendor_bytes
     try:
         write_atomic(output / (environment.run_id + '.json'), canonical_json(result))
     except Exception as failure:
