@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <atomic>
 #include <cstring>
+#include <cmath>
 #include <stdexcept>
 
 namespace linux_vst_bridge::wf0 {
@@ -48,7 +49,7 @@ public:
     tresult PLUGIN_API restartComponent(int32)override{return kResultOk;}
 };
 }
-int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events) {
+int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id) {
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;Handler handler;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
@@ -71,10 +72,11 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events) {
             if(result!=kResultOk&&result!=kNotImplemented&&result!=kResultFalse)
                 throw std::runtime_error("setHostContext failed");
         }
-        PClassInfo selected{};bool found=false;
+        PClassInfo selected{};bool found=false;FUID wanted;
+        if(!class_id.empty()&&!wanted.fromString(class_id.c_str()))throw std::runtime_error("selected class syntax");
         int count=factory->countClasses();
         if(count<1||count>256)throw std::runtime_error("class count bound");
-        for(int i=0;i<count;++i){PClassInfo info{};ok(factory->getClassInfo(i,&info),"getClassInfo");if(std::strcmp(info.category,kVstAudioEffectClass)==0){if(found)throw std::runtime_error("multiple audio classes require explicit selection");selected=info;found=true;}}
+        for(int i=0;i<count;++i){PClassInfo info{};ok(factory->getClassInfo(i,&info),"getClassInfo");if(std::strcmp(info.category,kVstAudioEffectClass)==0&&(class_id.empty()||FUID::fromTUID(info.cid)==wanted)){if(found)throw std::runtime_error("multiple audio classes require explicit selection");selected=info;found=true;}}
         if(!found)throw std::runtime_error("audio class absent");
         step("createComponent");ok(factory->createInstance(selected.cid,IComponent::iid,reinterpret_cast<void**>(&component)),"createComponent");
         if(!component)throw std::runtime_error("null component");
@@ -100,8 +102,19 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events) {
                 events.lifecycle("ap8_bus",",\"media\":"+std::to_string(media)+",\"direction\":"+std::to_string(dir)+",\"index\":"+std::to_string(i)+",\"channels\":"+std::to_string(b.channelCount)+",\"type\":"+std::to_string(b.busType)+",\"flags\":"+std::to_string(b.flags)+",\"name\":"+text16(b.name));}
         }
         int n=controller->getParameterCount();if(n<0||n>8192)throw std::runtime_error("parameter count bound");
-        for(int i=0;i<n;++i){ParameterInfo p{};ok(controller->getParameterInfo(i,p),"getParameterInfo");
-            events.lifecycle("ap8_parameter",",\"id\":"+std::to_string(p.id)+",\"title\":"+text16(p.title)+",\"units\":"+text16(p.units)+",\"steps\":"+std::to_string(p.stepCount)+",\"flags\":"+std::to_string(p.flags)+",\"default\":"+std::to_string(p.defaultNormalizedValue)+",\"value\":"+std::to_string(controller->getParamNormalized(p.id)));}
+        events.lifecycle("ap8_parameter_count",",\"count\":"+std::to_string(n));
+        step("enumerateParameters");std::string parameters;
+        // Compact bounded chunks keep a large real parameter list within the
+        // existing diagnostic byte/event caps. Column order is explicit.
+        for(int i=0;i<n;++i){ParameterInfo p{};
+            if(controller->getParameterInfo(i,p)!=kResultOk)throw std::runtime_error("getParameterInfo index "+std::to_string(i));
+            auto value=controller->getParamNormalized(p.id);
+            if(!std::isfinite(value)||!std::isfinite(p.defaultNormalizedValue))throw std::runtime_error("nonfinite parameter value");
+            if(!parameters.empty())parameters+=',';
+            parameters+='['+std::to_string(p.id)+','+text16(p.title)+','+text16(p.units)+','+std::to_string(p.stepCount)+','+std::to_string(p.flags)+','+std::to_string(p.defaultNormalizedValue)+','+std::to_string(value)+']';
+            if(i%32==31||i+1==n){events.lifecycle("ap8_parameters",",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":["+parameters+"]");parameters.clear();}
+        }
+        ok(kResultOk,"enumerateParameters");
         LVBState::Stream state;step("getComponentState");ok(component->getState(&state),"getComponentState");
         if(state.failed||!state.quiescent())throw std::runtime_error("state stream bounds/lifetime");
         if(controller_initialized){state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");}

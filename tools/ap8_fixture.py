@@ -12,6 +12,7 @@ import shutil
 import time
 import types
 import subprocess
+import re
 
 import ap4_preview as owner
 from common import canonical_json, environment_parent, sha256_file, write_atomic
@@ -84,7 +85,7 @@ def create(scanner, module, *, source_sha256, resources=()):
 
 
 def command_vector(environment, session, component_case, mode):
-    if component_case != 'first-audio' or mode != MODE:
+    if (component_case != 'first-audio' and not re.fullmatch(r'class:[0-9A-Fa-f]{32}', component_case)) or mode != MODE:
         raise RuntimeError('AP8 inspection command differs')
     vector = owner.runtime.command_vector(environment, session, 'exact-again', owner.runtime.PC0_MODE)
     vector[vector.index('--mode') + 1] = mode
@@ -129,7 +130,7 @@ class StreamState(owner.runtime.StreamState):
             self.in_flight_at = None
 
 
-def inspect(environment, output, *, graphical=False):
+def inspect(environment, output, *, graphical=False, class_id=None):
     output = pathlib.Path(output)
     owner.private_directory(output)
     reporting_errors = []
@@ -154,7 +155,7 @@ def inspect(environment, output, *, graphical=False):
         if not desktop.get('DISPLAY'):
             raise RuntimeError('existing desktop display unavailable')
         profile.controlled_environment = lambda env: {**owner.runtime.controlled_environment(env), **desktop}
-    result = owner.runtime.supervise(environment, mode=MODE, component_case='first-audio',
+    result = owner.runtime.supervise(environment, mode=MODE, component_case='class:' + class_id if class_id else 'first-audio',
         profile=profile, checkpoint=checkpoint, post_gate_seconds=45)
     result['reporting_errors'] = reporting_errors
     result['vendor_stdout'] = streams.vendor.decode('utf-8', 'replace')
