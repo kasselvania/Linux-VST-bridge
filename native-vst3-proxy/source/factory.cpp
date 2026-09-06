@@ -4,11 +4,27 @@
 #include "public.sdk/source/main/pluginfactory_constexpr.h"
 #include <thread>
 #include <cstdio>
+#include <cstdlib>
+#include <atomic>
 #ifdef AP3_PREVIEW
 #include "public.sdk/source/vst/vsteditcontroller.h"
 namespace AP2 {
 class Controller final : public Steinberg::Vst::EditController {
 public:
+  static void trace(const char *op, long index, long value) {
+    static std::atomic<unsigned> count{0};
+    if (count.fetch_add(1) >= 128) return;
+    const char *home = std::getenv("HOME"); if (!home) return;
+    char path[4096]; std::snprintf(path, sizeof(path), "%s/AP4-State-Test/preview/controller-trace.jsonl", home);
+    if (auto *f = std::fopen(path, "a")) {
+      std::fprintf(f, "{\"op\":\"%s\",\"index\":%ld,\"value\":%ld}\n", op, index, value); std::fclose(f);
+    }
+  }
+  Steinberg::tresult PLUGIN_API getParameterInfo(Steinberg::int32 index, Steinberg::Vst::ParameterInfo &info) override {
+    auto r = EditController::getParameterInfo(index, info);
+    trace("getParameterInfo", index, r == Steinberg::kResultOk ? info.id : -1);
+    return r;
+  }
   static Steinberg::FUnknown *create(void *) {
     try {
       return static_cast<Steinberg::Vst::IEditController *>(new Controller);
@@ -33,6 +49,7 @@ public:
   }
   Steinberg::tresult PLUGIN_API connect(Steinberg::Vst::IConnectionPoint *peer) override {
     auto r = EditController::connect(peer);
+    trace("connect", r, owner_ == std::this_thread::get_id());
     if (r == Steinberg::kResultOk) command("AP6.status");
     return r;
   }
@@ -61,6 +78,7 @@ public:
   }
   Steinberg::tresult PLUGIN_API notify(Steinberg::Vst::IMessage *message) override {
     using namespace Steinberg;
+    trace(message ? message->getMessageID() : "null", 0, owner_ == std::this_thread::get_id());
     if (!message || owner_ != std::this_thread::get_id()) return kResultFalse;
     const char *id = message->getMessageID();
     if (!id) return kResultFalse;
@@ -155,9 +173,9 @@ static constexpr Steinberg::TUID processorID =
 BEGIN_FACTORY_DEF("Kasselvania Research",
                   "https://github.com/kasselvania/Linux-VST-bridge", "", 2)
 DEF_CLASS(AP2::processorID, Steinberg::PClassInfo::kManyInstances, kVstAudioEffectClass, "AGain Queued Preview", 0,
-          "Fx", "0.2.0", kVstVersionString, AP2::Processor::create, nullptr)
+          "Fx", "0.3.0", kVstVersionString, AP2::Processor::create, nullptr)
 DEF_CLASS(AP2::controlID, Steinberg::PClassInfo::kManyInstances, kVstComponentControllerClass,
-          "Bridge Reference Gain", 0, "", "0.2.0", kVstVersionString,
+          "Bridge Reference Gain", 0, "", "0.3.0", kVstVersionString,
           AP2::Controller::create, nullptr)
 #else
 BEGIN_FACTORY_DEF("Kasselvania Research",

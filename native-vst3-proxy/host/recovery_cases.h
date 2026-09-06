@@ -73,6 +73,11 @@ void recoveryCases(const Factory &factory, HostApplication *host, const std::str
     i.processor = FUnknownPtr<IAudioProcessor>(i.component);
     i.controller = factory.template createInstance<IEditController>(classes[1].ID());
     ok(i.controller->initialize(host), "recovery controller");
+    for (int index = 0; index < 3; ++index) {
+      ParameterInfo info{};
+      ok(i.controller->getParameterInfo(index, info), "parameter info");
+      need(info.id == (index == 0 ? 0u : 0x41503600u + unsigned(index)), "independent parameter ids");
+    }
     if (file) restore(*i.component, *i.controller, loadBytes(file), gain);
     ProcessSetup setup{kRealtime, kSample32, 256, 48000.};
     ok(i.processor->setupProcessing(setup), "recovery setup");
