@@ -164,6 +164,7 @@ impl Session {
                     && reply.sequence == f.sequence
                     && (kind == 20 && self.minor >= 6 && reply.payload.len() == 16
                         || reply.payload.is_empty()
+                            && kind != 20
                             && !(self.minor >= 3 && matches!(kind, 10 | 12))
                         || self.minor >= 3
                             && matches!(kind, 10 | 12)
@@ -192,7 +193,7 @@ impl Session {
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
         let reply = self.exchange(20, bytes)?;
         need(
-            get(&reply.payload[12..16]) == 0 && get(&reply.payload[8..12]) & 1 == 1,
+            get(&reply.payload[12..16]) == 0 && matches!(get(&reply.payload[8..12]), 1 | 3),
             "invalid setup response",
         )?;
         Ok(reply.payload)

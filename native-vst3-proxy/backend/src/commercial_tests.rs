@@ -219,6 +219,20 @@ fn performance_setup_and_reference_state_keep_their_protocol_roles() {
             6,
         )
         .unwrap();
+        let f = receive_version(&mut peer, 5, 6).unwrap();
+        assert_eq!(f.kind, 20);
+        send_version(
+            &mut peer,
+            &Frame {
+                kind: 21,
+                session: f.session,
+                sequence: f.sequence,
+                payload: vec![],
+            },
+            5,
+            6,
+        )
+        .unwrap();
     });
     let mut session = Session {
         mapping: None,
@@ -250,5 +264,10 @@ fn performance_setup_and_reference_state_keep_their_protocol_roles() {
     assert!(session
         .configure(performance::wire(128, 0, 48000.).unwrap())
         .is_err());
+    session.phase = 17;
+    assert!(session
+        .configure(performance::wire(128, 0, 96000.).unwrap())
+        .is_err());
+    assert_eq!(session.phase, ERROR);
     remote.join().unwrap();
 }
