@@ -171,3 +171,84 @@ fn opaque_bound_state_refuses_bad_extent_ids_and_values() {
     b.extend_from_slice(&point);
     assert!(state::commercial_payload(&b).is_err());
 }
+
+#[test]
+fn performance_setup_and_reference_state_keep_their_protocol_roles() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (mut peer, _) = listener.accept().unwrap();
+    let expected = [0.5f32.to_le_bytes(), 0f32.to_le_bytes(), 0u32.to_le_bytes()].concat();
+    let payload = expected.clone();
+    let remote = thread::spawn(move || {
+        let f = receive_version(&mut peer, 5, 6).unwrap();
+        assert_eq!(f.kind, 20);
+        assert_eq!(get(&f.payload[..4]), 128);
+        assert_eq!(
+            f64::from_le_bytes(f.payload[8..16].try_into().unwrap()),
+            96000.
+        );
+        send_version(
+            &mut peer,
+            &Frame {
+                kind: 21,
+                session: f.session,
+                sequence: f.sequence,
+                payload: [
+                    7u32.to_le_bytes(),
+                    0u32.to_le_bytes(),
+                    3u32.to_le_bytes(),
+                    0u32.to_le_bytes(),
+                ]
+                .concat(),
+            },
+            5,
+            6,
+        )
+        .unwrap();
+        let f = receive_version(&mut peer, 5, 6).unwrap();
+        assert_eq!(f.kind, 16);
+        send_version(
+            &mut peer,
+            &Frame {
+                kind: 17,
+                session: f.session,
+                sequence: f.sequence,
+                payload,
+            },
+            5,
+            6,
+        )
+        .unwrap();
+    });
+    let mut session = Session {
+        mapping: None,
+        socket,
+        state: ClientState {
+            session: [3; 16],
+            next: 1,
+            slot: Slot::Writable,
+        },
+        phase: 17,
+        max: 256,
+        minor: 6,
+        epoch: 0,
+        position: 0,
+        witness: None,
+        identity: None,
+        trace: Default::default(),
+        owner: None,
+        sample_rate: 48000,
+        armed: false,
+    };
+    let reply = session
+        .configure(performance::wire(128, 0, 96000.).unwrap())
+        .unwrap();
+    assert_eq!(get(&reply[..4]), 7);
+    assert_eq!(session.sample_rate, 96000);
+    assert_eq!(session.component_state(None).unwrap(), expected);
+    session.phase = 11;
+    assert!(session
+        .configure(performance::wire(128, 0, 48000.).unwrap())
+        .is_err());
+    remote.join().unwrap();
+}
