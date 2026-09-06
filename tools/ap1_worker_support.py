@@ -48,7 +48,7 @@ def retained_stream(path):
             if not block:raise RuntimeError('caller diagnostic stream truncated during read')
             remaining-=len(block);digest.update(block);tail=(tail+block)[-8192:]
     lines=[line for line in tail.decode('utf-8','replace').splitlines()
-           if re.search(r'(?i)\b(error|exception|fatal|assertion|aborted|crash|terminate|what)\b',line)]
+           if re.search(r'(?i)\b(error|exception|fatal|assertion|aborted|crash|terminate|what|malloc|calloc|realloc|free|corrupted?|corruption|segmentation|SIGABRT|SIGSEGV)\b',line)]
     detail=sanitized_supervision_error(RuntimeError(' | '.join(lines[-4:]))) if lines else None
     return digest.hexdigest(),detail
 

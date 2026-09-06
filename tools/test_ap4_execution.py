@@ -62,6 +62,8 @@ class AP4ExecutionTests(AP2ExecutionTests):
 
  def test_ap4_gui_setup_crash_retains_streams_and_missing_report_before_cleanup(self):
   self.caller_retention_case('setup_crash')
+ def test_ap4_gui_allocator_abort_survives_missing_report_and_cleanup(self):
+  self.caller_retention_case('allocator_abort')
  def test_ap4_gui_original_observation_survives_report_and_cleanup_failure(self):
   self.caller_retention_case('cleanup_failure')
  def test_ap4_gui_observation_is_checkpointed_before_cleanup_removes_report(self):
@@ -93,11 +95,11 @@ class AP4ExecutionTests(AP2ExecutionTests):
   original_record=dict(event='ap4_sample_comparison',samples=512,max_error=0.)
   def actual_caller(environment,*,mode,checkpoint,profile):
    report=environment.session/'ap3-gui-report.jsonl';crash=environment.session/'BITWIG_ENGINE_CRASH.txt'
-   setup_failed=case in {'setup_crash','checkpoint_failure'}
+   setup_failed=case in {'setup_crash','checkpoint_failure','allocator_abort'}
    process=types.SimpleNamespace(pid=123,poll=lambda:134 if setup_failed else 0)
    def spawn(*args,**kwargs):
     kwargs['stdout'].write(b'ignored normal startup\nAssertion failed: engine setup /home/private/file 0xdeadbeef pid=912\n')
-    kwargs['stderr'].write(b'fatal error: endpoint not ready token=private-value user@example.com 192.0.2.1\n')
+    kwargs['stderr'].write(b'malloc(): unsorted double linked list corrupted\n' if case=='allocator_abort' else b'fatal error: endpoint not ready token=private-value user@example.com 192.0.2.1\n')
     crash.write_text('Assertion failed: native engine setup\n')
     if not setup_failed:
      (environment.session/'ap1.control').write_bytes(b'local substitute')
@@ -130,12 +132,12 @@ class AP4ExecutionTests(AP2ExecutionTests):
   doc=self.transaction()['observation']['payload']['document'];trouble=doc['summary']['troubleshooting']
   self.assertIsNotNone(trouble['observation'],trouble)
   caller=trouble['observation']['caller']
-  setup_failed=case in {'setup_crash','checkpoint_failure'}
+  setup_failed=case in {'setup_crash','checkpoint_failure','allocator_abort'}
   self.assertEqual(caller['raw_exit'],134 if setup_failed else 0)
   self.assertEqual(caller['records'],[] if setup_failed else [original_record])
   self.assertEqual(len(reports),1);self.assertEqual(len(windows),0 if setup_failed else 1)
   self.assertIn('Assertion failed: engine setup',caller['stdout_detail'])
-  self.assertIn('endpoint not ready',caller['stderr_detail'])
+  self.assertIn('unsorted double linked list corrupted' if case=='allocator_abort' else 'endpoint not ready',caller['stderr_detail'])
   self.assertIn('native engine setup',caller['crash_detail'])
   for key in ('stdout_sha256','stderr_sha256','crash_sha256'):self.assertEqual(len(caller[key]),64)
   if setup_failed:
@@ -180,14 +182,18 @@ class AP4ExecutionTests(AP2ExecutionTests):
   def completed_caller(*args,**kwargs):
    # Native capture happens before cleanup without waiting for a GUI note.
    self.assertEqual(kwargs['post_gate_seconds'],180)
+   self.assertEqual(kwargs['caller_env'],{'HOME':str(self.base),'PATH':'/usr/bin:/bin','DISPLAY':':fixture'})
+   self.assertIn('--cwd='+str(self.base),kwargs['caller_command'])
+   self.assertIn('--env=LVB_AP2_SESSION_DIR='+str(session),kwargs['caller_command'])
+   self.assertIn('--filesystem='+str(session),kwargs['caller_command'])
    raw=kwargs['caller_checkpoint_report']()
    self.assertEqual([json.loads(line) for line in raw.splitlines()],records)
    self.assertEqual(sleeps,[])
    report.unlink() # Cached facts survive removal before the post-cleanup note.
    raw=kwargs['caller_report']();return [json.loads(line) for line in raw.splitlines()]
   def command(args,**kwargs):
-   return '8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231\n' if args[0]=='flatpak' else ''
-  with patch.object(profile.subprocess,'check_output',side_effect=command),patch.object(profile.inherited,'controlled_environment',return_value={}),patch.object(profile,'progress'),patch.object(profile,'real_home',return_value=self.base),patch.object(profile.companion,'supervise',side_effect=completed_caller),patch.object(profile.time,'monotonic',side_effect=lambda:ticks[0]),patch.object(profile.time,'sleep',side_effect=sleep):
+   return '8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231\n' if args[0]=='flatpak' else 'DISPLAY=:fixture\nUNRELATED_SECRET=must-not-propagate\n'
+  with patch.object(profile.subprocess,'check_output',side_effect=command),patch.object(profile.inherited,'controlled_environment',return_value={'HOME':str(self.base),'PATH':'/usr/bin:/bin','STEAM_COMPAT_DATA_PATH':'private-prefix','SteamAppId':'0','PRESSURE_VESSEL_VARIABLE_DIR':'private-runtime','TMPDIR':'stage-temp'}),patch.object(profile,'progress'),patch.object(profile,'real_home',return_value=self.base),patch.object(profile.companion,'supervise',side_effect=completed_caller),patch.object(profile.time,'monotonic',side_effect=lambda:ticks[0]),patch.object(profile.time,'sleep',side_effect=sleep):
    result=profile.gui(env,mode='local',checkpoint=lambda *v:None,profile=self.profile,label='bitwig_first',root=root,project=project,native=native,ui_note_wait_seconds=60,post_gate_seconds=180)
   self.assertEqual(result[:2],records)
   self.assertEqual(result[2:],[note] if case=='delayed' else [])

@@ -81,9 +81,11 @@ def gui(environment,*,mode,checkpoint,profile,label,root=None,project=None,nativ
  for line in manager.splitlines():
   k,sep,v=line.partition('=')
   if sep and k in {'DISPLAY','WAYLAND_DISPLAY','XAUTHORITY','DBUS_SESSION_BUS_ADDRESS','XDG_SESSION_TYPE'}:display[k]=v
- env={**inherited.controlled_environment(environment),**display}
- for k in ('XDG_CACHE_HOME','XDG_CONFIG_HOME','XDG_DATA_HOME','TMPDIR'):env.pop(k,None)
- command=['flatpak','run','--filesystem='+str(environment.session),
+ # The native DAW uses desktop launch conditions, not the Windows runner's
+ # compatibility/prefix environment. Absolute protocol paths still bind the stage.
+ base=inherited.controlled_environment(environment)
+ env={**{k:base[k] for k in ('HOME','USER','LOGNAME','PATH','LANG','XDG_RUNTIME_DIR') if k in base},**display}
+ command=['flatpak','run','--cwd='+str(real_home()),'--filesystem='+str(environment.session),
   '--env=LVB_AP2_SESSION_DIR='+str(environment.session),'--env=LVB_AP2_SESSION='+session,'--env=LVB_AP3_REPORT='+str(report),
   '--nofilesystem='+str(real_home()/'.vst3/yabridge'),'--nofilesystem='+str(real_home()/'.vst3/VCV Rack 2'),
   '--nofilesystem='+str(real_home()/'.vst'),'--nofilesystem='+str(real_home()/'.clap'),
