@@ -1,0 +1,1860 @@
+{
+  "builds": {
+    "desktop_recovery": {
+      "binaries": [
+        {
+          "path": "ap2-offline-host",
+          "sha256": "fbaae9be05db2f5be139aaad02f51de34f710f68489ac9f5e61db1851b0a8fe8"
+        },
+        {
+          "path": "AGainOfflineBridge.vst3/Contents/x86_64-linux/AGainOfflineBridge.so",
+          "sha256": "ec70cbdead0d93a396b0724eb80025918655c0d517e3d53abb66bc7304605bc1"
+        },
+        {
+          "path": "ap3-sustained-host",
+          "sha256": "e8301866579eb566bf26e3bcb5a7a05f074b3adce5a29a689388a3a5644cb5f0"
+        },
+        {
+          "path": "AGainQueuedBridge.vst3/Contents/x86_64-linux/AGainQueuedBridge.so",
+          "sha256": "893eab5be7f9bd42d63e3a41f5bf2964db90ced1e6665970a8de90a32ccd82b6"
+        },
+        {
+          "path": "libap3-callback-audit.so",
+          "sha256": "91d720d478ea70f39387a1da859624696c9c57ff57ef60995b03ca41f39b9f69"
+        }
+      ],
+      "input_sha256": "0df9b45f2585d476f67c6398820ab449a665bde779b380aa196f4e955b1794de",
+      "manifest_sha256": "8c6a35ddd05bf8774ef52320aeb227099f2657031eb162765b0bf2a6254e6a41",
+      "source_commit": "5791256dc0e14237c008f85847cf380605d840bf"
+    },
+    "final_reopen": {
+      "binaries": [
+        {
+          "path": "ap2-offline-host",
+          "sha256": "fbaae9be05db2f5be139aaad02f51de34f710f68489ac9f5e61db1851b0a8fe8"
+        },
+        {
+          "path": "AGainOfflineBridge.vst3/Contents/x86_64-linux/AGainOfflineBridge.so",
+          "sha256": "ec70cbdead0d93a396b0724eb80025918655c0d517e3d53abb66bc7304605bc1"
+        },
+        {
+          "path": "ap3-sustained-host",
+          "sha256": "c35da427524fe57522cf8f64050511c42dab53a2e353d3977dc951397750dd20"
+        },
+        {
+          "path": "AGainQueuedBridge.vst3/Contents/x86_64-linux/AGainQueuedBridge.so",
+          "sha256": "7fb528083f29fc634c676f6a887b500a16558a2e38c13b39408c4dfb06ec257b"
+        },
+        {
+          "path": "libap3-callback-audit.so",
+          "sha256": "91d720d478ea70f39387a1da859624696c9c57ff57ef60995b03ca41f39b9f69"
+        }
+      ],
+      "input_sha256": "3b1b71e50d0019a085f4279e6a84cf3df2d5201fa7e21b2679782ec4433bf9f9",
+      "manifest_sha256": "716e9beb6b637f9ea51014d045b647853df9c43648f2d69e3291e926ed9d50b4",
+      "source_commit": "428870b3345177e722548a144558f1a516d5dc9a"
+    }
+  },
+  "claim": "Explicit recovery of one failed actual Windows AGain instance, with restored complete state and healthy sibling; subsequent project recall",
+  "cleanup": {
+    "ap4_sha256": "d8acb2fbb487cfa0039a43ef92619f5e06a2fbd63e1b0be988fe721615541a05",
+    "bitwig_native_windows_processes_remaining": 0,
+    "metadata_restored": true,
+    "original_ap5_project_unchanged": true,
+    "original_ap5_sha256": "367f5df6bc703a7c3b8aec87193ac027f7f50b60e6c47c2c841637fb7c7fce9f",
+    "owned_stages_remaining": 0,
+    "owner_socket_removed": true,
+    "owner_state": "ExecMainStatus=0\nActiveState=inactive\nSubState=dead\n",
+    "preferences_restored": true,
+    "preferences_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "publication_removed": true,
+    "sunshine_active": "active"
+  },
+  "fixture": {
+    "audio": {
+      "added_latency_samples": 1024,
+      "channels": 2,
+      "maximum_frames": 256,
+      "sample_format": "float32",
+      "sample_rate": 48000
+    },
+    "bitwig_commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+    "daw": "Bitwig Studio 6.1 Flatpak",
+    "host": "maintainer Steam Deck",
+    "hosting": "Together; both instances in one native plug-in host process",
+    "launch_route": "KDE Applications > Multimedia > Bitwig Studio",
+    "lvb_environment_keys_in_bitwig_and_native_host": [],
+    "owner_source": "079f6baf0bf861c67d6512b2a443114bd9996c75",
+    "runner": "Proton 11.0-2c / Steam Linux Runtime 4",
+    "windows_host_manifest": "f00325df1cefe08c4496d3007211d7ecebdd02a49d4dc42a6a2e0a94881ec615",
+    "windows_host_rebuilt": false
+  },
+  "initial_development_findings": {
+    "generic_parameter_panel": "Bitwig enumerated the correct IDs and delivered SDK messages but did not expose non-automatable recovery. Added a minimal native X11 SDK view. Cache refresh did not solve it and original cache was restored.",
+    "historical_AP5_transport_loss": "Still unexplained; the induced local late response reproduces a native underflow, not proof of the historical cause.",
+    "initial_queue_fault": [
+      {
+        "detail": "InvalidData: queued session fault or cancelled",
+        "event": "ap5_worker_fault",
+        "fault": 1,
+        "first_position": 9783808,
+        "generation": 1,
+        "processed": 38215,
+        "request_high": 4,
+        "result_high": 4
+      }
+    ],
+    "routine_repairs": "Fixed replacement-only bad-readback harness injection, build input roster and test header placement. Failed build/harness output retained privately.",
+    "save_notification": "Snapshot metadata incorrectly invalidated host values, marking a save dirty. Removed that notification; actual restore synchronization remains. Final loaded regression and normal desktop save/quit passed."
+  },
+  "local_tests": {
+    "clippy_warnings_denied": true,
+    "earlier_loaded_instance_and_state_regressions": "instances_proxy.py and preview_proxy.py passed on native source 6222f3c; unchanged results retained",
+    "loaded_recovery_final": {
+      "classification": "LOCAL_SUBSTITUTED_PEER_TESTS",
+      "results": [
+        {
+          "case": "recovery-complete",
+          "counts": [
+            {
+              "activate": 1,
+              "closed": 0,
+              "get": 1,
+              "process": 64,
+              "set": 1,
+              "start": 1,
+              "stop": 0,
+              "zero_frame": 0
+            },
+            {
+              "activate": 1,
+              "closed": 1,
+              "get": 1,
+              "process": 102,
+              "set": 1,
+              "start": 1,
+              "stop": 1,
+              "zero_frame": 0
+            },
+            {
+              "activate": 1,
+              "closed": 1,
+              "get": 1,
+              "process": 31,
+              "set": 1,
+              "start": 1,
+              "stop": 1,
+              "zero_frame": 0
+            }
+          ],
+          "first_fault": {
+            "detail": "UnexpectedEof: failed to fill whole buffer",
+            "event": "ap5_worker_fault",
+            "fault": 3,
+            "first_position": 16128,
+            "generation": 1,
+            "processed": 63,
+            "request_high": 2,
+            "result_high": 4
+          },
+          "summary": {
+            "callback_effects": 0,
+            "case": "recovery-complete",
+            "event": "ap6_recovery",
+            "maximum_error": 0,
+            "recovered_samples": 15872,
+            "sibling_samples": 52224
+          }
+        },
+        {
+          "case": "recovery-late",
+          "counts": [
+            {
+              "activate": 1,
+              "closed": 0,
+              "get": 1,
+              "process": 1,
+              "set": 1,
+              "start": 1,
+              "stop": 0,
+              "zero_frame": 0
+            },
+            {
+              "activate": 1,
+              "closed": 1,
+              "get": 1,
+              "process": 42,
+              "set": 1,
+              "start": 1,
+              "stop": 1,
+              "zero_frame": 0
+            },
+            {
+              "activate": 1,
+              "closed": 1,
+              "get": 1,
+              "process": 24,
+              "set": 1,
+              "start": 1,
+              "stop": 1,
+              "zero_frame": 0
+            }
+          ],
+          "first_fault": {
+            "detail": "InvalidData: queued session fault or cancelled",
+            "event": "ap5_worker_fault",
+            "fault": 1,
+            "first_position": 1024,
+            "generation": 1,
+            "processed": 1,
+            "request_high": 4,
+            "result_high": 1
+          },
+          "summary": {
+            "callback_effects": 0,
+            "case": "recovery-late",
+            "event": "ap6_recovery",
+            "maximum_error": 0,
+            "recovered_samples": 12288,
+            "sibling_samples": 21504
+          }
+        },
+        {
+          "case": "recovery-missing",
+          "counts": [
+            {
+              "activate": 1,
+              "closed": 0,
+              "get": 1,
+              "process": 64,
+              "set": 0,
+              "start": 1,
+              "stop": 0,
+              "zero_frame": 0
+            },
+            {
+              "activate": 1,
+              "closed": 1,
+              "get": 1,
+              "process": 102,
+              "set": 1,
+              "start": 1,
+              "stop": 1,
+              "zero_frame": 0
+            }
+          ],
+          "first_fault": {
+            "detail": "UnexpectedEof: failed to fill whole buffer",
+            "event": "ap5_worker_fault",
+            "fault": 3,
+            "first_position": 16128,
+            "generation": 1,
+            "processed": 63,
+            "request_high": 2,
+            "result_high": 4
+          },
+          "summary": {
+            "callback_effects": 0,
+            "case": "recovery-missing",
+            "event": "ap6_recovery",
+            "maximum_error": 0,
+            "recovered_samples": 0,
+            "sibling_samples": 52224
+          }
+        },
+        {
+          "case": "recovery-bad-readback",
+          "counts": [
+            {
+              "activate": 1,
+              "closed": 0,
+              "get": 1,
+              "process": 64,
+              "set": 1,
+              "start": 1,
+              "stop": 0,
+              "zero_frame": 0
+            },
+            {
+              "activate": 1,
+              "closed": 1,
+              "get": 1,
+              "process": 102,
+              "set": 1,
+              "start": 1,
+              "stop": 1,
+              "zero_frame": 0
+            },
+            {
+              "activate": 0,
+              "closed": 0,
+              "get": 0,
+              "process": 0,
+              "set": 1,
+              "start": 0,
+              "stop": 0,
+              "zero_frame": 0
+            }
+          ],
+          "first_fault": {
+            "detail": "UnexpectedEof: failed to fill whole buffer",
+            "event": "ap5_worker_fault",
+            "fault": 3,
+            "first_position": 16128,
+            "generation": 1,
+            "processed": 63,
+            "request_high": 2,
+            "result_high": 4
+          },
+          "summary": {
+            "callback_effects": 0,
+            "case": "recovery-bad-readback",
+            "event": "ap6_recovery",
+            "maximum_error": 0,
+            "recovered_samples": 0,
+            "sibling_samples": 52224
+          }
+        },
+        {
+          "case": "recovery-uncertain",
+          "counts": [
+            {
+              "activate": 1,
+              "closed": 0,
+              "get": 1,
+              "process": 64,
+              "set": 1,
+              "start": 1,
+              "stop": 0,
+              "zero_frame": 0
+            },
+            {
+              "activate": 1,
+              "closed": 1,
+              "get": 1,
+              "process": 102,
+              "set": 1,
+              "start": 1,
+              "stop": 1,
+              "zero_frame": 0
+            }
+          ],
+          "first_fault": {
+            "detail": "UnexpectedEof: failed to fill whole buffer",
+            "event": "ap5_worker_fault",
+            "fault": 3,
+            "first_position": 16128,
+            "generation": 1,
+            "processed": 63,
+            "request_high": 2,
+            "result_high": 4
+          },
+          "summary": {
+            "callback_effects": 0,
+            "case": "recovery-uncertain",
+            "event": "ap6_recovery",
+            "maximum_error": 0,
+            "recovered_samples": 0,
+            "sibling_samples": 52224
+          }
+        }
+      ],
+      "windows_workloads": 0
+    },
+    "owner_passes": 12,
+    "rust_backend_passes": 21
+  },
+  "original_evidence": "AP4/D9/AP5 artifacts and acceptance provenance unchanged",
+  "private_provenance_sha256": {
+    "audio-after-recovery.private.json": "10b5f8f3830a6ae9ae1daf98b305c807a5bb82b5c94b912c456c604fb609f1ed",
+    "audio-before-2.private.json": "e3399d3cd5f2d03227a9f220379cfded97c2f9d22afe43a37cb0f26e2a21071a",
+    "audio-before-recovery.private.json": "3a123118552dfc4c9caa8285feb4966111a645935deb36ac58db2f6ccaf0b76e",
+    "audio-during-recovery.private.json": "2101853744ae5e5e598ece344ac4c2f5dde78201f733f9f733558ed3d6964d5d",
+    "audio-reopened-final.private.json": "f70870d36349bc743aa64e38534d503527abb8b03dbcc9131b137ce72c878fed",
+    "audio-sibling-after-kill.private.json": "1f0f1d2f851b8832cc4c6e0337647076f95c6d13b407f7075224613f8e9cbf25",
+    "cleanup-verified.private.json": "7998667cfb62863f1575ef4d36d2e17fe74e752e33c560c7b5d6242bb47827c7",
+    "controller-trace-final.private.jsonl": "94538704fdb94ac89a26fa26891201425affb74fa9b6e80dfd770c46ff1db3e7",
+    "desktop-final.private.json": "61d9fe8f685b246843514677917607ae35ea30d5d6c163e47712125ad8d5aa3d",
+    "desktop-preparation.private.json": "68018cc903e8bc852580ada7e153a799ce00d8191acd27974b9a676102a12dc0",
+    "desktop-recovered.private.json": "631cce2d27ba7230178451ccb2944b03ade340a37849f81a8498aacdd7bc03b1",
+    "desktop-reopened-final.private.json": "aafed416b63fea99b212842e5012409dfd9acb3acd60bbca9115fa9899325cbb",
+    "fault-injection.private.json": "09893d270403a689dfff46062c80924a9b64ef207cda8cb9721344ba6426b101",
+    "final-preflight.private.json": "bf96b53f2c72e75661e5c48bbddeac1f0df094eec3dfc9f00bf5128d547f733f",
+    "local-loaded-1.private.json": "f542b90f7913d392173bff9e686be1ee101d728127f1599b9c7fe900a7ead574",
+    "local-recovery-1.private.json": "5041d4f24ab0b21ce6dd5e4bb90b64f1a1bb4f2c83e38d3bfb812bc81a190283",
+    "local-recovery-4.private.json": "e88760daff7b95d5296090e08e8c42051eeefec9c4fcb398ce069dbc2960f472",
+    "local-recovery-6.private.json": "e88760daff7b95d5296090e08e8c42051eeefec9c4fcb398ce069dbc2960f472",
+    "project-final.private.json": "cba583a0213f51330b3076ada5f9ff157ffa8c91c0545374dd54c1aae8b1383a",
+    "project-renamed.private.json": "1599c6be516d79c4d85396dcd8a3eec53d7af73e48780908202e4d5e8632b892",
+    "recovery-session-final.private.json": "e1022e20c6249b6110bd0591140b75ac5779aa7b6822c12e740cb43777c78209",
+    "reports-closed-2.private.json": "2ee468d1a3734b5811c753f48c158c5f76744c32cfb178f7c8d1acbabd45db09",
+    "topology-after-recovery.private.json": "67bcbf631348442ba7f143faa9dc8c2c04dce98149fff8fb0cf9e00a836ea673",
+    "topology-before-recovery.private.json": "0fff63be3eaa76cd45e4419068b6efce383aae305812f5942b70e37fe75068b4"
+  },
+  "project": {
+    "final_project": {
+      "bytes": 43218,
+      "name": "AP6-Recovered.bwproject",
+      "sha256": "1849faf11a683e83f52e0ca07f64ef3b4e91c2aff852f67dd660d925d49e8231"
+    },
+    "input_ap5_sha256": "367f5df6bc703a7c3b8aec87193ac027f7f50b60e6c47c2c841637fb7c7fce9f",
+    "no_gain_edits_during_reopen": true,
+    "normal_save_after_reopen": "completed, no dirty marker or extra quit prompt",
+    "reopened_file_sha256": "1849faf11a683e83f52e0ca07f64ef3b4e91c2aff852f67dd660d925d49e8231"
+  },
+  "recovery": {
+    "bitwig_process_and_start_unchanged": true,
+    "fresh_endpoint": true,
+    "gui_control_before_and_after": 0.675,
+    "injection": "SIGKILL only the first owned Windows endpoint, after PID start identity and stage mapping verification",
+    "new_generation": 2,
+    "old_generation": 1,
+    "restored_revision": 3,
+    "restored_source": "successful complete component restore",
+    "settings_reentered": false,
+    "shared_native_process_and_start_unchanged": true,
+    "sibling_control": 0.35,
+    "sibling_windows_process_and_start_unchanged": true,
+    "snapshot_envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d"
+  },
+  "sessions": {
+    "failed_original": {
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "containment_confirmed": true,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 1,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 0,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 14695981039346656037,
+          "maximum_error": 0,
+          "nonzero_samples": 0,
+          "output_fnv1a64": 14695981039346656037,
+          "restored_gain": 0,
+          "samples": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 2,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 0,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 14695981039346656037,
+          "maximum_error": 0,
+          "nonzero_samples": 0,
+          "output_fnv1a64": 14695981039346656037,
+          "restored_gain": 0,
+          "samples": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.675000012,
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "detail": "Confirmed project/component restore",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 3,
+          "source": 18,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "detail": "ConnectionReset: Connection reset by peer (os error 104)",
+          "event": "ap5_worker_fault",
+          "fault": 3,
+          "first_position": 1189632,
+          "generation": 1,
+          "processed": 11074,
+          "request_high": 2,
+          "result_high": 4
+        },
+        {
+          "detail": "Last confirmed snapshot; later edits may be lost",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 3,
+          "source": 18,
+          "uncaptured_changes_possible": 0
+        }
+      ],
+      "primary_error": null,
+      "reporting_errors": [],
+      "retired": true,
+      "retirement_error": null,
+      "windows_exit": 1,
+      "windows_records": [
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 80,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 81,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 1,
+          "payload_bytes": 12,
+          "payload_sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "restored": false,
+          "sequence": 82,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 83,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 84,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 2,
+          "payload_bytes": 12,
+          "payload_sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "restored": false,
+          "sequence": 85,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "owner_thread": true,
+          "sequence": 86,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "result": 0,
+          "sequence": 87,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 88,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 89,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 3,
+          "payload_bytes": 12,
+          "payload_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "restored": true,
+          "sequence": 90,
+          "state": "ap4_state_readback"
+        }
+      ]
+    },
+    "healthy_sibling": {
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "containment_confirmed": true,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 1,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 0,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 14695981039346656037,
+          "maximum_error": 0,
+          "nonzero_samples": 0,
+          "output_fnv1a64": 14695981039346656037,
+          "restored_gain": 0,
+          "samples": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 2,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 0,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 14695981039346656037,
+          "maximum_error": 0,
+          "nonzero_samples": 0,
+          "output_fnv1a64": 14695981039346656037,
+          "restored_gain": 0,
+          "samples": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.349999994,
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6"
+        },
+        {
+          "detail": "Confirmed project/component restore",
+          "envelope_sha256": "c48254c0c546f5ba0b46804e9774ff207f26706c3fac65d214af1e6817d3ba7e",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 3,
+          "source": 18,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "epoch": 2,
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "position": 6123008,
+          "processed": 24294,
+          "request_high": 2,
+          "result_high": 4
+        },
+        {
+          "before_edit_samples": 12438528,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 4282073955827124705,
+          "maximum_error": 0,
+          "nonzero_samples": 11863561,
+          "output_fnv1a64": 17163698775124991398,
+          "restored_gain": 0.349999994,
+          "samples": 12438528
+        },
+        {
+          "before_edit_samples": 12438528,
+          "edits": 0,
+          "event": "ap4_sample_comparison",
+          "maximum_error": 0,
+          "nonzero_samples": 11863561,
+          "restored_gain": 0.349999994,
+          "restored_samples": 12438528,
+          "restores": 1,
+          "samples": 12438528
+        },
+        {
+          "blocks": 24294,
+          "callback_rejections": 0,
+          "clean": true,
+          "event": "ap3_proxy_lifecycle",
+          "frames": 6219264,
+          "gain_max": 0.349999994,
+          "gain_min": 0.349999994,
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "primary_error": null,
+      "reporting_errors": [],
+      "retired": true,
+      "retirement_error": null,
+      "windows_exit": 0,
+      "windows_records": [
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 80,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 81,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 1,
+          "payload_bytes": 12,
+          "payload_sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "restored": false,
+          "sequence": 82,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 83,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 84,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 2,
+          "payload_bytes": 12,
+          "payload_sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "restored": false,
+          "sequence": 85,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "owner_thread": true,
+          "sequence": 86,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "result": 0,
+          "sequence": 87,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 88,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 89,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 3,
+          "payload_bytes": 12,
+          "payload_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+          "restored": true,
+          "sequence": 90,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "intervals": 2,
+          "process_mode": "kRealtime",
+          "processed_blocks": 24294,
+          "sequence": 125,
+          "state": "ap3_processing_summary"
+        }
+      ]
+    },
+    "recovered": {
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "containment_confirmed": true,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "gain": 0.675000012,
+          "operation": "recover",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "detail": "Recovered identified snapshot; later edits were not restored",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 2,
+          "snapshot_revision": 3,
+          "source": 18,
+          "uncaptured_changes_possible": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.675000012,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 2,
+          "snapshot_revision": 4,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 30208,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 18290542906478114449,
+          "maximum_error": 0,
+          "nonzero_samples": 30170,
+          "output_fnv1a64": 12945915251570791142,
+          "restored_gain": 0.675000012,
+          "samples": 30208
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.675000012,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 2,
+          "snapshot_revision": 5,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 7091200,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 8712245434290065504,
+          "maximum_error": 0,
+          "nonzero_samples": 5222930,
+          "output_fnv1a64": 7860325480279547014,
+          "restored_gain": 0.675000012,
+          "samples": 7091200
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.675000012,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 2,
+          "snapshot_revision": 6,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 7122432,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 12510729813771472992,
+          "maximum_error": 0,
+          "nonzero_samples": 5222930,
+          "output_fnv1a64": 6184941750733331590,
+          "restored_gain": 0.675000012,
+          "samples": 7122432
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.675000012,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 2,
+          "snapshot_revision": 7,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 11784704,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 8890226088661536864,
+          "maximum_error": 0,
+          "nonzero_samples": 5222930,
+          "output_fnv1a64": 7071875515029576838,
+          "restored_gain": 0.675000012,
+          "samples": 11784704
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.675000012,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 2,
+          "snapshot_revision": 8,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 11790848,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 15702116882853449824,
+          "maximum_error": 0,
+          "nonzero_samples": 5222930,
+          "output_fnv1a64": 7628444824385346694,
+          "restored_gain": 0.675000012,
+          "samples": 11790848
+        },
+        {
+          "epoch": 1,
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "position": 5896192,
+          "processed": 23032,
+          "request_high": 2,
+          "result_high": 4
+        },
+        {
+          "before_edit_samples": 11792384,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 5647316999199051872,
+          "maximum_error": 0,
+          "nonzero_samples": 5222930,
+          "output_fnv1a64": 3881479804807683206,
+          "restored_gain": 0.675000012,
+          "samples": 11792384
+        },
+        {
+          "before_edit_samples": 11792384,
+          "edits": 0,
+          "event": "ap4_sample_comparison",
+          "maximum_error": 0,
+          "nonzero_samples": 5222930,
+          "restored_gain": 0.675000012,
+          "restored_samples": 11792384,
+          "restores": 1,
+          "samples": 11792384
+        },
+        {
+          "blocks": 34107,
+          "callback_rejections": 8316,
+          "clean": true,
+          "event": "ap3_proxy_lifecycle",
+          "frames": 8731392,
+          "gain_max": 0.675000012,
+          "gain_min": 0.675000012,
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "primary_error": null,
+      "reporting_errors": [],
+      "retired": true,
+      "retirement_error": null,
+      "windows_exit": 0,
+      "windows_records": [
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "owner_thread": true,
+          "sequence": 80,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "result": 0,
+          "sequence": 81,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 82,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 83,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 1,
+          "payload_bytes": 12,
+          "payload_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "restored": true,
+          "sequence": 84,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 107,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 108,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 61,
+          "payload_bytes": 12,
+          "payload_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "restored": false,
+          "sequence": 109,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 110,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 111,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 13853,
+          "payload_bytes": 12,
+          "payload_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "restored": false,
+          "sequence": 112,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 113,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 114,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 13915,
+          "payload_bytes": 12,
+          "payload_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "restored": false,
+          "sequence": 115,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 116,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 117,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 23022,
+          "payload_bytes": 12,
+          "payload_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "restored": false,
+          "sequence": 118,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 119,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 120,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 23035,
+          "payload_bytes": 12,
+          "payload_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "restored": false,
+          "sequence": 121,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "intervals": 1,
+          "process_mode": "kRealtime",
+          "processed_blocks": 23032,
+          "sequence": 126,
+          "state": "ap3_processing_summary"
+        }
+      ]
+    },
+    "reopened_a": {
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "containment_confirmed": true,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 1,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 0,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 14695981039346656037,
+          "maximum_error": 0,
+          "nonzero_samples": 0,
+          "output_fnv1a64": 14695981039346656037,
+          "restored_gain": 0,
+          "samples": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 2,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 0,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 14695981039346656037,
+          "maximum_error": 0,
+          "nonzero_samples": 0,
+          "output_fnv1a64": 14695981039346656037,
+          "restored_gain": 0,
+          "samples": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.675000012,
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "detail": "Confirmed project/component restore",
+          "envelope_sha256": "ef796d3d393a3c14ea0ade6ab181bf8b3ce0baf175cb1ed683dd35c53aaff43d",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 3,
+          "source": 18,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "epoch": 2,
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "position": 1084928,
+          "processed": 9972,
+          "request_high": 2,
+          "result_high": 4
+        },
+        {
+          "before_edit_samples": 5105664,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 11461633009136526954,
+          "maximum_error": 0,
+          "nonzero_samples": 1972416,
+          "output_fnv1a64": 10000360855659119757,
+          "restored_gain": 0.675000012,
+          "samples": 5105664
+        },
+        {
+          "before_edit_samples": 5105664,
+          "edits": 0,
+          "event": "ap4_sample_comparison",
+          "maximum_error": 0,
+          "nonzero_samples": 1972416,
+          "restored_gain": 0.675000012,
+          "restored_samples": 5105664,
+          "restores": 1,
+          "samples": 5105664
+        },
+        {
+          "blocks": 9972,
+          "callback_rejections": 0,
+          "clean": true,
+          "event": "ap3_proxy_lifecycle",
+          "frames": 2552832,
+          "gain_max": 0.675000012,
+          "gain_min": 0.675000012,
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "primary_error": null,
+      "reporting_errors": [],
+      "retired": true,
+      "retirement_error": null,
+      "windows_exit": 0,
+      "windows_records": [
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 80,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 81,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 1,
+          "payload_bytes": 12,
+          "payload_sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "restored": false,
+          "sequence": 82,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 83,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 84,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 2,
+          "payload_bytes": 12,
+          "payload_sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "restored": false,
+          "sequence": 85,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "owner_thread": true,
+          "sequence": 86,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "result": 0,
+          "sequence": 87,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 88,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 89,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 3,
+          "payload_bytes": 12,
+          "payload_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64",
+          "restored": true,
+          "sequence": 90,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "intervals": 2,
+          "process_mode": "kRealtime",
+          "processed_blocks": 9972,
+          "sequence": 125,
+          "state": "ap3_processing_summary"
+        }
+      ]
+    },
+    "reopened_b": {
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "containment_confirmed": true,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 1,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 0,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 14695981039346656037,
+          "maximum_error": 0,
+          "nonzero_samples": 0,
+          "output_fnv1a64": 14695981039346656037,
+          "restored_gain": 0,
+          "samples": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "detail": "Captured complete state; not necessarily a project save",
+          "envelope_sha256": "9cf1721460ce4b1f18bc75d364c52e90f94e3b033d59211c1c32af78e400a4bd",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 2,
+          "source": 16,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "before_edit_samples": 0,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 14695981039346656037,
+          "maximum_error": 0,
+          "nonzero_samples": 0,
+          "output_fnv1a64": 14695981039346656037,
+          "restored_gain": 0,
+          "samples": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.349999994,
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6"
+        },
+        {
+          "detail": "Confirmed project/component restore",
+          "envelope_sha256": "c48254c0c546f5ba0b46804e9774ff207f26706c3fac65d214af1e6817d3ba7e",
+          "event": "ap6_status",
+          "generation": 1,
+          "snapshot_revision": 3,
+          "source": 18,
+          "uncaptured_changes_possible": 0
+        },
+        {
+          "epoch": 2,
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "position": 1876736,
+          "processed": 7707,
+          "request_high": 2,
+          "result_high": 4
+        },
+        {
+          "before_edit_samples": 3945984,
+          "edits": 0,
+          "event": "ap5_sample_progress",
+          "input_fnv1a64": 9017907036567582357,
+          "maximum_error": 0,
+          "nonzero_samples": 1974394,
+          "output_fnv1a64": 14154871058716200710,
+          "restored_gain": 0.349999994,
+          "samples": 3945984
+        },
+        {
+          "before_edit_samples": 3945984,
+          "edits": 0,
+          "event": "ap4_sample_comparison",
+          "maximum_error": 0,
+          "nonzero_samples": 1974394,
+          "restored_gain": 0.349999994,
+          "restored_samples": 3945984,
+          "restores": 1,
+          "samples": 3945984
+        },
+        {
+          "blocks": 7707,
+          "callback_rejections": 0,
+          "clean": true,
+          "event": "ap3_proxy_lifecycle",
+          "frames": 1972992,
+          "gain_max": 0.349999994,
+          "gain_min": 0.349999994,
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "primary_error": null,
+      "reporting_errors": [],
+      "retired": true,
+      "retirement_error": null,
+      "windows_exit": 0,
+      "windows_records": [
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 80,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 81,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 1,
+          "payload_bytes": 12,
+          "payload_sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "restored": false,
+          "sequence": 82,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 83,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 84,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 2,
+          "payload_bytes": 12,
+          "payload_sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e",
+          "restored": false,
+          "sequence": 85,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "owner_thread": true,
+          "sequence": 86,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "set",
+          "result": 0,
+          "sequence": 87,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "owner_thread": true,
+          "sequence": 88,
+          "state": "ap4_state_started"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "get",
+          "result": 0,
+          "sequence": 89,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "next_sequence": 3,
+          "payload_bytes": 12,
+          "payload_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6",
+          "restored": true,
+          "sequence": 90,
+          "state": "ap4_state_readback"
+        },
+        {
+          "event": "lifecycle",
+          "intervals": 2,
+          "process_mode": "kRealtime",
+          "processed_blocks": 7707,
+          "sequence": 125,
+          "state": "ap3_processing_summary"
+        }
+      ]
+    }
+  },
+  "status": "focused development check passed; unmerged review required",
+  "supplemental_audio": {
+    "audio-after-recovery.private.json": {
+      "instances": [
+        {
+          "at": 1788711112.5796869,
+          "gain": 0.349999994,
+          "instance": "healthy_sibling",
+          "snapshots": [
+            {
+              "input_sha256": "c09034a9c726d7c6c5807195cb239eaa0475536b02039cb387d168f25d83c511",
+              "maximum_error": 0,
+              "output_sha256": "8e80f4d588bb15e22af470ecf1f9287b753910aaa330b807dddaadb68cd07800",
+              "samples": 512
+            },
+            {
+              "input_sha256": "b39601d59421448f9163399b24989365e342e7c5160b8c8b23939483e2a13d08",
+              "maximum_error": 0,
+              "output_sha256": "255916278a1604135c461102226923184fbd2b45cd4d50f77a3858b849a5fec8",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6"
+        },
+        {
+          "at": 1788711112.5880213,
+          "gain": 0.675000012,
+          "instance": "recovered",
+          "snapshots": [
+            {
+              "input_sha256": "c4d29e864487ec3094ad46e3d9584d0a4d6615fd5c8685e3fde68a1f23902101",
+              "maximum_error": 0,
+              "output_sha256": "e6919a35c5bcbeb83dd8ab1fe89acf30860ea95c0c79bddc243d4cd11653a3a2",
+              "samples": 512
+            },
+            {
+              "input_sha256": "b492486225ffe7b95f71bbda9955f8229dd5780bf08b8af3c25df32d94b6e915",
+              "maximum_error": 0,
+              "output_sha256": "ca944ce6bba253deeb8d2c7d46ba3f0195520fbf5cb4cd31a6d2695ec7ea0950",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        }
+      ],
+      "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement"
+    },
+    "audio-before-recovery.private.json": {
+      "instances": [
+        {
+          "at": 1788711020.0781615,
+          "gain": 0.349999994,
+          "instance": "healthy_sibling",
+          "snapshots": [
+            {
+              "input_sha256": "a706e73144e9e5e6032193ccec297fb4b63954542d77d4b3ddde4d5c6f35f53f",
+              "maximum_error": 0,
+              "output_sha256": "745e23d96f64fddbc33aaeb0d96e4b6186043d7de0e36232360fd6faeb23e679",
+              "samples": 512
+            },
+            {
+              "input_sha256": "177d2559ec82ff9d037f37f4896bd19d98a4861478222bf8ee4ae36586fc15e2",
+              "maximum_error": 0,
+              "output_sha256": "b028aef082e921d97713cb6e4a79da35b9bb0635f9ca4831ed2507cd472679d5",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6"
+        },
+        {
+          "at": 1788711020.0859144,
+          "gain": 0.675000012,
+          "instance": "failed_original",
+          "snapshots": [
+            {
+              "input_sha256": "c1ec66533bd0cd4f6a1b94826d185593216bf18b0c8004aad3303c2c98adf138",
+              "maximum_error": 0,
+              "output_sha256": "82f152c2fc405b373300d4f32d6175070aafd8fa86a8cd63f64f2bf58a8f8b3e",
+              "samples": 512
+            },
+            {
+              "input_sha256": "8b3ccd1571a802defb5e6ef8b2209ce3468d91411da1beac097c6a8421d1ab2a",
+              "maximum_error": 0,
+              "output_sha256": "055db9efc14265e6bfe1a30e5ec372d105b1415569b7d07ddda5eea215cae28f",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        }
+      ],
+      "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement"
+    },
+    "audio-during-recovery.private.json": {
+      "instances": [
+        {
+          "at": 1788711093.8050802,
+          "gain": 0.349999994,
+          "instance": "healthy_sibling",
+          "snapshots": [
+            {
+              "input_sha256": "be03a3e55a0e567d501e488cf10b6608a27972c89fb6659ef12e5caac3e66fa8",
+              "maximum_error": 0,
+              "output_sha256": "f7117417321d30cd9e778bc365ba9d96a596bc60595d46e9fa96e318ad5ddd45",
+              "samples": 512
+            },
+            {
+              "input_sha256": "0256cfcc54297cf6a01244f08116034d4b4c64c817d1de271917c064fd683423",
+              "maximum_error": 0,
+              "output_sha256": "1d7797656124e56f1857790baa288935b00f627ba753f8e1746d835e57fdcaf2",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6"
+        },
+        {
+          "at": 1788711093.81292,
+          "gain": 0.675000012,
+          "instance": "recovered",
+          "snapshots": [
+            {
+              "input_sha256": "cb4a74ab2ba201aaeabcc7544de2a16618fcb58d595d8906bf38d10369c5526c",
+              "maximum_error": 0,
+              "output_sha256": "4a2c38c109032a5bd10cd85cb0bedfc8e130789cb6cee8447c33bd96177460a5",
+              "samples": 512
+            },
+            {
+              "input_sha256": "db0ee2613d293402890868b95841449c9f672d59798f395b4dc3fdf4efddb870",
+              "maximum_error": 0,
+              "output_sha256": "dd443708f51938c06975f8c6b36eb7902d42886b282325020e087243ae8e0613",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        }
+      ],
+      "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement"
+    },
+    "audio-reopened-final.private.json": {
+      "instances": [
+        {
+          "at": 1788711612.1649647,
+          "gain": 0.675000012,
+          "instance": "reopened_a",
+          "snapshots": [
+            {
+              "input_sha256": "8961306f6576dbbd51599af2dc6eec215569685fcf9a42c3f9f3166c41f74d97",
+              "maximum_error": 0,
+              "output_sha256": "6aba03b99a69c1797061077d93b21d889b496a9587ab6d0302ad75873d2209ee",
+              "samples": 512
+            },
+            {
+              "input_sha256": "ecd61f25b26cfb60fb45c1f653897eec7fc8e0af6a11de02794d1f9d8abca208",
+              "maximum_error": 0,
+              "output_sha256": "4d81f32e960911383e2b326f0386e87fb316f9eb973085fc36de1b13bdf9155a",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "2346a6c4bf2fb57fd9cc3e217a3f903b6548614fdb31172d80119585290a9d64"
+        },
+        {
+          "at": 1788711612.172706,
+          "gain": 0.349999994,
+          "instance": "reopened_b",
+          "snapshots": [
+            {
+              "input_sha256": "271b934bbc1675cfea330e0182fad86d652fb4cee8634f3717063ab067c5db59",
+              "maximum_error": 0,
+              "output_sha256": "5c130c9529492b0fa944fcdd26379caffe72d89b614bf59389241aecda0f686f",
+              "samples": 512
+            },
+            {
+              "input_sha256": "c95225232c5f47ca40ae4cb852459190a2a517f59d801e206ae0be45adac959c",
+              "maximum_error": 0,
+              "output_sha256": "69d63a244c6840472696ae10d09f0dd685f94972d6061a0ebb9fb55a810d2d3d",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6"
+        }
+      ],
+      "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement"
+    },
+    "audio-sibling-after-kill.private.json": {
+      "instances": [
+        {
+          "at": 1788711061.1757245,
+          "gain": 0.349999994,
+          "instance": "healthy_sibling",
+          "snapshots": [
+            {
+              "input_sha256": "18b834d59285165553ada00590bc2e0b67b1fb0d7c4f242993f2e8e991f5fced",
+              "maximum_error": 0,
+              "output_sha256": "4fb490a47ae4594cafc515417e8fd8a3ce3d74c727fd93e13d0a39093c4aa710",
+              "samples": 512
+            },
+            {
+              "input_sha256": "edd1a14bda06abb6a6cabd2665948dfcd31ba5d23ccd287aac2751f0809c4557",
+              "maximum_error": 0,
+              "output_sha256": "99daf6bb3f751053f6667277d92339b705c964a109e3162a57211a3f44daabe5",
+              "samples": 512
+            }
+          ],
+          "state_sha256": "c4462717ee17596492abf5ccf5b4d662ddf2f5ba6eda68e2f22736a8dbd562a6"
+        }
+      ],
+      "method": "read-only double-read of completed non-poisoned 256-frame guarded planes; supplemental, not a protocol acknowledgement"
+    }
+  }
+}
