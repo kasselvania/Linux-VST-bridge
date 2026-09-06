@@ -25,10 +25,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build "${{ runner.temp }}/ap8-build" --config Release --target wf0-factory-probe wf0-loader-adapter-tests --parallel 4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/test_ap4_socket.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git rev-parse HEAD | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SOURCE_COMMIT.txt"
           Get-FileHash "${{ runner.temp }}/ap8-build/wf0/bin/Release/*.exe" -Algorithm SHA256 | Format-List | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SHA256.txt"
+      - name: Test socket idle and disconnect behavior
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 -winsdk=10.0.19041.0
+          if errorlevel 1 exit /b %errorlevel%
+          python tools/test_ap4_socket.py
+          if errorlevel 1 exit /b %errorlevel%
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ap8-windows-host-${{ github.sha }}
