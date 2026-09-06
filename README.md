@@ -6,19 +6,19 @@ Working repository name; not affiliated with Bitwig, Valve, Steinberg or a plug-
 
 ## What works
 
-**AP4 is accepted through PR #59**, merge `a45a30b916f847d1cc683ef7e07121b57d52491c`. A normal Bitwig Applications launch can use the native Linux preview, send audio to actual Windows AGain, save its complete component state and recall it with fresh processes. The private preview owner starts only the Windows endpoint; no special DAW launch or injected session environment is required on the tested fixture.
+**AP5 is accepted through PR #61**, merge `6694f6e410cb1ee7395879b570ae817b7ceed38f`, following passing rereview 5125675629 at `24cae167c4b3e61fc59f07fa51ec6cce9e638996`. Two bridged Windows AGain effects run inside one native Bitwig host with independent audio, controls, saved state and lifetime. Both restored their different settings before edits; 61,495,808 samples compared at zero error. Removing one left its sibling running. The owner reporting/cleanup repair passed focused tests and CI without repeating the desktop workload.
 
-The saved 0.1650 setting returned after reopening, with 5,250,048 fresh-recall samples checked at zero error before any control edit. Ordinary pauses and a Moonlight disconnection exceeding three minutes did not expire the instance. See [AP4 result](docs/AP4_RESULT.md), [preview setup and limits](docs/AP4_PREVIEW.md), and [desktop access](docs/DECK_REMOTE_DESKTOP.md). Historical reports retain their publication-time status and provenance; review 5124120833 and the merge record acceptance.
+**An earlier isolated transport loss remains unexplained.** Acceptance of the bounded two-instance capability is not a reliability guarantee or a claim that the later successful run fixed that cause. See [AP5 results and limits](docs/AP5_RESULT.md). Original reports retain publication-time labels; the review and merge record acceptance.
 
-The callback uses preallocated queues and a separate transport worker. The accepted AP4 scope is **single-instance**, float32 stereo, 48-kHz reference-effect preview with 1–256-frame callbacks and **1024 samples of added latency (21.33 ms at 48 kHz)**. Prepared artifacts/runtime and a running private owner are still required. It does not establish low-latency suitability, commercial compatibility, instruments, vendor editors, automatic installation or reboot persistence. Serum remains the intended commercial fixture, not a proven capability.
+This builds on [AP4's normal Applications-launch state recall](docs/AP4_RESULT.md). The private preview owner starts Windows endpoints, not the DAW. The [preview setup](docs/AP4_PREVIEW.md) remains useful; AP5 supersedes its historical one-instance limit with capacity four, with real desktop evidence for two. Use the established [desktop access](docs/DECK_REMOTE_DESKTOP.md).
+
+The callback uses preallocated queues and separate transport workers. The retained scope is float32 stereo at 48 kHz, 1–256-frame callbacks and **1024 samples of added latency (21.33 ms at 48 kHz)**. Prepared artifacts/runtime and a running private owner remain required. Commercial compatibility, instruments, vendor editors, automatic installation, reboot persistence and low-latency suitability remain unproved. Serum remains the intended commercial fixture; the current reference host is not yet a general vendor implementation.
 
 ## Current goal
 
-**AP5 — Two independent plug-in instances**, tracked in #60 and [CURRENT_SLICE.md](CURRENT_SLICE.md). Put two copies on separate Bitwig tracks, keep their audio/settings independent, save/reopen both, and remove one without disturbing the other. Extend the working bridge rather than building a new framework.
+**AP6 — Recover one failed Windows instance**, tracked in #62 and [CURRENT_SLICE.md](CURRENT_SLICE.md). Keep Bitwig and healthy tracks running, explicitly restart the affected instance and restore its last confirmed complete state. Keep recovery independent of AGain's gain/byte layout, use focused failure evidence, and preserve the unresolved earlier loss honestly. Do not turn recovery into an indefinite test campaign or a new broker framework.
 
-[PR #61](https://github.com/kasselvania/Linux-VST-bridge/pull/61) implements AP5 and remains unmerged. The focused normal-desktop check recalled two instances in one native host, compared 61,495,808 samples at zero error, and removed one while the other continued. An earlier isolated transport loss remains unexplained. See [the observed result and limitations](docs/AP5_RESULT.md); AP5 is pending review, not accepted.
-
-AP4's prior D9 diagnostic and failed A2 remain unchanged in [the attempt record](docs/AP4_ATTEMPT_STATUS.md). No repeat of that completed campaign is required.
+AP4's D9 diagnostic and failed A2 remain unchanged in [the attempt record](docs/AP4_ATTEMPT_STATUS.md). No repeat of completed AP4/AP5 campaigns is required.
 
 ## Start here
 
