@@ -929,10 +929,10 @@ class PC0AdapterTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             self.local_worker.run(argv, input_bytes=data + b"# changed\n")
 
-    def test_production_registry_and_live_authority_remain_disabled(self):
+    def test_legacy_registry_and_default_transaction_authority_remain_disabled(self):
         self.assertEqual(set(PRODUCTION_ADAPTERS), {PLAN_ID})
         self.assertFalse(hasattr(PRODUCTION_ADAPTERS[PLAN_ID], "render_product_evidence"))
-        authority = load_authority(ROOT / "CURRENT_SLICE.md")
+        authority = load_authority(TOOLS / "legacy-proof-default.md")
         with self.assertRaisesRegex(PolicyError, "LIVE_EXECUTION_FORBIDDEN"):
             authorize_live_request(authority, LiveRequest(
                 ExecutionClass.DIAGNOSTIC_NON_AUTHORITATIVE, SOURCE_A, PLAN_ID, CAMPAIGN))

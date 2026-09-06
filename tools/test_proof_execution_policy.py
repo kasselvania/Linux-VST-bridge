@@ -134,8 +134,8 @@ class PolicyTests(unittest.TestCase):
         )
         return authority, value
 
-    def test_current_authority_disables_every_live_execution(self):
-        authority = load_authority(ROOT / "CURRENT_SLICE.md")
+    def test_legacy_default_authority_disables_unspecified_transactions(self):
+        authority = load_authority(TOOLS / "legacy-proof-default.md")
         status = authority_status(authority)
         self.assertFalse(status["live_execution_authorized"])
         self.assertTrue(status["classified_backend_core_ready"])
@@ -160,7 +160,7 @@ class PolicyTests(unittest.TestCase):
         mutations = {
             "status": "invented_status",
             "authority_phase": "invented_phase",
-            "change_class": "PRODUCT_IMPLEMENTATION",
+            "change_class": "PRODUCT_CONTRACT_CHANGE",
             "product_implementation_authorized": "true",
             "live_execution_authorized": "true",
             "permitted_execution_class": "ACCEPTANCE_CANDIDATE",
