@@ -74,6 +74,13 @@ class RuntimeTests(unittest.TestCase):
             self.assertNotIn(private,text)
         self.assertLessEqual(len(d.sanitized_supervision_error(RuntimeError('a'*1000))),768)
 
+    def test_bitwig_launcher_arguments_are_not_diagnostic_excerpts(self):
+        for prefix in ('Java arguments:', 'About to start the following process:', 'Command '):
+            text=d.sanitized_supervision_error(RuntimeError(prefix+' -XX:ErrorFile=/private/log -Dprivate=value secret-argument\nfatal error: engine stopped'))
+            self.assertIn('arguments omitted',text)
+            self.assertIn('fatal error: engine stopped',text)
+            for private in ('-XX:ErrorFile','-Dprivate=value','secret-argument'):self.assertNotIn(private,text)
+
     def test_duplicate_or_malformed_vdf_rejected(self):
         for raw in [b'"AppState" { "appid" "1" "appid" "2" }',b'"AppState" {',
                     b'"AppState" {} garbage',b'"AppState" {} }',b'"AppState" "x"']:

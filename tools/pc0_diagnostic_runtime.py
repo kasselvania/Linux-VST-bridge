@@ -180,7 +180,7 @@ def sanitized_supervision_error(error):
     if error is None:
         return None
     text=type(error).__name__+": "+str(error)
-    text=re.sub(r"Command .*", "Command <arguments omitted>", text)
+    text=re.sub(r"(?im)(Command |Java arguments:|About to start the following process:)[^\n]*", r"\1 <arguments omitted>", text)
     text=re.sub(r"(?i)(password|token|secret|cookie|authorization)[=:]\s*\S+", r"\1=<redacted>", text)
     text=re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\b", "<account>", text)
     text=re.sub(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", "<address>", text)
