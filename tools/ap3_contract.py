@@ -55,7 +55,11 @@ def compare(records):
 
 def normalize_session(observed,variant="core"):
  caller=observed['caller'];require(caller['raw_exit']==0 and caller['cleanup']==CLEAN,'AP3 caller containment')
- comparison=(compare(caller['records']) if variant=='core' else compare_short(caller['records']) if variant=='stream_active' else compare_gui(caller['records'],variant));require(observed['raw_exit']==0 and observed['classification']=='scanner_completed' and observed['cleanup']==CLEAN,'AP3 Windows containment')
+ comparison=(compare(caller['records']) if variant=='core' else compare_short(caller['records']) if variant=='stream_active' else compare_gui(caller['records'],variant))
+ return validate_windows_session(observed,comparison,variant)
+
+def validate_windows_session(observed,comparison,variant='core',ap4=False):
+ require(observed['raw_exit']==0 and observed['classification']=='scanner_completed' and observed['cleanup']==CLEAN,'AP3 Windows containment')
  records=observed['records'];terminal=[r for r in records if r.get('state')=='scanner_completed'];require(len(terminal)==1,'AP3 terminal')
  component=terminal[0]['component_session'];pc0_validate_contract(component['processing_contract'])
  require(component['object_quiescence'] is True and component['audio_processor_lease']['audio_interface_quiescence'] is True and component['callbacks']['wrong_thread'] is False,'AP3 component/interface quiescence')
@@ -75,16 +79,18 @@ def normalize_session(observed,variant="core"):
  require(len(summary)==1 and summary[0]['processed_blocks']==comparison['queue']['processed'] and summary[0]['intervals']==intervals and summary[0]['process_mode']=='kRealtime','AP3 actual realtime Windows processing')
  mapping=[r for r in records if r.get('state')=='ap1_mapping_ready'];closed=[r for r in records if r.get('state')=='ap1_endpoint_closed'];ack=[r for r in records if r.get('state')=='ap2_lifecycle_ack']
  require(len(mapping)==len(closed)==1 and mapping[0]['mapping_count']==mapping[0]['connection_count']==1 and mapping[0]['mapping_witness'] is True and closed[0]['mapping_unmapped'] is True,'AP3 mapping reuse/retirement')
- require(len(ack)==2+2*intervals and ack[0]['kind']==9 and ack[0]['next_sequence']==1 and ack[-1]['kind']==15 and ack[-1]['next_sequence']==comparison['queue']['processed']+1,'AP3 lifecycle acknowledgement extent')
+ state_records=[r for r in records if r.get('state')=='ap4_state_readback'] if ap4 else []
+ state_before=lambda event:sum(r['sequence']<event['sequence'] for r in state_records)
+ require(len(ack)==2+2*intervals and ack[0]['kind']==9 and ack[0]['next_sequence']==1+state_before(ack[0]) and ack[-1]['kind']==15 and ack[-1]['next_sequence']==comparison['queue']['processed']+1+state_before(ack[-1]),'AP3 lifecycle acknowledgement extent')
  next_sequence=1
  for index in range(intervals):
   start,stop=ack[1+index*2:3+index*2]
-  require(start['kind']==11 and stop['kind']==13 and start['next_sequence']==next_sequence and stop['next_sequence']>=next_sequence,'AP3 lifecycle sequence')
+  require(start['kind']==11 and stop['kind']==13 and (ap4 or start['next_sequence']==next_sequence) and stop['next_sequence']>=start['next_sequence'],'AP3 lifecycle sequence')
   require(start['sequence']<joins[index]['sequence']<stop['sequence'],'AP3 stop before join')
   if index:require(ack[index*2]['sequence']<start['sequence'],'AP3 restart before quiescence')
   next_sequence=stop['next_sequence']
- require(next_sequence==ack[-1]['next_sequence'],'AP3 final sequence')
- if variant=='core':require(ack[2]['next_sequence']==11259,'AP3 first stream extent')
+ require(ap4 or next_sequence==ack[-1]['next_sequence'],'AP3 final sequence')
+ if variant=='core' and not ap4:require(ack[2]['next_sequence']==11259,'AP3 first stream extent')
  require(closed[0]['sequence']>next(r['sequence'] for r in ledger if r.get('operation')=='free_library' and r['event']=='call_completed'),'AP3 mapping closed before plugin unload')
  return dict(raw=public_observation(observed,ledger,terminal),comparison=comparison,cleanup=observed['cleanup'])
 
@@ -119,7 +125,7 @@ def public_observation(observed,ledger,terminal):
  # Public protocol facts only; no topology, runtime paths or private launch data.
  caller=observed['caller'];records=observed['records']
  retained={k:observed[k] for k in ('raw_exit','classification','cleanup','run_id','inherited_shutdown','stdout_sha256','stderr_sha256')}
- retained['records']=sorted(ledger+[r for r in records if str(r.get('state','')).startswith(('ap0_','ap1_','ap2_','ap3_'))]+[terminal[0]],key=lambda r:r['sequence'])
+ retained['records']=sorted(ledger+[r for r in records if str(r.get('state','')).startswith(('ap0_','ap1_','ap2_','ap3_','ap4_'))]+[terminal[0]],key=lambda r:r['sequence'])
  retained['caller']={k:caller[k] for k in ('raw_exit','cleanup','records')}
  return retained
 

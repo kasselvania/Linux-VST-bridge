@@ -66,12 +66,13 @@ def await_stream(environment):
  if gate.is_symlink() or gate.stat().st_size>1024:raise RuntimeError('unsafe stream confirmation')
  if json.loads(gate.read_bytes())!={'run_id':environment.run_id,'stream_active':True}:raise RuntimeError('stream confirmation binding differs')
 
-def gui(environment,*,mode,checkpoint,profile,label):
- root=gui_root();project=root/'AP3-Test/AP3-Test.bwproject'
+def gui(environment,*,mode,checkpoint,profile,label,root=None,project=None,native=None,accepted_events=None,extra_env=None,ui_note_wait_seconds=0,post_gate_seconds=120):
+ root=gui_root() if root is None else root;project=root/'AP3-Test/AP3-Test.bwproject' if project is None else project
+ native=_native if native is None else native
  if not project.is_file():raise RuntimeError('prepared disposable Bitwig project missing')
  # This one test publication must match the admitted retained native artifact.
  relative='AGainQueuedBridge.vst3/Contents/x86_64-linux/AGainQueuedBridge.so'
- if hashlib.sha256((root/'plugins'/relative).read_bytes()).digest()!=hashlib.sha256((_native/relative).read_bytes()).digest():raise RuntimeError('Bitwig publication differs from native artifact')
+ if hashlib.sha256((root/'plugins'/relative).read_bytes()).digest()!=hashlib.sha256((native/relative).read_bytes()).digest():raise RuntimeError('Bitwig publication differs from native artifact')
  if subprocess.check_output(['flatpak','info','--show-commit','com.bitwig.BitwigStudio'],text=True).strip()!='8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231':raise RuntimeError('Bitwig installation changed')
  session=secrets.token_hex(16);report=environment.session/'ap3-gui-report.jsonl'
  # Import only the session-display keys. Never export the service environment.
@@ -80,18 +81,39 @@ def gui(environment,*,mode,checkpoint,profile,label):
  for line in manager.splitlines():
   k,sep,v=line.partition('=')
   if sep and k in {'DISPLAY','WAYLAND_DISPLAY','XAUTHORITY','DBUS_SESSION_BUS_ADDRESS','XDG_SESSION_TYPE'}:display[k]=v
- env={**inherited.controlled_environment(environment),**display}
- for k in ('XDG_CACHE_HOME','XDG_CONFIG_HOME','XDG_DATA_HOME','TMPDIR'):env.pop(k,None)
- command=['flatpak','run','--filesystem='+str(environment.session),
+ # The native DAW uses desktop launch conditions, not the Windows runner's
+ # compatibility/prefix environment. Absolute protocol paths still bind the stage.
+ base=inherited.controlled_environment(environment)
+ env={**{k:base[k] for k in ('HOME','USER','LOGNAME','PATH','LANG','XDG_RUNTIME_DIR') if k in base},**display}
+ command=['flatpak','run','--cwd='+str(real_home()),'--filesystem='+str(environment.session),
   '--env=LVB_AP2_SESSION_DIR='+str(environment.session),'--env=LVB_AP2_SESSION='+session,'--env=LVB_AP3_REPORT='+str(report),
   '--nofilesystem='+str(real_home()/'.vst3/yabridge'),'--nofilesystem='+str(real_home()/'.vst3/VCV Rack 2'),
   '--nofilesystem='+str(real_home()/'.vst'),'--nofilesystem='+str(real_home()/'.clap'),
+  *['--env='+k+'='+v for k,v in (extra_env or {}).items()],
   'com.bitwig.BitwigStudio',str(project)]
+ native_raw=None;native_error=None
+ def checkpoint_report():
+  nonlocal native_raw,native_error
+  if native_error is not None:raise native_error
+  if native_raw is None:
+   try:
+    if report.is_symlink() or not report.is_file() or report.stat().st_size>8192:raise RuntimeError('bounded native Bitwig report missing')
+    native_raw=report.read_bytes()
+   except Exception as error:native_error=error;raise
+  return native_raw
  def retained_report():
-  if report.is_symlink() or not report.is_file() or report.stat().st_size>8192:raise RuntimeError('bounded native Bitwig report missing')
-  raw=report.read_bytes()
+  raw=checkpoint_report()
   # The UI note is an agent observation, never the numerical/timing oracle.
   note=environment.session/(label+'-ui.json')
+  # AP4 records the observed Quit action after the actual GUI call returns.
+  # With a clean, already-exited caller, allow its bounded observation note to
+  # arrive before normalization retires the stage. Missing notes remain missing;
+  # return native facts unchanged so a timeout cannot erase the useful result.
+  records=[json.loads(line) for line in raw.splitlines()]
+  clean=any(r.get('event')=='ap3_proxy_lifecycle' and r.get('clean') is True for r in records)
+  if clean and ui_note_wait_seconds:
+   end=time.monotonic()+ui_note_wait_seconds
+   while not note.exists() and time.monotonic()<end:time.sleep(.05)
   if note.is_file() and not note.is_symlink() and note.stat().st_size<=4096:
    value=json.loads(note.read_bytes())
    if value.get('run_id')!=environment.run_id or value.get('case')!=label:raise RuntimeError('Bitwig UI note binding differs')
@@ -99,8 +121,8 @@ def gui(environment,*,mode,checkpoint,profile,label):
   return raw
  progress(environment,label)
  return companion.supervise(environment,mode=mode,checkpoint=checkpoint,profile=profile,session=session,
-  caller_command=command,caller_env=env,ready_seconds=180,exit_seconds=60,caller_report=retained_report,track_descendants=True,
-  accepted_events={'ap3_proxy_stats','ap3_proxy_lifecycle','ap3_bitwig_ui'})
+  caller_command=command,caller_env=env,ready_seconds=180,exit_seconds=60,caller_report=retained_report,caller_checkpoint_report=checkpoint_report,track_descendants=True,post_gate_seconds=post_gate_seconds,
+  accepted_events=accepted_events or {'ap3_proxy_stats','ap3_proxy_lifecycle','ap3_bitwig_ui'})
 
 def supervise(environment,*,mode,checkpoint,profile):
  segments={};clean={'owned_descendants_zero':True,'process_group_empty':True}

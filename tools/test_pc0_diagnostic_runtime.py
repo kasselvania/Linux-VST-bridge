@@ -69,10 +69,17 @@ class RuntimeTests(unittest.TestCase):
 
     def test_supervision_error_is_useful_and_private(self):
         self.assertIn("missing runtime identity",d.sanitized_supervision_error(TypeError("missing runtime identity")))
-        text=d.sanitized_supervision_error(RuntimeError("/home/private/file token=secret user@example.com 192.0.2.1 pid=999"))
-        for private in ('/home/private','token=secret','user@example.com','192.0.2.1','pid=999'):
+        text=d.sanitized_supervision_error(RuntimeError("/home/private/file token=secret user@example.com 192.0.2.1 pid=999 0xdeadbeef https://private-host.example/crash process 345"))
+        for private in ('/home/private','token=secret','user@example.com','192.0.2.1','pid=999','0xdeadbeef','private-host','process 345'):
             self.assertNotIn(private,text)
         self.assertLessEqual(len(d.sanitized_supervision_error(RuntimeError('a'*1000))),768)
+
+    def test_bitwig_launcher_arguments_are_not_diagnostic_excerpts(self):
+        for prefix in ('Java arguments:', 'About to start the following process:', 'Command '):
+            text=d.sanitized_supervision_error(RuntimeError(prefix+' -XX:ErrorFile=/private/log -Dprivate=value secret-argument\nfatal error: engine stopped'))
+            self.assertIn('arguments omitted',text)
+            self.assertIn('fatal error: engine stopped',text)
+            for private in ('-XX:ErrorFile','-Dprivate=value','secret-argument'):self.assertNotIn(private,text)
 
     def test_duplicate_or_malformed_vdf_rejected(self):
         for raw in [b'"AppState" { "appid" "1" "appid" "2" }',b'"AppState" {',
@@ -127,7 +134,16 @@ class RuntimeTests(unittest.TestCase):
                 actual=actual.replace('            "supervision_exception": exception_detail(supervision_error),\n','')
                 # AP0 supplies only mode/stream and host-verification seams;
                 # remove those selections to compare the unchanged PC0 path.
-                actual=actual.replace(', checkpoint=None, profile=None, session_override=None, observe_companion=None)', ')')
+                actual=actual.replace(', checkpoint=None, profile=None, session_override=None, observe_companion=None, post_gate_seconds=POST_GATE_SECONDS, stop_requested=None)', ')')
+                # Strip the explicit interactive owner seam; legacy defaults and
+                # readiness/call/class/cleanup behavior remain compared verbatim.
+                start = actual.find('    # Automated runs retain their duration.')
+                if start >= 0:
+                    end = actual.index('    runner_identity =', start)
+                    actual = actual[:start] + actual[end:]
+                actual = actual.replace('            if stop_requested is not None and stop_requested():\n                break\n', '')
+                actual = actual.replace('post_gate_seconds is not None and gated_at is not None', 'gated_at is not None')
+                actual = actual.replace('now - gated_at > post_gate_seconds', 'now - gated_at > POST_GATE_SECONDS')
                 # AP3 observes only its additional owned DAW descendants.
                 actual=actual.replace('            if observe_companion is not None:\n                observe_companion()\n','')
                 actual=actual.replace('session_override or secrets.token_hex(16)', 'secrets.token_hex(16)')

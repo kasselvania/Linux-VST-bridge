@@ -32,7 +32,7 @@ public:
   Steinberg::tresult PLUGIN_API canProcessSampleSize(Steinberg::int32) override;
   Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData &) override;
   Steinberg::uint32 PLUGIN_API getLatencySamples() override {
-    return queued_ ? 1024 : 0;
+    return preview_ || queued_ ? 1024 : 0;
   }
   Steinberg::uint32 PLUGIN_API getTailSamples() override { return 0; }
   Steinberg::tresult PLUGIN_API
@@ -43,12 +43,8 @@ public:
     }
     return Steinberg::kNotImplemented;
   }
-  Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream *) override {
-    return Steinberg::kNotImplemented;
-  }
-  Steinberg::tresult PLUGIN_API setState(Steinberg::IBStream *) override {
-    return Steinberg::kNotImplemented;
-  }
+  Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream *) override;
+  Steinberg::tresult PLUGIN_API setState(Steinberg::IBStream *) override;
 
 private:
   enum Phase {
@@ -62,7 +58,10 @@ private:
     Failed,
     Terminated
   };
-  Phase phase_ = New;
+  std::atomic<Phase> phase_{New};
+  bool stateSession();
+  void stateFailure(const char *operation, const char *stage);
+  bool state_error_reported_ = false;
   std::atomic_flag busy_ = ATOMIC_FLAG_INIT;
   uint64_t handle_ = 0;
   int maximum_ = 0;

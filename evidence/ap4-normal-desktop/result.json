@@ -1,0 +1,329 @@
+{
+  "accounting": {
+    "development_batch_limit": 10,
+    "development_batches_consumed": 10,
+    "legacy_acceptance_candidate_limit": 2,
+    "legacy_acceptance_candidates_consumed": 2,
+    "legacy_ledgers_modified": false,
+    "windows_producer_limit": 6,
+    "windows_producers_consumed": 3
+  },
+  "cleanup": {
+    "bitwig_and_windows_processes": 0,
+    "endpoint_absent": true,
+    "original_project_sha256": "9ec2a12acb631e201335408ef975dd54b53b36c65859dc70ca426e7a7dafd7c5",
+    "owner_stopped": true,
+    "preferences_restored": true,
+    "preferences_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "publication_removed": true,
+    "saved_project_sha256": "d8acb2fbb487cfa0039a43ef92619f5e06a2fbd63e1b0be988fe721615541a05",
+    "stages_absent": true
+  },
+  "fixture": {
+    "architecture": "x86_64",
+    "audio": {
+      "additional_latency_samples": 1024,
+      "format": "float32 stereo",
+      "maximum_frames": 256,
+      "sample_rate": 48000
+    },
+    "bitwig": {
+      "commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+      "origin": "flathub",
+      "permissions_sha256": "c7f5a34dce104cc3d347dcaf89e135cc5ad73b891101d7587f78423858ad5c73",
+      "ref": "app/com.bitwig.BitwigStudio/x86_64/stable",
+      "runtime_commit": "bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8",
+      "runtime_ref": "org.freedesktop.Platform/x86_64/25.08",
+      "system_override_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "user_override_sha256": "1b4a6a6ed688f69dd3c36dcac8db008c5a41ed52170ea3e23dee984b0aae6a1e",
+      "user_shadow_absent": true,
+      "version": "6.1"
+    },
+    "device": "Steam Deck OLED Galileo",
+    "fixture_manifest_sha256": "bfaa1dce4d2e189f89cee41493838824efe647e361e81436676b7b3a86ff5164",
+    "graphical_session": [
+      "XDG_SESSION_TYPE=wayland"
+    ],
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "module": "retained WA0 Windows AGain",
+    "module_sha256": "60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f",
+    "os": {
+      "BUILD_ID": "20260716.1",
+      "NAME": "SteamOS",
+      "VERSION_ID": "3.8.16"
+    },
+    "runner": {
+      "build_id": "25118279",
+      "depot_manifest": "2978628887517351791",
+      "directory_name": "Proton 11.0",
+      "required_tool_app_id": "4183110",
+      "steam_app_id": "4628710",
+      "version": "1788504981 proton-11.0-2c-x86_64"
+    },
+    "runner_manifest_sha256": "20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7",
+    "runtime": {
+      "build_id": "24599767",
+      "depot_manifest": "78117001432799844",
+      "depot_version": "4.0.20260805.254769",
+      "directory_name": "SteamLinuxRuntime_4",
+      "pressure_vessel_version": "0.20260805.0",
+      "steam_app_id": "4183110"
+    }
+  },
+  "gui_observation": {
+    "daw_launch": "Applications menu for both fresh launches",
+    "lvb_environment_keys_in_daw_and_plugin_host": [],
+    "new_project_derived_from_preserved_D9_mute_project": true,
+    "playback_and_output_meter_before_edits": true,
+    "quit": "Normal File > Quit for both sessions",
+    "reopened_control_edits": 0,
+    "reopened_displayed_gain": 0.165,
+    "same_native_and_windows_processes_across_reconnect": true,
+    "saved_displayed_gain": 0.165,
+    "source": "Agent-operated Mac Computer Use through Moonlight; independent SSH process/state readbacks",
+    "stopped_pause_and_Moonlight_disconnect_seconds_at_least": 180,
+    "sunshine_restart_required": false
+  },
+  "historical_D9": {
+    "classified_result_sha256": "73edc653be9a4559ffd584476933d7aac076441bb7b5c7c4ddd24d8b9e5b47aa",
+    "maximum_error": 0,
+    "original_acceptance_eligible": false,
+    "original_classification": "DIAGNOSTIC_NON_AUTHORITATIVE",
+    "replayed": false,
+    "samples": 20284928,
+    "source_commit": "cdadb96fda11f7fa8eb4862ad381f8487074b2a3"
+  },
+  "local_regressions": {
+    "ap4_ap3_execution_and_runtime_python_tests": 38,
+    "loaded_native_proxy_fake_peer_cases": 2,
+    "lost_restore_reply": "Explicit failure; zero process calls; no default fallback or retry",
+    "owner_tests_without_windows_launches": 5,
+    "rust_backend_tests": 15,
+    "socket_body_cases_each_on_posix_and_actual_windows": 5
+  },
+  "nonclaims": [
+    "AP4 acceptance before review",
+    "commercial plug-ins",
+    "multiple simultaneous instances",
+    "vendor editor",
+    "instrument or MIDI coverage",
+    "lower latency",
+    "reboot persistence",
+    "automatic installation or general packaging",
+    "production broker",
+    "physical operator acceptance"
+  ],
+  "observed_utc_date": "2026-09-06",
+  "provenance": "Focused normal-desktop development batch; no acceptance campaign or consumed-candidate replay",
+  "result": "PASS at the stated development fixture; pending PR review",
+  "sessions": [
+    {
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "in_process_shutdown_clean": true,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0,
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b"
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.165000007,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "1d423f2175a374737b5a457be154da200af88032a868edb7dc1c222f2cda81a2"
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.165000007,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "1d423f2175a374737b5a457be154da200af88032a868edb7dc1c222f2cda81a2"
+        },
+        {
+          "epoch": 1,
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "position": 18428160,
+          "processed": 71985,
+          "request_high": 1,
+          "result_high": 4
+        },
+        {
+          "before_edit_samples": 6012928,
+          "edits": 1,
+          "event": "ap4_sample_comparison",
+          "maximum_error": 0,
+          "nonzero_samples": 5104640,
+          "restored_gain": 0,
+          "restored_samples": 36856320,
+          "restores": 1,
+          "samples": 36856320
+        },
+        {
+          "blocks": 71985,
+          "callback_rejections": 0,
+          "clean": true,
+          "event": "ap3_proxy_lifecycle",
+          "frames": 18428160,
+          "gain_max": 0.165,
+          "gain_min": 0,
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "zero_gain_blocks": 11744
+        }
+      ],
+      "private_result_sha256": "3a1ca2a13fa953ada5421c4cfdc0f558d5d5678411ae8c9d1b802ebb4cf39f12",
+      "role": "save_after_pause_and_reconnect",
+      "stage_retired": true,
+      "supervisor_classification": "scanner_completed",
+      "windows_exit": 0,
+      "windows_state_readbacks": [
+        {
+          "payload_bytes": 12,
+          "restored": false,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "payload_bytes": 12,
+          "restored": false,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "payload_bytes": 12,
+          "restored": true,
+          "sha256": "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b"
+        },
+        {
+          "payload_bytes": 12,
+          "restored": false,
+          "sha256": "1d423f2175a374737b5a457be154da200af88032a868edb7dc1c222f2cda81a2"
+        },
+        {
+          "payload_bytes": 12,
+          "restored": false,
+          "sha256": "1d423f2175a374737b5a457be154da200af88032a868edb7dc1c222f2cda81a2"
+        }
+      ]
+    },
+    {
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "in_process_shutdown_clean": true,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 1,
+          "operation": "get",
+          "payload_bytes": 12,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "event": "ap4_native_state",
+          "gain": 0.165000007,
+          "operation": "set",
+          "payload_bytes": 12,
+          "sha256": "1d423f2175a374737b5a457be154da200af88032a868edb7dc1c222f2cda81a2"
+        },
+        {
+          "epoch": 1,
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "position": 2625024,
+          "processed": 10254,
+          "request_high": 1,
+          "result_high": 4
+        },
+        {
+          "before_edit_samples": 5250048,
+          "edits": 0,
+          "event": "ap4_sample_comparison",
+          "maximum_error": 0,
+          "nonzero_samples": 1718784,
+          "restored_gain": 0.165000007,
+          "restored_samples": 5250048,
+          "restores": 1,
+          "samples": 5250048
+        },
+        {
+          "blocks": 10254,
+          "callback_rejections": 0,
+          "clean": true,
+          "event": "ap3_proxy_lifecycle",
+          "frames": 2625024,
+          "gain_max": 0.165000007,
+          "gain_min": 0.165000007,
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "private_result_sha256": "9e7efb7519fb1d38d710116df9bdbd24b47a1ecd14c1e2e3139eb94f022039a7",
+      "role": "fresh_reopen_before_edits",
+      "stage_retired": true,
+      "supervisor_classification": "scanner_completed",
+      "windows_exit": 0,
+      "windows_state_readbacks": [
+        {
+          "payload_bytes": 12,
+          "restored": false,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "payload_bytes": 12,
+          "restored": false,
+          "sha256": "480376c6bf738a0227f2bbf2b3506b7cde209152c0ba9a9077e5527169eb292e"
+        },
+        {
+          "payload_bytes": 12,
+          "restored": true,
+          "sha256": "1d423f2175a374737b5a457be154da200af88032a868edb7dc1c222f2cda81a2"
+        }
+      ]
+    }
+  ],
+  "source": {
+    "binary_source_commit": "da56fb80cb4d689c9ba24d1fdb3803de912ed725",
+    "native_binary_sha256": "0fcff99f28b573f1c40036d291d482c0296a8cfda8a71ed7a086a0ec3d4c1b84",
+    "native_manifest_sha256": "fd7a24c07f63779270597ecb20f2a1249e04d6bbcbcacc25ad8beed2826c7df4",
+    "owner_source_commit": "cd3d4670f30debbefff8f437611d17f2e0d6af69",
+    "windows_artifact_id": 9982219826,
+    "windows_build_input_sha256": "df6480f32eb04197f59001928d79beaf28b61f91af29fc4808b82b0998c4e99a",
+    "windows_manifest_sha256": "f00325df1cefe08c4496d3007211d7ecebdd02a49d4dc42a6a2e0a94881ec615",
+    "windows_producer_run": 34010088604
+  }
+}

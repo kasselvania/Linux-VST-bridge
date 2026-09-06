@@ -180,12 +180,14 @@ def sanitized_supervision_error(error):
     if error is None:
         return None
     text=type(error).__name__+": "+str(error)
-    text=re.sub(r"Command .*", "Command <arguments omitted>", text)
+    text=re.sub(r"(?im)(Command |Java arguments:|About to start the following process:)[^\n]*", r"\1 <arguments omitted>", text)
     text=re.sub(r"(?i)(password|token|secret|cookie|authorization)[=:]\s*\S+", r"\1=<redacted>", text)
     text=re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\b", "<account>", text)
     text=re.sub(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", "<address>", text)
+    text=re.sub(r"\b0x[0-9a-fA-F]+\b", "<address>", text)
+    text=re.sub(r"(?i)\b[a-z]+://[^\s]+", "<url>", text)
     text=re.sub(r"(?:[A-Za-z]:[\\/]|/)[^\s\"']+", "<path>", text)
-    text=re.sub(r"(?i)\b(?:pid|ppid)[=: ]+[0-9]+", "<process>", text)
+    text=re.sub(r"(?i)\b(?:pid|ppid|process)[=: ]+[0-9]+", "<process>", text)
     text=re.sub(r"[\x00-\x1f\x7f]", " ", text)
     return text[:768]
 
@@ -194,7 +196,10 @@ def sanitized_supervision_error(error):
 # protocol fields can enter a troubleshooting checkpoint; no process identities,
 # command lines, environment, factory account metadata or paths are retained.
 CHECKPOINT_KEYS = frozenset("""
+stdout_detail crash_detail crash_sha256 reporting_error cleanup_error retention_error type frames module function line
+initial_factor mute_position expected_before_sha256
 phase callback_rejections
+state_capture state_gain state_mute bitwig_gain bitwig_mute envelope_hex payload_hex payload_bytes controller_gain sha256 restored initial_gain_sent restored_factor parameter_only_mute restored_samples before_edit_samples restores edits nonzero_samples maximum_error restored_gain project_sha256 project_before_sha256 project_unchanged saved quit restored_control restored_playback observed_before_edit later_edit
     segments current core stream_active bitwig_first bitwig_reopen requested_maximum requested_rate requested_mode frames blocks gain_min gain_max clean scan_load playback gain_changed muted stopped removed responsive moonlight_control
 
 frames_per_callback active_frames callback_median_ns callback_p99_ns callback_max_ns
@@ -230,8 +235,10 @@ def checkpoint_projection(value, depth=0):
         return "<depth bound>"
     if isinstance(value, dict):
         return {
-k: (sanitized_supervision_error(RuntimeError(v))[len("RuntimeError: "):]
-                    if k in {"detail", "stderr_detail"} and isinstance(v,str)
+k: (v if k in {"envelope_hex","payload_hex"} and isinstance(v,str) and len(v)<=232 and re.fullmatch(r"[0-9a-f]*",v)
+                    else v if k=='module' and isinstance(v,str) and re.fullmatch(r'tools/[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.py',v)
+                    else sanitized_supervision_error(RuntimeError(v))[len("RuntimeError: "):]
+                    if k in {"detail", "stderr_detail", "stdout_detail", "crash_detail"} and isinstance(v,str)
                     else checkpoint_projection(v, depth+1)) for k,v in value.items()
                 if k in CHECKPOINT_KEYS}
     if isinstance(value, list):
@@ -257,7 +264,7 @@ def exception_detail(error):
             filename=tb.tb_frame.f_code.co_filename
             if '/tools/' in filename:
                 module='tools/'+filename.split('/tools/',1)[1]
-            elif filename.startswith(('<pc0_','<ap0_')):
+            elif re.fullmatch(r'<(?:pc0|ap[0-4])_[A-Za-z0-9_]+>',filename):
                 module='tools/'+filename[1:-1]+'.py'
             else:
                 module='<external>'

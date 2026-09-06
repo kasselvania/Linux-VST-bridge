@@ -128,7 +128,14 @@ def create_dx0_environment(run_id: str, *, host: dict[str, Any],
 
 def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
               component_case: str = "exact-again",
-              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None, session_override=None, observe_companion=None) -> dict[str, Any]:
+              mode: str = "wa0-audio-processor-interface-admission", checkpoint=None, profile=None, session_override=None, observe_companion=None, post_gate_seconds=POST_GATE_SECONDS, stop_requested=None) -> dict[str, Any]:
+    # Automated runs retain their duration. Interactive preview ownership is
+    # explicit and ends on unload/disconnect/stop, never a GUI countdown.
+    if post_gate_seconds is None:
+        if not callable(stop_requested):
+            fail("interactive supervision requires a session owner")
+    elif type(post_gate_seconds) not in (int, float) or not 0 < post_gate_seconds <= 180:
+        fail("post-gate stage deadline must be positive and at most 180 seconds")
     runner_identity = getattr(profile, "verify_runtime", verify_diagnostic_runner)()
     verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
     session = session_override or secrets.token_hex(16)
@@ -163,6 +170,8 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     cleanup = {"owned_descendants_zero": False, "process_group_empty": False}
     try:
         while True:
+            if stop_requested is not None and stop_requested():
+                break
             if observe_companion is not None:
                 observe_companion()
             pump(selector, streams, POLL_SECONDS)
@@ -219,7 +228,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             if streams.class_started_at is not None and now - streams.class_started_at > CLASS_SECONDS:
                 timed_out = True
                 break
-            if gated_at is not None and now - gated_at > POST_GATE_SECONDS:
+            if post_gate_seconds is not None and gated_at is not None and now - gated_at > post_gate_seconds:
                 timed_out = True
                 break
             if root.poll() is not None:

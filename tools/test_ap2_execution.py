@@ -80,12 +80,13 @@ class AP2ExecutionTests(AP1ExecutionTests):
   import tempfile,shutil
   spec=importlib.util.spec_from_file_location('ap2_build_verify',TOOLS/'wf0-factory-census/verify.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
   root=TOOLS.parent
-  self.assertEqual(module.scanner_component_call_surface(root,ap0=True,ap2=True)['closed_plugin_operation_count'],19)
+  with self.assertRaises(Exception):module.scanner_component_call_surface(root,ap0=True,ap2=True)
+  self.assertEqual(module.scanner_component_call_surface(root,ap0=True,ap2=True,ap4=True)['closed_plugin_operation_count'],21)
   with self.assertRaises(Exception):module.scanner_component_call_surface(root,ap0=True)
   with tempfile.TemporaryDirectory() as temp:
    target=pathlib.Path(temp);shutil.copytree(root/'windows-factory-probe',target/'windows-factory-probe')
    path=target/'windows-factory-probe/source/main.cpp';path.write_text(path.read_text()+'\ncomponent->setState(nullptr);\n')
-   with self.assertRaises(Exception):module.scanner_component_call_surface(target,ap0=True,ap2=True)
+   with self.assertRaises(Exception):module.scanner_component_call_surface(target,ap0=True,ap2=True,ap4=True)
  def test_ap2_host_output_corruption_rejected(self):
   records=host_records();records[1]['output_bits'][0][0]=0
   with self.assertRaises(ValueError):contract.compare(records)

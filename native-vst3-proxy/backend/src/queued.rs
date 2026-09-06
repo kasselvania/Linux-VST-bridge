@@ -1,6 +1,6 @@
 //! AP3 callback operations contain only bounded copies, scalar checks and atomics.
 //! All mapping/socket/session work and error formatting belong to the worker.
-use crate::{binding, queue::Queue, retain, Session};
+use crate::{binding, queue::Queue, retain, state, Session};
 use ap1_native_client::{invalid, CAP, ERROR};
 use std::{
     cell::UnsafeCell,
@@ -56,6 +56,11 @@ struct Shared {
     processed: AtomicU64,
     first_position: AtomicU64,
     detail: std::sync::Mutex<String>,
+    // Separate owner-thread mailbox. It never writes the SPSC audio queue.
+    control: std::sync::Mutex<Option<Control>>,
+    pending_control: AtomicBool,
+    state_capable: AtomicBool,
+    witness: std::sync::Mutex<state::WitnessReport>,
 }
 impl Shared {
     fn new() -> Self {
@@ -69,6 +74,10 @@ impl Shared {
             processed: AtomicU64::new(0),
             first_position: AtomicU64::new(u64::MAX),
             detail: std::sync::Mutex::new(String::new()),
+            control: std::sync::Mutex::new(None),
+            pending_control: AtomicBool::new(false),
+            state_capable: AtomicBool::new(false),
+            witness: std::sync::Mutex::new(state::WitnessReport::default()),
         }
     }
     fn fail(&self, code: u64, position: u64) {
@@ -80,6 +89,12 @@ impl Shared {
             self.first_position.store(position, Ordering::Release);
         }
     }
+}
+struct Control {
+    barrier: u64,
+    op: u32,
+    bytes: Vec<u8>,
+    result: Option<io::Result<Vec<u8>>>,
 }
 struct Callback {
     epoch: u64,
@@ -132,7 +147,7 @@ impl Callback {
         mut request: Item,
         out: &mut [[f32; CAP]; 2],
     ) -> Result<u64, u32> {
-        if !self.running || request.n == 0 || request.n as usize > CAP {
+        if !self.running || request.n as usize > CAP {
             return Err(1);
         }
         if s.fault.load(Ordering::Acquire) != 0 {
@@ -145,6 +160,8 @@ impl Callback {
             return Err(2);
         }
         let mut flags = 3;
+        // Two planar channels share one sample cursor; indexing expresses the layout.
+        #[allow(clippy::needless_range_loop)]
         for i in 0..request.n as usize {
             let position = self.position + i as u64;
             if position < DELAY {
@@ -198,7 +215,7 @@ struct Live {
     id: u64,
     shared: Arc<Shared>,
     callback: UnsafeCell<Callback>,
-    worker: Option<JoinHandle<()>>,
+    worker: UnsafeCell<Option<JoinHandle<()>>>,
     max: usize,
 }
 static ACTIVE: AtomicPtr<Live> = AtomicPtr::new(std::ptr::null_mut());
@@ -219,12 +236,12 @@ impl Drop for Guard {
 }
 // The nonblocking registry guard serializes lifecycle/callback/close, including
 // invalid handles. Worker only owns Shared and Session, never Live/host buffers.
-unsafe fn live(id: u64) -> Option<&'static mut Live> {
+unsafe fn live(id: u64) -> Option<&'static Live> {
     let p = ACTIVE.load(Ordering::Acquire);
     if p.is_null() {
         None
     } else if (*p).id == id {
-        Some(&mut *p)
+        Some(&*p)
     } else {
         None
     }
@@ -232,8 +249,54 @@ unsafe fn live(id: u64) -> Option<&'static mut Live> {
 fn worker(mut session: Session, s: Arc<Shared>) {
     let run = (|| -> io::Result<()> {
         loop {
+            crate::preview::check_owner(&mut session.owner)?;
             if s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
                 return Err(invalid("queued session fault or cancelled"));
+            }
+            if s.pending_control.load(Ordering::Acquire) {
+                let mut mailbox = s
+                    .control
+                    .lock()
+                    .map_err(|_| invalid("state mailbox poisoned"))?;
+                if let Some(c) = mailbox.as_mut() {
+                    if c.result.is_none() && s.requests.consumed() >= c.barrier {
+                        let result = match c.op {
+                            16 => session
+                                .component_state(None)
+                                .and_then(|p| state::envelope(&p)),
+                            18 => session
+                                .component_state(Some(&c.bytes))
+                                .and_then(|p| state::envelope(&p)),
+                            8 => (|| {
+                                if session.witness.as_ref().is_some_and(|w| !w.ready) {
+                                    session.component_state(None)?;
+                                }
+                                session
+                                    .activate(
+                                        ap1_native_client::get(&c.bytes[..4]) as usize,
+                                        ap1_native_client::get(&c.bytes[4..]) as u32,
+                                    )
+                                    .map(|_| vec![])
+                            })(),
+                            14 => session.transition(14).map(|_| {
+                                s.ack.store(15, Ordering::Release);
+                                vec![]
+                            }),
+                            _ => Err(invalid("unknown owner operation")),
+                        };
+                        let failed = result.is_err();
+                        c.result = Some(result);
+                        s.pending_control.store(false, Ordering::Release);
+                        if failed {
+                            return Err(invalid("component state/control failed; original detail retained in response"));
+                        }
+                    }
+                }
+            }
+            if let Some(w) = &session.witness {
+                *s.witness
+                    .lock()
+                    .map_err(|_| invalid("fixture observer poisoned"))? = w.report;
             }
             let Some(mut item) = s.requests.pop() else {
                 thread::sleep(Duration::from_micros(50));
@@ -250,14 +313,17 @@ fn worker(mut session: Session, s: Arc<Shared>) {
                         item.epoch,
                         item.position,
                     )?;
-                    for ch in 0..2 {
+                    for (ch, word) in words.iter().enumerate() {
                         for i in 0..n {
-                            item.data[ch][i] = f32::from_bits(words[ch][i + 1]);
+                            item.data[ch][i] = f32::from_bits(word[i + 1]);
                         }
                     }
                     item.flags = flags;
                     s.processed.fetch_add(1, Ordering::Relaxed);
-                    if s.wanted.load(Ordering::Acquire) == item.epoch && !s.results.push(item) {
+                    if n > 0
+                        && s.wanted.load(Ordering::Acquire) == item.epoch
+                        && !s.results.push(item)
+                    {
                         s.fail(OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
                     }
@@ -307,6 +373,13 @@ pub extern "C" fn ap3_abi_version() -> u32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_open(max: u32, handle: *mut u64) -> u32 {
+    open(max, handle, 3)
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_open(handle: *mut u64) -> u32 {
+    open(256, handle, 4)
+}
+unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
     let Some(_guard) = Guard::acquire() else {
         return 3;
     };
@@ -317,9 +390,12 @@ pub unsafe extern "C" fn ap3_open(max: u32, handle: *mut u64) -> u32 {
         return 3;
     }
     let result = std::panic::catch_unwind(|| {
-        let (path, id) = binding()?;
-        let session = Session::open_at(&path, id, max as usize, 3)?;
+        let session = Session::open(binding(minor == 4)?, max as usize, minor)?;
         let shared = Arc::new(Shared::new());
+        shared.state_capable.store(minor == 4, Ordering::Release);
+        if minor == 4 {
+            shared.ack.store(17, Ordering::Release);
+        }
         let peer = shared.clone();
         let t = thread::Builder::new()
             .name("ap3-transport".into())
@@ -328,7 +404,7 @@ pub unsafe extern "C" fn ap3_open(max: u32, handle: *mut u64) -> u32 {
             id: NEXT.fetch_add(1, Ordering::Relaxed),
             shared,
             callback: UnsafeCell::new(Callback::new()),
-            worker: Some(t),
+            worker: UnsafeCell::new(Some(t)),
             max: max as usize,
         }))
     });
@@ -341,6 +417,107 @@ pub unsafe extern "C" fn ap3_open(max: u32, handle: *mut u64) -> u32 {
         Ok(Err(e)) => retain(&e) as u32,
         Err(_) => 4,
     }
+}
+// Caller is the SDK owner thread; it must not close concurrently. Arc retains
+// worker storage throughout I/O. This does not touch Live's callback state or BUSY.
+unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
+    let p = ACTIVE.load(Ordering::Acquire);
+    if p.is_null() || (*p).id != id {
+        return Err(invalid("state handle"));
+    }
+    let s = (*p).shared.clone();
+    if !s.state_capable.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
+        return Err(invalid("state unavailable"));
+    }
+    let barrier = s.requests.published();
+    {
+        let mut c = s
+            .control
+            .lock()
+            .map_err(|_| invalid("state mailbox poisoned"))?;
+        if c.is_some() {
+            return Err(invalid("state operation already pending"));
+        }
+        *c = Some(Control {
+            barrier,
+            op,
+            bytes,
+            result: None,
+        });
+        s.pending_control.store(true, Ordering::Release);
+    }
+    let until = Instant::now() + Duration::from_secs(20);
+    loop {
+        {
+            let mut c = s
+                .control
+                .lock()
+                .map_err(|_| invalid("state mailbox poisoned"))?;
+            if let Some(result) = c.as_mut().and_then(|v| v.result.take()) {
+                *c = None;
+                return result;
+            }
+        }
+        if Instant::now() >= until || s.fault.load(Ordering::Acquire) != 0 {
+            s.fail(WORKER, u64::MAX);
+            return Err(invalid(
+                "state acknowledgement missing; instance failed, no retry",
+            ));
+        }
+        thread::sleep(Duration::from_micros(50));
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_activate(id: u64, max: u32, mode: u32) -> u32 {
+    crate::ffi(
+        || match control(id, 8, [max.to_le_bytes(), mode.to_le_bytes()].concat()) {
+            Ok(_) => 0,
+            Err(e) => retain(&e),
+        },
+    ) as u32
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_deactivate(id: u64) -> u32 {
+    crate::ffi(|| match control(id, 14, vec![]) {
+        Ok(_) => 0,
+        Err(e) => retain(&e),
+    }) as u32
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_state(
+    id: u64,
+    restore: *const u8,
+    n: u32,
+    out: *mut u8,
+    capacity: u32,
+    size: *mut u32,
+) -> u32 {
+    crate::ffi(|| {
+        if out.is_null()
+            || size.is_null()
+            || (capacity as usize) < state::HEADER_SIZE + state::LIMIT
+            || n as usize > state::HEADER_SIZE + state::LIMIT
+        {
+            return 1;
+        }
+        let request = if restore.is_null() {
+            if n != 0 {
+                return 1;
+            }
+            Ok((16, vec![]))
+        } else {
+            state::payload(std::slice::from_raw_parts(restore, n as usize))
+                .map(|p| (18, p.to_vec()))
+        };
+        match request.and_then(|(op, b)| control(id, op, b)) {
+            Ok(b) => {
+                std::ptr::copy_nonoverlapping(b.as_ptr(), out, b.len());
+                *size = b.len() as u32;
+                0
+            }
+            Err(e) => retain(&e),
+        }
+    }) as u32
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_transition(id: u64, op: u32) -> u32 {
@@ -390,11 +567,11 @@ pub unsafe extern "C" fn ap3_process(
         return 1;
     };
     let n = n as usize;
-    if n == 0
+    if (n == 0 && !l.shared.state_capable.load(Ordering::Acquire))
         || n > l.max
         || flags > 3
-        || !gain.is_finite()
-        || !(0.0..=1.0).contains(&gain)
+        || !(gain.is_finite() && (0.0..=1.0).contains(&gain)
+            || gain.is_nan() && l.shared.state_capable.load(Ordering::Acquire))
         || left.is_null()
         || right.is_null()
         || out_left.is_null()
@@ -468,8 +645,8 @@ pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
     let Some(l) = live(id) else {
         return 1;
     };
-    let clean =
-        l.shared.ack.load(Ordering::Acquire) == 15 && l.shared.fault.load(Ordering::Acquire) == 0;
+    let clean = matches!(l.shared.ack.load(Ordering::Acquire), 15 | 17)
+        && l.shared.fault.load(Ordering::Acquire) == 0;
     if clean {
         if !l.shared.requests.push(Item::control(CLOSE, 0)) {
             l.shared.quit.store(true, Ordering::Release);
@@ -477,7 +654,7 @@ pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
     } else {
         l.shared.quit.store(true, Ordering::Release);
     }
-    if let Some(t) = l.worker.take() {
+    if let Some(t) = (&mut *l.worker.get()).take() {
         if t.join().is_err() {
             l.shared.fail(WORKER, u64::MAX);
         }
@@ -498,9 +675,70 @@ pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
         2
     }
 }
+#[no_mangle]
+pub unsafe extern "C" fn ap4_witness(id: u64, out: *mut state::WitnessReport) -> u32 {
+    crate::ffi(|| {
+        let p = ACTIVE.load(Ordering::Acquire);
+        if p.is_null() || (*p).id != id || out.is_null() {
+            return 1;
+        }
+        let live = &*p;
+        match live.shared.witness.lock() {
+            Ok(v) => {
+                *out = *v;
+                0
+            }
+            Err(_) => 2,
+        }
+    }) as u32
+}
+
+#[repr(C)]
+pub struct Failure {
+    fault: u64,
+    first_position: u64,
+    processed: u64,
+    detail: [u8; 385],
+}
+fn failure_snapshot(s: &Shared) -> Failure {
+    let mut out = Failure {
+        fault: s.fault.load(Ordering::Acquire),
+        first_position: s.first_position.load(Ordering::Acquire),
+        processed: s.processed.load(Ordering::Acquire),
+        detail: [0; 385],
+    };
+    if let Ok(detail) = s.detail.lock() {
+        let n = detail.len().min(out.detail.len() - 1);
+        out.detail[..n].copy_from_slice(&detail.as_bytes()[..n]);
+    }
+    out
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_failure(id: u64, out: *mut Failure) -> u32 {
+    crate::ffi(|| {
+        let p = ACTIVE.load(Ordering::Acquire);
+        if p.is_null() || (*p).id != id || out.is_null() {
+            return 1;
+        }
+        *out = failure_snapshot(&(*p).shared);
+        0
+    }) as u32
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn first_callback_fault_survives_later_worker_failure() {
+        let s = Shared::new();
+        s.fail(UNDERFLOW, 1024);
+        s.fail(WORKER, 2048);
+        *s.detail.lock().unwrap() = "queued session fault or cancelled".into();
+        let report = failure_snapshot(&s);
+        assert_eq!(report.fault, UNDERFLOW);
+        assert_eq!(report.first_position, 1024);
+        assert_eq!(report.processed, 0);
+        assert!(report.detail.starts_with(b"queued session fault"));
+    }
     fn pump(s: &Shared) {
         while let Some(mut r) = s.requests.pop() {
             if r.kind == AUDIO {

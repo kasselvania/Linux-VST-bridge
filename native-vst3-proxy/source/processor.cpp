@@ -1,6 +1,8 @@
 #include "processor.h"
+#include "../../vst-state/stream.h"
 #include "ap2_backend.h"
 #include "ap3_backend.h"
+#include "ap4_backend.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include <algorithm>
@@ -8,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
+#include <limits>
 #include <sys/stat.h>
 #include <unistd.h>
 namespace AP2 {
@@ -28,13 +31,15 @@ void report() {
   ap2_error(detail, sizeof(detail));
   std::fprintf(stderr, "AP2 backend: %s\n", reinterpret_cast<char *>(detail));
 }
-// Optional bounded test report, written only during non-RT termination. The
+// Optional bounded test report, written only on the non-RT owner thread. The
 // DAW's own plug-in host may redirect stdout; this preserves the same facts.
 void diagnostic_report(const char *text, size_t size) {
   std::fwrite(text, 1, size, stdout);
   const char *path = std::getenv("LVB_AP3_REPORT");
-  if (!path)
+  if (!path) {
+    ap4_report(reinterpret_cast<const uint8_t *>(text), static_cast<uint32_t>(size));
     return;
+  }
   int fd = ::open(path, O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW | O_CLOEXEC,
                   0600);
   struct stat st{};
@@ -63,7 +68,7 @@ void report_stats(uint64_t handle) {
       diagnostic_report(text, static_cast<size_t>(n));
   }
 }
-bool parameters(IParameterChanges *p, double &gain) {
+bool parameters(IParameterChanges *p, double &gain, bool &changed) {
   if (!p)
     return true;
   int32 count = p->getParameterCount();
@@ -88,6 +93,7 @@ bool parameters(IParameterChanges *p, double &gain) {
     if (id == 0 && !gain_seen) {
       gain = value;
       gain_seen = true;
+      changed = true;
     } else if (id == 2 && !bypass_seen && value == 0.)
       bypass_seen = true;
     else
@@ -115,6 +121,144 @@ bool overlap(const float *a, const float *b, int n) {
   return x < y + bytes && y < x + bytes;
 }
 } // namespace
+bool Processor::stateSession() {
+  if (!preview_)
+    return false;
+  if (handle_)
+    return true;
+  queued_ = true;
+  if (ap4_open(&handle_)) {
+    phase_ = Failed;
+    report();
+    return false;
+  }
+  return true;
+}
+namespace {
+void stateReport(const char *operation, const std::vector<uint8_t> &blob,
+                 double gain) {
+  char hex[65]{};
+  for (size_t i = 0; i < 32; ++i)
+    std::snprintf(hex + i * 2, 3, "%02x", blob[72 + i]);
+  char text[256];
+  auto n =
+      std::snprintf(text, sizeof(text),
+                    "{\"event\":\"ap4_native_state\",\"operation\":\"%s\","
+                    "\"payload_bytes\":%zu,\"sha256\":\"%s\",\"gain\":%.9g}\n",
+                    operation, blob.size() - LVBState::overhead, hex, gain);
+  if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+    diagnostic_report(text, static_cast<size_t>(n));
+}
+} // namespace
+
+void Processor::stateFailure(const char *operation, const char *stage) {
+  if (state_error_reported_ || owner_ != std::this_thread::get_id())
+    return;
+  state_error_reported_ = true;
+  ap4_failure_t failure{};
+  failure.first_position = UINT64_MAX;
+  if (handle_)
+    ap4_failure(handle_, &failure);
+  uint8_t fallback[385]{};
+  ap2_error(fallback, sizeof(fallback));
+  const auto *raw = std::strcmp(stage, "state_response") == 0 ||
+                            !failure.detail[0]
+                        ? fallback
+                        : failure.detail;
+  // Keep the bounded existing backend explanation as JSON text, never locals,
+  // command arguments, environment or stream contents.
+  char escaped[771]{};
+  size_t used = 0;
+  for (size_t i = 0; i < 384 && raw[i]; ++i) {
+    unsigned char ch = raw[i];
+    if (ch == '"' || ch == '\\')
+      escaped[used++] = '\\';
+    escaped[used++] = ch < 32 || ch > 126 ? '?' : char(ch);
+  }
+  char text[1400];
+  auto n = std::snprintf(text, sizeof(text),
+      "{\"event\":\"ap4_native_error\",\"operation\":\"%s\","
+      "\"stage\":\"%s\",\"fault\":%llu,\"first_position\":%llu,"
+      "\"processed\":%llu,\"callback_rejections\":%llu,\"detail\":\"%s\"}\n",
+      operation, stage, (unsigned long long)failure.fault,
+      (unsigned long long)failure.first_position,
+      (unsigned long long)failure.processed,
+      (unsigned long long)callback_rejections_.load(std::memory_order_relaxed),
+      escaped);
+  if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+    diagnostic_report(text, static_cast<size_t>(n));
+}
+tresult PLUGIN_API Processor::getState(IBStream *stream) {
+  if (!preview_)
+    return kNotImplemented;
+  if (phase_ == Failed)
+    stateFailure("get", "failed_instance");
+  if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
+      phase_ == Failed || phase_ == Terminated)
+    return kResultFalse;
+  try {
+    if (!stateSession())
+      return kResultFalse;
+    std::vector<uint8_t> blob(LVBState::payloadLimit + LVBState::overhead);
+    uint32_t size = 0;
+    if (ap4_state(handle_, nullptr, 0, blob.data(),
+                  static_cast<uint32_t>(blob.size()), &size)) {
+      phase_ = Failed;
+      stateFailure("get", "state_response");
+      report();
+      return kResultFalse;
+    }
+    blob.resize(size);
+    double gain = 0.;
+    if (ap4_validate(blob.data(), size, &gain) ||
+        !LVBState::transfer(stream, blob.data(), blob.size(), true))
+      return kResultFalse;
+    stateReport("get", blob, gain);
+    return kResultOk;
+  } catch (...) {
+    return kResultFalse;
+  }
+}
+tresult PLUGIN_API Processor::setState(IBStream *stream) {
+  if (!preview_)
+    return kNotImplemented;
+  if (phase_ == Failed)
+    stateFailure("set", "failed_instance");
+  if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
+      phase_ == Running || phase_ == Failed || phase_ == Terminated)
+    return kResultFalse;
+  try {
+    std::vector<uint8_t> blob;
+    double restored = 0.;
+    if (!LVBState::readEnvelope(stream, blob) ||
+        ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()),
+                     &restored))
+      return kResultFalse;
+    if (!stateSession())
+      return kResultFalse;
+    std::vector<uint8_t> readback(LVBState::payloadLimit + LVBState::overhead);
+    uint32_t size = 0;
+    if (ap4_state(handle_, blob.data(), static_cast<uint32_t>(blob.size()),
+                  readback.data(), static_cast<uint32_t>(readback.size()),
+                  &size)) {
+      phase_ = Failed;
+      stateFailure("set", "state_response");
+      report();
+      return kResultFalse;
+    }
+    readback.resize(size);
+    if (readback != blob) {
+      phase_ = Failed;
+      return kResultFalse;
+    }
+    gain_ = restored;
+    stateReport("set", readback, restored);
+    return kResultOk;
+  } catch (...) {
+    phase_ = Failed;
+    return kResultFalse;
+  }
+}
 Processor::~Processor() {
   if (handle_)
     queued_ ? (void)ap3_close(handle_) : (void)ap2_close(handle_);
@@ -137,8 +281,9 @@ tresult PLUGIN_API Processor::activateBus(MediaType media,
                                           TBool active) {
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id() ||
-      (phase_ != Initialized && phase_ != Setup) || media != kAudio ||
-      index != 0 || (direction != kInput && direction != kOutput))
+      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
+      media != kAudio || index != 0 ||
+      (direction != kInput && direction != kOutput))
     return kResultFalse;
   auto r = AudioEffect::activateBus(media, direction, index, active);
   if (r == kResultOk)
@@ -151,8 +296,9 @@ tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement *in,
                                                  int32 no) {
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id() ||
-      (phase_ != Initialized && phase_ != Setup) || ni != 1 || no != 1 || !in ||
-      !out || *in != SpeakerArr::kStereo || *out != SpeakerArr::kStereo)
+      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
+      ni != 1 || no != 1 || !in || !out || *in != SpeakerArr::kStereo ||
+      *out != SpeakerArr::kStereo)
     return kResultFalse;
   return AudioEffect::setBusArrangements(in, ni, out, no);
 }
@@ -165,7 +311,7 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
   requested_rate_ = setup.sampleRate;
   requested_mode_ = setup.processMode;
   if (!g.held || owner_ != std::this_thread::get_id() ||
-      (phase_ != Initialized && phase_ != Setup) ||
+      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
       (setup.processMode != kOffline &&
        !(preview_ && setup.processMode == kRealtime)) ||
       setup.symbolicSampleSize != kSample32 || setup.sampleRate != 48000. ||
@@ -175,7 +321,7 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
   if (r == kResultOk) {
     maximum_ = setup.maxSamplesPerBlock;
     process_mode_ = setup.processMode;
-    queued_ = process_mode_ == kRealtime;
+    queued_ = preview_ || process_mode_ == kRealtime;
     phase_ = Setup;
   }
   return r;
@@ -185,10 +331,15 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
   if (!g.held || owner_ != std::this_thread::get_id())
     return kResultFalse;
   if (active) {
-    if (phase_ != Setup || !input_active_ || !output_active_)
+    if ((phase_ != Setup && phase_ != Deactivated) || !input_active_ ||
+        !output_active_)
       return kResultFalse;
-    if (queued_ ? ap3_open(static_cast<uint32_t>(maximum_), &handle_)
-                : ap2_open(static_cast<uint32_t>(maximum_), &handle_)) {
+    if (preview_
+            ? (!stateSession() ||
+               ap4_activate(handle_, static_cast<uint32_t>(maximum_),
+                            static_cast<uint32_t>(process_mode_)))
+            : (queued_ ? ap3_open(static_cast<uint32_t>(maximum_), &handle_)
+                       : ap2_open(static_cast<uint32_t>(maximum_), &handle_))) {
       report();
       phase_ = Failed;
       return kResultFalse;
@@ -196,9 +347,11 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     phase_ = Active;
     return kResultOk;
   }
-  if (phase_ != Stopped)
+  if (phase_ != Stopped && !(preview_ && phase_ == Active))
     return kResultFalse;
-  if (queued_ ? ap3_transition(handle_, 14) : ap2_transition(handle_, 14)) {
+  if (preview_ ? ap4_deactivate(handle_)
+               : (queued_ ? ap3_transition(handle_, 14)
+                          : ap2_transition(handle_, 14))) {
     report();
     phase_ = Failed;
     return kResultFalse;
@@ -238,12 +391,22 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       d.numSamples > maximum_)
     return reject();
   double pending = gain_;
-  if (!parameters(d.inputParameterChanges, pending) ||
+  bool changed = false;
+  if (!parameters(d.inputParameterChanges, pending, changed) ||
       (d.inputEvents && d.inputEvents->getEventCount() != 0))
     return reject();
   if (d.numSamples == 0) {
     if (d.numInputs != 0 || d.numOutputs != 0 || d.inputs || d.outputs)
       return reject();
+    if (preview_ && changed) {
+      float dummy = 0.f;
+      uint64_t flags = 0;
+      if (ap3_process(handle_, 0, pending, 0, &dummy, &dummy, &dummy, &dummy,
+                      &flags)) {
+        phase_ = Failed;
+        return reject();
+      }
+    }
     gain_ = pending;
     return kResultOk;
   }
@@ -268,13 +431,17 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
           ((d.inputs[0].silenceFlags & (uint64(1) << ch)) && in[ch][i] != 0.f))
         return reject();
   uint64_t silence = 0;
-  auto r = queued_ ? static_cast<int32_t>(ap3_process(
-                         handle_, static_cast<uint32_t>(d.numSamples), pending,
-                         d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
-                         &silence))
-                   : ap2_process(handle_, static_cast<uint32_t>(d.numSamples),
-                                 pending, d.inputs[0].silenceFlags, in[0],
-                                 in[1], out[0], out[1], &silence);
+  auto r =
+      queued_
+          ? static_cast<int32_t>(ap3_process(
+                handle_, static_cast<uint32_t>(d.numSamples),
+                preview_ && !changed ? std::numeric_limits<double>::quiet_NaN()
+                                     : pending,
+                d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
+                &silence))
+          : ap2_process(handle_, static_cast<uint32_t>(d.numSamples), pending,
+                        d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
+                        &silence);
   if (r) {
     if (!queued_)
       report();
@@ -300,6 +467,26 @@ tresult PLUGIN_API Processor::terminate() {
   if (handle_) {
     if (queued_)
       report_stats(handle_);
+    if (preview_) {
+      ap4_witness_t w{};
+      if (!ap4_witness(handle_, &w)) {
+        char text[512];
+        auto n = std::snprintf(
+            text, sizeof(text),
+            "{\"event\":\"ap4_sample_comparison\",\"samples\":%llu,\"restored_"
+            "samples\":%llu,\"before_edit_samples\":%llu,\"restores\":%llu,"
+            "\"edits\":%llu,\"nonzero_samples\":%llu,\"maximum_error\":%.17g,"
+            "\"restored_gain\":%.9g}\n",
+            (unsigned long long)w.samples,
+            (unsigned long long)w.restored_samples,
+            (unsigned long long)w.before_edit_samples,
+            (unsigned long long)w.restores, (unsigned long long)w.edits,
+            (unsigned long long)w.nonzero_samples, w.maximum_error,
+            w.restored_gain);
+        if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+          diagnostic_report(text, static_cast<size_t>(n));
+      }
+    }
     clean =
         (queued_ ? ap3_close(handle_) == 0 : ap2_close(handle_) == 0) && clean;
     if (!clean)
@@ -307,7 +494,7 @@ tresult PLUGIN_API Processor::terminate() {
     handle_ = 0;
   }
   auto r = AudioEffect::terminate();
-  if (preview_ && std::getenv("LVB_AP3_REPORT")) {
+  if (preview_) {
     char text[768];
     auto n = std::snprintf(
         text, sizeof(text),
@@ -318,7 +505,7 @@ tresult PLUGIN_API Processor::terminate() {
         "\"gain_min\":%.9g,\"gain_"
         "max\":%.9g,"
         "\"clean\":%s}\n",
-        static_cast<int>(phase_), requested_maximum_, requested_rate_,
+        static_cast<int>(phase_.load()), requested_maximum_, requested_rate_,
         requested_mode_, (unsigned long long)frames_, blocks_,
         (unsigned long long)callback_rejections_.load(
             std::memory_order_relaxed),

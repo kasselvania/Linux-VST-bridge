@@ -288,7 +288,7 @@ def compare_builds(a: pathlib.Path, b: pathlib.Path) -> dict[str, Any]:
     }
 
 
-def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = False, ap2: bool = False) -> dict[str, Any]:
+def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = False, ap2: bool = False, ap4: bool = False) -> dict[str, Any]:
     """Require the five inherited plus two WA0 calls and reject audio methods."""
     root = source_root / "windows-factory-probe"
     texts = {
@@ -330,6 +330,15 @@ def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = Fal
             fail("AP2 requires the existing offline processing surface")
         forbidden_calls = tuple(value for value in forbidden_calls
                                 if value not in {"getLatencySamples", "getTailSamples"})
+    if ap4:
+        if not ap2:
+            fail("AP4 requires the existing hosted processing surface")
+        state_source=texts.get("source/mapped_processing.cpp", "")
+        for name in ("getState", "setState"):
+            pattern=rf"(?:->|\.)\s*{name}\s*\("
+            if len(re.findall(pattern,state_source))!=1 or any(re.search(pattern,text) for path,text in texts.items() if path.startswith("source/") and path!="source/mapped_processing.cpp"):
+                fail("AP4 state call must occur once in its owner dispatch: "+name)
+        forbidden_calls=tuple(value for value in forbidden_calls if value not in {"getState","setState"})
     production = "\n".join(
         text for path, text in texts.items()
         if path.startswith("source/")
@@ -348,7 +357,7 @@ def scanner_component_call_surface(source_root: pathlib.Path, *, ap0: bool = Fal
     ):
         fail("WA0 one-owner or eight-state interface boundary differs")
     return {
-        "closed_plugin_operation_count": 19 if ap2 else 17 if ap0 else 7,
+        "closed_plugin_operation_count": 21 if ap4 else 19 if ap2 else 17 if ap0 else 7,
         "new_audio_interface_operation_count": 2,
         "operation_call_counts": counts,
         "controller_creation_absent": True,

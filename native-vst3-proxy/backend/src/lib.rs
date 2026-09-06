@@ -1,6 +1,8 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
+mod preview;
 mod queue;
 mod queued;
+mod state;
 use ap1_native_client::{
     endpoint::{receive_version, send_version, Prepared},
     mapping::{barrier, Mapping},
@@ -26,6 +28,8 @@ struct Session {
     minor: u64,
     epoch: u64,
     position: u64,
+    witness: Option<state::Witness>,
+    owner: Option<std::os::unix::net::UnixStream>,
 }
 // Mapping has no escaping references; the registry serializes every access.
 unsafe impl Send for Session {}
@@ -47,7 +51,13 @@ fn ffi(f: impl FnOnce() -> i32) -> i32 {
         4
     })
 }
-fn binding() -> io::Result<(PathBuf, [u8; 16])> {
+fn binding(preview: bool) -> io::Result<preview::Binding> {
+    if preview
+        && std::env::var_os("LVB_AP2_SESSION_DIR").is_none()
+        && std::env::var_os("LVB_AP2_SESSION").is_none()
+    {
+        return preview::discover();
+    }
     let path = std::env::var_os("LVB_AP2_SESSION_DIR")
         .ok_or_else(|| invalid("missing private binding"))?;
     let path = PathBuf::from(path);
@@ -61,12 +71,32 @@ fn binding() -> io::Result<(PathBuf, [u8; 16])> {
         "session syntax",
     )?;
     let session = std::array::from_fn(|i| u8::from_str_radix(&id[i * 2..i * 2 + 2], 16).unwrap());
-    Ok((path, session))
+    Ok(preview::Binding {
+        directory: path,
+        session,
+        owner: None,
+    })
 }
 impl Session {
-    fn open_at(path: &std::path::Path, id: [u8; 16], max: usize, minor: u64) -> io::Result<Self> {
+    fn open(binding: preview::Binding, max: usize, minor: u64) -> io::Result<Self> {
+        Self::open_bound(
+            &binding.directory,
+            binding.session,
+            max,
+            minor,
+            binding.owner,
+        )
+    }
+    fn open_bound(
+        path: &std::path::Path,
+        id: [u8; 16],
+        max: usize,
+        minor: u64,
+        mut owner: Option<std::os::unix::net::UnixStream>,
+    ) -> io::Result<Self> {
         let prepared = Prepared::create(path, id)?;
-        let (mapping, socket) = prepared.accept(minor)?;
+        let (mapping, socket) =
+            prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
             mapping: Some(mapping),
             socket,
@@ -80,7 +110,19 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
+            witness: if minor == 4
+                && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
+            {
+                Some(state::Witness::new())
+            } else {
+                None
+            },
+            owner,
         };
+        if minor == 4 {
+            s.phase = 17;
+            return Ok(s);
+        }
         let mut payload = (max as u32).to_le_bytes().to_vec();
         if minor == 3 {
             payload.extend_from_slice(&0u32.to_le_bytes());
@@ -105,8 +147,8 @@ impl Session {
                     && reply.session == f.session
                     && reply.sequence == f.sequence
                     && (reply.payload.is_empty()
-                        && !(self.minor == 3 && matches!(kind, 10 | 12))
-                        || self.minor == 3
+                        && !(self.minor >= 3 && matches!(kind, 10 | 12))
+                        || self.minor >= 3
                             && matches!(kind, 10 | 12)
                             && reply.payload == f.payload) =>
             {
@@ -124,9 +166,25 @@ impl Session {
             }
         }
     }
+    fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
+        need(
+            self.minor == 4
+                && matches!(self.phase, 17 | 15)
+                && (1..=CAP).contains(&maximum)
+                && mode <= 1,
+            "state session activation",
+        )?;
+        self.exchange(
+            8,
+            [(maximum as u32).to_le_bytes(), mode.to_le_bytes()].concat(),
+        )?;
+        self.max = maximum;
+        self.phase = 9;
+        Ok(())
+    }
     fn transition(&mut self, op: u16) -> io::Result<()> {
         need(
-            matches!((self.phase, op), (9, 10) | (11, 12) | (13, 14)),
+            matches!((self.phase, op), (9, 10) | (11, 12) | (13, 14) | (9, 14)),
             "lifecycle order",
         )?;
         self.exchange(op, vec![])?;
@@ -135,7 +193,7 @@ impl Session {
     }
     fn transition_epoch(&mut self, op: u16, epoch: u64) -> io::Result<()> {
         need(
-            self.minor == 3
+            self.minor >= 3
                 && match op {
                     10 => (self.phase == 9 || self.phase == 13) && epoch == self.epoch + 1,
                     12 => self.phase == 11 && epoch == self.epoch,
@@ -161,7 +219,7 @@ impl Session {
         position: u64,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            self.minor == 3 && epoch == self.epoch && position == self.position,
+            self.minor >= 3 && epoch == self.epoch && position == self.position,
             "queued audio epoch/position",
         )?;
         self.process(n, gain, silence, input)
@@ -176,13 +234,16 @@ impl Session {
         need(
             self.phase == 11
                 && self.state.slot == Slot::Writable
-                && (self.minor == 3 || self.state.next <= 64)
-                && n > 0
+                && (self.minor >= 3 || self.state.next <= 64)
+                && (n > 0 || self.minor == 4)
                 && n <= self.max
                 && silence <= 3,
             "process state/extent",
         )?;
-        need(gain.is_finite() && (0.0..=1.0).contains(&gain), "gain")?;
+        need(
+            (self.minor == 4 && gain.is_nan()) || gain.is_finite() && (0.0..=1.0).contains(&gain),
+            "gain",
+        )?;
         let mut snapshot = [[0u32; CAP + 2]; 2];
         let mut poison = [POISON; CAP + 2];
         poison[0] = GUARD;
@@ -205,12 +266,36 @@ impl Session {
                 map.write_plane(OUTPUT, ch, &poison)?;
             }
             barrier();
-            let mut request = if self.minor == 3 {
+            let mut request = if self.minor == 4 {
+                let mut payload = vec![0; 32];
+                for (offset, value) in [
+                    (0, n as u64),
+                    (4, INPUT as u64),
+                    (8, OUTPUT as u64),
+                    (12, STRIDE as u64),
+                    (24, silence),
+                    (28, u64::from(!gain.is_nan())),
+                ] {
+                    put(&mut payload[offset..offset + 4], value);
+                }
+                payload[16..24]
+                    .copy_from_slice(&if gain.is_nan() { 0f64 } else { gain }.to_le_bytes());
+                self.state.slot = Slot::Outstanding {
+                    sequence: self.state.next,
+                    frames: n,
+                };
+                Frame {
+                    kind: PROCESS,
+                    session: self.state.session,
+                    sequence: self.state.next,
+                    payload,
+                }
+            } else if self.minor >= 3 {
                 self.state.process_sustained(n, gain, silence as u32)?
             } else {
                 self.state.process(n, gain, silence as u32)?
             };
-            if self.minor == 3 {
+            if self.minor >= 3 {
                 request.payload.extend_from_slice(&self.epoch.to_le_bytes());
                 request
                     .payload
@@ -218,7 +303,7 @@ impl Session {
             }
             send_version(&mut self.socket, &request, 5, self.minor)?;
             let mut reply = receive_version(&mut self.socket, 5, self.minor)?;
-            if self.minor == 3 {
+            if self.minor >= 3 {
                 need(
                     reply.payload.len() == 32
                         && get(&reply.payload[16..24]) == self.epoch
@@ -239,13 +324,16 @@ impl Session {
                         && output[ch][n + 1..CAP + 1].iter().all(|&x| x == POISON),
                     "output bounds",
                 )?;
-                for &bits in &output[ch][1..=n] {
+                for &bits in &output[ch][1..n + 1] {
                     let sample = f32::from_bits(bits);
                     need(
                         sample.is_finite() && ((flags & (1 << ch)) == 0 || sample == 0.0),
                         "invalid output claim",
                     )?;
                 }
+            }
+            if let Some(w) = &mut self.witness {
+                w.compare(n, gain, input, &output)?;
             }
             self.position += n as u64;
             Ok((output, flags))
@@ -257,7 +345,7 @@ impl Session {
         result
     }
     fn close(mut self) -> io::Result<()> {
-        let result = if self.phase == 15 {
+        let result = if self.phase == 15 || self.minor == 4 && self.phase == 17 {
             let f = self.state.close()?;
             send_version(&mut self.socket, &f, 5, self.minor)
                 .and_then(|_| receive_version(&mut self.socket, 10, self.minor))
@@ -280,6 +368,8 @@ impl Session {
 pub extern "C" fn ap2_abi_version() -> u32 {
     1
 }
+/// # Safety
+/// `handle` is writable for one u64. Call only from a serialized owner thread.
 #[no_mangle]
 pub unsafe extern "C" fn ap2_open(max: u32, handle: *mut u64) -> i32 {
     ffi(|| {
@@ -292,10 +382,7 @@ pub unsafe extern "C" fn ap2_open(max: u32, handle: *mut u64) -> i32 {
         if slot.is_some() {
             return 3;
         }
-        let result = (|| {
-            let (path, id) = binding()?;
-            Session::open_at(&path, id, max as usize, 2)
-        })();
+        let result = binding(false).and_then(|b| Session::open(b, max as usize, 2));
         match result {
             Ok(s) => {
                 let id = NEXT.fetch_add(1, Ordering::Relaxed);
@@ -325,6 +412,8 @@ pub extern "C" fn ap2_transition(handle: u64, op: u32) -> i32 {
         }
     })
 }
+/// # Safety
+/// Buffers must cover `n` floats, flags one u64; no concurrent lifecycle calls.
 #[no_mangle]
 pub unsafe extern "C" fn ap2_process(
     handle: u64,
@@ -397,6 +486,8 @@ pub extern "C" fn ap2_close(handle: u64) -> i32 {
 }
 
 /// Copies a bounded explanation from the calling thread. No private binding data.
+/// # Safety
+/// `out` is writable for `capacity` bytes when non-null.
 #[no_mangle]
 pub unsafe extern "C" fn ap2_error(out: *mut u8, capacity: u32) -> u32 {
     if out.is_null() || capacity == 0 {

@@ -10,11 +10,13 @@ Working repository name; not affiliated with Bitwig, Valve, Steinberg or a plug-
 
 The retained verification checked 6,366,144 samples with maximum numerical error 0.0 and demonstrated controlled Bitwig playback, gain/mute, removal and fresh reopening. It also established Mac-to-Deck Moonlight/Sunshine control for development. See [AP3 results](docs/slices/AP3/RESULT.md) and [desktop access](docs/DECK_REMOTE_DESKTOP.md).
 
-This is a single-instance, float32 stereo, 48-kHz reference-effect preview with 1–256-frame callbacks. It does not yet establish saved-project recall, low-latency suitability, commercial plug-in compatibility, instruments, vendor editors, general installation management or release readiness. Serum remains an intended commercial fixture, not a proven capability.
+This accepted baseline is a single-instance, float32 stereo, 48-kHz reference-effect preview with 1–256-frame callbacks. It does not establish low-latency suitability, commercial plug-in compatibility, instruments, vendor editors, general installation management or release readiness. Serum remains an intended commercial fixture, not a proven capability.
 
 ## Current goal
 
-[AP4](CURRENT_SLICE.md): save a nondefault bridged setting in a disposable Bitwig project, close the application and owned plug-in processes, then reopen the same project with correct control and audio behavior. The execution agent is already working; repository cleanup does not interrupt it.
+[AP4 is working and awaiting review in PR #59](docs/AP4_RESULT.md): ordinary Applications launches saved and reopened the real Windows AGain setting at **0.1650**, with **5,250,048 returned samples checked at zero error before any control edit**. The save session survived stopped transport and more than three minutes disconnected from Moonlight. A private preview owner reuses the existing launcher and cleanup; no special DAW launch is required. Test settings/publication were restored and the saved project retained.
+
+This extends the observed development result, pending review; AP3 remains the accepted baseline. See [current work](CURRENT_SLICE.md), [preview setup and limits](docs/AP4_PREVIEW.md), and the unchanged [historical D9/A2 record](docs/AP4_ATTEMPT_STATUS.md). No new acceptance campaign is required or scheduled.
 
 ## Start here
 

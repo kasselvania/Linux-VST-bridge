@@ -1068,3 +1068,22 @@ def ap3_windows_build_input(commit, *, root=None):
     value["records"] = dx0_records(commit, AP3_WINDOWS_BUILD_PATHS, root=root)
     value["record_count"] = len(value["records"])
     return value
+
+
+AP4_BRANCH = "codex/ap4-plugin-state-project-recall"
+AP4_REF = "refs/heads/" + AP4_BRANCH
+AP4_WINDOWS_BUILD_PATHS = tuple(sorted((*AP3_WINDOWS_BUILD_PATHS, "vst-state/stream.h", "tools/test_ap4_socket.py")))
+
+def ap4_complete_source(commit, *, root=None):
+    repository = root or repo_root()
+    command(["git", "merge-base", "--is-ancestor",
+             "ac9f158a9fd1ab1eec777a7319faa2d49c5c0018", commit], cwd=repository)
+    value = dx0_complete_source(commit, root=repository, strict=False)
+    value["ref"] = AP4_REF
+    return value
+
+def ap4_windows_build_input(commit, *, root=None):
+    value = dx0_windows_build_input(commit, root=root)
+    value["records"] = dx0_records(commit, AP4_WINDOWS_BUILD_PATHS, root=root)
+    value["record_count"] = len(value["records"])
+    return value

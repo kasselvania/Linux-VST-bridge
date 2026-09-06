@@ -1,4 +1,5 @@
 // AP3 independent SDK consumer. Only standard VST3 interfaces process audio.
+#include "../../vst-state/stream.h"
 #include "pluginterfaces/base/funknown.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
@@ -8,6 +9,7 @@
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <chrono>
 #include <cmath>
@@ -234,6 +236,7 @@ void interval(IAudioProcessor &p, int block_size, int active_frames, bool fault,
     need(overruns == 0, "measured callback deadline overrun");
   // Leave a known gain for the next processing interval in this same instance.
 }
+#include "state_cases.h"
 } // namespace
 int main(int argc, char **argv) {
   try {
@@ -280,53 +283,59 @@ int main(int argc, char **argv) {
     need(controller->getParameterCount() == 1 && info.id == 0 &&
              info.defaultNormalizedValue == 1.,
          "reference gain definition");
-    ProcessSetup setup{kRealtime, kSample32, 256, 48000.};
-    ok(p->setupProcessing(setup), "realtime setup");
-    need(p->getLatencySamples() == 1024 && p->getTailSamples() == 0,
-         "fixed transport latency");
-    ok(component->activateBus(kAudio, kInput, 0, true), "input active");
-    ok(component->activateBus(kAudio, kOutput, 0, true), "output active");
-    stage = "activate";
-    ok(component->setActive(true), "Windows activate");
-    bool fault =
-        scenario != "positive" && scenario != "core" && scenario != "reopen";
+    const bool state_case = scenario.starts_with("state-");
+    bool fault = false;
     std::exception_ptr failure;
     const char *failure_stage = nullptr;
-    std::thread audio([&] {
-      try {
-        if (scenario == "overflow") {
-          bool rejected = false;
-          for (int i = 0; i < 4096; ++i) {
-            auto op = callback([&] { return p->setProcessing(true); });
-            if (op != kResultOk) {
-              rejected = true;
-              break;
+    if (state_case) {
+      stateCases(*component, *p, *controller, scenario);
+    } else {
+      ProcessSetup setup{kRealtime, kSample32, 256, 48000.};
+      ok(p->setupProcessing(setup), "realtime setup");
+      need(p->getLatencySamples() == 1024 && p->getTailSamples() == 0,
+           "fixed transport latency");
+      ok(component->activateBus(kAudio, kInput, 0, true), "input active");
+      ok(component->activateBus(kAudio, kOutput, 0, true), "output active");
+      stage = "activate";
+      ok(component->setActive(true), "Windows activate");
+      fault =
+          scenario != "positive" && scenario != "core" && scenario != "reopen";
+      std::thread audio([&] {
+        try {
+          if (scenario == "overflow") {
+            bool rejected = false;
+            for (int i = 0; i < 4096; ++i) {
+              auto op = callback([&] { return p->setProcessing(true); });
+              if (op != kResultOk) {
+                rejected = true;
+                break;
+              }
+              if (callback([&] { return p->setProcessing(false); }) !=
+                  kResultOk) {
+                rejected = true;
+                break;
+              }
             }
-            if (callback([&] { return p->setProcessing(false); }) !=
-                kResultOk) {
-              rejected = true;
-              break;
-            }
+            need(rejected, "descriptor overflow must reach proxy boundary");
+            need(callback([&] { return p->setProcessing(true); }) != kResultOk,
+                 "overflow latch");
+            return;
           }
-          need(rejected, "descriptor overflow must reach proxy boundary");
-          need(callback([&] { return p->setProcessing(true); }) != kResultOk,
-               "overflow latch");
-          return;
+          interval(*p, 128, scenario == "core" ? 1440000 : 300000, fault,
+                   scenario == "overflow", false);
+          if (!fault && scenario != "reopen")
+            interval(*p, scenario == "core" ? 256 : 0,
+                     scenario == "core" ? 1440000 : 8192, false, false, true);
+        } catch (...) {
+          failure_stage = stage;
+          failure = std::current_exception();
         }
-        interval(*p, 128, scenario == "core" ? 1440000 : 300000, fault,
-                 scenario == "overflow", false);
-        if (!fault && scenario != "reopen")
-          interval(*p, scenario == "core" ? 256 : 0,
-                   scenario == "core" ? 1440000 : 8192, false, false, true);
-      } catch (...) {
-        failure_stage = stage;
-        failure = std::current_exception();
+      });
+      audio.join();
+      if (!fault && !failure) {
+        stage = "deactivate";
+        ok(component->setActive(false), "Windows deactivate");
       }
-    });
-    audio.join();
-    if (!fault && !failure) {
-      stage = "deactivate";
-      ok(component->setActive(false), "Windows deactivate");
     }
     stage = "terminate";
     auto terminated = component->terminate();

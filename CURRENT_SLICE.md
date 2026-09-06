@@ -6,6 +6,12 @@ Make the current bridged Windows AGain setting survive normal project save, appl
 
 The AP4 execution agent is already working on `codex/ap4-plugin-state-project-recall` under the operator's direct outcome-focused instruction. Continue that work. No new selection, execution receipt, diagnostic-to-acceptance replay or timed GUI ceremony is required by repository policy. Normal tool approvals and explicit spending limits still apply.
 
+## Current result — awaiting review
+
+PR #59 now demonstrates normal Applications-launch save/close/reopen at gain **0.1650**, including a stopped pause and Moonlight reconnect beyond the former 180-second expiry. Fresh recall returned **5,250,048 compared samples with maximum error 0 and zero control edits**. Real Windows component state and controller synchronization are preserved. Owned cleanup and restoration of test preferences/publication completed; the saved project remains private. See [the result and limits](docs/AP4_RESULT.md) and [private preview use](docs/AP4_PREVIEW.md).
+
+The final approved development batch is consumed: 10/10 development batches, 2/2 historical acceptance candidates, 3/6 Windows producers. D9/A2 keep their original labels and records. No further live test is scheduled; leave the same PR unmerged for review. AP4 is not accepted until review.
+
 ## Enough evidence to finish
 
 Use a disposable Bitwig project, set a clearly nondefault value, save it, close the DAW and owned plug-in processes, and reopen the same project with fresh processes. Observe restored state and actual processing before touching the control. Preserve the saved project and useful supporting state/audio results. Add focused regression tests for implementation defects discovered.

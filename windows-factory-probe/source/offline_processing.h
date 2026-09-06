@@ -5,13 +5,20 @@
 namespace linux_vst_bridge::wf0 {
 class HostCallbackSink;
 class EventWriter;
-struct ExternalBlock { int frames; double gain; unsigned silence; };
+struct ExternalBlock { int frames; double gain; unsigned silence; bool gain_present=true; };
 // Private C++ edge interface; no object/layout crosses the process boundary.
 class ExternalProcessing {
 public:
     virtual ~ExternalProcessing() = default;
     virtual bool hosted() const { return false; }
     virtual bool sustained() const { return false; }
+    virtual bool stateful() const { return false; }
+    virtual void bind_component(Steinberg::Vst::IComponent*) {}
+    virtual void service_owner() {}
+    virtual bool initial_transition() {return true;}
+    virtual uint32_t process_mode() const {return 0;}
+    virtual bool activation_again() {return false;}
+
     // Owner-thread selection after a stopped interval; the chosen frame stays
     // pending until the corresponding lifecycle_request consumes it.
     virtual uint16_t next_transition() { return 14; }

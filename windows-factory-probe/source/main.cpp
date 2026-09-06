@@ -103,7 +103,7 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
          result["--mode"] != "ap0-offline-again-processing" &&
          result["--mode"] != "ap1-linux-windows-audio-roundtrip" &&
          result["--mode"] != "ap2-native-vst3-offline-bridge" &&
-         result["--mode"] != "ap3-queued-audio-preview") ||
+         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall") ||
         result["--component-case"] != "exact-again") {
         throw std::runtime_error("argument value mismatch");
     }
@@ -262,12 +262,13 @@ int main(int argc, char** argv) {
         if (wf0::sha256_file(module_path) != args.at("--module-sha256")) return 65;
         events.lifecycle("supervisor_gate_accepted");
 
+        const bool ap4_mode=args.at("--mode")=="ap4-plugin-state-recall";
         const bool ap3_mode=args.at("--mode")=="ap3-queued-audio-preview";
         const bool ap2_mode=args.at("--mode")=="ap2-native-vst3-offline-bridge";
         const bool ap1_mode=args.at("--mode")=="ap1-linux-windows-audio-roundtrip";
         std::unique_ptr<wf0::MappedSession> mapped;
-        if(ap1_mode||ap2_mode||ap3_mode) mapped=std::make_unique<wf0::MappedSession>(
-            ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events,ap2_mode||ap3_mode,ap3_mode);
+        if(ap1_mode||ap2_mode||ap3_mode||ap4_mode) mapped=std::make_unique<wf0::MappedSession>(
+            ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events,ap2_mode||ap3_mode||ap4_mode,ap3_mode||ap4_mode,ap4_mode);
         wf0::ModuleBinding module;
         int primary = wf0::open_module(module_path, module, events);
         first_primary = primary;
@@ -299,8 +300,8 @@ int main(int argc, char** argv) {
         if (factory != nullptr && primary == 0) {
             component = wf0::admit_component(
                 factory, events, component_case(args.at("--component-case")),
-                pc0_mode || ap1_mode || ap2_mode || ap3_mode || args.at("--mode") == "ap0-offline-again-processing",
-                ap1_mode || ap2_mode || ap3_mode || args.at("--mode") == "ap0-offline-again-processing", mapped.get());
+                pc0_mode || ap1_mode || ap2_mode || ap3_mode || ap4_mode || args.at("--mode") == "ap0-offline-again-processing",
+                ap1_mode || ap2_mode || ap3_mode || ap4_mode || args.at("--mode") == "ap0-offline-again-processing", mapped.get());
             component_session_ran = true;
             if (component.primary_exit != 0) primary = component.primary_exit;
             if (first_primary == 0) first_primary = primary;
