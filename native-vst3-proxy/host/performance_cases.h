@@ -13,6 +13,7 @@ void performanceCase(const VST3::Hosting::PluginFactory& factory,HostApplication
  if(configured!=kResultOk){cc->disconnect(cp);cp->disconnect(cc);cc=nullptr;cp=nullptr;component->terminate();p=nullptr;component=nullptr;controller->terminate();return;}
  const auto delay=p->getLatencySamples();need(delay<8192,"delay extent");
  if(commercial)ok(component->activateBus(kEvent,kInput,0,true),"performance note bus");else ok(component->activateBus(kAudio,kInput,0,true),"performance input");
+ for(int i=0;i<component->getBusCount(kEvent,kOutput);++i)ok(component->activateBus(kEvent,kOutput,i,true),"declared event output activation");
  ok(component->activateBus(kAudio,kOutput,0,true),"performance output");ok(component->setActive(true),"performance activate");
  std::exception_ptr failure;uint64_t compared=0,wrong=0,nonzero=0,returned_zero=0,deadline=0,late=0,rejections=0,callback_max=0;double energy=0,peak=0,max_error=0;std::vector<uint64_t> durations;durations.reserve(size_t(rate*seconds/size)+1);
  rusage before{},after{};double wall=0;uint64_t position=0;std::array<double,120> per_second_energy{};std::array<uint64_t,120> per_second_samples{};

@@ -11,6 +11,7 @@ void commercialCase(const VST3::Hosting::PluginFactory& factory,HostApplication*
  SpeakerArrangement output=SpeakerArr::kStereo;ok(p->setBusArrangements(nullptr,0,&output,1),"instrument arrangement");
  ProcessSetup setup{kRealtime,kSample32,256,48000.};ok(p->setupProcessing(setup),"instrument setup");
  ok(component->activateBus(kEvent,kInput,0,true),"notes active");ok(component->activateBus(kAudio,kOutput,0,true),"output active");
+ for(int i=0;i<component->getBusCount(kEvent,kOutput);++i)ok(component->activateBus(kEvent,kOutput,i,true),"declared event output activation");
  need(p->getLatencySamples()==1024,"unchanged bridge latency");ok(component->setActive(true),"Windows instrument activate");
  std::vector<float> returned;returned.reserve(384*256);uint64_t rejections=0;std::exception_ptr failure;
  std::thread audio([&]{try{
