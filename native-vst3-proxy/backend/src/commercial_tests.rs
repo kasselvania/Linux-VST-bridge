@@ -13,160 +13,186 @@ fn opaque(value: f64) -> Vec<u8> {
 }
 #[test]
 fn real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization() {
-    let path = std::env::temp_dir().join(format!(
-        "ap8-{}.audio",
-        u128::from_le_bytes(mapping::random().unwrap())
-    ));
-    let mapping = Mapping::new(&path).unwrap();
-    let file = std::fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(&path)
-        .unwrap();
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
-    let (mut peer, _) = listener.accept().unwrap();
-    let events = vec![
-        events::Event {
-            offset: 7,
-            kind: events::NOTE_ON,
-            id: 79,
-            channel: 3,
-            pitch: 67,
-            value: 0.7,
-            ..Default::default()
-        },
-        events::Event {
-            offset: 23,
-            kind: events::PARAMETER,
-            id: 0x200100,
-            value: 0.25,
-            ..Default::default()
-        },
-        events::Event {
-            offset: 93,
-            kind: events::NOTE_OFF,
-            id: 79,
-            channel: 3,
-            pitch: 67,
-            value: 0.1,
-            ..Default::default()
-        },
-    ];
-    let expected = events.clone();
-    let remote = thread::spawn(move || {
-        let f = receive_version(&mut peer, 5, 5).unwrap();
-        assert_eq!(f.kind, PROCESS);
-        assert_eq!(get(&f.payload[32..40]), 1);
-        assert_eq!(get(&f.payload[40..48]), 0);
-        assert_eq!(events::decode(&f.payload[48..], 128).unwrap(), expected);
-        for ch in 0..2 {
-            let samples: Vec<_> = (0..128)
-                .flat_map(|i| (i as f32 / 128.).to_le_bytes())
-                .collect();
-            file.write_all_at(&samples, (OUTPUT + ch * STRIDE + 4) as u64)
-                .unwrap();
+    for minor in [5, 8] {
+        let path = std::env::temp_dir().join(format!(
+            "ap8-{}.audio",
+            u128::from_le_bytes(mapping::random().unwrap())
+        ));
+        let mapping = Mapping::new(&path).unwrap();
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut peer, _) = listener.accept().unwrap();
+        let events = vec![
+            events::Event {
+                offset: 7,
+                kind: events::NOTE_ON,
+                id: 79,
+                channel: 3,
+                pitch: 67,
+                value: 0.7,
+                ..Default::default()
+            },
+            events::Event {
+                offset: 23,
+                kind: events::PARAMETER,
+                id: 0x200100,
+                value: 0.25,
+                ..Default::default()
+            },
+            events::Event {
+                offset: 93,
+                kind: events::NOTE_OFF,
+                id: 79,
+                channel: 3,
+                pitch: 67,
+                value: 0.1,
+                ..Default::default()
+            },
+        ];
+        let expected = events.clone();
+        let remote = thread::spawn(move || {
+            let f = receive_version(&mut peer, 5, minor).unwrap();
+            assert_eq!(f.kind, PROCESS);
+            assert_eq!(get(&f.payload[32..40]), 1);
+            assert_eq!(get(&f.payload[40..48]), 0);
+            assert_eq!(
+                events::decode(
+                    &f.payload[48..f.payload.len() - if minor == 8 { 96 } else { 0 }],
+                    128
+                )
+                .unwrap(),
+                expected
+            );
+            for ch in 0..2 {
+                let samples: Vec<_> = (0..128)
+                    .flat_map(|i| (i as f32 / 128.).to_le_bytes())
+                    .collect();
+                file.write_all_at(&samples, (OUTPUT + ch * STRIDE + 4) as u64)
+                    .unwrap();
+            }
+            let mut payload = [
+                128u32.to_le_bytes().as_slice(),
+                (OUTPUT as u32).to_le_bytes().as_slice(),
+                0u64.to_le_bytes().as_slice(),
+                &f.payload[32..48],
+            ]
+            .concat();
+            if minor == 8 {
+                assert_eq!(get(&f.payload[f.payload.len() - 96..][..4]), 1);
+                payload.extend(140000u64.to_le_bytes());
+                payload.extend(8u32.to_le_bytes());
+                payload.extend(176u32.to_le_bytes());
+                payload.extend(12u32.to_le_bytes());
+                payload.extend(0u32.to_le_bytes());
+            }
+            send_version(
+                &mut peer,
+                &Frame {
+                    kind: DONE,
+                    session: f.session,
+                    sequence: f.sequence,
+                    payload,
+                },
+                5,
+                minor,
+            )
+            .unwrap();
+            let f = receive_version(&mut peer, 5, minor).unwrap();
+            assert_eq!(f.kind, 18);
+            assert_eq!(f.payload, opaque(0.25));
+            // Vendor normalized/re-serialized its internal opaque bytes while retaining controls.
+            let mut payload = opaque(0.25);
+            payload[16] = 0xef;
+            send_version(
+                &mut peer,
+                &Frame {
+                    kind: 19,
+                    session: f.session,
+                    sequence: f.sequence,
+                    payload,
+                },
+                5,
+                minor,
+            )
+            .unwrap();
+            let f = receive_version(&mut peer, 5, minor).unwrap();
+            assert_eq!(f.kind, 16);
+            send_version(
+                &mut peer,
+                &Frame {
+                    kind: 17,
+                    session: f.session,
+                    sequence: f.sequence,
+                    payload: opaque(f64::NAN),
+                },
+                5,
+                minor,
+            )
+            .unwrap();
+        });
+        let mut session = Session {
+            mailbox: None,
+            mailbox_enabled: false,
+            notices: (0, 0),
+            mapping: Some(mapping),
+            socket,
+            state: ClientState {
+                session: [8; 16],
+                next: 1,
+                slot: Slot::Writable,
+            },
+            phase: 11,
+            max: 256,
+            minor,
+            epoch: 1,
+            position: 0,
+            witness: None,
+            trace: Default::default(),
+            sample_rate: 48000,
+            armed: false,
+            owner: None,
+            identity: Some(state::Identity {
+                class: [8; 16],
+                module: [9; 32],
+            }),
+        };
+        let (out, flags) = session
+            .process_positioned(
+                128,
+                f64::NAN,
+                0,
+                [&[0.; 128], &[0.; 128]],
+                (1, 0),
+                &events,
+                context::Context {
+                    present: 1,
+                    rate: 48000.,
+                    project: 24000,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(flags, 0);
+        if minor == 8 {
+            assert_eq!(session.notices, (8, 176 | (12u64 << 32)));
         }
-        let payload = [
-            128u32.to_le_bytes().as_slice(),
-            (OUTPUT as u32).to_le_bytes().as_slice(),
-            0u64.to_le_bytes().as_slice(),
-            &f.payload[32..48],
-        ]
-        .concat();
-        send_version(
-            &mut peer,
-            &Frame {
-                kind: DONE,
-                session: f.session,
-                sequence: f.sequence,
-                payload,
-            },
-            5,
-            5,
-        )
-        .unwrap();
-        let f = receive_version(&mut peer, 5, 5).unwrap();
-        assert_eq!(f.kind, 18);
-        assert_eq!(f.payload, opaque(0.25));
-        // Vendor normalized/re-serialized its internal opaque bytes while retaining controls.
-        let mut payload = opaque(0.25);
-        payload[16] = 0xef;
-        send_version(
-            &mut peer,
-            &Frame {
-                kind: 19,
-                session: f.session,
-                sequence: f.sequence,
-                payload,
-            },
-            5,
-            5,
-        )
-        .unwrap();
-        let f = receive_version(&mut peer, 5, 5).unwrap();
-        assert_eq!(f.kind, 16);
-        send_version(
-            &mut peer,
-            &Frame {
-                kind: 17,
-                session: f.session,
-                sequence: f.sequence,
-                payload: opaque(f64::NAN),
-            },
-            5,
-            5,
-        )
-        .unwrap();
-    });
-    let mut session = Session {
-        mailbox: None,
-        mailbox_enabled: false,
-        mapping: Some(mapping),
-        socket,
-        state: ClientState {
-            session: [8; 16],
-            next: 1,
-            slot: Slot::Writable,
-        },
-        phase: 11,
-        max: 256,
-        minor: 5,
-        epoch: 1,
-        position: 0,
-        witness: None,
-        trace: Default::default(),
-        sample_rate: 48000,
-        armed: false,
-        owner: None,
-        identity: Some(state::Identity {
-            class: [8; 16],
-            module: [9; 32],
-        }),
-    };
-    let (out, flags) = session
-        .process_positioned(
-            128,
-            f64::NAN,
-            0,
-            [&[0.; 128], &[0.; 128]],
-            (1, 0),
-            &events,
-            context::Context::default(),
-        )
-        .unwrap();
-    assert_eq!(flags, 0);
-    assert_eq!(f32::from_bits(out[0][94]), 93.0 / 128.0);
-    assert_eq!(session.position, 128);
-    session.phase = 13;
-    let bytes = session.component_state(Some(&opaque(0.25))).unwrap();
-    assert_eq!(bytes[16], 0xef);
-    assert_eq!(session.state.next, 3);
-    assert!(session.component_state(None).is_err());
-    assert_eq!(session.phase, ERROR);
-    remote.join().unwrap();
-    drop(session);
-    std::fs::remove_file(path).unwrap();
+        assert_eq!(f32::from_bits(out[0][94]), 93.0 / 128.0);
+        assert_eq!(session.position, 128);
+        session.phase = 13;
+        let bytes = session.component_state(Some(&opaque(0.25))).unwrap();
+        assert_eq!(bytes[16], 0xef);
+        assert_eq!(session.state.next, 3);
+        assert!(session.component_state(None).is_err());
+        assert_eq!(session.phase, ERROR);
+        remote.join().unwrap();
+        drop(session);
+        std::fs::remove_file(path).unwrap();
+    }
 }
 #[test]
 fn opaque_bound_state_refuses_bad_extent_ids_and_values() {
@@ -247,6 +273,7 @@ fn performance_setup_and_reference_state_keep_their_protocol_roles() {
     let mut session = Session {
         mailbox: None,
         mailbox_enabled: false,
+        notices: (0, 0),
         mapping: None,
         socket,
         state: ClientState {

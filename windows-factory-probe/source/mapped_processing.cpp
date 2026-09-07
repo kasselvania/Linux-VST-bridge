@@ -13,6 +13,7 @@
 #include <algorithm>
 #include "../../vst-state/stream.h"
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
 #include <thread>
 #include <exception>
@@ -70,6 +71,9 @@ struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVAL
 struct MappedSession::Impl {
  EventWriter& events;DeliveryTrace diagnostic;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
  BusLayout buses;
+ std::atomic<bool> can_notify{false},audio_active{false};
+ std::atomic<uint32_t> requested_restart{0},published_restart{0};
+ std::atomic<uint64_t> published_traits{0};
  bool stateful=false,commercial=false,separate=false,performance=false,configured=false,active=false; uint32_t mode=0, maximum=256; double rate=48000.;
  Steinberg::Vst::IAudioProcessor* processor=nullptr;
  Steinberg::Vst::IEditController* controller=nullptr;
@@ -124,18 +128,20 @@ struct MappedSession::Impl {
   require(performance&&processor&&std::this_thread::get_id()==owner&&!active&&!timeline.running&&!state.outstanding,"configuration requires inactive owner");
   require(f.session==state.session&&f.sequence==state.next&&(f.payload.size()==24||(socket.minor==8&&f.payload.size()>=28)),"configuration correlation/extent");
   auto p=f.payload.data();auto m=uint32_t(get(p,4)),md=uint32_t(get(p+4,4));double hz;std::memcpy(&hz,p+8,8);
-  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)<=1&&get(p+20,4)==(socket.minor==8?1:0),"unsupported processing configuration");
+  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)<=1&&(socket.minor==8?(get(p+20,4)==1||get(p+20,4)==3):get(p+20,4)==0),"unsupported processing configuration");
   const auto mailbox_version=get(p+16,4);
   if(mailbox_version&&!mailbox){mailbox=std::make_unique<DeliveryMailbox>(directory,state.session);
    events.lifecycle("ap10_wait_resolution",",\"samples_per_method\":32,\"sleep50_mean_ns\":"+std::to_string(mailbox->sleep50_ns)+",\"ntdelay50_mean_ns\":"+std::to_string(mailbox->delay50_ns));}
   require(mailbox_version==uint64_t(bool(mailbox)),"delivery configuration differs");
   const bool support32=processor->canProcessSampleSize(kSample32)==kResultTrue,support64=processor->canProcessSampleSize(kSample64)==kResultTrue;
   require(support32,"Windows plugin does not support float32");
+  can_notify.store(socket.minor==8&&(get(p+20,4)&2));
   buses.read(*component,*processor);if(socket.minor==8)buses.contract(f.payload);buses.negotiate(*processor);
   ProcessSetup setup{int32(md),kSample32,int32(m),hz};
   require(processor->setupProcessing(setup)==kResultOk,"Windows processing setup rejected");
   // SDK latency is queried on the owner only after successful setup.
   auto latency=processor->getLatencySamples(),tail=processor->getTailSamples();
+  published_traits.store(uint64_t(latency)|(uint64_t(tail)<<32));
   std::vector<uint8_t> reply(16);put(reply.data(),latency,4);put(reply.data()+4,tail,4);put(reply.data()+8,(support32?1:0)|(support64?2:0),4);put(reply.data()+12,mailbox_version,4);
   maximum=m;mode=md;rate=hz;configured=true;
   events.lifecycle("ap10_delivery_setup",",\"mailbox_version\":"+std::to_string(mailbox_version));
@@ -183,7 +189,16 @@ bool MappedSession::hosted() const{return impl_->hosted;}
 bool MappedSession::sustained() const{return impl_->sustained;}
 bool MappedSession::stateful() const{return impl_->stateful;}
 void MappedSession::bind_component(Steinberg::Vst::IComponent* component){impl_->component=component;impl_->owner=std::this_thread::get_id();}
-void MappedSession::service_owner(){auto& x=*impl_;std::unique_lock lock(x.mutex);
+Steinberg::tresult MappedSession::request_restart(int32_t flags){auto&x=*impl_;
+ // Active topology changes are unsupported. Inactive requests are revalidated
+ // against the exact descriptor when the DAW reconfigures. Latency/tail queries
+ // and SDK notifications stay on the owner/UI threads.
+ if(!x.can_notify.load()||flags<=0||(flags&~10)||(flags&2&&x.audio_active.load()))return Steinberg::kNotImplemented;
+ x.requested_restart.fetch_or(uint32_t(flags));return Steinberg::kResultOk;
+}
+void MappedSession::service_owner(){auto& x=*impl_;
+ if(auto flags=x.requested_restart.exchange(0)){auto latency=x.processor->getLatencySamples(),tail=x.processor->getTailSamples();x.published_traits.store(uint64_t(latency)|(uint64_t(tail)<<32));x.published_restart.fetch_or(flags);}
+ std::unique_lock lock(x.mutex);
  if(x.waiting&&!x.serviced){try{x.state_call(std::move(x.state_frame));}catch(...){x.state_error=std::current_exception();}x.serviced=true;x.condition.notify_all();}}
 bool MappedSession::initial_transition(){auto&x=*impl_;if(!x.has_pending){x.pending=x.receive();x.has_pending=true;}
  require(x.pending.kind==Activate||x.pending.kind==Close,"initial activation or close");if(x.pending.kind==Close){lifecycle_request(Close);return false;}return true;}
@@ -199,12 +214,12 @@ uint16_t MappedSession::next_transition(){auto&x=*impl_;try{
 uint32_t MappedSession::lifecycle_request(uint16_t kind){auto&x=*impl_;try{
  require(x.hosted&&!x.state.failed&&!x.state.outstanding,"lifecycle ownership");auto f=x.has_pending?std::move(x.pending):x.receive();x.has_pending=false;
  require(f.kind==kind&&f.session==x.state.session&&f.sequence==x.state.next,"lifecycle correlation");
- if(kind==Activate){require(f.payload.size()==(x.sustained?8:4),"activation extent");if(x.sustained){auto mode=uint32_t(get(f.payload.data()+4,4));if(x.performance)require(x.configured&&mode==x.mode,"activation mode differs from setup");else {require(mode<=(x.stateful?1u:0u),"processing mode required");x.mode=mode;}}auto n=get(f.payload.data(),4);require(n>=1&&n<=capacity,"activation maximum");if(x.performance)require(x.configured&&n==x.maximum&&x.mode==get(f.payload.data()+4,4),"activation differs from setup");x.active=true;return uint32_t(n);}
+ if(kind==Activate){require(f.payload.size()==(x.sustained?8:4),"activation extent");if(x.sustained){auto mode=uint32_t(get(f.payload.data()+4,4));if(x.performance)require(x.configured&&mode==x.mode,"activation mode differs from setup");else {require(mode<=(x.stateful?1u:0u),"processing mode required");x.mode=mode;}}auto n=get(f.payload.data(),4);require(n>=1&&n<=capacity,"activation maximum");if(x.performance)require(x.configured&&n==x.maximum&&x.mode==get(f.payload.data()+4,4),"activation differs from setup");x.active=true;x.audio_active.store(true);return uint32_t(n);}
  if(x.sustained&&kind==Start){x.timeline.start(f);return 0;}
  require(f.payload.empty(),"lifecycle payload");if(kind==Close){x.state.close(f);x.closed=true;}return 0;
  }catch(const std::exception&e){x.error(e);throw;}}
 void MappedSession::lifecycle_ack(uint16_t kind){auto&x=*impl_;require(!x.state.failed,"failed lifecycle");
- if(kind==Deactivated)x.active=false;
+ if(kind==Deactivated){x.active=false;x.audio_active.store(false);}
  std::vector<uint8_t> payload;if(x.sustained&&(kind==Started||kind==Stopped)){payload.resize(8);put(payload.data(),x.timeline.epoch,8);}
  x.socket.write(x.frame(kind,x.state.next,payload));x.events.lifecycle("ap2_lifecycle_ack",",\"kind\":"+std::to_string(kind)+",\"next_sequence\":"+std::to_string(x.state.next));}
 
@@ -235,6 +250,7 @@ void MappedSession::done(const float* left,const float* right,uint64_t silence,u
   auto payload=processing_result(x.current,left,right,silence);
   if(x.sustained)x.timeline.result(payload,x.current.frames);
   if(x.performance){payload.resize(40);put(payload.data()+32,process_ns,8);}
+  if(x.socket.minor==8){payload.resize(56);put(payload.data()+40,x.published_restart.exchange(0),4);put(payload.data()+44,x.published_traits.load(),8);}
   for(size_t ch=0;ch<2;++ch)
    std::memcpy(x.view+output_offset+ch*stride+4,ch?right:left,x.current.frames*4);
   barrier();

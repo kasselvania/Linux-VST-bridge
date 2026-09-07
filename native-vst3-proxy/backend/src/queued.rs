@@ -62,6 +62,8 @@ struct Shared {
     snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
     generation: u64,
     identity: Option<state::Identity>,
+    notices: AtomicU64,
+    notice_traits: AtomicU64,
     last_edit: AtomicU64,
     retired: AtomicBool,
     requests: Queue<Item>,
@@ -96,6 +98,8 @@ impl Shared {
             snapshots: Arc::new(std::sync::Mutex::new(crate::recovery::Store::default())),
             generation: 1,
             identity: None,
+            notices: AtomicU64::new(0),
+            notice_traits: AtomicU64::new(0),
             last_edit: AtomicU64::new(0),
             retired: AtomicBool::new(false),
             requests: Queue::new(DESCRIPTORS),
@@ -465,6 +469,12 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         for i in 0..n {
                             item.data[ch][i] = f32::from_bits(word[i + 1]);
                         }
+                    }
+                    if session.notices.0 != 0 {
+                        s.notice_traits.store(session.notices.1, Ordering::Relaxed);
+                        s.notices
+                            .fetch_or(u64::from(session.notices.0), Ordering::Release);
+                        session.notices.0 = 0;
                     }
                     item.flags = flags;
                     s.service_us_max.fetch_max(
@@ -898,7 +908,16 @@ pub unsafe extern "C" fn ap9_setup(
     rate: f64,
     out: *mut u32,
 ) -> u32 {
-    setup(id, maximum, mode, rate, &[], out)
+    setup(
+        id,
+        maximum,
+        mode,
+        rate,
+        &[],
+        false,
+        out,
+        std::ptr::null_mut(),
+    )
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap10_setup(
@@ -908,9 +927,10 @@ pub unsafe extern "C" fn ap10_setup(
     rate: f64,
     io: *const u8,
     len: u32,
+    notifications: u32,
     out: *mut u32,
 ) -> u32 {
-    if io.is_null() || !(4..=1028).contains(&len) {
+    if io.is_null() || out.is_null() || notifications > 1 || !(4..=1028).contains(&len) {
         return 1;
     }
     setup(
@@ -919,10 +939,22 @@ pub unsafe extern "C" fn ap10_setup(
         mode,
         rate,
         std::slice::from_raw_parts(io, len as usize),
+        notifications == 1,
         out,
+        out.add(2),
     )
 }
-unsafe fn setup(id: u64, maximum: u32, mode: u32, rate: f64, io: &[u8], out: *mut u32) -> u32 {
+#[allow(clippy::too_many_arguments)]
+unsafe fn setup(
+    id: u64,
+    maximum: u32,
+    mode: u32,
+    rate: f64,
+    io: &[u8],
+    notifications: bool,
+    out: *mut u32,
+    vendor_out: *mut u32,
+) -> u32 {
     crate::ffi(|| {
         if out.is_null() {
             return 1;
@@ -931,7 +963,8 @@ unsafe fn setup(id: u64, maximum: u32, mode: u32, rate: f64, io: &[u8], out: *mu
             let delay = crate::performance::selected_delay(maximum)?;
             let mut bytes = crate::performance::wire(maximum, mode, rate)?;
             if !io.is_empty() {
-                bytes[20..24].copy_from_slice(&1u32.to_le_bytes());
+                bytes[20..24]
+                    .copy_from_slice(&(if notifications { 3u32 } else { 1u32 }).to_le_bytes());
                 bytes.extend(io);
             }
             crate::performance::validate_wire(&bytes)?;
@@ -950,6 +983,9 @@ unsafe fn setup(id: u64, maximum: u32, mode: u32, rate: f64, io: &[u8], out: *mu
                 }
                 Ok(())
             }).map_err(|_|invalid("setup instance ownership"))??;
+            if !vendor_out.is_null() {
+                *vendor_out = vendor;
+            }
             *out = total;
             *out.add(1) = ap1_native_client::get(&reply[4..8]) as u32;
             Ok(())
@@ -1477,6 +1513,22 @@ pub unsafe extern "C" fn ap10_process(
     )
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn ap10_notices(id: u64, out: *mut u32) -> u32 {
+    if out.is_null() {
+        return 1;
+    }
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let flags = l.shared.notices.swap(0, Ordering::AcqRel);
+    let traits = l.shared.notice_traits.load(Ordering::Acquire);
+    *out = flags as u32;
+    *out.add(1) = traits as u32;
+    *out.add(2) = (traits >> 32) as u32;
+    0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1734,6 +1786,7 @@ mod tests {
         let session = Session {
             mailbox: None,
             mailbox_enabled: false,
+            notices: (0, 0),
             mapping: Some(mapping),
             socket,
             state: ClientState {

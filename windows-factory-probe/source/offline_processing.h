@@ -14,6 +14,7 @@ struct ExternalBlock { Steinberg::Vst::ProcessContext context{};bool has_context
 class ExternalProcessing {
 public:
     virtual ~ExternalProcessing() = default;
+    virtual Steinberg::tresult request_restart(int32_t) {return Steinberg::kNotImplemented;}
     virtual const BusLayout* bus_layout() const {return nullptr;}
     virtual bool performance() const {return false;}
     virtual void bind_processor(Steinberg::Vst::IAudioProcessor*) {}

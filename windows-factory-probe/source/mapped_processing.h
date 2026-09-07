@@ -8,6 +8,7 @@ class MappedSession final : public ExternalProcessing {
 public:
     MappedSession(const std::wstring& directory, const std::string& session, EventWriter&, bool hosted=false, bool sustained=false, bool stateful=false, bool commercial=false, bool performance=false);
     ~MappedSession();
+    Steinberg::tresult request_restart(int32_t) override;
     bool commercial() const override;
     bool performance() const override;
  const BusLayout* bus_layout() const override;

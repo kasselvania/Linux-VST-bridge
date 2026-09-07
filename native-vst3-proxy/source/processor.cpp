@@ -347,6 +347,13 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   const auto *id = message->getMessageID();
   if (!id) return kResultFalse;
 #ifdef AP8_PREVIEW
+  if(!std::strcmp(id,"AP10.capabilities")){int64 enabled=0;if(message->getAttributes()->getInt("notifications",enabled)!=kResultOk)return kResultFalse;notifications_=enabled==1;return kResultOk;}
+  if(!std::strcmp(id,"AP10.poll")){
+    uint32_t notice[3]{};if(!handle_||ap10_notices(handle_,notice)||!notice[0])return kResultOk;
+    if(notice[1]>UINT32_MAX-(latency_-vendor_latency_))return kResultFalse;
+    latency_=latency_-vendor_latency_+notice[1];vendor_latency_=notice[1];tail_=notice[2];
+    auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP10.restart");m->getAttributes()->setInt("flags",notice[0]);auto r=sendMessage(m);m->release();return r;
+  }
   if(!std::strcmp(id,"AP8.readback"))return readback();
 #endif
   if (!std::strcmp(id, "AP6.synced")) {
@@ -456,14 +463,14 @@ bool Processor::setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* 
  std::vector<uint8_t> bytes;auto put=[&](uint64_t v,int n){for(int i=0;i<n;++i)bytes.push_back(uint8_t(v>>(8*i)));};
  put(std::size(AP8::buses),4);size_t i=0;
  for(const auto& b:AP8::buses){for(auto v:{b.media,b.direction,b.index,b.channels,b.type,uint32_t(bus_active_[i++])})put(v,4);put(b.arrangement,8);}
- return stateSession()&&!ap10_setup(handle_,maximum,mode,rate,bytes.data(),uint32_t(bytes.size()),traits);
+ return stateSession()&&!ap10_setup(handle_,maximum,mode,rate,bytes.data(),uint32_t(bytes.size()),notifications_?1:0,traits);
 }
 #endif
 tresult PLUGIN_API Processor::activateBus(MediaType media,BusDirection direction,int32 index,TBool active){
  Guard g(busy_);if(!g.held||owner_!=std::this_thread::get_id()||(phase_!=Initialized&&phase_!=Setup&&phase_!=Deactivated))return kResultFalse;
 #ifdef AP8_PREVIEW
  size_t ordinal=0;for(const auto&b:AP8::buses){
-  if(b.media==media&&b.direction==direction&&b.index==index){
+  if(int(b.media)==media&&int(b.direction)==direction&&int(b.index)==index){
    if(active&&(media==kAudio?b.type!=kMain:direction!=kInput))return kResultFalse;
    auto r=AudioEffect::activateBus(media,direction,index,active);if(r==kResultOk)bus_active_[ordinal]=active!=0;return r;
   }++ordinal;
@@ -500,13 +507,16 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
       setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > (preview_ ? 1024 : 256))
     return kResultFalse;
   if(preview_){
-    uint32_t traits[2]{};
+    uint32_t traits[3]{};
     #ifdef AP8_PREVIEW
     if(!setupBuses(uint32_t(setup.maxSamplesPerBlock),uint32_t(setup.processMode),setup.sampleRate,traits))return kResultFalse;
 #else
     if(!stateSession()||ap9_setup(handle_,static_cast<uint32_t>(setup.maxSamplesPerBlock),static_cast<uint32_t>(setup.processMode),setup.sampleRate,traits))return kResultFalse;
 #endif
     latency_=traits[0];tail_=traits[1];
+#ifdef AP8_PREVIEW
+    vendor_latency_=traits[2];
+#endif
   }
   auto r = AudioEffect::setupProcessing(setup);
   if (r == kResultOk) {
@@ -529,8 +539,11 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     if(phase_!=Setup&&phase_!=Deactivated)return kResultFalse;
 #ifdef AP8_PREVIEW
     size_t i=0;for(const auto& b:AP8::buses){if(b.media==kAudio&&b.type==kMain&&!bus_active_[i])return kResultFalse;++i;}
-    uint32_t traits[2]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),requested_rate_,traits))return kResultFalse;
+    uint32_t traits[3]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),requested_rate_,traits))return kResultFalse;
     latency_=traits[0];tail_=traits[1];
+#ifdef AP8_PREVIEW
+    vendor_latency_=traits[2];
+#endif
 #endif
     if ((phase_ != Setup && phase_ != Deactivated) || !input_active_ ||
         !output_active_)
@@ -676,10 +689,13 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   ap10_context_t c{};
   if(d.processContext){const auto& p=*d.processContext;c.present=1;c.state=p.state&0x2bf0e;c.rate=p.sampleRate;c.project=p.projectTimeSamples;
    if(c.rate!=requested_rate_)return reject();
-   if(c.state&0x100)c.system=p.systemTime;if(c.state&0x20000)c.continuous=p.continousTimeSamples;
-   if(c.state&0x200)c.music=p.projectTimeMusic;if(c.state&0x800)c.bar=p.barPositionMusic;
+   if(c.state&0x100)c.system=p.systemTime;
+   if(c.state&0x20000)c.continuous=p.continousTimeSamples;
+   if(c.state&0x200)c.music=p.projectTimeMusic;
+   if(c.state&0x800)c.bar=p.barPositionMusic;
    if(c.state&0x1000){c.cycle_start=p.cycleStartMusic;c.cycle_end=p.cycleEndMusic;}
-   if(c.state&0x400)c.tempo=p.tempo;if(c.state&0x2000){c.numerator=p.timeSigNumerator;c.denominator=p.timeSigDenominator;}
+   if(c.state&0x400)c.tempo=p.tempo;
+   if(c.state&0x2000){c.numerator=p.timeSigNumerator;c.denominator=p.timeSigDenominator;}
    if(c.state&0x8000)c.clock=p.samplesToNextClock;
   }
 #endif

@@ -22,7 +22,7 @@ struct BusLayout {
   require(counts[1]==1&&counts[2]<=1,"one output and optional event input required");
  }
  void contract(const std::vector<uint8_t>& p){
-  using namespace ap1;require(p.size()>=28&&get(p.data()+20,4)==1&&get(p.data()+24,4)==size&&p.size()==28+32*size,"bus contract extent/version");
+  using namespace ap1;require(p.size()>=28&&(get(p.data()+20,4)&1)==1&&get(p.data()+24,4)==size&&p.size()==28+32*size,"bus contract extent/version");
   std::array<int,4> index{};
   for(size_t i=0;i<size;++i){const auto*r=p.data()+28+32*i;auto&b=buses[i];auto m=b.info.mediaType,d=b.info.direction;
    require(get(r,4)==m&&get(r+4,4)==d&&get(r+8,4)==index[m*2+d]++&&get(r+12,4)==b.info.channelCount&&get(r+16,4)==b.info.busType&&get(r+24,8)==b.arrangement,"native/Windows SDK buses differ");

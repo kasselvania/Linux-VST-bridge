@@ -37,6 +37,7 @@ std::string text16(const TChar* value, size_t limit=128) {
 class Handler final:public IComponentHandler {
     std::atomic<uint32> refs{1};
 public:
+    ExternalProcessing* external=nullptr;
     tresult PLUGIN_API queryInterface(const TUID id,void**out) override {
         if(!out)return kInvalidArgument;*out=nullptr;
         if(FUnknownPrivate::iidEqual(id,IComponentHandler::iid)||FUnknownPrivate::iidEqual(id,FUnknown::iid)){
@@ -45,15 +46,15 @@ public:
     }
     uint32 PLUGIN_API addRef()override{return ++refs;}
     uint32 PLUGIN_API release()override{return --refs;}
-    tresult PLUGIN_API beginEdit(ParamID)override{return kResultOk;}
-    tresult PLUGIN_API performEdit(ParamID,ParamValue)override{return kResultOk;}
-    tresult PLUGIN_API endEdit(ParamID)override{return kResultOk;}
-    tresult PLUGIN_API restartComponent(int32)override{return kResultOk;}
+    tresult PLUGIN_API beginEdit(ParamID)override{return kNotImplemented;}
+    tresult PLUGIN_API performEdit(ParamID,ParamValue)override{return kNotImplemented;}
+    tresult PLUGIN_API endEdit(ParamID)override{return kNotImplemented;}
+    tresult PLUGIN_API restartComponent(int32 flags)override{return external?external->request_restart(flags):kNotImplemented;}
 };
 }
 int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external) {
     using namespace Steinberg;using namespace Steinberg::Vst;
-    HostApplication host;Handler handler;
+    HostApplication host;Handler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
     IConnectionPoint *cp=nullptr,*cc=nullptr;
     bool initialized=false,controller_initialized=false,connected_pc=false,connected_cp=false,handler_set=false;

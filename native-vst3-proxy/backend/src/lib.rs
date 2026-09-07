@@ -31,6 +31,7 @@ struct Session {
     mapping: Option<Mapping>,
     mailbox: Option<mailbox::Mailbox>,
     mailbox_enabled: bool,
+    notices: (u32, u64),
     socket: TcpStream,
     state: ClientState,
     phase: u16,
@@ -120,6 +121,7 @@ impl Session {
             mapping: Some(mapping),
             mailbox,
             mailbox_enabled: false,
+            notices: (0, 0),
             socket,
             state: ClientState {
                 session: id,
@@ -425,13 +427,28 @@ impl Session {
             self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
                 need(
-                    reply.payload.len() == if self.minor >= 6 { 40 } else { 32 }
+                    reply.payload.len()
+                        == if self.minor == 8 {
+                            56
+                        } else if self.minor >= 6 {
+                            40
+                        } else {
+                            32
+                        }
                         && get(&reply.payload[16..24]) == self.epoch
                         && get(&reply.payload[24..32]) == self.position,
                     "Done epoch/position differs",
                 )?;
                 if self.minor >= 6 {
                     self.trace.process_ns = Some(get(&reply.payload[32..40]));
+                }
+                if self.minor == 8 {
+                    let flags = get(&reply.payload[40..44]) as u32;
+                    need(
+                        flags & !10 == 0 && get(&reply.payload[52..56]) == 0,
+                        "restart notification fields",
+                    )?;
+                    self.notices = (flags, get(&reply.payload[44..52]));
                 }
                 reply.payload.truncate(16);
             }

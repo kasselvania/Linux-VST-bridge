@@ -73,6 +73,7 @@ private:
   std::atomic<Phase> phase_{New};
   bool stateSession();
 #ifdef AP8_PREVIEW
+  bool notifications_=false;uint32_t vendor_latency_=0;
   std::array<bool,32> bus_active_{};
   bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);
   std::vector<uint8_t> state_readback_;

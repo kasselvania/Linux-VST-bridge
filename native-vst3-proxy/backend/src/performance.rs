@@ -18,7 +18,7 @@ pub fn wire(max: u32, mode: u32, rate: f64) -> io::Result<Vec<u8>> {
 }
 pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     need(b.len() >= 24, "setup extent")?;
-    if get(&b[20..24]) == 1 {
+    if matches!(get(&b[20..24]), 1 | 3) {
         need(b.len() >= 28, "bus header")?;
         let count = get(&b[24..28]) as usize;
         need(count <= 32 && b.len() == 28 + 32 * count, "bus extent")?;
@@ -42,7 +42,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
             && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
             && get(&b[16..20]) <= 1
-            && get(&b[20..24]) <= 1,
+            && get(&b[20..24]) <= 3,
         "unsupported setup",
     )
 }
