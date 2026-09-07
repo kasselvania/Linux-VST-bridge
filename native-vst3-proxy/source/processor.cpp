@@ -643,7 +643,8 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     if(!append(v))return reject();}}
   if(d.inputParameterChanges){auto n=d.inputParameterChanges->getParameterCount();if(n<0||n>256)return reject();for(int i=0;i<n;++i){auto*q=d.inputParameterChanges->getParameterData(i);if(!q)return reject();auto id=q->getParameterId();bool known=false;for(const auto&p:AP8::parameters)if(p.id==id){known=true;break;}if(!known)return reject();auto points=q->getPointCount();if(points<0||points>256)return reject();int previous=-1;for(int j=0;j<points;++j){int offset=0;double value=0;if(q->getPoint(j,offset,value)!=kResultOk||offset<previous)return reject();previous=offset;if(!append({static_cast<uint32_t>(offset),2,id,0,0,value,0,0}))return reject();}}}
   if(d.numSamples==0){
-    if(d.numInputs||d.numOutputs)return reject();float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};ap10_context_t context{};
+    if(d.numInputs||d.numOutputs)return reject();
+    float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};ap10_context_t context{};
     if(ap10_process(handle_,0,events,event_count,&context,0,&dummy,&dummy,&dummy,&dummy,&flags,&delivery)||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}return kResultOk;
   }
 #else
