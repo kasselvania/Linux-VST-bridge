@@ -7,6 +7,7 @@
 #include "delivery_trace.h"
 #include "delivery_mailbox.h"
 #include "process_context.h"
+#include "controller_updates.h"
 #include "pluginterfaces/vst/vstspeaker.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
 #include <chrono>
@@ -80,6 +81,19 @@ struct MappedSession::Impl {
  Steinberg::Vst::IComponent* component=nullptr;std::thread::id owner;
  std::mutex mutex;std::condition_variable condition;bool waiting=false,serviced=false;
  Frame state_frame{};std::exception_ptr state_error;
+ ControllerUpdates controller_updates;
+ std::atomic<bool> controller_update_failed{false};
+ uint64_t controller_updates_applied=0;
+ void update_controller(){
+  if(!commercial||controller_update_failed.load())return;
+  try {
+   const bool ok=controller_updates.drain([&](uint32_t id,double value){
+    if(controller->setParamNormalized(id,value)!=Steinberg::kResultOk)return false;
+    ++controller_updates_applied;return true;
+   });
+   if(!ok)controller_update_failed.store(true);
+  }catch(...){controller_update_failed.store(true);}
+ }
  explicit Impl(EventWriter&e):events(e){}
  void state_call(Frame f){
   require(component&&std::this_thread::get_id()==owner,"state owner thread");
@@ -88,8 +102,10 @@ struct MappedSession::Impl {
   require((f.kind==GetState&&f.payload.empty())||(f.kind==SetState&&!timeline.running),"state restore while processing refused");
   if(commercial){
    require(controller,"commercial controller absent");
+   update_controller();require(!controller_update_failed.load(),"controller automation update failed");
    events.lifecycle("ap4_state_started",",\"operation\":\"opaque\",\"owner_thread\":true");
    auto payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr);
+   events.lifecycle("ap10_controller_sync",",\"applied\":"+std::to_string(controller_updates_applied)+",\"state_request_sequence\":"+std::to_string(state.next));
    events.lifecycle("ap4_state_result",",\"operation\":\"opaque\",\"result\":0,\"bytes\":"+std::to_string(payload.size()));
    socket.write(frame(uint16_t(f.kind+1),state.next,std::move(payload)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;return;
   }
@@ -184,7 +200,12 @@ bool MappedSession::performance() const{return impl_->performance;}
 void MappedSession::bind_processor(Steinberg::Vst::IAudioProcessor* p){impl_->processor=p;}
 double MappedSession::sample_rate() const{return impl_->rate;}
 bool MappedSession::commercial() const{return impl_->commercial;}
-void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool separate){impl_->controller=c;impl_->separate=separate;}
+void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool separate){
+ auto&x=*impl_;x.controller=c;x.separate=separate;
+ if(c){auto n=c->getParameterCount();require(n>=0&&n<=8192,"controller update parameter bound");std::vector<uint32_t> ids;
+  for(int i=0;i<n;++i){Steinberg::Vst::ParameterInfo info{};require(c->getParameterInfo(i,info)==Steinberg::kResultOk,"controller update metadata");ids.push_back(info.id);}
+  require(x.controller_updates.configure(ids),"duplicate controller parameter identity");}
+}
 bool MappedSession::hosted() const{return impl_->hosted;}
 bool MappedSession::sustained() const{return impl_->sustained;}
 bool MappedSession::stateful() const{return impl_->stateful;}
@@ -197,6 +218,7 @@ Steinberg::tresult MappedSession::request_restart(int32_t flags){auto&x=*impl_;
  x.requested_restart.fetch_or(uint32_t(flags));return Steinberg::kResultOk;
 }
 void MappedSession::service_owner(){auto& x=*impl_;
+ x.update_controller();
  if(auto flags=x.requested_restart.exchange(0)){auto latency=x.processor->getLatencySamples(),tail=x.processor->getTailSamples();x.published_traits.store(uint64_t(latency)|(uint64_t(tail)<<32));x.published_restart.fetch_or(flags);}
  std::unique_lock lock(x.mutex);
  if(x.waiting&&!x.serviced){try{x.state_call(std::move(x.state_frame));}catch(...){x.state_error=std::current_exception();}x.serviced=true;x.condition.notify_all();}}
@@ -224,11 +246,15 @@ void MappedSession::lifecycle_ack(uint16_t kind){auto&x=*impl_;require(!x.state.
  x.socket.write(x.frame(kind,x.state.next,payload));x.events.lifecycle("ap2_lifecycle_ack",",\"kind\":"+std::to_string(kind)+",\"next_sequence\":"+std::to_string(x.state.next));}
 
 void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
-bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{x.diagnostic.current={};x.diagnostic.stamp(0);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
+bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{require(!x.controller_update_failed.load(),"controller automation update failed");x.diagnostic.current={};x.diagnostic.stamp(0);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
  if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames,x.socket.minor==8?96:0);}
  out.has_context=x.socket.minor==8&&decode_context(f.payload.data()+f.payload.size()-96,out.context,x.rate);
+ // Queue controller UI values separately; processor event order and offsets
+ // are unchanged. The owner drains again at each serialized state barrier.
+ if(x.commercial)for(size_t i=0;i<out.event_count;++i)if(out.events[i].kind==2)
+  require(x.controller_updates.publish(out.events[i].id,out.events[i].value),"controller update identity/value");
  x.diagnostic.current.epoch=x.timeline.epoch;x.diagnostic.current.sequence=x.state.next;x.diagnostic.current.position=x.timeline.position;
  x.diagnostic.stamp(2);
  // The first active block establishes history, rather than triggering on startup idle.

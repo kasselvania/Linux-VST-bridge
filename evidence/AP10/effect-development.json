@@ -58,7 +58,7 @@
     "enabled": "Bridge output meters subsequently silent",
     "project_close": "Returned to Bitwig dashboard without a visible crash dialog; native lifecycle was not clean"
   },
-  "next_test": "Preserve input samples and clear contradicted optional silence hints, then replay the same saved clip and examine adjustment/rejection counters.",
+  "next_test": "Deliver automation to the Windows controller on its owner thread as required by the SDK; repeat save/quit/reopen with unchanged native/audio binaries.",
   "not_claimed": [
     "Completed AP10",
     "Successful commercial effect controls, tails, state recall or clean lifecycle",
@@ -117,5 +117,109 @@
       "containment_confirmed": true
     },
     "finding": "0x104: native rejection of nonzero input samples under host silenceFlags=3; worker had not faulted."
+  },
+  "silence_repair": {
+    "native_source": "93e8da112a17b9d0998e36f1519e44949c206efc",
+    "windows_source": "91a2fcd28b33eec975490a7408ec7a04b55593df",
+    "native_lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 4077312,
+      "blocks": 31854,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 256,
+      "underrun_gaps": 1,
+      "underrun_callbacks": 2,
+      "expired_output_frames": 256,
+      "delivered_frames": 4076800,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    },
+    "input_hint_observation": {
+      "event": "ap10_input_silence_hints",
+      "callbacks": 5,
+      "nonzero_samples": 1280,
+      "first_nonzero_bits": 871046507,
+      "finite_peak": 1.0948391349074882e-07
+    },
+    "owner": {
+      "retired": true,
+      "containment_confirmed": true,
+      "error": null
+    }
+  },
+  "control_session": {
+    "native_source": "93e8da112a17b9d0998e36f1519e44949c206efc",
+    "windows_source": "91a2fcd28b33eec975490a7408ec7a04b55593df",
+    "grain_mix_values": [
+      0,
+      1
+    ],
+    "local_audio_comparison": {
+      "dry": {
+        "frames": 1343488,
+        "rms": 0.0004289189847958184,
+        "peak": 0.0029610556084662676,
+        "first_above_1e_6_seconds": 4.1,
+        "last_above_1e_6_seconds": 22.975916666666667
+      },
+      "wet": {
+        "frames": 1343488,
+        "rms": 0.00041664367399116373,
+        "peak": 0.005556195974349976,
+        "first_above_1e_6_seconds": 4.217333333333333,
+        "last_above_1e_6_seconds": 23.093333333333334
+      },
+      "sample_correlation_best_lag_frames": 5632,
+      "best_fit_gain": 0.7006057005052589,
+      "normalized_correlation": 0.7212472060940378,
+      "residual_rms_fraction": 0.692677751700943,
+      "limitations": [
+        "Local monitor has unsynchronized capture starts and s16 device path; lag is not bridge latency.",
+        "A wet granular signal is not expected to be bit identical across passes."
+      ]
+    },
+    "native_lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 27543552,
+      "blocks": 215184,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 1792,
+      "underrun_gaps": 3,
+      "underrun_callbacks": 14,
+      "expired_output_frames": 1792,
+      "delivered_frames": 27541504,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    },
+    "owner": {
+      "retired": true,
+      "containment_confirmed": true,
+      "error": null
+    },
+    "recall": "FAIL: UI returned to 0.5000 after saving 1.0000, quitting Bitwig and reopening from Applications.",
+    "saved_project_sha256": "36c2d0372385c56bc182620d9d5b35c06418647319d1f5df81d07ea42da013b2",
+    "state_observation": "The final opaque GetState succeeded on the Windows owner, but returned the same 128272-byte state digest as the initial snapshot."
   }
 }
