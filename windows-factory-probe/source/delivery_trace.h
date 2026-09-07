@@ -41,7 +41,7 @@ struct DeliveryTrace {
         events.lifecycle("ap10_windows_clock",",\"frequency\":"+std::to_string(frequency)+",\"minimum_observed_tick\":"+std::to_string(min_tick)+",\"triggers\":"+std::to_string(triggers)+",\"retained\":"+std::to_string(count));
         for(size_t i=0;i<count;++i){const auto&r=retained[i];std::string times="[";
             for(size_t j=0;j<r.at.size();++j){if(j)times+=",";times+=std::to_string(r.at[j]);}times+="]";
-            events.lifecycle("ap10_windows_request",",\"epoch\":"+std::to_string(r.epoch)+",\"sequence\":"+std::to_string(r.sequence)+",\"position\":"+std::to_string(r.position)+",\"qpc\":"+times);
+            events.lifecycle("ap10_windows_request",",\"epoch\":"+std::to_string(r.epoch)+",\"request_sequence\":"+std::to_string(r.sequence)+",\"position\":"+std::to_string(r.position)+",\"qpc\":"+times);
         }
     }
 };

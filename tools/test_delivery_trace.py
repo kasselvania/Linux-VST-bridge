@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise the actual fixed Windows history storage without a plug-in."""
+import json
 import os
 import pathlib
 import subprocess
@@ -38,6 +39,10 @@ int main(){
  assert(d.retained[33].sequence==16);
  assert(d.triggers==4&&d.count==324);
  assert(d.following==0);
+ linux_vst_bridge::wf0::EventWriter events(200000);
+ d.dump(events);
+ d.dump(events); // exactly once
+ assert(events.sequence()==d.count+1);
 }
 '''
 
@@ -51,7 +56,18 @@ def main():
         include=ROOT/'windows-factory-probe/include'
         command=(['cl','/nologo','/std:c++20','/EHsc','/DNOMINMAX',f'/I{include}',str(unit),f'/Fe:{binary}'] if os.name=='nt' else ['c++','-std=c++20','-Wall','-Wextra','-Werror','-I',str(include),str(unit),'-o',str(binary)])
         subprocess.run(command,cwd=root,check=True)
-        subprocess.run([str(binary)],check=True)
+        output=subprocess.check_output([str(binary)],text=True)
+        def unique(pairs):
+            result={}
+            for key,value in pairs:
+                assert key not in result, f'duplicate protocol field {key}'
+                result[key]=value
+            return result
+        rows=[json.loads(line,object_pairs_hook=unique) for line in output.splitlines()]
+        assert [row['sequence'] for row in rows]==list(range(1,326))
+        assert rows[0]['retained']==324
+        assert rows[1]['request_sequence']==0
+        assert all(row['state']=='ap10_windows_request' for row in rows[1:])
     print('Fixed Windows history bounds and startup filtering passed')
 
 if __name__=='__main__':main()
