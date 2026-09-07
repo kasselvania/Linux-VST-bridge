@@ -472,7 +472,13 @@ tresult PLUGIN_API Processor::activateBus(MediaType media,BusDirection direction
 #ifdef AP8_PREVIEW
  size_t ordinal=0;for(const auto&b:AP8::buses){
   if(int(b.media)==media&&int(b.direction)==direction&&int(b.index)==index){
-   if(active&&(media==kAudio?b.type!=kMain:direction!=kInput))return kResultFalse;
+   if(active&&(media==kAudio?b.type!=kMain:direction!=kInput)){
+    // This owner-thread, inactive SDK operation is outside process().
+    char text[256];auto n=std::snprintf(text,sizeof(text),
+      "{\"event\":\"ap10_unsupported_bus_activation\",\"media\":%d,\"direction\":%d,\"index\":%d,\"active\":true}\n",media,direction,index);
+    if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+    return kResultFalse;
+   }
    auto r=AudioEffect::activateBus(media,direction,index,active);if(r==kResultOk)bus_active_[ordinal]=active!=0;return r;
   }++ordinal;
  }return kResultFalse;

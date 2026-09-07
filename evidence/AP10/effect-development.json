@@ -58,7 +58,7 @@
     "enabled": "Bridge output meters subsequently silent",
     "project_close": "Returned to Bitwig dashboard without a visible crash dialog; native lifecycle was not clean"
   },
-  "next_test": "Deliver automation to the Windows controller on its owner thread as required by the SDK; repeat save/quit/reopen with unchanged native/audio binaries.",
+  "next_test": "Current Serum musical-load regression and final fixture restoration.",
   "not_claimed": [
     "Completed AP10",
     "Successful commercial effect controls, tails, state recall or clean lifecycle",
@@ -221,5 +221,253 @@
     "recall": "FAIL: UI returned to 0.5000 after saving 1.0000, quitting Bitwig and reopening from Applications.",
     "saved_project_sha256": "36c2d0372385c56bc182620d9d5b35c06418647319d1f5df81d07ea42da013b2",
     "state_observation": "The final opaque GetState succeeded on the Windows owner, but returned the same 128272-byte state digest as the initial snapshot."
+  },
+  "controller_repair": {
+    "native_source": "93e8da112a17b9d0998e36f1519e44949c206efc",
+    "windows_source": "f885a620a8f4e06a2753e65aef2f933e9d277b47",
+    "native_unchanged": true,
+    "state_records": [
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128272,
+        "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128272,
+        "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_set",
+        "payload_bytes": 128328,
+        "sha256": "17303b7e7cbd6137032160280f24c1e56cf80a4de9fded51ddcc16f8751fa9a4",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128324,
+        "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128324,
+        "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+        "gain": 0
+      }
+    ],
+    "controller_sync": [
+      {
+        "applied": 0,
+        "event": "lifecycle",
+        "sequence": 140,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 1
+      },
+      {
+        "applied": 0,
+        "event": "lifecycle",
+        "sequence": 143,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 2
+      },
+      {
+        "applied": 0,
+        "event": "lifecycle",
+        "sequence": 149,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 3
+      },
+      {
+        "applied": 0,
+        "event": "lifecycle",
+        "sequence": 152,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 4
+      },
+      {
+        "applied": 61,
+        "event": "lifecycle",
+        "sequence": 166,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 5408
+      },
+      {
+        "applied": 61,
+        "event": "lifecycle",
+        "sequence": 169,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 33107
+      }
+    ],
+    "lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 5103488,
+      "blocks": 39871,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 2176,
+      "underrun_gaps": 4,
+      "underrun_callbacks": 17,
+      "expired_output_frames": 2176,
+      "delivered_frames": 5101056,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    },
+    "owner": {
+      "retired": true,
+      "containment_confirmed": true,
+      "error": null
+    },
+    "project_sha256": "c0da5e2d1947388822a95713e8edd4f3816abe965228d76da8b5b71bf5687825",
+    "desktop_recall": "PASS: quit Bitwig, normally launch through Applications, reopen saved project; Grain Mix readback 1.0000 and local output resumed.",
+    "local_captures": {
+      "controller": {
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 2686976,
+          "nonzero": 858868,
+          "rms": 0.00041668901178230184,
+          "peak": 0.005450934171676636,
+          "stderr": ""
+        },
+        "wall_seconds": 30.001747956033796,
+        "cohort_cpu_seconds": 28.954009
+      },
+      "recall": {
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 2686976,
+          "nonzero": 1041328,
+          "rms": 0.0004604782768768042,
+          "peak": 0.005516420118510723,
+          "stderr": ""
+        },
+        "wall_seconds": 30.001577886054292,
+        "cohort_cpu_seconds": 28.241896
+      },
+      "tail": {
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 770048,
+          "nonzero": 360648,
+          "rms": 0.0004989789725078418,
+          "peak": 0.005220129620283842,
+          "stderr": ""
+        },
+        "wall_seconds": 10.001626184908673,
+        "cohort_cpu_seconds": 9.224262
+      },
+      "released": {
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 770048,
+          "nonzero": 0,
+          "rms": 0.0,
+          "peak": 0.0,
+          "stderr": ""
+        },
+        "wall_seconds": 10.001635267050005,
+        "cohort_cpu_seconds": 8.688131
+      }
+    },
+    "recall_session": {
+      "lifecycle": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 128,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 13172096,
+        "blocks": 102907,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 2,
+        "successful_silent_frames": 256,
+        "priming_frames": 256,
+        "underrun_frames": 2560,
+        "underrun_gaps": 4,
+        "underrun_callbacks": 20,
+        "expired_output_frames": 2560,
+        "delivered_frames": 13169280,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "state_records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128324,
+          "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128324,
+          "sha256": "daf7fb10564226708ad4f637c258fa397831e8a68a8e968eccdd08e5e14f7fbe",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128324,
+          "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+          "gain": 0
+        }
+      ],
+      "owner": {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      }
+    },
+    "tail_observation": "Freeze enabled before clip end; track/master output continued at transport 41.238 seconds and when stopped at 67.706 seconds. Local tail capture was nonzero. Releasing Freeze with no input produced 770048 exactly zero captured samples. SDK configured tail remained 0; this is a vendor-report limitation, not a measured zero tail."
   }
 }
