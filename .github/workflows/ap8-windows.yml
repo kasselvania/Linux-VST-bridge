@@ -33,6 +33,7 @@ jobs:
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 -winsdk=10.0.19041.0
           if errorlevel 1 exit /b %errorlevel%
           python tools/test_delivery_trace.py
+          if errorlevel 1 exit /b %errorlevel%
           python tools/test_delivery_mailbox.py
           if errorlevel 1 exit /b %errorlevel%
           python tools/test_ap4_socket.py

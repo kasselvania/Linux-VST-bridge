@@ -4,7 +4,8 @@
 #include "ap3_backend.h"
 #include "ap4_backend.h"
 #ifdef AP8_PREVIEW
-#include "ap8_backend.h"
+#include "ap10_backend.h"
+#include "pluginterfaces/vst/ivstprocesscontext.h"
 #endif
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
@@ -431,49 +432,56 @@ tresult PLUGIN_API Processor::initialize(FUnknown *context) {
   if (result != kResultOk)
     return result;
 #ifdef AP8_PREVIEW
-  addEventInput(STR16("Note Input"),16);
+  size_t ordinal=0;
+  for(const auto& b:AP8::buses){
+    bool enabled=b.media==kAudio?b.type==kMain:b.direction==kInput;
+    bus_active_[ordinal++]=enabled;
+    auto flags=(b.flags&~BusInfo::kDefaultActive)|(enabled?BusInfo::kDefaultActive:0);
+    const auto* name=reinterpret_cast<const TChar*>(b.name);
+    if(b.media==kAudio){if(b.direction==kInput)addAudioInput(name,b.arrangement,b.type,flags);else addAudioOutput(name,b.arrangement,b.type,flags);}
+    else {if(b.direction==kInput)addEventInput(name,b.channels,b.type,flags);else addEventOutput(name,b.channels,b.type,flags);}
+  }
 #else
   addAudioInput(STR16("Offline Stereo In"), SpeakerArr::kStereo);
 #endif
+#ifndef AP8_PREVIEW
   addAudioOutput(STR16("Offline Stereo Out"), SpeakerArr::kStereo);
+#endif
   owner_ = std::this_thread::get_id();
   phase_ = Initialized;
   return kResultOk;
 }
-tresult PLUGIN_API Processor::activateBus(MediaType media,
-                                          BusDirection direction, int32 index,
-                                          TBool active) {
-  Guard g(busy_);
-  if (!g.held || owner_ != std::this_thread::get_id() ||
-      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
 #ifdef AP8_PREVIEW
-      !((media==kAudio&&direction==kOutput)||(media==kEvent&&direction==kInput)) ||
-#else
-      media != kAudio ||
-#endif
-      index != 0 ||
-      (direction != kInput && direction != kOutput))
-    return kResultFalse;
-  auto r = AudioEffect::activateBus(media, direction, index, active);
-  if (r == kResultOk)
-    (direction == kInput ? input_active_ : output_active_) = active != 0;
-  return r;
+bool Processor::setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits){
+ std::vector<uint8_t> bytes;auto put=[&](uint64_t v,int n){for(int i=0;i<n;++i)bytes.push_back(uint8_t(v>>(8*i)));};
+ put(std::size(AP8::buses),4);size_t i=0;
+ for(const auto& b:AP8::buses){for(auto v:{b.media,b.direction,b.index,b.channels,b.type,uint32_t(bus_active_[i++])})put(v,4);put(b.arrangement,8);}
+ return stateSession()&&!ap10_setup(handle_,maximum,mode,rate,bytes.data(),uint32_t(bytes.size()),traits);
 }
-tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement *in,
-                                                 int32 ni,
-                                                 SpeakerArrangement *out,
-                                                 int32 no) {
-  Guard g(busy_);
-  if (!g.held || owner_ != std::this_thread::get_id() ||
-      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
-#ifdef AP8_PREVIEW
-      ni != 0 || no != 1 || !out ||
-#else
-      ni != 1 || no != 1 || !in || !out || *in != SpeakerArr::kStereo ||
 #endif
-      *out != SpeakerArr::kStereo)
-    return kResultFalse;
-  return AudioEffect::setBusArrangements(in, ni, out, no);
+tresult PLUGIN_API Processor::activateBus(MediaType media,BusDirection direction,int32 index,TBool active){
+ Guard g(busy_);if(!g.held||owner_!=std::this_thread::get_id()||(phase_!=Initialized&&phase_!=Setup&&phase_!=Deactivated))return kResultFalse;
+#ifdef AP8_PREVIEW
+ size_t ordinal=0;for(const auto&b:AP8::buses){
+  if(b.media==media&&b.direction==direction&&b.index==index){
+   if(active&&(media==kAudio?b.type!=kMain:direction!=kInput))return kResultFalse;
+   auto r=AudioEffect::activateBus(media,direction,index,active);if(r==kResultOk)bus_active_[ordinal]=active!=0;return r;
+  }++ordinal;
+ }return kResultFalse;
+#else
+ if(media!=kAudio||index!=0||(direction!=kInput&&direction!=kOutput))return kResultFalse;
+ auto r=AudioEffect::activateBus(media,direction,index,active);if(r==kResultOk)(direction==kInput?input_active_:output_active_)=active!=0;return r;
+#endif
+}
+tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement* in,int32 ni,SpeakerArrangement* out,int32 no){
+ Guard g(busy_);if(!g.held||owner_!=std::this_thread::get_id()||(phase_!=Initialized&&phase_!=Setup&&phase_!=Deactivated))return kResultFalse;
+#ifdef AP8_PREVIEW
+ int inputs=0,outputs=0;for(const auto&b:AP8::buses)if(b.media==kAudio){if(b.direction==kInput){if(!in||inputs>=ni||in[inputs++]!=b.arrangement)return kResultFalse;}else{if(!out||outputs>=no||out[outputs++]!=b.arrangement)return kResultFalse;}}
+ if(inputs!=ni||outputs!=no)return kResultFalse;
+#else
+ if(ni!=1||no!=1||!in||!out||*in!=SpeakerArr::kStereo||*out!=SpeakerArr::kStereo)return kResultFalse;
+#endif
+ return AudioEffect::setBusArrangements(in,ni,out,no);
 }
 tresult PLUGIN_API Processor::canProcessSampleSize(int32 size) {
   return size == kSample32 ? kResultTrue : kResultFalse;
@@ -493,7 +501,11 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
     return kResultFalse;
   if(preview_){
     uint32_t traits[2]{};
+    #ifdef AP8_PREVIEW
+    if(!setupBuses(uint32_t(setup.maxSamplesPerBlock),uint32_t(setup.processMode),setup.sampleRate,traits))return kResultFalse;
+#else
     if(!stateSession()||ap9_setup(handle_,static_cast<uint32_t>(setup.maxSamplesPerBlock),static_cast<uint32_t>(setup.processMode),setup.sampleRate,traits))return kResultFalse;
+#endif
     latency_=traits[0];tail_=traits[1];
   }
   auto r = AudioEffect::setupProcessing(setup);
@@ -514,6 +526,12 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     return kResultOk;
   }
   if (active) {
+    if(phase_!=Setup&&phase_!=Deactivated)return kResultFalse;
+#ifdef AP8_PREVIEW
+    size_t i=0;for(const auto& b:AP8::buses){if(b.media==kAudio&&b.type==kMain&&!bus_active_[i])return kResultFalse;++i;}
+    uint32_t traits[2]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),requested_rate_,traits))return kResultFalse;
+    latency_=traits[0];tail_=traits[1];
+#endif
     if ((phase_ != Setup && phase_ != Deactivated) || !input_active_ ||
         !output_active_)
       return kResultFalse;
@@ -619,9 +637,13 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   if ((!queued_ && blocks_ >= 64) || !outputs(d, maximum_) ||
 #ifdef AP8_PREVIEW
-      d.numInputs != 0)
-    return reject();
-  float silent_input[1024]{};float* in[2]={silent_input,silent_input};
+      d.numInputs != int(std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kInput;})))return reject();
+  float silent_input[1024]{};float* in[2]={silent_input,silent_input};uint64_t input_flags=3;
+  if(AP8::effect){
+    if(!d.inputs||d.inputs[0].numChannels!=2||!d.inputs[0].channelBuffers32||!d.inputs[0].channelBuffers32[0]||!d.inputs[0].channelBuffers32[1]||(d.inputs[0].silenceFlags&~uint64_t(3)))return reject();
+    in[0]=d.inputs[0].channelBuffers32[0];in[1]=d.inputs[0].channelBuffers32[1];input_flags=d.inputs[0].silenceFlags;
+    for(int i=1;i<d.numInputs;++i)if(d.inputs[i].numChannels!=2)return reject();
+  }
 #else
       d.numInputs != 1 || !d.inputs || d.inputs[0].numChannels != 2 ||
       !d.inputs[0].channelBuffers32 || !d.inputs[0].channelBuffers32[0] ||
@@ -633,6 +655,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   auto **out = d.outputs[0].channelBuffers32;
 #ifdef AP8_PREVIEW
   if(overlap(out[0],out[1],d.numSamples))return reject();
+  if(AP8::effect&&(overlap(in[0],in[1],d.numSamples)||overlap(out[0],in[1],d.numSamples)||overlap(out[1],in[0],d.numSamples)||(in[0]!=out[0]&&overlap(in[0],out[0],d.numSamples))||(in[1]!=out[1]&&overlap(in[1],out[1],d.numSamples))))return reject();
 #else
   if (overlap(out[0], out[1], d.numSamples) ||
       overlap(in[0], in[1], d.numSamples) ||
@@ -649,9 +672,20 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   uint64_t silence = 0;
   ap7_delivery_t delivery{};
+#ifdef AP8_PREVIEW
+  ap10_context_t c{};
+  if(d.processContext){const auto& p=*d.processContext;c.present=1;c.state=p.state&0x2bf0e;c.rate=p.sampleRate;c.project=p.projectTimeSamples;
+   if(c.rate!=requested_rate_)return reject();
+   if(c.state&0x100)c.system=p.systemTime;if(c.state&0x20000)c.continuous=p.continousTimeSamples;
+   if(c.state&0x200)c.music=p.projectTimeMusic;if(c.state&0x800)c.bar=p.barPositionMusic;
+   if(c.state&0x1000){c.cycle_start=p.cycleStartMusic;c.cycle_end=p.cycleEndMusic;}
+   if(c.state&0x400)c.tempo=p.tempo;if(c.state&0x2000){c.numerator=p.timeSigNumerator;c.denominator=p.timeSigDenominator;}
+   if(c.state&0x8000)c.clock=p.samplesToNextClock;
+  }
+#endif
   auto r =
 #ifdef AP8_PREVIEW
-      ap8_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,in[0],in[1],out[0],out[1],&silence,&delivery);
+      ap10_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery);
 #else
       queued_
           ? static_cast<int32_t>(ap7_process(

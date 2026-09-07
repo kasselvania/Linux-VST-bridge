@@ -10,6 +10,7 @@ public:
     ~MappedSession();
     bool commercial() const override;
     bool performance() const override;
+ const BusLayout* bus_layout() const override;
     void bind_processor(Steinberg::Vst::IAudioProcessor*) override;
     double sample_rate() const override;
     void bind_controller(Steinberg::Vst::IEditController*,bool) override;

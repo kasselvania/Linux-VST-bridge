@@ -1,17 +1,20 @@
 #pragma once
 #include <cstdint>
 #include "ap8_events.h"
+#include "bus_layout.h"
+#include "pluginterfaces/vst/ivstprocesscontext.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 namespace linux_vst_bridge::wf0 {
 class HostCallbackSink;
 class EventWriter;
-struct ExternalBlock { int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
+struct ExternalBlock { Steinberg::Vst::ProcessContext context{};bool has_context=false; int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
 // Private C++ edge interface; no object/layout crosses the process boundary.
 class ExternalProcessing {
 public:
     virtual ~ExternalProcessing() = default;
+    virtual const BusLayout* bus_layout() const {return nullptr;}
     virtual bool performance() const {return false;}
     virtual void bind_processor(Steinberg::Vst::IAudioProcessor*) {}
     virtual double sample_rate() const {return 48000.;}

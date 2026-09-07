@@ -145,7 +145,15 @@ fn real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization() {
         }),
     };
     let (out, flags) = session
-        .process_positioned(128, f64::NAN, 0, [&[0.; 128], &[0.; 128]], (1, 0), &events)
+        .process_positioned(
+            128,
+            f64::NAN,
+            0,
+            [&[0.; 128], &[0.; 128]],
+            (1, 0),
+            &events,
+            context::Context::default(),
+        )
         .unwrap();
     assert_eq!(flags, 0);
     assert_eq!(f32::from_bits(out[0][94]), 93.0 / 128.0);

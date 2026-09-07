@@ -6,6 +6,7 @@
 #ifdef AP8_PREVIEW
 #include "ap8_descriptor.h"
 #include <vector>
+#include <array>
 #endif
 namespace AP2 {
 inline constexpr Steinberg::Vst::ParamID recoveryID = 0x41503601;
@@ -72,6 +73,8 @@ private:
   std::atomic<Phase> phase_{New};
   bool stateSession();
 #ifdef AP8_PREVIEW
+  std::array<bool,32> bus_active_{};
+  bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);
   std::vector<uint8_t> state_readback_;
   Steinberg::tresult readback();
 #endif

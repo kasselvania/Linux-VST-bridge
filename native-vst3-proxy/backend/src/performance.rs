@@ -17,14 +17,32 @@ pub fn wire(max: u32, mode: u32, rate: f64) -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 pub fn validate_wire(b: &[u8]) -> io::Result<()> {
-    need(b.len() == 24, "setup extent")?;
+    need(b.len() >= 24, "setup extent")?;
+    if get(&b[20..24]) == 1 {
+        need(b.len() >= 28, "bus header")?;
+        let count = get(&b[24..28]) as usize;
+        need(count <= 32 && b.len() == 28 + 32 * count, "bus extent")?;
+        for r in b[28..].chunks_exact(32) {
+            need(
+                get(&r[..4]) <= 1
+                    && get(&r[4..8]) <= 1
+                    && get(&r[8..12]) < 8
+                    && get(&r[12..16]) <= 16
+                    && get(&r[16..20]) <= 1
+                    && get(&r[20..24]) <= 1,
+                "bus fields",
+            )?;
+        }
+    } else {
+        need(b.len() == 24 && get(&b[20..24]) == 0, "setup version")?;
+    }
     let rate = f64::from_le_bytes(b[8..16].try_into().unwrap());
     need(
         (1..=256).contains(&get(&b[..4]))
             && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
             && get(&b[16..20]) <= 1
-            && get(&b[20..24]) == 0,
+            && get(&b[20..24]) <= 1,
         "unsupported setup",
     )
 }
@@ -77,6 +95,19 @@ fn read_delay(path: &std::path::Path, max: u32) -> io::Result<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn io_contract_extent_and_fields_are_bounded() {
+        let mut b = wire(128, 0, 48000.).unwrap();
+        b[20..24].copy_from_slice(&1u32.to_le_bytes());
+        b.extend(1u32.to_le_bytes());
+        b.extend([0; 32]);
+        assert!(validate_wire(&b).is_ok());
+        b[28 + 20] = 2;
+        assert!(validate_wire(&b).is_err());
+        b[28 + 20] = 0;
+        b.pop();
+        assert!(validate_wire(&b).is_err());
+    }
     #[test]
     fn private_settings_default_floor_and_invalid_values() {
         use std::os::unix::fs::PermissionsExt;

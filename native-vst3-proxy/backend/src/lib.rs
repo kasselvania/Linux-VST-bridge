@@ -1,6 +1,7 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
 #[cfg(test)]
 mod commercial_tests;
+mod context;
 mod instances;
 mod mailbox;
 mod observer;
@@ -130,7 +131,7 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7) {
+            witness: if matches!(minor, 5 | 7 | 8) {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -270,6 +271,7 @@ impl Session {
         self.phase = op + 1;
         Ok(())
     }
+    #[allow(clippy::too_many_arguments)]
     fn process_positioned(
         &mut self,
         n: usize,
@@ -278,12 +280,13 @@ impl Session {
         input: [&[f32]; 2],
         timeline: (u64, u64),
         events: &[events::Event],
+        context: context::Context,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
             self.minor >= 3 && timeline == (self.epoch, self.position),
             "queued audio epoch/position",
         )?;
-        self.process_events(n, gain, silence, input, events)
+        self.process_events(n, gain, silence, input, events, context)
     }
     fn process(
         &mut self,
@@ -292,7 +295,7 @@ impl Session {
         silence: u64,
         input: [&[f32]; 2],
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
-        self.process_events(n, gain, silence, input, &[])
+        self.process_events(n, gain, silence, input, &[], context::Context::default())
     }
     fn process_events(
         &mut self,
@@ -301,13 +304,14 @@ impl Session {
         silence: u64,
         input: [&[f32]; 2],
         events: &[events::Event],
+        context: context::Context,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            matches!(self.minor, 5 | 7) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -323,7 +327,9 @@ impl Session {
             (self.minor >= 4 && gain.is_nan()) || gain.is_finite() && (0.0..=1.0).contains(&gain),
             "gain",
         )?;
-        self.armed |= self.minor == 6 || events.iter().any(|e| e.kind == events::NOTE_ON);
+        self.armed |= self.minor == 6
+            || input.iter().any(|p| p.iter().any(|&v| v != 0.))
+            || events.iter().any(|e| e.kind == events::NOTE_ON);
         self.trace = observer::Trace {
             sample_rate: self.sample_rate,
             armed: self.armed,
@@ -391,10 +397,13 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7) {
+            if matches!(self.minor, 5 | 7 | 8) {
                 request
                     .payload
                     .extend_from_slice(&events::encode(events, n)?);
+            }
+            if self.minor == 8 {
+                request.payload.extend(context.encode());
             }
             self.trace.prepared = Some(std::time::Instant::now());
             let mut reply = if self.mailbox_enabled {

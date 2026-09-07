@@ -25,6 +25,8 @@ struct Block {
     std::array<std::array<float, capacity + 2>, 2> input{}, output{}, input_before{};
     std::array<float*, 2> in{}, out{};
     AudioBusBuffers input_bus{}, output_bus{};
+    std::array<AudioBusBuffers,8> all_inputs{};
+    std::array<std::array<float*,2>,8> inactive_channels{};
     ParameterChanges parameters{2};
     Changes commercial_parameters;Notes notes;ExternalBlock request{};
     ProcessData data;
@@ -45,14 +47,14 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                                     HostCallbackSink& callbacks, EventWriter& events, ExternalProcessing* external) {
     const bool commercial=external&&external->commercial();
     const int inputs=commercial?component.getBusCount(kAudio,kInput):1;
-    const int event_inputs=component.getBusCount(kEvent,kInput);
-    if(commercial&&(inputs<0||inputs>1||component.getBusCount(kAudio,kOutput)!=1||event_inputs!=1))throw std::runtime_error("unsupported commercial bus layout");
+    BusLayout layout;layout.read(component,processor);
     const bool hosted=external&&external->hosted();
     const bool sustained=external&&external->sustained();
     const bool stateful=external&&external->stateful();
     if(stateful){external->bind_component(&component);external->bind_processor(&processor);}
     for(;;) {
     if(stateful&&!external->initial_transition())return {true,true};
+    if(external&&external->bus_layout())layout=*external->bus_layout();
     uint32_t maximum=external?capacity:frames;
     const auto owner = std::this_thread::get_id();
     std::array<Block,3> blocks;
@@ -82,7 +84,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         block.output_bus.silenceFlags=0;
         block.data.processMode=sustained?kRealtime:kOffline;block.data.symbolicSampleSize=kSample32;
         block.data.numSamples=frames;block.data.numInputs=block.data.numOutputs=1;
-        block.data.inputs=&block.input_bus;block.data.outputs=&block.output_bus;
+        for(int i=0;i<inputs;++i){block.all_inputs[i].numChannels=2;block.all_inputs[i].channelBuffers32=i==0?block.in.data():block.inactive_channels[i].data();block.all_inputs[i].silenceFlags=3;}
+        block.data.inputs=inputs?block.all_inputs.data():nullptr;block.data.outputs=&block.output_bus;
         block.data.inputParameterChanges=&block.parameters;
     }
     bool ok=true, active=false, stopped=true, joined=false, worker_exception=false;
@@ -105,8 +108,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
 
     }
     if(stateful)for(auto& block:blocks)block.data.processMode=external->process_mode();
-    SpeakerArrangement input=SpeakerArr::kStereo, output=SpeakerArr::kStereo;
-    if (!(external&&external->performance()) && !call("set_bus_arrangements",[&]{return processor.setBusArrangements(inputs?&input:nullptr,inputs,&output,1);})) return {false,true};
+    if (!(external&&external->performance()))layout.negotiate(processor);
     ProcessSetup setup{};setup.processMode=stateful?static_cast<int32>(external->process_mode()):sustained?kRealtime:kOffline;setup.symbolicSampleSize=kSample32;
     setup.maxSamplesPerBlock=static_cast<int32>(maximum);setup.sampleRate=external?external->sample_rate():48000.;
     if (!(external&&external->performance()) && !call("setup_processing",[&]{return processor.setupProcessing(setup);})) return {false,true};
@@ -115,9 +117,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         events.lifecycle("ap2_processor_traits",",\"latency_samples\":"+std::to_string(latency)+",\"tail_samples\":"+std::to_string(tail));
         if(latency!=0||(!commercial&&tail!=0))throw std::runtime_error("AP2 retained processor latency/tail differs");
     }
-    if (inputs&&!call("activate_audio_input",[&]{return component.activateBus(kAudio,kInput,0,true);})) return {false,true};
-    if (!call("activate_audio_output",[&]{return component.activateBus(kAudio,kOutput,0,true);})) return {false,true};
-    if (event_inputs&&!call(commercial?"activate_event_input":"deactivate_event_input",[&]{return component.activateBus(kEvent,kInput,0,commercial);})) return {false,true};
+    layout.activate(component,true);
     active=call("set_active_true",[&]{return component.setActive(true);});
     if (!active) return {false,false};
     if(hosted) external->lifecycle_ack(9);
@@ -153,17 +153,18 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
                         block.input_before=block.input;
                         block.gain=request.gain;block.data.numSamples=request.frames;
-                        block.input_bus.silenceFlags=request.silence;block.output_bus.silenceFlags=0;
+                        block.input_bus.silenceFlags=request.silence;block.all_inputs[0].silenceFlags=request.silence;block.output_bus.silenceFlags=0;
                         block.parameters.clearQueue();int32 parameter=0,point=0;
                         if(request.gain_present)block.parameters.addParameterData(0,parameter)->addPoint(0,request.gain,point);
                         if(!stateful)block.parameters.addParameterData(2,parameter)->addPoint(0,0.,point);
                         block.data.numInputs=request.frames?inputs:0;block.data.numOutputs=request.frames?1:0;
-                        block.data.inputs=request.frames&&inputs?&block.input_bus:nullptr;block.data.outputs=request.frames?&block.output_bus:nullptr;
+                        block.data.inputs=request.frames&&inputs?block.all_inputs.data():nullptr;block.data.outputs=request.frames?&block.output_bus:nullptr;
                     }
                     if(commercial){
                         block.commercial_parameters.load(block.request.events.data(),block.request.event_count,block.notes);
                         block.data.inputParameterChanges=&block.commercial_parameters;block.data.inputEvents=&block.notes;
                     }
+                    block.data.processContext=block.request.has_context?&block.request.context:nullptr;
                     block.worker_thread=std::this_thread::get_id()!=owner;
                     if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
                     if(external)external->before_process();
@@ -223,8 +224,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     }
     active=!call("set_active_false",[&]{return component.setActive(false);});
     if (active) return {false,false};
-    call("deactivate_audio_output",[&]{return component.activateBus(kAudio,kOutput,0,false);});
-    if(inputs)call("deactivate_audio_input",[&]{return component.activateBus(kAudio,kInput,0,false);});
+    layout.activate(component,false);
     if(hosted&&ok) {
         external->lifecycle_ack(15);
         if(stateful){if(external->activation_again())continue;}

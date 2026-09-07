@@ -36,6 +36,7 @@ pub struct Item {
     pub gain: f64,
     pub flags: u64,
     pub queued: Option<Instant>,
+    pub context: crate::context::Context,
     pub event_count: u32,
     pub events: [Event; MAX_EVENTS],
     pub data: [[f32; CAP]; 2],
@@ -50,6 +51,7 @@ impl Item {
             gain: 0.,
             flags: 0,
             queued: None,
+            context: crate::context::Context::default(),
             event_count: 0,
             events: [Event::default(); MAX_EVENTS],
             data: [[0.; CAP]; 2],
@@ -457,6 +459,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         [&item.data[0][..n], &item.data[1][..n]],
                         (item.epoch, item.position),
                         &item.events[..item.event_count as usize],
+                        item.context,
                     )?;
                     for (ch, word) in words.iter().enumerate() {
                         for i in 0..n {
@@ -895,13 +898,43 @@ pub unsafe extern "C" fn ap9_setup(
     rate: f64,
     out: *mut u32,
 ) -> u32 {
+    setup(id, maximum, mode, rate, &[], out)
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap10_setup(
+    id: u64,
+    maximum: u32,
+    mode: u32,
+    rate: f64,
+    io: *const u8,
+    len: u32,
+    out: *mut u32,
+) -> u32 {
+    if io.is_null() || !(4..=1028).contains(&len) {
+        return 1;
+    }
+    setup(
+        id,
+        maximum,
+        mode,
+        rate,
+        std::slice::from_raw_parts(io, len as usize),
+        out,
+    )
+}
+unsafe fn setup(id: u64, maximum: u32, mode: u32, rate: f64, io: &[u8], out: *mut u32) -> u32 {
     crate::ffi(|| {
         if out.is_null() {
             return 1;
         }
         let result = (|| -> io::Result<()> {
             let delay = crate::performance::selected_delay(maximum)?;
-            let bytes = crate::performance::wire(maximum, mode, rate)?;
+            let mut bytes = crate::performance::wire(maximum, mode, rate)?;
+            if !io.is_empty() {
+                bytes[20..24].copy_from_slice(&1u32.to_le_bytes());
+                bytes.extend(io);
+            }
+            crate::performance::validate_wire(&bytes)?;
             let reply = control(id, 20, bytes.clone())?;
             let vendor = ap1_native_client::get(&reply[..4]) as u32;
             let total = vendor
@@ -1064,6 +1097,7 @@ pub unsafe extern "C" fn ap7_process(
         out_flags,
         delivery,
         &[],
+        crate::context::Context::default(),
     )
 }
 // Mirrors the fixed C ABI and adds a borrowed bounded event span.
@@ -1080,6 +1114,7 @@ unsafe fn process_events(
     out_flags: *mut u64,
     delivery: *mut Delivery,
     events: &[Event],
+    context: crate::context::Context,
 ) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
@@ -1117,6 +1152,9 @@ unsafe fn process_events(
             return 1;
         }
     }
+    if context.chunk(n).is_none() {
+        return 1;
+    }
     let mut total = Delivery::default();
     let mut combined = 3;
     let mut offset = 0;
@@ -1124,6 +1162,7 @@ unsafe fn process_events(
         let count = (n - offset).min(CAP);
         let mut item = Item::control(AUDIO, 0);
         item.n = count as u32;
+        item.context = context.chunk(offset).unwrap();
         item.flags = flags;
         item.gain = if offset == 0 { gain } else { f64::NAN };
         for e in events {
@@ -1342,7 +1381,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 7 } else { 6 },
+        if identity.is_some() { 8 } else { 6 },
         identity,
     )
 }
@@ -1395,6 +1434,46 @@ pub unsafe extern "C" fn ap8_process(
         out_flags,
         delivery,
         events,
+        crate::context::Context::default(),
+    )
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ap10_process(
+    id: u64,
+    n: u32,
+    events: *const Event,
+    count: u32,
+    context: *const crate::context::Context,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+) -> u32 {
+    if count as usize > MAX_EVENTS || (count > 0 && events.is_null()) || context.is_null() {
+        return 1;
+    }
+    let events = if count == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(events, count as usize)
+    };
+    process_events(
+        id,
+        n,
+        f64::NAN,
+        flags,
+        left,
+        right,
+        out_left,
+        out_right,
+        out_flags,
+        delivery,
+        events,
+        *context,
     )
 }
 

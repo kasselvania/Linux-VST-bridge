@@ -6,6 +6,7 @@
 #include "ap8_state.h"
 #include "delivery_trace.h"
 #include "delivery_mailbox.h"
+#include "process_context.h"
 #include "pluginterfaces/vst/vstspeaker.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
 #include <chrono>
@@ -68,6 +69,7 @@ struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVAL
 }
 struct MappedSession::Impl {
  EventWriter& events;DeliveryTrace diagnostic;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
+ BusLayout buses;
  bool stateful=false,commercial=false,separate=false,performance=false,configured=false,active=false; uint32_t mode=0, maximum=256; double rate=48000.;
  Steinberg::Vst::IAudioProcessor* processor=nullptr;
  Steinberg::Vst::IEditController* controller=nullptr;
@@ -120,16 +122,16 @@ struct MappedSession::Impl {
  void configure(const Frame& f){
   using namespace Steinberg;using namespace Steinberg::Vst;
   require(performance&&processor&&std::this_thread::get_id()==owner&&!active&&!timeline.running&&!state.outstanding,"configuration requires inactive owner");
-  require(f.session==state.session&&f.sequence==state.next&&f.payload.size()==24,"configuration correlation/extent");
+  require(f.session==state.session&&f.sequence==state.next&&(f.payload.size()==24||(socket.minor==8&&f.payload.size()>=28)),"configuration correlation/extent");
   auto p=f.payload.data();auto m=uint32_t(get(p,4)),md=uint32_t(get(p+4,4));double hz;std::memcpy(&hz,p+8,8);
-  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)<=1&&get(p+20,4)==0,"unsupported processing configuration");
+  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)<=1&&get(p+20,4)==(socket.minor==8?1:0),"unsupported processing configuration");
   const auto mailbox_version=get(p+16,4);
-  if(mailbox_version&&!mailbox)mailbox=std::make_unique<DeliveryMailbox>(directory,state.session);
+  if(mailbox_version&&!mailbox){mailbox=std::make_unique<DeliveryMailbox>(directory,state.session);
+   events.lifecycle("ap10_wait_resolution",",\"samples_per_method\":32,\"sleep50_mean_ns\":"+std::to_string(mailbox->sleep50_ns)+",\"ntdelay50_mean_ns\":"+std::to_string(mailbox->delay50_ns));}
   require(mailbox_version==uint64_t(bool(mailbox)),"delivery configuration differs");
   const bool support32=processor->canProcessSampleSize(kSample32)==kResultTrue,support64=processor->canProcessSampleSize(kSample64)==kResultTrue;
   require(support32,"Windows plugin does not support float32");
-  SpeakerArrangement input=SpeakerArr::kStereo,output=SpeakerArr::kStereo;auto inputs=component->getBusCount(kAudio,kInput);
-  require(processor->setBusArrangements(inputs?&input:nullptr,inputs,&output,1)==kResultOk,"configuration bus arrangement");
+  buses.read(*component,*processor);if(socket.minor==8)buses.contract(f.payload);buses.negotiate(*processor);
   ProcessSetup setup{int32(md),kSample32,int32(m),hz};
   require(processor->setupProcessing(setup)==kResultOk,"Windows processing setup rejected");
   // SDK latency is queried on the owner only after successful setup.
@@ -152,7 +154,7 @@ struct MappedSession::Impl {
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
 MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful,bool commercial,bool performance):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?7:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
+ auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?8:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
@@ -171,6 +173,7 @@ MappedSession::MappedSession(const std::wstring& directory,const std::string& se
  }catch(const std::exception&e){x.error(e);throw;}
 }
 MappedSession::~MappedSession()=default;
+const BusLayout* MappedSession::bus_layout() const{return impl_->configured?&impl_->buses:nullptr;}
 bool MappedSession::performance() const{return impl_->performance;}
 void MappedSession::bind_processor(Steinberg::Vst::IAudioProcessor* p){impl_->processor=p;}
 double MappedSession::sample_rate() const{return impl_->rate;}
@@ -209,11 +212,13 @@ void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
 bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{x.diagnostic.current={};x.diagnostic.stamp(0);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
- if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames);}
+ if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames,x.socket.minor==8?96:0);}
+ out.has_context=x.socket.minor==8&&decode_context(f.payload.data()+f.payload.size()-96,out.context,x.rate);
  x.diagnostic.current.epoch=x.timeline.epoch;x.diagnostic.current.sequence=x.state.next;x.diagnostic.current.position=x.timeline.position;
  x.diagnostic.stamp(2);
  // The first active block establishes history, rather than triggering on startup idle.
  if(!x.diagnostic.armed){for(size_t i=0;i<out.event_count;++i)if(out.events[i].kind==0)x.diagnostic.armed=true;
+  for(int i=0;i<out.frames&&!x.diagnostic.armed;++i)x.diagnostic.armed=left[i]!=0||right[i]!=0;
   if(x.diagnostic.armed)x.diagnostic.current.at[0]=x.diagnostic.current.at[1];}
  return true;
  }catch(const std::exception&e){x.error(e);throw;}}
