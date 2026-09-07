@@ -3,6 +3,7 @@
 #include "ap2_backend.h"
 #include "ap3_backend.h"
 #include "ap4_backend.h"
+#include "input_silence.h"
 #ifdef AP8_PREVIEW
 #include "ap10_backend.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
@@ -664,6 +665,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       (d.inputs[0].silenceFlags & ~uint64(3)))
     return reject();
   auto **in = d.inputs[0].channelBuffers32;
+  auto input_flags = d.inputs[0].silenceFlags;
   #endif
   auto **out = d.outputs[0].channelBuffers32;
 #ifdef AP8_PREVIEW
@@ -677,12 +679,21 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       (in[0] != out[0] && overlap(in[0], out[0], d.numSamples)) ||
       (in[1] != out[1] && overlap(in[1], out[1], d.numSamples)))
     return reject();
-  for (int ch = 0; ch < 2; ++ch)
-    for (int i = 0; i < d.numSamples; ++i)
-      if (!std::isfinite(in[ch][i]) ||
-          ((d.inputs[0].silenceFlags & (uint64(1) << ch)) && in[ch][i] != 0.f))
-        return reject();
   #endif
+#ifdef AP8_PREVIEW
+  if constexpr (AP8::effect) {
+#endif
+  const auto hints = inputSilence(in[0], in[1], d.numSamples, input_flags);
+  if (hints.flags != input_flags) {
+    ++input_hint_adjustments_;
+    input_hint_samples_ += hints.nonzero;
+    if (!input_hint_first_bits_) input_hint_first_bits_ = hints.first_bits;
+    input_hint_peak_ = std::max(input_hint_peak_, hints.finite_peak);
+    input_flags = hints.flags;
+  }
+#ifdef AP8_PREVIEW
+  }
+#endif
   uint64_t silence = 0;
   ap7_delivery_t delivery{};
 #ifdef AP8_PREVIEW
@@ -708,10 +719,10 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
                 handle_, static_cast<uint32_t>(d.numSamples),
                 preview_ && !changed ? std::numeric_limits<double>::quiet_NaN()
                                      : pending,
-                d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
+                input_flags, in[0], in[1], out[0], out[1],
                 &silence, &delivery))
           : ap2_process(handle_, static_cast<uint32_t>(d.numSamples), pending,
-                        d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
+                        input_flags, in[0], in[1], out[0], out[1],
                         &silence);
   #endif
   if (r) {
@@ -752,6 +763,16 @@ tresult PLUGIN_API Processor::terminate() {
     return kResultFalse;
   bool clean =
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated;
+  if (input_hint_adjustments_) {
+    char text[320];
+    const auto n = std::snprintf(text, sizeof(text),
+        "{\"event\":\"ap10_input_silence_hints\",\"callbacks\":%llu,"
+        "\"nonzero_samples\":%llu,\"first_nonzero_bits\":%u,\"finite_peak\":%.17g}\n",
+        (unsigned long long)input_hint_adjustments_,
+        (unsigned long long)input_hint_samples_, input_hint_first_bits_, input_hint_peak_);
+    if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+      diagnostic_report(report_path_, text, static_cast<size_t>(n));
+  }
 #ifdef AP8_PREVIEW
   if (admission_failure_.code) {
     const auto& f = admission_failure_;

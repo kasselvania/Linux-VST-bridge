@@ -1,6 +1,6 @@
 {
   "claim": "INCOMPLETE: first commercial-effect desktop attempt",
-  "collection": "Read-only Kate/Dolphin inspection through the existing Moonlight session after project close. These selected counters are transcribed; raw files remain private on the fixture pending SSH reauthentication.",
+  "collection": "Initially transcribed through read-only Kate/Dolphin after project close; subsequently verified against the exact native and owner JSON records collected through restored SSH. Raw files remain private on the fixture and in the AP10 work directory.",
   "implementation": "91a2fcd28b33eec975490a7408ec7a04b55593df",
   "fixture": {
     "host": "Bitwig Studio 6.1, normal Applications launch",
@@ -49,7 +49,7 @@
     "position": 4200000,
     "samples": 5632,
     "nonzero": 5248,
-    "rms": 0.001679546267959217,
+    "rms": 0.00175946267959217,
     "peak": 0.006741289049386978,
     "limitation": "A short nonzero return establishes neither sustained effect behavior nor correct controls/state/tails"
   },
@@ -58,7 +58,7 @@
     "enabled": "Bridge output meters subsequently silent",
     "project_close": "Returned to Bitwig dashboard without a visible crash dialog; native lifecycle was not clean"
   },
-  "next_test": "First native backend rejection now has a bounded diagnostic code, emitted off the callback at teardown. Deploy and reproduce once before selecting a repair.",
+  "next_test": "Preserve input samples and clear contradicted optional silence hints, then replay the same saved clip and examine adjustment/rejection counters.",
   "not_claimed": [
     "Completed AP10",
     "Successful commercial effect controls, tails, state recall or clean lifecycle",
@@ -66,5 +66,56 @@
     "Matched untraced performance for the NtDelayExecution candidate",
     "128- or 256-frame recommended operation",
     "Final fixture restoration"
-  ]
+  ],
+  "owner_retirement": {
+    "retired": true,
+    "containment_confirmed": true,
+    "error": null
+  },
+  "admission_reproduction": {
+    "native_source": "d260dc2f1c1d4894fb8295c10e8a97999ce9c0d9",
+    "windows_source": "91a2fcd28b33eec975490a7408ec7a04b55593df",
+    "host_and_bridge_frames_unchanged": true,
+    "first_failure": {
+      "event": "ap10_admission_failure",
+      "code": 260,
+      "frames": 128,
+      "input_flags": 3,
+      "context_state": 11778,
+      "rate": 48000,
+      "cycle_start": 0,
+      "cycle_end": 0,
+      "nonfinite_fields": 0
+    },
+    "native_lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 7,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 824064,
+      "blocks": 6438,
+      "callback_rejections": 7307,
+      "rejected_silent_frames": 935296,
+      "discontinuities": 1,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 256,
+      "underrun_gaps": 1,
+      "underrun_callbacks": 2,
+      "expired_output_frames": 256,
+      "delivered_frames": 823552,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": false
+    },
+    "owner": {
+      "error": null,
+      "retired": true,
+      "containment_confirmed": true
+    },
+    "finding": "0x104: native rejection of nonzero input samples under host silenceFlags=3; worker had not faulted."
+  }
 }

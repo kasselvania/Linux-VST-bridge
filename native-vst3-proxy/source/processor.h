@@ -106,6 +106,9 @@ private:
   uint64_t silent_callbacks_ = 0, silent_frames_ = 0;
   uint64_t priming_frames_ = 0, underrun_frames_ = 0, underrun_gaps_ = 0;
   uint64_t expired_frames_ = 0, delivered_frames_ = 0, underrun_callbacks_ = 0;
+  uint64_t input_hint_adjustments_ = 0, input_hint_samples_ = 0;
+  uint32_t input_hint_first_bits_ = 0;
+  double input_hint_peak_ = 0.;
   double gain_min_ = 1., gain_max_ = 0.;
   int requested_maximum_ = 0, requested_mode_ = -1;
   double requested_rate_ = 0.;
