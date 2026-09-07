@@ -5,6 +5,7 @@
 #include "mapped_processing.h"
 #include "ap8_state.h"
 #include "delivery_trace.h"
+#include "delivery_mailbox.h"
 #include "pluginterfaces/vst/vstspeaker.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
 #include <chrono>
@@ -66,7 +67,7 @@ struct Socket {
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
 }
 struct MappedSession::Impl {
- EventWriter& events;DeliveryTrace diagnostic;Socket socket;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
+ EventWriter& events;DeliveryTrace diagnostic;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
  bool stateful=false,commercial=false,separate=false,performance=false,configured=false,active=false; uint32_t mode=0, maximum=256; double rate=48000.;
  Steinberg::Vst::IAudioProcessor* processor=nullptr;
  Steinberg::Vst::IEditController* controller=nullptr;
@@ -121,7 +122,10 @@ struct MappedSession::Impl {
   require(performance&&processor&&std::this_thread::get_id()==owner&&!active&&!timeline.running&&!state.outstanding,"configuration requires inactive owner");
   require(f.session==state.session&&f.sequence==state.next&&f.payload.size()==24,"configuration correlation/extent");
   auto p=f.payload.data();auto m=uint32_t(get(p,4)),md=uint32_t(get(p+4,4));double hz;std::memcpy(&hz,p+8,8);
-  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)==0&&get(p+20,4)==0,"unsupported processing configuration");
+  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)<=1&&get(p+20,4)==0,"unsupported processing configuration");
+  const auto mailbox_version=get(p+16,4);
+  if(mailbox_version&&!mailbox)mailbox=std::make_unique<DeliveryMailbox>(directory,state.session);
+  require(mailbox_version==uint64_t(bool(mailbox)),"delivery configuration differs");
   const bool support32=processor->canProcessSampleSize(kSample32)==kResultTrue,support64=processor->canProcessSampleSize(kSample64)==kResultTrue;
   require(support32,"Windows plugin does not support float32");
   SpeakerArrangement input=SpeakerArr::kStereo,output=SpeakerArr::kStereo;auto inputs=component->getBusCount(kAudio,kInput);
@@ -130,23 +134,25 @@ struct MappedSession::Impl {
   require(processor->setupProcessing(setup)==kResultOk,"Windows processing setup rejected");
   // SDK latency is queried on the owner only after successful setup.
   auto latency=processor->getLatencySamples(),tail=processor->getTailSamples();
-  std::vector<uint8_t> reply(16);put(reply.data(),latency,4);put(reply.data()+4,tail,4);put(reply.data()+8,(support32?1:0)|(support64?2:0),4);
+  std::vector<uint8_t> reply(16);put(reply.data(),latency,4);put(reply.data()+4,tail,4);put(reply.data()+8,(support32?1:0)|(support64?2:0),4);put(reply.data()+12,mailbox_version,4);
   maximum=m;mode=md;rate=hz;configured=true;
+  events.lifecycle("ap10_delivery_setup",",\"mailbox_version\":"+std::to_string(mailbox_version));
   events.lifecycle("ap9_processing_setup",",\"sample_rate\":"+std::to_string(hz)+",\"maximum\":"+std::to_string(m)+",\"precision\":\"float32\",\"vendor_float64\":"+(support64?"true":"false")+",\"latency_samples\":"+std::to_string(latency)+",\"tail_samples\":"+std::to_string(tail));
   socket.write(frame(Configured,state.next,std::move(reply)));
  }
- Frame receive(){for(;;){auto f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
+ Frame receive(bool processing=false){for(;;){Frame f{};last_fast=false;
+  if(processing&&mailbox){last_fast=mailbox->receive(f,socket.minor);if(!last_fast)f=socket.receive(true);}else f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
 
  ~Impl(){try{diagnostic.dump(events);}catch(...){}if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
  void error(const std::exception& e){
   state.failed=true;
   events.lifecycle("ap1_transport_error",",\"detail\":\""+std::string(e.what()).substr(0,160)+"\"");
-  if(socket.value!=INVALID_SOCKET)try{socket.write(frame(Error,state.next,{1,0,0,0}));}catch(...){}
+  if(socket.value!=INVALID_SOCKET)try{auto f=frame(Error,state.next,{1,0,0,0});if(last_fast&&mailbox)mailbox->send(f,socket.minor);else socket.write(f);}catch(...){}
  }
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
 MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful,bool commercial,bool performance):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?7:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
+ auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?7:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
@@ -200,7 +206,7 @@ void MappedSession::lifecycle_ack(uint16_t kind){auto&x=*impl_;require(!x.state.
  x.socket.write(x.frame(kind,x.state.next,payload));x.events.lifecycle("ap2_lifecycle_ack",",\"kind\":"+std::to_string(kind)+",\"next_sequence\":"+std::to_string(x.state.next));}
 
 void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
-bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{x.diagnostic.current={};x.diagnostic.stamp(0);auto f=x.receive();x.diagnostic.stamp(1);if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
+bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{x.diagnostic.current={};x.diagnostic.stamp(0);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
  if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames);}
@@ -228,7 +234,7 @@ void MappedSession::done(const float* left,const float* right,uint64_t silence,u
    std::memcpy(x.view+output_offset+ch*stride+4,ch?right:left,x.current.frames*4);
   barrier();
   x.diagnostic.stamp(6);
-  x.socket.write(x.frame(Done,x.state.next,payload));
+  if(x.last_fast&&x.mailbox)x.mailbox->send(x.frame(Done,x.state.next,payload),x.socket.minor);else x.socket.write(x.frame(Done,x.state.next,payload));
   x.diagnostic.stamp(7);x.diagnostic.complete();
   x.state.complete();
  } catch(const std::exception& error) {x.error(error);throw;}

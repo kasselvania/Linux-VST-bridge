@@ -23,7 +23,8 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
         (1..=256).contains(&get(&b[..4]))
             && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
-            && get(&b[16..24]) == 0,
+            && get(&b[16..20]) <= 1
+            && get(&b[20..24]) == 0,
         "unsupported setup",
     )
 }
@@ -113,7 +114,7 @@ mod tests {
         assert!(wire(64, 0, 47999.).is_err());
         assert!(wire(64, 1, 48000.).is_err());
         let mut b = wire(64, 0, 48000.).unwrap();
-        b[16] = 1;
+        b[16] = 2;
         assert!(validate_wire(&b).is_err());
     }
 }
@@ -242,5 +243,40 @@ impl Timings {
             text.push_str(&format!("{{\"event\":\"ap9_slow_request\",\"epoch\":{epoch},\"sequence\":{seq},\"position\":{pos},\"service_ns\":{total},\"windows_process_ns\":{win}}}\n"));
         }
         text
+    }
+}
+
+/// Inactive-only comparison setting. Missing selects the AP10 mailbox; the
+/// retained socket path remains available for matched before/after comparison.
+pub fn use_mailbox() -> io::Result<bool> {
+    let home = std::env::var_os("HOME").ok_or_else(|| invalid("home absent"))?;
+    let path = PathBuf::from(home).join("AP10-Work/delivery-mode");
+    #[cfg(target_os = "linux")]
+    const NOFOLLOW: i32 = 0x20000;
+    #[cfg(target_os = "macos")]
+    const NOFOLLOW: i32 = 0x100;
+    let f = match std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(NOFOLLOW)
+        .open(path)
+    {
+        Ok(f) => f,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(true),
+        Err(e) => return Err(e),
+    };
+    let m = f.metadata()?;
+    unsafe extern "C" {
+        fn getuid() -> u32;
+    }
+    need(
+        m.is_file() && m.uid() == unsafe { getuid() } && m.mode() & 0o077 == 0 && m.len() <= 16,
+        "delivery setting must be private and bounded",
+    )?;
+    let mut s = String::new();
+    f.take(17).read_to_string(&mut s)?;
+    match s.as_str() {
+        "mailbox\n" => Ok(true),
+        "socket\n" => Ok(false),
+        _ => Err(invalid("unsupported delivery mode")),
     }
 }

@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod commercial_tests;
 mod instances;
+mod mailbox;
 mod observer;
 mod performance;
 mod preview;
@@ -27,6 +28,8 @@ use std::{
 };
 struct Session {
     mapping: Option<Mapping>,
+    mailbox: Option<mailbox::Mailbox>,
+    mailbox_enabled: bool,
     socket: TcpStream,
     state: ClientState,
     phase: u16,
@@ -104,11 +107,18 @@ impl Session {
         minor: u64,
         mut owner: Option<preview::Owner>,
     ) -> io::Result<Self> {
+        let mailbox = if minor >= 6 && performance::use_mailbox()? {
+            Some(mailbox::Mailbox::create(&path.join("ap10.delivery"), id)?)
+        } else {
+            None
+        };
         let prepared = Prepared::create(path, id)?;
         let (mapping, socket) =
             prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
             mapping: Some(mapping),
+            mailbox,
+            mailbox_enabled: false,
             socket,
             state: ClientState {
                 session: id,
@@ -155,7 +165,8 @@ impl Session {
             sequence: self.state.next,
             payload,
         };
-        let result = send_version(&mut self.socket, &f, 5, self.minor)
+        let result = self
+            .send_control(&f)
             .and_then(|_| receive_version(&mut self.socket, 10, self.minor));
         match result {
             Ok(reply)
@@ -184,18 +195,32 @@ impl Session {
             }
         }
     }
-    fn configure(&mut self, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
+    fn send_control(&mut self, frame: &Frame) -> io::Result<()> {
+        send_version(&mut self.socket, frame, 5, self.minor)?;
+        if self.mailbox_enabled && self.phase == 11 {
+            self.mailbox
+                .as_mut()
+                .ok_or_else(|| invalid("delivery mapping absent"))?
+                .control()?;
+        }
+        Ok(())
+    }
+    fn configure(&mut self, mut bytes: Vec<u8>) -> io::Result<Vec<u8>> {
         need(
             self.minor >= 6 && matches!(self.phase, 17 | 15),
             "setup requires inactive session",
         )?;
         performance::validate_wire(&bytes)?;
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
+        let mailbox_version = u64::from(self.mailbox.is_some());
+        put(&mut bytes[16..20], mailbox_version);
         let reply = self.exchange(20, bytes)?;
         need(
-            get(&reply.payload[12..16]) == 0 && matches!(get(&reply.payload[8..12]), 1 | 3),
+            get(&reply.payload[12..16]) == mailbox_version
+                && matches!(get(&reply.payload[8..12]), 1 | 3),
             "invalid setup response",
         )?;
+        self.mailbox_enabled = mailbox_version == 1;
         Ok(reply.payload)
     }
     fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
@@ -372,9 +397,22 @@ impl Session {
                     .extend_from_slice(&events::encode(events, n)?);
             }
             self.trace.prepared = Some(std::time::Instant::now());
-            send_version(&mut self.socket, &request, 5, self.minor)?;
-            self.trace.sent = Some(std::time::Instant::now());
-            let mut reply = receive_version(&mut self.socket, 5, self.minor)?;
+            let mut reply = if self.mailbox_enabled {
+                let mailbox = self
+                    .mailbox
+                    .as_mut()
+                    .ok_or_else(|| invalid("delivery mapping absent"))?;
+                mailbox.send(&request, self.minor)?;
+                self.trace.sent = Some(std::time::Instant::now());
+                mailbox.receive(
+                    self.minor,
+                    std::time::Instant::now() + std::time::Duration::from_secs(5),
+                )?
+            } else {
+                send_version(&mut self.socket, &request, 5, self.minor)?;
+                self.trace.sent = Some(std::time::Instant::now());
+                receive_version(&mut self.socket, 5, self.minor)?
+            };
             self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
                 need(

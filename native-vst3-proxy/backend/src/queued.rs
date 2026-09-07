@@ -1653,6 +1653,8 @@ mod tests {
         );
         let observation = observer.shared.clone();
         let session = Session {
+            mailbox: None,
+            mailbox_enabled: false,
             mapping: Some(mapping),
             socket,
             state: ClientState {
