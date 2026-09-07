@@ -22,7 +22,7 @@ Same Steam Deck, retained Serum 2.0.18 environment, native/Windows binaries and 
 | Whole cohort percent of one core | 124.79% | 97.28% | 27.51 percentage points |
 | Separate native SDK-host CPU seconds | 1.288 | 1.221 | descriptive only |
 
-Python comes from PID/start-matched `/proc/stat` tick deltas; the cohort comes from systemd CPU accounting and includes Python, Wine, Proton services and the Windows host. Process tick resolution is 10 ms. Other owned costs remained similar: wineserver 3.83 → 3.83 seconds, Windows device services 4.12 → 4.17, Windows plug-in host 3.12 → 3.13, Xalia 2.37 → 2.51. This is a material Python reduction, not a claim that all owner CPU was census work.
+Python comes from PID/start-matched per-process `stat` tick deltas; the cohort comes from systemd CPU accounting and includes Python, Wine, Proton services and the Windows host. Process tick resolution is 10 ms. Other owned costs remained similar: wineserver 3.83 → 3.83 seconds, Windows device services 4.12 → 4.17, Windows plug-in host 3.12 → 3.13, Xalia 2.37 → 2.51. This is a material Python reduction, not a claim that all owner CPU was census work.
 
 Both runs have zero missing frames, gaps, callback rejections, callback deadline misses, host schedule misses and terminal faults. Actual state capture/restore and positive owned cleanup pass. Admission-to-publication mean is 0.666 → 0.681 ms and p99 bucket bound 1.152 → 1.280 ms; observed maxima are 2.670 → 2.681 ms. The change saves CPU; this pair does **not** establish lower service latency. The bridge remains 512 frames and vendor-reported latency remains zero.
 
