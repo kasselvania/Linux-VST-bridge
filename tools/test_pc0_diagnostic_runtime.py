@@ -149,6 +149,9 @@ class RuntimeTests(unittest.TestCase):
                 actual = actual.replace('            if stop_requested is not None and stop_requested():\n                break\n', '')
                 actual = actual.replace('post_gate_seconds is not None and gated_at is not None', 'gated_at is not None')
                 actual = actual.replace('now - gated_at > post_gate_seconds', 'now - gated_at > POST_GATE_SECONDS')
+                # AP9 changes only the routine identity collector, not polling,
+                # exit detection, deadlines, gate or full lifecycle topology.
+                actual=actual.replace("for record in descendant_identities(root.pid):", "for record in descendants(root.pid):")
                 # AP3 observes only its additional owned DAW descendants.
                 actual=actual.replace('            if observe_companion is not None:\n                observe_companion()\n','')
                 actual=actual.replace('session_override or secrets.token_hex(16)', 'secrets.token_hex(16)')

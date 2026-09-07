@@ -1,8 +1,9 @@
 """Diagnostic-only copies of pinned PC0 functions, with explicit runtime identity.
 
-Source: 309b8918c128c0b9e6701d0453dc841a111d5ac5. All process, plug-in,
-normalization and retirement operations are preserved; focused tests compare
-these function bodies against that source. Frozen Deck files are never edited.
+Source: 309b8918c128c0b9e6701d0453dc841a111d5ac5. Process tracking now uses fresh stat-only identities; lifecycle metadata remains
+full. Polling, plug-in, normalization and retirement operations are preserved;
+focused tests compare their bodies against that source. Frozen Deck files are
+never edited.
 """
 from __future__ import annotations
 from environment import *
@@ -14,6 +15,46 @@ from normalize import (validate_wa0_event_order, decode_field, logical_fuid,
     sanitized_timeline, normalize_pc0_census, EXPECTED_CLASSES,
     AUDIO_PROCESSOR_LEASE_SCHEMA, COMPONENT_SESSION_SCHEMA)
 from pc0_diagnostic_runtime import verify_diagnostic_runner, sanitized_supervision_error, exception_detail
+from collections import deque
+
+
+def process_identities(proc_root="/proc"):
+    """Fresh stat-only census shared by ongoing tracking and cleanup."""
+    records = []
+    with os.scandir(proc_root) as entries:
+        for entry in entries:
+            if not entry.name.isdigit():
+                continue
+            try:
+                with open(entry.path + "/stat", encoding="utf-8", errors="replace") as handle:
+                    raw = handle.read()
+                pid, separator, _ = raw.partition(" (")
+                if not separator or int(pid) != int(entry.name):
+                    continue
+                # Field 2 is parenthesized and may itself contain ')' or spaces.
+                fields = raw.rsplit(")", 1)[1].split()
+                records.append({"pid": int(pid), "ppid": int(fields[1]),
+                                "pgrp": int(fields[2]), "session": int(fields[3]),
+                                "start_ticks": int(fields[19])})
+            except (FileNotFoundError, ProcessLookupError, PermissionError, ValueError, IndexError):
+                continue
+    return records
+
+
+def descendant_identities(root_pid):
+    """Discover the complete parent tree afresh; never cache PID identities."""
+    by_parent = {}
+    for record in process_identities():
+        by_parent.setdefault(record["ppid"], []).append(record)
+    result, seen, queue = [], set(), deque([root_pid])
+    while queue:
+        for child in by_parent.get(queue.popleft(), []):
+            if child["pid"] in seen:
+                continue
+            seen.add(child["pid"])
+            result.append(child)
+            queue.append(child["pid"])
+    return result
 
 
 def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]]) -> dict[str, Any]:
@@ -21,7 +62,7 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]])
     # process group/session, never a stage-shaped string in another command.
     deadline = time.monotonic() + CLEANUP_SECONDS
     live_owned = {
-        (record["pid"], record["start_ticks"]) for record in process_census()
+        (record["pid"], record["start_ticks"]) for record in process_identities()
     } & set(owned)
     if root.poll() is None or live_owned:
         try:
@@ -30,7 +71,7 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]])
             pass
     while time.monotonic() < deadline - 3:
         live_owned = {
-            (record["pid"], record["start_ticks"]) for record in process_census()
+            (record["pid"], record["start_ticks"]) for record in process_identities()
         } & set(owned)
         if root.poll() is not None and not live_owned:
             break
@@ -45,10 +86,10 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]])
     except subprocess.TimeoutExpired:
         fail("Runtime root did not terminate inside cleanup bound")
     remaining = []
-    for record in process_census():
+    for record in process_identities():
         if ((record["pid"], record["start_ticks"]) in owned or
                 (record["pgrp"] == root.pid and record["session"] == root.pid)):
-            remaining.append(record["comm"])
+            remaining.append(record["pid"])
     if remaining:
         fail(f"owned descendants survived cleanup: {remaining}")
     return {"owned_descendants_zero": True, "process_group_empty": True}
@@ -214,7 +255,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
             if observe_companion is not None:
                 observe_companion()
             pump(selector, streams, POLL_SECONDS)
-            for record in descendants(root.pid):
+            for record in descendant_identities(root.pid):
                 seen_owned.add((record["pid"], record["start_ticks"]))
             now = time.monotonic()
             ready_event = next((record for record in streams.records
