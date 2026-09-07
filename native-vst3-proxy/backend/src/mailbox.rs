@@ -1,4 +1,4 @@
-//! AP10 delivery mailbox v1. Only the non-RT transport worker touches this view.
+//! AP10 delivery mailbox v2. Only the non-RT transport worker touches this view.
 //! The existing authenticated socket owns lifecycle/state; one request is in flight.
 use ap1_native_client::{invalid, need, Frame};
 use std::{
@@ -11,11 +11,11 @@ use std::{
     sync::atomic::{AtomicU32, Ordering},
     time::{Duration, Instant},
 };
-const BYTES: usize = 16896;
+const BYTES: usize = 33024;
 const REQUEST: usize = 256;
 const REPLY: usize = 16640;
 const REQUEST_CAP: usize = 16384;
-const REPLY_CAP: usize = 256;
+const REPLY_CAP: usize = 16384;
 unsafe extern "C" {
     fn mmap(a: *mut c_void, n: usize, p: i32, f: i32, fd: i32, o: i64) -> *mut c_void;
     fn munmap(a: *mut c_void, n: usize) -> i32;
@@ -43,7 +43,7 @@ impl Mailbox {
             _file: file,
         };
         view.write(0, b"LVBM");
-        view.write(4, &1u32.to_le_bytes());
+        view.write(4, &2u32.to_le_bytes());
         view.write(8, &(BYTES as u32).to_le_bytes());
         view.write(16, &session);
         view.flag(64).store(0, Ordering::Release);
@@ -174,7 +174,7 @@ mod tests {
         assert_eq!(m.flag(64).load(Ordering::Acquire), 2);
         m.flag(64).store(0, Ordering::Release);
         assert!(m.receive(7, Instant::now()).is_err());
-        m.write(132, &257u32.to_le_bytes());
+        m.write(132, &16385u32.to_le_bytes());
         m.flag(128).store(1, Ordering::Release);
         assert!(m.receive(7, Instant::now()).is_err());
         drop(m);

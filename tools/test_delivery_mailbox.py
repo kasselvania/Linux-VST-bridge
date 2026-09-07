@@ -11,7 +11,7 @@ using namespace linux_vst_bridge;
 int main(){
  auto dir=std::filesystem::current_path();auto path=dir/L"ap10.delivery";
  auto f=CreateFileW(path.c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_NEW,0,nullptr);assert(f!=INVALID_HANDLE_VALUE);
- std::vector<uint8_t> initial(16896);std::memcpy(initial.data(),"LVBM",4);ap1::put(initial.data()+4,1,4);ap1::put(initial.data()+8,initial.size(),4);initial[16]=3;
+ std::vector<uint8_t> initial(33024);std::memcpy(initial.data(),"LVBM",4);ap1::put(initial.data()+4,2,4);ap1::put(initial.data()+8,initial.size(),4);initial[16]=3;
  DWORD written=0;assert(WriteFile(f,initial.data(),DWORD(initial.size()),&written,nullptr)&&written==initial.size());
  auto mapping=CreateFileMappingW(f,nullptr,PAGE_READWRITE,0,0,nullptr);assert(mapping);
  auto* v=static_cast<uint8_t*>(MapViewOfFile(mapping,FILE_MAP_READ|FILE_MAP_WRITE,0,0,0));assert(v);

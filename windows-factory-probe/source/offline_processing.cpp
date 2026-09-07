@@ -1,5 +1,6 @@
 #include <windows.h>
 #include "offline_processing.h"
+#include "../../native-vst3-proxy/include/ap10_sdk_results.h"
 #include "component_instance_session.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
@@ -29,6 +30,7 @@ struct Block {
     std::array<std::array<float*,2>,8> inactive_channels{};
     ParameterChanges parameters{2};
     Changes commercial_parameters;Notes notes;ExternalBlock request{};
+    AP10Results::Collector returned;
     ProcessData data;
     double gain{};
     tresult result{kNotInitialized};
@@ -62,6 +64,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     // thread before activation. Each process call receives a separate block.
     for (int b=0;b<3;++b) {
         auto& block=blocks[b]; block.gain=b==0?0.5:0.25;
+        block.returned.buses=uint32_t(layout.counts[3]);
+        size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput)block.returned.channels[event_out++]=layout.buses[i].info.channelCount;
         for (int ch=0;ch<2;++ch) {
             block.input[ch].front()=block.input[ch][frames+1]=std::bit_cast<float>(guard);
             block.output[ch].fill(std::bit_cast<float>(sentinel));
@@ -164,6 +168,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         block.commercial_parameters.load(block.request.events.data(),block.request.event_count,block.notes);
                         block.data.inputParameterChanges=&block.commercial_parameters;block.data.inputEvents=&block.notes;
                     }
+                    block.returned.reset(block.data.numSamples);
+                    block.data.outputEvents=&block.returned;
+                    block.data.outputParameterChanges=&block.returned;
                     block.data.processContext=block.request.has_context?&block.request.context:nullptr;
                     block.worker_thread=std::this_thread::get_id()!=owner;
                     if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
@@ -175,6 +182,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     if(!sustained)events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
                         ",\"result\":"+std::to_string(block.result));
                     if(block.result!=kResultOk) {ok=false;if(sustained)throw std::runtime_error("Windows processor returned failure");break;}
+                    if(block.returned.failed)throw std::runtime_error("malformed or oversized process results");
                     ++processed;
                     if(external) {
                         for(int ch=0;ch<2;++ch) {
@@ -188,7 +196,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         }
                         if(!sustained)events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
                     }
-                    if(external) external->done(block.out[0],block.out[1],block.output_bus.silenceFlags,uint64_t(process_ns));
+                    if(external) external->done(block.out[0],block.out[1],block.output_bus.silenceFlags,uint64_t(process_ns),&block.returned.values);
                 }
             } catch (...) {primary_error=std::current_exception();worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after

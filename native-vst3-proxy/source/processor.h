@@ -5,6 +5,7 @@
 #include <thread>
 #ifdef AP8_PREVIEW
 #include "ap8_descriptor.h"
+#include "output_results.h"
 #include <vector>
 #include <array>
 #endif
@@ -73,6 +74,9 @@ private:
   std::atomic<Phase> phase_{New};
   bool stateSession();
 #ifdef AP8_PREVIEW
+  AP10Results::Output returned_;
+  bool deliverResults(Steinberg::Vst::ProcessData&);
+  int eventOutputActive(int)const;
   bool notifications_=false;uint32_t vendor_latency_=0;
   std::array<bool,32> bus_active_{};
   bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);

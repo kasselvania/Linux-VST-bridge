@@ -4,10 +4,10 @@
 #include <thread>
 #include "ap1_protocol.h"
 namespace linux_vst_bridge::wf0 {
-// Negotiated AP10 mailbox v1. Fixed wire bytes; no C++ object crosses the map.
+// Negotiated AP10 mailbox v2. Fixed wire bytes; no C++ object crosses the map.
 // Socket control remains authenticated by the existing per-session handshake.
 class DeliveryMailbox {
- static constexpr size_t bytes=16896,request_offset=256,reply_offset=16640,request_cap=16384,reply_cap=256;
+ static constexpr size_t bytes=33024,request_offset=256,reply_offset=16640,request_cap=16384,reply_cap=16384;
  using Delay=LONG (NTAPI*)(BOOLEAN,const LARGE_INTEGER*);Delay delay=nullptr;
  HANDLE file=INVALID_HANDLE_VALUE,mapping=nullptr;uint8_t* view=nullptr;
  LONG flag(size_t offset)const{return InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(view+offset),0,0);}
@@ -25,7 +25,7 @@ public:
    require(GetFileSizeEx(file,&size)&&size.QuadPart==bytes,"delivery mapping extent");
    mapping=CreateFileMappingW(file,nullptr,PAGE_READWRITE,0,0,nullptr);require(mapping!=nullptr,"delivery mapping creation");
    view=static_cast<uint8_t*>(MapViewOfFile(mapping,FILE_MAP_READ|FILE_MAP_WRITE,0,0,bytes));require(view!=nullptr,"delivery mapping view");
-   require(std::memcmp(view,"LVBM",4)==0&&get(view+4,4)==1&&get(view+8,4)==bytes&&get(view+12,4)==0&&std::memcmp(view+16,session.data(),16)==0,"delivery mapping version/identity");
+   require(std::memcmp(view,"LVBM",4)==0&&get(view+4,4)==2&&get(view+8,4)==bytes&&get(view+12,4)==0&&std::memcmp(view+16,session.data(),16)==0,"delivery mapping version/identity");
    require(flag(64)==0&&flag(128)==0,"delivery mapping initially occupied");
    auto probe=[&](bool precise){auto start=std::chrono::steady_clock::now();for(int i=0;i<32;++i){if(precise)pause();else std::this_thread::sleep_for(std::chrono::microseconds(50));}return uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-start).count()/32);};
    sleep50_ns=probe(false);delay50_ns=probe(true);

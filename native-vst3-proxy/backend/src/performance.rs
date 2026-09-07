@@ -41,7 +41,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
         (1..=256).contains(&get(&b[..4]))
             && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
-            && get(&b[16..20]) <= 1
+            && matches!(get(&b[16..20]), 0 | 2)
             && get(&b[20..24]) <= 3,
         "unsupported setup",
     )
@@ -145,7 +145,7 @@ mod tests {
         assert!(wire(64, 0, 47999.).is_err());
         assert!(wire(64, 1, 48000.).is_err());
         let mut b = wire(64, 0, 48000.).unwrap();
-        b[16] = 2;
+        b[16] = 1; // retired mailbox version
         assert!(validate_wire(&b).is_err());
     }
 }

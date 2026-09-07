@@ -6,6 +6,10 @@ on:
       - '.github/workflows/ap8-windows.yml'
       - 'windows-factory-probe/**'
       - 'vst-state/**'
+      - 'windows-fixtures/ap10/**'
+      - 'native-vst3-proxy/include/ap10*'
+      - 'native-vst3-proxy/source/output_results.h'
+      - 'tools/ap10-tests/**'
 permissions:
   contents: read
 jobs:
@@ -23,7 +27,9 @@ jobs:
         run: |
           cmake -S . -B "${{ runner.temp }}/ap8-build" -G "Visual Studio 17 2022" -A x64 -T v143 "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" -DWF0_BUILD_ONLY=ON "-DWF0_VST3_SDK_ROOT:PATH=${{ runner.temp }}/ap8-sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target wf0-factory-probe wf0-loader-adapter-tests --parallel 4
+          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target wf0-factory-probe wf0-loader-adapter-tests ap10-return-fixture ap10-results-tests --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap10-results-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git rev-parse HEAD | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SOURCE_COMMIT.txt"
           Get-FileHash "${{ runner.temp }}/ap8-build/wf0/bin/Release/*.exe" -Algorithm SHA256 | Format-List | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SHA256.txt"

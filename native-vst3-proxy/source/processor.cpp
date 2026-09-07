@@ -472,7 +472,7 @@ tresult PLUGIN_API Processor::activateBus(MediaType media,BusDirection direction
 #ifdef AP8_PREVIEW
  size_t ordinal=0;for(const auto&b:AP8::buses){
   if(int(b.media)==media&&int(b.direction)==direction&&int(b.index)==index){
-   if(active&&(media==kAudio?b.type!=kMain:direction!=kInput)){
+   if(active&&b.type!=kMain){
     // This owner-thread, inactive SDK operation is outside process().
     char text[256];auto n=std::snprintf(text,sizeof(text),
       "{\"event\":\"ap10_unsupported_bus_activation\",\"media\":%d,\"direction\":%d,\"index\":%d,\"active\":true}\n",media,direction,index);
@@ -586,6 +586,9 @@ tresult PLUGIN_API Processor::setProcessing(TBool running) {
   Guard g(busy_);
   if (!g.held)
     return kResultFalse;
+#ifdef AP8_PREVIEW
+  if(!running)returned_.release_requested=true;
+#endif
   if (!running && phase_ == Failed) {
     want_processing_ = false;
     return kResultOk;
@@ -619,6 +622,12 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   Guard g(busy_);
   auto reject = [&] { return rejected(d); };
   if (!g.held) return reject();
+#ifdef AP8_PREVIEW
+  if(d.numSamples>=0&&returned_.release_requested){
+    auto rejected=returned_.rejected;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
+    if(returned_.rejected!=rejected){ap10_fail_results(handle_);phase_=Failed;return reject();}
+  }
+#endif
   if (phase_ != Running || d.processMode != process_mode_ ||
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||
       d.numSamples > maximum_)
@@ -633,7 +642,10 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     else if(e.type==Event::kNoteOffEvent){v.kind=1;v.id=static_cast<uint32_t>(e.noteOff.noteId);v.channel=e.noteOff.channel;v.pitch=e.noteOff.pitch;v.value=e.noteOff.velocity;v.tuning=e.noteOff.tuning;}else return reject();
     if(!append(v))return reject();}}
   if(d.inputParameterChanges){auto n=d.inputParameterChanges->getParameterCount();if(n<0||n>256)return reject();for(int i=0;i<n;++i){auto*q=d.inputParameterChanges->getParameterData(i);if(!q)return reject();auto id=q->getParameterId();bool known=false;for(const auto&p:AP8::parameters)if(p.id==id){known=true;break;}if(!known)return reject();auto points=q->getPointCount();if(points<0||points>256)return reject();int previous=-1;for(int j=0;j<points;++j){int offset=0;double value=0;if(q->getPoint(j,offset,value)!=kResultOk||offset<previous)return reject();previous=offset;if(!append({static_cast<uint32_t>(offset),2,id,0,0,value,0,0}))return reject();}}}
-  if(d.numSamples==0){if(d.numInputs||d.numOutputs)return reject();float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};if(event_count&&ap8_process(handle_,0,events,event_count,&dummy,&dummy,&dummy,&dummy,&flags,&delivery)){phase_=Failed;return reject();}return kResultOk;}
+  if(d.numSamples==0){
+    if(d.numInputs||d.numOutputs)return reject();float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};ap10_context_t context{};
+    if(ap10_process(handle_,0,events,event_count,&context,0,&dummy,&dummy,&dummy,&dummy,&flags,&delivery)||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}return kResultOk;
+  }
 #else
   bool changed = false;
   if (!parameters(d.inputParameterChanges, pending, changed) ||
@@ -733,6 +745,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   if (r) {
 #ifdef AP8_PREVIEW
+    returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
     if (!admission_failure_.code)
       admission_failure_ = {uint32_t(r), c.state, d.numSamples, input_flags,
                             c.rate, c.cycle_start, c.cycle_end};
@@ -760,8 +773,24 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   gain_max_ = std::max(gain_max_, pending);
   ++blocks_;
   d.outputs[0].silenceFlags = silence;
+#ifdef AP8_PREVIEW
+  if(!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}
+#endif
   return kResultOk;
 }
+#ifdef AP8_PREVIEW
+int Processor::eventOutputActive(int index)const{
+ size_t i=0;for(const auto&b:AP8::buses){if(b.media==kEvent&&b.direction==kOutput&&int(b.index)==index)return bus_active_[i]?1:0;++i;}return -1;
+}
+bool Processor::deliverResults(ProcessData&d){
+ for(size_t i=0;i<1537;++i){
+  if(ap10_take_results(handle_,&returned_.packet))return false;
+  if(!returned_.packet.events&&!returned_.packet.points)return true;
+  if(!returned_.deliver(d,[&](int bus){return eventOutputActive(bus);},[](uint32_t id){for(const auto&p:AP8::parameters)if(p.id==id)return true;return false;})){ap10_fail_results(handle_);return false;}
+ }
+ ap10_fail_results(handle_);return false;
+}
+#endif
 tresult PLUGIN_API Processor::terminate() {
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -780,6 +809,9 @@ tresult PLUGIN_API Processor::terminate() {
       diagnostic_report(report_path_, text, static_cast<size_t>(n));
   }
 #ifdef AP8_PREVIEW
+  if(handle_){ap10_result_stats_t stats{};auto status=ap10_result_stats(handle_,&stats);char text[768];
+   auto n=std::snprintf(text,sizeof(text),"{\"event\":\"ap10_process_results\",\"stats_status\":%u,\"events_delivered\":%llu,\"points_delivered\":%llu,\"late_events\":%llu,\"late_points\":%llu,\"host_unrequested_events\":%llu,\"host_unrequested_points\":%llu,\"rejected\":%llu,\"cleanup_sent\":%llu,\"cleanup_unavailable\":%llu,\"active_notes_unreleased\":%zu,\"discarded_on_reset\":%llu,\"pending_events\":%llu,\"pending_points\":%llu}\n",status,(unsigned long long)returned_.events,(unsigned long long)returned_.points,(unsigned long long)stats.late_events,(unsigned long long)stats.late_points,(unsigned long long)returned_.unrequested_events,(unsigned long long)returned_.unrequested_points,(unsigned long long)returned_.rejected,(unsigned long long)returned_.cleanup_sent,(unsigned long long)returned_.cleanup_unavailable,returned_.active_notes(),(unsigned long long)stats.discarded_on_reset,(unsigned long long)stats.pending_events,(unsigned long long)stats.pending_points);
+   if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));}
   if (admission_failure_.code) {
     const auto& f = admission_failure_;
     char text[384];

@@ -7,6 +7,7 @@ mod mailbox;
 mod observer;
 mod performance;
 mod preview;
+mod process_results;
 mod queue;
 mod queued;
 mod recovery;
@@ -32,6 +33,7 @@ struct Session {
     mailbox: Option<mailbox::Mailbox>,
     mailbox_enabled: bool,
     notices: (u32, u64),
+    returned: process_results::Packet,
     socket: TcpStream,
     state: ClientState,
     phase: u16,
@@ -122,6 +124,7 @@ impl Session {
             mailbox,
             mailbox_enabled: false,
             notices: (0, 0),
+            returned: process_results::Packet::default(),
             socket,
             state: ClientState {
                 session: id,
@@ -133,7 +136,7 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9) {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -215,7 +218,7 @@ impl Session {
         )?;
         performance::validate_wire(&bytes)?;
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
-        let mailbox_version = u64::from(self.mailbox.is_some());
+        let mailbox_version = 2 * u64::from(self.mailbox.is_some());
         put(&mut bytes[16..20], mailbox_version);
         let reply = self.exchange(20, bytes)?;
         need(
@@ -223,7 +226,7 @@ impl Session {
                 && matches!(get(&reply.payload[8..12]), 1 | 3),
             "invalid setup response",
         )?;
-        self.mailbox_enabled = mailbox_version == 1;
+        self.mailbox_enabled = mailbox_version == 2;
         Ok(reply.payload)
     }
     fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
@@ -309,11 +312,11 @@ impl Session {
         context: context::Context,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            matches!(self.minor, 5 | 7 | 8) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -354,6 +357,9 @@ impl Session {
                 snapshot[ch][i + 1] = input[ch][i].to_bits();
             }
         }
+        self.returned.events = 0;
+        self.returned.points = 0;
+        self.returned.bytes = 0;
         let result = (|| {
             let map = self
                 .mapping
@@ -399,12 +405,12 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8) {
+            if matches!(self.minor, 5 | 7 | 8 | 9) {
                 request
                     .payload
                     .extend_from_slice(&events::encode(events, n)?);
             }
-            if self.minor == 8 {
+            if self.minor >= 8 {
                 request.payload.extend(context.encode());
             }
             self.trace.prepared = Some(std::time::Instant::now());
@@ -427,28 +433,34 @@ impl Session {
             self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
                 need(
-                    reply.payload.len()
-                        == if self.minor == 8 {
-                            56
-                        } else if self.minor >= 6 {
-                            40
-                        } else {
-                            32
-                        }
-                        && get(&reply.payload[16..24]) == self.epoch
+                    (if self.minor == 9 {
+                        reply.payload.len() >= 72
+                    } else {
+                        reply.payload.len()
+                            == if self.minor == 8 {
+                                56
+                            } else if self.minor >= 6 {
+                                40
+                            } else {
+                                32
+                            }
+                    }) && get(&reply.payload[16..24]) == self.epoch
                         && get(&reply.payload[24..32]) == self.position,
                     "Done epoch/position differs",
                 )?;
                 if self.minor >= 6 {
                     self.trace.process_ns = Some(get(&reply.payload[32..40]));
                 }
-                if self.minor == 8 {
+                if self.minor >= 8 {
                     let flags = get(&reply.payload[40..44]) as u32;
                     need(
                         flags & !10 == 0 && get(&reply.payload[52..56]) == 0,
                         "restart notification fields",
                     )?;
                     self.notices = (flags, get(&reply.payload[44..52]));
+                    if self.minor == 9 {
+                        self.returned = process_results::Packet::decode(&reply.payload[56..], n)?;
+                    }
                 }
                 reply.payload.truncate(16);
             }

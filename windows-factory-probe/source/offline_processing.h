@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "ap8_events.h"
+#include "../../native-vst3-proxy/include/ap10_results.h"
 #include "bus_layout.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
@@ -39,7 +40,7 @@ public:
     virtual void after_process() {}
     virtual void ready() = 0;
     virtual bool next(ExternalBlock&, float* left, float* right) = 0;
-    virtual void done(const float* left, const float* right, uint64_t silence, uint64_t process_ns = 0) = 0;
+    virtual void done(const float* left, const float* right, uint64_t silence, uint64_t process_ns = 0, const ap10_results_t* results = nullptr) = 0;
 };
 struct OfflineResult { bool success; bool quiescent; };
 OfflineResult run_offline_processing(Steinberg::Vst::IComponent& component,

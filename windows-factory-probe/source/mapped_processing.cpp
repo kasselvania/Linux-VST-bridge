@@ -142,17 +142,17 @@ struct MappedSession::Impl {
  void configure(const Frame& f){
   using namespace Steinberg;using namespace Steinberg::Vst;
   require(performance&&processor&&std::this_thread::get_id()==owner&&!active&&!timeline.running&&!state.outstanding,"configuration requires inactive owner");
-  require(f.session==state.session&&f.sequence==state.next&&(f.payload.size()==24||(socket.minor==8&&f.payload.size()>=28)),"configuration correlation/extent");
+  require(f.session==state.session&&f.sequence==state.next&&(f.payload.size()==24||(socket.minor>=8&&f.payload.size()>=28)),"configuration correlation/extent");
   auto p=f.payload.data();auto m=uint32_t(get(p,4)),md=uint32_t(get(p+4,4));double hz;std::memcpy(&hz,p+8,8);
-  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&get(p+16,4)<=1&&(socket.minor==8?(get(p+20,4)==1||get(p+20,4)==3):get(p+20,4)==0),"unsupported processing configuration");
+  require(m>=1&&m<=capacity&&(md==0||md==2)&&(hz==44100.||hz==48000.||hz==88200.||hz==96000.||hz==192000.)&&(get(p+16,4)==0||get(p+16,4)==2)&&(socket.minor>=8?(get(p+20,4)==1||get(p+20,4)==3):get(p+20,4)==0),"unsupported processing configuration");
   const auto mailbox_version=get(p+16,4);
   if(mailbox_version&&!mailbox){mailbox=std::make_unique<DeliveryMailbox>(directory,state.session);
    events.lifecycle("ap10_wait_resolution",",\"samples_per_method\":32,\"sleep50_mean_ns\":"+std::to_string(mailbox->sleep50_ns)+",\"ntdelay50_mean_ns\":"+std::to_string(mailbox->delay50_ns));}
-  require(mailbox_version==uint64_t(bool(mailbox)),"delivery configuration differs");
+  require(mailbox_version==2*uint64_t(bool(mailbox)),"delivery configuration differs");
   const bool support32=processor->canProcessSampleSize(kSample32)==kResultTrue,support64=processor->canProcessSampleSize(kSample64)==kResultTrue;
   require(support32,"Windows plugin does not support float32");
-  can_notify.store(socket.minor==8&&(get(p+20,4)&2));
-  buses.read(*component,*processor);if(socket.minor==8)buses.contract(f.payload);buses.negotiate(*processor);
+  can_notify.store(socket.minor>=8&&(get(p+20,4)&2));
+  buses.read(*component,*processor);if(socket.minor>=8)buses.contract(f.payload);buses.negotiate(*processor);
   ProcessSetup setup{int32(md),kSample32,int32(m),hz};
   require(processor->setupProcessing(setup)==kResultOk,"Windows processing setup rejected");
   // SDK latency is queried on the owner only after successful setup.
@@ -176,7 +176,7 @@ struct MappedSession::Impl {
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
 MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful,bool commercial,bool performance):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?8:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
+ auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?9:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
@@ -249,8 +249,8 @@ void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
 bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{require(!x.controller_update_failed.load(),"controller automation update failed");x.diagnostic.current={};x.diagnostic.stamp(0);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
- if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames,x.socket.minor==8?96:0);}
- out.has_context=x.socket.minor==8&&decode_context(f.payload.data()+f.payload.size()-96,out.context,x.rate);
+ if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames,x.socket.minor>=8?96:0);}
+ out.has_context=x.socket.minor>=8&&decode_context(f.payload.data()+f.payload.size()-96,out.context,x.rate);
  // Queue controller UI values separately; processor event order and offsets
  // are unchanged. The owner drains again at each serialized state barrier.
  if(x.commercial)for(size_t i=0;i<out.event_count;++i)if(out.events[i].kind==2)
@@ -265,7 +265,7 @@ bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*im
  }catch(const std::exception&e){x.error(e);throw;}}
 void MappedSession::before_process(){impl_->diagnostic.stamp(3);}
 void MappedSession::after_process(){impl_->diagnostic.stamp(4);}
-void MappedSession::done(const float* left,const float* right,uint64_t silence,uint64_t process_ns) {
+void MappedSession::done(const float* left,const float* right,uint64_t silence,uint64_t process_ns,const ap10_results_t* results) {
  auto& x=*impl_;
  try {
   x.diagnostic.stamp(5);
@@ -276,7 +276,16 @@ void MappedSession::done(const float* left,const float* right,uint64_t silence,u
   auto payload=processing_result(x.current,left,right,silence);
   if(x.sustained)x.timeline.result(payload,x.current.frames);
   if(x.performance){payload.resize(40);put(payload.data()+32,process_ns,8);}
-  if(x.socket.minor==8){payload.resize(56);put(payload.data()+40,x.published_restart.exchange(0),4);put(payload.data()+44,x.published_traits.load(),8);}
+  if(x.socket.minor>=8){payload.resize(56);put(payload.data()+40,x.published_restart.exchange(0),4);put(payload.data()+44,x.published_traits.load(),8);}
+  if(x.socket.minor==9){
+   require(results!=nullptr,"process results absent");const auto&r=*results;
+   require(r.events<=ap10_event_capacity&&r.points<=ap10_point_capacity&&r.bytes<=ap10_payload_capacity,"process result capacity");
+   auto base=payload.size();payload.resize(base+16+64*r.events+16*r.points+r.bytes);auto*p=payload.data()+base;
+   put(p,r.events,4);put(p+4,r.points,4);put(p+8,r.bytes,4);p+=16;
+   for(uint32_t i=0;i<r.events;++i,p+=64){const auto&e=r.event[i];put(p,uint32_t(e.offset),4);put(p+4,uint32_t(e.bus),4);put(p+8,std::bit_cast<uint64_t>(e.ppq),8);put(p+16,e.flags,2);put(p+18,e.kind,2);put(p+20,e.payload_offset,4);put(p+24,e.payload_size,4);put(p+28,uint32_t(e.a),4);put(p+32,uint32_t(e.b),4);put(p+36,uint32_t(e.c),4);put(p+40,e.d,4);put(p+48,e.value,8);put(p+56,e.extra,8);}
+   for(uint32_t i=0;i<r.points;++i,p+=16){const auto&q=r.point[i];put(p,uint32_t(q.offset),4);put(p+4,q.id,4);put(p+8,std::bit_cast<uint64_t>(q.value),8);}
+   std::memcpy(p,r.payload,r.bytes);
+  }
   for(size_t ch=0;ch<2;++ch)
    std::memcpy(x.view+output_offset+ch*stride+4,ch?right:left,x.current.frames*4);
   barrier();

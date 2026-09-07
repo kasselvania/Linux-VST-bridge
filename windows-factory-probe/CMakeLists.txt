@@ -37,3 +37,17 @@ target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginte
 set_target_properties(wf0-loader-adapter-tests PROPERTIES
     OUTPUT_NAME "wf0-loader-adapter-tests"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# Deterministic SDK producer/consumer instrumentation for the AP10 return seam.
+add_library(ap10-return-fixture SHARED
+    ../windows-fixtures/ap10/return_fixture.cpp
+    "${WF0_VST3_SDK_ROOT}/public.sdk/source/main/dllmain.cpp")
+target_include_directories(ap10-return-fixture PRIVATE "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap10-return-fixture PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_link_libraries(ap10-return-fixture PRIVATE sdk)
+set_target_properties(ap10-return-fixture PROPERTIES PREFIX "" SUFFIX ".vst3" RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+add_executable(ap10-results-tests ../tools/ap10-tests/results.cpp)
+target_include_directories(ap10-results-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/native-vst3-proxy/include" "${WF0_VST3_SDK_ROOT}")
+target_compile_options(ap10-results-tests PRIVATE /UNDEBUG)
+target_link_libraries(ap10-results-tests PRIVATE sdk)
+set_target_properties(ap10-results-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

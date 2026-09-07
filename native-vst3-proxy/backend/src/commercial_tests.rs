@@ -139,6 +139,7 @@ fn real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization() {
             mailbox: None,
             mailbox_enabled: false,
             notices: (0, 0),
+            returned: crate::process_results::Packet::default(),
             mapping: Some(mapping),
             socket,
             state: ClientState {
@@ -274,6 +275,7 @@ fn performance_setup_and_reference_state_keep_their_protocol_roles() {
         mailbox: None,
         mailbox_enabled: false,
         notices: (0, 0),
+        returned: crate::process_results::Packet::default(),
         mapping: None,
         socket,
         state: ClientState {

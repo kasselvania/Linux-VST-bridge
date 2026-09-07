@@ -58,6 +58,43 @@ impl Item {
         }
     }
 }
+#[derive(Clone, Copy)]
+struct AudioResult {
+    n: u32,
+    position: u64,
+    flags: u64,
+    data: [[f32; CAP]; 2],
+}
+impl AudioResult {
+    fn empty() -> Self {
+        Self {
+            n: 0,
+            position: 0,
+            flags: 0,
+            data: [[0.; CAP]; 2],
+        }
+    }
+}
+#[derive(Clone, Copy)]
+struct Completion {
+    audio: AudioResult,
+    epoch: u64,
+    returned: crate::process_results::Packet,
+}
+impl From<Item> for Completion {
+    fn from(i: Item) -> Self {
+        Self {
+            audio: AudioResult {
+                n: i.n,
+                position: i.position,
+                flags: i.flags,
+                data: i.data,
+            },
+            epoch: i.epoch,
+            returned: crate::process_results::Packet::default(),
+        }
+    }
+}
 struct Shared {
     snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
     generation: u64,
@@ -67,7 +104,7 @@ struct Shared {
     last_edit: AtomicU64,
     retired: AtomicBool,
     requests: Queue<Item>,
-    results: Queue<Item>,
+    results: Queue<Completion>,
     wanted: AtomicU64,
     fault: AtomicU64,
     ack: AtomicU64,
@@ -177,7 +214,9 @@ struct Callback {
     running: bool,
     have: bool,
     offset: usize,
-    current: Item,
+    current: AudioResult,
+    audio: std::collections::VecDeque<AudioResult>,
+    returned: crate::process_results::Pending,
     next_result: u64,
     in_gap: bool,
     delivery: Delivery,
@@ -191,7 +230,9 @@ impl Callback {
             running: false,
             have: false,
             offset: 0,
-            current: Item::control(0, 0),
+            current: AudioResult::empty(),
+            audio: std::collections::VecDeque::with_capacity(DESCRIPTORS),
+            returned: crate::process_results::Pending::new(),
             next_result: 0,
             in_gap: false,
             delivery: Delivery::default(),
@@ -210,11 +251,15 @@ impl Callback {
                 self.next_result = 0;
                 self.in_gap = false;
                 s.results.discard_published();
+                self.audio.clear();
+                self.returned.reset();
                 s.wanted.store(self.epoch, Ordering::Release);
                 self.running = true;
             }
             STOP if self.running => {
                 self.running = false;
+                self.audio.clear();
+                self.returned.reset();
                 s.wanted.store(0, Ordering::Release);
             }
             _ => return 1,
@@ -250,7 +295,40 @@ impl Callback {
         self.delivery = Delivery::default();
         let n = request.n as usize;
         let mut flags = 3;
-        let mut popped = 0;
+        // Consume whole completions independently of audio presentation. This
+        // admits zero-frame results and preserves late events before audio expiry.
+        for _ in 0..DESCRIPTORS {
+            let Some(item) = s.results.pop() else {
+                break;
+            };
+            if item.epoch < self.epoch {
+                continue;
+            }
+            let a = item.audio;
+            if item.epoch != self.epoch
+                || a.n as usize > CAP
+                || a.position != self.next_result
+                || a.position.checked_add(a.n as u64).is_none()
+            {
+                s.fail(CORRELATION, self.position);
+                return Err(2);
+            }
+            self.next_result += a.n as u64;
+            if !self
+                .returned
+                .append(&item.returned, a.position, a.n as usize, self.delay)
+            {
+                s.fail(OVERFLOW, self.position);
+                return Err(2);
+            }
+            if a.n > 0 {
+                if self.audio.len() == DESCRIPTORS {
+                    s.fail(OVERFLOW, self.position);
+                    return Err(2);
+                }
+                self.audio.push_back(a);
+            }
+        }
         let mut i = 0;
         while i < n {
             let position = self.position + i as u64;
@@ -265,28 +343,8 @@ impl Callback {
             }
             let expected = position - self.delay;
             if !self.have {
-                // One bound for the entire callback, including expired and
-                // old-epoch output. Admitted inputs are never discarded.
-                if popped == DESCRIPTORS {
-                    s.fail(OVERFLOW, position);
-                    return Err(2);
-                }
-                match s.results.pop() {
+                match self.audio.pop_front() {
                     Some(item) => {
-                        popped += 1;
-                        if item.epoch < self.epoch {
-                            continue;
-                        }
-                        if item.epoch != self.epoch
-                            || item.n == 0
-                            || item.n as usize > CAP
-                            || item.position != self.next_result
-                            || item.position.checked_add(item.n as u64).is_none()
-                        {
-                            s.fail(CORRELATION, position);
-                            return Err(2);
-                        }
-                        self.next_result += item.n as u64;
                         self.current = item;
                         self.offset = 0;
                         self.have = true;
@@ -482,8 +540,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         Ordering::Relaxed,
                     );
                     s.processed.fetch_add(1, Ordering::Relaxed);
-                    let publish = n > 0 && s.wanted.load(Ordering::Acquire) == item.epoch;
-                    if publish && !s.results.push(item) {
+                    let publish = s.wanted.load(Ordering::Acquire) == item.epoch;
+                    let mut completion = Completion::from(item);
+                    completion.returned = session.returned;
+                    if publish && !s.results.push(completion) {
                         s.fail(OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
                     }
@@ -1195,6 +1255,10 @@ unsafe fn process_events(
     if context.chunk(n).is_none() {
         return if detailed { 0x105 } else { 1 };
     }
+    {
+        let callback = &mut *l.callback.get();
+        callback.returned.window(callback.position, n);
+    }
     let mut total = Delivery::default();
     let mut combined = 3;
     let mut offset = 0;
@@ -1421,7 +1485,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 8 } else { 6 },
+        if identity.is_some() { 9 } else { 6 },
         identity,
     )
 }
@@ -1532,6 +1596,60 @@ pub unsafe extern "C" fn ap10_notices(id: u64, out: *mut u32) -> u32 {
     *out = flags as u32;
     *out.add(1) = traits as u32;
     *out.add(2) = (traits >> 32) as u32;
+    0
+}
+
+#[no_mangle]
+pub extern "C" fn ap10_results_abi_version() -> u32 {
+    1
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap10_take_results(
+    id: u64,
+    out: *mut crate::process_results::Packet,
+) -> u32 {
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let Some(_g) = Guard::acquire(&l) else {
+        return 3;
+    };
+    if out.is_null() {
+        return 1;
+    }
+    if l.shared.fault.load(Ordering::Acquire) != 0 {
+        return 2;
+    }
+    (*l.callback.get()).returned.take(&mut *out);
+    0
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap10_result_stats(
+    id: u64,
+    out: *mut crate::process_results::Stats,
+) -> u32 {
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let Some(_g) = Guard::acquire(&l) else {
+        return 3;
+    };
+    if out.is_null() {
+        return 1;
+    }
+    *out = (*l.callback.get()).returned.stats();
+    0
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let Some(_g) = Guard::acquire(&l) else {
+        return 3;
+    };
+    l.shared.fail(5, (*l.callback.get()).position);
+    (*l.callback.get()).returned.reset();
     0
 }
 
@@ -1871,6 +1989,7 @@ mod tests {
             mailbox: None,
             mailbox_enabled: false,
             notices: (0, 0),
+            returned: crate::process_results::Packet::default(),
             mapping: Some(mapping),
             socket,
             state: ClientState {
@@ -1957,7 +2076,7 @@ mod tests {
                     }
                 }
                 r.flags = if r.gain == 0. { 3 } else { r.flags };
-                assert!(s.results.push(r));
+                assert!(s.results.push(r.into()));
             }
         }
     }
@@ -1988,9 +2107,9 @@ mod tests {
             let mut out = [[999.; CAP]; 2];
             cb.process(&s, r, &mut out).unwrap();
             for i in 0..n {
-                for ch in 0..2 {
+                for (ch, plane) in out.iter().enumerate() {
                     assert_eq!(
-                        out[ch][i],
+                        plane[i],
                         if count + i < DELAY as usize {
                             0.
                         } else {
@@ -2034,7 +2153,7 @@ mod tests {
         assert_eq!(cb.delivery.missing_frames, 0);
         assert_eq!(&out[0][..128], &[0.125; 128]);
         assert_eq!(cb.epoch, 1);
-        assert_eq!(cb.next_result, 256);
+        assert_eq!(cb.next_result, 1152); // all five completions decoded before presentation
         pump(&s);
         // A second gap can outlive several complete returned blocks.
         let s = Shared::new();
@@ -2075,7 +2194,7 @@ mod tests {
         let mut old = r;
         old.epoch = 1;
         old.position = 999;
-        assert!(s.results.push(old));
+        assert!(s.results.push(old.into()));
         for _ in 0..4 {
             cb.process(&s, r, &mut out).unwrap();
             assert_eq!(out, [[0.; CAP]; 2]);
@@ -2107,7 +2226,7 @@ mod tests {
         }
         r.epoch = 1;
         r.position = 1;
-        assert!(s.results.push(r));
+        assert!(s.results.push(r.into()));
         assert_eq!(cb.process(&s, r, &mut out), Err(2));
         assert_eq!(s.fault.load(Ordering::Acquire), CORRELATION);
     }
