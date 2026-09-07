@@ -1,5 +1,7 @@
 # AP10 technical-lead handoff
 
+Historical handoff: its pending scope decision was closed by review 5128434219 and CURRENT_SLICE at 5be898e. The return path is now implemented in this PR; see `AP10.md` for current verification and remaining device work. The observations below retain their original source and claim level.
+
 PR #71 is draft, open and unmerged against AP9's branch. AP10 is **incomplete**. Do not promote earlier Serum playback into evidence for the current bus implementation. Do not alter AP8 #67 or AP9 #69.
 
 ## Concrete decision

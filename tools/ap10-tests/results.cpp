@@ -36,5 +36,11 @@ ap1::put(p.data()+48,0,4);b.contract(p);assert(!b.buses[0].active);out.supported
  c.reset(0);q=c.addParameterData(42,index);assert(q->addPoint(0,0.5,index)==kResultOk);assert(q->addPoint(1,0.5,index)!=kResultOk&&c.failed);
  c.reset(128);for(int i=0;i<64;++i)assert(c.addEvent(on)==kResultOk);assert(c.addEvent(on)!=kResultOk&&c.failed);
  c.reset(128);auto bad=events[2];bad.data.size=513;assert(c.addEvent(bad)!=kResultOk&&c.failed);
+ c.reset(128);std::array<uint8_t,512> bounded{};bad.data={512,0,bounded.data()};for(int i=0;i<8;++i)assert(c.addEvent(bad)==kResultOk);assert(c.values.bytes==4096);assert(c.addEvent(bad)!=kResultOk&&c.failed);
+ c.reset(128);q=c.addParameterData(42,index);for(int i=0;i<128;++i)assert(q->addPoint(0,.25,index)==kResultOk);assert(q->addPoint(0,.25,index)!=kResultOk&&c.failed);
+ // The native delivery helper must surface a real SDK addPoint refusal.
+ host.reset(128);q=host.addParameterData(42,index);for(int i=0;i<128;++i)assert(q->addPoint(0,.5,index)==kResultOk);
+ o.packet={};o.packet.points=1;o.packet.point[0]={0,42,.25};d.outputParameterChanges=&host;auto rejected=o.rejected;
+ assert(!o.deliver(d,[](int){return 1;},[](uint32_t){return true;}));assert(o.rejected==rejected+1&&host.failed);
  std::cout<<"SDK process-result variants, owned payloads, output sinks, cleanup and bounds PASS\n";
 }

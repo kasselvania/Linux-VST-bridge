@@ -1,0 +1,98 @@
+{
+  "schema": "ap10-return-path-development/v1",
+  "work_order": "5be898e18760cebefe309abdd7fe33049392391f",
+  "review": 5128434219,
+  "implementation_commits": [
+    "b7a8573808ad650c3b1b787f6ed66e95efe81093",
+    "68059fd12d10ffc5f04707d8579727f7b8b0d5ee",
+    "94c762c1ce68beea1108286293bc39dd779bba9c",
+    "e4df377047438493012ebf95ecc087754a7e8d8f"
+  ],
+  "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+  "pluginterfaces": "4f547e8e102b47de4a8b8aaf343c73b700786372",
+  "protocol_minor": 9,
+  "mailbox_version": 2,
+  "c_abi_version": 1,
+  "bounds": {
+    "completion_events": 64,
+    "completion_parameter_points": 128,
+    "completion_payload_bytes": 4096,
+    "event_payload_bytes": 512,
+    "pending_events": 512,
+    "pending_points": 1024,
+    "downstream_tracked_notes": 512
+  },
+  "local_results": [
+    {
+      "test": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "source": "e4df377047438493012ebf95ecc087754a7e8d8f",
+      "passed": 40,
+      "failed": 0,
+      "coverage": "Includes actual callback/completion audio expiry with returned note-off, zero-frame feedback, generation, ownership and existing AP7 audio behavior."
+    },
+    {
+      "test": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --all-targets -- -D warnings",
+      "source": "e4df377047438493012ebf95ecc087754a7e8d8f",
+      "result": "pass"
+    },
+    {
+      "test": "tools/ap10-tests/results.cpp with pinned SDK and assertions enabled",
+      "result": "pass",
+      "coverage": "All ten SDK event variants, signed values, owned payload lifetime, bus support versus selected activation, null/inactive sinks, note cleanup, event/parameter/payload bounds, and native SDK addPoint refusal. Includes follow-up test-only additions in this commit."
+    },
+    {
+      "test": "native processor and SDK consumer C++ syntax checks",
+      "source": "e4df377047438493012ebf95ecc087754a7e8d8f",
+      "result": "pass"
+    }
+  ],
+  "builds": [
+    {
+      "kind": "Windows host and original SDK fixture",
+      "execution_source": "b7a8573808ad650c3b1b787f6ed66e95efe81093",
+      "ci_source": "c6279e4c1c634dc67e3f5d842850b19a311f637d",
+      "matching_tree": "d7cdf4bd6c75a10aba08fee0daf8a934bb8ab963",
+      "run": 34089853880,
+      "result": "pass",
+      "host_sha256": "e2134800bac9549167a28de8aa6d6b96c71a9b901c5ae0f43e1909ce67d8dd15",
+      "fixture_sha256": "0fa64fd84bef303bc244b47e8f12911a390b0de125b3e6aee2eb0d3f450aa4f4"
+    },
+    {
+      "kind": "native proxy and SDK consumer",
+      "source": "68059fd12d10ffc5f04707d8579727f7b8b0d5ee",
+      "result": "failed",
+      "reason": "misleading-indentation warning in zero-frame return branch; corrected in 94c762c"
+    },
+    {
+      "kind": "native proxy and SDK consumer",
+      "source": "94c762c1ce68beea1108286293bc39dd779bba9c",
+      "result": "pass",
+      "input_archive_sha256": "75c120d04ba3f9494fc5860a6d0997b24e8e6d38445041853d0bcfb9688eb664",
+      "proxy_sha256": "80a426712c410785d98ab5699ec2635596ba9cf6c578575f4cb3abffc2d0f13d",
+      "published": false
+    },
+    {
+      "kind": "Windows host, original SDK fixture and pinned-SDK unit test",
+      "source": "e4df377047438493012ebf95ecc087754a7e8d8f",
+      "run": 34091094784,
+      "result": "pass"
+    }
+  ],
+  "not_yet_verified": [
+    "SDK Windows producer through production mailbox/queue into native host sinks",
+    "current-candidate normal Bitwig Serum playback, state recall and close",
+    "affected FRAGMENTS checks",
+    "matched working-candidate 256/512 desktop comparison"
+  ],
+  "device_gate": {
+    "status": "explicit transfer authorization pending",
+    "reason": "Automatic tool approval review rejected Windows host, original SDK fixture and metadata transfer to the existing Steam Deck test-input directory. Destination identity reverified; no workaround attempted."
+  },
+  "recommended_added_frames": 512,
+  "nonclaims": [
+    "No full production return-path pass yet.",
+    "No current-candidate commercial playback claim from unit/build results.",
+    "Historical gaps, unresolved 31.9-ms interval and close-time engine crash remain unchanged.",
+    "discarded_on_reset counts native pending presentation values, not every unpublished Windows result."
+  ]
+}
