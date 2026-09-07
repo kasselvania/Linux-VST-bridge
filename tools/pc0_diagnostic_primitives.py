@@ -1,7 +1,7 @@
 """Diagnostic-only copies of pinned PC0 functions, with explicit runtime identity.
 
-Source: 309b8918c128c0b9e6701d0453dc841a111d5ac5. Process tracking now uses fresh stat-only identities; lifecycle metadata remains
-full. Polling, plug-in, normalization and retirement operations are preserved;
+Source: 309b8918c128c0b9e6701d0453dc841a111d5ac5. Process tracking now uses
+fresh stat-only identities; lifecycle metadata remains full. Polling, plug-in, normalization and retirement operations are preserved;
 focused tests compare their bodies against that source. Frozen Deck files are
 never edited.
 """
