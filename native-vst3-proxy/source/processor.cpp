@@ -433,6 +433,9 @@ Processor::~Processor() {
     queued_ ? (void)ap3_close(handle_) : (void)ap2_close(handle_);
 }
 tresult PLUGIN_API Processor::initialize(FUnknown *context) {
+#ifdef AP8_PREVIEW
+  if(ap10_results_abi_version()!=1)return kResultFalse;
+#endif
   Guard g(busy_);
   if (!g.held || phase_ != New || ap2_abi_version() != 1)
     return kResultFalse;
@@ -442,9 +445,9 @@ tresult PLUGIN_API Processor::initialize(FUnknown *context) {
 #ifdef AP8_PREVIEW
   size_t ordinal=0;
   for(const auto& b:AP8::buses){
-    bool enabled=b.media==kAudio?b.type==kMain:b.direction==kInput;
+    bool enabled=b.type==kMain&&(b.flags&BusInfo::kDefaultActive);
     bus_active_[ordinal++]=enabled;
-    auto flags=(b.flags&~BusInfo::kDefaultActive)|(enabled?BusInfo::kDefaultActive:0);
+    auto flags=b.flags;
     const auto* name=reinterpret_cast<const TChar*>(b.name);
     if(b.media==kAudio){if(b.direction==kInput)addAudioInput(name,b.arrangement,b.type,flags);else addAudioOutput(name,b.arrangement,b.type,flags);}
     else {if(b.direction==kInput)addEventInput(name,b.channels,b.type,flags);else addEventOutput(name,b.channels,b.type,flags);}

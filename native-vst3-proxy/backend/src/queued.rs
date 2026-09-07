@@ -2173,6 +2173,59 @@ mod tests {
         assert_eq!(cb.epoch, 1);
     }
     #[test]
+    fn production_audio_expiry_keeps_required_returned_note_off_and_zero_flush() {
+        let s = Shared::new();
+        let mut cb = Callback::new();
+        cb.delay = 128;
+        cb.transition(&s, START);
+        let mut request = Item::control(AUDIO, 0);
+        request.n = 128;
+        let mut out = [[0.; CAP]; 2];
+        for _ in 0..4 {
+            cb.returned.window(cb.position, 128);
+            cb.process(&s, request, &mut out).unwrap();
+        }
+        assert_eq!(cb.delivery.missing_frames, 128);
+        let mut first = Completion::from(Item::control(AUDIO, 1));
+        first.audio.n = 128;
+        first.returned.events = 1;
+        first.returned.event[0] = crate::process_results::Event {
+            kind: 1,
+            a: -77,
+            offset: 7,
+            ..Default::default()
+        };
+        assert!(s.results.push(first));
+        let mut flush = Completion::from(Item::control(AUDIO, 1));
+        flush.audio.position = 128;
+        flush.returned.points = 1;
+        flush.returned.point[0] = crate::process_results::Point {
+            offset: 0,
+            id: 42,
+            value: 0.25,
+        };
+        assert!(s.results.push(flush));
+        cb.returned.window(cb.position, 128);
+        cb.process(&s, request, &mut out).unwrap();
+        assert_eq!(cb.delivery.expired_frames, 128);
+        assert_eq!(s.fault.load(Ordering::Acquire), 0);
+        let mut packet = crate::process_results::Packet::default();
+        cb.returned.take(&mut packet);
+        assert_eq!((packet.events, packet.points), (1, 1));
+        assert_eq!(
+            (
+                packet.event[0].kind,
+                packet.event[0].a,
+                packet.event[0].offset
+            ),
+            (1, -77, 0)
+        );
+        assert_eq!(packet.point[0].offset, 0);
+        assert_eq!(cb.returned.stats().late_events, 1);
+        cb.returned.take(&mut packet);
+        assert_eq!((packet.events, packet.points), (0, 0));
+    }
+    #[test]
     fn stop_restart_discards_old_epoch_and_resets_delay() {
         let s = Shared::new();
         let mut cb = Callback::new();

@@ -169,8 +169,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         block.data.inputParameterChanges=&block.commercial_parameters;block.data.inputEvents=&block.notes;
                     }
                     block.returned.reset(block.data.numSamples);
-                    block.data.outputEvents=&block.returned;
-                    block.data.outputParameterChanges=&block.returned;
+                    block.data.outputEvents=external&&external->returned_results()?&block.returned:nullptr;
+                    block.data.outputParameterChanges=external&&external->returned_results()?&block.returned:nullptr;
                     block.data.processContext=block.request.has_context?&block.request.context:nullptr;
                     block.worker_thread=std::this_thread::get_id()!=owner;
                     if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));

@@ -35,7 +35,7 @@ public:
   auto active=eventOutputs.at(0)&&eventOutputs.at(0)->isActive();
   if(!d.outputEvents||!active)return kResultOk;
   auto emit=[&](Event e,int offset){e.busIndex=0;e.sampleOffset=std::min(std::max(0,d.numSamples-1),trigger+offset);e.ppqPosition=7.25;e.flags=0xc001;d.outputEvents->addEvent(e);};
-  auto note=[&](bool on,int id,int offset){Event e{};e.type=on?Event::kNoteOnEvent:Event::kNoteOffEvent;if(on)e.noteOn={2,60,1.5f,.75f,0,id};else e.noteOff={2,60,.25f,id,-2.5f};emit(e,offset);};
+  auto note=[&](bool on,int id,int offset){Event e{};e.type=on?Event::kNoteOnEvent:Event::kNoteOffEvent;if(on)e.noteOn={2,60,1.5f,.75f,id==-1234?99:0,id};else e.noteOff={2,60,.25f,id,-2.5f};emit(e,offset);};
   if(command==1||command==7){note(true,-77,5);return kResultOk;}
   if(command==2){note(false,-77,7);return kResultOk;}
   if(command==4){for(int i=0;i<65;++i){Event e{};e.type=Event::kLegacyMIDICCOutEvent;e.midiCCOut={64,2,32,0};emit(e,0);}return kResultOk;}

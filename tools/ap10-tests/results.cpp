@@ -1,8 +1,13 @@
 #include "native-vst3-proxy/source/output_results.h"
+#include "windows-factory-probe/source/bus_layout.h"
 #include <cassert>
 #include <iostream>
 using namespace AP10Results;
 int main(){
+ {using namespace linux_vst_bridge;wf0::BusLayout b;b.size=1;auto&out=b.buses[0];out.info.mediaType=1;out.info.direction=1;out.info.channelCount=16;out.info.busType=0;out.info.flags=0;out.supported=true;out.active=false;
+std::vector<uint8_t> p(60);ap1::put(p.data()+20,1,4);ap1::put(p.data()+24,1,4);ap1::put(p.data()+28,1,4);ap1::put(p.data()+32,1,4);ap1::put(p.data()+40,16,4);ap1::put(p.data()+48,1,4);b.contract(p);assert(b.buses[0].active);
+ap1::put(p.data()+48,0,4);b.contract(p);assert(!b.buses[0].active);out.supported=false;ap1::put(p.data()+48,1,4);bool refused=false;try{b.contract(p);}catch(...){refused=true;}assert(refused);}
+
  Collector c;c.buses=1;c.channels[0]=16;c.reset(128);
  std::array<Event,10> events{};uint16_t kinds[]={0,1,2,3,4,5,6,7,8,65535};
  uint8_t sysex[]={0xf0,0x01,0xf7};TChar text[]={u'A',u'B',0};

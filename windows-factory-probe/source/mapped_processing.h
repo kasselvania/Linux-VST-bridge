@@ -11,6 +11,7 @@ public:
     Steinberg::tresult request_restart(int32_t) override;
     bool commercial() const override;
     bool performance() const override;
+    bool returned_results() const override;
  const BusLayout* bus_layout() const override;
     void bind_processor(Steinberg::Vst::IAudioProcessor*) override;
     double sample_rate() const override;

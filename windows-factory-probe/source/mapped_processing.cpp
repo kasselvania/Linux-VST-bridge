@@ -196,6 +196,7 @@ MappedSession::MappedSession(const std::wstring& directory,const std::string& se
 }
 MappedSession::~MappedSession()=default;
 const BusLayout* MappedSession::bus_layout() const{return impl_->configured?&impl_->buses:nullptr;}
+bool MappedSession::returned_results() const{return impl_->socket.minor==9;}
 bool MappedSession::performance() const{return impl_->performance;}
 void MappedSession::bind_processor(Steinberg::Vst::IAudioProcessor* p){impl_->processor=p;}
 double MappedSession::sample_rate() const{return impl_->rate;}

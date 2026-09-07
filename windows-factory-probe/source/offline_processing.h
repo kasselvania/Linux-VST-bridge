@@ -18,6 +18,7 @@ public:
     virtual Steinberg::tresult request_restart(int32_t) {return Steinberg::kNotImplemented;}
     virtual const BusLayout* bus_layout() const {return nullptr;}
     virtual bool performance() const {return false;}
+    virtual bool returned_results() const {return false;}
     virtual void bind_processor(Steinberg::Vst::IAudioProcessor*) {}
     virtual double sample_rate() const {return 48000.;}
     virtual bool commercial() const {return false;}

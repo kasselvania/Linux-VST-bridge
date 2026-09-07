@@ -7,7 +7,7 @@ namespace linux_vst_bridge::wf0 {
 // SDK census kept intact. The bounded implementation carries main stereo audio,
 // one optional note input, and represents auxiliary buses without activating them.
 struct BusLayout {
- struct Bus {Steinberg::Vst::BusInfo info{};Steinberg::Vst::SpeakerArrangement arrangement=0;bool active=false;};
+ struct Bus {Steinberg::Vst::BusInfo info{};Steinberg::Vst::SpeakerArrangement arrangement=0;bool supported=false,active=false;};
  std::array<Bus,32> buses{};size_t size=0;std::array<int,4> counts{};
  void read(Steinberg::Vst::IComponent& c,Steinberg::Vst::IAudioProcessor& p){
   using namespace Steinberg;using namespace Steinberg::Vst;using ap1::require;size=0;
@@ -16,7 +16,7 @@ struct BusLayout {
     require(b.info.mediaType==media&&b.info.direction==dir&&(b.info.busType==kMain||b.info.busType==kAux),"bus metadata tuple");
     if(media==kAudio){require(p.getBusArrangement(dir,i,b.arrangement)==kResultOk&&b.arrangement==SpeakerArr::kStereo&&b.info.channelCount==2,"only declared stereo audio supported");require((i==0)==(b.info.busType==kMain),"main audio bus index");}
     else require(b.info.channelCount>=0&&b.info.channelCount<=16,"event channel bound");
-    b.active=b.info.busType==kMain;
+    b.supported=b.info.busType==kMain;b.active=b.supported&&(b.info.flags&BusInfo::kDefaultActive);
    }
   }
   require(counts[1]==1&&counts[2]<=1,"one output and optional event input required");
@@ -25,8 +25,8 @@ struct BusLayout {
   using namespace ap1;require(p.size()>=28&&(get(p.data()+20,4)&1)==1&&get(p.data()+24,4)==size&&p.size()==28+32*size,"bus contract extent/version");
   std::array<int,4> index{};
   for(size_t i=0;i<size;++i){const auto*r=p.data()+28+32*i;auto&b=buses[i];auto m=b.info.mediaType,d=b.info.direction;
-   require(get(r,4)==m&&get(r+4,4)==d&&get(r+8,4)==index[m*2+d]++&&get(r+12,4)==b.info.channelCount&&get(r+16,4)==b.info.busType&&get(r+24,8)==b.arrangement,"native/Windows SDK buses differ");
-   auto enabled=get(r+20,4);require(enabled<=1&&(!enabled||b.active),"unsupported auxiliary activation");b.active=enabled!=0;
+   require(get(r,4)==uint32_t(m)&&get(r+4,4)==uint32_t(d)&&get(r+8,4)==uint32_t(index[m*2+d]++)&&get(r+12,4)==uint32_t(b.info.channelCount)&&get(r+16,4)==uint32_t(b.info.busType)&&get(r+24,8)==b.arrangement,"native/Windows SDK buses differ");
+   auto enabled=get(r+20,4);require(enabled<=1&&(!enabled||b.supported),"unsupported auxiliary activation");b.active=enabled!=0;
   }
  }
  void negotiate(Steinberg::Vst::IAudioProcessor& p){
