@@ -1134,6 +1134,7 @@ pub unsafe extern "C" fn ap7_process(
         delivery,
         &[],
         crate::context::Context::default(),
+        false,
     )
 }
 // Mirrors the fixed C ABI and adds a borrowed bounded event span.
@@ -1151,6 +1152,7 @@ unsafe fn process_events(
     delivery: *mut Delivery,
     events: &[Event],
     context: crate::context::Context,
+    detailed: bool,
 ) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
@@ -1170,26 +1172,28 @@ unsafe fn process_events(
         || out_right.is_null()
         || out_flags.is_null()
     {
-        return 1;
+        return if detailed { 0x101 } else { 1 };
     }
     if events.len() > MAX_EVENTS
         || (!events.is_empty() && l.shared.identity.is_none())
         || events.iter().any(|e| !e.valid_host(n))
     {
-        return 1;
+        return if detailed { 0x102 } else { 1 };
     }
     // Validate all host input before admitting any subblock. In-place output
     // can replace earlier samples only after their input has been copied.
     for (ch, p) in [left, right].into_iter().enumerate() {
-        if std::slice::from_raw_parts(p, n)
-            .iter()
-            .any(|v| !v.is_finite() || (flags & (1 << ch) != 0 && *v != 0.))
-        {
-            return 1;
+        for v in std::slice::from_raw_parts(p, n) {
+            if !v.is_finite() {
+                return if detailed { 0x103 } else { 1 };
+            }
+            if flags & (1 << ch) != 0 && *v != 0. {
+                return if detailed { 0x104 } else { 1 };
+            }
         }
     }
     if context.chunk(n).is_none() {
-        return 1;
+        return if detailed { 0x105 } else { 1 };
     }
     let mut total = Delivery::default();
     let mut combined = 3;
@@ -1471,6 +1475,7 @@ pub unsafe extern "C" fn ap8_process(
         delivery,
         events,
         crate::context::Context::default(),
+        false,
     )
 }
 
@@ -1510,6 +1515,7 @@ pub unsafe extern "C" fn ap10_process(
         delivery,
         events,
         *context,
+        true,
     )
 }
 
@@ -1705,6 +1711,84 @@ mod tests {
             );
         }
         assert_eq!(shared.requests.published(), count);
+        // AP10 must reject an invalid last sample/context before admitting the
+        // first chunk, and keep the legacy return codes unchanged above.
+        let valid_context = crate::context::Context {
+            present: 1,
+            state: 2,
+            rate: 48000.,
+            project: 100,
+            ..Default::default()
+        };
+        for (last, input_flags, context, expected) in [
+            (f32::NAN, 0, valid_context, 0x103),
+            (1., 1, valid_context, 0x104),
+            (
+                0.,
+                0,
+                crate::context::Context {
+                    rate: 0.,
+                    ..valid_context
+                },
+                0x105,
+            ),
+        ] {
+            let mut bad_input = [0f32; 1024];
+            bad_input[1023] = last;
+            left.fill(7.);
+            right.fill(8.);
+            let result = unsafe {
+                ap10_process(
+                    id,
+                    1024,
+                    std::ptr::null(),
+                    0,
+                    &context,
+                    input_flags,
+                    bad_input.as_ptr(),
+                    input.as_ptr(),
+                    left.as_mut_ptr(),
+                    right.as_mut_ptr(),
+                    &mut flags,
+                    &mut delivery,
+                )
+            };
+            assert_eq!(result, expected);
+            assert_eq!(shared.requests.published(), count);
+            assert_eq!(left, [7.; 1024]);
+            assert_eq!(right, [8.; 1024]);
+        }
+        // A valid in-place effect block preserves both inputs and the actual
+        // host context before delayed output replaces its buffers.
+        left.fill(0.25);
+        right.fill(-0.5);
+        assert_eq!(
+            unsafe {
+                ap10_process(
+                    id,
+                    512,
+                    events.as_ptr(),
+                    2,
+                    &valid_context,
+                    0,
+                    left.as_ptr(),
+                    right.as_ptr(),
+                    left.as_mut_ptr(),
+                    right.as_mut_ptr(),
+                    &mut flags,
+                    &mut delivery,
+                )
+            },
+            0
+        );
+        for offset in [0, 256] {
+            let item = shared.requests.pop().unwrap();
+            assert_eq!(item.context.project, 100 + offset);
+            assert_eq!(item.data[0], [0.25; CAP]);
+            assert_eq!(item.data[1], [-0.5; CAP]);
+            assert_eq!(item.event_count, 1);
+            assert_eq!(item.events[0].offset, if offset == 0 { 7 } else { 255 });
+        }
         INSTANCES.remove(id, |_| ()).unwrap();
     }
     #[test]

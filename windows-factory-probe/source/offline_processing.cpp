@@ -83,8 +83,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         block.input_bus.silenceFlags=b==2?3:0;
         block.output_bus.silenceFlags=0;
         block.data.processMode=sustained?kRealtime:kOffline;block.data.symbolicSampleSize=kSample32;
-        block.data.numSamples=frames;block.data.numInputs=block.data.numOutputs=1;
-        for(int i=0;i<inputs;++i){block.all_inputs[i].numChannels=2;block.all_inputs[i].channelBuffers32=i==0?block.in.data():block.inactive_channels[i].data();block.all_inputs[i].silenceFlags=3;}
+        block.data.numSamples=frames;block.data.numInputs=inputs;block.data.numOutputs=1;
+        for(int i=0;i<inputs;++i){block.all_inputs[i].numChannels=2;block.all_inputs[i].channelBuffers32=i==0?block.in.data():block.inactive_channels[i].data();block.all_inputs[i].silenceFlags=i==0?block.input_bus.silenceFlags:3;}
         block.data.inputs=inputs?block.all_inputs.data():nullptr;block.data.outputs=&block.output_bus;
         block.data.inputParameterChanges=&block.parameters;
     }

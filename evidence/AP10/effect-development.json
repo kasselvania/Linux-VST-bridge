@@ -1,0 +1,70 @@
+{
+  "claim": "INCOMPLETE: first commercial-effect desktop attempt",
+  "collection": "Read-only Kate/Dolphin inspection through the existing Moonlight session after project close. These selected counters are transcribed; raw files remain private on the fixture pending SSH reauthentication.",
+  "implementation": "91a2fcd28b33eec975490a7408ec7a04b55593df",
+  "fixture": {
+    "host": "Bitwig Studio 6.1, normal Applications launch",
+    "effect": "Efx FRAGMENTS 1.0.0.2925",
+    "class_id": "41727475415649536772616E50726F63",
+    "sample_rate": 48000,
+    "precision": "float32",
+    "host_maximum": 128,
+    "bridge_frames": 256,
+    "configured_vendor_frames": 192,
+    "reported_total_frames": 448,
+    "input": "Recorded local Serum audio clip, Raw mode, audio track at -10 dB"
+  },
+  "wait_probe": {
+    "samples_per_method": 32,
+    "sleep50_mean_ns": 1073921,
+    "ntdelay50_mean_ns": 111696,
+    "limitation": "Pre-activation elapsed-time comparison, not a dropout-free performance result"
+  },
+  "native_lifecycle": {
+    "phase": 7,
+    "phase_name": "Failed",
+    "frames": 4204544,
+    "blocks": 32848,
+    "callback_rejections": 231395,
+    "rejected_silent_frames": 29618560,
+    "discontinuities": 1,
+    "successful_silent_callbacks": 2,
+    "successful_silent_frames": 256,
+    "priming_frames": 256,
+    "underrun_frames": 128,
+    "underrun_gaps": 1,
+    "underrun_callbacks": 1,
+    "expired_output_frames": 128,
+    "delivered_frames": 4204160,
+    "clean": false
+  },
+  "preclose_worker_snapshot": {
+    "fault": 0,
+    "processed": 32848,
+    "position": 4204544,
+    "request_high": 2,
+    "result_high": 3
+  },
+  "returned_audio_observation": {
+    "position": 4200000,
+    "samples": 5632,
+    "nonzero": 5248,
+    "rms": 0.001679546267959217,
+    "peak": 0.006741289049386978,
+    "limitation": "A short nonzero return establishes neither sustained effect behavior nor correct controls/state/tails"
+  },
+  "desktop_observation": {
+    "bypassed": "Recorded clip produced visible track/master output meters",
+    "enabled": "Bridge output meters subsequently silent",
+    "project_close": "Returned to Bitwig dashboard without a visible crash dialog; native lifecycle was not clean"
+  },
+  "next_test": "First native backend rejection now has a bounded diagnostic code, emitted off the callback at teardown. Deploy and reproduce once before selecting a repair.",
+  "not_claimed": [
+    "Completed AP10",
+    "Successful commercial effect controls, tails, state recall or clean lifecycle",
+    "A vendor authorization/content blocker",
+    "Matched untraced performance for the NtDelayExecution candidate",
+    "128- or 256-frame recommended operation",
+    "Final fixture restoration"
+  ]
+}

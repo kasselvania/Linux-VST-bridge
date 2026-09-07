@@ -76,6 +76,13 @@ private:
   bool notifications_=false;uint32_t vendor_latency_=0;
   std::array<bool,32> bus_active_{};
   bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);
+  // Written under busy_ by the callback, read only after quiescence at terminate.
+  struct AdmissionFailure {
+    uint32_t code=0, context_state=0;
+    int32_t frames=0;
+    uint64_t input_flags=0;
+    double rate=0, cycle_start=0, cycle_end=0;
+  } admission_failure_;
   std::vector<uint8_t> state_readback_;
   Steinberg::tresult readback();
 #endif

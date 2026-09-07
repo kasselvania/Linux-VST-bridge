@@ -715,6 +715,11 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
                         &silence);
   #endif
   if (r) {
+#ifdef AP8_PREVIEW
+    if (!admission_failure_.code)
+      admission_failure_ = {uint32_t(r), c.state, d.numSamples, input_flags,
+                            c.rate, c.cycle_start, c.cycle_end};
+#endif
     if (!queued_)
       report();
     phase_ = Failed;
@@ -747,6 +752,24 @@ tresult PLUGIN_API Processor::terminate() {
     return kResultFalse;
   bool clean =
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated;
+#ifdef AP8_PREVIEW
+  if (admission_failure_.code) {
+    const auto& f = admission_failure_;
+    char text[384];
+    const auto n = std::snprintf(text, sizeof(text),
+        "{\"event\":\"ap10_admission_failure\",\"code\":%u,\"frames\":%d,"
+        "\"input_flags\":%llu,\"context_state\":%u,\"rate\":%.17g,"
+        "\"cycle_start\":%.17g,\"cycle_end\":%.17g,\"nonfinite_fields\":%u}\n",
+        f.code, f.frames, (unsigned long long)f.input_flags, f.context_state,
+        std::isfinite(f.rate) ? f.rate : 0.,
+        std::isfinite(f.cycle_start) ? f.cycle_start : 0.,
+        std::isfinite(f.cycle_end) ? f.cycle_end : 0.,
+        unsigned(!std::isfinite(f.rate)) | (unsigned(!std::isfinite(f.cycle_start)) << 1) |
+            (unsigned(!std::isfinite(f.cycle_end)) << 2));
+    if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+      diagnostic_report(report_path_, text, static_cast<size_t>(n));
+  }
+#endif
   if (handle_) {
     if (queued_)
       report_stats(handle_, report_path_);
