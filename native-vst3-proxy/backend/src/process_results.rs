@@ -192,7 +192,6 @@ impl Event {
 #[derive(Clone, Copy)]
 struct PendingEvent {
     due: u64,
-    flush: bool,
     value: Event,
     payload: [u8; EVENT_PAYLOAD],
 }
@@ -255,7 +254,6 @@ impl Pending {
             };
             let mut event = PendingEvent {
                 due,
-                flush: frames == 0,
                 value: *e,
                 payload: [0; EVENT_PAYLOAD],
             };
@@ -297,7 +295,7 @@ impl Pending {
         let mut i = 0;
         while i < self.events.len() && out.events < EVENTS as u32 {
             let e = &self.events[i];
-            if !self.eligible(e.due, e.flush) {
+            if !self.eligible(e.due, false) {
                 i += 1;
                 continue;
             }
@@ -307,14 +305,10 @@ impl Pending {
                 break;
             }
             let mut e = self.events.remove(i);
-            if e.due < self.start && !e.flush {
+            if e.due < self.start {
                 self.stats.late_events += 1;
             }
-            e.value.offset = if e.flush {
-                0
-            } else {
-                e.due.saturating_sub(self.start) as i32
-            };
+            e.value.offset = e.due.saturating_sub(self.start) as i32;
             e.value.payload_offset = start;
             out.event[out.events as usize] = e.value;
             out.events += 1;
@@ -425,6 +419,10 @@ mod tests {
         let mut out = Packet::default();
         q.take(&mut out);
         assert_eq!(out.points, 1);
+        assert_eq!(out.events, 0); // Parameter flush does not advance event time.
+        q.window(512, 0); // A zero-frame callback can still deliver a due event.
+        q.take(&mut out);
+        assert_eq!(out.events, 1);
         assert_eq!(&out.payload[..3], &[0xf0, 1, 0xf7]);
         for _ in 0..512 {
             assert!(q.append(&p, 0, 32, 512));

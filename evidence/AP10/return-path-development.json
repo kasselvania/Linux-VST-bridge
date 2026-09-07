@@ -44,6 +44,15 @@
       "test": "native processor and SDK consumer C++ syntax checks",
       "source": "e4df377047438493012ebf95ecc087754a7e8d8f",
       "result": "pass"
+    },
+    {
+      "test": "zero-frame event presentation follow-up; full backend suite and Clippy",
+      "source_path": "native-vst3-proxy/backend/src/process_results.rs",
+      "source_git_blob": "bea8662bf02db1a1c05f89fd7d78b4efecdcd406",
+      "passed": 40,
+      "failed": 0,
+      "clippy": "pass",
+      "coverage": "Only zero-frame parameter flush bypasses the sample clock; events retain P+s+D and a due event can be delivered in a zero-frame callback."
     }
   ],
   "builds": [
