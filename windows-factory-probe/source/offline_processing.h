@@ -31,6 +31,8 @@ public:
     virtual uint16_t next_transition() { return 14; }
     virtual uint32_t lifecycle_request(uint16_t) { return 256; }
     virtual void lifecycle_ack(uint16_t) {}
+    virtual void before_process() {}
+    virtual void after_process() {}
     virtual void ready() = 0;
     virtual bool next(ExternalBlock&, float* left, float* right) = 0;
     virtual void done(const float* left, const float* right, uint64_t silence, uint64_t process_ns = 0) = 0;

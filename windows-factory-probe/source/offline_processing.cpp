@@ -1,3 +1,4 @@
+#include <windows.h>
 #include "offline_processing.h"
 #include "component_instance_session.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
@@ -130,6 +131,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         std::thread worker([&] {
             // No owner-thread call overlaps this thread. Logging surrounds calls;
             // the sample comparison and buffer serialization happen after join.
+            SetThreadDescription(GetCurrentThread(),L"lvb-audio");
             bool started=false;
             try {
                 events.lifecycle("ap0_processing_thread_started",",\"distinct_from_owner\":"+
@@ -164,9 +166,11 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     }
                     block.worker_thread=std::this_thread::get_id()!=owner;
                     if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
+                    if(external)external->before_process();
                     const auto process_start=std::chrono::steady_clock::now();
                     block.result=processor.process(block.data);
                     const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
+                    if(external)external->after_process();
                     if(!sustained)events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
                         ",\"result\":"+std::to_string(block.result));
                     if(block.result!=kResultOk) {ok=false;if(sustained)throw std::runtime_error("Windows processor returned failure");break;}

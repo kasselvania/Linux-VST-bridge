@@ -9,7 +9,7 @@ import ap8_fixture as fixture
 owner=fixture.owner
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--environment',type=pathlib.Path,required=True);p.add_argument('--class-id',default='');p.add_argument('--performance',choices=['reference','serum']);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--environment',type=pathlib.Path,required=True);p.add_argument('--class-id',default='');p.add_argument('--performance',choices=['reference','serum']);p.add_argument('--trace-delivery',action='store_true');a=p.parse_args()
     if a.performance!='reference' and len(a.class_id)!=32:raise ValueError('class ID length')
     cid=bytes.fromhex(a.class_id)
     os.chdir(owner.ROOT);os.umask(0o077)
@@ -25,7 +25,7 @@ def main():
     if not desktop.get('DISPLAY'):raise RuntimeError('existing desktop display absent')
     profile=types.SimpleNamespace(MODE=('ap9-'+('commercial' if a.performance=='serum' else 'reference')) if a.performance else 'ap8-commercial-preview',verify_runtime=fixture.verify_runtime,
         verify_environment=fixture.verify_environment,command_vector=fixture.command_vector,StreamState=fixture.ReferenceStreamState if a.performance=='reference' else fixture.StreamState,
-        controlled_environment=lambda e:{**owner.runtime.controlled_environment(e),**desktop})
+        controlled_environment=lambda e:{**owner.runtime.controlled_environment(e),**desktop,**({"LVB_AP10_TRACE":"1"} if a.trace_delivery else {})})
     address_root=pathlib.Path.home()/(('AP9-Performance/'+a.performance) if a.performance else 'AP8-Commercial-Test/preview');owner.private_directory(address_root)
     output=address_root/'results';owner.private_directory(output)
     profile.native_report_directory=output

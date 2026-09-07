@@ -24,6 +24,8 @@ public:
     uint16_t next_transition() override;
     uint32_t lifecycle_request(uint16_t) override;
     void lifecycle_ack(uint16_t) override;
+    void before_process() override;
+    void after_process() override;
     void ready() override;
     bool next(ExternalBlock&,float*,float*) override;
     void done(const float*,const float*,uint64_t,uint64_t=0) override;

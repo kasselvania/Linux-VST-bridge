@@ -4,6 +4,7 @@
 #include <intrin.h>
 #include "mapped_processing.h"
 #include "ap8_state.h"
+#include "delivery_trace.h"
 #include "pluginterfaces/vst/vstspeaker.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
 #include <chrono>
@@ -65,7 +66,7 @@ struct Socket {
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
 }
 struct MappedSession::Impl {
- EventWriter& events;Socket socket;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
+ EventWriter& events;DeliveryTrace diagnostic;Socket socket;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
  bool stateful=false,commercial=false,separate=false,performance=false,configured=false,active=false; uint32_t mode=0, maximum=256; double rate=48000.;
  Steinberg::Vst::IAudioProcessor* processor=nullptr;
  Steinberg::Vst::IEditController* controller=nullptr;
@@ -136,7 +137,7 @@ struct MappedSession::Impl {
  }
  Frame receive(){for(;;){auto f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
 
- ~Impl(){if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
+ ~Impl(){try{diagnostic.dump(events);}catch(...){}if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
  void error(const std::exception& e){
   state.failed=true;
   events.lifecycle("ap1_transport_error",",\"detail\":\""+std::string(e.what()).substr(0,160)+"\"");
@@ -199,15 +200,23 @@ void MappedSession::lifecycle_ack(uint16_t kind){auto&x=*impl_;require(!x.state.
  x.socket.write(x.frame(kind,x.state.next,payload));x.events.lifecycle("ap2_lifecycle_ack",",\"kind\":"+std::to_string(kind)+",\"next_sequence\":"+std::to_string(x.state.next));}
 
 void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
-bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{auto f=x.receive();if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
+bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{x.diagnostic.current={};x.diagnostic.stamp(0);auto f=x.receive();x.diagnostic.stamp(1);if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
  if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames);}
+ x.diagnostic.current.epoch=x.timeline.epoch;x.diagnostic.current.sequence=x.state.next;x.diagnostic.current.position=x.timeline.position;
+ x.diagnostic.stamp(2);
+ // The first active block establishes history, rather than triggering on startup idle.
+ if(!x.diagnostic.armed){for(size_t i=0;i<out.event_count;++i)if(out.events[i].kind==0)x.diagnostic.armed=true;
+  if(x.diagnostic.armed)x.diagnostic.current.at[0]=x.diagnostic.current.at[1];}
  return true;
  }catch(const std::exception&e){x.error(e);throw;}}
+void MappedSession::before_process(){impl_->diagnostic.stamp(3);}
+void MappedSession::after_process(){impl_->diagnostic.stamp(4);}
 void MappedSession::done(const float* left,const float* right,uint64_t silence,uint64_t process_ns) {
  auto& x=*impl_;
  try {
+  x.diagnostic.stamp(5);
   // Retain the actual 64-bit SDK result before validating it, including failures.
   if(!x.sustained)x.events.lifecycle("ap1_output_silence",",\"block\":"+std::to_string(x.state.next-1)+
       ",\"input_silence_flags\":"+std::to_string(x.current.silence)+
@@ -218,7 +227,9 @@ void MappedSession::done(const float* left,const float* right,uint64_t silence,u
   for(size_t ch=0;ch<2;++ch)
    std::memcpy(x.view+output_offset+ch*stride+4,ch?right:left,x.current.frames*4);
   barrier();
+  x.diagnostic.stamp(6);
   x.socket.write(x.frame(Done,x.state.next,payload));
+  x.diagnostic.stamp(7);x.diagnostic.complete();
   x.state.complete();
  } catch(const std::exception& error) {x.error(error);throw;}
 }
