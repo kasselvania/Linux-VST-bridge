@@ -1,5 +1,5 @@
 {
-  "claim": "INCOMPLETE: first commercial-effect desktop attempt",
+  "claim": "Bounded FRAGMENTS audio/control/recall/tail proof; development failures retained; AP10 incomplete",
   "collection": "Initially transcribed through read-only Kate/Dolphin after project close; subsequently verified against the exact native and owner JSON records collected through restored SSH. Raw files remain private on the fixture and in the AP10 work directory.",
   "implementation": "91a2fcd28b33eec975490a7408ec7a04b55593df",
   "fixture": {
@@ -58,14 +58,14 @@
     "enabled": "Bridge output meters subsequently silent",
     "project_close": "Returned to Bitwig dashboard without a visible crash dialog; native lifecycle was not clean"
   },
-  "next_test": "Current Serum musical-load regression and final fixture restoration.",
+  "next_test": "Resolve the current Serum output-bus activation contract before another matched musical-load comparison.",
   "not_claimed": [
     "Completed AP10",
-    "Successful commercial effect controls, tails, state recall or clean lifecycle",
+    "Current-candidate Serum playback",
     "A vendor authorization/content blocker",
-    "Matched untraced performance for the NtDelayExecution candidate",
+    "Matched untraced performance for the current NtDelayExecution/controller candidate",
     "128- or 256-frame recommended operation",
-    "Final fixture restoration"
+    "Broad effect or host-tail compatibility"
   ],
   "owner_retirement": {
     "retired": true,

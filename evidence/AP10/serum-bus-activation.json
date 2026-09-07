@@ -1,0 +1,94 @@
+{
+  "status": "FAIL: current Serum instrument activation; AP10 incomplete",
+  "native_source": "86d26cff7370904e6d38cfb446d3205195c8b732",
+  "native_sha256": "0af308c351924ca296a5c7bf3b6fc1d5280a39f849562b76b262414cb68fb003",
+  "windows_source": "f885a620a8f4e06a2753e65aef2f933e9d277b47",
+  "windows_sha256": "78668807fefce636ea31a9620e5733de45fb0cfe2cd7ef46e72f446444bdb7a9",
+  "fixture": {
+    "plugin": "Serum 2.0.18",
+    "class_id": "56534558667350736572756D20320000",
+    "host": "Bitwig Studio 6.1, normal Applications launch",
+    "project": "Unmodified copy of AP9 two-note project",
+    "sample_rate": 48000,
+    "precision": "float32",
+    "host_frames": 128,
+    "bridge_frames": 256
+  },
+  "native_records": [
+    {
+      "event": "ap9_setup",
+      "host_maximum": 128,
+      "transport_maximum": 128,
+      "sample_rate": 48000,
+      "bridge_frames": 256,
+      "vendor_frames": 0,
+      "total_frames": 256,
+      "vendor_precision_bits": 1
+    },
+    {
+      "event": "ap9_setup",
+      "host_maximum": 128,
+      "transport_maximum": 128,
+      "sample_rate": 48000,
+      "bridge_frames": 256,
+      "vendor_frames": 0,
+      "total_frames": 256,
+      "vendor_precision_bits": 1
+    },
+    {
+      "event": "ap10_unsupported_bus_activation",
+      "media": 1,
+      "direction": 1,
+      "index": 0,
+      "active": true
+    },
+    {
+      "event": "ap3_proxy_stats",
+      "fault": 0,
+      "first_position": 18446744073709551615,
+      "processed": 0,
+      "request_high": 0,
+      "result_high": 0,
+      "position": 0,
+      "epoch": 0
+    },
+    {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 2,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 0,
+      "blocks": 0,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 0,
+      "successful_silent_frames": 0,
+      "priming_frames": 0,
+      "underrun_frames": 0,
+      "underrun_gaps": 0,
+      "underrun_callbacks": 0,
+      "expired_output_frames": 0,
+      "delivered_frames": 0,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 0,
+      "clean": true
+    }
+  ],
+  "owners": [
+    {
+      "retired": true,
+      "containment_confirmed": true,
+      "error": null
+    }
+  ],
+  "finding": "Bitwig requests active=true for SDK event output bus index 0. Native AP10 rejects it before processing; both endpoints currently permit only input events. AP9 omitted the output bus.",
+  "nonclaims": [
+    "No current-candidate Serum playback or matched 256/512 result.",
+    "No claim that Serum emitted any output event: processing did not start.",
+    "No evidence that disabling or ignoring the declared output is safe."
+  ],
+  "decision": "Retain exact SDK buses and define bounded output-event transport, presentation timing and late-event behavior before completing the current Serum regression."
+}

@@ -1,0 +1,40 @@
+{
+  "restored_sha256": {
+    "serum-marker.json": "2b66cafd01aad7edc74a8a321be7462a2d08b08b9fdf78f93fb55299cdf082d1",
+    "serum-scanner.exe": "80451fef2e3f0111ad127616c079eedf8fe216d27bcbf5d4761fadfe579fdd57",
+    "6.1.prefs": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "vst3-metadata-11": "138eb39ee7351ff5e8510259275b5d0fa00926844e056e2bd8231f449cb9ded4",
+    "delay-frames": "240269e94afb4bbc4c643851e366bf4f0d870ff0753d250b854f748cf3516285",
+    "reference-marker.json": "e46b38acaa341a96fb8aad349a462b29bee59545fead8f18f085ead55d519a3a",
+    "reference-scanner.exe": "11c70ede96c3ac34153f1af84a663d6ff628f137d557e29fa02c211243ebc35d",
+    "fragments-marker.json": "900ba285b62eb33eb4b2c4363ed71fa4cf2451c16fa9a22fe94440e8fcd7789b",
+    "fragments-scanner.exe": "f87d57fe315bad4496e3f48ac1f8577db3e3c0f711099310b8df27b2937167fc"
+  },
+  "fragment_session_restored": true,
+  "serum_reference_session_empty": true,
+  "temporary_native_publication_absent": true,
+  "trace_and_delivery_flags_removed": true,
+  "bridge_delay_frames": 512,
+  "audio_min_quantum": 256,
+  "unit_states": {
+    "lvb-ap10-serum": "inactive",
+    "lvb-ap10-reference": "inactive",
+    "lvb-ap9-serum": "inactive",
+    "lvb-ap9-reference": "inactive"
+  },
+  "unchanged_projects": {
+    "AP9 Latency": "7f554ef5dad0a1a7914c6837f1ef8a07149a28cf7a47e37ebe9a38987f51bb8f",
+    "AP8 Serum Recall": "faa8dfb8cf75fec0f951fb21e703bdb5ee1d150d34189c49b99f9872f53dc0d2",
+    "AP10 FRAGMENTS": "c0da5e2d1947388822a95713e8edd4f3816abe965228d76da8b5b71bf5687825"
+  },
+  "last_owner": {
+    "retired": true,
+    "containment_confirmed": true,
+    "error": null
+  },
+  "private_results_retained": true,
+  "limitations": [
+    "Vendor authorization and content were not reset or inspected.",
+    "Clean owner retirement is not an explanation of the historical Bitwig engine crash."
+  ]
+}
