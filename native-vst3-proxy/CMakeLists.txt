@@ -59,6 +59,17 @@ if(AP10_RESULTS_TESTS)
  add_test(NAME ap10-result-lifetime COMMAND "${CMAKE_COMMAND}" -E env
   "LD_PRELOAD=$<TARGET_FILE:ap3-callback-audit>" $<TARGET_FILE:ap10-result-lifetime>)
  add_test(NAME ap10-results-tests COMMAND ap10-results-tests)
+ add_executable(ap11-native-tests "${PROJECT_SOURCE_DIR}/tools/ap11-tests/native.cpp" source/processor.cpp)
+ target_include_directories(ap11-native-tests PRIVATE include source tests/result_lifetime)
+ target_compile_definitions(ap11-native-tests PRIVATE AP3_PREVIEW=1 AP8_PREVIEW=1)
+ target_compile_features(ap11-native-tests PRIVATE cxx_std_20)
+ target_compile_options(ap11-native-tests PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-error=stringop-truncation)
+ target_link_libraries(ap11-native-tests PRIVATE X11::X11 sdk sdk_hosting "${AP2_RUST_LIBRARY}" pthread dl m)
+ foreach(symbol ap9_open ap5_report_path ap10_setup ap4_activate ap4_deactivate ap3_transition ap3_close ap10_notices ap11_gui_generation ap11_gui_command ap11_gui_take ap11_gui_capabilities ap11_gui_failure ap8_validate ap4_state ap10_process ap10_take_results)
+  target_link_options(ap11-native-tests PRIVATE "-Wl,--wrap=${symbol}")
+ endforeach()
+ add_test(NAME ap11-native-tests COMMAND ap11-native-tests)
+
 endif()
 
 if(AP8_DESCRIPTOR)

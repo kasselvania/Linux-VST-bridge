@@ -16,4 +16,12 @@ class Descriptor(unittest.TestCase):
    with self.assertRaises(ValueError):self.gen(r)
   r=self.records();r[-3]['float32_result']=1
   with self.assertRaises(ValueError):self.gen(r)
+ def test_vendor_name_is_metadata_and_does_not_rebind_projects(self):
+  def named(name,cid='00'*16):return generate(self.records()+[dict(state='ap11_class',class_id=cid,name=name)],'00'*16,'ab'*32)
+  a=named('Vendor Original');b=named('Vendor Renamed')
+  self.assertNotEqual(a,b)
+  self.assertEqual([s for s in a.splitlines() if '_UID 'in s],[s for s in b.splitlines() if '_UID 'in s])
+  for name,cid in [('', '00'*16),('Name', '11'*16),('x'*64,'00'*16),('x\x00y','00'*16)]:
+   with self.assertRaises(ValueError):named(name,cid)
 if __name__=='__main__':unittest.main()
+

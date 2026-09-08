@@ -51,3 +51,10 @@ target_include_directories(ap10-results-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${C
 target_compile_options(ap10-results-tests PRIVATE /UNDEBUG)
 target_link_libraries(ap10-results-tests PRIVATE sdk)
 set_target_properties(ap10-results-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(ap11-editor-tests ../tools/ap11-tests/windows.cpp)
+target_include_directories(ap11-editor-tests PRIVATE source "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap11-editor-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap11-editor-tests PRIVATE /W4 /permissive- /EHsc)
+target_link_libraries(ap11-editor-tests PRIVATE sdk sdk_hosting user32)
+set_target_properties(ap11-editor-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

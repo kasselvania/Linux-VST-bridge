@@ -1,5 +1,6 @@
 #include "inspect_module.h"
 #include "offline_processing.h"
+#include "vendor_handler.h"
 #include "component_instance_session.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
@@ -34,33 +35,11 @@ std::string text16(const TChar* value, size_t limit=128) {
     if(size)WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,reinterpret_cast<const wchar_t*>(value),static_cast<int>(n),out.data(),size,nullptr,nullptr);
     return quoted(out.c_str());
 }
-class Handler final:public IComponentHandler,public IComponentHandler2 {
-    std::atomic<uint32> refs{1};
-public:
-    ExternalProcessing* external=nullptr;
-    tresult PLUGIN_API queryInterface(const TUID id,void**out) override {
-        if(!out)return kInvalidArgument;*out=nullptr;
-        if(FUnknownPrivate::iidEqual(id,IComponentHandler::iid)||FUnknownPrivate::iidEqual(id,FUnknown::iid)){
-            *out=static_cast<IComponentHandler*>(this);addRef();return kResultOk;
-        }
-        if(FUnknownPrivate::iidEqual(id,IComponentHandler2::iid)){*out=static_cast<IComponentHandler2*>(this);addRef();return kResultOk;}
-        return kNoInterface;
-    }
-    uint32 PLUGIN_API addRef()override{return ++refs;}
-    uint32 PLUGIN_API release()override{return --refs;}
-    tresult PLUGIN_API beginEdit(ParamID id)override{return external?external->editor_edit(101,id):kNotImplemented;}
-    tresult PLUGIN_API performEdit(ParamID id,ParamValue value)override{return external?external->editor_edit(102,id,value):kNotImplemented;}
-    tresult PLUGIN_API endEdit(ParamID id)override{return external?external->editor_edit(103,id):kNotImplemented;}
-    tresult PLUGIN_API setDirty(TBool state)override{return external?external->editor_edit(104,0,state?1.:0.):kNotImplemented;}
-    tresult PLUGIN_API requestOpenEditor(FIDString name)override{return external&&name&&!std::strcmp(name,ViewType::kEditor)?external->editor_edit(107):kNotImplemented;}
-    tresult PLUGIN_API startGroupEdit()override{return external?external->editor_edit(105):kNotImplemented;}
-    tresult PLUGIN_API finishGroupEdit()override{return external?external->editor_edit(106):kNotImplemented;}
-    tresult PLUGIN_API restartComponent(int32 flags)override{return external?external->request_restart(flags):kNotImplemented;}
-};
+
 }
 int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external) {
     using namespace Steinberg;using namespace Steinberg::Vst;
-    HostApplication host;Handler handler;handler.external=external;
+    HostApplication host;VendorHandler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
     IConnectionPoint *cp=nullptr,*cc=nullptr;
     bool initialized=false,controller_initialized=false,connected_pc=false,connected_cp=false,handler_set=false;

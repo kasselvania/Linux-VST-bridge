@@ -26,7 +26,8 @@ def generate(records,class_id,module_sha256):
     notes=[r for r in buses if r['media']==1 and r['direction']==0]
     if len(notes)>1 or (notes and notes[0]['index']!=0):raise ValueError('one event input supported')
     metadata=next(r for r in records if r.get('state')=='ap8_inspected')
-    vendor=next(r for r in records if r.get('state')=='ap11_class' and r['class_id'].upper()==class_id.upper())
+    vendor=next((r for r in records if r.get('state')=='ap11_class' and r['class_id'].upper()==class_id.upper()),None)
+    if vendor is None:raise ValueError('selected vendor class metadata absent')
     name=vendor['name']
     if not name or '\0' in name or len(name.encode('utf-8'))>63:
         raise ValueError('vendor class display name outside SDK bound')

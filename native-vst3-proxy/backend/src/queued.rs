@@ -2154,6 +2154,81 @@ mod tests {
         }
     }
     #[test]
+    fn stalled_gui_and_stale_generation_do_not_hold_audio_delivery() {
+        let path = std::env::temp_dir().join(format!(
+            "ap11-queued-{}-{}",
+            std::process::id(),
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+        ));
+        let gui = Arc::new(crate::gui::Gui::create(&path, [19; 16]).unwrap());
+        let mut shared = Shared::new();
+        shared.gui = Some(gui.clone());
+        shared.generation = 8;
+        let shared = Arc::new(shared);
+        let id = INSTANCES
+            .insert(|| {
+                Ok::<_, ()>(Live {
+                    shared: shared.clone(),
+                    callback: UnsafeCell::new(Callback::new()),
+                    busy: AtomicBool::new(false),
+                    worker: None,
+                    report: None,
+                    max: 256,
+                    recovery_blocked: false,
+                    minor: 10,
+                    setup: None,
+                })
+            })
+            .unwrap()
+            .unwrap();
+        let mut message = crate::gui::Message {
+            kind: 1,
+            ..Default::default()
+        };
+        assert_eq!(unsafe { ap11_gui_command(id, 7, &mut message) }, 5);
+        assert_eq!(ap11_gui_failure(id, 8, 0), 0);
+        for _ in 0..crate::gui::CAPACITY {
+            assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 0);
+        }
+        assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 3);
+        assert_eq!(ap11_gui_failure(id, 8, 0), 1);
+        let mut cb = Callback::new();
+        cb.delay = 512;
+        assert_eq!(cb.transition(&shared, START), 0);
+        let mut request = Item::control(AUDIO, 0);
+        request.n = 256;
+        request.gain = 0.5;
+        request.data = [[0.25; CAP]; 2];
+        request.event_count = 1;
+        request.events[0].kind = 2;
+        request.events[0].value = 0.5;
+        let mut out = [[0.; CAP]; 2];
+        for i in 0..64 {
+            cb.process(&shared, request, &mut out).unwrap();
+            assert_eq!(cb.delivery.missing_frames, 0);
+            assert_eq!(out, [[if i < 2 { 0. } else { 0.125 }; CAP]; 2]);
+            while let Some(mut admitted) = shared.requests.pop() {
+                if admitted.kind == AUDIO {
+                    assert!(admitted.gui_revision > 0);
+                    for channel in &mut admitted.data {
+                        for value in channel {
+                            *value *= 0.5;
+                        }
+                    }
+                    assert!(shared.results.push(admitted.into()));
+                }
+            }
+        }
+        assert_eq!(shared.fault.load(Ordering::Acquire), 0);
+        message.kind = 2;
+        assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 0);
+        INSTANCES.remove(id, |_| ()).unwrap();
+        assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 1);
+        drop(shared);
+        drop(gui);
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
     fn variable_lengths_delayed_gain_and_silence_are_exact() {
         let s = Shared::new();
         let mut cb = Callback::new();
