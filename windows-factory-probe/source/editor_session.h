@@ -321,8 +321,9 @@ public:
       close();
       return;
     }
-    if (was_open_ != view_.is_open()) {
-      close();
+    if (view_.close_requested() || was_open_ != view_.is_open()) {
+      if (!close())
+        channel_.fail(AP11::Removal);
       status();
     }
     try {

@@ -18,7 +18,7 @@ class VendorView final : public Steinberg::IPlugFrame {
   std::thread::id owner_ = std::this_thread::get_id();
   View *view_ = nullptr;
   HWND window_ = nullptr;
-  bool attached_ = false, closing_ = false;
+  bool attached_ = false, closing_ = false, close_requested_ = false;
   void (*trace_)(void *, uint32_t) = nullptr;
   void *trace_context_ = nullptr;
   void (*fault_trace_)(void *, EXCEPTION_POINTERS *) = nullptr;
@@ -117,7 +117,9 @@ class VendorView final : public Steinberg::IPlugFrame {
       return DefWindowProcW(window, msg, wp, lp);
     try {
       if (msg == WM_CLOSE) {
-        self->close();
+        // Keep vendor teardown outside a Win32 callback. The owner service
+        // removes the view after DispatchMessage has returned.
+        self->close_requested_ = true;
         return 0;
       }
       if (msg == WM_SETFOCUS && self->view_ && self->attached_) {
@@ -391,9 +393,11 @@ public:
     }
     if (closing_) {
       stage(211);
-      return true;
+      error_ = AP11::Removal;
+      return false;
     }
     closing_ = true;
+    close_requested_ = false;
     try {
       if (view_ && attached_) {
         stage(212);
@@ -432,6 +436,7 @@ public:
       return false;
     }
   }
+  bool close_requested() const { return close_requested_; }
   bool is_open() const { return attached_; }
   uint32_t error() const { return error_; }
   HWND window() const { return window_; }

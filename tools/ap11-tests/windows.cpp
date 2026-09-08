@@ -332,6 +332,21 @@ int main() {
   check(c->stats.created == 2 && c->getParamNormalized(42) == .4,
         "reopen same controller sound");
   native.drain();
+  // Real Win32 close delivery must only enqueue removal. A host callback may
+  // not release a vendor view while its native event dispatch is on the stack.
+  SendMessageW(session.view().window(), WM_CLOSE, 0, 0);
+  SendMessageW(session.view().window(), WM_CLOSE, 0, 0);
+  check(session.is_open() && c->stats.removed == 1,
+        "WM_CLOSE defers SDK removal until owner service");
+  session.service(true);
+  check(!session.is_open() && c->stats.removed == 2 && c->stats.destroyed == 2,
+        "queued repeated window close removes exactly once");
+  native.drain();
+  native.command(AP11::Open);
+  session.service(true);
+  check(c->stats.created == 3 && c->getParamNormalized(42) == .4,
+        "window close and reopen retains controller sound");
+  native.drain();
   c->stats.refuse = true;
   check(!session.close() && session.is_open() &&
             IsWindow(session.view().window()),
