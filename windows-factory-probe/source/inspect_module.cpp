@@ -135,9 +135,8 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         for(int i=0;i<n;++i){ParameterInfo p{};
             if(controller->getParameterInfo(i,p)!=kResultOk)throw std::runtime_error("getParameterInfo index "+std::to_string(i));
             auto value=controller->getParamNormalized(p.id);
-            if(!std::isfinite(p.defaultNormalizedValue)||p.defaultNormalizedValue<0||p.defaultNormalizedValue>1)throw std::runtime_error("invalid SDK default");
             if(!parameters.empty())parameters+=',';
-            parameters+='['+std::to_string(p.id)+','+text16(p.title)+','+text16(p.units)+','+std::to_string(p.stepCount)+','+std::to_string(p.flags)+','+std::to_string(p.defaultNormalizedValue)+','+(std::isfinite(value)&&value>=0&&value<=1?std::to_string(value):"null")+']';
+            parameters+='['+std::to_string(p.id)+','+text16(p.title)+','+text16(p.units)+','+std::to_string(p.stepCount)+','+std::to_string(p.flags)+','+(std::isfinite(p.defaultNormalizedValue)?std::to_string(p.defaultNormalizedValue):"null")+','+(std::isfinite(value)&&value>=0&&value<=1?std::to_string(value):"null")+']';
             if(i%32==31||i+1==n){events.lifecycle("ap8_parameters",",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":["+parameters+"]");parameters.clear();}
         }
         ok(kResultOk,"enumerateParameters");

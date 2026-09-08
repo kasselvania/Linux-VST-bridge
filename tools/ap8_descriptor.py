@@ -51,10 +51,11 @@ def generate(records,class_id,module_sha256):
     params=[p for r in records if r.get('state')=='ap8_parameters' for p in r['parameters']]
     if len(params)!=next(r['count'] for r in records if r.get('state')=='ap8_parameter_count') or len({p[0] for p in params})!=len(params):
         raise ValueError('incomplete/duplicate parameter metadata')
+    normal=lambda v: isinstance(v,(int,float)) and math.isfinite(v) and 0<=v<=1
+    available=lambda p: normal(p[6])
     for p in params:
-        if not math.isfinite(p[5]) or not 0<=p[5]<=1:
-            raise ValueError('invalid SDK default; no presentation fallback')
-    available=lambda p: isinstance(p[6],(int,float)) and math.isfinite(p[6]) and 0<=p[6]<=1
+        if not available(p) and not normal(p[5]):
+            raise ValueError('no valid readback or SDK default for presentation')
     # Immutable UUIDv5 namespace and logical vendor CID. No path/build/session in native class IDs.
     namespace=uuid.UUID('9389480f-b4b0-5e02-a1d7-687a57b54b3f')
     ids=[uuid.uuid5(namespace,class_id.upper()+suffix).hex for suffix in (':processor',':controller')]

@@ -39,6 +39,8 @@ class Descriptor(unittest.TestCase):
   for value in [None,-1,1.25,float('nan')]:
    r=self.records();r[-2]['parameters'][0][6]=value
    text=self.gen(r);self.assertIn('{0,u"Mix",u"%",0,1,0.5,false}',text)
-  r=self.records();r[-2]['parameters'][0][5]=-1;r[-2]['parameters'][0][6]=None
+  r=self.records();r[-2]['parameters'][0][5]=-1
+  self.assertIn('{0,u"Mix",u"%",0,1,0.5,true}',self.gen(r))
+  r[-2]['parameters'][0][6]=None
   with self.assertRaises(ValueError):self.gen(r)
 if __name__=='__main__':unittest.main()
