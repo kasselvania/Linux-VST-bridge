@@ -327,6 +327,17 @@ int main() {
         "post-disconnect state capture does not consume or fail UI delivery");
   events.clear();
   check(c->connect(processor.get()) == kResultOk, "restore controller peer");
+  // The opposite SDK disconnect order must also deliver the close request.
+  // Its response no longer has a processor-to-controller route.
+  check(processor->disconnect(c) == kResultOk, "processor disconnects first");
+  auto commandsBeforeRetire = commands.size();
+  check(c->disconnect(processor.get()) == kResultOk && gui_fault == 0 &&
+            commands.size() == commandsBeforeRetire + 1 &&
+            commands.back().kind == AP11::Close && caps == 0,
+        "processor-first retirement closes view without a false host failure");
+  check(processor->connect(c) == kResultOk &&
+            c->connect(processor.get()) == kResultOk,
+        "restore both SDK peers");
   event(AP11::Begin);
   host.tick();
   gui_fault = AP11::Backlog;

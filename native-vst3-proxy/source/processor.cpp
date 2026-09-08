@@ -376,7 +376,12 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
       const void* bytes=nullptr;uint32 size=0;
       if(message->getAttributes()->getBinary("command",bytes,size)!=kResultOk||size!=sizeof(ap11_gui_message_t))return kResultFalse;
       ap11_gui_message_t command{};std::memcpy(&command,bytes,sizeof(command));
+      // Hosts may disconnect this side before the controller retires. A close
+      // still reaches the owned view, but no reply can reach the departed UI.
+      // Other commands require the live return route before they are applied.
+      if(!getPeer() && command.kind!=AP11::Close)return kResultFalse;
       command.result=ap11_gui_command(handle_,uint64_t(generation),&command);
+      if(!getPeer())return command.result==0?kResultOk:kResultFalse;
       auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.result");m->getAttributes()->setInt("generation",generation);m->getAttributes()->setBinary("command",&command,sizeof(command));auto r=sendMessage(m);m->release();return r;
     }
     return kResultFalse;
