@@ -445,6 +445,9 @@ impl Drop for Guard<'_> {
     }
 }
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
+    if let Some(status) = &mut session.fault_status {
+        status.generation = s.generation;
+    }
     let run = (|| -> io::Result<()> {
         loop {
             crate::preview::check_owner(&mut session.owner)?;
@@ -2063,6 +2066,7 @@ mod tests {
             gui_revision: 0,
             mailbox: None,
             mailbox_enabled: false,
+        fault_status: None,
             notices: (0, 0),
             returned: crate::process_results::Packet::default(),
             mapping: Some(mapping),
@@ -2223,6 +2227,7 @@ mod tests {
                 gui_revision: 0,
                 mailbox: None,
                 mailbox_enabled: false,
+        fault_status: None,
                 notices: (0, 0),
                 returned: Default::default(),
                 mapping: Some(mapping),

@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod commercial_tests;
 mod context;
+mod fault_status;
 mod gui;
 mod instances;
 mod mailbox;
@@ -35,6 +36,7 @@ struct Session {
     mapping: Option<Mapping>,
     mailbox: Option<mailbox::Mailbox>,
     mailbox_enabled: bool,
+    fault_status: Option<fault_status::Status>,
     notices: (u32, u64),
     returned: process_results::Packet,
     socket: TcpStream,
@@ -131,6 +133,11 @@ impl Session {
         } else {
             None
         };
+        let fault_status = if minor >= 6 {
+            Some(fault_status::Status::create(&path.join("ap12.status"), id)?)
+        } else {
+            None
+        };
         let prepared = Prepared::create(path, id)?;
         let (mapping, socket) =
             prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
@@ -140,6 +147,7 @@ impl Session {
             mapping: Some(mapping),
             mailbox,
             mailbox_enabled: false,
+            fault_status,
             notices: (0, 0),
             returned: process_results::Packet::default(),
             socket,
@@ -434,6 +442,9 @@ impl Session {
                 request.payload.extend(self.gui_revision.to_le_bytes());
             }
             self.trace.prepared = Some(std::time::Instant::now());
+            if let Some(s) = &mut self.fault_status {
+                s.publish(self.epoch, self.state.next, self.position, 1, 0);
+            }
             let mut reply = if self.mailbox_enabled {
                 let mailbox = self
                     .mailbox
@@ -441,6 +452,9 @@ impl Session {
                     .ok_or_else(|| invalid("delivery mapping absent"))?;
                 mailbox.send(&request, self.minor)?;
                 self.trace.sent = Some(std::time::Instant::now());
+                if let Some(s) = &mut self.fault_status {
+                    s.publish(self.epoch, self.state.next, self.position, 2, 0);
+                }
                 mailbox.receive(
                     self.minor,
                     std::time::Instant::now() + std::time::Duration::from_secs(5),
@@ -448,8 +462,14 @@ impl Session {
             } else {
                 send_version(&mut self.socket, &request, 5, self.minor)?;
                 self.trace.sent = Some(std::time::Instant::now());
+                if let Some(s) = &mut self.fault_status {
+                    s.publish(self.epoch, self.state.next, self.position, 2, 0);
+                }
                 receive_version(&mut self.socket, 5, self.minor)?
             };
+            if let Some(s) = &mut self.fault_status {
+                s.publish(self.epoch, self.state.next, self.position, 3, 0);
+            }
             self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
                 need(

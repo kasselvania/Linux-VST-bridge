@@ -103,8 +103,10 @@ class OwnershipTests(unittest.TestCase):
         atomic=session.atomic
         receipts=[]
         def fail_report(path,value):
-            if path.name=='report.json':raise OSError('injected rich report failure')
-            receipts.append(value.copy());return atomic(path,value)
+            if path.name in ('report.json','report.fault.json'):raise OSError('injected rich report failure')
+            
+            if path.name.endswith('.ownership.json'):receipts.append(value.copy())
+            return atomic(path,value)
         try:
             with patch.object(session,'atomic',side_effect=fail_report):
                 self.test_early_failure_wakes_native_and_retires_only_after_release()
@@ -115,6 +117,79 @@ class OwnershipTests(unittest.TestCase):
             self.assertIn('injected rich report failure',receipts[0]['reporting_error'])
         finally:
             sibling.terminate();sibling.wait(timeout=5)
+
+
+@unittest.skipUnless(sys.platform == "linux", "Cross-process atomic status requires Linux libatomic")
+class FaultStatusTests(unittest.TestCase):
+    def test_pending_peer_is_retained_before_containment_without_completion(self):
+        for stage in (1,2,3,4,5,6):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as tmp:
+                root=pathlib.Path(tmp);sid='ef'*16
+                directory=root/'compatdata/pfx/drive_c/bridge/sessions'/sid
+                directory.mkdir(parents=True,mode=0o700);(directory/'ap1.control').touch()
+                # Fixed wire declaration, no state/audio payloads. Child uses
+                # the same libatomic primitives as the Linux production reader.
+                data=bytearray(1024);data[:16]=b'LVFS'+session.struct.pack('<III',1,1024,0);data[16:32]=bytes.fromhex(sid)
+                status=directory/'ap12.status';status.write_bytes(data);status.chmod(0o600)
+                artifact=root/'host';artifact.write_bytes(b'image')
+                binding={'path':str(artifact),'sha256':hashlib.sha256(b'image').hexdigest()}
+                spec={'registration':{'host':binding,'module':binding,'environment':{'root':str(root),'runner':{'files':[]}}},
+                      'session':sid,'directory':str(directory),'report':str(root/'report.json'),'inspect':False,'binding_sent':True}
+                native,owner=socket.socketpair();observations=[]
+                program=r"""
+import ctypes,mmap,os,sys,time
+f=open(sys.argv[1],'r+b');m=mmap.mmap(f.fileno(),1024);a=ctypes.addressof(ctypes.c_char.from_buffer(m))
+lib=ctypes.CDLL('libatomic.so.1');store=getattr(lib,'__atomic_store_8');store.argtypes=[ctypes.c_void_p,ctypes.c_uint64,ctypes.c_int]
+for lane,stage in [(0,2),(1,int(sys.argv[2])),(2,22)]:
+ base=64+lane*320
+ row=[4,1,9,0,stage,0,123,1000,os.getpid(),os.getpid()]
+ for i,v in enumerate(row):store(a+base+64+128+8*i,v,5)
+ store(a+base,1,5)
+ # Die later with an unfinished write in the OTHER slot. Reader must keep 9.
+ store(a+base+64+2*8,999,5)
+time.sleep(30)
+"""
+                def consumer():
+                    # Ordinary peer release ends the same production supervisor.
+                    time.sleep(1.5);native.shutdown(socket.SHUT_WR);native.settimeout(8)
+                    observations.append(native.recv(1))
+                thread=threading.Thread(target=consumer);thread.start()
+                cleanup=session.cleanup_process
+                def check_before_cleanup(child,owned):
+                    saved=json.loads((root/'report.fault.json').read_text())
+                    row=saved['before_containment']['delivery']
+                    self.assertEqual((row['generation'],row['epoch'],row['request_sequence'],row['position'],row['stage']),(4,1,9,0,stage))
+                    self.assertIsNone(child.poll())
+                    return cleanup(child,owned)
+                try:
+                    with patch.object(session,'command',return_value=([sys.executable,'-c',program,str(status),str(stage)],b'')), \
+                         patch.object(session,'environment',return_value=os.environ.copy()), \
+                         patch.object(session,'cleanup_process',side_effect=check_before_cleanup):
+                        outcome=session.run(spec,owner)
+                    thread.join(timeout=9);self.assertFalse(thread.is_alive())
+                    self.assertEqual(observations,[b'R'])
+                    self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+                    self.assertIsNotNone(outcome['fault_status']['early_pending'])
+                    self.assertFalse(directory.exists())
+                    self.assertTrue((root/'report.fault.json').exists())
+                finally:native.close();owner.close()
+
+    def test_reader_rejects_identity_and_never_uses_unstable_slot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);p=root/'ap12.status';sid='12'*16
+            data=bytearray(1024);data[:16]=b'LVFS'+session.struct.pack('<III',1,1024,0);data[16:32]=bytes.fromhex(sid)
+            p.write_bytes(data);p.chmod(0o600)
+            with self.assertRaisesRegex(RuntimeError,'session/version'):session.FaultStatus(root,'13'*16)
+            observer=session.FaultStatus(root,sid)
+            try:
+                n=[0]
+                def changing(offset):
+                    if offset==64:n[0]+=1;return n[0]
+                    return 777
+                with patch.object(observer,'word',side_effect=changing):
+                    self.assertEqual(observer.lane(0),{'current':False})
+                    self.assertEqual(n[0],6) # exactly three bounded attempts
+            finally:observer.close()
 
 
 class CensusTests(unittest.TestCase):

@@ -4,6 +4,7 @@
 No registration writes, checkout imports, scan guesses, global Wine overrides or
 callback work. The Rust manager supplies an exact verified registration.
 """
+import ctypes,mmap
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
 from ownership import process_identities,descendant_identities,cleanup_process
 
@@ -63,6 +64,81 @@ def delivery_trace(spec,env):
     except OSError:enabled=False
     if enabled:env['LVB_AP10_TRACE']='1'
 
+class FaultStatus:
+    """Atomic, bounded read of AP12 status; independent of either Windows thread.
+
+    All words are atomic, including slot data. A stable publication counter
+    validates a slot. Three attempts per lane, never wait for a writer. The
+    inactive slot preserves the last complete publication if a writer is killed.
+    Linux libatomic supplies acquire/SC reads; Python byte copies are NOT used
+    for concurrently written slots. Header bytes are immutable before admission.
+    """
+    fields=('generation','epoch','request_sequence','position','stage','detail','ticks','frequency','thread_id','process_id')
+    def __init__(self,directory,sid):
+        self.map=None;self.last=[None]*3;self.pending=None;self.suspect=None
+        try:
+            fd=os.open(directory/'ap12.status',os.O_RDWR|os.O_NOFOLLOW)
+        except FileNotFoundError:return # legacy diagnostic clients
+        try:
+            st=os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=1024 or st.st_mode&0o077:raise RuntimeError('fault status ownership/extent')
+            self.map=mmap.mmap(fd,1024,access=mmap.ACCESS_WRITE)
+        finally:os.close(fd)
+        header=self.map[:32]
+        if header[:16]!=b'LVFS'+struct.pack('<III',1,1024,0) or header[16:]!=bytes.fromhex(sid):
+            self.close();raise RuntimeError('fault status session/version')
+        self.lib=ctypes.CDLL('libatomic.so.1')
+        self.load=getattr(self.lib,'__atomic_load_8');self.load.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load.restype=ctypes.c_uint64
+        self.address=ctypes.addressof(ctypes.c_char.from_buffer(self.map))
+    def word(self,offset):return self.load(self.address+offset,5) # sequentially consistent
+    def lane(self,index):
+        base=64+index*320
+        for _ in range(3):
+            counter=self.word(base)
+            if not counter:return None
+            slot=base+64+(counter&1)*128
+            values=[self.word(slot+8*i) for i in range(10)]
+            if self.word(base)==counter:
+                self.last[index]={'publication':counter,**dict(zip(self.fields,values))}
+                return {**self.last[index],'current':True}
+        return {**self.last[index],'current':False} if self.last[index] else {'current':False}
+    def snapshot(self):
+        if self.map is None:return {'available':False}
+        return {'available':True,'schema':1,'sample_monotonic_ns':time.monotonic_ns(),
+                'clock_domains':['linux_monotonic_ns','windows_qpc','windows_qpc'],
+                **{name:self.lane(i) for i,name in enumerate(('native','delivery','owner'))}}
+    def poll(self):
+        if self.map is None or self.suspect is not None:return
+        native=self.lane(0)
+        if not native or not native.get('current') or native['stage'] not in (1,2):self.pending=None;return
+        identity=(native['generation'],native['epoch'],native['request_sequence'])
+        now=time.monotonic()
+        if self.pending is None or self.pending[0]!=identity:self.pending=(identity,now)
+        elif now-self.pending[1]>=1:
+            # One bounded early witness; does not change the five-second reply
+            # deadline or declare that this request necessarily fails later.
+            self.suspect=self.snapshot();self.suspect['observed_pending_seconds']=now-self.pending[1]
+    def close(self):
+        if self.map is not None:self.map.close();self.map=None
+
+def fault_threads(owned):
+    """One bounded /proc observation only after a request stays pending >1s."""
+    result=[]
+    current={(p['pid'],p['start_ticks']) for p in process_identities()}
+    for pid,start in sorted(owned):
+        if (pid,start) not in current:continue
+        try:tasks=sorted((pathlib.Path('/proc')/str(pid)/'task').iterdir())
+        except OSError:continue
+        for task in tasks:
+            if len(result)>=128:return result
+            try:
+                raw=(task/'stat').read_text();end=raw.rfind(')');fields=raw[end+2:].split()
+                wchan=(task/'wchan').read_text()[:128]
+                result.append({'pid':pid,'start_ticks':start,'tid':int(task.name),'name':raw[raw.find('(')+1:end][:64],
+                               'state':fields[0],'utime':int(fields[11]),'stime':int(fields[12]),'wchan':wchan})
+            except (OSError,ValueError,IndexError):continue
+    return result
+
 def run(spec,peer=None):
     os.umask(0o077);reg=spec['registration'];directory=pathlib.Path(spec['directory']);sid=spec['session'];report=pathlib.Path(spec['report']);expected_dir=pathlib.Path(reg['environment']['root'])/'compatdata/pfx/drive_c/bridge/sessions'/sid
     if directory!=expected_dir or len(sid)!=32 or any(c not in '0123456789abcdef' for c in sid):raise RuntimeError('session binding differs')
@@ -95,6 +171,7 @@ def run(spec,peer=None):
         while not (directory/'ap1.control').exists():
             if native_stopped() or time.monotonic()>=end:raise RuntimeError('native setup disconnected or timed out')
             time.sleep(.02)
+    visibility=FaultStatus(directory,sid) if not spec['inspect'] and not spec.get('vendor_access') else None
     root=subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
     sel=selectors.DefaultSelector()
@@ -126,6 +203,13 @@ def run(spec,peer=None):
                 if r['pid']==root.pid:owned.add((r['pid'],r['start_ticks']))
             owned.update((r['pid'],r['start_ticks']) for r in descendant_identities(root.pid,census))
             pump(.05)
+            if visibility:
+                was=visibility.suspect
+                visibility.poll()
+                if was is None and visibility.suspect is not None:
+                    visibility.suspect['threads']=fault_threads(owned)
+                    try:atomic(report.with_suffix('.fault.json'),{'session':sid,'early_pending':visibility.suspect})
+                    except OSError:pass # final outcome also retains this bounded witness
             if native_stopped():
                 if spec.get('vendor_access'):
                     (directory/'vendor.stop').write_text(sid+'\n')
@@ -159,13 +243,20 @@ def run(spec,peer=None):
                 break
     except Exception as e:failure=f'{type(e).__name__}: {e}'
     finally:
+        fault=None;fault_reporting_error=None
+        if visibility:
+            try:
+                fault={'session':sid,'early_pending':visibility.suspect,'before_containment':visibility.snapshot()}
+                atomic(report.with_suffix('.fault.json'),fault)
+            except Exception as e:fault_reporting_error=type(e).__name__+': '+str(e)[:256]
+            finally:visibility.close()
         try:
             cleanup=cleanup_process(root,sorted(owned));clean=all(cleanup.values())
         except Exception as e:
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        outcome={'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]

@@ -73,7 +73,7 @@ struct ClockSample {
     after: u64,
 }
 #[cfg(target_os = "linux")]
-fn monotonic_ns() -> u64 {
+pub(crate) fn monotonic_ns() -> u64 {
     #[repr(C)]
     struct Timespec {
         sec: i64,
@@ -89,7 +89,7 @@ fn monotonic_ns() -> u64 {
     ts.sec as u64 * 1_000_000_000 + ts.nsec as u64
 }
 #[cfg(not(target_os = "linux"))]
-fn monotonic_ns() -> u64 {
+pub(crate) fn monotonic_ns() -> u64 {
     0
 }
 impl ClockSample {
