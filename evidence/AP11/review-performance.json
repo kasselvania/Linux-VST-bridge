@@ -1,0 +1,543 @@
+{
+  "configuration": {
+    "rate": 48000,
+    "precision": "float32",
+    "callback_frames": 256,
+    "added_frames": 512,
+    "vendor_frames": 192,
+    "reported_total_frames": 704,
+    "pipewire_quantum": 512,
+    "pipewire_min_quantum": 256
+  },
+  "phases": [
+    {
+      "name": "closed",
+      "wall_seconds": 15.218365469947457,
+      "start_monotonic_ns": 678267127232782,
+      "end_monotonic_ns": 678282171706934,
+      "cohort_cpu_percent": 97.83995007923359,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 829384,
+        "rms": 0.0006738352509563486,
+        "peak": 0.005203733686357737,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 1,
+          "windows_consumed": 1,
+          "windows_sent": 0,
+          "native_consumed": 0,
+          "failure": 0,
+          "open": 0
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 1,
+          "windows_consumed": 1,
+          "windows_sent": 0,
+          "native_consumed": 0,
+          "failure": 0,
+          "open": 0
+        }
+      ],
+      "session": "1b231d72058665b127ba6682c8e12ec1",
+      "gap_frames_before_window": 0,
+      "gap_frames_after_window": 0,
+      "gap_frames_inside_window": 0
+    },
+    {
+      "name": "open-idle",
+      "wall_seconds": 15.213287831051275,
+      "start_monotonic_ns": 678364631768879,
+      "end_monotonic_ns": 678379674434078,
+      "cohort_cpu_percent": 113.73507136978193,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 827900,
+        "rms": 0.000673891295465987,
+        "peak": 0.005203733686357737,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 13,
+          "windows_consumed": 13,
+          "windows_sent": 9408,
+          "native_consumed": 9408,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 13,
+          "windows_consumed": 13,
+          "windows_sent": 9408,
+          "native_consumed": 9408,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "session": "1b231d72058665b127ba6682c8e12ec1",
+      "gap_frames_before_window": 512,
+      "gap_frames_after_window": 512,
+      "gap_frames_inside_window": 0
+    },
+    {
+      "name": "record-gesture",
+      "wall_seconds": 15.21724829589948,
+      "start_monotonic_ns": 678476602242162,
+      "end_monotonic_ns": 678491644287735,
+      "cohort_cpu_percent": 111.92964359994365,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 824712,
+        "rms": 0.0006655670846082918,
+        "peak": 0.004973517265170813,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 16,
+          "windows_consumed": 16,
+          "windows_sent": 11760,
+          "native_consumed": 11760,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 21,
+          "windows_consumed": 21,
+          "windows_sent": 11763,
+          "native_consumed": 11763,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "session": "1b231d72058665b127ba6682c8e12ec1",
+      "gap_frames_before_window": 512,
+      "gap_frames_after_window": 512,
+      "gap_frames_inside_window": 0
+    },
+    {
+      "name": "replay-gesture",
+      "wall_seconds": 15.225148259080015,
+      "start_monotonic_ns": 678608726211155,
+      "end_monotonic_ns": 678623773230532,
+      "cohort_cpu_percent": 107.42223821886688,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 834846,
+        "rms": 0.0006718955443940414,
+        "peak": 0.004831970203667879,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 78,
+          "windows_consumed": 78,
+          "windows_sent": 14115,
+          "native_consumed": 14115,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 84,
+          "windows_consumed": 84,
+          "windows_sent": 14115,
+          "native_consumed": 14115,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "session": "1b231d72058665b127ba6682c8e12ec1",
+      "gap_frames_before_window": 2048,
+      "gap_frames_after_window": 2048,
+      "gap_frames_inside_window": 0
+    },
+    {
+      "name": "held-replay",
+      "wall_seconds": 15.21538058493752,
+      "start_monotonic_ns": 678736823915671,
+      "end_monotonic_ns": 678751866577480,
+      "cohort_cpu_percent": 105.69136767063245,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 813106,
+        "rms": 0.0006105876322004881,
+        "peak": 0.005320843309164047,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 141,
+          "windows_consumed": 141,
+          "windows_sent": 18822,
+          "native_consumed": 18822,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "1b231d72058665b127ba6682c8e12ec1",
+          "native_sent": 148,
+          "windows_consumed": 148,
+          "windows_sent": 18822,
+          "native_consumed": 18822,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "session": "1b231d72058665b127ba6682c8e12ec1",
+      "gap_frames_before_window": 4352,
+      "gap_frames_after_window": 4352,
+      "gap_frames_inside_window": 0
+    },
+    {
+      "name": "final-closed",
+      "wall_seconds": 15.219873418915085,
+      "start_monotonic_ns": 679785455751402,
+      "end_monotonic_ns": 679800497387106,
+      "cohort_cpu_percent": 93.3255283949403,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 818716,
+        "rms": 0.000615466501179342,
+        "peak": 0.005027391482144594,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+          "native_sent": 3,
+          "windows_consumed": 3,
+          "windows_sent": 0,
+          "native_consumed": 0,
+          "failure": 0,
+          "open": 0
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+          "native_sent": 10,
+          "windows_consumed": 10,
+          "windows_sent": 0,
+          "native_consumed": 0,
+          "failure": 0,
+          "open": 0
+        }
+      ],
+      "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+      "gap_frames_before_window": 0,
+      "gap_frames_after_window": 0,
+      "gap_frames_inside_window": 0
+    },
+    {
+      "name": "final-visible-idle",
+      "wall_seconds": 15.215554925031029,
+      "start_monotonic_ns": 679876694853104,
+      "end_monotonic_ns": 679891740243854,
+      "cohort_cpu_percent": 110.21778214700073,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 827778,
+        "rms": 0.0006196199402091666,
+        "peak": 0.005027391482144594,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+          "native_sent": 53,
+          "windows_consumed": 53,
+          "windows_sent": 8,
+          "native_consumed": 8,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+          "native_sent": 60,
+          "windows_consumed": 60,
+          "windows_sent": 8,
+          "native_consumed": 8,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+      "gap_frames_before_window": 0,
+      "gap_frames_after_window": 0,
+      "gap_frames_inside_window": 0
+    },
+    {
+      "name": "final-replay",
+      "wall_seconds": 15.216386619955301,
+      "start_monotonic_ns": 679934028121594,
+      "end_monotonic_ns": 679949071470016,
+      "cohort_cpu_percent": 108.53055810449273,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 828470,
+        "rms": 0.0006156513143270209,
+        "peak": 0.004859613254666328,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+          "native_sent": 79,
+          "windows_consumed": 79,
+          "windows_sent": 8,
+          "native_consumed": 8,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+          "native_sent": 87,
+          "windows_consumed": 87,
+          "windows_sent": 8,
+          "native_consumed": 8,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+      "gap_frames_before_window": 0,
+      "gap_frames_after_window": 0,
+      "gap_frames_inside_window": 0
+    },
+    {
+      "name": "final-active",
+      "wall_seconds": 15.213561690994538,
+      "start_monotonic_ns": 679963675349883,
+      "end_monotonic_ns": 679978720085637,
+      "cohort_cpu_percent": 112.35757328277232,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 814866,
+        "rms": 0.0006005816422426763,
+        "peak": 0.00533087644726038,
+        "stderr": ""
+      },
+      "ui_before": [
+        {
+          "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+          "native_sent": 93,
+          "windows_consumed": 93,
+          "windows_sent": 8,
+          "native_consumed": 8,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "ui_after": [
+        {
+          "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+          "native_sent": 97,
+          "windows_consumed": 97,
+          "windows_sent": 14,
+          "native_consumed": 14,
+          "failure": 0,
+          "open": 1
+        }
+      ],
+      "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+      "gap_frames_before_window": 0,
+      "gap_frames_after_window": 0,
+      "gap_frames_inside_window": 0
+    }
+  ],
+  "phase_notes": {
+    "open-idle": "The vendor window was open but hidden behind Bitwig for much of this capture. Do not relabel as visible-idle.",
+    "record-gesture": "First short Touch gesture; too brief for the desired held curve. Retained, then a second Latch gesture produced the held curve.",
+    "held-replay": "Recorded held 0/.5 curve playing hands-off, writing disabled.",
+    "final-closed": "Recorded 0/.5 curve playing with editor closed.",
+    "final-visible-idle": "Same curve and live editor visible, no input.",
+    "final-replay": "Same recorded curve hands-off; one title-bar move near capture start exposes curve/control together. No DSP edit.",
+    "final-active": "Two short Grain Mix drags with writing off, 12.8% then 50%; changes sound during this window. Not continuous stress."
+  },
+  "first_cause": {
+    "session": "1b231d72058665b127ba6682c8e12ec1",
+    "preceding_audio_sequence": 14156,
+    "serialized_state_sequence": 14157,
+    "first_delayed_audio_sequence": 14158,
+    "state_bytes": 128328,
+    "queued_ns": 678308115312223,
+    "native_blocked_out_ns": 678308113235804,
+    "native_back_in_ns": 678308125209447,
+    "windows_ui_in_ns": 678308116743158,
+    "windows_ui_out_ns": 678308125075384,
+    "windows_ui_continuous_on_cpu_ms": 8.332226,
+    "request_queue_us": 10519,
+    "audio_reply_us": 343,
+    "first_missed_callback_frames": 256,
+    "finding": "Open always enqueued Refresh. Windows enumerated 2348 parameters and native RefreshEnd sent kParamValuesChanged|kParamTitlesChanged. Bitwig captured unchanged state after each open/focus. That serialized control request held the transport; audio requests accumulated. Windows UI spent 8.332 ms scheduled during that state interval. The first audio callback arrivals were normally spaced, not a burst; its DSP round trip after admission was 343 us.",
+    "repair": "Remove the unsolicited Refresh from panelOpen. Preserve actual vendor restart refreshes and required state serialization.",
+    "unknown": "No stack-level split between vendor state generation and the bridge parameter/state walk. Later 12-ms reply and 29-31-ms native prepare outliers remain unclassified; their complete gap records are retained.",
+    "native_off_cpu_ms": 11.973643,
+    "off_cpu_note": "Serialized-request blocking plus any wake-to-run delay; perf switch events do not separately measure that wake latency."
+  },
+  "first_cause_perf_switches": [
+    " wf0-factory-pro 3139554/3139554 [005] 678308.110502216: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [005] 678308.110534387: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [005] 678308.110546467: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [005] 678308.110555308: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [005] 678308.110663080: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [005] 678308.110700311: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.110812003: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.110823463: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.110930115: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.110937416: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.111041268: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.111053828: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [002] 678308.111165850: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [002] 678308.111176731: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [002] 678308.111281483: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [002] 678308.111288893: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [003] 678308.111404745: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [003] 678308.111414336: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.111492087: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.111502188: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [003] 678308.111576069: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [003] 678308.111586389: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.111591669: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.111618010: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.111695022: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.111702782: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.111807864: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.111814394: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.111922606: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.111931257: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.112065109: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.112079300: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [002] 678308.112160181: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [002] 678308.112170822: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [002] 678308.112278534: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [002] 678308.112287284: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.112370046: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.112378656: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.112484168: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.112492368: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.112596671: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.112603511: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.112674102: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [002] 678308.112684183: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [002] 678308.112692993: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.112695953: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [002] 678308.112798195: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [002] 678308.112805205: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.112890107: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.112897977: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.113003819: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.113025970: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.113131152: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.113235804: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113750515: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113775956: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113792506: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113814116: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113826117: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113852767: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113867687: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113894808: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113906878: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [007] 678308.113927899: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [002] 678308.116743158: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [002] 678308.125075384: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [002] 678308.125113805: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.125209447: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [002] 678308.125251348: PERF_RECORD_SWITCH OUT",
+    " wf0-factory-pro 3139554/3139554 [002] 678308.125265598: PERF_RECORD_SWITCH IN",
+    " wf0-factory-pro 3139554/3139554 [002] 678308.125296229: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.125402821: task-clock:u:      7f6774447bc6 [unknown]",
+    "   ap3-transport 3139350/3139631 [006] 678308.125851241: PERF_RECORD_SWITCH OUT",
+    "   ap3-transport 3139350/3139631 [006] 678308.125956003: PERF_RECORD_SWITCH IN",
+    "   ap3-transport 3139350/3139631 [006] 678308.125964663: PERF_RECORD_SWITCH OUT"
+  ],
+  "comparison": {
+    "before_open_commands": 9,
+    "before_open_related_state_captures": 9,
+    "after_open_commands": 5,
+    "after_open_related_state_captures": 0,
+    "before_gap_frames": 4352,
+    "before_gap_callbacks": 17,
+    "before_gap_groups": 6,
+    "before_frames": 31311872,
+    "after_gap_frames": 0,
+    "after_gap_callbacks": 0,
+    "after_gap_groups": 0,
+    "after_frames": 12212480,
+    "after_callbacks": 47705,
+    "after_real_edit_and_close_state_requests": [
+      38311,
+      47707
+    ]
+  },
+  "limitations": [
+    "This is a focused causal comparison, not equal-duration statistical reliability certification. Before 652.33 audio seconds; after 254.43. Same 512-frame bridge, Windows binary, rate, callback, vendor environment and input loop. After includes the recorded 0/.5 curve; early before playback used .5.",
+    "Scoped perf task-clock/user switch recording ran during the first 240 seconds of the before session, including closed/open-idle CPU windows and first two gaps. It expired before gesture/replay windows. Final session used no perf or strace. CPU percentages across these sessions are not matched speedup measurements.",
+    "Gap bracketing uses every retained gap clock and capture interval retrospectively, not newly sampled RT counters. Observer drops and unretained gaps are zero. Zero final total proves zero inside its captured windows.",
+    "Owner-cohort CPU includes supervisor and owned Windows/runtime descendants, excludes native Bitwig; 100 percent is one logical CPU. Short sequential windows have no randomized replicates.",
+    "512 remains recommended, not certified gap-free. No lower buffer matrix or physical round-trip latency measurement."
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "sessions": [
+    {
+      "session": "250096baec197e79dcfb011acd047e33",
+      "raw_exit": 0,
+      "retired": true,
+      "contained": true
+    },
+    {
+      "session": "1b231d72058665b127ba6682c8e12ec1",
+      "raw_exit": 0,
+      "retired": true,
+      "contained": true
+    },
+    {
+      "session": "8901a957c935c3ec3b676cabfe5dcd2b",
+      "raw_exit": 0,
+      "retired": true,
+      "contained": true
+    },
+    {
+      "session": "02626aa424aaf7457949bb79a2bce9f6",
+      "raw_exit": 0,
+      "retired": true,
+      "contained": true
+    }
+  ],
+  "settings_restored": {
+    ".BitwigStudio/prefs/6.1.prefs": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    ".BitwigStudio/cache/vst3-metadata-11": "138eb39ee7351ff5e8510259275b5d0fa00926844e056e2bd8231f449cb9ded4",
+    "AP9-Performance/delay-frames": "240269e94afb4bbc4c643851e366bf4f0d870ff0753d250b854f748cf3516285"
+  },
+  "scanner_marker_restored": true,
+  "historical_session_files_restored": true,
+  "publication_empty": true,
+  "owner_endpoint_absent": true,
+  "pipewire_unchanged": true,
+  "added_frames": 512,
+  "original_ap11_project_restored_sha256": "894c037bd857efe9979c3e0b840ed030e25dfe101f5f0be07565e229a2778fb9",
+  "recorded_project_private_sha256": "157dcdfe270e32a4522b0675f401e8a21e9a5b5b87788ee92c33f1b1cb4c96b0",
+  "serum_environment_untouched": true,
+  "resource_files_unchanged": true,
+  "no_license_or_account_data_exported": true
+}
