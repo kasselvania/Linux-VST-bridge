@@ -157,8 +157,11 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             // Reuse the same SDK view lifecycle on this initialized controller.
             VendorView view;
             if(!view.open(*controller))throw std::runtime_error("vendor access editor open failed");
-            std::wstring title(name.begin(),name.end());
-            title+=state_result==kResultOk?L" — Vendor access (no DAW audio)":L" — Vendor access (saving unavailable; no DAW audio)";
+            int title_size=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,name.data(),int(name.size()),nullptr,0);
+            if(title_size<=0)throw std::runtime_error("vendor access title encoding");
+            std::wstring title(size_t(title_size),L'\0');
+            if(MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,name.data(),int(name.size()),title.data(),title_size)!=title_size)throw std::runtime_error("vendor access title conversion");
+            title+=state_result==kResultOk?L" - Vendor access (no DAW audio)":L" - Vendor access (saving unavailable; no DAW audio)";
             SetWindowTextW(view.window(),title.c_str());
             events.lifecycle("ap12_vendor_access_open",",\"save_available\":"+std::string(state_result==kResultOk?"true":"false"));
             const auto deadline=GetTickCount64()+30*60*1000;
