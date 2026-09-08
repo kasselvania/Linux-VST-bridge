@@ -1,81 +1,64 @@
 # AP12 — Everyday Pure LoFi → Efx FRAGMENTS use in Bitwig
 
-## Outcome and authority
+## Outcome and current position
 
-After one setup transaction, the operator can restart the Deck, launch Bitwig normally from Applications, find **Pure LoFi** as an Arturia instrument and **Efx FRAGMENTS** as an Arturia audio effect, drag Pure LoFi onto an instrument track, place FRAGMENTS after it, open both real vendor editors, change and automate one exposed control on each, save the project, and reopen the same sound and automation without manually starting a preview owner, SSH session, or development checkout.
+The operator loads **Pure LoFi** as an Arturia instrument and **Efx FRAGMENTS** as an Arturia audio effect from Bitwig's browser, chains them, uses their actual editors and automation, saves, restarts, and reopens the same sound without a checkout, SSH session or manually started preview owner. Leave the working installation, publications, automatic service and project available for human use.
 
-The working publications remain installed at handoff. Setup may initially use a typed CLI; routine music use may not depend on that CLI remaining open.
+Continue [PR #79](https://github.com/kasselvania/Linux-VST-bridge/pull/79) and [issue #78](https://github.com/kasselvania/Linux-VST-bridge/issues/78) on `codex/ap12-arturia-everyday-use`. Reviewed diagnostic source: `5375621dab0ac11a72c7d6b2bfb3866e233b36f3`; basis main: `1d5d693e2e2d12547dfd6b02e2b8492b27418592`. [Review 5146648137](https://github.com/kasselvania/Linux-VST-bridge/pull/79#pullrequestreview-5146648137) grounds this repair continuation in production code and the SDK. This replaces the initial installation work order, not the AP12 product outcome. Ordinary implementation, necessary builds, debugging, vendor-UI presentation and focused verification are included under [AGENTS.md](AGENTS.md). Do not create a new slice, permission receipt or duplicate diagnostic/acceptance campaign.
 
-[Issue #78](https://github.com/kasselvania/Linux-VST-bridge/issues/78); branch `codex/ap12-arturia-everyday-use`; basis main `1d5d693e2e2d12547dfd6b02e2b8492b27418592`. AP11/#76 is merged. Serum-specific lawful authorization/editor qualification remains separately tracked in #77. Issues #72/#73/#74 remain ordinary backlog, not gates to this work. Implementation, necessary builds, installer execution, focused device verification, and ordinary in-scope repairs are authorized under [AGENTS.md](AGENTS.md). No additional selection, receipt, or permission-document loop is required.
+Normal installations now initialize both products. Preserve the Rust registration/publication service, installed supervision, exact metadata, independent session work and all valid observations. Do not reinstall everything. The operator-replaced LoFi module is a distinct recorded artifact, not evidence about the original installer or authorization. The user project is preserved; use a disposable copy for edits/removal tests. See [AP12 findings](docs/AP12.md) and the original [failure records](evidence/AP12/).
 
-## Establish a normal Arturia installation first
+## Repair the actual state contract
 
-Use the existing user-owned Pure LoFi 1.0.0 and Efx FRAGMENTS installer artifacts on the Deck. Verify their exact paths, hashes, versions, and regular-file ownership before execution. Preserve the existing working FRAGMENTS environment, the historical Pure LoFi failure environment, installed vendor files, projects, and license/account state as rollback evidence.
+### Opaque state and parameter readback are different results
 
-Create a persistent bridge-owned Arturia environment and run the normal vendor installers in their real foreground UI. A shared Arturia family environment is appropriate when the installers and resulting modules support it; split environments only for a demonstrated compatibility or ownership reason. The installer UI itself is sufficient for this slice—do not build a complete graphical manager.
+`ap8_state.h::commercial_state` captures real component/controller bytes, then discards them when an extra parameter getter returns an invalid normalized value. Current LoFi evidence identifies id 1066, value -1, flags 1024. Its proprietary reason is unknown. In the pinned SDK, hidden is bit 4, not 1024. Do not infer unknown flag/sentinel semantics or special-case a product name, parameter title or ID.
 
-Record non-sensitive installation facts needed for later support: installer identity, process outcome, installed module/class paths and hashes, resource/content roots, runner identity, and authorization posture. Do not commit proprietary binaries, presets, credentials, cookies, license files, serials, or account data. Do not bypass licensing. If a vendor/operator action is required, present the lawful window and retain the exact result.
+Successful bounded opaque capture is saveable independently of supplemental parameter-readback completeness. Introduce a versioned, validity-tagged readback representation: preserve each known parameter's identity and distinguish an available finite [0,1] value from unavailable/invalid readback. Invalid values belong in bounded diagnostics, not normalized host/DSP messages. Do not clamp them, delete parameters, fabricate vendor state, or reconstruct state from a parameter list. The proxy may retain a prior valid value or validated SDK default only as an explicitly marked presentation fallback, never as newly observed vendor state or a write-back instruction.
 
-The old Pure LoFi result is not a compatibility verdict: AP8 copied an existing module and selected resources into a prepared environment, then observed `IComponent::initialize()` return `kResultFalse`. Re-test the normally installed module using the current host. If it still fails, trace the exact call, dependency, path, or runtime boundary and repair the demonstrated cause. Do not switch plug-ins or runners merely to obtain a pass. A genuine vendor/authorization blocker may leave the Pure LoFi portion incomplete, but it must not become an unrelated installer hunt or fabricated success.
+Update the complete path together: Windows capture, Rust `state.rs` envelope/parser, native controller `apply`, descriptor/initial mirror handling, Windows editor refresh and native refresh completeness. A single omitted pair currently fails the native count contract, and an invalid getter also fails editor refresh. Preserve old saved-envelope reads, class/module integrity, real ParamIDs, duplicate/extent checks, UI thread ownership and AP10 payload lifetime. Keep rejecting invalid actual automation commands. Private layout is the engineer's choice; incompatible formats need explicit versioning.
 
-A normal FRAGMENTS installation may also clarify its current resource-integrity warning. Investigate actual installed layout and vendor requests; do not create guessed files or erase the warning without evidence.
+### A declined save is not automatically a dead processing session
 
-## Preserve exact identity and publish familiar devices
+Apply this behavior through `MappedSession::state_call`, Rust `Session::component_state`, `queued.rs::worker`, the C ABI and native `Processor::getState`:
 
-Carry the Windows factory and class metadata required for publication: vendor, class name, class ID, version where available, and declared VST3 subcategories. Browser role is determined from the format metadata—not inferred from whether the class has audio inputs. An instrument may accept audio, and an effect may accept events. Use `IPluginFactory2`/`PClassInfo2` or the applicable richer factory interface when available, with an explicit fallback when it is not.
+| Observed result | Required behavior |
+| --- | --- |
+| Component and supported controller capture succeed; supplemental getter is invalid | Return the genuine opaque state with explicit readback unavailability. Do not terminate audio or manufacture a parameter value. |
+| GetState returns an ordinary refusal such as kResultFalse/kNotImplemented, with intact protocol and bounded/quiescent streams | Return a correlated operation failure containing stage and SDK result; consume its sequence once; tell Bitwig saving failed, while otherwise healthy audio/editor service continues. Discard partial unsuccessful capture bytes. |
+| Prior confirmed recovery snapshot exists when a later save fails | Retain it as the prior snapshot only. Do not call the failed save successful, advance its revision, or silently save the older sound. |
+| Crash, unanswered/deadline-expired call, malformed identity/correlation/payload, unsafe stream lifetime, or uncertain/partially failed restore | Retain explicit terminal/unsafe handling. Do not resume an existing project with default or partially restored sound. |
 
-Publish two independently selectable native devices whose human-facing metadata matches the inspected classes:
+Decode a legitimate error response before applying success-response checks; do not obscure a vendor refusal as `state response correlation`. Preserve existing serialization and accepted-edit ordering. Removing the fatal policy is not permission to call vendor state concurrently with processing or to block an audio callback.
 
-- **Arturia · Pure LoFi · Instrument**
-- **Arturia · Efx FRAGMENTS · Audio FX**
+## Make the real vendor UI reachable before saving is available
 
-Preserve the established native processor/controller ID derivation from the exact Windows class identity, the real parameter IDs, and saved-project bindings. Friendly names, paths, builds, and environment revisions do not regenerate class identity. Bridge build/provenance remains inspectable in technical details; product presentation must not imply Arturia authored or officially supports this bridge.
+FRAGMENTS currently returns kResultFalse before any stream writes, reads, seeks or unsupported-interface queries. That is a genuine state refusal, not LoFi's successful-capture/readback failure. Bigger buffers or guessed stream interfaces do not address this observation.
 
-Publication must be atomic and idempotent. Repeating setup must not create duplicate Bitwig entries, generic “Commercial Instrument Bridge” entries, or new class IDs. Removing a bridge registration may remove only bridge-owned publication and product state—not vendor files, content, authorization, or user projects. Whether the implementation uses separate bundles or multiple classes in one module is private engineering latitude as long as Bitwig presents the two exact devices correctly.
+Separate metadata/discovery, fresh-instance/editor readiness, and persistence availability. `inspect_module.cpp` currently requires getState before binding the editor; the native controller connection/`Processor::readback` also bootstraps through full state. Remove both universal prerequisites while preserving successful component/controller synchronization when state is available. A failed restore of an EXISTING project is not a fresh-instance request and must never be replaced with defaults.
 
-No product-name switch may determine behavior. Module/class metadata and registered compatibility state drive the generic path.
+Add the smallest managed **open vendor editor / vendor-access session** for an exact installed class and environment, including an unpublished class, by reusing the existing Windows host, controller and view lifecycle. No second synth pretending to control an active DSP, vendor code modification, screenshot editor or new GUI framework. Allow explicit save-unavailable audition where the vendor permits it, with visible status; do not advertise project recall.
 
-## Replace preview preparation with persistent registered startup
+Use that route to observe FRAGMENTS' own restriction and normal vendor access. Arturia documents [FRAGMENTS demo](https://www.arturia.com/demo/efx-fragments) with saving/loading/import/export disabled and a time limit. This is a hypothesis until the actual environment's vendor UI confirms it. Present any needed normal editor/installed companion handoff; account/activation actions belong to the operator. Do not log credentials, copy authorization files, replace vendor binaries, bypass demo limits or synthesize saved state. A confirmed restriction can still block the full AP12 recall claim, but must not block ordinary shared-code repair or strand its own authorization window.
 
-Implement the smallest real management core needed for this vertical: register/import the installed classes, publish/status/unpublish them for Bitwig, bind each mapping to an exact environment and runner revision, and start the supervised Windows host automatically when Bitwig instantiates a published proxy. Rust owns the canonical registration/publication state and command surface. Existing Python supervision may be reused where it remains sound, but installed playback must not extract helpers with `git show` or depend on a repository checkout.
+## Keep reporting outside cleanup authority
 
-A systemd user service, socket activation, or an equivalently bounded user-session mechanism is appropriate. The native proxy requests an exact registered mapping; it must not launch arbitrary Wine commands or scan the filesystem from the audio callback. Normal operation must not depend on `.git`, a build directory, `AP9-Performance/serum`, `AP8-Commercial-Test/preview`, a manually started `ap8_preview.py`, or a running agent.
+The new `bridge-manager/runtime/session.py::run` writes its rich report unguarded after physical cleanup but before native-release/transport-retirement work. A report-write exception can skip that work and strand admissions. Repair this in the existing owner: cleanup and peer-release ordering must finish independently of diagnostic persistence; expose reporting failures separately and give the parent a reliable minimal ownership outcome. Retain leases/refusal when physical cleanup or ownership really is unproved. Do not fabricate clean readback or restart/kill healthy siblings. Add a focused injected report-write-failure test; no new supervisor framework.
 
-Support at least one Pure LoFi and one FRAGMENTS instance concurrently. Each DAW instance owns distinct transport, audio/event buffers, state, editor session, automation, failure, and cleanup identity. Sharing one Arturia environment does not permit sharing mutable processor/controller state or one session directory. Removing or closing either instance must leave its healthy sibling running. The existing commercial `capacity = 1` and single-session-directory assumptions are not acceptable product behavior.
+## Implementation and verification
 
-Registration and status operations stay outside real-time audio. Hashing, scanning, service startup, environment verification, and UI refresh may not enter the callback path or trigger fabricated parameter invalidation/state capture. Preserve AP11’s repair: opening or focusing an editor is not a reason to request a full parameter refresh.
+First repair the shared contracts with production SDK/transport/native-consumer tests, not another round of failing commercial trials. Cover successful opaque save with unavailable readback through native apply and genuine refresh; completed save refusal followed by correctly correlated audio/control; no fresh snapshot on refusal; safe restore/protocol failure; editor access before saving; and reporting-failure cleanup. Preserve the existing valid state, focus, gesture, stopped-save and shallow-payload regressions. Reuse unaffected evidence and binaries.
 
-## Compatibility settings belong to the product mapping
+Then verify the actual installed products. Resolve the FRAGMENTS vendor-access question through its real UI. Recheck the LoFi two-control edit → state save → editor/device removal sequence and edited-sound recall. Once both products permit the necessary operations, complete the same Bitwig LoFi → FRAGMENTS project: correct browser roles, independent sessions/editors, one recorded and hands-off-replayed parameter per device, sound agreement, save/quit/reopen, and a Deck or user-session restart without development tooling. Removing FRAGMENTS must leave LoFi working. Do not label a demo-only or externally blocked pair project-safe.
 
-Retain the currently verified pinned Proton runner first. Store exact runner/environment/profile identity rather than following whichever `wine` or Proton build is newest. FRAGMENTS’ explicit per-process Windows-accessibility override must be represented as a visible compatibility setting for that product/profile only; do not mutate the entire Arturia environment or every plug-in process.
+Keep 512 added frames per proxy and report the actual chain's vendor latency and gap counts. Two bridge delays alone total 1,024 frames / 21.33 ms at 48 kHz. Earlier delivery timeouts remain separate from the later state exception. If a timeout reproduces, trace its first outstanding request and owning threads; do not declare these state repairs its cause without evidence or replay a broad latency matrix.
 
-`giang17/wine` branch `d2d1-dcomp-11.0`, last reviewed at `0077f1c63098d65a4d2554cd31d07903773cf992`, is a serious candidate runner source beneath our independent bridge. It is not a replacement for our proxy, Windows host, transport, state, editor, or management work and does not reopen the no-yabridge decision. Do not build or migrate to it merely because it exists. For a matching rendering/window/runtime failure, identify the loaded graphics path and compare one coherent pinned runner in an isolated reversible environment. Do not mix individual DXVK/WineD3D/DXGI DLLs, apply global Wine-detection overrides, or assume its 64-sample FL Studio result measures our bridge. Reverify the Wine X11 window-ID capability used by AP11 on any alternate runner.
+Retain metadata-derived names/vendor/subcategories and stable native class IDs, independent instance state, atomic/idempotent publication and installed startup without `.git` or fixture paths. Temporary tests and unrelated settings are restored; intended product artifacts stay installed. Stop repetitive trials when a vendor action is genuinely required, retain completed sub-results, and identify the exact user action rather than claiming success.
 
-## Musical behavior and latency
+## Runtime boundary and sources
 
-Bitwig owns the serial device chain. The bridge publishes normal independent devices; it does not create a private Pure LoFi-to-FRAGMENTS connection.
+Keep the current pinned runner. `giang17/wine` at previously reviewed `0077f1c63098d65a4d2554cd31d07903773cf992` remains a potential runtime source for a matching rendering/window fault, not a demonstrated fix for these getters or saving restrictions. Do not mix DXVK/builtin graphics DLLs, change global Wine detection or assume every runner supports AP11's X11 window-ID capability. The independent bridge remains selected; no yabridge migration.
 
-Pure LoFi must accept the class’s actual note/event and audio configuration and produce note-driven sound. FRAGMENTS must accept Pure LoFi’s audio output through Bitwig and return input-dependent processed audio. Auxiliary/sidechain buses may remain inactive when not yet supported, but must be represented and refused honestly rather than silently misrouted.
+Use the existing pinned SDK, especially `ivsteditcontroller.h`, `ivstcomponent.h`, `gui/iplugview.h`, official `public.sdk/source/vst/hosting/plugprovider.cpp`, and [VST3 persistence](https://steinbergmedia.github.io/vst3_dev_portal/pages/FAQ/Persistence.html). Dossier basis: [architecture](docs/ARCHITECTURE.md) state/host boundaries and [activation/recovery](docs/design-dossier/03-activation-flatpak-runtime-and-recovery.md). Respect SDK thread affinity and normal vendor restrictions; a healthy process and a saveable project are distinct facts.
 
-Each vendor editor controls the same processor instance producing that device’s audio. Choose one useful vendor-exposed automatable parameter per plug-in. Verify vendor UI → Bitwig automation writing and hands-off Bitwig replay → Windows controller/DSP/UI, with sound agreement. Not every vendor button or preset-browser action is required to be automatable.
-
-Retain **512 added frames per proxy** for this slice. Two serial bridge instances therefore contribute 1,024 frames—21.33 ms at 48 kHz—before vendor and hardware latency. Report the actual whole-chain delay and existing gap counters. Do not increase buffering to conceal a regression or run an undirected latency matrix. When a new gap appears, follow the first originating request and repair a demonstrated cause where practical.
-
-## Completion
-
-AP12 is complete when all of the following are true on the actual Deck/Bitwig fixture:
-
-1. The normal user-owned installers establish an exact persistent Arturia environment, and Pure LoFi initializes and produces note-driven audio through the current bridge.
-2. After setup exits and the Deck or user session restarts, normally launched Bitwig shows Pure LoFi under instruments and Efx FRAGMENTS under audio effects, with no generic or duplicate bridge entries.
-3. The operator creates a Pure LoFi → Efx FRAGMENTS chain from Bitwig’s browser; the real sound passes through both independent Windows instances.
-4. Both real vendor editors open/focus/reopen without replacing DSP. One automatable parameter per plug-in records and replays through Bitwig with the corresponding vendor control and sound following.
-5. The project saves, Bitwig quits, the system restarts, and the project reopens with both exact classes, settings, chain order, automation, and usable sound without setup tooling running.
-6. Removing FRAGMENTS leaves Pure LoFi playing; closing either editor or instance leaves its sibling healthy. Owned sessions retire cleanly.
-7. Focused tests cover exact metadata/classification, idempotent publication, changed/missing module or runner refusal, interrupted publication, duplicate startup, and independent instance/session ownership.
-8. Temporary diagnostics and unrelated settings are restored, while the intended Arturia environment, registrations, services, proxy publications, and user project remain installed for human use.
-
-Publish one implementation PR against main with actual results, exact versions, remaining limitations, and cleanup. Leave it unmerged for technical review.
-
-## Outside this slice
-
-A polished graphical manager, universal installer catalog, automatic vendor updates, arbitrary multichannel/sidechain completion, broad Arturia support, automatic runner migration, CLAP, Serum authorization/qualification (#77), and a new lower-latency default are not required. Do not convert these exclusions into reasons to stop ordinary in-scope repair.
+Finish this same PR with repairs, actual product results and remaining limits, left unmerged for review. Serum #77, full manager polish, universal routing, a new runtime, and a lower-latency default are not AP12 prerequisites. All historical failures remain unchanged.
