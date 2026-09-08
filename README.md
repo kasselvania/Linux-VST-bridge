@@ -2,48 +2,52 @@
 
 A managed bridge for using supported Windows audio plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxies or runtime versions.
 
-This is an experimental implementation, not a consumer-ready release. Working repository name; not affiliated with Bitwig, Valve, Steinberg or a plug-in vendor.
+This is an experimental implementation, not a consumer-ready release. Working repository name; not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records, or another plug-in vendor.
 
-## Current baseline: AP10 accepted
+## Current baseline: AP11 accepted
 
-AP8 (#67), AP9 (#69) and AP10 (#71) form the integrated development baseline. AP10's code was reviewed at `fb0faed7cfc097ecb78653421d6e704bb9f25a00`, including the native returned-payload lifetime repair. The integration resolves documentation/status only; original code/build observations keep their provenance.
+AP8 (#67), AP9 (#69), AP10 (#71), and AP11 (#76) form the integrated development baseline. The implementation has now demonstrated actual Windows Serum 2 and Efx FRAGMENTS processing through our independent native Linux VST3 proxy in normally Applications-launched Bitwig.
 
-**Actual Windows Serum 2 and Efx FRAGMENTS work through our native Linux proxy in normally Applications-launched Bitwig.** Retained checks cover notes or audio input, real controls, opaque component/controller state and project recall. The shared delivery path includes bounded returned VST3 events and parameter feedback, aligned continuation after transient audio gaps, and independent optional observation. Reference-effect multi-instance and recovery evidence remains separately scoped; this does not certify simultaneous commercial instances.
+The retained path includes note and audio input, dynamic inspected bus/class metadata within current bounds, opaque component/controller state, project recall, bounded returned VST3 events and parameter feedback, aligned continuation after transient gaps, and a detached vendor editor controlling the same Windows processing instance. With FRAGMENTS, real editor gestures reach Bitwig automation, hands-off replay reaches the vendor controller and processed sound, stopped edits save and recall, hidden/minimized focus works, and editor close/reopen leaves DSP alive.
 
-See [AP10 findings and limits](docs/AP10.md), [R1 regression evidence](evidence/AP10/r1-payload-lifetime.json), [AP9 performance](docs/AP9.md), [owner CPU improvement](docs/AP9_OWNER_COST.md), and [AP8 first Serum result](docs/AP8_RESULT.md). Historical attempts and handoffs are evidence, not instructions to resume completed tasks.
+AP11 also traced a real delivery stall to an unnecessary parameter refresh on every editor focus. That refresh caused Bitwig to capture unchanged plug-in state on the serialized control path. The false trigger was removed while genuine vendor refresh and save behavior remained intact. The final focused FRAGMENTS session completed 47,705 callbacks / 12,212,480 frames with zero missed or expired frames at the retained 512-frame setting.
+
+See [AP11 results](docs/AP11.md), [AP11 focused follow-up](docs/AP11_REVIEW_FOLLOWUP.md), [AP10 findings](docs/AP10.md), [AP9 performance](docs/AP9.md), and [AP8 first Serum result](docs/AP8_RESULT.md). Historical attempts and failures remain evidence, not instructions to replay completed work.
 
 ## Operating recommendation and limits
 
-Use **512 added bridge frames at 48 kHz (10.67 ms)** for the retained desktop fixture. Short 256-frame mailbox checks passed, but do not establish a new general default. Vendor-reported latency is additional and reported separately; FRAGMENTS' retained setup reported 192 vendor frames, for 704 total. Observed mean non-plug-in service of roughly 241 microseconds is not presentation delay, physical round trip, or a worst-case guarantee.
+Use **512 added bridge frames at 48 kHz (10.67 ms per proxy)** for the retained desktop fixture. Serial bridged devices add their presentation delays, and vendor-reported latency is additional. Observed mean service time is not presentation delay, physical round trip, or a worst-case guarantee.
 
-Float32 is implemented. Host setup and supported buses are negotiated within documented bounds; auxiliary routing, arbitrary dynamic topology, all input-event types and float64 are not universally implemented. Prepared artifacts, a compatible retained runtime/vendor environment and a private preview owner are still required. No polished vendor editor, installer/manager, reboot persistence, general licensing guarantee or broad customer-hardware qualification is claimed.
+Float32 is implemented. Supported buses, events, controls, and topology are negotiated within documented bounds; arbitrary multichannel/dynamic routing, every VST3 interface, all event types, and float64 are not universally implemented. Prepared artifacts, a compatible retained runner/environment, and the current preview-owner infrastructure are still required. No polished manager, automatic publication/startup, broad licensing guarantee, or customer-hardware qualification is claimed.
 
-Tracked follow-through: [residual latency stalls and lower settings #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72), [historical native engine close crash #73](https://github.com/kasselvania/Linux-VST-bridge/issues/73), and [prompt endpoint-failure notification #74](https://github.com/kasselvania/Linux-VST-bridge/issues/74). Later clean runs do not explain earlier failures.
+FRAGMENTS retains a resource-integrity warning and an explicit per-process Windows-accessibility workaround on this fixture. Serum's actual editor is reachable but its managed machine reported not authorized; the lawful vendor/operator qualification is tracked in [#77](https://github.com/kasselvania/Linux-VST-bridge/issues/77) and is not replaced by FRAGMENTS evidence.
 
-## Current work: AP11 — Actual vendor editor
+Tracked engineering follow-through: [residual latency stalls #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72), [historical native engine-close crash #73](https://github.com/kasselvania/Linux-VST-bridge/issues/73), and [prompt endpoint-failure notification #74](https://github.com/kasselvania/Linux-VST-bridge/issues/74). Later clean runs do not explain earlier failures.
 
-[Issue #75](https://github.com/kasselvania/Linux-VST-bridge/issues/75) selects a native launch/status panel and a detached vendor window controlling the same processing instance. The outcome is actual Serum editing, host automation and sound recall, editor open/close without restarting audio, and a focused FRAGMENTS check through the same mechanism. Product-derived names are included. The implemented panel and detached view now control the same FRAGMENTS instance, with stopped-edit save/recall and measured editor CPU cost. **AP11 remains incomplete:** Serum's actual editor reports this managed machine is not authorized, musical Serum automation/preset proof is blocked, and focusing a hidden detached window remains unreliable. FRAGMENTS requires an explicit per-process Windows accessibility workaround and still shows a resource warning. See [AP11 actual results and limits](docs/AP11.md); test settings and owned processes are restored.
+## Current work
 
-Work on `codex/ap11-vendor-editor`, prepared from integrated main `b8c332c2e536e4d9d6103d6d3d0696ffd6369f29`. [CURRENT_SLICE.md](CURRENT_SLICE.md) settles the window, control and verification direction. Keep 512 as the baseline and check audio under actual editor interaction rather than replaying the historical benchmark matrix.
+No implementation slice is active on this branch. The next selected product increment is persistent, human-loadable Bitwig publication for an Arturia instrument/effect pair: Pure LoFi followed by Efx FRAGMENTS. It should replace fixture-named endpoints and manually prepared owner startup with registered product identity, correct instrument/effect browser placement, independent sessions, and normal save/reopen use. That work starts from consolidated main after AP11 lands.
+
+`giang17/wine` is retained as a serious candidate source for an audio-oriented runner beneath our project-owned proxy, Windows host, transport, state, automation, and editor integration. It is not a replacement for the bridge and does not reopen the no-yabridge decision. Runtime changes require a matching observed problem and a coherent, pinned, reversible comparison.
 
 ## Start here
 
-Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then the relevant code and [design dossier](docs/DESIGN_DOSSIER.md). [Development guidance](docs/DEVELOPMENT_PROCESS.md) and [governance](GOVERNANCE.md) retain the outcome-led workflow: implement, test proportionately, review one PR. No receipt-writing loop, compulsory duplicate campaign or arbitrary retry quota.
+Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then the relevant code and [design dossier](docs/DESIGN_DOSSIER.md). [Development guidance](docs/DEVELOPMENT_PROCESS.md) and [governance](GOVERNANCE.md) retain the outcome-led workflow: implement, test proportionately, review one PR. No receipt-writing loop, compulsory duplicate campaign, or arbitrary retry quota.
 
-AP8/AP9/AP10 branches are completed work. Preserve dirty local work when fetching the AP11 branch; repository preparation does not authorize discarding it. Ordinary implementation, builds and in-scope repairs are included in AP11's authorization.
-
-Reuse [SSH/Moonlight desktop access](docs/DECK_REMOTE_DESKTOP.md); launch Bitwig through Applications. Remote access is development tooling, not a runtime dependency. Older [preview setup](docs/AP4_PREVIEW.md) is historical where later results supersede it.
+Reuse [SSH/Moonlight desktop access](docs/DECK_REMOTE_DESKTOP.md); launch Bitwig through Applications. Remote access is development tooling, not a runtime dependency. Preserve dirty local work and user/vendor state when moving to a new branch.
 
 ## Code and records
 
 - `native-vst3-proxy/`: Linux SDK-facing proxy and Rust backend.
-- `native-audio-client/`: transport/client code; `windows-factory-probe/`: actual Windows SDK host.
-- `tools/`: builds, private preview owner and test helpers; `docs/` and `evidence/`: design and source-specific results.
+- `native-audio-client/`: transport/client code.
+- `windows-factory-probe/`: actual Windows SDK host.
+- `tools/`: builds, private preview owners, inspection, and test helpers.
+- `docs/` and `evidence/`: design and source-specific results.
 
-Rust is primary; C++20 is used at the SDK edges. The optional `tools/proof-run.py` and historical ledgers do not govern new task permission. Build products, proprietary installers, plug-ins, presets, activation data and credentials must remain outside version control.
+Rust is primary; C++20 is used at SDK and platform-window edges. The optional `tools/proof-run.py` and historical ledgers do not govern new task permission. Build products, proprietary installers, plug-ins, presets, activation data, and credentials must remain outside version control.
 
 ## Product direction
 
-A separate manager will organize installation, vendor authorization, scanning and selective publication. Each published native proxy represents its actual Windows plug-in class; the manager window should not be needed for playback. Generic prototype names are temporary. Vendor editors, correct identity/automation, low-latency instruments and audio effects are product priorities.
+A separate management plane will own installation, lawful authorization handoff, scanning, compatibility profiles, runner/environment selection, selective publication, diagnostics, update, repair, and rollback. Each published native proxy represents an exact Windows plug-in class using inspected product identity. The management UI should not be required for playback.
 
-No repository-wide software license or final product name has been selected. Third-party licensing and distribution remain explicit future decisions.
+The user-facing goal is familiar devices in the DAW—such as Pure LoFi under instruments and Efx FRAGMENTS under audio effects—while the bridge machinery remains inspectable and recoverable underneath. No repository-wide software license or final product name has been selected; third-party licensing and distribution remain explicit future decisions.
