@@ -1,0 +1,2225 @@
+{
+  "schema": "linux-vst-bridge-ap12-operator-replacement-followup/v1",
+  "source_commit": "fd313bab59152af56f6024760eeee9fde790dafe",
+  "fixture": {
+    "bitwig": "6.1, normally launched from Applications",
+    "sample_rate": 48000,
+    "precision": "float32",
+    "bridge_frames_per_proxy": 512,
+    "windows_host_sha256": "5a289d9c075e4816a0a9040bcfd156b3eef942570db81acec52af0d292cdf602",
+    "pure_module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+    "pure_native_sha256": "2444a9c1030a9c099e10da2387483751d24b143b177bf51da7865a8042131105",
+    "runner": "Unchanged pinned Proton 11.0-2c / build 25118279 and Steam Linux Runtime 4.0.20260805.254769 / build 24599767"
+  },
+  "fragments_replacement": {
+    "prior_module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+    "current_module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+    "bytes": 20673024,
+    "provenance": "Operator replaced the actual VST3 to address login limitations. Agent neither changed vendor binaries nor licensing state. This candidate does not qualify the original installer or establish vendor authorization.",
+    "before": "Registered status artifacts_valid=false, refusal=artifact missing or changed. Four matching service admission refusals; no new FRAGMENTS Windows audio host was admitted by those attempts.",
+    "inspection": [
+      {
+        "event": "lifecycle",
+        "sequence": 39,
+        "state": "ap12_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS",
+        "vendor": "Arturia",
+        "version": "1.0.0.2925",
+        "subcategories": "Fx|Tools",
+        "metadata_tier": "factory_3_unicode"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 63,
+        "state": "ap8_parameter_count",
+        "count": 2348
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 142,
+        "state": "ap12_state_stream",
+        "result": 0,
+        "bytes": 50754,
+        "failed": false,
+        "writes": 1,
+        "largest_write": 50754,
+        "reads": 0,
+        "seeks": 0,
+        "last_seek_offset": 0,
+        "last_seek_mode": 0,
+        "unknown_queries": 0,
+        "last_unknown_iid": "00000000000000000000000000000000"
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 144,
+        "state": "ap12_persistence",
+        "capture_available": true,
+        "sdk_result": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 145,
+        "state": "ap8_inspected",
+        "controller_separate": false,
+        "state_bytes": 50754,
+        "latency_samples": 176,
+        "float32_result": 0,
+        "float64_result": 1,
+        "tail_samples": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 150,
+        "state": "ap8_inspection_closed",
+        "exit_code": 0
+      },
+      {
+        "event": "lifecycle",
+        "sequence": 163,
+        "state": "scanner_completed",
+        "inspection_complete": true
+      }
+    ],
+    "descriptor_comparison": "Compared with the prior generated descriptor, only the 32 module-fingerprint bytes change. Factory class ID, native processor/controller UUIDs, all 2348 parameter records and buses are identical.",
+    "native_build": {
+      "returncode": 0,
+      "sha256": "579fcafa9fb9e4de79fbcce13c216a9756d9729f35caf1d41fd4c21bb54ecc3d",
+      "source_commit": "fd313bab59152af56f6024760eeee9fde790dafe",
+      "input_archive_sha256": "35c0d055045cb5960da8e80ff5690029cd86fe16df6500665b5d010d941ee706",
+      "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    "deployment": "Explicit inactive development update of one registration/publication. Prior registry and publication target retained privately; existing Windows host, LoFi native, environment, runner and vendor files unchanged. The operator-replaced prior module bytes are not a bridge-owned rollback asset. This is not a shipped generic update transaction."
+  },
+  "lofi_finding": {
+    "observed": "The operator instance first fails waiting for a delivery response at position 823296. A later GetState for removal sees failed_instance and the same delivery deadline, after 155 callback rejections. This is not the repaired invalid getter/correlated save-refusal mechanism.",
+    "uncertainty": "The failure had no opted-in request trace and its Windows report ends during normal processing after successful earlier captures. Which computation, wait, scheduling or vendor thread caused the first stalled request is unknown. Positive cleanup is separate from failed audio.",
+    "rechecks": "Two editor-open, stopped-transport removal checks succeeded. Their admitted processing durations were about 84.28 and 57.65 seconds; GUI pacing prevented an immediate-after-open removal, so they do not conclusively exclude a narrow startup/removal race. The operator failure begins around 17.15 seconds of admitted stream position. No causal timeout repair is claimed.",
+    "hypothesis_limit": "Repeated Fontconfig allocation warnings also appear in successful sessions; that warning alone is not established as the timeout cause."
+  },
+  "sessions": [
+    {
+      "session": "a761325d395e77b2e82397cfc0f39a69",
+      "purpose": "Operator-reported removal error, transport stopped and editor open; no correlated trace opt-in",
+      "native": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 823296,
+          "processed": 3216,
+          "request_high": 937,
+          "result_high": 3,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 1,
+          "worker_op": 3,
+          "worker_epoch": 1,
+          "worker_position": 823296,
+          "request_published": 4155,
+          "request_consumed": 3218,
+          "result_published": 3216,
+          "result_consumed": 3216,
+          "service_us_max_at_report": 9066,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3328,
+          "gap_frames": 256,
+          "request_position": 3328,
+          "request_frames": 256,
+          "sequence": 16,
+          "output_published": true,
+          "queue_us": 1915,
+          "prepare_us": 14,
+          "send_us": 0,
+          "reply_us": 9029,
+          "validation_us": 14,
+          "publication_us": 23,
+          "publication_after_gap_us": 5096,
+          "admission_to_gap_us": 5902
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3840,
+          "gap_frames": 256,
+          "request_position": 3840,
+          "request_frames": 256,
+          "sequence": 18,
+          "output_published": true,
+          "queue_us": 6524,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 3858,
+          "validation_us": 81,
+          "publication_us": 17,
+          "publication_after_gap_us": 306,
+          "admission_to_gap_us": 10185
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 823296,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 823552,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 823808,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 824064,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 824320,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 824576,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 824832,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 825088,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 825344,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 825600,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 825856,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 826112,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 826368,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 826624,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 826880,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 827136,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 827392,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 827648,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 827904,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 828160,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 828416,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 828672,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 828928,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 829184,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 829440,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 829696,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 829952,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 830208,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 830464,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 830720,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 823296,
+          "processed": 3216,
+          "callback_rejections": 155,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 1063424,
+          "blocks": 2077,
+          "callback_rejections": 338,
+          "rejected_silent_frames": 173056,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 240128,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 470,
+          "expired_output_frames": 512,
+          "delivered_frames": 822784,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "ap12_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap12_state_stream",
+          "result": 0,
+          "bytes": 73987,
+          "failed": false,
+          "writes": 1,
+          "largest_write": 73987,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 164,
+          "state": "ap12_persistence",
+          "capture_available": true,
+          "sdk_result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 166,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 169,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 172,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 173,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 178,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 180,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        }
+      ],
+      "owner": {
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      "ownership": {
+        "session": "a761325d395e77b2e82397cfc0f39a69",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "accounting": "frames counts admitted frames; rejected_silent_frames is separate, not included in frames. Final silence equals priming plus underrun plus separately rejected frames."
+    },
+    {
+      "session": "856c5df2223b485586bada2064afe819",
+      "purpose": "Longer stopped-transport LoFi removal with real editor open and live FRAGMENTS sibling",
+      "native": [
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 3840,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707705503682984,
+          "request_monotonic_ns": [
+            707705493058499,
+            707705500343812,
+            707705500354972,
+            707705500355402,
+            707705504564410,
+            707705504578370,
+            707705504596580
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3840,
+          "gap_frames": 256,
+          "request_position": 3840,
+          "request_frames": 256,
+          "sequence": 18,
+          "output_published": true,
+          "queue_us": 7285,
+          "prepare_us": 11,
+          "send_us": 0,
+          "reply_us": 4209,
+          "validation_us": 13,
+          "publication_us": 18,
+          "publication_after_gap_us": 913,
+          "admission_to_gap_us": 10624
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 4035072,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707789494426908,
+          "request_monotonic_ns": [
+            707789483724672,
+            707789525165442,
+            707789525175772,
+            707789525176592,
+            707789526419755,
+            707789526433125,
+            707789526440596
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4035072,
+          "gap_frames": 256,
+          "request_position": 4035072,
+          "request_frames": 256,
+          "sequence": 15766,
+          "output_published": true,
+          "queue_us": 41440,
+          "prepare_us": 10,
+          "send_us": 0,
+          "reply_us": 1243,
+          "validation_us": 13,
+          "publication_us": 7,
+          "publication_after_gap_us": 32013,
+          "admission_to_gap_us": 10702
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 4035328,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707789494430518,
+          "request_monotonic_ns": [
+            707789483732842,
+            707789526452036,
+            707789526462526,
+            707789526462966,
+            707789527692908,
+            707789527705369,
+            707789527712999
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4035328,
+          "gap_frames": 256,
+          "request_position": 4035328,
+          "request_frames": 256,
+          "sequence": 15767,
+          "output_published": true,
+          "queue_us": 42719,
+          "prepare_us": 10,
+          "send_us": 0,
+          "reply_us": 1229,
+          "validation_us": 12,
+          "publication_us": 7,
+          "publication_after_gap_us": 33282,
+          "admission_to_gap_us": 10697
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 4035584,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707789505081544,
+          "request_monotonic_ns": [
+            707789494424198,
+            707789527725219,
+            707789527734259,
+            707789527734719,
+            707789529025133,
+            707789529038043,
+            707789529054463
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4035584,
+          "gap_frames": 256,
+          "request_position": 4035584,
+          "request_frames": 256,
+          "sequence": 15768,
+          "output_published": true,
+          "queue_us": 33301,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1290,
+          "validation_us": 12,
+          "publication_us": 16,
+          "publication_after_gap_us": 23972,
+          "admission_to_gap_us": 10657
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 4035840,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707789505084034,
+          "request_monotonic_ns": [
+            707789494428928,
+            707789529070134,
+            707789529083374,
+            707789529084074,
+            707789529941960,
+            707789529953080,
+            707789529960370
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4035840,
+          "gap_frames": 256,
+          "request_position": 4035840,
+          "request_frames": 256,
+          "sequence": 15769,
+          "output_published": true,
+          "queue_us": 34641,
+          "prepare_us": 13,
+          "send_us": 0,
+          "reply_us": 857,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 24876,
+          "admission_to_gap_us": 10655
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 4036096,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707789515731749,
+          "request_monotonic_ns": [
+            707789505079424,
+            707789529969300,
+            707789529978510,
+            707789529979160,
+            707789531018810,
+            707789531030050,
+            707789531037780
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4036096,
+          "gap_frames": 256,
+          "request_position": 4036096,
+          "request_frames": 256,
+          "sequence": 15770,
+          "output_published": true,
+          "queue_us": 24889,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1039,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 15306,
+          "admission_to_gap_us": 10652
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 4036352,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707789515734379,
+          "request_monotonic_ns": [
+            707789505083014,
+            707789531048830,
+            707789531057200,
+            707789531057720,
+            707789532141420,
+            707789532152440,
+            707789532159540
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4036352,
+          "gap_frames": 256,
+          "request_position": 4036352,
+          "request_frames": 256,
+          "sequence": 15771,
+          "output_published": true,
+          "queue_us": 25965,
+          "prepare_us": 8,
+          "send_us": 0,
+          "reply_us": 1083,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 16425,
+          "admission_to_gap_us": 10651
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 4036608,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707789526462616,
+          "request_monotonic_ns": [
+            707789515729799,
+            707789532170181,
+            707789532179571,
+            707789532179991,
+            707789532945355,
+            707789532954065,
+            707789532959885
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4036608,
+          "gap_frames": 256,
+          "request_position": 4036608,
+          "request_frames": 256,
+          "sequence": 15772,
+          "output_published": true,
+          "queue_us": 16440,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 765,
+          "validation_us": 8,
+          "publication_us": 5,
+          "publication_after_gap_us": 6497,
+          "admission_to_gap_us": 10732
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 4036864,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 707789526466436,
+          "request_monotonic_ns": [
+            707789515733299,
+            707789532966485,
+            707789532973765,
+            707789532974285,
+            707789533612847,
+            707789533620137,
+            707789533625177
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4036864,
+          "gap_frames": 256,
+          "request_position": 4036864,
+          "request_frames": 256,
+          "sequence": 15773,
+          "output_published": true,
+          "queue_us": 17233,
+          "prepare_us": 7,
+          "send_us": 0,
+          "reply_us": 638,
+          "validation_us": 7,
+          "publication_us": 5,
+          "publication_after_gap_us": 7158,
+          "admission_to_gap_us": 10733
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 4045312,
+          "blocks": 7901,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 2304,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 5,
+          "expired_output_frames": 2304,
+          "delivered_frames": 4042496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "ap12_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap12_state_stream",
+          "result": 0,
+          "bytes": 73987,
+          "failed": false,
+          "writes": 1,
+          "largest_write": 73987,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 164,
+          "state": "ap12_persistence",
+          "capture_available": true,
+          "sdk_result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 166,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 169,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 172,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 173,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 178,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 180,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 188,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 189,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 191,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 197102
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 200,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 0,
+          "removal_messages": 6,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 61,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 205,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 219,
+          "state": "scanner_completed",
+          "inspection_complete": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 220,
+          "state": "ap10_windows_clock",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "triggers": 0,
+          "retained": 0
+        }
+      ],
+      "owner": {
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      "ownership": {
+        "session": "856c5df2223b485586bada2064afe819",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "accounting": "frames counts admitted frames; rejected_silent_frames is separate, not included in frames. Final silence equals priming plus underrun plus separately rejected frames.",
+      "passive_observer": {
+        "sampling_ms": 200,
+        "samples": 425,
+        "duration_s": 89.817911718,
+        "limit": "The long terminal delivery stall did not reproduce. No thread suspension, priority or runtime changes were made. Private thread samples are not proof of the earlier cause; this observer adds overhead."
+      }
+    },
+    {
+      "session": "13d1d37f566059e526976fed21f3047e",
+      "purpose": "Shorter stopped-transport LoFi removal with real editor open and live FRAGMENTS sibling",
+      "native": [
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2757120,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095133097832,
+          "request_monotonic_ns": [
+            708095122410733,
+            708095191527059,
+            708095191538210,
+            708095191539060,
+            708095192710738,
+            708095192723838,
+            708095192731439
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2757120,
+          "gap_frames": 256,
+          "request_position": 2757120,
+          "request_frames": 256,
+          "sequence": 10774,
+          "output_published": true,
+          "queue_us": 69116,
+          "prepare_us": 11,
+          "send_us": 0,
+          "reply_us": 1171,
+          "validation_us": 13,
+          "publication_us": 7,
+          "publication_after_gap_us": 59633,
+          "admission_to_gap_us": 10687
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2757376,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095133102192,
+          "request_monotonic_ns": [
+            708095122431553,
+            708095192742269,
+            708095192751289,
+            708095192751679,
+            708095193874456,
+            708095193885537,
+            708095193892677
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2757376,
+          "gap_frames": 256,
+          "request_position": 2757376,
+          "request_frames": 256,
+          "sequence": 10775,
+          "output_published": true,
+          "queue_us": 70310,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1122,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 60790,
+          "admission_to_gap_us": 10670
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2757632,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095143720750,
+          "request_monotonic_ns": [
+            708095133094652,
+            708095193902607,
+            708095193911827,
+            708095193912357,
+            708095195027584,
+            708095195039944,
+            708095195047595
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2757632,
+          "gap_frames": 256,
+          "request_position": 2757632,
+          "request_frames": 256,
+          "sequence": 10776,
+          "output_published": true,
+          "queue_us": 60807,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1115,
+          "validation_us": 12,
+          "publication_us": 7,
+          "publication_after_gap_us": 51326,
+          "admission_to_gap_us": 10626
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2757888,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095143723880,
+          "request_monotonic_ns": [
+            708095133100382,
+            708095195056195,
+            708095195070785,
+            708095195071295,
+            708095196654494,
+            708095196666884,
+            708095196674084
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2757888,
+          "gap_frames": 256,
+          "request_position": 2757888,
+          "request_frames": 256,
+          "sequence": 10777,
+          "output_published": true,
+          "queue_us": 61955,
+          "prepare_us": 14,
+          "send_us": 0,
+          "reply_us": 1583,
+          "validation_us": 12,
+          "publication_us": 7,
+          "publication_after_gap_us": 52950,
+          "admission_to_gap_us": 10623
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2758144,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095154645775,
+          "request_monotonic_ns": [
+            708095143717589,
+            708095196683194,
+            708095196692415,
+            708095196692865,
+            708095197603657,
+            708095197615957,
+            708095197622927
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2758144,
+          "gap_frames": 256,
+          "request_position": 2758144,
+          "request_frames": 256,
+          "sequence": 10778,
+          "output_published": true,
+          "queue_us": 52965,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 910,
+          "validation_us": 12,
+          "publication_us": 6,
+          "publication_after_gap_us": 42977,
+          "admission_to_gap_us": 10928
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2758400,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095154648885,
+          "request_monotonic_ns": [
+            708095143722640,
+            708095197632097,
+            708095197641628,
+            708095197642158,
+            708095198514679,
+            708095198527099,
+            708095198534499
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2758400,
+          "gap_frames": 256,
+          "request_position": 2758400,
+          "request_frames": 256,
+          "sequence": 10779,
+          "output_published": true,
+          "queue_us": 53909,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 872,
+          "validation_us": 12,
+          "publication_us": 7,
+          "publication_after_gap_us": 43885,
+          "admission_to_gap_us": 10926
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2758656,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095165086938,
+          "request_monotonic_ns": [
+            708095154642575,
+            708095198543930,
+            708095198554770,
+            708095198555380,
+            708095199759159,
+            708095199770309,
+            708095199777719
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2758656,
+          "gap_frames": 256,
+          "request_position": 2758656,
+          "request_frames": 256,
+          "sequence": 10780,
+          "output_published": true,
+          "queue_us": 43901,
+          "prepare_us": 10,
+          "send_us": 0,
+          "reply_us": 1203,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 34690,
+          "admission_to_gap_us": 10444
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2758912,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095165090278,
+          "request_monotonic_ns": [
+            708095154647475,
+            708095199787870,
+            708095199807130,
+            708095199807720,
+            708095201612174,
+            708095201624124,
+            708095201632034
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2758912,
+          "gap_frames": 256,
+          "request_position": 2758912,
+          "request_frames": 256,
+          "sequence": 10781,
+          "output_published": true,
+          "queue_us": 45140,
+          "prepare_us": 19,
+          "send_us": 0,
+          "reply_us": 1804,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 36541,
+          "admission_to_gap_us": 10442
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2759168,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095175740766,
+          "request_monotonic_ns": [
+            708095165084278,
+            708095201642945,
+            708095201651875,
+            708095201652465,
+            708095203038669,
+            708095203051139,
+            708095203057859
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2759168,
+          "gap_frames": 256,
+          "request_position": 2759168,
+          "request_frames": 256,
+          "sequence": 10782,
+          "output_published": true,
+          "queue_us": 36558,
+          "prepare_us": 8,
+          "send_us": 0,
+          "reply_us": 1386,
+          "validation_us": 12,
+          "publication_us": 6,
+          "publication_after_gap_us": 27317,
+          "admission_to_gap_us": 10656
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2759424,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095175743856,
+          "request_monotonic_ns": [
+            708095165088958,
+            708095203067479,
+            708095203078250,
+            708095203078710,
+            708095204286009,
+            708095204297199,
+            708095204303959
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2759424,
+          "gap_frames": 256,
+          "request_position": 2759424,
+          "request_frames": 256,
+          "sequence": 10783,
+          "output_published": true,
+          "queue_us": 37978,
+          "prepare_us": 10,
+          "send_us": 0,
+          "reply_us": 1207,
+          "validation_us": 11,
+          "publication_us": 6,
+          "publication_after_gap_us": 28560,
+          "admission_to_gap_us": 10654
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2759680,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095186380554,
+          "request_monotonic_ns": [
+            708095175737656,
+            708095204314019,
+            708095204323200,
+            708095204323870,
+            708095205407506,
+            708095205419366,
+            708095205427206
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2759680,
+          "gap_frames": 256,
+          "request_position": 2759680,
+          "request_frames": 256,
+          "sequence": 10784,
+          "output_published": true,
+          "queue_us": 28576,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1083,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 19046,
+          "admission_to_gap_us": 10642
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2759936,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095186383564,
+          "request_monotonic_ns": [
+            708095175742476,
+            708095205436527,
+            708095205446267,
+            708095205446797,
+            708095207775053,
+            708095207788434,
+            708095207796084
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2759936,
+          "gap_frames": 256,
+          "request_position": 2759936,
+          "request_frames": 256,
+          "sequence": 10785,
+          "output_published": true,
+          "queue_us": 29694,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 2328,
+          "validation_us": 13,
+          "publication_us": 7,
+          "publication_after_gap_us": 21412,
+          "admission_to_gap_us": 10641
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2760192,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095197115445,
+          "request_monotonic_ns": [
+            708095186377934,
+            708095207807274,
+            708095207816644,
+            708095207817154,
+            708095209311771,
+            708095209324021,
+            708095209332521
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2760192,
+          "gap_frames": 256,
+          "request_position": 2760192,
+          "request_frames": 256,
+          "sequence": 10786,
+          "output_published": true,
+          "queue_us": 21429,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1494,
+          "validation_us": 12,
+          "publication_us": 8,
+          "publication_after_gap_us": 12217,
+          "admission_to_gap_us": 10737
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2760448,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095197119245,
+          "request_monotonic_ns": [
+            708095186382354,
+            708095209351812,
+            708095209362142,
+            708095209362642,
+            708095212199431,
+            708095212211461,
+            708095212218001
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2760448,
+          "gap_frames": 256,
+          "request_position": 2760448,
+          "request_frames": 256,
+          "sequence": 10787,
+          "output_published": true,
+          "queue_us": 22969,
+          "prepare_us": 10,
+          "send_us": 0,
+          "reply_us": 2836,
+          "validation_us": 12,
+          "publication_us": 6,
+          "publication_after_gap_us": 15098,
+          "admission_to_gap_us": 10736
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2760704,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095207804984,
+          "request_monotonic_ns": [
+            708095197101644,
+            708095212228332,
+            708095212237742,
+            708095212238232,
+            708095213537953,
+            708095213550544,
+            708095213558074
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2760704,
+          "gap_frames": 256,
+          "request_position": 2760704,
+          "request_frames": 256,
+          "sequence": 10788,
+          "output_published": true,
+          "queue_us": 15126,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1299,
+          "validation_us": 12,
+          "publication_us": 7,
+          "publication_after_gap_us": 5753,
+          "admission_to_gap_us": 10703
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2760960,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095207808644,
+          "request_monotonic_ns": [
+            708095197117435,
+            708095213568074,
+            708095213577304,
+            708095213577904,
+            708095215582153,
+            708095215593283,
+            708095215600443
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2760960,
+          "gap_frames": 256,
+          "request_position": 2760960,
+          "request_frames": 256,
+          "sequence": 10789,
+          "output_published": true,
+          "queue_us": 16450,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 2004,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 7791,
+          "admission_to_gap_us": 10691
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2761472,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095218464433,
+          "request_monotonic_ns": [
+            708095207807044,
+            708095217052469,
+            708095217061739,
+            708095217062229,
+            708095218765040,
+            708095218776340,
+            708095218783470
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2761472,
+          "gap_frames": 256,
+          "request_position": 2761472,
+          "request_frames": 256,
+          "sequence": 10791,
+          "output_published": true,
+          "queue_us": 9245,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1702,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 319,
+          "admission_to_gap_us": 10657
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2764288,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095282471755,
+          "request_monotonic_ns": [
+            708095271802067,
+            708095272291038,
+            708095272306159,
+            708095272306989,
+            708095284436853,
+            708095284550616,
+            708095284557676
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2764288,
+          "gap_frames": 256,
+          "request_position": 2764288,
+          "request_frames": 256,
+          "sequence": 10802,
+          "output_published": true,
+          "queue_us": 488,
+          "prepare_us": 15,
+          "send_us": 0,
+          "reply_us": 12129,
+          "validation_us": 113,
+          "publication_us": 7,
+          "publication_after_gap_us": 2085,
+          "admission_to_gap_us": 10669
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2764544,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 708095282475145,
+          "request_monotonic_ns": [
+            708095271814007,
+            708095284565686,
+            708095284574726,
+            708095284575216,
+            708095285772275,
+            708095285785306,
+            708095285793656
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2764544,
+          "gap_frames": 256,
+          "request_position": 2764544,
+          "request_frames": 256,
+          "sequence": 10803,
+          "output_published": true,
+          "queue_us": 12751,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 1197,
+          "validation_us": 13,
+          "publication_us": 8,
+          "publication_after_gap_us": 3318,
+          "admission_to_gap_us": 10661
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 2767360,
+          "blocks": 5405,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 4864,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 10,
+          "expired_output_frames": 4864,
+          "delivered_frames": 2761984,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "ap12_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap12_state_stream",
+          "result": 0,
+          "bytes": 73987,
+          "failed": false,
+          "writes": 1,
+          "largest_write": 73987,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 164,
+          "state": "ap12_persistence",
+          "capture_available": true,
+          "sdk_result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 166,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 169,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 172,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 173,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 178,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 180,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 188,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 189,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 191,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 197102
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 200,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 0,
+          "removal_messages": 6,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 61,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 205,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 219,
+          "state": "scanner_completed",
+          "inspection_complete": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 220,
+          "state": "ap10_windows_clock",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "triggers": 0,
+          "retained": 0
+        }
+      ],
+      "owner": {
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      "ownership": {
+        "session": "13d1d37f566059e526976fed21f3047e",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "accounting": "frames counts admitted frames; rejected_silent_frames is separate, not included in frames. Final silence equals priming plus underrun plus separately rejected frames.",
+      "passive_observer": {
+        "sampling_ms": 200,
+        "samples": 306,
+        "duration_s": 64.403903715,
+        "limit": "The long terminal delivery stall did not reproduce. No thread suspension, priority or runtime changes were made. Private thread samples are not proof of the earlier cause; this observer adds overhead."
+      }
+    },
+    {
+      "session": "55bf0f9fcad79b31d7fcefb9f45ed9b3",
+      "purpose": "Operator-replaced FRAGMENTS loads in normal Applications-launched Bitwig; editor open/close, genuine save and host close",
+      "native": [
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 2917888,
+          "blocks": 5699,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 2916864,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 40,
+          "state": "ap12_class",
+          "class_id": "41727475415649536772616E50726F63",
+          "name": "Efx FRAGMENTS",
+          "vendor": "Arturia",
+          "version": "1.0.0.2925",
+          "subcategories": "Fx|Tools",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 143,
+          "state": "ap12_state_stream",
+          "result": 0,
+          "bytes": 50754,
+          "failed": false,
+          "writes": 1,
+          "largest_write": 50754,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 145,
+          "state": "ap12_persistence",
+          "capture_available": true,
+          "sdk_result": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 147,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 148,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 150,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 139092
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 153,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 154,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 155,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 157,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 139092
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 159,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 161,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 177,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 178,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 180,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 139092
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 189,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 0,
+          "removal_messages": 6,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 194,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 208,
+          "state": "scanner_completed",
+          "inspection_complete": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 209,
+          "state": "ap10_windows_clock",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "triggers": 0,
+          "retained": 0
+        }
+      ],
+      "owner": {
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      },
+      "ownership": {
+        "session": "55bf0f9fcad79b31d7fcefb9f45ed9b3",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "accounting": "frames counts admitted frames; rejected_silent_frames is separate, not included in frames. Final silence equals priming plus underrun plus separately rejected frames."
+    }
+  ],
+  "cleanup": {
+    "trace_absent": true,
+    "live_leases": 0,
+    "publication_status": [
+      {
+        "added_frames": 512,
+        "artifacts_valid": true,
+        "class": {
+          "class_id": "417274754156495350724C4650726F63",
+          "metadata_tier": "factory_3_unicode",
+          "name": "Pure LoFi",
+          "subcategories": "Instrument|Synth",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121"
+        },
+        "compatibility": {
+          "disable_windows_accessibility": false
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "publication": "Published",
+        "refusal": null,
+        "revision": 1
+      },
+      {
+        "added_frames": 512,
+        "artifacts_valid": true,
+        "class": {
+          "class_id": "41727475415649536772616E50726F63",
+          "metadata_tier": "factory_3_unicode",
+          "name": "Efx FRAGMENTS",
+          "subcategories": "Fx|Tools",
+          "vendor": "Arturia",
+          "version": "1.0.0.2925"
+        },
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "publication": "Published",
+        "refusal": null,
+        "revision": 1
+      }
+    ],
+    "project_bytes": 44944,
+    "project_sha256": "9b3361cde438f8edac4d87129cbbbf179c7b909ea86d75f016d983932732c7d8",
+    "bitwig_closed": true,
+    "service": [
+      "ActiveState=active",
+      "UnitFileState=enabled"
+    ]
+  },
+  "limits": [
+    "FRAGMENTS is verified for this replacement candidate only: load, real editor, silent processing, save and close. No musical effects/input-output, parameter automation or reopened-state qualification in this follow-up.",
+    "LoFi intermittent terminal timeout remains unresolved despite two successful removals. No buffer increase, mailbox replacement, fabricated state or blanket save-success claim.",
+    "One short accidental transport start occurred on the empty project during GUI navigation before the second LoFi insertion; it was stopped before that instance loaded. Neither removal test ran notes or audio input.",
+    "Full serial pair, both automation gestures, restart/recall, and measured whole-chain performance remain unqualified. Two bridge delays are still only arithmetic, 1024 frames / 21.33 ms, before vendor/DAW/device delay.",
+    "Both publications remain installed and valid; test processes ended with positive cleanup. Temporary diagnostics and observer units are inactive; no credentials, vendor code or proprietary state blobs are published."
+  ]
+}
