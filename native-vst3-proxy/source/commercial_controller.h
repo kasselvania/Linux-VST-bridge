@@ -296,8 +296,10 @@ public:
     m.requestor_x11 = activation.requestor_x11;
     activation_.begin(m);
     command(m);
-    m.kind = AP11::Refresh;
-    command(m);
+    // Opening/focusing a view is not a parameter invalidation. An unsolicited
+    // Refresh causes a host restart notification and, in Bitwig, a full state
+    // capture on the serialized audio transport. Real vendor restart callbacks
+    // still publish complete value/title refreshes through the UI queue.
   }
   void panelClose() override {
     activation_.cancel();

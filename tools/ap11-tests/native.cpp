@@ -256,8 +256,15 @@ int main() {
         "start processing");
   check(commands.empty(), "scan and restore do not open editor");
   c->panelOpen();
-  check(commands.size() == 2 && commands[0].kind == AP11::Open,
-        "native entry uses same session");
+  check(commands.size() == 1 && commands[0].kind == AP11::Open,
+        "native entry opens same session without inventing a refresh");
+  c->panelOpen({123, 456});
+  host.tick();
+  check(commands.size() == 2 && commands[1].kind == AP11::Open &&
+            commands[1].user_time == 123 && commands[1].requestor_x11 == 456 &&
+            commands[1].activation > commands[0].activation &&
+            host.restarts == 0 && host.gestures.empty() && dsp == .5,
+        "repeat focus preserves click context without invalidating parameters");
   commands.clear();
   host.reentrant = true;
   event(AP11::GroupBegin);
@@ -311,7 +318,7 @@ int main() {
         "stopped editing and immediate save drains UI and host flush");
   c->panelClose();
   c->panelOpen();
-  check(closes == 0 && commands[commands.size() - 2].kind == AP11::Open,
+  check(closes == 0 && commands.back().kind == AP11::Open,
         "view close/reopen retains processing instance");
   c->disconnect(processor.get());
   // The host may capture state after only one side of the connection has
