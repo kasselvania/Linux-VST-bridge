@@ -327,7 +327,11 @@ public:
         ++closes;
       }
       if (view_) {
-        view_->setFrame(nullptr);
+        if (view_->setFrame(nullptr) != Steinberg::kResultOk) {
+          error_ = AP11::Removal;
+          closing_ = false;
+          return false;
+        }
         view_->release();
         view_ = nullptr;
       }

@@ -240,7 +240,8 @@ int main() {
   check(c->stats.keys == 2 && c->stats.focus > 0,
         "focus and parent keyboard forwarding");
   native.drain();
-  FUnknownPtr<IComponentHandler2> grouped(&handler);
+  FUnknownPtr<IComponentHandler2> grouped(
+      static_cast<IComponentHandler *>(&handler));
   check(grouped && grouped->startGroupEdit() == kResultOk, "SDK group begin");
   check(handler.beginEdit(42) == kResultOk &&
             handler.performEdit(42, .75) == kResultOk &&
