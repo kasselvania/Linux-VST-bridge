@@ -32,6 +32,7 @@ struct SessionSpec {
     session: String,
     directory: PathBuf,
     report: PathBuf,
+    lease: PathBuf,
     inspect: bool,
     first_audio: bool,
     keeper: bool,
@@ -219,6 +220,8 @@ fn spec(
     private_dir(&directory)?;
     let results = m.root.join("runtime/results");
     private_dir(&results)?;
+    let leases = m.root.join("runtime/leases");
+    private_dir(&leases)?;
     let s = SessionSpec {
         registration: r,
         session: sid.clone(),
@@ -227,6 +230,7 @@ fn spec(
             "{}-{sid}.json",
             if keeper { "environment" } else { "windows" }
         )),
+        lease: leases.join(format!("{sid}.json")),
         inspect,
         first_audio,
         keeper,
@@ -244,13 +248,37 @@ fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
     } else {
         Stdio::null()
     };
-    Ok(Command::new("/usr/bin/python3")
+    let job: SessionSpec = read_json(path)?;
+    atomic_json(&job.lease, &job.report)?;
+    let child = Command::new("/usr/bin/python3")
         .arg(&s.supervisor.path)
         .arg(path)
         .stdin(stdin)
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
-        .spawn()?)
+        .spawn();
+    if child.is_err() {
+        fs::remove_file(&job.lease)?;
+    }
+    Ok(child?)
+}
+fn reconcile_leases(m: &Manager) -> Result<bool> {
+    let directory = m.root.join("runtime/leases");
+    private_dir(&directory)?;
+    let mut unconfirmed = false;
+    for entry in fs::read_dir(directory)? {
+        let path = entry?.path();
+        let report: PathBuf = read_json(&path)?;
+        require(
+            report.parent() == Some(m.root.join("runtime/results").as_path()),
+            "lease report outside owned results",
+        )?;
+        match read_json::<serde_json::Value>(&report) {
+            Ok(r) if r["cleanup_confirmed"] == true => fs::remove_file(path)?,
+            _ => unconfirmed = true,
+        }
+    }
+    Ok(unconfirmed)
 }
 fn ensure_keeper(
     m: &Manager,
@@ -307,7 +335,9 @@ fn serve(m: Manager) -> Result<()> {
     }
     let listener = UnixListener::bind(address)?;
     let manager = Arc::new(m);
-    let blocked = Arc::new(AtomicBool::new(false));
+    // A service restart cannot turn missing cleanup into a fresh admission.
+    // Clean reports retire their leases; uncertain ones remain inspectable.
+    let blocked = Arc::new(AtomicBool::new(reconcile_leases(&manager)?));
     let keepers = Arc::new(Mutex::new(Vec::new()));
     let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
     for peer in listener.incoming() {
@@ -359,6 +389,7 @@ fn serve(m: Manager) -> Result<()> {
                     blocked.store(true, Ordering::Release);
                     return Err("instance cleanup unconfirmed; new admissions blocked".into());
                 }
+                fs::remove_file(&job.lease)?;
                 Ok(())
             })();
             if let Err(e) = outcome {
@@ -540,4 +571,34 @@ fn status(m: &Manager) -> Result<()> {
     }).collect();
     println!("{}", serde_json::to_string_pretty(&rows)?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn restart_requires_positive_prior_cleanup() {
+        unsafe {
+            libc::umask(0o077);
+        }
+        let outer = std::env::temp_dir().join(format!("ap12-leases-{}", random_id().unwrap()));
+        let m = Manager {
+            root: outer.join("managed"),
+            publications: outer.join("vst3"),
+        };
+        private_dir(&m.root.join("runtime/results")).unwrap();
+        private_dir(&m.root.join("runtime/leases")).unwrap();
+        let report = m.root.join("runtime/results/one.json");
+        let lease = m.root.join("runtime/leases/one.json");
+        atomic_json(&lease, &report).unwrap();
+        assert!(reconcile_leases(&m).unwrap());
+        assert!(lease.exists());
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":false})).unwrap();
+        assert!(reconcile_leases(&m).unwrap());
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true})).unwrap();
+        assert!(!reconcile_leases(&m).unwrap());
+        assert!(!lease.exists());
+        assert!(report.exists());
+        fs::remove_dir_all(outer).unwrap();
+    }
 }

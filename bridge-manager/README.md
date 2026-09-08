@@ -11,7 +11,8 @@ See the AP12 evidence for the actual vendor-access and device results.
 Build `linux-vst-bridge` for the Linux fixture. `setup PACKAGE` installs a private,
 immutable software revision containing that executable, `session.py`,
 `ownership.py`, and the existing `host.exe`. `host-source.json` records the SHA256
-of the host's declared source identity. Setup enables the user service
+of the accompanying `host-source-manifest.json`; both identify the exact host
+source and build receipt. Setup enables the user service
 `linux-vst-bridge.service`. The source checkout and build directory are then
 unnecessary for playback. Updating software requires closed devices and a stopped
 service; this slice does not implement live software updates.
@@ -62,7 +63,9 @@ a companion keeps the outer launcher alive; the original launcher exit remains a
 separate fact. Positive descendant cleanup precedes native retirement, and only
 that instance's private transport directory is removed. Reports remain private
 under `managed/runtime/results`. Unconfirmed cleanup blocks new admissions; it
-does not stop healthy siblings. Systemd owns the service's complete process group
+does not stop healthy siblings. Persisted leases keep an unconfirmed cleanup
+from disappearing across a service restart; operator diagnosis is then required.
+Systemd owns the service's complete process group
 on service/session exit. Unexpected service loss remains an explicit native
 failure and cannot silently replace DSP or restore guessed state.
 
