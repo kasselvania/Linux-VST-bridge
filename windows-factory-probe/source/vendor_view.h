@@ -384,38 +384,47 @@ public:
     }
   }
   bool close() {
+    stage(200);
     if (owner_ != std::this_thread::get_id()) {
       error_ = AP11::WrongThread;
       return false;
     }
-    if (closing_)
+    if (closing_) {
+      stage(211);
       return true;
+    }
     closing_ = true;
     try {
       if (view_ && attached_) {
+        stage(212);
         if (view_->removed() != Steinberg::kResultOk) {
           error_ = AP11::Removal;
           closing_ = false;
           return false;
         }
+        stage(213);
         attached_ = false;
         ++closes;
       }
       if (view_) {
+        stage(214);
         if (view_->setFrame(nullptr) != Steinberg::kResultOk) {
           error_ = AP11::Removal;
           closing_ = false;
           return false;
         }
+        stage(215);
         view_->release();
         view_ = nullptr;
       }
       if (window_) {
         auto w = window_;
         window_ = nullptr;
+        stage(216);
         DestroyWindow(w);
       }
       closing_ = false;
+      stage(217);
       return true;
     } catch (...) {
       error_ = AP11::Removal;

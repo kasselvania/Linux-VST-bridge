@@ -87,7 +87,7 @@ public:
     window_ = XCreateSimpleWindow(display_, reinterpret_cast<Window>(parent), 0,
                                   0, 560, 150, 0, 0, 0x20252b);
     gc_ = XCreateGC(display_, window_, 0, nullptr);
-    XSelectInput(display_, window_, ExposureMask | ButtonReleaseMask);
+    XSelectInput(display_, window_, ExposureMask | ButtonPressMask | ButtonReleaseMask);
     XMapWindow(display_, window_);
     XFlush(display_);
     if (loop_->registerTimer(this, 50) != kResultOk) {
