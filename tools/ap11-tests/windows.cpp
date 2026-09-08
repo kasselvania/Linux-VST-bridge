@@ -52,6 +52,16 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return type && !std::strcmp(type, kPlatformTypeHWND) ? kResultOk
                                                          : kResultFalse;
   }
+  tresult PLUGIN_API setFrame(IPlugFrame *frame) override {
+    auto r = CPluginView::setFrame(frame);
+    if (frame) {
+      ViewRect same{};
+      check(getSize(&same) == kResultOk &&
+                frame->resizeView(this, &same) == kResultOk,
+            "same-size request during frame installation");
+    }
+    return r;
+  }
   tresult PLUGIN_API attached(void *parent, FIDString type) override {
     check(std::this_thread::get_id() == owner && IsWindow(HWND(parent)) &&
               plugFrame,
@@ -232,6 +242,7 @@ int main() {
   session.service(true);
   check(session.is_open() && c->stats.created == 1 && c->stats.attached == 1,
         "actual SDK attach");
+  check(c->stats.sizes == 0, "unchanged size does not call onSize");
   native.drain();
   native.command(AP11::Open);
   session.service(true);
@@ -239,7 +250,9 @@ int main() {
         "open focuses existing view");
   SendMessageW(session.view().window(), WM_KEYDOWN, VK_LEFT, 0);
   SendMessageW(session.view().window(), WM_KEYUP, VK_LEFT, 0);
-  check(c->stats.keys == 2 && c->stats.focus > 0,
+  SendMessageW(session.view().window(), WM_CHAR, L'a', 0);
+  SendMessageW(session.view().window(), WM_CHAR, L'z', 0);
+  check(c->stats.keys == 4 && c->stats.focus > 0,
         "focus and parent keyboard forwarding");
   native.drain();
   FUnknownPtr<IComponentHandler2> grouped(

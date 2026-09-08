@@ -124,7 +124,7 @@ class VendorView final : public Steinberg::IPlugFrame {
                                   0xffff),
                 key(wp), modifiers()) == Steinberg::kResultOk)
           return 0;
-        if (msg == WM_CHAR && !key(wp) &&
+        if (msg == WM_CHAR && wp >= 0x21 && wp != 0x7f &&
             self->view_->onKeyDown(Steinberg::char16(wp), 0, modifiers()) ==
                 Steinberg::kResultOk)
           return 0;
@@ -214,7 +214,18 @@ public:
       return Steinberg::kResultFalse;
     ++resizing_;
     stage(12);
-    auto result = resize(*size) ? view_->onSize(size) : Steinberg::kResultFalse;
+    Steinberg::ViewRect current{};
+    auto result = view_->getSize(&current);
+    if (result == Steinberg::kResultOk) {
+      stage(13);
+      result = resize(*size) ? Steinberg::kResultOk : Steinberg::kResultFalse;
+      if (result == Steinberg::kResultOk &&
+          (current.left != size->left || current.top != size->top ||
+           current.right != size->right || current.bottom != size->bottom)) {
+        stage(14);
+        result = view_->onSize(size);
+      }
+    }
     --resizing_;
     return result;
   }
@@ -321,7 +332,9 @@ public:
       }
       attached_ = true;
       stage(10);
-      if (view_->onSize(&rect) != kResultOk) {
+      ViewRect attached_size{};
+      if (view_->getSize(&attached_size) != kResultOk ||
+          !resize(attached_size)) {
         error_ = AP11::Size;
         close();
         return false;
