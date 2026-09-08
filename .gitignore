@@ -59,3 +59,5 @@ core.*
 /native-audio-client/target/
 
 /native-vst3-proxy/backend/target/
+
+/bridge-manager/target/

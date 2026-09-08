@@ -1,0 +1,519 @@
+use linux_vst_bridge::*;
+use serde::{Deserialize, Serialize};
+use sha2::Digest;
+use std::{
+    fs,
+    io::{Read, Write},
+    os::fd::{FromRawFd, IntoRawFd},
+    os::unix::{
+        fs::{OpenOptionsExt, PermissionsExt},
+        net::{UnixListener, UnixStream},
+    },
+    path::{Path, PathBuf},
+    process::{Child, Command, Stdio},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
+};
+#[derive(Clone, Serialize, Deserialize)]
+struct Software {
+    manager: Artifact,
+    supervisor: Artifact,
+    ownership: Artifact,
+    host: Artifact,
+    source_sha256: String,
+}
+#[derive(Serialize, Deserialize)]
+struct SessionSpec {
+    registration: HostBinding,
+    session: String,
+    directory: PathBuf,
+    report: PathBuf,
+    inspect: bool,
+    first_audio: bool,
+    keeper: bool,
+    binding_sent: bool,
+}
+#[derive(Clone, Serialize, Deserialize)]
+struct ClassSelection {
+    class_id: String,
+}
+#[derive(Clone, Serialize, Deserialize)]
+struct HostBinding {
+    metadata: ClassSelection,
+    environment: Environment,
+    module: Artifact,
+    host: Artifact,
+    host_source_sha256: String,
+    compatibility: Compatibility,
+}
+impl From<Registration> for HostBinding {
+    fn from(r: Registration) -> Self {
+        Self {
+            metadata: ClassSelection {
+                class_id: r.metadata.class_id,
+            },
+            environment: r.environment,
+            module: r.module,
+            host: r.host,
+            host_source_sha256: r.host_source_sha256,
+            compatibility: r.compatibility,
+        }
+    }
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InspectionRequest {
+    environment_id: String,
+    module: Artifact,
+    class_id: String,
+    compatibility: Compatibility,
+}
+fn software(m: &Manager) -> Result<Software> {
+    let s: Software = read_json(&m.root.join("software.json"))?;
+    for a in [&s.manager, &s.supervisor, &s.ownership, &s.host] {
+        a.verify()?;
+    }
+    Ok(s)
+}
+fn systemd(s: &str) -> String {
+    format!(
+        "\"{}\"",
+        s.replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('%', "%%")
+    )
+}
+fn setup(m: &Manager, package: &Path) -> Result<()> {
+    let _lock = m.lock("setup.lock")?;
+    let me = std::env::current_exe()?;
+    let files = [
+        ("linux-vst-bridge", me),
+        ("session.py", package.join("session.py")),
+        ("ownership.py", package.join("ownership.py")),
+        ("host.exe", package.join("host.exe")),
+    ];
+    let mut identity = String::new();
+    for (_, p) in &files {
+        identity.push_str(&digest(p)?);
+    }
+    let id = hex(&sha2::Sha256::digest(identity.as_bytes()));
+    let dest = m.root.join("software").join(&id);
+    if !dest.try_exists()? {
+        private_dir(dest.parent().unwrap())?;
+        let stage = dest.with_file_name(format!("stage-{}", random_id()?));
+        private_dir(&stage)?;
+        for (name, p) in &files {
+            let to = stage.join(name);
+            fs::copy(p, &to)?;
+            require(digest(&to)? == digest(p)?, "software copy differs")?;
+            fs::set_permissions(
+                &to,
+                fs::Permissions::from_mode(if *name == "linux-vst-bridge" {
+                    0o500
+                } else {
+                    0o400
+                }),
+            )?;
+            fs::File::open(to)?.sync_all()?;
+        }
+        fs::rename(&stage, &dest)?;
+    }
+    let a = |n: &str| -> Result<Artifact> {
+        let path = dest.join(n);
+        Ok(Artifact {
+            sha256: digest(&path)?,
+            path,
+        })
+    };
+    let source: String = read_json(&package.join("host-source.json"))?;
+    require(valid_hex(&source, 64), "host source hash syntax")?;
+    let installed = Software {
+        manager: a("linux-vst-bridge")?,
+        supervisor: a("session.py")?,
+        ownership: a("ownership.py")?,
+        host: a("host.exe")?,
+        source_sha256: source,
+    };
+    if let Ok(old) = read_json::<Software>(&m.root.join("software.json")) {
+        if old.manager.path != installed.manager.path {
+            let running = Command::new("systemctl")
+                .args(["--user", "is-active", "--quiet", "linux-vst-bridge.service"])
+                .status()?;
+            require(
+                !running.success(),
+                "close devices and stop the bridge service before replacing installed software",
+            )?;
+        }
+    }
+    atomic_json(&m.root.join("software.json"), &installed)?;
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    let units = home.join(".config/systemd/user");
+    fs::create_dir_all(&units)?;
+    let service=format!("[Unit]\nDescription=Linux VST Bridge registered host\nAfter=graphical-session.target\n\n[Service]\nType=simple\nExecStart={} serve\nUMask=0077\nRestart=on-failure\nRestartSec=2\nKillMode=control-group\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n",systemd(installed.manager.path.to_str().ok_or("executable path encoding")?));
+    let unit = units.join("linux-vst-bridge.service");
+    if unit.exists() {
+        let old = fs::read_to_string(&unit)?;
+        require(
+            old.starts_with("[Unit]\nDescription=Linux VST Bridge registered host\n"),
+            "service name belongs to another owner",
+        )?;
+    }
+    let temp = units.join(".linux-vst-bridge.service.tmp");
+    {
+        let mut f = fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .mode(0o600)
+            .open(&temp)?;
+        f.write_all(service.as_bytes())?;
+        f.sync_all()?;
+    }
+    fs::rename(temp, unit)?;
+    for args in [
+        &["--user", "daemon-reload"][..],
+        &["--user", "enable", "--now", "linux-vst-bridge.service"][..],
+    ] {
+        require(
+            Command::new("systemctl").args(args).status()?.success(),
+            "automatic service setup failed",
+        )?;
+    }
+    Ok(())
+}
+fn spec(
+    m: &Manager,
+    r: HostBinding,
+    inspect: bool,
+    first_audio: bool,
+    keeper: bool,
+) -> Result<(SessionSpec, PathBuf)> {
+    let sid = random_id()?;
+    let directory = r
+        .environment
+        .root
+        .join("compatdata/pfx/drive_c/bridge/sessions")
+        .join(&sid);
+    private_dir(&directory)?;
+    let results = m.root.join("runtime/results");
+    private_dir(&results)?;
+    let s = SessionSpec {
+        registration: r,
+        session: sid.clone(),
+        directory: directory.clone(),
+        report: results.join(format!(
+            "{}-{sid}.json",
+            if keeper { "environment" } else { "windows" }
+        )),
+        inspect,
+        first_audio,
+        keeper,
+        binding_sent: !inspect,
+    };
+    let path = directory.join("owner.json");
+    atomic_json(&path, &s)?;
+    Ok((s, path))
+}
+fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
+    s.supervisor.verify()?;
+    s.ownership.verify()?;
+    let stdin = if let Some(p) = peer {
+        unsafe { Stdio::from_raw_fd(p.into_raw_fd()) }
+    } else {
+        Stdio::null()
+    };
+    Ok(Command::new("/usr/bin/python3")
+        .arg(&s.supervisor.path)
+        .arg(path)
+        .stdin(stdin)
+        .stdout(Stdio::null())
+        .stderr(Stdio::inherit())
+        .spawn()?)
+}
+fn ensure_keeper(
+    m: &Manager,
+    s: &Software,
+    r: &HostBinding,
+    keepers: &Mutex<Vec<(String, Child)>>,
+) -> Result<()> {
+    let mut active = keepers
+        .lock()
+        .map_err(|_| "environment ownership lock poisoned")?;
+    if let Some((_, child)) = active.iter_mut().find(|(id, _)| *id == r.environment.id) {
+        return require(
+            child.try_wait()?.is_none(),
+            "environment owner exited; restart service after closing devices",
+        );
+    }
+    let (job, path) = spec(m, r.clone(), true, false, true)?;
+    let child = spawn(s, &path, None)?;
+    // Retain ownership even when readiness or its report fails.
+    active.push((r.environment.id.clone(), child));
+    let child = &mut active.last_mut().unwrap().1;
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !job.report.exists() {
+        require(child.try_wait()?.is_none(), "environment startup failed")?;
+        if Instant::now() >= deadline {
+            // The supervisor owns descendants; never SIGKILL it and abandon them.
+            unsafe {
+                libc::kill(child.id() as i32, libc::SIGTERM);
+            }
+            return Err("environment startup deadline".into());
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let status: serde_json::Value = read_json(&job.report)?;
+    require(status["ready"] == true, "environment not ready")?;
+    Ok(())
+}
+fn serve(m: Manager) -> Result<()> {
+    let _lock = m.lock("service.lock")?;
+    m.reconcile()?;
+    let s = software(&m)?;
+    let runtime = m.root.join("runtime");
+    private_dir(&runtime)?;
+    private_dir(&runtime.join("results"))?;
+    let address = runtime.join("owner.sock");
+    if fs::symlink_metadata(&address).is_ok() {
+        use std::os::unix::fs::{FileTypeExt, MetadataExt};
+        let md = fs::symlink_metadata(&address)?;
+        require(
+            md.file_type().is_socket() && md.uid() == unsafe { libc::getuid() },
+            "endpoint ownership differs",
+        )?;
+        fs::remove_file(&address)?;
+    }
+    let listener = UnixListener::bind(address)?;
+    let manager = Arc::new(m);
+    let blocked = Arc::new(AtomicBool::new(false));
+    let keepers = Arc::new(Mutex::new(Vec::new()));
+    let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
+    for peer in listener.incoming() {
+        let mut peer = peer?;
+        threads.retain(|t| !t.is_finished());
+        if threads.len() >= 8 || blocked.load(Ordering::Acquire) {
+            continue;
+        }
+        let m = manager.clone();
+        let s = s.clone();
+        let blocked = blocked.clone();
+        let keepers = keepers.clone();
+        threads.push(std::thread::spawn(move || {
+            let outcome = (|| -> Result<()> {
+                peer.set_read_timeout(Some(Duration::from_secs(5)))?;
+                let mut greeting = [0; 53];
+                peer.read_exact(&mut greeting)?;
+                require(
+                    &greeting[..5] == b"LVB1\n",
+                    "registration protocol mismatch",
+                )?;
+                let r: HostBinding = m.resolve(&greeting[5..])?.into();
+                let (job, path) = spec(&m, r.clone(), false, false, false)?;
+                // Deliver the private binding inside the native greeting deadline.
+                // Cold Wine startup then uses the existing bounded transport accept.
+                let reply = format!("{}\n{}", job.session, job.directory.display());
+                require(reply.len() <= 1024, "session binding size")?;
+                peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+                peer.write_all(&(reply.len() as u16).to_le_bytes())?;
+                peer.write_all(reply.as_bytes())?;
+                ensure_keeper(&m, &s, &r, &keepers)?;
+                let mut child = spawn(&s, &path, Some(peer))?;
+                let status = child.wait()?;
+                if !status.success() {
+                    blocked.store(true, Ordering::Release);
+                    return Err(
+                        "instance owner did not confirm cleanup; new admissions blocked".into(),
+                    );
+                }
+                let report = read_json::<serde_json::Value>(&job.report);
+                if !report
+                    .as_ref()
+                    .is_ok_and(|r| r["cleanup_confirmed"] == true)
+                {
+                    blocked.store(true, Ordering::Release);
+                    return Err("instance cleanup unconfirmed; new admissions blocked".into());
+                }
+                Ok(())
+            })();
+            if let Err(e) = outcome {
+                eprintln!("Bridge instance: {e}");
+            }
+        }));
+    }
+    Ok(())
+}
+fn environment_record(m: &Manager, id: &str) -> Result<Environment> {
+    require(
+        !id.is_empty() && id.bytes().all(|c| c.is_ascii_hexdigit() || c == b'-'),
+        "environment ID syntax",
+    )?;
+    let e: Environment = read_json(
+        &m.root
+            .join("environments")
+            .join(id)
+            .join("environment.json"),
+    )?;
+    require(
+        e.id == id && e.root == m.root.join("environments").join(id),
+        "environment identity differs",
+    )?;
+    e.runner.verify()?;
+    Ok(e)
+}
+fn environment_create(m: &Manager, runner: &Path) -> Result<()> {
+    let runner: Runner = read_json(runner)?;
+    runner.verify()?;
+    let id = random_id()?;
+    let root = m.root.join("environments").join(&id);
+    private_dir(&root)?;
+    for d in [
+        "compatdata",
+        "runtime-var",
+        "host-cache",
+        "host-config",
+        "host-data",
+        "host-tmp",
+        "client",
+    ] {
+        private_dir(&root.join(d))?;
+    }
+    let e = Environment {
+        id,
+        root: root.clone(),
+        runner,
+        revision: 1,
+    };
+    atomic_json(&root.join("environment.json"), &e)?;
+    println!("{}", e.id);
+    Ok(())
+}
+fn environment_import(m: &Manager, path: &Path) -> Result<()> {
+    let e: Environment = read_json(path)?;
+    require(
+        !e.id.is_empty() && e.id.bytes().all(|c| c.is_ascii_hexdigit() || c == b'-'),
+        "environment ID syntax",
+    )?;
+    require(
+        e.root == m.root.join("environments").join(&e.id) && e.revision > 0,
+        "environment binding differs",
+    )?;
+    private_dir(&e.root)?;
+    e.runner.verify()?;
+    let marker = e.root.join("environment.json");
+    if let Ok(old) = read_json::<Environment>(&marker) {
+        require(old == e, "existing environment revision differs")?;
+    } else if marker.try_exists()? {
+        // Explicit import preserves earlier setup notes; vendor state is untouched.
+        let backup = e
+            .root
+            .join(format!("environment-before-import-{}.json", random_id()?));
+        fs::copy(&marker, &backup)?;
+        fs::File::open(backup)?.sync_all()?;
+    }
+    atomic_json(&marker, &e)?;
+    Ok(())
+}
+fn inspect(m: &Manager, path: &Path) -> Result<()> {
+    let request: InspectionRequest = read_json(path)?;
+    require(
+        valid_hex(&request.class_id, 32),
+        "inspection class ID syntax",
+    )?;
+    let environment = environment_record(m, &request.environment_id)?;
+    require(
+        request
+            .module
+            .path
+            .starts_with(environment.root.join("compatdata/pfx/drive_c"))
+            && request.module.path.canonicalize()? == request.module.path,
+        "inspection module outside exact environment",
+    )?;
+    request.module.verify()?;
+    let sw = software(m)?;
+    let r = HostBinding {
+        metadata: ClassSelection {
+            class_id: request.class_id,
+        },
+        environment,
+        module: request.module,
+        host: sw.host.clone(),
+        host_source_sha256: sw.source_sha256.clone(),
+        compatibility: request.compatibility,
+    };
+    let (job, path) = spec(m, r, true, false, false)?;
+    let status = spawn(&sw, &path, None)?.wait()?;
+    println!("{}", job.report.display());
+    require(status.success(), "inspection cleanup failed")?;
+    let result: serde_json::Value = read_json(&job.report)?;
+    require(
+        result["error"].is_null(),
+        "inspection failed; see retained result",
+    )
+}
+fn install(m: &Manager, id: &str, path: &Path, sha: &str) -> Result<()> {
+    let e = environment_record(m, id)?;
+    let artifact = Artifact {
+        path: path.canonicalize()?,
+        sha256: sha.into(),
+    };
+    artifact.verify()?;
+    let sw = software(m)?;
+    let jobs = e.root.join("installations");
+    private_dir(&jobs)?;
+    let token = random_id()?;
+    let job = jobs.join(format!("{token}.json"));
+    let report = jobs.join(format!("{token}-result.json"));
+    atomic_json(
+        &job,
+        &serde_json::json!({"environment":e,"installer":artifact,"report":report}),
+    )?;
+    let status = Command::new("systemd-run")
+        .args([
+            "--user",
+            "--wait",
+            "--pipe",
+            "--property=KillMode=control-group",
+        ])
+        .arg(format!("--unit=linux-vst-bridge-setup-{token}"))
+        .arg("/usr/bin/python3")
+        .arg(&sw.supervisor.path)
+        .arg("--install")
+        .arg(&job)
+        .status()?;
+    println!("{}", report.display());
+    require(status.success(), "installer did not complete successfully")
+}
+fn main() -> Result<()> {
+    unsafe {
+        libc::umask(0o077);
+    }
+    let m = Manager::installed()?;
+    let args: Vec<_> = std::env::args().skip(1).collect();
+    match args.first().map(String::as_str){
+  Some("setup") if args.len()==2=>setup(&m,Path::new(&args[1])),
+  Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
+  Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),
+  Some("install") if args.len()==4=>install(&m,&args[1],Path::new(&args[2]),&args[3]),
+  Some("register") if args.len()==2=>m.register(read_json(Path::new(&args[1]))?),
+  Some("unpublish") if args.len()==2=>m.unpublish(&args[1]),
+  Some("serve") if args.len()==1=>serve(m),
+  Some("status") if args.len()==1=>status(&m),
+  Some("reconcile") if args.len()==1=>m.reconcile(),
+  Some("inspect") if args.len()==2=>inspect(&m,Path::new(&args[1])),
+  _=>Err("Usage: linux-vst-bridge setup PACKAGE | environment-create RUNNER.json | environment-import ENVIRONMENT.json | install ENV_ID INSTALLER SHA256 | inspect INSPECTION.json | register REGISTRATION.json | status | reconcile | unpublish CLASS_ID | serve".into())
+ }
+}
+fn status(m: &Manager) -> Result<()> {
+    let db = m.registry()?;
+    let rows: Vec<_> = db.classes.values().map(|e| {
+        let refusal = e.registration.verify(&m.root).err().map(|e| e.to_string());
+        serde_json::json!({"class":e.registration.metadata,"publication":e.publication,
+            "environment":e.registration.environment.id,"revision":e.registration.environment.revision,
+            "compatibility":e.registration.compatibility,"artifacts_valid":refusal.is_none(),
+            "refusal":refusal,"added_frames":512})
+    }).collect();
+    println!("{}", serde_json::to_string_pretty(&rows)?);
+    Ok(())
+}

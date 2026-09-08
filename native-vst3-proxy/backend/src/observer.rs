@@ -116,7 +116,12 @@ impl ClockSample {
 }
 fn delivery_enabled() -> bool {
     std::env::var_os("HOME").is_some_and(|home| {
-        std::fs::read(std::path::PathBuf::from(home).join("AP10-Work/trace-enable"))
+        let relative = if cfg!(feature = "registered") {
+            ".local/share/linux-vst-bridge/managed/runtime/trace-enable"
+        } else {
+            "AP10-Work/trace-enable"
+        };
+        std::fs::read(std::path::PathBuf::from(home).join(relative))
             .is_ok_and(|b| b == b"1\n")
     })
 }

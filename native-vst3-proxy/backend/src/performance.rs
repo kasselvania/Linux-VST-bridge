@@ -47,6 +47,13 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     )
 }
 pub fn selected_delay(max: u32) -> io::Result<u32> {
+    if cfg!(feature = "registered") {
+        need(
+            (1..=512).contains(&max),
+            "registered 512-frame delay cannot cover this host block",
+        )?;
+        return Ok(512);
+    }
     need((1..=1024).contains(&max), "host maximum outside 1..1024")?;
     let path = PathBuf::from(std::env::var_os("HOME").ok_or_else(|| invalid("home absent"))?)
         .join("AP9-Performance/delay-frames");
@@ -280,6 +287,9 @@ impl Timings {
 /// Inactive-only comparison setting. Missing selects the AP10 mailbox; the
 /// retained socket path remains available for matched before/after comparison.
 pub fn use_mailbox() -> io::Result<bool> {
+    if cfg!(feature = "registered") {
+        return Ok(true);
+    }
     let home = std::env::var_os("HOME").ok_or_else(|| invalid("home absent"))?;
     let path = PathBuf::from(home).join("AP10-Work/delivery-mode");
     #[cfg(target_os = "linux")]
