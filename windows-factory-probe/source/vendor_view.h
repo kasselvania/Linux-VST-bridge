@@ -283,6 +283,10 @@ public:
     }
     if (window_ && view_) {
       ShowWindow(window_, SW_RESTORE);
+      // A detached editor can sit behind the native DAW after host controls
+      // are used. Raise its existing top-level window on explicit open/focus.
+      SetWindowPos(window_, HWND_TOP, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
       SetForegroundWindow(window_);
       SetFocus(window_);
       ++focuses;
