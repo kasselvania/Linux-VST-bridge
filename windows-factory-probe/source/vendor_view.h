@@ -25,6 +25,11 @@ class VendorView final : public Steinberg::IPlugFrame {
     if (trace_)
       trace_(trace_context_, code);
   }
+  static bool same(const Steinberg::ViewRect &a,
+                   const Steinberg::ViewRect &b) {
+    return a.left == b.left && a.top == b.top && a.right == b.right &&
+           a.bottom == b.bottom;
+  }
   unsigned resizing_ = 0;
   uint32_t error_ = 0;
   static Steinberg::int16 modifiers() {
@@ -138,7 +143,10 @@ class VendorView final : public Steinberg::IPlugFrame {
         Steinberg::ViewRect size{0, 0, r.right, r.bottom};
         if (self->resizing_ < 8) {
           ++self->resizing_;
-          auto result = self->view_->onSize(&size);
+          Steinberg::ViewRect current{};
+          auto result = self->view_->getSize(&current);
+          if (result == Steinberg::kResultOk && !same(current, size))
+            result = self->view_->onSize(&size);
           --self->resizing_;
           if (result != Steinberg::kResultOk)
             self->error_ = AP11::Size;
@@ -224,8 +232,7 @@ public:
       stage(13);
       result = resize(*size) ? Steinberg::kResultOk : Steinberg::kResultFalse;
       if (result == Steinberg::kResultOk &&
-          (current.left != size->left || current.top != size->top ||
-           current.right != size->right || current.bottom != size->bottom)) {
+          !same(current, *size)) {
         stage(14);
         result = view_->onSize(size);
       }

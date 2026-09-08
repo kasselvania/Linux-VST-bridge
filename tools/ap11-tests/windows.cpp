@@ -98,6 +98,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return kResultOk;
   }
   tresult PLUGIN_API canResize() override { return kResultFalse; }
+  tresult requestSize(ViewRect &r) { return plugFrame->resizeView(this, &r); }
   tresult PLUGIN_API setContentScaleFactor(float scale) override {
     check(!plugFrame, "initial scale before frame installation");
     ViewRect r{0, 0, int32(400 * scale), int32(240 * scale)};
@@ -107,7 +108,8 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
 };
 struct Controller final : EditController {
   Stats stats;
-  bool echo = true;
+  bool echo = true, no_view = false;
+  View *last_view = nullptr;
   tresult PLUGIN_API initialize(FUnknown *h) override {
     auto r = EditController::initialize(h);
     parameters.addParameter(u"Gain", u"", 0, .5, ParameterInfo::kCanAutomate,
@@ -118,7 +120,7 @@ struct Controller final : EditController {
     check(std::this_thread::get_id() == owner &&
               !std::strcmp(name, ViewType::kEditor),
           "same SDK controller creates editor");
-    return new View(stats);
+    return no_view ? nullptr : (last_view = new View(stats));
   }
   tresult PLUGIN_API setParamNormalized(ParamID id, ParamValue value) override {
     check(std::this_thread::get_id() == owner, "controller update owner");
@@ -238,11 +240,26 @@ int main() {
   check(c->setComponentHandler(&handler) == kResultOk,
         "production SDK handler");
   check(c->stats.created == 0, "no editor on scan/restore");
+  c->no_view = true;
+  native.command(AP11::Open);
+  session.service(true);
+  auto denied = native.drain();
+  check(!session.is_open() && channel.failure() == 0 &&
+            std::any_of(denied.begin(), denied.end(), [](const auto &m) {
+              return m.kind == AP11::EditorStatus && m.result == AP11::NoView;
+            }),
+        "ordinary open failure explicit without poisoning session");
+  c->no_view = false;
   native.command(AP11::Open);
   session.service(true);
   check(session.is_open() && c->stats.created == 1 && c->stats.attached == 1,
         "actual SDK attach");
   check(c->stats.sizes == 0, "unchanged size does not call onSize");
+  ViewRect changed{0, 0, 440, 260};
+  check(c->last_view->requestSize(changed) == kResultOk && c->stats.sizes == 1,
+        "changed size still reaches attached view synchronously");
+  check(c->last_view->requestSize(changed) == kResultOk && c->stats.sizes == 1,
+        "repeated unchanged request does not duplicate onSize");
   native.drain();
   native.command(AP11::Open);
   session.service(true);
