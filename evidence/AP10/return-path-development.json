@@ -85,23 +85,26 @@
       "source": "e4df377047438493012ebf95ecc087754a7e8d8f",
       "run": 34091094784,
       "result": "pass"
+    },
+    {
+      "kind": "Windows host, SDK fixture and unit tests; policy",
+      "source": "79fd5508a1985ef1461f8be926f307cfb55425d8",
+      "host_run": 34175612117,
+      "policy_run": 34175612128,
+      "result": "pass",
+      "deployed_binaries_reused": "See return-path-production.json; processing code unchanged by harness-only commit."
     }
   ],
-  "not_yet_verified": [
-    "SDK Windows producer through production mailbox/queue into native host sinks",
-    "current-candidate normal Bitwig Serum playback, state recall and close",
-    "affected FRAGMENTS checks",
-    "matched working-candidate 256/512 desktop comparison"
-  ],
+  "not_yet_verified": [],
   "device_gate": {
-    "status": "explicit transfer authorization pending",
-    "reason": "Automatic tool approval review rejected Windows host, original SDK fixture and metadata transfer to the existing Steam Deck test-input directory. Destination identity reverified; no workaround attempted."
+    "status": "resolved",
+    "reason": "Operator explicitly authorized transfer; Tailscale restored; Windows host, SDK fixture and metadata transferred and verified before production tests."
   },
   "recommended_added_frames": 512,
   "nonclaims": [
-    "No full production return-path pass yet.",
-    "No current-candidate commercial playback claim from unit/build results.",
     "Historical gaps, unresolved 31.9-ms interval and close-time engine crash remain unchanged.",
     "discarded_on_reset counts native pending presentation values, not every unpublished Windows result."
-  ]
+  ],
+  "production_results": "return-path-production.json",
+  "desktop_results": "return-path-desktop.json"
 }

@@ -1,0 +1,504 @@
+{
+  "schema": "ap10-sdk-produced-return-results/v1",
+  "processing_source": "9ba67d0e595bc9d26af198405fd5334378daf72d",
+  "fixed_failure_consumer_source": "79fd5508a1985ef1461f8be926f307cfb55425d8",
+  "windows_execution_source": "fd1024e839bf8503b1499cb54d8a3eeabead25b6",
+  "windows_host_sha256": "53b074c7f2b41bc3adf376eab5fecbb6413caf4f51d2e73d2f4cee49f81077f3",
+  "fixture_sha256": "aeb4321974637057b50956b1d495ca1141a3245b256a6f74fdb9a726d27dcb2c",
+  "native_proxy_sha256": "6626e64966f40bd2b8ad9abbb01efad79a4a79bca2d342ab1fa96046481d2ba7",
+  "sample_rate": 48000,
+  "precision": "float32",
+  "bridge_delay": 512,
+  "vendor_latency": 13,
+  "host_blocks": [
+    128,
+    64,
+    257,
+    511,
+    384,
+    256
+  ],
+  "runs": [
+    {
+      "run": "ap10-inactive",
+      "consumer_exit": 0,
+      "seconds": 6.061161129036918,
+      "native": [
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 1,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 170,
+          "request_high": 6,
+          "result_high": 2,
+          "position": 128,
+          "epoch": 2
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 30271,
+          "blocks": 113,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 4,
+          "successful_silent_frames": 577,
+          "priming_frames": 640,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 29631,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "ap10_sdk_return_result",
+          "scenario": "ap10-inactive",
+          "events": 0,
+          "parameter_points": 1,
+          "late_note_off_frames": 0,
+          "zero_frame_feedback": 0,
+          "explicit_failure": 0,
+          "callback_effects": 0
+        }
+      ],
+      "owner": {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      },
+      "windows": {
+        "raw_exit": 0,
+        "classification": "scanner_completed",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "errors": []
+      }
+    },
+    {
+      "run": "ap10-null",
+      "consumer_exit": 0,
+      "seconds": 5.93655178102199,
+      "native": [
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 10,
+          "host_unrequested_points": 1,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 170,
+          "request_high": 5,
+          "result_high": 2,
+          "position": 128,
+          "epoch": 2
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 30271,
+          "blocks": 113,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 4,
+          "successful_silent_frames": 577,
+          "priming_frames": 640,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 29631,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "ap10_sdk_return_result",
+          "scenario": "ap10-null",
+          "events": 0,
+          "parameter_points": 0,
+          "late_note_off_frames": 0,
+          "zero_frame_feedback": 0,
+          "explicit_failure": 0,
+          "callback_effects": 0
+        }
+      ],
+      "owner": {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      },
+      "windows": {
+        "raw_exit": 0,
+        "classification": "scanner_completed",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "errors": []
+      }
+    },
+    {
+      "run": "ap10-overflow",
+      "consumer_exit": 1,
+      "seconds": 9.744652154971845,
+      "native": [
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "state_response",
+          "fault": 3,
+          "first_position": 6656,
+          "processed": 37,
+          "callback_rejections": 0,
+          "detail": "InvalidData: state acknowledgement missing; instance failed, no retry"
+        },
+        {
+          "event": "ap3_host_error",
+          "stage": "load",
+          "detail": "return state",
+          "last_position": 0
+        }
+      ],
+      "owner": {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      },
+      "windows": {
+        "raw_exit": 90,
+        "classification": "scanner_blocked",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "errors": [
+          {
+            "detail": "malformed or oversized process results",
+            "event": "lifecycle",
+            "sequence": 99,
+            "state": "ap3_processing_error"
+          },
+          {
+            "event": "lifecycle",
+            "reason": "commercial processing failed",
+            "sequence": 102,
+            "state": "ap8_failure"
+          }
+        ]
+      }
+    },
+    {
+      "run": "ap10-overflow-bound",
+      "consumer_exit": 0,
+      "seconds": 9.830604474060237,
+      "native": [
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 3,
+          "first_position": 6656,
+          "processed": 37,
+          "request_high": 1348,
+          "result_high": 2,
+          "position": 246527,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 246527,
+          "blocks": 923,
+          "callback_rejections": 1,
+          "rejected_silent_frames": 256,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 3,
+          "successful_silent_frames": 449,
+          "priming_frames": 512,
+          "underrun_frames": 239359,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 897,
+          "expired_output_frames": 0,
+          "delivered_frames": 6656,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        },
+        {
+          "event": "ap10_sdk_return_result",
+          "scenario": "ap10-overflow",
+          "events": 0,
+          "parameter_points": 0,
+          "late_note_off_frames": 0,
+          "zero_frame_feedback": 0,
+          "explicit_failure": 1,
+          "failure_callback_seconds": 5.13608,
+          "callback_effects": 0
+        }
+      ],
+      "owner": {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      },
+      "windows": {
+        "raw_exit": 90,
+        "classification": "scanner_blocked",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "errors": [
+          {
+            "detail": "malformed or oversized process results",
+            "event": "lifecycle",
+            "sequence": 99,
+            "state": "ap3_processing_error"
+          },
+          {
+            "event": "lifecycle",
+            "reason": "commercial processing failed",
+            "sequence": 102,
+            "state": "ap8_failure"
+          }
+        ]
+      }
+    },
+    {
+      "run": "ap10-reject",
+      "consumer_exit": 0,
+      "seconds": 9.44745335902553,
+      "native": [
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 1,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 5,
+          "first_position": 7232,
+          "processed": 39,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 7232,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7232,
+          "blocks": 27,
+          "callback_rejections": 1,
+          "rejected_silent_frames": 257,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 3,
+          "successful_silent_frames": 449,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 6720,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        },
+        {
+          "event": "ap10_sdk_return_result",
+          "scenario": "ap10-reject",
+          "events": 0,
+          "parameter_points": 0,
+          "late_note_off_frames": 0,
+          "zero_frame_feedback": 0,
+          "explicit_failure": 1,
+          "failure_callback_seconds": 0.145396,
+          "callback_effects": 0
+        }
+      ],
+      "owner": {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      },
+      "windows": {
+        "raw_exit": -15,
+        "classification": "scanner_blocked",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "errors": []
+      }
+    },
+    {
+      "run": "ap10-results",
+      "consumer_exit": 0,
+      "seconds": 5.9641856589587405,
+      "native": [
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 13,
+          "points_delivered": 5,
+          "late_events": 1,
+          "late_points": 1,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 1,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 172,
+          "request_high": 6,
+          "result_high": 7,
+          "position": 128,
+          "epoch": 2
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 30271,
+          "blocks": 113,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 4,
+          "successful_silent_frames": 577,
+          "priming_frames": 640,
+          "underrun_frames": 960,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 3,
+          "expired_output_frames": 960,
+          "delivered_frames": 28671,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "ap10_sdk_return_result",
+          "scenario": "ap10-results",
+          "events": 14,
+          "parameter_points": 5,
+          "late_note_off_frames": 697,
+          "zero_frame_feedback": 1,
+          "explicit_failure": 0,
+          "callback_effects": 0
+        }
+      ],
+      "owner": {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      },
+      "windows": {
+        "raw_exit": 0,
+        "classification": "scanner_completed",
+        "cleanup": {
+          "owned_descendants_zero": true,
+          "process_group_empty": true
+        },
+        "errors": []
+      }
+    }
+  ],
+  "limitations": [
+    "This original SDK fixture is instrumentation, not a commercial compatibility claim.",
+    "The injected 25-ms stall and intentional overflow retain all missing/rejected frames.",
+    "A failed Windows process call with no mailbox reply is detected by the existing five-second request deadline; immediate peer-failure notification is not implemented.",
+    "The original short overflow harness raced a state read with that deadline; its failed result is retained."
+  ]
+}

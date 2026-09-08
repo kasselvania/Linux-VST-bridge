@@ -1,0 +1,102 @@
+{
+  "schema": "ap10-return-path-reference/v1",
+  "processing_source": "9ba67d0e595bc9d26af198405fd5334378daf72d",
+  "windows_execution_source": "fd1024e839bf8503b1499cb54d8a3eeabead25b6",
+  "native_sha256": "9ba158401e1cbf9c67232c3cac6190c5290de7b3e4cf878c2364858e663883ea",
+  "windows_host_sha256": "53b074c7f2b41bc3adf376eab5fecbb6413caf4f51d2e73d2f4cee49f81077f3",
+  "case": {
+    "name": "reference-return-256",
+    "role": "reference",
+    "build": "51d45af3575fd797681c1517c09d00ac1eadee1134a773fc0285a1abb6613d84",
+    "rate": 48000,
+    "block": 128,
+    "delay": 256,
+    "seconds": 4,
+    "voices": 1
+  },
+  "consumer_exit": 0,
+  "native": [
+    {
+      "event": "ap9_host_setup",
+      "sample_rate": 48000,
+      "host_block": 128,
+      "setup_result": 0,
+      "native_float32": 1,
+      "native_float64": 0,
+      "reported_latency": 256
+    },
+    {
+      "event": "ap9_state_roundtrip",
+      "bytes": 116
+    },
+    {
+      "event": "ap3_proxy_stats",
+      "fault": 0,
+      "first_position": 18446744073709551615,
+      "processed": 1500,
+      "request_high": 2,
+      "result_high": 1,
+      "position": 192000,
+      "epoch": 1
+    },
+    {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 192000,
+      "blocks": 1500,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 0,
+      "underrun_gaps": 0,
+      "underrun_callbacks": 0,
+      "expired_output_frames": 0,
+      "delivered_frames": 191744,
+      "zero_gain_blocks": 0,
+      "gain_min": 0.25,
+      "gain_max": 0.5,
+      "clean": true
+    },
+    {
+      "event": "ap9_host_result",
+      "commercial": 0,
+      "voices": 1,
+      "sample_rate": 48000,
+      "block": 128,
+      "latency_frames": 256,
+      "frames": 192000,
+      "wall_seconds": 3.99742,
+      "native_cpu_seconds": 0.261402,
+      "maxrss_kib": 44536,
+      "callback_p50_ns": 12300,
+      "callback_p99_ns": 43639,
+      "callback_max_ns": 212347,
+      "callback_deadline_misses": 0,
+      "host_schedule_misses": 0,
+      "rejections": 0,
+      "compared_samples": 384000,
+      "wrong_samples": 0,
+      "wrong_zero_samples": 0,
+      "maximum_error": 0,
+      "rms": 0.110432,
+      "peak": 0.234375,
+      "nonzero_samples": 371134,
+      "callback_effects": 0
+    }
+  ],
+  "owners": [
+    {
+      "retired": true,
+      "containment_confirmed": true,
+      "error": null
+    }
+  ],
+  "restored": true,
+  "limitation": "Four-second actual Windows AGain reference check, through the updated queue at 256 bridge frames; no DAW/device path and no broad performance qualification."
+}
