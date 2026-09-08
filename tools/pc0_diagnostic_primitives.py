@@ -16,6 +16,44 @@ from normalize import (validate_wa0_event_order, decode_field, logical_fuid,
 from pc0_diagnostic_runtime import verify_diagnostic_runner, sanitized_supervision_error, exception_detail
 
 
+def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]]) -> dict[str, Any]:
+    # Cleanup ownership is an observed PID/start identity or this root's
+    # process group/session, never a stage-shaped string in another command.
+    deadline = time.monotonic() + CLEANUP_SECONDS
+    live_owned = {
+        (record["pid"], record["start_ticks"]) for record in process_census()
+    } & set(owned)
+    if root.poll() is None or live_owned:
+        try:
+            os.killpg(root.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    while time.monotonic() < deadline - 3:
+        live_owned = {
+            (record["pid"], record["start_ticks"]) for record in process_census()
+        } & set(owned)
+        if root.poll() is not None and not live_owned:
+            break
+        time.sleep(POLL_SECONDS)
+    if root.poll() is None or live_owned:
+        try:
+            os.killpg(root.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        root.wait(timeout=max(0.1, deadline - time.monotonic()))
+    except subprocess.TimeoutExpired:
+        fail("Runtime root did not terminate inside cleanup bound")
+    remaining = []
+    for record in process_census():
+        if ((record["pid"], record["start_ticks"]) in owned or
+                (record["pgrp"] == root.pid and record["session"] == root.pid)):
+            remaining.append(record["comm"])
+    if remaining:
+        fail(f"owned descendants survived cleanup: {remaining}")
+    return {"owned_descendants_zero": True, "process_group_empty": True}
+
+
 def verify_environment(environment: ScanEnvironment, *, runner_identity_sha256: str) -> None:
     parent = environment_parent()
     require_contained(environment.root, parent, "WF0 stage")
@@ -137,7 +175,8 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     elif type(post_gate_seconds) not in (int, float) or not 0 < post_gate_seconds <= 180:
         fail("post-gate stage deadline must be positive and at most 180 seconds")
     runner_identity = getattr(profile, "verify_runtime", verify_diagnostic_runner)()
-    verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
+    check_environment = getattr(profile, "verify_environment", verify_environment)
+    check_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
     session = session_override or secrets.token_hex(16)
     ready = environment.session / f"{session}.ready"
     gate = environment.session / f"{session}.gate"
@@ -148,7 +187,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
     command_line = (profile.command_vector if profile else command_vector)(environment, session, component_case, mode)
     spawn_command_vector_sha256 = sha256_bytes(canonical_json(command_line))
     started = time.monotonic()
-    root = subprocess.Popen(command_line, env=controlled_environment(environment),
+    root = subprocess.Popen(command_line, env=getattr(profile, "controlled_environment", controlled_environment)(environment),
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, start_new_session=True, bufsize=0)
     root_identity = process_identity(root.pid)
@@ -186,7 +225,7 @@ def supervise(environment: ScanEnvironment, *, hold_gate: bool = False,
                 topology_receipt = topology(
                     root, session, root_identity, spawn_command_vector_sha256
                 )
-                verify_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
+                check_environment(environment, runner_identity_sha256=runner_identity["launch_critical_manifest_sha256"])
                 if protected_snapshot() != before:
                     fail("protected state drifted before supervisor gate")
                 if hold_gate:

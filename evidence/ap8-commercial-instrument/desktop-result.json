@@ -1,0 +1,1137 @@
+{
+  "captured_at_unix": 1788731538.3921683,
+  "native_logs": {
+    "desktop-before-close.jsonl": {
+      "private_basename": "native-c96c2f8c24012bea9a58238079487b1f.jsonl",
+      "sha256": "fd3dd2cfa4177b526ba61f60d668fa11ac7bbc6cc9b917c77fe226c0251a9177",
+      "records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 62059,
+          "request_high": 2,
+          "result_high": 4,
+          "position": 13580032,
+          "epoch": 3
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_sample_comparison",
+          "samples": 0,
+          "restored_samples": 0,
+          "before_edit_samples": 0,
+          "restores": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 31774208,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 31774208,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 0,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 4800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 9600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 14400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 19200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 24000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 28800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 33600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 38400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 43200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 48000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 52800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 57600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 62400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 67200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 72000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 76800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 81600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 86400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 91200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 96000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 100800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 105600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 110400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 115200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 120000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 124800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 129600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 134400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 139200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 144000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 148800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 31467008
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 15887104,
+          "blocks": 62059,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 34301,
+          "successful_silent_frames": 8781056,
+          "priming_frames": 3072,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 15884032,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    "desktop-reopened.jsonl": {
+      "private_basename": "native-8beef0c95e115b4dbc0514fd12385538.jsonl",
+      "sha256": "0351e337dd622a1a641397b939b803a660122193ae84dd8152314d15e6f513cd",
+      "records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 8697,
+          "request_high": 1,
+          "result_high": 4,
+          "position": 2226432,
+          "epoch": 1
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_sample_comparison",
+          "samples": 0,
+          "restored_samples": 0,
+          "before_edit_samples": 0,
+          "restores": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 4452864,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 4452864,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 0,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 4800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 9600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 14400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 19200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 24000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 28800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 33600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 38400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 43200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 48000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 52800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 57600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 62400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 67200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 72000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 76800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 81600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 86400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 91200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 96000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 100800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 105600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 110400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 115200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 120000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 124800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 129600,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 134400,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 139200,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 144000,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap8_returned_audio",
+          "epoch": 1,
+          "position": 148800,
+          "samples": 9600,
+          "nonzero": 0,
+          "rms": 0,
+          "peak": 0,
+          "unretained_window_samples": 4145664
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 2226432,
+          "blocks": 8697,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 5816,
+          "successful_silent_frames": 1488896,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 2225408,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    }
+  },
+  "instances": [
+    {
+      "role": "before_close",
+      "containment_confirmed": true,
+      "retired": true,
+      "error": null,
+      "reporting_errors": [],
+      "retirement_error": null,
+      "classification": "scanner_completed",
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "raw_exit": 0,
+      "state_records": [
+        {
+          "event": "lifecycle",
+          "operation": "opaque",
+          "owner_thread": true,
+          "sequence": 163,
+          "state": "ap4_state_started"
+        },
+        {
+          "bytes": 33652,
+          "event": "lifecycle",
+          "operation": "opaque",
+          "result": 0,
+          "sequence": 164,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "opaque",
+          "owner_thread": true,
+          "sequence": 165,
+          "state": "ap4_state_started"
+        },
+        {
+          "bytes": 33652,
+          "event": "lifecycle",
+          "operation": "opaque",
+          "result": 0,
+          "sequence": 166,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "opaque",
+          "owner_thread": true,
+          "sequence": 167,
+          "state": "ap4_state_started"
+        },
+        {
+          "bytes": 33652,
+          "event": "lifecycle",
+          "operation": "opaque",
+          "result": 0,
+          "sequence": 168,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "sequence": 169,
+          "state": "ap2_processor_traits",
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "operation": "opaque",
+          "owner_thread": true,
+          "sequence": 201,
+          "state": "ap4_state_started"
+        },
+        {
+          "bytes": 33683,
+          "event": "lifecycle",
+          "operation": "opaque",
+          "result": 0,
+          "sequence": 202,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "instance_count": 1,
+          "mapping_unmapped": true,
+          "sequence": 236,
+          "state": "ap1_endpoint_closed"
+        }
+      ],
+      "runner_identity_sha256": "20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7"
+    },
+    {
+      "role": "reopened",
+      "containment_confirmed": true,
+      "retired": true,
+      "error": null,
+      "reporting_errors": [],
+      "retirement_error": null,
+      "classification": "scanner_completed",
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "raw_exit": 0,
+      "state_records": [
+        {
+          "event": "lifecycle",
+          "operation": "opaque",
+          "owner_thread": true,
+          "sequence": 163,
+          "state": "ap4_state_started"
+        },
+        {
+          "bytes": 33652,
+          "event": "lifecycle",
+          "operation": "opaque",
+          "result": 0,
+          "sequence": 164,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "opaque",
+          "owner_thread": true,
+          "sequence": 165,
+          "state": "ap4_state_started"
+        },
+        {
+          "bytes": 33652,
+          "event": "lifecycle",
+          "operation": "opaque",
+          "result": 0,
+          "sequence": 166,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "opaque",
+          "owner_thread": true,
+          "sequence": 167,
+          "state": "ap4_state_started"
+        },
+        {
+          "bytes": 33652,
+          "event": "lifecycle",
+          "operation": "opaque",
+          "result": 0,
+          "sequence": 168,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "operation": "opaque",
+          "owner_thread": true,
+          "sequence": 169,
+          "state": "ap4_state_started"
+        },
+        {
+          "bytes": 33683,
+          "event": "lifecycle",
+          "operation": "opaque",
+          "result": 0,
+          "sequence": 170,
+          "state": "ap4_state_result"
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "sequence": 171,
+          "state": "ap2_processor_traits",
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "instance_count": 1,
+          "mapping_unmapped": true,
+          "sequence": 220,
+          "state": "ap1_endpoint_closed"
+        }
+      ],
+      "runner_identity_sha256": "20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7"
+    }
+  ],
+  "runner": {
+    "runner": {
+      "build_id": "25118279",
+      "depot_manifest": "2978628887517351791",
+      "directory_name": "Proton 11.0",
+      "required_tool_app_id": "4183110",
+      "steam_app_id": "4628710",
+      "version": "1788504981 proton-11.0-2c-x86_64"
+    },
+    "runtime": {
+      "build_id": "24599767",
+      "depot_manifest": "78117001432799844",
+      "depot_version": "4.0.20260805.254769",
+      "directory_name": "SteamLinuxRuntime_4",
+      "pressure_vessel_version": "0.20260805.0",
+      "steam_app_id": "4183110"
+    }
+  },
+  "host": {
+    "os": {
+      "NAME": "SteamOS",
+      "VERSION_ID": "3.8.16",
+      "BUILD_ID": "20260716.1"
+    },
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "architecture": "x86_64",
+    "bitwig_version": "6.1",
+    "flatpak_app_commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+    "runtime": "org.freedesktop.Platform/x86_64/25.08",
+    "permissions": "[Context]\nshared=network;ipc;\nsockets=x11;pulseaudio;\ndevices=all;\nfeatures=multiarch;\nfilesystems=xdg-run/pipewire-0;/usr/lib;host;\npersistent=.BitwigStudio;Bitwig Studio;.java;\n\n[Session Bus Policy]\norg.freedesktop.Notifications=talk\n\n[Environment]\nVST_PATH=/app/extensions/Plugins/vst;=/usr/lib/\nALSA_CONFIG_PATH=\nCLAP_PATH=\nVST3_PATH=\n"
+  },
+  "project": {
+    "path": "<HOME>/Bitwig Studio/Projects/AP8 Serum Recall/AP8 Serum Recall.bwproject",
+    "bytes": 38489,
+    "sha256": "faa8dfb8cf75fec0f951fb21e703bdb5ee1d150d34189c49b99f9872f53dc0d2"
+  },
+  "cleanup": {
+    "owner_service": [
+      "MainPID=0",
+      "ActiveState=inactive",
+      "SubState=dead"
+    ],
+    "owner_socket_absent": true,
+    "bitwig_native_windows_workloads_remaining": 0,
+    "session_directory_empty": true,
+    "desktop_instances_contained_and_retired": true,
+    "vendor_environment_retained": true,
+    "original_preferences_restored_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "original_plugin_metadata_restored": true,
+    "temporary_publication_retired_to": "<HOME>/AP8-Commercial-Test/completed-desktop/CommercialInstrumentBridge.vst3",
+    "original_module_hashes_unchanged": {
+      "Pure LoFi.vst3": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "Efx FRAGMENTS.vst3": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "Serum2.vst3/Contents/x86_64-win/Serum2.vst3": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+    },
+    "test_project_retained": true,
+    "diagnostics_and_temporary_preferences_retained_privately": true,
+    "sunshine_user_unit_state": "inactive",
+    "moonlight_stream": "Existing stream stayed connected; no remote-access configuration was changed."
+  },
+  "schema": "linux-vst-bridge-ap8-desktop-observation/v1",
+  "claim_level": "fixture-observed commercial instrument playback and project recall; awaiting review",
+  "sources": {
+    "native_commit": "65adb96285b664d2fe394ea157178f71ce14c8cf",
+    "owner_commit": "31e020e3f1a5b93e9758d156d35f66c39ad6c325",
+    "windows_commit": "f872701e4f2b403a3aeb4c10fbe190a385248827",
+    "windows_build_run": 34060332214,
+    "windows_binary_sha256": "80451fef2e3f0111ad127616c079eedf8fe216d27bcbf5d4761fadfe579fdd57",
+    "native_binary_sha256": "2f2b78ed92cfe238486ce8298cad399c39c095665ed9665a67560fac428d5525",
+    "native_input_archive_sha256": "ea41fb7bfdc006ea9d69067abd3bd1793e664c04bce4ebd3984189f677a7c380",
+    "descriptor_sha256": "f776297c77cbe8bff78a646f936a18d8fc8799b5d0c908ae7af90c03bce4d6d9",
+    "vst3_sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime_commit": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "fixture": {
+    "module": "Serum 2.0.18 Windows VST3 instrument",
+    "module_bytes": 18062336,
+    "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175",
+    "vendor_class_id": "56534558667350736572756D20320000",
+    "native_component_id": "b7e8c3508fc755db9fdc29f971604942",
+    "native_controller_id": "f52ccadd0aff58ea8bcad3d50cfc70b9",
+    "sample_rate": 48000,
+    "maximum_frames": 256,
+    "sample_format": "float32",
+    "audio_input_channels": 0,
+    "audio_output_channels": 2,
+    "note_input_channels": 16,
+    "parameters": 2623,
+    "bridge_latency_samples": 1024,
+    "vendor_latency_samples": 0,
+    "authorization_observation": "Already-installed module processed in an owned persistent environment without an installer, login or activation interaction. License channel and long-term authorization posture were not established."
+  },
+  "gui_observations": {
+    "method": "Existing Moonlight/Sunshine stream; normal KDE Applications > Multimedia > Bitwig Studio launch",
+    "project": "AP8 Serum Recall",
+    "clip": "Existing S1 clip, distinct note pitches, 110 BPM, 4/4",
+    "before_save_parameter": {
+      "title": "Main Vol",
+      "id": 0,
+      "normalized_value": 0.115
+    },
+    "reopened_parameter_before_any_edit": {
+      "title": "Main Vol",
+      "id": 0,
+      "normalized_value": 0.115
+    },
+    "first_session": "Clip playback and track/master meter activity; Main Vol changed from 0.5000 through 0.3900 to 0.1150; playback continued, stopped, saved and closed.",
+    "reopened_session": "New Bitwig and Windows host instance; project reopened, 0.1150 visible before any edit, playback produced track/master meter activity, transport stop returned the meters to silence, then Bitwig closed.",
+    "physical_audio": "Operator reported notes triggering audio at handoff. This continuation observed the streamed UI, not independent acoustic capture.",
+    "save_path_failure": "Direct save to the host AP8-Commercial-Test path was not visible to the file chooser. Saved a new project under Bitwig's existing Projects directory without changing Flatpak permissions."
+  },
+  "limitations": [
+    "The numerical observer retained the first 32 windows, covering idle setup rather than desktop note playback. All later desktop windows were explicitly unretained; desktop RMS/peak and exact note-by-note waveform recall are not claimed. SDK note/audio measurements are separate evidence.",
+    "Legacy AGain gain/reference-comparison fields in commercial native reports are not Serum values or a reference-DSP pass.",
+    "No reboot, editor, preset-browser, MPE, activation, multi-commercial-instance, long-run reliability or general Linux compatibility claim."
+  ]
+}

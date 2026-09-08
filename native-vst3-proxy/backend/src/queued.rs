@@ -2,7 +2,10 @@
 //! monotonic timestamp reads. No allocation, waiting, logging or transport I/O.
 //! All mapping/socket/session work and error formatting belong to the worker.
 use crate::{binding, queue::Queue, retain, state, Session};
-use ap1_native_client::{invalid, CAP, ERROR};
+use ap1_native_client::{
+    events::{Event, MAX_EVENTS},
+    invalid, CAP, ERROR,
+};
 use std::{
     cell::UnsafeCell,
     io,
@@ -33,6 +36,8 @@ pub struct Item {
     pub gain: f64,
     pub flags: u64,
     pub queued: Option<Instant>,
+    pub event_count: u32,
+    pub events: [Event; MAX_EVENTS],
     pub data: [[f32; CAP]; 2],
 }
 impl Item {
@@ -45,6 +50,8 @@ impl Item {
             gain: 0.,
             flags: 0,
             queued: None,
+            event_count: 0,
+            events: [Event::default(); MAX_EVENTS],
             data: [[0.; CAP]; 2],
         }
     }
@@ -52,6 +59,7 @@ impl Item {
 struct Shared {
     snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
     generation: u64,
+    identity: Option<state::Identity>,
     last_edit: AtomicU64,
     retired: AtomicBool,
     requests: Queue<Item>,
@@ -85,6 +93,7 @@ impl Shared {
         Self {
             snapshots: Arc::new(std::sync::Mutex::new(crate::recovery::Store::default())),
             generation: 1,
+            identity: None,
             last_edit: AtomicU64::new(0),
             retired: AtomicBool::new(false),
             requests: Queue::new(DESCRIPTORS),
@@ -227,7 +236,7 @@ impl Callback {
             s.fail(OVERFLOW, self.position);
             return Err(2);
         }
-        if !request.gain.is_nan() {
+        if !request.gain.is_nan() || request.event_count > 0 {
             s.last_edit.store(s.requests.published(), Ordering::Release);
         }
         self.delivery = Delivery::default();
@@ -375,10 +384,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         let result = match c.op {
                             16 => session
                                 .component_state(None)
-                                .and_then(|p| state::envelope(&p)),
+                                .and_then(|p| state::bound_envelope(session.identity, &p)),
                             18 => session
                                 .component_state(Some(&c.bytes))
-                                .and_then(|p| state::envelope(&p)),
+                                .and_then(|p| state::bound_envelope(session.identity, &p)),
                             8 => {
                                 // Observation waits for a real state operation;
                                 // it cannot add a prerequisite transport request.
@@ -441,8 +450,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         item.gain,
                         item.flags,
                         [&item.data[0][..n], &item.data[1][..n]],
-                        item.epoch,
-                        item.position,
+                        (item.epoch, item.position),
+                        &item.events[..item.event_count as usize],
                     )?;
                     for (ch, word) in words.iter().enumerate() {
                         for i in 0..n {
@@ -517,10 +526,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     if let Some(observer) = &mut session.witness {
         observer.finish();
         if let Some(path) = &report {
-            crate::preview::append_report(
-                path,
-                crate::observer::report_text(&observer.shared).as_bytes(),
-            );
+            crate::preview::append_records(path, &crate::observer::report_text(&observer.shared));
         }
     }
     if session.witness.is_none() {
@@ -580,29 +586,38 @@ pub extern "C" fn ap3_abi_version() -> u32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap3_open(max: u32, handle: *mut u64) -> u32 {
-    open(max, handle, 3)
+    open(max, handle, 3, None)
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap4_open(handle: *mut u64) -> u32 {
-    open(256, handle, 4)
+    open(256, handle, 4, None)
 }
-unsafe fn open(max: u32, handle: *mut u64, minor: u64) -> u32 {
+unsafe fn open(max: u32, handle: *mut u64, minor: u64, identity: Option<state::Identity>) -> u32 {
     if handle.is_null() || !(1..=256).contains(&max) {
         return 1;
     }
     crate::ffi(|| {
         match INSTANCES.insert(|| {
-            let binding = binding(minor == 4)?;
-            let report = binding
-                .owner
-                .as_ref()
-                .map(|_| crate::preview::report_path(binding.session));
-            let session = Session::open(binding, max as usize, minor)?;
+            let binding = if let Some(identity) = identity {
+                crate::preview::discover_commercial(identity)?
+            } else {
+                binding(minor == 4)?
+            };
+            let report = binding.owner.as_ref().map(|_| {
+                if identity.is_some() {
+                    crate::preview::commercial_report_path(binding.session)
+                } else {
+                    crate::preview::report_path(binding.session)
+                }
+            });
+            let mut session = Session::open(binding, max as usize, minor)?;
+            session.identity = identity;
             let mut shared = Shared::new();
+            shared.identity = identity;
             shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
             let shared = Arc::new(shared);
-            shared.state_capable.store(minor == 4, Ordering::Release);
-            if minor == 4 {
+            shared.state_capable.store(minor >= 4, Ordering::Release);
+            if minor >= 4 {
                 shared.ack.store(17, Ordering::Release);
             }
             let peer = shared.clone();
@@ -868,8 +883,14 @@ pub unsafe extern "C" fn ap4_state(
             }
             Ok((16, vec![]))
         } else {
-            state::payload(std::slice::from_raw_parts(restore, n as usize))
-                .map(|p| (18, p.to_vec()))
+            let Some(l) = INSTANCES.lease(id) else {
+                return 1;
+            };
+            state::bound_payload(
+                l.shared.identity,
+                std::slice::from_raw_parts(restore, n as usize),
+            )
+            .map(|p| (18, p.to_vec()))
         };
         match request.and_then(|(op, b)| control(id, op, b)) {
             Ok(b) => {
@@ -948,6 +969,35 @@ pub unsafe extern "C" fn ap7_process(
     out_flags: *mut u64,
     delivery: *mut Delivery,
 ) -> u32 {
+    process_events(
+        id,
+        n,
+        gain,
+        flags,
+        left,
+        right,
+        out_left,
+        out_right,
+        out_flags,
+        delivery,
+        &[],
+    )
+}
+// Mirrors the fixed C ABI and adds a borrowed bounded event span.
+#[allow(clippy::too_many_arguments)]
+unsafe fn process_events(
+    id: u64,
+    n: u32,
+    gain: f64,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+    events: &[Event],
+) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
     };
@@ -968,7 +1018,15 @@ pub unsafe extern "C" fn ap7_process(
     {
         return 1;
     }
+    if events.len() > MAX_EVENTS
+        || (!events.is_empty() && l.shared.identity.is_none())
+        || events.iter().any(|e| !e.valid(n))
+    {
+        return 1;
+    }
     let mut item = Item::control(AUDIO, 0);
+    item.event_count = events.len() as u32;
+    item.events[..events.len()].copy_from_slice(events);
     item.n = n as u32;
     item.gain = gain;
     item.flags = flags;
@@ -1156,6 +1214,58 @@ pub unsafe extern "C" fn ap4_failure(id: u64, out: *mut Failure) -> u32 {
         0
     }) as u32
 }
+#[no_mangle]
+pub unsafe extern "C" fn ap8_open(identity: *const u8, handle: *mut u64) -> u32 {
+    if identity.is_null() {
+        return 1;
+    }
+    let b = std::slice::from_raw_parts(identity, 48);
+    open(
+        256,
+        handle,
+        5,
+        Some(state::Identity {
+            class: b[..16].try_into().unwrap(),
+            module: b[16..].try_into().unwrap(),
+        }),
+    )
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap8_process(
+    id: u64,
+    n: u32,
+    events: *const Event,
+    count: u32,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+) -> u32 {
+    if count as usize > MAX_EVENTS || (count > 0 && events.is_null()) {
+        return 1;
+    }
+    let events = if count == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(events, count as usize)
+    };
+    process_events(
+        id,
+        n,
+        f64::NAN,
+        0,
+        left,
+        right,
+        out_left,
+        out_right,
+        out_flags,
+        delivery,
+        events,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1246,6 +1356,7 @@ mod tests {
             phase: 9,
             max: CAP,
             minor: 4,
+            identity: None,
             epoch: 0,
             position: 0,
             witness: Some(observer),

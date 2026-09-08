@@ -10,6 +10,15 @@ const MODULE: [u8; 32] = [
     0x60, 0xaa, 0x9f, 0xf6, 0xb9, 0x91, 0x8d, 0x43, 0x30, 0x44, 0x9e, 0x7b, 0x3a, 0xb3, 0x4b, 0x58,
     0x8d, 0xd9, 0x3c, 0xba, 0x09, 0xf3, 0x74, 0x13, 0xa3, 0xcd, 0x91, 0xf6, 0xe7, 0xd2, 0xe1, 0x8f,
 ];
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Identity {
+    pub class: [u8; 16],
+    pub module: [u8; 32],
+}
+const REFERENCE: Identity = Identity {
+    class: CLASS,
+    module: MODULE,
+};
 // This is reference-specific validation, not the transport's state model.
 pub fn reference(payload: &[u8]) -> io::Result<f64> {
     need(payload.len() == 12, "unsupported AGain state extent")?;
@@ -27,32 +36,41 @@ pub fn reference(payload: &[u8]) -> io::Result<f64> {
     Ok(gain as f64)
 }
 pub fn envelope(payload: &[u8]) -> io::Result<Vec<u8>> {
-    need(payload.len() <= LIMIT, "component state exceeds cap")?;
     reference(payload)?;
+    envelope_for(REFERENCE, 1, payload)
+}
+pub fn envelope_for(identity: Identity, version: u32, payload: &[u8]) -> io::Result<Vec<u8>> {
+    need(matches!(version, 1 | 2), "state envelope version")?;
+    need(payload.len() <= LIMIT, "component state exceeds cap")?;
     let mut blob = vec![0; HEADER_SIZE];
     blob[..8].copy_from_slice(b"LVBSTATE");
-    blob[8..12].copy_from_slice(&1u32.to_le_bytes());
+    blob[8..12].copy_from_slice(&version.to_le_bytes());
     blob[12..16].copy_from_slice(&(HEADER_SIZE as u32).to_le_bytes());
-    blob[16..32].copy_from_slice(&CLASS);
-    blob[32..64].copy_from_slice(&MODULE);
+    blob[16..32].copy_from_slice(&identity.class);
+    blob[32..64].copy_from_slice(&identity.module);
     blob[64..68].copy_from_slice(&(payload.len() as u32).to_le_bytes());
     blob[72..104].copy_from_slice(&Sha256::digest(payload));
     blob.extend_from_slice(payload);
     Ok(blob)
 }
 pub fn payload(blob: &[u8]) -> io::Result<&[u8]> {
+    let p = payload_for(REFERENCE, 1, blob)?;
+    reference(p)?;
+    Ok(p)
+}
+pub fn payload_for(identity: Identity, version: u32, blob: &[u8]) -> io::Result<&[u8]> {
     need(
         blob.len() >= HEADER_SIZE && blob.len() <= HEADER_SIZE + LIMIT,
         "state envelope extent",
     )?;
     need(
         &blob[..8] == b"LVBSTATE"
-            && get(&blob[8..12]) == 1
+            && get(&blob[8..12]) == u64::from(version)
             && get(&blob[12..16]) == HEADER_SIZE as u64,
         "state envelope version",
     )?;
     need(
-        blob[16..32] == CLASS && blob[32..64] == MODULE,
+        blob[16..32] == identity.class && blob[32..64] == identity.module,
         "state class/module mismatch",
     )?;
     need(
@@ -64,7 +82,6 @@ pub fn payload(blob: &[u8]) -> io::Result<&[u8]> {
         Sha256::digest(p).as_slice() == &blob[72..104],
         "state integrity mismatch",
     )?;
-    reference(p)?;
     Ok(p)
 }
 #[no_mangle]
@@ -85,7 +102,7 @@ pub unsafe extern "C" fn ap4_validate(blob: *const u8, n: u32, gain: *mut f64) -
 impl Session {
     pub fn component_state(&mut self, restore: Option<&[u8]>) -> io::Result<Vec<u8>> {
         need(
-            self.minor == 4
+            self.minor >= 4
                 && self.phase != ERROR
                 && self.state.slot == Slot::Writable
                 && (restore.is_none() || self.phase != 11),
@@ -99,8 +116,8 @@ impl Session {
             payload: restore.unwrap_or(&[]).to_vec(),
         };
         let result = (|| {
-            send_version(&mut self.socket, &request, 5, 4)?;
-            let reply = receive_version(&mut self.socket, 10, 4)?;
+            send_version(&mut self.socket, &request, 5, self.minor)?;
+            let reply = receive_version(&mut self.socket, 10, self.minor)?;
             need(
                 reply.kind == kind + 1
                     && reply.session == request.session
@@ -108,13 +125,17 @@ impl Session {
                 "state response correlation",
             )?;
             need(reply.payload.len() <= LIMIT, "state response cap")?;
-            if let Some(p) = restore {
+            if let Some(p) = restore.filter(|_| self.minor == 4) {
                 need(
                     reply.payload == p,
                     "restored Windows state readback differs",
                 )?;
             }
-            reference(&reply.payload)?;
+            if self.minor == 4 {
+                reference(&reply.payload)?;
+            } else {
+                commercial_payload(&reply.payload)?;
+            }
             if let Some(w) = &mut self.witness {
                 w.state(&reply.payload, restore.is_some());
             }
@@ -242,9 +263,93 @@ impl Witness {
         Ok(())
     }
 }
+pub fn commercial_payload(p: &[u8]) -> io::Result<()> {
+    need(p.len() >= 16, "commercial state header")?;
+    let a = get(&p[..4]) as usize;
+    let b = get(&p[4..8]) as usize;
+    let n = get(&p[8..12]) as usize;
+    let flags = get(&p[12..16]);
+    need(
+        flags <= 1
+            && n <= 8192
+            && (flags == 1 || b == 0)
+            && p.len() == 16 + a + b + n * 12
+            && p.len() <= LIMIT,
+        "commercial state extent",
+    )?;
+    let mut ids = std::collections::HashSet::new();
+    for b in p[16 + a + b..].chunks_exact(12) {
+        let v = f64::from_le_bytes(b[4..].try_into().unwrap());
+        need(
+            v.is_finite() && (0.0..=1.0).contains(&v) && ids.insert(get(&b[..4])),
+            "state parameter value/identity",
+        )?;
+    }
+    Ok(())
+}
+pub fn bound_envelope(identity: Option<Identity>, p: &[u8]) -> io::Result<Vec<u8>> {
+    if let Some(id) = identity {
+        commercial_payload(p)?;
+        envelope_for(id, 2, p)
+    } else {
+        envelope(p)
+    }
+}
+pub fn bound_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> {
+    if let Some(id) = identity {
+        let p = payload_for(id, 2, b)?;
+        commercial_payload(p)?;
+        Ok(p)
+    } else {
+        payload(b)
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap8_validate(identity: *const u8, blob: *const u8, n: u32) -> u32 {
+    crate::ffi(|| {
+        if identity.is_null() || blob.is_null() || n as usize > LIMIT + HEADER_SIZE {
+            return 1;
+        }
+        let b = std::slice::from_raw_parts(identity, 48);
+        let id = Identity {
+            class: b[..16].try_into().unwrap(),
+            module: b[16..].try_into().unwrap(),
+        };
+        match bound_payload(Some(id), std::slice::from_raw_parts(blob, n as usize)) {
+            Ok(_) => 0,
+            Err(e) => retain(&e),
+        }
+    }) as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn opaque_commercial_state_has_identity_integrity_and_no_gain_layout() {
+        let identity = Identity {
+            class: [17; 16],
+            module: [42; 32],
+        };
+        let vendor_bytes = vec![0xff; 65537];
+        let envelope = envelope_for(identity, 2, &vendor_bytes).unwrap();
+        assert_eq!(payload_for(identity, 2, &envelope).unwrap(), vendor_bytes);
+        assert!(payload(&envelope).is_err());
+        assert!(payload_for(identity, 1, &envelope).is_err());
+        assert!(payload_for(
+            Identity {
+                module: [43; 32],
+                ..identity
+            },
+            2,
+            &envelope
+        )
+        .is_err());
+        let mut corrupt = envelope.clone();
+        corrupt[HEADER_SIZE + 1] ^= 1;
+        assert!(payload_for(identity, 2, &corrupt).is_err());
+        assert!(envelope_for(identity, 2, &vec![0; LIMIT + 1]).is_err());
+    }
     #[test]
     fn full_reference_payload_and_identity() {
         let p = [

@@ -1,4 +1,5 @@
 pub mod endpoint;
+pub mod events;
 pub mod mapping;
 // AP1 bounded wire codec and Linux-owned slot state. No external dependencies.
 use std::io::{self, Read, Write};
@@ -53,9 +54,23 @@ impl Frame {
     }
     pub fn encode_version(&self, minor: u64) -> io::Result<Vec<u8>> {
         need(
-            (1..=if minor == 4 { 19 } else if minor >= 2 { 15 } else { 7 }).contains(&self.kind)
-                && (1..=4).contains(&minor)
-                && self.payload.len() <= if minor == 4 && matches!(self.kind, 17 | 18 | 19) { 1 << 20 } else { 4040 },
+            (1..=if minor >= 4 {
+                19
+            } else if minor >= 2 {
+                15
+            } else {
+                7
+            })
+                .contains(&self.kind)
+                && (1..=5).contains(&minor)
+                && self.payload.len()
+                    <= if minor >= 4 && matches!(self.kind, 17..=19) {
+                        1 << 20
+                    } else if minor == 5 && self.kind == PROCESS {
+                        8248
+                    } else {
+                        4040
+                    },
             "frame kind/length",
         )?;
         let mut b = vec![0; HEADER + self.payload.len()];
@@ -94,18 +109,34 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
             && get(&b[6..8]) == minor
-            && (1..=4).contains(&minor)
+            && (1..=5).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
     need(
-        (1..=if minor == 4 { 19 } else if minor >= 2 { 15 } else { 7 }).contains(&get(&b[8..10]))
+        (1..=if minor >= 4 {
+            19
+        } else if minor >= 2 {
+            15
+        } else {
+            7
+        })
+            .contains(&get(&b[8..10]))
             && get(&b[32..40]) == 1
             && get(&b[48..56]) == 0,
         "kind/instance/parent",
     )?;
     let n = get(&b[12..16]);
-    need(n <= if minor == 4 && matches!(get(&b[8..10]), 17 | 18 | 19) { 1 << 20 } else { 4040 }, "frame length")?;
+    need(
+        n <= if minor >= 4 && matches!(get(&b[8..10]), 17..=19) {
+            1 << 20
+        } else if minor == 5 && get(&b[8..10]) == PROCESS as u64 {
+            8248
+        } else {
+            4040
+        },
+        "frame length",
+    )?;
     Ok(n as usize)
 }
 pub fn read_frame<R: Read>(r: &mut R) -> io::Result<Frame> {
@@ -176,10 +207,21 @@ impl ClientState {
     pub fn process(&mut self, frames: usize, gain: f64, silence: u32) -> io::Result<Frame> {
         self.process_limited(frames, gain, silence, 64)
     }
-    pub fn process_sustained(&mut self, frames: usize, gain: f64, silence: u32) -> io::Result<Frame> {
+    pub fn process_sustained(
+        &mut self,
+        frames: usize,
+        gain: f64,
+        silence: u32,
+    ) -> io::Result<Frame> {
         self.process_limited(frames, gain, silence, u64::MAX - 1)
     }
-    fn process_limited(&mut self, frames: usize, gain: f64, silence: u32, limit: u64) -> io::Result<Frame> {
+    fn process_limited(
+        &mut self,
+        frames: usize,
+        gain: f64,
+        silence: u32,
+        limit: u64,
+    ) -> io::Result<Frame> {
         need(
             self.slot == Slot::Writable
                 && self.next <= limit

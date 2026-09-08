@@ -6,8 +6,10 @@
 namespace linux_vst_bridge::wf0 {
 class MappedSession final : public ExternalProcessing {
 public:
-    MappedSession(const std::wstring& directory, const std::string& session, EventWriter&, bool hosted=false, bool sustained=false, bool stateful=false);
+    MappedSession(const std::wstring& directory, const std::string& session, EventWriter&, bool hosted=false, bool sustained=false, bool stateful=false, bool commercial=false);
     ~MappedSession();
+    bool commercial() const override;
+    void bind_controller(Steinberg::Vst::IEditController*,bool) override;
     bool hosted() const override;
     bool sustained() const override;
     bool stateful() const override;

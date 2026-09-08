@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <intrin.h>
 #include "mapped_processing.h"
+#include "ap8_state.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
 #include <chrono>
 #include <algorithm>
@@ -47,7 +48,8 @@ struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVAL
 }
 struct MappedSession::Impl {
  EventWriter& events;Socket socket;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
- bool stateful=false; uint32_t mode=0;
+ bool stateful=false,commercial=false,separate=false; uint32_t mode=0;
+ Steinberg::Vst::IEditController* controller=nullptr;
  Steinberg::Vst::IComponent* component=nullptr;std::thread::id owner;
  std::mutex mutex;std::condition_variable condition;bool waiting=false,serviced=false;
  Frame state_frame{};std::exception_ptr state_error;
@@ -57,6 +59,13 @@ struct MappedSession::Impl {
   require(!state.failed&&!state.outstanding&&f.session==state.session&&f.sequence==state.next,"state request correlation");
   require(f.kind==GetState||f.kind==SetState,"state request kind");
   require((f.kind==GetState&&f.payload.empty())||(f.kind==SetState&&!timeline.running),"state restore while processing refused");
+  if(commercial){
+   require(controller,"commercial controller absent");
+   events.lifecycle("ap4_state_started",",\"operation\":\"opaque\",\"owner_thread\":true");
+   auto payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr);
+   events.lifecycle("ap4_state_result",",\"operation\":\"opaque\",\"result\":0,\"bytes\":"+std::to_string(payload.size()));
+   socket.write(frame(uint16_t(f.kind+1),state.next,std::move(payload)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;return;
+  }
   auto validate=[](const std::vector<uint8_t>& p){
    require(p.size()==12,"unsupported reference state extent");float gain,reduction;
    std::memcpy(&gain,p.data(),4);std::memcpy(&reduction,p.data()+4,4);
@@ -97,8 +106,8 @@ struct MappedSession::Impl {
  }
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
-MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.socket.minor=stateful?4:sustained?3:(hosted?2:1);
+MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful,bool commercial):impl_(std::make_unique<Impl>(events)){
+ auto& x=*impl_;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.socket.minor=commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
@@ -116,6 +125,8 @@ MappedSession::MappedSession(const std::wstring& directory,const std::string& se
  }catch(const std::exception&e){x.error(e);throw;}
 }
 MappedSession::~MappedSession()=default;
+bool MappedSession::commercial() const{return impl_->commercial;}
+void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool separate){impl_->controller=c;impl_->separate=separate;}
 bool MappedSession::hosted() const{return impl_->hosted;}
 bool MappedSession::sustained() const{return impl_->sustained;}
 bool MappedSession::stateful() const{return impl_->stateful;}
@@ -145,9 +156,11 @@ void MappedSession::lifecycle_ack(uint16_t kind){auto&x=*impl_;require(!x.state.
  x.socket.write(x.frame(kind,x.state.next,payload));x.events.lifecycle("ap2_lifecycle_ack",",\"kind\":"+std::to_string(kind)+",\"next_sequence\":"+std::to_string(x.state.next));}
 
 void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
-bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{auto f=x.receive();if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
+bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{auto f=x.receive();if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
- out={int(x.current.frames),x.current.gain,x.current.silence,x.current.gain_present};return true;
+ out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
+ if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames);}
+ return true;
  }catch(const std::exception&e){x.error(e);throw;}}
 void MappedSession::done(const float* left,const float* right,uint64_t silence) {
  auto& x=*impl_;

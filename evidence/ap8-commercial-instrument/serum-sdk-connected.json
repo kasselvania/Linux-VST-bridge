@@ -1,0 +1,13 @@
+{
+  "returncode": 0,
+  "stdout": "{\"event\":\"ap4_native_state\",\"operation\":\"opaque_get\",\"payload_bytes\":33675,\"sha256\":\"48ab52158fd9fadcd6c449f41bc5a6b592de69b52700062efff64c915b330271\",\"gain\":0}\n{\"event\":\"ap4_native_state\",\"operation\":\"opaque_set\",\"payload_bytes\":33675,\"sha256\":\"48ab52158fd9fadcd6c449f41bc5a6b592de69b52700062efff64c915b330271\",\"gain\":0}\n{\"event\":\"ap8_audio_window\",\"from\":8192,\"to\":22016,\"rms\":0.1146,\"peak\":0.283681,\"nonzero\":13824,\"positive_crossings\":76}\n{\"event\":\"ap8_audio_window\",\"from\":40960,\"to\":59392,\"rms\":0.0426646,\"peak\":0.180391,\"nonzero\":18432,\"positive_crossings\":150}\n{\"event\":\"ap8_audio_window\",\"from\":90112,\"to\":98304,\"rms\":0,\"peak\":0,\"nonzero\":0,\"positive_crossings\":0}\n{\"event\":\"ap8_host_state\",\"bytes\":33779,\"parameter_id\":0,\"restored_value\":0.25,\"rejected_callbacks\":0,\"callback_effects\":0}\n{\"event\":\"ap3_proxy_stats\",\"fault\":0,\"first_position\":18446744073709551615,\"processed\":384,\"request_high\":2,\"result_high\":4,\"position\":98304,\"epoch\":1}\n{\"event\":\"ap5_sample_progress\",\"samples\":0,\"before_edit_samples\":0,\"edits\":0,\"nonzero_samples\":0,\"maximum_error\":0,\"restored_gain\":0,\"input_fnv1a64\":14695981039346656037,\"output_fnv1a64\":14695981039346656037}\n{\"event\":\"ap4_sample_comparison\",\"samples\":0,\"restored_samples\":0,\"before_edit_samples\":0,\"restores\":0,\"edits\":0,\"nonzero_samples\":0,\"maximum_error\":0,\"restored_gain\":0}\n{\"event\":\"ap3_proxy_lifecycle\",\"phase\":6,\"requested_maximum\":256,\"requested_rate\":48000,\"requested_mode\":0,\"frames\":98304,\"blocks\":384,\"callback_rejections\":0,\"rejected_silent_frames\":0,\"discontinuities\":0,\"successful_silent_callbacks\":183,\"successful_silent_frames\":46848,\"priming_frames\":1024,\"underrun_frames\":0,\"underrun_gaps\":0,\"underrun_callbacks\":0,\"expired_output_frames\":0,\"delivered_frames\":97280,\"zero_gain_blocks\":0,\"gain_min\":1,\"gain_max\":1,\"clean\":true}\n",
+  "stderr": "",
+  "native_source": "65adb96285b664d2fe394ea157178f71ce14c8cf",
+  "windows_source": "f872701e4f2b403a3aeb4c10fbe190a385248827",
+  "windows_build_run": 34060332214,
+  "classification": "FOCUSED_REAL_WINDOWS_THROUGH_NATIVE_SDK_HOST",
+  "cleanup": {
+    "original_owner_result": "incomplete: global stage-path sweep counted the owner command",
+    "followup": "No Windows/runtime endpoint remained; original service stopped and its cgroup was empty; session files retained privately. Cleanup predicate repaired at 31e020e."
+  }
+}

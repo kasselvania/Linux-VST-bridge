@@ -40,9 +40,20 @@ struct Job {
     output: [[u32; CAP + 2]; 2],
     trace: Trace,
 }
+#[derive(Clone, Default)]
+pub struct AudioWindow {
+    pub epoch: u64,
+    pub position: u64,
+    pub samples: u64,
+    pub nonzero: u64,
+    pub energy: f64,
+    pub peak: f64,
+}
 #[derive(Default)]
 pub struct Report {
     pub observation: Observation,
+    pub audio_windows: Vec<AudioWindow>,
+    pub audio_unretained: u64,
     pub unchecked: u64,
     pub reader_skips: u64,
     pub traces: Vec<(Gap, Option<Trace>)>,
@@ -86,12 +97,19 @@ impl Observer {
         }
     }
     pub fn new() -> std::io::Result<Self> {
+        Self::start(false)
+    }
+    pub fn commercial() -> std::io::Result<Self> {
+        Self::start(true)
+    }
+    fn start(commercial: bool) -> std::io::Result<Self> {
         let shared = Shared::new();
         let peer = shared.clone();
         let thread = thread::Builder::new()
             .name("ap7-observer".into())
             .spawn(move || {
                 let mut consumer = Consumer::new();
+                consumer.commercial = commercial;
                 loop {
                     let did_work = consumer.step(&peer);
                     if !did_work && peer.stop.load(Ordering::Acquire) {
@@ -171,6 +189,9 @@ impl Drop for Observer {
     }
 }
 struct Consumer {
+    commercial: bool,
+    audio_windows: Vec<AudioWindow>,
+    audio_unretained: u64,
     witness: Witness,
     next: u64,
     unchecked: u64,
@@ -185,6 +206,9 @@ impl Consumer {
     fn new() -> Self {
         Self {
             witness: Witness::new(),
+            commercial: false,
+            audio_windows: Vec::with_capacity(32),
+            audio_unretained: 0,
             next: 0,
             unchecked: 0,
             reader_skips: 0,
@@ -216,7 +240,36 @@ impl Consumer {
                     self.witness.ready = false;
                 }
             } else {
-                if self
+                if self.commercial {
+                    // Numerical observations, explicitly not a reference-DSP oracle.
+                    self.unchecked += (job.n * 2) as u64;
+                    for i in 0..job.n {
+                        let position = (job.trace.position + i as u64) / 4800 * 4800;
+                        let same = self
+                            .audio_windows
+                            .last()
+                            .is_some_and(|w| w.epoch == job.trace.epoch && w.position == position);
+                        if !same {
+                            if self.audio_windows.len() == 32 {
+                                self.audio_unretained += 2;
+                                continue;
+                            }
+                            self.audio_windows.push(AudioWindow {
+                                epoch: job.trace.epoch,
+                                position,
+                                ..Default::default()
+                            });
+                        }
+                        let window = self.audio_windows.last_mut().unwrap();
+                        for ch in 0..2 {
+                            let v = f32::from_bits(job.output[ch][i + 1]) as f64;
+                            window.samples += 1;
+                            window.nonzero += u64::from(v != 0.);
+                            window.energy += v * v;
+                            window.peak = window.peak.max(v.abs());
+                        }
+                    }
+                } else if self
                     .witness
                     .compare(
                         job.n,
@@ -247,6 +300,8 @@ impl Consumer {
                 output_hash: self.witness.output_hash,
             };
             report.unchecked = self.unchecked;
+            report.audio_windows.clone_from(&self.audio_windows);
+            report.audio_unretained = self.audio_unretained;
             report.reader_skips = self.reader_skips;
             report.traces.clone_from(&self.gaps);
         } else {
@@ -279,6 +334,9 @@ pub fn report_text(s: &Shared) -> String {
         s.dropped.load(Ordering::Relaxed), s.dropped_samples.load(Ordering::Relaxed),
         r.reader_skips, s.gap_drops.load(Ordering::Relaxed), w.maximum_error,
         w.before_edit_samples, w.edits);
+    for w in &r.audio_windows {
+        let _=writeln!(text,"{{\"event\":\"ap8_returned_audio\",\"epoch\":{},\"position\":{},\"samples\":{},\"nonzero\":{},\"rms\":{},\"peak\":{},\"unretained_window_samples\":{}}}",w.epoch,w.position,w.samples,w.nonzero,(w.energy/w.samples.max(1) as f64).sqrt(),w.peak,r.audio_unretained);
+    }
     for (g, t) in &r.traces {
         if let Some(t) = t {
             let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"output_published\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{}}}",
@@ -295,6 +353,51 @@ pub fn report_text(s: &Shared) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn eight_complete_traces_reach_the_capped_jsonl_sink() {
+        let shared = Shared::new();
+        let now = Instant::now();
+        for sequence in 0..8 {
+            shared.report.lock().unwrap().traces.push((
+                Gap {
+                    epoch: 1,
+                    position: sequence * 256,
+                    frames: 256,
+                    at: now,
+                },
+                Some(Trace {
+                    epoch: 1,
+                    sequence,
+                    position: sequence * 256,
+                    frames: 256,
+                    queued: Some(now),
+                    started: Some(now),
+                    prepared: Some(now),
+                    sent: Some(now),
+                    replied: Some(now),
+                    validated: Some(now),
+                    published: Some(now),
+                }),
+            ));
+        }
+        let text = report_text(&shared);
+        assert!(text.len() > 2048);
+        let dir = std::env::temp_dir().join(format!("ap8-jsonl-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("report.jsonl");
+        crate::preview::append_records(&path, &text);
+        let retained = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(retained, text);
+        assert_eq!(retained.lines().count(), 9);
+        // Oversized records still fail closed and the file cap is unchanged.
+        crate::preview::append_records(&path, &("x".repeat(2048) + "\n"));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
+        for _ in 0..30 {
+            crate::preview::append_records(&path, &text);
+        }
+        assert!(std::fs::metadata(&path).unwrap().len() <= 65536);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn paused_consumer_and_reader_drop_only_observation_coverage() {
         let shared = Shared::new();

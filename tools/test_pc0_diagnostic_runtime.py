@@ -130,6 +130,11 @@ class RuntimeTests(unittest.TestCase):
                 if not isinstance(node,ast.FunctionDef) or node.name not in names:continue
                 actual=current[node.name]
                 actual=actual.replace('getattr(profile, "verify_runtime", verify_diagnostic_runner)()', 'verify_diagnostic_runner()')
+                # AP8 selects an explicit installed-module verifier; legacy
+                # callers still execute the identical frozen verifier.
+                actual=actual.replace('    check_environment = getattr(profile, "verify_environment", verify_environment)\n', '')
+                actual=actual.replace('check_environment(environment,', 'verify_environment(environment,')
+                actual=actual.replace('getattr(profile, "controlled_environment", controlled_environment)(environment)', 'controlled_environment(environment)')
                 actual=actual.replace('            "supervision_error": sanitized_supervision_error(supervision_error),\n','')
                 actual=actual.replace('            "supervision_exception": exception_detail(supervision_error),\n','')
                 # AP0 supplies only mode/stream and host-verification seams;

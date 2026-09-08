@@ -79,12 +79,20 @@ class AP2ExecutionTests(AP1ExecutionTests):
  def test_ap2_build_surface_is_explicit_and_still_rejects_state_calls(self):
   import tempfile,shutil
   spec=importlib.util.spec_from_file_location('ap2_build_verify',TOOLS/'wf0-factory-census/verify.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-  root=TOOLS.parent
-  with self.assertRaises(Exception):module.scanner_component_call_surface(root,ap0=True,ap2=True)
-  self.assertEqual(module.scanner_component_call_surface(root,ap0=True,ap2=True,ap4=True)['closed_plugin_operation_count'],21)
-  with self.assertRaises(Exception):module.scanner_component_call_surface(root,ap0=True)
+  # This is the retired AP4 producer's closed-surface contract. AP8 has
+  # additional SDK capabilities and uses its own build; keep this historical
+  # verifier strict and exercise it against the accepted AP4 implementation.
+  import subprocess
   with tempfile.TemporaryDirectory() as temp:
-   target=pathlib.Path(temp);shutil.copytree(root/'windows-factory-probe',target/'windows-factory-probe')
+   target=pathlib.Path(temp)
+   basis='93a00ed'
+   paths=subprocess.check_output(['git','ls-tree','-r','--name-only',basis,'windows-factory-probe'],cwd=TOOLS.parent,text=True).splitlines()
+   for relative in paths:
+    path=target/relative;path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_bytes(subprocess.check_output(['git','show',basis+':'+relative],cwd=TOOLS.parent))
+   with self.assertRaises(Exception):module.scanner_component_call_surface(target,ap0=True,ap2=True)
+   self.assertEqual(module.scanner_component_call_surface(target,ap0=True,ap2=True,ap4=True)['closed_plugin_operation_count'],21)
+   with self.assertRaises(Exception):module.scanner_component_call_surface(target,ap0=True)
    path=target/'windows-factory-probe/source/main.cpp';path.write_text(path.read_text()+'\ncomponent->setState(nullptr);\n')
    with self.assertRaises(Exception):module.scanner_component_call_surface(target,ap0=True,ap2=True,ap4=True)
  def test_ap2_host_output_corruption_rejected(self):
