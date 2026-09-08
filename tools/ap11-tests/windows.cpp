@@ -5,8 +5,8 @@
 #include "public.sdk/source/common/pluginview.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
-#include "vendor_handler.h"
 #include "ui_apartment.h"
+#include "vendor_handler.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -80,7 +80,8 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     const auto focusBefore = stats.focus, sizesBefore = stats.sizes;
     SendMessageW(HWND(systemWindow), WM_SETFOCUS, 0, 0);
     SendMessageW(HWND(systemWindow), WM_KILLFOCUS, 0, 0);
-    SendMessageW(HWND(systemWindow), WM_SIZE, SIZE_RESTORED, MAKELPARAM(400, 240));
+    SendMessageW(HWND(systemWindow), WM_SIZE, SIZE_RESTORED,
+                 MAKELPARAM(400, 240));
     check(stats.focus == focusBefore && stats.sizes == sizesBefore,
           "removal does not reenter dismantling view through window callbacks");
     systemWindow = nullptr;
@@ -170,9 +171,9 @@ struct Mapping {
     check(data, "native mapping");
     std::memset(data, 0, bytes);
     std::memcpy(data, "LVBU", 4);
-    put(4, 1, 4);
+    put(4, 2, 4);
     put(8, bytes, 4);
-    put(12, 552, 4);
+    put(12, sizeof(ap11_gui_message_t), 4);
     std::copy(id.begin(), id.end(), data + 16);
     put(32, 512, 4);
     put(96, 1, 8);
@@ -258,9 +259,11 @@ int main() {
   session.service(true);
   auto denied = native.drain();
   check(!session.is_open() && channel.failure() == 0 &&
-            std::any_of(denied.begin(), denied.end(), [](const auto &m) {
-              return m.kind == AP11::EditorStatus && m.result == AP11::NoView;
-            }),
+            std::any_of(denied.begin(), denied.end(),
+                        [](const auto &m) {
+                          return m.kind == AP11::EditorStatus &&
+                                 m.result == AP11::NoView;
+                        }),
         "ordinary open failure explicit without poisoning session");
   c->no_view = false;
   native.command(AP11::Open);
@@ -276,8 +279,21 @@ int main() {
   native.drain();
   native.command(AP11::Open);
   session.service(true);
-  check(c->stats.created == 1 && session.view().focuses == 1,
-        "open focuses existing view");
+  check(c->stats.created == 1 && session.view().focus_requests == 2,
+        "repeated open attempts focus on the existing view");
+  const auto successes = session.view().focuses;
+  const auto window = session.view().window();
+  EnableWindow(window, FALSE);
+  SetFocus(nullptr);
+  native.command(AP11::Open);
+  session.service(true);
+  check(c->stats.created == 1 && session.is_open() && channel.failure() == 0 &&
+            session.view().focus_requests == 3 &&
+            session.view().focuses == successes &&
+            !session.view().focus_keyboard,
+        "denied keyboard activation is not counted and preserves the "
+        "view/session");
+  EnableWindow(window, TRUE);
   SendMessageW(session.view().window(), WM_KEYDOWN, VK_LEFT, 0);
   SendMessageW(session.view().window(), WM_KEYUP, VK_LEFT, 0);
   SendMessageW(session.view().window(), WM_CHAR, L'a', 0);

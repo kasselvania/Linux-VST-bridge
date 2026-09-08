@@ -23,6 +23,7 @@ class EditorSession {
   bool refreshing_ = false, refresh_started_ = false, host_update_ = false,
        group_ = false, was_open_ = false, ever_opened_ = false;
   std::wstring name_;
+  ap11_gui_message_t last_open_{};
   Parameter *parameter(uint32_t id) {
     auto p =
         std::lower_bound(parameters_.begin(), parameters_.end(), id,
@@ -44,6 +45,14 @@ class EditorSession {
     m.kind = AP11::EditorStatus;
     m.count = view_.is_open() ? 1 : 0;
     m.result = view_.error();
+    m.activation = last_open_.activation;
+    m.user_time = last_open_.user_time;
+    m.requestor_x11 = last_open_.requestor_x11;
+    m.target_x11 = view_.is_open() ? view_.x11_window() : 0;
+    m.view_epoch = uint32_t(view_.opens);
+    m.focus_flags = uint32_t(view_.focus_api_result) |
+                    (uint32_t(view_.focus_window) << 1) |
+                    (uint32_t(view_.focus_keyboard) << 2);
     channel_.open_state(view_.is_open());
     channel_.send(m);
     was_open_ = view_.is_open();
@@ -299,6 +308,7 @@ public:
           continue;
         }
         ever_opened_ = true;
+        last_open_ = m;
         view_.open(controller_);
         if (view_.window() && !name_.empty())
           SetWindowTextW(view_.window(), name_.c_str());

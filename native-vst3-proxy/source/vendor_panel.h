@@ -1,13 +1,15 @@
 #pragma once
+#include "ap11_gui.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "public.sdk/source/common/pluginview.h"
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <cstring>
 #include <thread>
 namespace AP11 {
 struct PanelOwner {
   virtual void panelLoop(Steinberg::Linux::IRunLoop *) = 0;
-  virtual void panelOpen() = 0;
+  virtual void panelOpen(ActivationContext = {}) = 0;
   virtual void panelClose() = 0;
   virtual const char *panelStatus() const = 0;
   virtual ~PanelOwner() = default;
@@ -25,6 +27,24 @@ class VendorPanel final : public Steinberg::CPluginView,
   Window window_ = 0;
   GC gc_ = nullptr;
   bool registered_ = false;
+  ActivationContext click_{};
+  ActivationContext activation(Time time) {
+    ActivationContext context{uint32_t(time), 0};
+    Atom actual = 0;
+    int format = 0;
+    unsigned long count = 0, remaining = 0;
+    unsigned char *bytes = nullptr;
+    auto property = XInternAtom(display_, "_NET_ACTIVE_WINDOW", False);
+    if (XGetWindowProperty(display_, DefaultRootWindow(display_), property, 0,
+                           1, False, XA_WINDOW, &actual, &format, &count,
+                           &remaining, &bytes) == Success &&
+        actual == XA_WINDOW && format == 32 && count == 1 && !remaining)
+      context.requestor_x11 =
+          uint32_t(*reinterpret_cast<unsigned long *>(bytes));
+    if (bytes)
+      XFree(bytes);
+    return context;
+  }
   void text(int x, int y, const char *value) {
     XDrawString(display_, window_, gc_, x, y, value, int(std::strlen(value)));
   }
@@ -87,7 +107,8 @@ public:
     window_ = XCreateSimpleWindow(display_, reinterpret_cast<Window>(parent), 0,
                                   0, 560, 150, 0, 0, 0x20252b);
     gc_ = XCreateGC(display_, window_, 0, nullptr);
-    XSelectInput(display_, window_, ExposureMask | ButtonPressMask | ButtonReleaseMask);
+    XSelectInput(display_, window_,
+                 ExposureMask | ButtonPressMask | ButtonReleaseMask);
     XMapWindow(display_, window_);
     XFlush(display_);
     if (loop_->registerTimer(this, 50) != kResultOk) {
@@ -127,12 +148,15 @@ public:
     for (unsigned i = 0; i < 32 && XPending(display_); ++i) {
       XEvent e{};
       XNextEvent(display_, &e);
+      if (e.type == ButtonPress && e.xbutton.button == Button1)
+        click_ = activation(e.xbutton.time);
       if (e.type == ButtonRelease && e.xbutton.button == Button1 &&
           e.xbutton.y >= 77 && e.xbutton.y <= 117) {
         if (e.xbutton.x >= 18 && e.xbutton.x <= 262)
-          owner_.panelOpen();
+          owner_.panelOpen(click_);
         else if (e.xbutton.x >= 282 && e.xbutton.x <= 540)
           owner_.panelClose();
+        click_ = {};
       }
     }
     draw();

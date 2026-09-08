@@ -19,6 +19,7 @@ void check(bool value, const char *why) {
 struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
   std::vector<Linux::ITimerHandler *> timers;
   unsigned opens = 0, closes = 0;
+  AP11::ActivationContext lastActivation{};
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
     if (!out)
       return kInvalidArgument;
@@ -59,7 +60,10 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
     return kResultOk;
   }
   void panelLoop(Linux::IRunLoop *) override {}
-  void panelOpen() override { ++opens; }
+  void panelOpen(AP11::ActivationContext context = {}) override {
+    ++opens;
+    lastActivation = context;
+  }
   void panelClose() override { ++closes; }
   const char *panelStatus() const override { return "Fixture"; }
   void drain() {
@@ -106,8 +110,16 @@ int main() {
   click(400);
   check(frame.closes == 1,
         "close click reaches child despite host press selection");
+  unsigned long requestor = parent;
+  XChangeProperty(display, DefaultRootWindow(display),
+                  XInternAtom(display, "_NET_ACTIVE_WINDOW", False), XA_WINDOW,
+                  32, PropModeReplace,
+                  reinterpret_cast<unsigned char *>(&requestor), 1);
+  XSync(display, False);
   click(100);
-  check(frame.opens == 2, "open click reaches child after close");
+  check(frame.opens == 2 && frame.lastActivation.user_time != 0 &&
+            frame.lastActivation.requestor_x11 == parent,
+        "real press timestamp and active requestor survive panel dispatch");
   check(panel->removed() == kResultOk && frame.timers.empty() &&
             frame.closes == 2,
         "panel removal closes once and cancels timer");

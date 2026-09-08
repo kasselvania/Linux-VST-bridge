@@ -16,7 +16,7 @@ use std::{
 
 pub const CAPACITY: u64 = 512;
 const HEADER: usize = 256;
-const MESSAGE: usize = 552;
+const MESSAGE: usize = 584;
 const BYTES: usize = HEADER + 2 * CAPACITY as usize * MESSAGE;
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -31,6 +31,13 @@ pub struct Message {
     pub result: u32,
     pub title: [u16; 128],
     pub units: [u16; 128],
+    pub activation: u64,
+    pub user_time: u32,
+    pub requestor_x11: u32,
+    pub target_x11: u32,
+    pub view_epoch: u32,
+    pub focus_result: u32,
+    pub focus_flags: u32,
 }
 impl Default for Message {
     fn default() -> Self {
@@ -45,6 +52,13 @@ impl Default for Message {
             result: 0,
             title: [0; 128],
             units: [0; 128],
+            activation: 0,
+            user_time: 0,
+            requestor_x11: 0,
+            target_x11: 0,
+            view_epoch: 0,
+            focus_result: 0,
+            focus_flags: 0,
         }
     }
 }
@@ -82,7 +96,7 @@ impl Gui {
             std::ptr::write_bytes(out.pointer.as_ptr(), 0, BYTES);
         }
         out.write(0, b"LVBU");
-        out.write(4, &1u32.to_le_bytes());
+        out.write(4, &2u32.to_le_bytes());
         out.write(8, &(BYTES as u32).to_le_bytes());
         out.write(12, &(MESSAGE as u32).to_le_bytes());
         out.write(16, &session);

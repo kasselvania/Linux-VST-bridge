@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-// UI ABI 1 / independent shared-memory protocol 1. No host/SDK pointer crosses.
+// UI ABI 2 / independent shared-memory protocol 2. No host/SDK pointer crosses.
 // Calls are native owner/UI-thread only, except the private atomic revision
 // assigned by the Rust audio admission path. No GUI queue is used by audio.
 struct ap11_gui_message_t {
@@ -10,8 +10,13 @@ struct ap11_gui_message_t {
   int32_t flags = 0, steps = 0;
   uint32_t count = 0, result = 0;
   char16_t title[128]{}, units[128]{};
+  // Open/EditorStatus activation context. X11 IDs are explicitly NOT HWNDs
+  // and are never used as plug-in parents. Bound to this UI session/generation.
+  uint64_t activation = 0;
+  uint32_t user_time = 0, requestor_x11 = 0, target_x11 = 0, view_epoch = 0;
+  uint32_t focus_result = 0, focus_flags = 0;
 };
-static_assert(sizeof(ap11_gui_message_t) == 552);
+static_assert(sizeof(ap11_gui_message_t) == 584);
 namespace AP11 {
 enum Kind : uint32_t {
   Open = 1,
@@ -30,6 +35,17 @@ enum Kind : uint32_t {
   Parameter = 110,
   RefreshEnd = 111,
   Restart = 112
+};
+enum FocusResult : uint32_t {
+  FocusNotRequested = 0,
+  FocusPending = 1,
+  FocusConfirmed = 2,
+  FocusDenied = 3,
+  FocusUnsupported = 4,
+  FocusCancelled = 5
+};
+struct ActivationContext {
+  uint32_t user_time = 0, requestor_x11 = 0;
 };
 enum Error : uint32_t {
   NoError = 0,

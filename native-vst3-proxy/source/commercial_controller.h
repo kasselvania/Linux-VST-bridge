@@ -275,7 +275,7 @@ public:
     }
     capabilities();
   }
-  void panelOpen() override {
+  void panelOpen(AP11::ActivationContext activation = {}) override {
     if (!onOwner() || !connected_ || failure_)
       return;
     if (!timer_ || !componentHandler) {
@@ -285,6 +285,9 @@ public:
     status_ = "Opening vendor editor...";
     ap11_gui_message_t m{};
     m.kind = AP11::Open;
+    m.activation = ++activation_serial_;
+    m.user_time = activation.user_time;
+    m.requestor_x11 = activation.requestor_x11;
     command(m);
     m.kind = AP11::Refresh;
     command(m);
@@ -299,6 +302,7 @@ public:
   const char *panelStatus() const override { return status_; }
 
 private:
+  uint64_t activation_serial_ = 0;
   bool onOwner() const { return owner_ == std::this_thread::get_id(); }
   ParameterState *state(uint32_t id) {
     auto p =

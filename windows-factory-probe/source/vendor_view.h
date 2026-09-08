@@ -47,8 +47,7 @@ class VendorView final : public Steinberg::IPlugFrame {
     if (trace_)
       trace_(trace_context_, code);
   }
-  static bool same(const Steinberg::ViewRect &a,
-                   const Steinberg::ViewRect &b) {
+  static bool same(const Steinberg::ViewRect &a, const Steinberg::ViewRect &b) {
     return a.left == b.left && a.top == b.top && a.right == b.right &&
            a.bottom == b.bottom;
   }
@@ -210,8 +209,8 @@ class VendorView final : public Steinberg::IPlugFrame {
         size.getHeight() > 8192)
       return false;
     RECT current{};
-    if (GetClientRect(window_, &current) &&
-        current.right == size.getWidth() && current.bottom == size.getHeight())
+    if (GetClientRect(window_, &current) && current.right == size.getWidth() &&
+        current.bottom == size.getHeight())
       return true;
     RECT r{0, 0, size.getWidth(), size.getHeight()};
     auto style = DWORD(GetWindowLongPtrW(window_, GWL_STYLE));
@@ -231,6 +230,15 @@ public:
     fault_trace_ = trace;
   }
   uint64_t opens = 0, closes = 0, focuses = 0, removal_messages = 0;
+  uint64_t focus_requests = 0;
+  bool focus_api_result = false, focus_window = false, focus_keyboard = false;
+  uint32_t x11_window() const {
+    // Pinned Wine X11 driver capability, not a cast of HWND to XID. Missing
+    // property is unsupported; never find another window by its display name.
+    auto xid = reinterpret_cast<uintptr_t>(
+        GetPropW(window_, L"__wine_x11_whole_window"));
+    return xid <= UINT32_MAX ? uint32_t(xid) : 0;
+  }
   bool scale_supported = false;
   float scale = 1.f;
   ~VendorView() {
@@ -265,8 +273,7 @@ public:
       stage(13);
       result = resize(*size) ? Steinberg::kResultOk : Steinberg::kResultFalse;
       stage(15);
-      if (result == Steinberg::kResultOk &&
-          !same(current, *size)) {
+      if (result == Steinberg::kResultOk && !same(current, *size)) {
         stage(14);
         result = view_->onSize(size);
       }
@@ -287,9 +294,16 @@ public:
       // are used. Raise its existing top-level window on explicit open/focus.
       SetWindowPos(window_, HWND_TOP, 0, 0, 0, 0,
                    SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-      SetForegroundWindow(window_);
+      focus_api_result = SetForegroundWindow(window_) != FALSE;
       SetFocus(window_);
-      ++focuses;
+      focus_window = GetForegroundWindow() == window_;
+      auto keyboard = GetFocus();
+      focus_keyboard =
+          keyboard == window_ || (keyboard && IsChild(window_, keyboard));
+      ++focus_requests;
+      if (focus_api_result && focus_window && focus_keyboard &&
+          !IsIconic(window_))
+        ++focuses;
       return true;
     }
     error_ = 0;
@@ -391,8 +405,16 @@ public:
       }
       stage(11);
       ShowWindow(window_, SW_SHOW);
-      SetForegroundWindow(window_);
+      focus_api_result = SetForegroundWindow(window_) != FALSE;
       SetFocus(window_);
+      focus_window = GetForegroundWindow() == window_;
+      auto keyboard = GetFocus();
+      focus_keyboard =
+          keyboard == window_ || (keyboard && IsChild(window_, keyboard));
+      ++focus_requests;
+      if (focus_api_result && focus_window && focus_keyboard &&
+          !IsIconic(window_))
+        ++focuses;
       stage(100);
       ++opens;
       return true;

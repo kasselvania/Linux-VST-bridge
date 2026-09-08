@@ -955,6 +955,10 @@ Steinberg::tresult AP2::Processor::guiPoll(uint64_t generation,unsigned limit){
  struct PollGuard{bool&flag;explicit PollGuard(bool&f):flag(f){flag=true;}~PollGuard(){flag=false;}}guard(gui_polling_);
  for(unsigned i=0;i<limit;++i){
   ap11_gui_message_t event{};if(ap11_gui_take(handle_,generation,&event))return kResultFalse;if(!event.kind)break;
+  if(event.kind==AP11::EditorStatus){
+   char text[512];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"ap11_editor_status\",\"activation\":%llu,\"user_time\":%u,\"requestor_x11\":%u,\"target_x11\":%u,\"view_epoch\":%u,\"focus_flags\":%u,\"open\":%u,\"result\":%u}\n",(unsigned long long)event.activation,event.user_time,event.requestor_x11,event.target_x11,event.view_epoch,event.focus_flags,event.count,event.result);
+   if(n>0&&static_cast<size_t>(n)<sizeof(text))diagnostic_report(report_path_,text,static_cast<size_t>(n));
+  }
   auto*m=allocateMessage();if(!m){ap11_gui_failure(handle_,generation,AP11::Host);return kResultFalse;}
   m->setMessageID("AP11.event");m->getAttributes()->setInt("generation",int64(generation));m->getAttributes()->setBinary("event",&event,sizeof(event));auto r=sendMessage(m);m->release();
   if(r!=kResultOk){ap11_gui_failure(handle_,generation,AP11::Host);return r;}

@@ -6,8 +6,9 @@
 #include <string>
 #include <windows.h>
 namespace linux_vst_bridge::wf0 {
-// Companion UI protocol 1. The session's Linux owner creates this file before
-// the existing authenticated handshake. Fixed layout; no SDK pointer/handle.
+// Companion UI protocol 2. The session's Linux owner creates this file before
+// the existing authenticated handshake. Fixed layout; no SDK pointer.
+// Activation uses explicitly typed X11 IDs.
 class GuiChannel {
   static constexpr uint64_t capacity = 512;
   static constexpr size_t header = 256,
@@ -42,7 +43,7 @@ public:
       view_ = static_cast<uint8_t *>(
           MapViewOfFile(mapping_, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, bytes));
       require(view_ != nullptr, "GUI view");
-      require(!std::memcmp(view_, "LVBU", 4) && ap1::get(view_ + 4, 4) == 1 &&
+      require(!std::memcmp(view_, "LVBU", 4) && ap1::get(view_ + 4, 4) == 2 &&
                   ap1::get(view_ + 8, 4) == bytes &&
                   ap1::get(view_ + 12, 4) == sizeof(ap11_gui_message_t) &&
                   ap1::get(view_ + 32, 4) == capacity &&
