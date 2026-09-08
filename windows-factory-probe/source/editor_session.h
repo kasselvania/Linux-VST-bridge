@@ -157,14 +157,17 @@ public:
       channel_.fail(AP11::WrongThread);
       return kResultFalse;
     }
-    if (channel_.closed() || channel_.failure() ||
-        !(channel_.capabilities() & 1))
-      return kNotImplemented;
     if (host_update_ &&
         (kind == AP11::Begin || kind == AP11::Value || kind == AP11::End)) {
       ++suppressed_echoes;
       return kResultOk;
     }
+    // Host-originated updates remain authoritative when the editor channel
+    // is unavailable. Suppress their nested gesture echoes before checking
+    // GUI capability/failure, so a UI overload cannot poison audio refresh.
+    if (channel_.closed() || channel_.failure() ||
+        !(channel_.capabilities() & 1))
+      return kNotImplemented;
     auto *p = parameter(id);
     if (kind == AP11::Begin) {
       if (!p || p->editing)

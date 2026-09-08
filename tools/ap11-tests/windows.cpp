@@ -312,6 +312,9 @@ int main() {
   session.service(true);
   check(channel.close_requested() > 0, "close remains independent of backlog");
   native.drain();
+  check(session.host_value(42, .45, channel.revision()) &&
+            c->getParamNormalized(42) == .45,
+        "GUI overload does not poison host controller updates");
   c->setComponentHandler(nullptr);
   grouped = nullptr;
   c->terminate();
