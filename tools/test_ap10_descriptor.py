@@ -29,5 +29,10 @@ class Descriptor(unittest.TestCase):
   for categories,tier in [('', 'factory_1'),('Fx|Instrument','factory_2'),('Analyzer','factory_2')]:
    r[-1].update(subcategories=categories,metadata_tier=tier)
    with self.assertRaises(ValueError):generate(r,'00'*16,'ab'*32)
+ def test_discovery_remains_available_when_vendor_refuses_state(self):
+  r=self.records()
+  r[-3]['state']='ap12_capabilities'
+  r.append(dict(state='ap8_failure',reason='getComponentState returned 1'))
+  self.assertIn('effect=true',self.gen(r))
+  self.assertEqual(r[-1]['state'],'ap8_failure')
 if __name__=='__main__':unittest.main()
-

@@ -25,7 +25,7 @@ def generate(records,class_id,module_sha256):
         if direction and len(group)!=1:raise ValueError('one audio output supported')
     notes=[r for r in buses if r['media']==1 and r['direction']==0]
     if len(notes)>1 or (notes and notes[0]['index']!=0):raise ValueError('one event input supported')
-    metadata=next(r for r in records if r.get('state')=='ap8_inspected')
+    metadata=next(r for r in records if r.get('state') in ('ap8_inspected','ap12_capabilities'))
     vendor=next((r for r in records if r.get('state')=='ap12_class' and r['class_id'].upper()==class_id.upper()),None)
     if vendor is None:raise ValueError('selected vendor class metadata absent')
     name=vendor['name']

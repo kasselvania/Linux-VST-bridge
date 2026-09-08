@@ -139,6 +139,9 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             if(i%32==31||i+1==n){events.lifecycle("ap8_parameters",",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":["+parameters+"]");parameters.clear();}
         }
         ok(kResultOk,"enumerateParameters");
+        // Discovery facts remain available when lawful vendor state access is
+        // unavailable. This is not a successful state or processing result.
+        events.lifecycle("ap12_capabilities",",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
         LVBState::Stream state;step("getComponentState");auto state_result=component->getState(&state);
         char unknown_iid[33]{};FUID::fromTUID(reinterpret_cast<const char*>(state.last_unknown_iid)).toString(unknown_iid);
         events.lifecycle("ap12_state_stream",",\"result\":"+std::to_string(state_result)+",\"bytes\":"+std::to_string(state.bytes.size())+",\"failed\":"+(state.failed?"true":"false")+",\"writes\":"+std::to_string(state.write_calls)+",\"largest_write\":"+std::to_string(state.largest_write)+",\"reads\":"+std::to_string(state.read_calls)+",\"seeks\":"+std::to_string(state.seek_calls)+",\"last_seek_offset\":"+std::to_string(state.last_seek_offset)+",\"last_seek_mode\":"+std::to_string(state.last_seek_mode)+",\"unknown_queries\":"+std::to_string(state.unknown_queries)+",\"last_unknown_iid\":"+quoted(unknown_iid));
