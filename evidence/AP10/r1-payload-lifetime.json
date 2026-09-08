@@ -7,7 +7,8 @@
     "native-vst3-proxy/source/processor.cpp": "4b92f639e448970feefd4c1073d8ea0e476116d4",
     "native-vst3-proxy/tests/result_lifetime/main.cpp": "aaf72998a6022ec05038b367ead61858316dc998",
     "native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h": "498c28aba73ff2e4091c2fc1e2ea354a5ecf21ff",
-    "native-vst3-proxy/CMakeLists.txt": "6e33e307e71950f6651e85618f985adf7b115e46"
+    "native-vst3-proxy/CMakeLists.txt": "6e33e307e71950f6651e85618f985adf7b115e46",
+    "tools/ap10-tests/results.cpp": "aad9677cb8468954dd90a4597952c8583dd15eef"
   },
   "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
   "public_sdk": "586dc5e6c8012c3e4b01c79389375cbe96bdb1da",
@@ -31,10 +32,10 @@
     "original_collector_tests": "pass"
   },
   "green": {
-    "input_archive_sha256": "09d00c4fa73dd5aff31ccb15dca184bced0b7be2a3b75aa6d0d4c4e1bc5007b2",
+    "input_archive_sha256": "95f507bbbe08627253afb03d017cf6c2e24bb8d8b82601dfcca9ce43c5648b43",
     "test_exit": 0,
     "native_proxy_build": "pass",
-    "original_collector_tests": "pass (unchanged source, assertions enabled)",
+    "original_collector_tests": "pass (all existing cases retained, assertions enabled; typed empty-packet reset for GCC 13)",
     "cases": [
       {
         "payloads": 9,
@@ -81,7 +82,7 @@
     "binaries": {
       "libap2_backend.a": "4b93e86a136468d148f9891e399557db579a0bf08bf050d5592f39d478447860",
       "build/native-vst3-proxy/ap10-result-lifetime": "7e5a5dc0f8bba7487f715c618db34835fbf6e69f96813ecb9600963133390609",
-      "build/native-vst3-proxy/ap10-results-tests": "aa653411e0427a3eee11c59ba00220086c1fdf1bb84d369111b97708052e3466",
+      "build/native-vst3-proxy/ap10-results-tests": "191b0f0e268669956b98c3919986ae10a90d8d86a83ffcfe6e3f5d1f8086c887",
       "build/native-vst3-proxy/libap3-callback-audit.so": "91d720d478ea70f39387a1da859624696c9c57ff57ef60995b03ca41f39b9f69",
       "build/VST3/Release/CommercialInstrumentBridge.vst3/Contents/x86_64-linux/CommercialInstrumentBridge.so": "aeba2b6fa4a06e816fcf4c61554f55e7820ada38b930e4d707d5a634450c26a6"
     }
@@ -104,6 +105,12 @@
       "run": 34180420931,
       "result": "configuration failure before tests",
       "reason": "Ubuntu runner lacked X11 development headers/library required by the existing native proxy build. Workflow now installs libx11-dev; Deck native regression already passed."
+    },
+    {
+      "source": "9e0a3f4335354aa9fe9edf18ff7e3663b2770fcd",
+      "run": 34180547066,
+      "result": "collector test compile failure before execution",
+      "reason": "GCC 13 rejects the existing untyped o.packet={} aggregate assignment; the test now explicitly assigns ap10_results_t{}. No assertion or test behavior changed."
     }
   ]
 }
