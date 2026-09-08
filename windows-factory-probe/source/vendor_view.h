@@ -22,7 +22,7 @@ class VendorView final : public Steinberg::IPlugFrame {
   void (*trace_)(void *, uint32_t) = nullptr;
   void *trace_context_ = nullptr;
   void (*fault_trace_)(void *, EXCEPTION_POINTERS *) = nullptr;
-  LONG attach_fault(EXCEPTION_POINTERS *e) {
+  LONG view_fault(EXCEPTION_POINTERS *e) {
     if (fault_trace_)
       fault_trace_(trace_context_, e);
     // Preserve normal exception handling and outer process containment. This
@@ -32,7 +32,14 @@ class VendorView final : public Steinberg::IPlugFrame {
   static Steinberg::tresult attach_view(VendorView *self) {
     __try {
       return self->view_->attached(self->window_, Steinberg::kPlatformTypeHWND);
-    } __except (self->attach_fault(GetExceptionInformation())) {
+    } __except (self->view_fault(GetExceptionInformation())) {
+      return Steinberg::kInternalError;
+    }
+  }
+  static Steinberg::tresult remove_view(VendorView *self) {
+    __try {
+      return self->view_->removed();
+    } __except (self->view_fault(GetExceptionInformation())) {
       return Steinberg::kInternalError;
     }
   }
@@ -121,6 +128,12 @@ class VendorView final : public Steinberg::IPlugFrame {
         // removes the view after DispatchMessage has returned.
         self->close_requested_ = true;
         return 0;
+      }
+      // removed() can destroy/focus child windows synchronously. Never call
+      // back into the vendor view while its teardown is already on the stack.
+      if (self->closing_) {
+        ++self->removal_messages;
+        return DefWindowProcW(window, msg, wp, lp);
       }
       if (msg == WM_SETFOCUS && self->view_ && self->attached_) {
         self->view_->onFocus(true);
@@ -217,7 +230,7 @@ public:
   void fault_diagnostic(void (*trace)(void *, EXCEPTION_POINTERS *)) {
     fault_trace_ = trace;
   }
-  uint64_t opens = 0, closes = 0, focuses = 0;
+  uint64_t opens = 0, closes = 0, focuses = 0, removal_messages = 0;
   bool scale_supported = false;
   float scale = 1.f;
   ~VendorView() {
@@ -401,7 +414,7 @@ public:
     try {
       if (view_ && attached_) {
         stage(212);
-        if (view_->removed() != Steinberg::kResultOk) {
+        if (remove_view(this) != Steinberg::kResultOk) {
           error_ = AP11::Removal;
           closing_ = false;
           return false;

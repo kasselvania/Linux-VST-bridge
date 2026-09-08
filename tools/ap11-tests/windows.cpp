@@ -77,6 +77,12 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
           "remove before destroying parent");
     if (stats.refuse)
       return kResultFalse;
+    const auto focusBefore = stats.focus, sizesBefore = stats.sizes;
+    SendMessageW(HWND(systemWindow), WM_SETFOCUS, 0, 0);
+    SendMessageW(HWND(systemWindow), WM_KILLFOCUS, 0, 0);
+    SendMessageW(HWND(systemWindow), WM_SIZE, SIZE_RESTORED, MAKELPARAM(400, 240));
+    check(stats.focus == focusBefore && stats.sizes == sizesBefore,
+          "removal does not reenter dismantling view through window callbacks");
     systemWindow = nullptr;
     ++stats.removed;
     return kResultOk;
