@@ -139,7 +139,10 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             if(i%32==31||i+1==n){events.lifecycle("ap8_parameters",",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":["+parameters+"]");parameters.clear();}
         }
         ok(kResultOk,"enumerateParameters");
-        LVBState::Stream state;step("getComponentState");ok(component->getState(&state),"getComponentState");
+        LVBState::Stream state;step("getComponentState");auto state_result=component->getState(&state);
+        char unknown_iid[33]{};FUID::fromTUID(reinterpret_cast<const char*>(state.last_unknown_iid)).toString(unknown_iid);
+        events.lifecycle("ap12_state_stream",",\"result\":"+std::to_string(state_result)+",\"bytes\":"+std::to_string(state.bytes.size())+",\"failed\":"+(state.failed?"true":"false")+",\"writes\":"+std::to_string(state.write_calls)+",\"largest_write\":"+std::to_string(state.largest_write)+",\"reads\":"+std::to_string(state.read_calls)+",\"seeks\":"+std::to_string(state.seek_calls)+",\"last_seek_offset\":"+std::to_string(state.last_seek_offset)+",\"last_seek_mode\":"+std::to_string(state.last_seek_mode)+",\"unknown_queries\":"+std::to_string(state.unknown_queries)+",\"last_unknown_iid\":"+quoted(unknown_iid));
+        ok(state_result,"getComponentState");
         if(state.failed||!state.quiescent())throw std::runtime_error("state stream bounds/lifetime");
         if(controller_initialized){state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");}
         if(state.failed||!state.quiescent())throw std::runtime_error("controller state stream lifetime");
