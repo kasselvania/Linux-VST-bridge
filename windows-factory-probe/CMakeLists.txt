@@ -58,3 +58,8 @@ target_compile_definitions(ap11-editor-tests PRIVATE UNICODE _UNICODE WIN32_LEAN
 target_compile_options(ap11-editor-tests PRIVATE /W4 /permissive- /EHsc)
 target_link_libraries(ap11-editor-tests PRIVATE sdk sdk_hosting user32)
 set_target_properties(ap11-editor-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(ap11-state-tests ../tools/ap11-tests/state.cpp)
+target_include_directories(ap11-state-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${WF0_VST3_SDK_ROOT}")
+target_link_libraries(ap11-state-tests PRIVATE sdk sdk_hosting)
+set_target_properties(ap11-state-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

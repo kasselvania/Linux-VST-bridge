@@ -37,6 +37,6 @@ jobs:
             -DAP2_RUST_LIBRARY="$PWD/native-vst3-proxy/backend/target/release/libap2_backend.a" \
             -DAP8_DESCRIPTOR="$PWD/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
           cmake --build "${{ runner.temp }}/ap10-build" --target \
-            ap10-result-lifetime ap10-results-tests ap11-native-tests ap3-callback-audit CommercialInstrumentBridge -j 4
+            ap10-result-lifetime ap10-results-tests ap11-native-tests ap11-state-tests ap3-callback-audit CommercialInstrumentBridge -j 4
       - name: Test shallow host lifetime and existing collector behavior
         run: ctest --test-dir "${{ runner.temp }}/ap10-build/native-vst3-proxy" --verbose

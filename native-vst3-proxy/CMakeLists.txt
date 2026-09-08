@@ -69,6 +69,11 @@ if(AP10_RESULTS_TESTS)
   target_link_options(ap11-native-tests PRIVATE "-Wl,--wrap=${symbol}")
  endforeach()
  add_test(NAME ap11-native-tests COMMAND ap11-native-tests)
+ add_executable(ap11-state-tests "${PROJECT_SOURCE_DIR}/tools/ap11-tests/state.cpp")
+ target_include_directories(ap11-state-tests PRIVATE "${PROJECT_SOURCE_DIR}")
+ target_compile_features(ap11-state-tests PRIVATE cxx_std_20)
+ target_link_libraries(ap11-state-tests PRIVATE sdk sdk_hosting)
+ add_test(NAME ap11-state-tests COMMAND ap11-state-tests)
 
 endif()
 
