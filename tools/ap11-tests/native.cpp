@@ -329,6 +329,16 @@ int main() {
         "stop");
   c->disconnect(processor.get());
   processor->disconnect(c);
+  // The host may capture processor state after disconnecting its controller.
+  // A final window-close acknowledgement is still queued in the shared UI ring.
+  // It cannot be delivered to the departed peer and must not poison GUI state.
+  gui_fault = 0;
+  events.clear();
+  event(AP11::EditorStatus);
+  LVBState::Stream afterDisconnect;
+  check(processor->getState(&afterDisconnect) == kResultOk && gui_fault == 0 &&
+            events.size() == 1,
+        "post-disconnect state capture does not consume or fail UI delivery");
   c->terminate();
   check(host.timers.empty(), "timer detached before controller release");
   c->release();

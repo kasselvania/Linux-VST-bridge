@@ -944,7 +944,9 @@ Steinberg::tresult Processor::readback(){
 #ifdef AP8_PREVIEW
 Steinberg::tresult AP2::Processor::guiPoll(uint64_t generation,unsigned limit){
  using namespace Steinberg;
- if(gui_polling_)return kResultOk;
+ // A host may capture state after disconnecting the controller. Leave final
+ // UI acknowledgements for session retirement; there is no host UI consumer.
+ if(gui_polling_ || !getPeer())return kResultOk;
  struct PollGuard{bool&flag;explicit PollGuard(bool&f):flag(f){flag=true;}~PollGuard(){flag=false;}}guard(gui_polling_);
  for(unsigned i=0;i<limit;++i){
   ap11_gui_message_t event{};if(ap11_gui_take(handle_,generation,&event))return kResultFalse;if(!event.kind)break;
