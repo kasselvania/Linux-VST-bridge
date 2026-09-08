@@ -3,6 +3,8 @@
 #include "../../vst-state/stream.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
+#include <iomanip>
+#include <sstream>
 namespace linux_vst_bridge::wf0 {
 // Version 5 State payload: bounded component bytes, optional controller bytes,
 // and actual controller readback. Values are metadata, never a restore recipe.
@@ -30,7 +32,18 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
  std::vector<uint8_t> out(length);put(out.data(),c.bytes.size(),4);put(out.data()+4,v.bytes.size(),4);put(out.data()+8,uint32_t(n),4);put(out.data()+12,supported?1:0,4);
  std::copy(c.bytes.begin(),c.bytes.end(),out.begin()+16);std::copy(v.bytes.begin(),v.bytes.end(),out.begin()+16+c.bytes.size());
  auto*p=out.data()+16+c.bytes.size()+v.bytes.size();
- for(int i=0;i<n;++i){Steinberg::Vst::ParameterInfo info{};require(controller.getParameterInfo(i,info)==kResultOk,"state parameter metadata");auto value=controller.getParamNormalized(info.id);require(std::isfinite(value)&&value>=0&&value<=1,"state parameter readback");put(p,info.id,4);std::memcpy(p+4,&value,8);p+=12;}
+ for(int i=0;i<n;++i){
+  Steinberg::Vst::ParameterInfo info{};require(controller.getParameterInfo(i,info)==kResultOk,"state parameter metadata");
+  auto value=controller.getParamNormalized(info.id);
+  if(!std::isfinite(value)||value<0||value>1){
+   // This is the owner-thread state barrier, not the audio callback. Retain the
+   // exact offending scalar rather than hiding it behind a correlation error.
+   std::ostringstream detail;
+   detail<<"state parameter readback: id="<<info.id<<" value="<<std::setprecision(17)<<value;
+   throw std::runtime_error(detail.str());
+  }
+  put(p,info.id,4);std::memcpy(p+4,&value,8);p+=12;
+ }
  return out;
 }
 }

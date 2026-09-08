@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 void check(bool ok, const char *why) {
@@ -32,6 +33,12 @@ struct FixtureComponent final : AudioEffect {
 };
 struct Controller final : EditController {
   unsigned synchronizations = 0, invalidations = 0;
+  bool invalid_readback = false;
+  double readback_value = 0.;
+  ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
+    return invalid_readback && id == 42 ? readback_value
+                                      : EditController::getParamNormalized(id);
+  }
   tresult PLUGIN_API initialize(FUnknown *h) override {
     auto r = EditController::initialize(h);
     parameters.addParameter(u"Gain", u"", 0, .375, ParameterInfo::kCanAutomate,
@@ -75,6 +82,16 @@ int main() {
   check(commercial_state(component, controller, true, nullptr) == original &&
             controller.synchronizations == 1,
         "post-restore capture does not trigger another refresh");
+  controller.invalid_readback = true;
+  for (auto value : {-.25, 1.25, std::numeric_limits<double>::quiet_NaN()}) {
+    controller.readback_value = value;
+    bool refused = false;
+    try { commercial_state(component, controller, true, nullptr); }
+    catch (const std::runtime_error& e) {
+      refused = std::string(e.what()).find("state parameter readback: id=42 value=") == 0;
+    }
+    check(refused, "invalid readback identifies parameter and value; never clamps or fabricates state");
+  }
   controller.terminate();
   component.terminate();
   std::cout << "AP11 pure state capture and exactly-once restore "
