@@ -1,0 +1,52 @@
+{
+  "native_source": "068408070ef33716b05583484fcaa10974d91d5f",
+  "rust": {
+    "tests": 43,
+    "failed": 0,
+    "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --offline"
+  },
+  "python": {
+    "tests": 4,
+    "failed": 0,
+    "command": "PYTHONPATH=tools python3 -m unittest tools/test_ap11_preview.py tools/test_ap10_descriptor.py"
+  },
+  "native_deck": {
+    "tests": 4,
+    "failed": 0,
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96"
+  },
+  "native_ci": {
+    "tests": 5,
+    "failed": 0,
+    "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34200868843",
+    "panel_red_run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34194878205",
+    "panel_green_run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34195112796"
+  },
+  "windows_ci": {
+    "source": "9f7dda3247e9bb4508c7774ebfb141697f32e955",
+    "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34200173488",
+    "result": "AP10 collector, AP11 view/gesture/state, delivery trace, mailbox and socket idle/disconnect checks pass; binary reused for final live check."
+  },
+  "focused_retirement_regressions": {
+    "native-processor-first-red": {
+      "stage": "tests",
+      "returncode": 8,
+      "log": "Test project <private-build>\n    Start 1: ap10-result-lifetime\n1/4 Test #1: ap10-result-lifetime .............   Passed    0.01 sec\n    Start 2: ap10-results-tests\n2/4 Test #2: ap10-results-tests ...............   Passed    0.00 sec\n    Start 3: ap11-native-tests\n3/4 Test #3: ap11-native-tests ................***Failed    0.00 sec\n{\"event\":\"ap4_native_state\",\"operation\":\"opaque_get\",\"payload_bytes\":28,\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"gain\":0}\n{\"event\":\"ap4_native_state\",\"operation\":\"opaque_get\",\"payload_bytes\":28,\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"gain\":0}\nFAIL: processor-first retirement closes view without a false host failure\n\n    Start 4: ap11-state-tests\n4/4 Test #4: ap11-state-tests .................   Passed    0.00 sec\n\n75% tests passed, 1 tests failed out of 4\n\nTotal Test time (real) =   0.02 sec\n\nThe following tests FAILED:\n\t  3 - ap11-native-tests (Failed)\nErrors while running CTest\n"
+    },
+    "native-processor-first-green": {
+      "stage": "tests",
+      "returncode": 0,
+      "log": "Test project <private-build>\n    Start 1: ap10-result-lifetime\n1/4 Test #1: ap10-result-lifetime .............   Passed    0.01 sec\n    Start 2: ap10-results-tests\n2/4 Test #2: ap10-results-tests ...............   Passed    0.00 sec\n    Start 3: ap11-native-tests\n3/4 Test #3: ap11-native-tests ................   Passed    0.00 sec\n    Start 4: ap11-state-tests\n4/4 Test #4: ap11-state-tests .................   Passed    0.00 sec\n\n100% tests passed out of 4\n\nTotal Test time (real) =   0.02 sec\n"
+    },
+    "native-oneway-close-red-valid": {
+      "stage": "tests",
+      "returncode": 8,
+      "log": "Test project <private-build>\n    Start 1: ap10-result-lifetime\n1/4 Test #1: ap10-result-lifetime .............   Passed    0.01 sec\n    Start 2: ap10-results-tests\n2/4 Test #2: ap10-results-tests ...............   Passed    0.00 sec\n    Start 3: ap11-native-tests\n3/4 Test #3: ap11-native-tests ................***Failed    0.00 sec\n{\"event\":\"ap4_native_state\",\"operation\":\"opaque_get\",\"payload_bytes\":28,\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"gain\":0}\nFAIL: post-disconnect state capture does not consume or fail UI delivery\n\n    Start 4: ap11-state-tests\n4/4 Test #4: ap11-state-tests .................   Passed    0.00 sec\n\n75% tests passed, 1 tests failed out of 4\n\nTotal Test time (real) =   0.02 sec\n\nThe following tests FAILED:\n\t  3 - ap11-native-tests (Failed)\nErrors while running CTest\n"
+    },
+    "native-oneway-close-green": {
+      "stage": "tests",
+      "returncode": 0,
+      "log": "Test project <private-build>\n    Start 1: ap10-result-lifetime\n1/4 Test #1: ap10-result-lifetime .............   Passed    0.01 sec\n    Start 2: ap10-results-tests\n2/4 Test #2: ap10-results-tests ...............   Passed    0.00 sec\n    Start 3: ap11-native-tests\n3/4 Test #3: ap11-native-tests ................   Passed    0.01 sec\n    Start 4: ap11-state-tests\n4/4 Test #4: ap11-state-tests .................   Passed    0.00 sec\n\n100% tests passed out of 4\n\nTotal Test time (real) =   0.02 sec\n"
+    }
+  }
+}

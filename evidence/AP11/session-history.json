@@ -1,0 +1,3564 @@
+{
+  "schema": 1,
+  "note": "Original counters and failures; null session on two diagnostic-output-limit terminations means no scanner-start record survived. clean is lifecycle success, not zero gaps. Opaque state is represented only by size and digest. Header flags use byte offsets 104 closed,108 failure,116 view-open,160 view-stage,164 scale-or-enclosing-stage.",
+  "records": [
+    {
+      "kind": "ui",
+      "session": "5563a16eb080bf055b5b23f5ec76d19c",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 1,
+        "160": 211,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 2353,
+      "windows_consumed": 2,
+      "native_consumed": 2353
+    },
+    {
+      "kind": "ui",
+      "session": "4346e409ae39444bb694e88ae67c1b5f",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 0,
+        "160": 0,
+        "164": 0
+      },
+      "native_sent": 0,
+      "windows_sent": 467379,
+      "windows_consumed": 0,
+      "native_consumed": 467250
+    },
+    {
+      "kind": "owner",
+      "record": "instance-32a757d536344c82b9ef06cd79a2a1a0",
+      "session": "63ea5a2ee2bd24e12c2a7b6f6024096e",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "40a8a8897deb92dba08501921a4e024b9e2f5888aca76c0a0fcb05c9b2d9f5fa",
+          "implementation_source_manifest_sha256": "b146e6f8edf3ba695eef4a4efba6aaf9b7e0be69068d0e6bd7a0b4a755d7780c",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 1,
+          "ends": 0,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 0,
+          "gestures": 0,
+          "host_updates": 1,
+          "opens": 1,
+          "scale": 0.921622,
+          "scale_supported": true,
+          "sequence": 212,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 0
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-b25caef96c1bdb0186c1ebd840a92a6c.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128328,
+          "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128328,
+          "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128328,
+          "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128328,
+          "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "2e1f14a044ad2ef49c89998fb97a7a4e98b62826958457eb593ab37466a048ac",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 8337408,
+          "blocks": 32568,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 8336896,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "ui",
+      "session": "9cb6cbca6f0e2c5eeff82d542867b7b6",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 1,
+        "160": 212,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 2351,
+      "windows_consumed": 2,
+      "native_consumed": 2351
+    },
+    {
+      "kind": "ui",
+      "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 0,
+        "160": 217,
+        "164": 100
+      },
+      "native_sent": 13,
+      "windows_sent": 11790,
+      "windows_consumed": 13,
+      "native_consumed": 11790
+    },
+    {
+      "kind": "native",
+      "record": "native-107ad6096b412e96ed58090d341f12fa.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 1771008,
+          "processed": 6918,
+          "callback_rejections": 23736,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 2011136,
+          "blocks": 7856,
+          "callback_rejections": 34954,
+          "rejected_silent_frames": 8948224,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 239616,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 936,
+          "expired_output_frames": 0,
+          "delivered_frames": 1771008,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "ui",
+      "session": "fe83b5912844f820f21b2c3663268173",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 0,
+        "160": 13,
+        "164": 9
+      },
+      "native_sent": 2,
+      "windows_sent": 5250,
+      "windows_consumed": 1,
+      "native_consumed": 5250
+    },
+    {
+      "kind": "ui",
+      "session": "b25caef96c1bdb0186c1ebd840a92a6c",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 0,
+        "160": 217,
+        "164": 100
+      },
+      "native_sent": 6,
+      "windows_sent": 7059,
+      "windows_consumed": 6,
+      "native_consumed": 7059
+    },
+    {
+      "kind": "ui",
+      "session": "7750d01d9caf034a437f5c0040cb3d03",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 0,
+        "160": 0,
+        "164": 0
+      },
+      "native_sent": 0,
+      "windows_sent": 0,
+      "windows_consumed": 0,
+      "native_consumed": 0
+    },
+    {
+      "kind": "ui",
+      "session": "90317ac337c2adf4d698e190b96ffb63",
+      "flags": {
+        "104": 1,
+        "108": 1,
+        "116": 0,
+        "160": 0,
+        "164": 0
+      },
+      "native_sent": 2,
+      "windows_sent": 5250,
+      "windows_consumed": 1,
+      "native_consumed": 5250
+    },
+    {
+      "kind": "ui",
+      "session": "bc521b6babd3f2146677372559c6b6f6",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 0,
+        "160": 100,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 7878,
+      "windows_consumed": 2,
+      "native_consumed": 7878
+    },
+    {
+      "kind": "ui",
+      "session": "0aeee894c81186a76b57c9b79323c9f1",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 0,
+        "160": 217,
+        "164": 0
+      },
+      "native_sent": 0,
+      "windows_sent": 0,
+      "windows_consumed": 0,
+      "native_consumed": 0
+    },
+    {
+      "kind": "owner",
+      "record": "instance-6c01823859aaed72af5a5cecbb3d453c",
+      "session": "90317ac337c2adf4d698e190b96ffb63",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "982cb8eaa03bd5442cd9c8899c1d4c954a57de78a0713fa203e2a5af12f862d8",
+          "implementation_source_manifest_sha256": "739af2c835e39b578bf7548b613f1b8a494358f0d2fd8904267890b4f29d885c",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": []
+    },
+    {
+      "kind": "ui",
+      "session": "9a93dd62cd0795a6b163b3906c837ba0",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 0,
+        "160": 100,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 7878,
+      "windows_consumed": 2,
+      "native_consumed": 7878
+    },
+    {
+      "kind": "owner",
+      "record": "instance-b920f475688253fe806258889d2b3d09",
+      "session": "5c38468c14414f0cdbec46fb8db3470c",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "40a8a8897deb92dba08501921a4e024b9e2f5888aca76c0a0fcb05c9b2d9f5fa",
+          "implementation_source_manifest_sha256": "b146e6f8edf3ba695eef4a4efba6aaf9b7e0be69068d0e6bd7a0b4a755d7780c",
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 0,
+          "ends": 1,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 0,
+          "gestures": 1,
+          "host_updates": 61,
+          "opens": 1,
+          "scale": 1.0,
+          "scale_supported": false,
+          "sequence": 181,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 1
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-8d3c8af6f0e57278de50ce022a940f68.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 383744,
+          "processed": 1499,
+          "callback_rejections": 18348,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 623872,
+          "blocks": 2437,
+          "callback_rejections": 19092,
+          "rejected_silent_frames": 4887552,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1501,
+          "successful_silent_frames": 384256,
+          "priming_frames": 512,
+          "underrun_frames": 239616,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 936,
+          "expired_output_frames": 0,
+          "delivered_frames": 383744,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-4346e409ae39444bb694e88ae67c1b5f.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 2892800,
+          "blocks": 11300,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 11300,
+          "successful_silent_frames": 2892800,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 2892288,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "ui",
+      "session": "63ea5a2ee2bd24e12c2a7b6f6024096e",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 0,
+        "160": 100,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 7878,
+      "windows_consumed": 2,
+      "native_consumed": 7878
+    },
+    {
+      "kind": "owner",
+      "record": "instance-91cc0fdffbfbd16858358e945846ebdb",
+      "session": "9237b9d9578dd4aa5ce4efd0fa55fd97",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "40a8a8897deb92dba08501921a4e024b9e2f5888aca76c0a0fcb05c9b2d9f5fa",
+          "implementation_source_manifest_sha256": "b146e6f8edf3ba695eef4a4efba6aaf9b7e0be69068d0e6bd7a0b4a755d7780c",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 1,
+          "ends": 0,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 0,
+          "gestures": 0,
+          "host_updates": 1,
+          "opens": 1,
+          "scale": 0.921622,
+          "scale_supported": true,
+          "sequence": 209,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 0
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-715565fdf2d0b4ebb5b927c2b46285c4.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128328,
+          "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128328,
+          "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128328,
+          "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 62877952,
+          "blocks": 245617,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 2048,
+          "underrun_gaps": 5,
+          "underrun_callbacks": 8,
+          "expired_output_frames": 2048,
+          "delivered_frames": 62875392,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-9237b9d9578dd4aa5ce4efd0fa55fd97.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 33563392,
+          "blocks": 131107,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 131099,
+          "successful_silent_frames": 33561344,
+          "priming_frames": 512,
+          "underrun_frames": 2048,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 8,
+          "expired_output_frames": 2048,
+          "delivered_frames": 33560832,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "ui",
+      "session": "9237b9d9578dd4aa5ce4efd0fa55fd97",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 0,
+        "160": 100,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 7878,
+      "windows_consumed": 2,
+      "native_consumed": 7878
+    },
+    {
+      "kind": "owner",
+      "record": "instance-f03ecd341f30c82aa77d4d69d2235f7a",
+      "session": "8d3c8af6f0e57278de50ce022a940f68",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "e3669a83863b867fe7e4c7854d3de3f855519045171b00d2b4b98d2b53a5eee1",
+          "implementation_source_manifest_sha256": "530de4a3c29ca631e8523421f937f1110dbb4ef46215f7943f07c49895731e8a",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": []
+    },
+    {
+      "kind": "ui",
+      "session": "5c38468c14414f0cdbec46fb8db3470c",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 1,
+        "160": 100,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 2355,
+      "windows_consumed": 2,
+      "native_consumed": 2355
+    },
+    {
+      "kind": "owner",
+      "record": "instance-d745edccc99308ee92fb2e5ba1d5dee0",
+      "session": null,
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": -15,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": "WF0Error: stderr cap exceeded",
+      "builds": [],
+      "editor": []
+    },
+    {
+      "kind": "ui",
+      "session": "2138ff5796c33e1ff62f4f8560ecf708",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 0,
+        "160": 12,
+        "164": 0
+      },
+      "native_sent": 2,
+      "windows_sent": 5250,
+      "windows_consumed": 1,
+      "native_consumed": 5250
+    },
+    {
+      "kind": "ui",
+      "session": "429a90908d88dd7ba18b3b8b9f0e8934",
+      "flags": {
+        "104": 1,
+        "108": 10,
+        "116": 0,
+        "160": 100,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 7878,
+      "windows_consumed": 2,
+      "native_consumed": 7878
+    },
+    {
+      "kind": "native",
+      "record": "native-63ea5a2ee2bd24e12c2a7b6f6024096e.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 10896896,
+          "blocks": 42566,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 42566,
+          "successful_silent_frames": 10896896,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 10896384,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-bc521b6babd3f2146677372559c6b6f6.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7167232,
+          "blocks": 27997,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 27994,
+          "successful_silent_frames": 7166464,
+          "priming_frames": 512,
+          "underrun_frames": 768,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 3,
+          "expired_output_frames": 768,
+          "delivered_frames": 7165952,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-2138ff5796c33e1ff62f4f8560ecf708.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 466176,
+          "processed": 1821,
+          "callback_rejections": 26605,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 706304,
+          "blocks": 2759,
+          "callback_rejections": 27445,
+          "rejected_silent_frames": 7025920,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1823,
+          "successful_silent_frames": 466688,
+          "priming_frames": 512,
+          "underrun_frames": 239616,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 936,
+          "expired_output_frames": 0,
+          "delivered_frames": 466176,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-b717455223ca3c5001f64f7509d3656b",
+      "session": "b25caef96c1bdb0186c1ebd840a92a6c",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "ea4d6a6a8b09d7606450ddc5a6d37bb5e8256ff92cb53bfcce5eb3125906310f",
+          "implementation_source_manifest_sha256": "a498266463622d0e3fafe5fb006b00090880b89d68f206b0683311749c42f0eb",
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 2,
+          "ends": 1,
+          "event": "lifecycle",
+          "failure": 0,
+          "focuses": 1,
+          "gestures": 1,
+          "host_updates": 61,
+          "opens": 2,
+          "removal_messages": 18,
+          "scale": 1.0,
+          "scale_supported": false,
+          "sequence": 187,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 1
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-d8e6cbcc510ddd223b26e33b0b74d8fc",
+      "session": "5563a16eb080bf055b5b23f5ec76d19c",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "20c48a5dfd92e26eac80298370bed70d44f4d1d32001a0cd8ed75b074309fec6",
+          "implementation_source_manifest_sha256": "f3ab5aa33c98041f69c5dfab08e69269864bde1e856216c7e8a045da227a7d36",
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 0,
+          "ends": 0,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 0,
+          "gestures": 0,
+          "host_updates": 60,
+          "opens": 1,
+          "scale": 1.0,
+          "scale_supported": false,
+          "sequence": 181,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 0
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-1a0d21e81e0c35a9dab68d4e90fcb954",
+      "session": null,
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": -15,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": "WF0Error: stderr cap exceeded",
+      "builds": [],
+      "editor": []
+    },
+    {
+      "kind": "owner",
+      "record": "instance-2de81d090b724d515331c40a00b5c5cb",
+      "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "68005c14435c52cf434a614390dbd02ce21b28b6beefe572d3528287732fbc85",
+          "implementation_source_manifest_sha256": "e58f33c7cc2bea543921fe3b7d7cc75f5d89b2a96dbe9934f5b53378a017e66c",
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 4,
+          "ends": 10,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 1,
+          "gestures": 10,
+          "host_updates": 75,
+          "opens": 4,
+          "removal_messages": 31,
+          "scale": 1.0,
+          "scale_supported": false,
+          "sequence": 193,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 10
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-c77368f7119669261d4df819eea26cbe",
+      "session": "9cb6cbca6f0e2c5eeff82d542867b7b6",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "68005c14435c52cf434a614390dbd02ce21b28b6beefe572d3528287732fbc85",
+          "implementation_source_manifest_sha256": "e58f33c7cc2bea543921fe3b7d7cc75f5d89b2a96dbe9934f5b53378a017e66c",
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-bc3cfa3eb146301867527d099c86a10c",
+      "session": "9a93dd62cd0795a6b163b3906c837ba0",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "40a8a8897deb92dba08501921a4e024b9e2f5888aca76c0a0fcb05c9b2d9f5fa",
+          "implementation_source_manifest_sha256": "b146e6f8edf3ba695eef4a4efba6aaf9b7e0be69068d0e6bd7a0b4a755d7780c",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 1,
+          "ends": 0,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 0,
+          "gestures": 0,
+          "host_updates": 1,
+          "opens": 1,
+          "scale": 0.921622,
+          "scale_supported": true,
+          "sequence": 212,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 0
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-429a90908d88dd7ba18b3b8b9f0e8934.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 4381184,
+          "blocks": 17114,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 17108,
+          "successful_silent_frames": 4379648,
+          "priming_frames": 512,
+          "underrun_frames": 1536,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 6,
+          "expired_output_frames": 1536,
+          "delivered_frames": 4379136,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "ui",
+      "session": "107ad6096b412e96ed58090d341f12fa",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 1,
+        "160": 212,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 2351,
+      "windows_consumed": 2,
+      "native_consumed": 2351
+    },
+    {
+      "kind": "owner",
+      "record": "instance-8ce57db2b6765f5aad0a8ee470490fcc",
+      "session": "429a90908d88dd7ba18b3b8b9f0e8934",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "40a8a8897deb92dba08501921a4e024b9e2f5888aca76c0a0fcb05c9b2d9f5fa",
+          "implementation_source_manifest_sha256": "b146e6f8edf3ba695eef4a4efba6aaf9b7e0be69068d0e6bd7a0b4a755d7780c",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 1,
+          "ends": 0,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 0,
+          "gestures": 0,
+          "host_updates": 1,
+          "opens": 1,
+          "scale": 0.921622,
+          "scale_supported": true,
+          "sequence": 212,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 0
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-29707b1d10d510247bef5d7cdfb5aee9",
+      "session": "107ad6096b412e96ed58090d341f12fa",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "50c7044ed8915610c45088dad74adddc63addcab652dadcca45b19cd8200fa69",
+          "implementation_source_manifest_sha256": "57c5fae18bdf1a5357083261ac1701649d36225e27298fdf0fdd48ad943d8417",
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        }
+      ]
+    },
+    {
+      "kind": "ui",
+      "session": "8d3c8af6f0e57278de50ce022a940f68",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 0,
+        "160": 12,
+        "164": 0
+      },
+      "native_sent": 2,
+      "windows_sent": 5250,
+      "windows_consumed": 1,
+      "native_consumed": 5250
+    },
+    {
+      "kind": "native",
+      "record": "native-9cb6cbca6f0e2c5eeff82d542867b7b6.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 11741952,
+          "processed": 45867,
+          "callback_rejections": 16106,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 11982080,
+          "blocks": 46805,
+          "callback_rejections": 23494,
+          "rejected_silent_frames": 6014464,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 239616,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 936,
+          "expired_output_frames": 0,
+          "delivered_frames": 11741952,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-5563a16eb080bf055b5b23f5ec76d19c.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 6983680,
+          "blocks": 27280,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 256,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 256,
+          "delivered_frames": 6982912,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "ui",
+      "session": "06c500080b94ef3fa39fd6da51446f55",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 1,
+        "160": 212,
+        "164": 100
+      },
+      "native_sent": 2,
+      "windows_sent": 2351,
+      "windows_consumed": 2,
+      "native_consumed": 2351
+    },
+    {
+      "kind": "owner",
+      "record": "instance-435da87f88b4282e117f9af5772ae84e",
+      "session": "4346e409ae39444bb694e88ae67c1b5f",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "7ef761e1006602ff45b9d3053d7897a1fd61f23de160891197e3f9363198f43d",
+          "implementation_source_manifest_sha256": "a3b2c91ab219daad1eb336fc36ada9edb95d94fda4c52e7e6e64de43bb1944e7",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": [
+        {
+          "closes": 0,
+          "ends": 0,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 0,
+          "gestures": 0,
+          "host_updates": 1,
+          "opens": 0,
+          "scale": 1.0,
+          "scale_supported": false,
+          "sequence": 733,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 0
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-0aeee894c81186a76b57c9b79323c9f1.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128342,
+          "sha256": "2e1f14a044ad2ef49c89998fb97a7a4e98b62826958457eb593ab37466a048ac",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 1333248,
+          "blocks": 5208,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 1332736,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-fe83b5912844f820f21b2c3663268173.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 1275648,
+          "processed": 4983,
+          "callback_rejections": 63540,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 1515776,
+          "blocks": 5921,
+          "callback_rejections": 64667,
+          "rejected_silent_frames": 16554752,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 4985,
+          "successful_silent_frames": 1276160,
+          "priming_frames": 512,
+          "underrun_frames": 239616,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 936,
+          "expired_output_frames": 0,
+          "delivered_frames": 1275648,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-3da9512b9e74d9f05a260d63a5093f3e",
+      "session": "2138ff5796c33e1ff62f4f8560ecf708",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "402156ee1424d0a43d5c2e04cad041512cc98e45c474c849efa344b9e28482d2",
+          "implementation_source_manifest_sha256": "af9650cdbd887dc21fa9b9b0e749a493a0e415d18006b97da12c8acb95ee64ad",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": []
+    },
+    {
+      "kind": "native",
+      "record": "native-90317ac337c2adf4d698e190b96ffb63.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 1651968,
+          "processed": 6453,
+          "callback_rejections": 42113,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 1892096,
+          "blocks": 7391,
+          "callback_rejections": 44669,
+          "rejected_silent_frames": 11435264,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 6455,
+          "successful_silent_frames": 1652480,
+          "priming_frames": 512,
+          "underrun_frames": 239616,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 936,
+          "expired_output_frames": 0,
+          "delivered_frames": 1651968,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "ui",
+      "session": "42767012c86e008568855a46c60e8fbd",
+      "flags": {
+        "104": 1,
+        "108": 0,
+        "116": 0,
+        "160": 0,
+        "164": 0
+      },
+      "native_sent": 0,
+      "windows_sent": 0,
+      "windows_consumed": 0,
+      "native_consumed": 0
+    },
+    {
+      "kind": "owner",
+      "record": "instance-25b63ff355b4e8aabbc9b8643d435cc0",
+      "session": "fe83b5912844f820f21b2c3663268173",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "7a65f7f70da0dbc0266b4b693f23a197651c591d7fcfc41ca9d2ba4dfa639eda",
+          "implementation_source_manifest_sha256": "c391db3c88b381cdb518b1433564d509e2c68a5cd0be56c377247b35752d01f0",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": []
+    },
+    {
+      "kind": "native",
+      "record": "native-5c38468c14414f0cdbec46fb8db3470c.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128324,
+          "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128324,
+          "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 29619456,
+          "blocks": 115701,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 2,
+          "expired_output_frames": 512,
+          "delivered_frames": 29618432,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-cd101eaf8aa422d3caa4263255bb3297",
+      "session": "0aeee894c81186a76b57c9b79323c9f1",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "ea4d6a6a8b09d7606450ddc5a6d37bb5e8256ff92cb53bfcce5eb3125906310f",
+          "implementation_source_manifest_sha256": "a498266463622d0e3fafe5fb006b00090880b89d68f206b0683311749c42f0eb",
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 0,
+          "ends": 0,
+          "event": "lifecycle",
+          "failure": 0,
+          "focuses": 0,
+          "gestures": 0,
+          "host_updates": 60,
+          "opens": 0,
+          "removal_messages": 0,
+          "scale": 1.0,
+          "scale_supported": false,
+          "sequence": 175,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 0
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-575a3e0451c0eee71640372ff6f82bf6",
+      "session": "bc521b6babd3f2146677372559c6b6f6",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "40a8a8897deb92dba08501921a4e024b9e2f5888aca76c0a0fcb05c9b2d9f5fa",
+          "implementation_source_manifest_sha256": "b146e6f8edf3ba695eef4a4efba6aaf9b7e0be69068d0e6bd7a0b4a755d7780c",
+          "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        },
+        {
+          "closes": 1,
+          "ends": 0,
+          "event": "lifecycle",
+          "failure": 10,
+          "focuses": 0,
+          "gestures": 0,
+          "host_updates": 1,
+          "opens": 1,
+          "scale": 0.921622,
+          "scale_supported": true,
+          "sequence": 212,
+          "stale_updates": 0,
+          "state": "ap11_editor_summary",
+          "suppressed_echoes": 0,
+          "values": 0
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-9a93dd62cd0795a6b163b3906c837ba0.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7140864,
+          "blocks": 27894,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 27894,
+          "successful_silent_frames": 7140864,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 7140352,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ]
+    },
+    {
+      "kind": "native",
+      "record": "native-06c500080b94ef3fa39fd6da51446f55.jsonl",
+      "lifecycle": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128342,
+          "sha256": "d6b003d3662dd86fad128690755caf4b0cd90575f31f1f6a910113bfaa1819f0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 1651200,
+          "processed": 6450,
+          "callback_rejections": 21439,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 256,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 1891328,
+          "blocks": 7388,
+          "callback_rejections": 30599,
+          "rejected_silent_frames": 7833344,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 239616,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 936,
+          "expired_output_frames": 0,
+          "delivered_frames": 1651200,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ]
+    },
+    {
+      "kind": "owner",
+      "record": "instance-78ff4af5bff280b36ce505c7e07eda60",
+      "session": "06c500080b94ef3fa39fd6da51446f55",
+      "retired": true,
+      "contained": true,
+      "error": null,
+      "raw_exit": 5,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      },
+      "supervision_error": null,
+      "builds": [
+        {
+          "scanner_sha256": "68005c14435c52cf434a614390dbd02ce21b28b6beefe572d3528287732fbc85",
+          "implementation_source_manifest_sha256": "e58f33c7cc2bea543921fe3b7d7cc75f5d89b2a96dbe9934f5b53378a017e66c",
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+        }
+      ],
+      "editor": [
+        {
+          "event": "lifecycle",
+          "initial_result": -2147221008,
+          "initialize_result": 0,
+          "sequence": 4,
+          "state": "ap11_ui_apartment"
+        }
+      ]
+    }
+  ]
+}

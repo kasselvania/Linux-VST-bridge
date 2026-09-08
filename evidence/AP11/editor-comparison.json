@@ -1,0 +1,134 @@
+{
+  "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+  "native_source": "81838833c80bee6866227ca686248fe6c5dd558b",
+  "windows_source": "940a4d5509d23ef28406c90c1df9456b87cbe5d6",
+  "configuration": {
+    "rate": 48000,
+    "sample_format": "float32",
+    "native_callback_frames": 256,
+    "bridge_added_frames": 512,
+    "vendor_latency_frames": 192,
+    "pipewire_quantum": 512,
+    "pipewire_min_quantum": 256
+  },
+  "method": "Same instance, saved FRAGMENTS sound, existing AP10 input clip looping bars 1-3; sequential closed/open-idle/active captures. Active used several short real mouse drags, not continuous full-window motion. Owner used ordinary supervision with a private stderr tee and explicit uiautomationcore disable, before the equivalent delivered CLI option.",
+  "cpu_scope": "Entire owned systemd cohort including Python supervisor, Windows host and Wine; percentages are one CPU core. Bitwig process deltas are separate.",
+  "limitations": [
+    "No per-condition callback counter snapshots. All five gaps/eight callbacks and all eight gap records retained for the enclosing session. Only the first gap also has a retained absolute-time Linux request record; per-condition zero-gap claims are not established.",
+    "Local default sink monitor capture is not physical latency, a native device-format proof, or an exact commercial reference comparison. Capture startup reduces each audio sample to 12.971 seconds inside the roughly 15-second CPU window.",
+    "Short ordered samples without randomized repeats; no uncertainty interval or universal editor-performance claim. Later UI-only focus/retirement repairs were checked separately without replaying these unaffected audio comparisons."
+  ],
+  "conditions": [
+    {
+      "condition": "fragments-closed",
+      "start_monotonic_ns": 651428267045652,
+      "end_monotonic_ns": 651443307945186,
+      "cpu_interval_seconds": 15.040899534,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 827734,
+        "rms": 0.0006112410439405133,
+        "peak": 0.005488330498337746,
+        "stderr": ""
+      },
+      "capture_seconds": 12.970666666666666,
+      "supervised_cohort_cpu_percent_one_core": 84.23617198798317,
+      "bitwig_cpu": [
+        {
+          "name": "bitwig-studio",
+          "percent_one_core": 0.0
+        },
+        {
+          "name": "BitwigStudio",
+          "percent_one_core": 27.923861804314875
+        },
+        {
+          "name": "BitwigAudioEngi",
+          "percent_one_core": 9.5738954757651
+        },
+        {
+          "name": "BitwigPluginHos",
+          "percent_one_core": 8.310673156046095
+        }
+      ]
+    },
+    {
+      "condition": "fragments-open-idle",
+      "start_monotonic_ns": 651486596576856,
+      "end_monotonic_ns": 651501638311519,
+      "cpu_interval_seconds": 15.041734663,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 830304,
+        "rms": 0.0006228365447710704,
+        "peak": 0.005988506134599447,
+        "stderr": ""
+      },
+      "capture_seconds": 12.970666666666666,
+      "supervised_cohort_cpu_percent_one_core": 102.98680535899305,
+      "bitwig_cpu": [
+        {
+          "name": "bitwig-studio",
+          "percent_one_core": 0.0
+        },
+        {
+          "name": "BitwigStudio",
+          "percent_one_core": 24.664708446998088
+        },
+        {
+          "name": "BitwigAudioEngi",
+          "percent_one_core": 10.038735783010003
+        },
+        {
+          "name": "BitwigPluginHos",
+          "percent_one_core": 8.77558359839285
+        }
+      ]
+    },
+    {
+      "condition": "fragments-active",
+      "start_monotonic_ns": 651522540825942,
+      "end_monotonic_ns": 651537583835195,
+      "cpu_interval_seconds": 15.043009253,
+      "capture": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 1245184,
+        "nonzero": 836910,
+        "rms": 0.0006155963855615934,
+        "peak": 0.005488330498337746,
+        "stderr": ""
+      },
+      "capture_seconds": 12.970666666666666,
+      "supervised_cohort_cpu_percent_one_core": 105.33990063749913,
+      "bitwig_cpu": [
+        {
+          "name": "bitwig-studio",
+          "percent_one_core": 0.0
+        },
+        {
+          "name": "BitwigStudio",
+          "percent_one_core": 27.654041355923376
+        },
+        {
+          "name": "BitwigAudioEngi",
+          "percent_one_core": 10.237313386567788
+        },
+        {
+          "name": "BitwigPluginHos",
+          "percent_one_core": 8.841316106581273
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "session": "b25caef96c1bdb0186c1ebd840a92a6c",
+  "owner": {
+    "retired": true,
+    "contained": true,
+    "error": null,
+    "raw_exit": 0,
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    },
+    "records": [
+      {
+        "event": "lifecycle",
+        "initial_result": -2147221008,
+        "initialize_result": 0,
+        "sequence": 4,
+        "state": "ap11_ui_apartment"
+      },
+      {
+        "closes": 2,
+        "ends": 1,
+        "event": "lifecycle",
+        "failure": 0,
+        "focuses": 1,
+        "gestures": 1,
+        "host_updates": 61,
+        "opens": 2,
+        "removal_messages": 18,
+        "scale": 1.0,
+        "scale_supported": false,
+        "sequence": 187,
+        "stale_updates": 0,
+        "state": "ap11_editor_summary",
+        "suppressed_echoes": 0,
+        "values": 1
+      }
+    ]
+  },
+  "native": [
+    {
+      "event": "ap4_native_state",
+      "operation": "opaque_get",
+      "payload_bytes": 128272,
+      "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+      "gain": 0
+    },
+    {
+      "event": "ap4_native_state",
+      "operation": "opaque_get",
+      "payload_bytes": 128272,
+      "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+      "gain": 0
+    },
+    {
+      "event": "ap4_native_state",
+      "operation": "opaque_set",
+      "payload_bytes": 128328,
+      "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+      "gain": 0
+    },
+    {
+      "event": "ap4_native_state",
+      "operation": "opaque_get",
+      "payload_bytes": 128328,
+      "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+      "gain": 0
+    },
+    {
+      "event": "ap4_native_state",
+      "operation": "opaque_get",
+      "payload_bytes": 128328,
+      "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+      "gain": 0
+    },
+    {
+      "event": "ap4_native_state",
+      "operation": "opaque_get",
+      "payload_bytes": 128328,
+      "sha256": "f251fddf2f4edfdf5d569677c042150a710b709dc703555fa3709eb09f53b2f1",
+      "gain": 0
+    },
+    {
+      "event": "ap4_native_state",
+      "operation": "opaque_get",
+      "payload_bytes": 128342,
+      "sha256": "2e1f14a044ad2ef49c89998fb97a7a4e98b62826958457eb593ab37466a048ac",
+      "gain": 0
+    },
+    {
+      "event": "ap7_observation",
+      "offered_samples": 16674816,
+      "verified_returned_samples": 0,
+      "unchecked_samples": 16674816,
+      "dropped_jobs": 0,
+      "dropped_samples": 0,
+      "reader_skips": 0,
+      "unretained_gap_traces": 0,
+      "maximum_error": 0,
+      "before_edit_samples": 0,
+      "edits": 0
+    },
+    {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 256,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 8337408,
+      "blocks": 32568,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 512,
+      "priming_frames": 512,
+      "underrun_frames": 0,
+      "underrun_gaps": 0,
+      "underrun_callbacks": 0,
+      "expired_output_frames": 0,
+      "delivered_frames": 8336896,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    }
+  ],
+  "project_sha256": "894c037bd857efe9979c3e0b840ed030e25dfe101f5f0be07565e229a2778fb9"
+}

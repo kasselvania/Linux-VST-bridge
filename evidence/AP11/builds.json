@@ -1,0 +1,18 @@
+{
+  "final_windows": {
+    "source_commit": "9f7dda3247e9bb4508c7774ebfb141697f32e955",
+    "sha256": "ea4d6a6a8b09d7606450ddc5a6d37bb5e8256ff92cb53bfcce5eb3125906310f"
+  },
+  "final_fragments_native": {
+    "returncode": 0,
+    "sha256": "49ff03c7c4cea473a3c9999e6014f6ee9002267a78810b1d48cbf86ccf8cb0e5",
+    "source_commit": "068408070ef33716b05583484fcaa10974d91d5f",
+    "input_archive_sha256": "d0bd97ff9b5f2fd70718d093d8ae575d404e63527e65dbe1ca7295e62aad8fc5",
+    "descriptor_sha256": "86a966cf08d7b11e3027cf75bf2267670efb51dc0b68048dc022cb173025cbce",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "comparison_native_sha256": "bb1a1d7b5b073a2b3d26b7b5b550067f76074b6d2a35f43cb50f8d141caacfdf",
+  "comparison_windows_sha256": "68005c14435c52cf434a614390dbd02ce21b28b6beefe572d3528287732fbc85",
+  "note": "Final native changed only retirement handling after the comparison; final Windows changed only explicit focus raising. Existing Windows DLLs, native UUIDs, prepared descriptors and vendor environments were reused; no proprietary binary included."
+}

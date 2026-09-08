@@ -1,0 +1,37 @@
+{
+  "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+  "machine": "x86_64",
+  "os_release": {
+    "ID": "steamos",
+    "VERSION_ID": "3.8.16",
+    "BUILD_ID": "20260716.1"
+  },
+  "bitwig": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+  "bitwig_runtime": "org.freedesktop.Platform/x86_64/25.08",
+  "delay_frames": 512,
+  "bitwig_version": "6.1",
+  "runner": "pinned Proton 11",
+  "runner_identity_sha256": "20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7",
+  "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+  "pluginterfaces": "4f547e8e102b47de4a8b8aaf343c73b700786372",
+  "fixtures": [
+    {
+      "name": "Serum 2",
+      "version": "2.0.18",
+      "class_id": "56534558667350736572756D20320000",
+      "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175",
+      "parameters": 2623,
+      "controller": "separate",
+      "editor_authorization": "Actual editor reports managed machine not authorized; no activation attempted."
+    },
+    {
+      "name": "Efx FRAGMENTS",
+      "version": "1.0.0.2925",
+      "class_id": "41727475415649536772616E50726F63",
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "parameters": 2348,
+      "controller": "combined",
+      "editor_warning": "Critical files corrupted; warning acknowledged. Resource warning not repaired."
+    }
+  ]
+}
