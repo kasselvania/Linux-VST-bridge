@@ -4,58 +4,48 @@ A managed bridge for using supported Windows audio plug-ins in native Linux DAWs
 
 This is an experimental implementation, not a consumer-ready release. Working repository name; not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records, or another plug-in vendor.
 
-## Current baseline: AP11 accepted
+## Accepted baseline: AP11
 
-AP8 (#67), AP9 (#69), AP10 (#71), and AP11 (#76) form the integrated development baseline. The implementation has demonstrated actual Windows Serum 2 and Efx FRAGMENTS processing through our independent native Linux VST3 proxy in normally Applications-launched Bitwig.
+AP8 (#67), AP9 (#69), AP10 (#71), and AP11 (#76) form the integrated development baseline on main `1d5d693e2e2d12547dfd6b02e2b8492b27418592`. Actual Windows Serum 2 and Efx FRAGMENTS processing has been demonstrated through our independent native Linux VST3 proxy in normally Applications-launched Bitwig.
 
-The retained path includes note and audio input, inspected bus/class metadata within current bounds, opaque component/controller state, project recall, bounded returned VST3 events and parameter feedback, aligned continuation after transient gaps, and a detached vendor editor controlling the same Windows processing instance. With FRAGMENTS, real editor gestures reach Bitwig automation, hands-off replay reaches the vendor controller and processed sound, stopped edits save and recall, hidden/minimized focus works, and editor close/reopen leaves DSP alive.
+The retained path includes note and audio input, inspected bus/class metadata within current bounds, opaque component/controller state, project recall, bounded returned VST3 events and parameter feedback, aligned continuation after transient gaps, and a detached vendor editor controlling the same Windows processing instance. FRAGMENTS evidence includes real automation replay, stopped-edit recall, hidden/minimized focus, and editor close/reopen without restarting DSP.
 
-AP11 also traced a real delivery stall to an unnecessary parameter refresh on every editor focus. That caused Bitwig to capture unchanged plug-in state on the serialized control path. The false trigger was removed while genuine vendor refresh and save behavior remained intact. The final focused FRAGMENTS session completed 47,705 callbacks / 12,212,480 frames with zero missed or expired frames at the retained 512-frame setting.
+AP11 traced a delivery stall to an unnecessary parameter refresh on editor focus that caused Bitwig to capture unchanged state. Removing that trigger preserved genuine vendor refresh/save behavior. Its final focused FRAGMENTS session completed 47,705 callbacks / 12,212,480 frames with no missed or expired frames; this is not a universal reliability claim.
 
-See [AP11 results](docs/AP11.md), [AP11 focused follow-up](docs/AP11_REVIEW_FOLLOWUP.md), [AP10 findings](docs/AP10.md), [AP9 performance](docs/AP9.md), and [AP8 first Serum result](docs/AP8_RESULT.md). Historical attempts and failures remain evidence, not instructions to replay completed work.
+See [AP11 results](docs/AP11.md), [focused follow-up](docs/AP11_REVIEW_FOLLOWUP.md), [AP10](docs/AP10.md), [AP9](docs/AP9.md), and [AP8](docs/AP8_RESULT.md). Historical failures and successes retain their original artifacts and scope.
+
+## Current work: finish AP12, not a new successor
+
+[PR #79](https://github.com/kasselvania/Linux-VST-bridge/pull/79) and [issue #78](https://github.com/kasselvania/Linux-VST-bridge/issues/78) remain open on `codex/ap12-arturia-everyday-use`. **Do not merge yet:** LoFi's terminal delivery timeout and the full installed pair/restart qualification remain unresolved. [CURRENT_SLICE.md](CURRENT_SLICE.md) replaces completed repair instructions with the next execution task.
+
+The candidate now has persistent Arturia environments, SDK-derived names/vendor/categories, registered native publications, automatic startup and independent supervised Windows sessions. Both devices remain installed. State repairs preserve genuine opaque captures when supplemental parameter readback is unavailable, keep ordinary save refusals distinct from terminal failures, allow fresh vendor-editor access before saving is available, and separate diagnostic reporting from physical retirement.
+
+LoFi's candidate-specific edited-state recall and automation have passed. After the operator replaced FRAGMENTS' module, its fingerprint mismatch was correctly refused; reinspection and an explicit inactive proxy-binding update restored load/editor/save/close. That check processed silence. Original installer outputs, replacement artifacts and authorization claims remain separate; a missing login prompt is not proof of authorization. See [AP12 results](docs/AP12.md) and [latest load/removal evidence](evidence/AP12/operator-replacement-load-removal.json).
+
+The immediate task is to retain the in-flight request before a timeout/containment, repair the demonstrated cause, and finish real **Pure LoFi → Efx FRAGMENTS** sound, editor automation, pair recall, automatic startup after a Deck/full user-session restart, and removal with a healthy audible sibling. The trace must not depend on a hung request completing. Later clean retries do not explain the earlier timeout; do not substitute an information-only campaign for the musical workflow.
+
+[Editor follow-through #80](https://github.com/kasselvania/Linux-VST-bridge/issues/80) tracks FRAGMENTS Advanced expansion and unsmooth redraw. Defer general graphics work unless it blocks required controls, loses musical updates or shares the demonstrated timeout cause.
 
 ## Operating recommendation and limits
 
-Use **512 added bridge frames at 48 kHz (10.67 ms per proxy)** for the retained desktop fixture. Serial bridged devices add their presentation delays, and vendor-reported latency is additional. Observed mean service time is not presentation delay, physical round trip, or a worst-case guarantee.
+Retain **512 added bridge frames at 48 kHz (10.67 ms per proxy)**. Serial bridged devices accumulate that delay; vendor and hardware latency are additional. Report service time, presentation delay and physical round trip separately. AP12 still has short gaps and an intermittent terminal reply loss at this setting; it is not certified gap-free.
 
-Float32 is implemented. Supported buses, events, controls, and topology are negotiated within documented bounds; arbitrary multichannel/dynamic routing, every VST3 interface, all event types, and float64 are not universally implemented.
+Float32 and the documented bounded bus/event paths are implemented. Arbitrary multichannel/dynamic routing, every VST3 interface/event type, float64 and broad customer-hardware reliability are not universally supported.
 
-FRAGMENTS retains a resource-integrity warning and an explicit per-process Windows-accessibility workaround on this fixture. Serum’s actual editor is reachable but its managed machine reported not authorized; the lawful vendor/operator qualification is tracked in [#77](https://github.com/kasselvania/Linux-VST-bridge/issues/77) and is not replaced by FRAGMENTS evidence.
+Historical FRAGMENTS evidence retains its resource-integrity warning. The current profile retains an explicit per-process Windows-accessibility workaround. Neither is erased by publication or a changed artifact. Serum's lawful authorization/editor qualification remains [#77](https://github.com/kasselvania/Linux-VST-bridge/issues/77).
 
-Tracked engineering follow-through: [residual latency stalls #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72), [historical native engine-close crash #73](https://github.com/kasselvania/Linux-VST-bridge/issues/73), and [prompt endpoint-failure notification #74](https://github.com/kasselvania/Linux-VST-bridge/issues/74). Later clean runs do not explain earlier failures.
-
-## Current work: AP12 — Everyday Arturia pair in Bitwig
-
-[Issue #78](https://github.com/kasselvania/Linux-VST-bridge/issues/78) is active on `codex/ap12-arturia-everyday-use`, prepared from main `1d5d693e2e2d12547dfd6b02e2b8492b27418592`.
-
-The normal Arturia installers complete in a persistent bridge-owned environment, and Pure LoFi initializes successfully. The original installed modules refused state capture. A later operator-replaced Pure LoFi candidate is now published and has passed a focused Bitwig editor/playback/save/close check at 512 added frames; the original failures and one unreproduced delivery timeout remain recorded. This does not qualify the original installer or vendor authorization. The registered startup service is installed, while the two-device workflow remains incomplete. See [AP12 results and remaining work](docs/AP12.md).
-
-The target is a human-usable Pure LoFi → Efx FRAGMENTS chain. Use the normal user-owned installers to establish a persistent Arturia environment; publish Pure LoFi as an Arturia instrument and Efx FRAGMENTS as an Arturia audio effect; start the supervised bridge automatically when Bitwig loads either device; support both independent instances and editors simultaneously; and save/restart/reopen without an agent, SSH session, development checkout, or manually started preview owner.
-
-A typed setup CLI is sufficient. This is not a full manager GUI or universal installer system. The intended publications remain installed at handoff.
-
-Classification comes from actual VST3 factory/class metadata, not the presence of audio inputs. Stable class/parameter identity and saved projects must survive friendly naming and installation paths. The current pinned Proton runner remains the initial baseline. `giang17/wine` is retained as a candidate audio-oriented runner for a matching observed runtime defect, not as a bridge replacement, yabridge pivot, or mandatory build.
-
-Read [CURRENT_SLICE.md](CURRENT_SLICE.md) for the complete implementation contract.
+Other follow-through: [delivery stalls and lower latency #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72), [historical native-close crash #73](https://github.com/kasselvania/Linux-VST-bridge/issues/73), and [prompt endpoint-failure notification #74](https://github.com/kasselvania/Linux-VST-bridge/issues/74). Relevant AP12 failures are in scope; unrelated historical issues are not mandatory replay campaigns.
 
 ## Start here
 
-Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then the relevant code and [design dossier](docs/DESIGN_DOSSIER.md). [Development guidance](docs/DEVELOPMENT_PROCESS.md) and [governance](GOVERNANCE.md) retain the outcome-led workflow: implement, test proportionately, review one PR. No receipt-writing loop, compulsory duplicate campaign, or arbitrary retry quota.
+Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then relevant production code and the [design dossier](docs/DESIGN_DOSSIER.md). [Development guidance](docs/DEVELOPMENT_PROCESS.md) retains ordinary implementation, proportionate tests and one reviewed PR, not receipt-writing loops or arbitrary retry quotas.
 
-Reuse [SSH/Moonlight desktop access](docs/DECK_REMOTE_DESKTOP.md); launch Bitwig through Applications. Remote access is development tooling, not a runtime dependency. Preserve dirty local work and user/vendor state when moving to the AP12 branch.
+Reuse [SSH/Moonlight desktop access](docs/DECK_REMOTE_DESKTOP.md) and launch Bitwig through Applications. Preserve dirty work, user projects and vendor environments. Remote access is development tooling, not a playback dependency. Leave intended installations/publications available at handoff; clean temporary experiments rather than uninstalling the product.
 
-## Code and records
+## Code and product direction
 
-- `native-vst3-proxy/`: Linux SDK-facing proxy and Rust backend.
-- `native-audio-client/`: transport/client code.
-- `windows-factory-probe/`: actual Windows SDK host.
-- `tools/`: builds, private preview owners, inspection, and test helpers.
-- `docs/` and `evidence/`: design and source-specific results.
+`native-vst3-proxy/` contains the Linux SDK proxy and Rust backend; `native-audio-client/` contains transport/client code; `windows-factory-probe/` contains the Windows SDK host; `bridge-manager/` contains registration, publication and installed supervision. `tools/`, `docs/`, and `evidence/` retain build helpers, design and source-specific results. Rust is primary, with C++20 at SDK/platform-window edges. Proprietary binaries, presets, licensing state and credentials remain outside version control.
 
-Rust is primary; C++20 is used at SDK and platform-window edges. The optional `tools/proof-run.py` and historical ledgers do not govern new task permission. Build products, proprietary installers, plug-ins, presets, activation data, and credentials must remain outside version control.
+The management plane owns installation, vendor-access handoff, scanning, selective publication, compatible environment/runner selection, diagnostics and eventually updates/repair/rollback. Each published device represents an exact Windows class; the manager UI should not be required for playback. Friendly names and browser categories do not change class/parameter identity.
 
-## Product direction
-
-The management plane will own installation, lawful authorization handoff, scanning, compatibility profiles, runner/environment selection, selective publication, diagnostics, update, repair, and rollback. Each published native proxy represents an exact Windows plug-in class using inspected product identity. The management UI should not be required for playback.
-
-The user-facing goal is familiar devices in the DAW—such as Pure LoFi under instruments and Efx FRAGMENTS under audio effects—while the independent bridge machinery remains inspectable and recoverable underneath. No repository-wide software license or final product name has been selected; third-party licensing and distribution remain explicit future decisions.
+The independent bridge remains selected. `giang17/wine` is a potential runtime source beneath it, not a replacement or a yabridge pivot. Retain the pinned working runtime until a matching observed defect justifies a coherent reversible comparison. No repository-wide software license or final product name has been selected; third-party licensing and distribution remain explicit future decisions.
