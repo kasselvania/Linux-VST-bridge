@@ -241,6 +241,17 @@ int main(int argc, char** argv) {
     bool pc0_mode = false;
     int first_primary = 0;
     try {
+        // One process owns shared Wine infrastructure, without loading any VST.
+        // Its private lifetime token is created and retired by the user broker.
+        if(argc==5 && std::string(argv[1])=="--environment-owner") {
+            const std::string session=argv[2];
+            if(!is_lower_hex(session,32) || std::string(argv[3])!="--scanner-sha256" ||
+               !is_lower_hex(argv[4],64) || wf0::sha256_file(executable_path())!=argv[4]) return 64;
+            const auto directory=wf0::utf8_to_wide("C:\\bridge\\sessions\\"+session+"\\");
+            atomic_write(directory+L"environment.ready",session+"\n");
+            while(path_absent(directory+L"environment.stop")) Sleep(50);
+            return 0;
+        }
         const auto args = parse_args(argc, argv);
         pc0_mode = args.at("--mode") == "pc0-pre-setup-processing-contract";
         const std::wstring module_path = wf0::utf8_to_wide(args.at("--module"));
