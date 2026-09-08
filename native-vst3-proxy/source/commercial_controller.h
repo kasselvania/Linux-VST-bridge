@@ -492,6 +492,8 @@ private:
     ap11_gui_message_t focus{};
     if (activation_.poll(focus)) {
       focus.kind = AP11::Focus;
+      if (!focus.target_x11 && focus.focus_result == AP11::FocusDenied)
+        status_ = "Vendor editor open/focus response timed out";
       // A focus denial is a UI result, never a failed audio/session channel.
       command(focus);
     }

@@ -79,7 +79,22 @@ public:
     deadline_ = Clock::now() + std::chrono::seconds(2);
   }
   void target(const ap11_gui_message_t &reply) {
-    if (stage_ != Stage::Target || reply.activation != request_.activation)
+    if (reply.activation != request_.activation)
+      return;
+    if (stage_ == Stage::Target && Clock::now() >= deadline_)
+      finish(FocusDenied);
+    // A slow vendor attachment can outlive the target-response deadline. The
+    // earlier timeout has no target/epoch for Windows to accept. Bind its
+    // negative result to the late owned target, without attempting activation
+    // with expired user intent, so neither end remains "requesting focus".
+    if (stage_ == Stage::Done && request_.focus_result == FocusDenied &&
+        !request_.target_x11 && reply.target_x11 && reply.view_epoch) {
+      request_.target_x11 = reply.target_x11;
+      request_.view_epoch = reply.view_epoch;
+      delivered_ = false;
+      return;
+    }
+    if (stage_ != Stage::Target)
       return;
     request_.target_x11 = reply.target_x11;
     request_.view_epoch = reply.view_epoch;

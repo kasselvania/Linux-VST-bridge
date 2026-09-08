@@ -122,6 +122,18 @@ int main() {
   result = run(1);
   check(result.focus_result == AP11::FocusUnsupported && messages == 5,
         "missing user context does not forge activation");
+  activation.begin(request);
+  result = run(0); // no target reply: the production two-second deadline
+  check(result.focus_result == AP11::FocusDenied && !result.target_x11,
+        "missing target reply times out explicitly");
+  activation.target(reply);
+  result = run(0);
+  check(result.focus_result == AP11::FocusDenied &&
+            result.target_x11 == reply.target_x11 && result.view_epoch == 7 &&
+            messages == 5,
+        "late attachment receives bound denial without stale activation");
+  activation.target(reply);
+  check(!activation.poll(result), "late target denial delivered once");
   activate(source, source);
   activation.begin(request);
   XDestroyWindow(d, target);
