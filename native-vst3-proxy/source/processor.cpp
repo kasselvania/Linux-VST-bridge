@@ -243,6 +243,11 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     uint32_t size = 0;
     auto state_result=ap4_state(handle_, nullptr, 0, blob.data(),
                   static_cast<uint32_t>(blob.size()), &size);
+#ifdef AP8_PREVIEW
+    if(state_result==0||state_result==5){
+      auto*m=allocateMessage();if(m){m->setMessageID("AP12.persistence");m->getAttributes()->setInt("available",state_result==0?1:0);sendMessage(m);m->release();}
+    }
+#endif
     if (state_result) {
       if(state_result!=5)phase_ = Failed;
       stateFailure("get", "state_response");

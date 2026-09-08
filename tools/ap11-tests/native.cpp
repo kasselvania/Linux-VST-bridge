@@ -323,6 +323,7 @@ int main() {
   check(c->readbackAvailable(0)&&c->getParamNormalized(0)==.65,"later genuine value becomes available");
   save_code=5;LVBState::Stream refused;
   check(processor->getState(&refused)==kResultFalse&&refused.bytes.empty(),"ordinary save refusal is truthful");
+  check(std::strstr(c->panelStatus(),"Saving unavailable")!=nullptr,"fresh audition exposes save-unavailable status");
   host.audio(.7);check(dsp==.7,"audio continues after failed save");
   c->panelOpen();check(commands.back().kind==AP11::Open,"editor continues after refused save");
   save_code=0;

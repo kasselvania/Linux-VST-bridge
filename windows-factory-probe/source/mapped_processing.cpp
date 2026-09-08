@@ -113,14 +113,15 @@ struct MappedSession::Impl {
    update_controller();require(!controller_update_failed.load(),"controller automation update failed");
    if(editor)editor->service(true);
    events.lifecycle("ap4_state_started",",\"operation\":\"opaque\",\"owner_thread\":true");
-   std::vector<uint8_t> payload;
-   try{payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr);}
+   ReadbackStatus readback;std::vector<uint8_t> payload;
+   try{payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr,&readback);}
    catch(const SaveRefusal& e){
     require(socket.minor>=11&&f.kind==GetState,"save refusal requires protocol 11");
     std::vector<uint8_t> error(16);put(error.data(),1,4);put(error.data()+4,GetState,4);put(error.data()+8,e.stage,4);put(error.data()+12,uint32_t(e.result),4);
     socket.write(frame(Error,state.next,std::move(error)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;
     events.lifecycle("ap12_save_refused",",\"operation\":16,\"stage\":"+std::to_string(e.stage)+",\"sdk_result\":"+std::to_string(e.result));return;
    }
+   events.lifecycle("ap12_readback",",\"unavailable_count\":"+std::to_string(readback.unavailable)+",\"first_unavailable_id\":"+std::to_string(readback.first_id)+",\"first_unavailable_bits\":"+std::to_string(readback.first_bits));
    events.lifecycle("ap10_controller_sync",",\"applied\":"+std::to_string(controller_updates_applied)+",\"state_request_sequence\":"+std::to_string(state.next));
    events.lifecycle("ap4_state_result",",\"operation\":\"opaque\",\"result\":0,\"bytes\":"+std::to_string(payload.size()));
    socket.write(frame(uint16_t(f.kind+1),state.next,std::move(payload)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;return;

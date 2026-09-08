@@ -165,6 +165,10 @@ public:
     if (!m || !m->getMessageID() || !onOwner())
       return kResultFalse;
     const char *id = m->getMessageID();
+    if (!std::strcmp(id,"AP12.persistence")){
+      int64 available=0;if(m->getAttributes()->getInt("available",available)!=kResultOk||(available!=0&&available!=1))return kResultFalse;
+      save_unavailable_=available==0;return kResultOk;
+    }
     if (!std::strcmp(id, "AP10.restart")) {
       int64 flags = 0;
       if (!componentHandler ||
@@ -311,10 +315,11 @@ public:
       command(m);
     }
   }
-  const char *panelStatus() const override { return status_; }
+  const char *panelStatus() const override { return save_unavailable_ ? "Saving unavailable; vendor editor remains accessible" : status_; }
   bool readbackAvailable(uint32_t id) {auto* p=state(id);return p&&p->available;}
 
 private:
+  bool save_unavailable_=false;
   uint64_t activation_serial_ = 0;
   AP11::DesktopActivation activation_;
   bool onOwner() const { return owner_ == std::this_thread::get_id(); }

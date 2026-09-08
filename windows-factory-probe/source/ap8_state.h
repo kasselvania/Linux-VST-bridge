@@ -29,8 +29,9 @@ inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool 
  if(separate){state.position=0;auto r=controller.setComponentState(&state);ap1::require(r==kResultOk&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
  return true;
 }
+struct ReadbackStatus {uint32_t unavailable=0,first_id=0;uint64_t first_bits=0;};
 inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&component,
- Steinberg::Vst::IEditController&controller,bool separate,const std::vector<uint8_t>*restore){
+ Steinberg::Vst::IEditController&controller,bool separate,const std::vector<uint8_t>*restore,ReadbackStatus*status=nullptr){
  using namespace Steinberg;using namespace ap1;
  auto checked=[](tresult r,LVBState::Stream&s){require(r==kResultOk&&!s.failed&&s.quiescent(),"commercial state SDK call/stream");};
  if(restore){const auto&p=*restore;require(p.size()>=16,"commercial state header");auto a=get(p.data(),4),b=get(p.data()+4,4),n=get(p.data()+8,4),flags=get(p.data()+12,4);
@@ -61,6 +62,7 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
   Steinberg::Vst::ParameterInfo info{};require(controller.getParameterInfo(i,info)==kResultOk,"state parameter metadata");
   auto value=controller.getParamNormalized(info.id);
   const bool available=std::isfinite(value)&&value>=0&&value<=1;
+  if(!available&&status){if(status->unavailable++==0){status->first_id=info.id;std::memcpy(&status->first_bits,&value,8);}}
   put(p,info.id,4);put(p+4,available?1:0,4);
   if(available)std::memcpy(p+8,&value,8);
   p+=16;
