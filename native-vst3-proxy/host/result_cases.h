@@ -11,7 +11,7 @@ void resultCase(const VST3::Hosting::PluginFactory&factory,HostApplication*host,
  const uint64_t bridge=p->getLatencySamples()-13;need(bridge==512,"bridge delay excludes vendor 13");ok(component->setActive(true),"return activate");
  struct Seen{ap10_event_result_t e;uint64_t absolute;std::array<uint8_t,512> payload;};std::vector<Seen> seen;seen.reserve(128);
  struct Feedback{ap10_point_result_t point;uint64_t absolute;};std::vector<Feedback> feedback;feedback.reserve(128);
- uint64_t point_count=0,late_off=0,position=0;bool saw_failure=false,flush_feedback=false;std::exception_ptr failure;
+ uint64_t point_count=0,late_off=0,position=0;double failure_seconds=0;bool saw_failure=false,flush_feedback=false;std::exception_ptr failure;
  std::array<uint64_t,10> expected{};uint64_t on_due=0,off_due=0;
  std::thread audio([&]{try{
   AP10Results::Collector sink;sink.buses=1;sink.channels[0]=16;
@@ -21,7 +21,10 @@ void resultCase(const VST3::Hosting::PluginFactory&factory,HostApplication*host,
   auto capture=[&](uint64_t at){for(uint32_t i=0;i<sink.values.events;++i){const auto&e=sink.values.event[i];Seen v{e,at+uint64_t(e.offset),{}};std::copy_n(sink.values.payload+e.payload_offset,e.payload_size,v.payload.data());seen.push_back(v);}for(uint32_t i=0;i<sink.values.points;++i){const auto&p=sink.values.point[i];feedback.push_back({p,at+uint64_t(p.offset)});}point_count+=sink.values.points;};
   auto command=[&](double value,int offset=0){int32 i=0,j=0;input.addParameterData(1,i)->addPoint(offset,value,j);};
   ok(callback([&]{return p->setProcessing(true);}),"return start");auto start=Clock::now();
-  for(int b=0;b<112;++b){
+  // A failed Windows call can end without publishing a mailbox reply. Keep
+  // callbacks running beyond the existing five-second request deadline before
+  // asserting its failure; do not race that deadline with a state request.
+  for(int b=0;b<(overflow?1152:112);++b){
    int n=std::array<int,6>{128,64,257,511,384,256}[size_t(b)%6];input.clearQueue();
    if(b==24){n=511;command(overflow?.4:0.,270);for(int i=0;i<10;++i)expected[i]=position+270+uint64_t(i)+bridge;}
    if(b==48&&!overflow&&!null_sink&&!inactive&&!reject_sink){command(.1);on_due=position+5+bridge;}
@@ -31,8 +34,8 @@ void resultCase(const VST3::Hosting::PluginFactory&factory,HostApplication*host,
    for(auto&ch:samples)ch.fill(.125f);
    std::this_thread::sleep_until(start+std::chrono::nanoseconds(position*1000000000ULL/48000));
    auto result=callback([&]{return p->process(data);});capture(position);position+=uint64_t(n);
-   if(result!=kResultOk){saw_failure=true;break;}
-   if(b==64&&!null_sink&&!inactive){
+   if(result!=kResultOk){saw_failure=true;failure_seconds=std::chrono::duration<double>(Clock::now()-start).count();break;}
+   if(b==64&&!null_sink&&!inactive&&!overflow&&!reject_sink){
     // Zero-frame feedback must be drainable without advancing the sample clock.
     ProcessData flush{};flush.processMode=kRealtime;flush.symbolicSampleSize=kSample32;flush.inputParameterChanges=&input;flush.outputParameterChanges=&sink;flush.outputEvents=&sink;
     input.clearQueue();command(.6);sink.reset(0);ok(callback([&]{return p->process(flush);}),"zero-frame request");input.clearQueue();
@@ -47,6 +50,7 @@ void resultCase(const VST3::Hosting::PluginFactory&factory,HostApplication*host,
    ok(callback([&]{return p->setProcessing(true);}),"return restart");input.clearQueue();data.numSamples=128;sink.reset(128);auto r=callback([&]{return p->process(data);});capture(0);ok(r,"return restart cleanup");ok(callback([&]{return p->setProcessing(false);}),"return restop");
   }
  }catch(...){failure=std::current_exception();}});audio.join();
+ if(!failure&&(overflow||reject_sink)&&!saw_failure)failure=std::make_exception_ptr(std::runtime_error("expected process-result failure within the request bound"));
  if(!failure&&!saw_failure){LVBState::Stream state;ok(component->getState(&state),"return state");ok(component->setActive(false),"return deactivate");state.position=0;ok(component->setState(&state),"return state restore");}
  cc->disconnect(cp);cp->disconnect(cc);cc=nullptr;cp=nullptr;auto closed=component->terminate();p=nullptr;component=nullptr;controller->terminate();controller=nullptr;
  if(failure)std::rethrow_exception(failure);
@@ -75,5 +79,5 @@ void resultCase(const VST3::Hosting::PluginFactory&factory,HostApplication*host,
   }
   if(!null_sink){need(!feedback.empty()&&feedback[0].absolute==expected[0],"parameter feedback P+s+D once");for(const auto&v:feedback)need(v.point.id==0&&v.point.value==.25,"host-visible parameter ID and value");}
  }
- std::cout<<"{\"event\":\"ap10_sdk_return_result\",\"scenario\":\""<<scenario<<"\",\"events\":"<<seen.size()<<",\"parameter_points\":"<<point_count<<",\"late_note_off_frames\":"<<late_off<<",\"zero_frame_feedback\":"<<flush_feedback<<",\"explicit_failure\":"<<saw_failure<<",\"callback_effects\":0}"<<std::endl;
+ std::cout<<"{\"event\":\"ap10_sdk_return_result\",\"scenario\":\""<<scenario<<"\",\"events\":"<<seen.size()<<",\"parameter_points\":"<<point_count<<",\"late_note_off_frames\":"<<late_off<<",\"zero_frame_feedback\":"<<flush_feedback<<",\"explicit_failure\":"<<saw_failure<<",\"failure_callback_seconds\":"<<failure_seconds<<",\"callback_effects\":0}"<<std::endl;
 }
