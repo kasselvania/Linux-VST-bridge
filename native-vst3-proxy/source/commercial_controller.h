@@ -55,6 +55,7 @@ public:
   Result PLUGIN_API terminate() override {
     panelClose();
     finishGestures();
+    capabilities(false);
     connected_ = false;
     pending_count_ = 0;
     generation_ = 0;
@@ -120,6 +121,7 @@ public:
   disconnect(Steinberg::Vst::IConnectionPoint *peer) override {
     panelClose();
     finishGestures();
+    capabilities(false);
     connected_ = false;
     generation_ = 0;
     pending_count_ = 0;
@@ -458,13 +460,13 @@ private:
       request("AP11.poll");
     ticking_ = false;
   }
-  void capabilities() {
+  void capabilities(bool attached = true) {
     if (!connected_)
       return;
     auto *m = allocateMessage();
     if (m) {
       m->setMessageID("AP10.capabilities");
-      m->getAttributes()->setInt("notifications", timer_ ? 1 : 0);
+      m->getAttributes()->setInt("notifications", attached && componentHandler && timer_ ? 1 : 0);
       sendMessage(m);
       m->release();
     }
@@ -474,9 +476,9 @@ private:
     if (m) {
       m->setMessageID("AP11.capabilities");
       m->getAttributes()->setInt("generation", Steinberg::int64(generation_));
-      m->getAttributes()->setInt("caps", (componentHandler ? 1 : 0) |
+      m->getAttributes()->setInt("caps", attached ? ((componentHandler ? 1 : 0) |
                                              (componentHandler2 ? 2 : 0) |
-                                             (timer_ ? 4 : 0));
+                                             (timer_ ? 4 : 0)) : 0);
       sendMessage(m);
       m->release();
     }

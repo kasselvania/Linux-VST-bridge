@@ -369,7 +369,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   }
   if(!std::strncmp(id,"AP11.",5)){
     int64 generation=0;if(message->getAttributes()->getInt("generation",generation)!=kResultOk||generation<=0||!handle_)return kResultFalse;
-    if(!std::strcmp(id,"AP11.capabilities")){int64 caps=0;if(message->getAttributes()->getInt("caps",caps)!=kResultOk||caps<0||caps>7)return kResultFalse;return ap11_gui_capabilities(handle_,uint64_t(generation),uint32_t(caps))?kResultFalse:kResultOk;}
+    if(!std::strcmp(id,"AP11.capabilities")){int64 caps=0;if(message->getAttributes()->getInt("caps",caps)!=kResultOk||caps<0||caps>7)return kResultFalse;if(ap11_gui_capabilities(handle_,uint64_t(generation),uint32_t(caps)))return kResultFalse;gui_consumer_=(caps&1)!=0;return kResultOk;}
     if(!std::strcmp(id,"AP11.failure")){int64 code=0;if(message->getAttributes()->getInt("code",code)!=kResultOk||code<1||code>11)return kResultFalse;ap11_gui_failure(handle_,uint64_t(generation),uint32_t(code));return kResultOk;}
     if(!std::strcmp(id,"AP11.poll"))return guiPoll(uint64_t(generation),64);
     if(!std::strcmp(id,"AP11.command")){
@@ -946,7 +946,7 @@ Steinberg::tresult AP2::Processor::guiPoll(uint64_t generation,unsigned limit){
  using namespace Steinberg;
  // A host may capture state after disconnecting the controller. Leave final
  // UI acknowledgements for session retirement; there is no host UI consumer.
- if(gui_polling_ || !getPeer())return kResultOk;
+ if(gui_polling_ || !gui_consumer_ || !getPeer())return kResultOk;
  struct PollGuard{bool&flag;explicit PollGuard(bool&f):flag(f){flag=true;}~PollGuard(){flag=false;}}guard(gui_polling_);
  for(unsigned i=0;i<limit;++i){
   ap11_gui_message_t event{};if(ap11_gui_take(handle_,generation,&event))return kResultFalse;if(!event.kind)break;

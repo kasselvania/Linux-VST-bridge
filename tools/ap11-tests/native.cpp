@@ -313,6 +313,20 @@ int main() {
   c->panelOpen();
   check(closes == 0 && commands[commands.size() - 2].kind == AP11::Open,
         "view close/reopen retains processing instance");
+  c->disconnect(processor.get());
+  // The host may capture state after only one side of the connection has
+  // disconnected its controller; the processor still has a live SDK peer.
+  // A final window-close acknowledgement is still queued in the shared UI ring.
+  // It cannot be delivered to the departed peer and must not poison GUI state.
+  gui_fault = 0;
+  events.clear();
+  event(AP11::EditorStatus);
+  LVBState::Stream afterDisconnect;
+  check(processor->getState(&afterDisconnect) == kResultOk && gui_fault == 0 &&
+            events.size() == 1,
+        "post-disconnect state capture does not consume or fail UI delivery");
+  events.clear();
+  check(c->connect(processor.get()) == kResultOk, "restore controller peer");
   event(AP11::Begin);
   host.tick();
   gui_fault = AP11::Backlog;
@@ -329,16 +343,6 @@ int main() {
         "stop");
   c->disconnect(processor.get());
   processor->disconnect(c);
-  // The host may capture processor state after disconnecting its controller.
-  // A final window-close acknowledgement is still queued in the shared UI ring.
-  // It cannot be delivered to the departed peer and must not poison GUI state.
-  gui_fault = 0;
-  events.clear();
-  event(AP11::EditorStatus);
-  LVBState::Stream afterDisconnect;
-  check(processor->getState(&afterDisconnect) == kResultOk && gui_fault == 0 &&
-            events.size() == 1,
-        "post-disconnect state capture does not consume or fail UI delivery");
   c->terminate();
   check(host.timers.empty(), "timer detached before controller release");
   c->release();
