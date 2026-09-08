@@ -115,10 +115,12 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
     }
     const std::string suffix = result["--session"] + ".ready";
     const std::string gate_suffix = result["--session"] + ".gate";
-    if (result["--ready"] != "C:\\wf0\\session\\" + suffix ||
-        result["--gate"] != "C:\\wf0\\session\\" + gate_suffix) {
-        throw std::runtime_error("handshake path mismatch");
-    }
+    const auto session_dir = "C:\\bridge\\sessions\\" + result["--session"] + "\\";
+    const bool legacy = result["--ready"] == "C:\\wf0\\session\\" + suffix &&
+                        result["--gate"] == "C:\\wf0\\session\\" + gate_suffix;
+    const bool registered = result["--ready"] == session_dir + suffix &&
+                            result["--gate"] == session_dir + gate_suffix;
+    if (!legacy && !registered) throw std::runtime_error("handshake path mismatch");
     return result;
 }
 
