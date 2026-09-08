@@ -20,11 +20,17 @@ Float32 is implemented. Host setup and supported buses are negotiated within doc
 
 Tracked follow-through: [residual latency stalls and lower settings #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72), [historical native engine close crash #73](https://github.com/kasselvania/Linux-VST-bridge/issues/73), and [prompt endpoint-failure notification #74](https://github.com/kasselvania/Linux-VST-bridge/issues/74). Later clean runs do not explain earlier failures.
 
+## Current work: AP11 — Actual vendor editor
+
+[Issue #75](https://github.com/kasselvania/Linux-VST-bridge/issues/75) selects a native launch/status panel and a detached vendor window controlling the same processing instance. The outcome is actual Serum editing, host automation and sound recall, editor open/close without restarting audio, and a focused FRAGMENTS check through the same mechanism. Product-derived names are included. Full embedding and the manager UI are not prerequisites. Editor implementation and its performance are not yet proved.
+
+Work on `codex/ap11-vendor-editor`, prepared from integrated main `b8c332c2e536e4d9d6103d6d3d0696ffd6369f29`. [CURRENT_SLICE.md](CURRENT_SLICE.md) settles the window, control and verification direction. Keep 512 as the baseline and check audio under actual editor interaction rather than replaying the historical benchmark matrix.
+
 ## Start here
 
 Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then the relevant code and [design dossier](docs/DESIGN_DOSSIER.md). [Development guidance](docs/DEVELOPMENT_PROCESS.md) and [governance](GOVERNANCE.md) retain the outcome-led workflow: implement, test proportionately, review one PR. No receipt-writing loop, compulsory duplicate campaign or arbitrary retry quota.
 
-No successor implementation task is selected by this integration cleanup. Start subsequent work from current `main`, not the completed AP8/AP9/AP10 branches. Preserve any dirty local work before switching or integrating; repository cleanup does not authorize discarding it. The next selection should combine user-visible progress with honest audio performance, rather than reopen completed proofs.
+AP8/AP9/AP10 branches are completed work. Preserve dirty local work when fetching the AP11 branch; repository preparation does not authorize discarding it. Ordinary implementation, builds and in-scope repairs are included in AP11's authorization.
 
 Reuse [SSH/Moonlight desktop access](docs/DECK_REMOTE_DESKTOP.md); launch Bitwig through Applications. Remote access is development tooling, not a runtime dependency. Older [preview setup](docs/AP4_PREVIEW.md) is historical where later results supersede it.
 
