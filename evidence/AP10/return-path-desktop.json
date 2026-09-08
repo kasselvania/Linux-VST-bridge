@@ -2053,7 +2053,8 @@
     "No current mailbox residual gap occurred to diagnose; historical 31.903-ms Windows reply-preparation and engine-close crash remain unexplained. The socket control also retained a distinct 31.010-ms Linux preparation interval.",
     "Local monitor audio establishes continued output, not exact converter latency, float32 device precision or absence of device xruns. PipeWire error counters were sampled cumulatively, not as matched start/end deltas.",
     "Short runs do not qualify 256 for long sessions; 512 remains recommended. No new 128-frame desktop claim.",
-    "The current Serum clip emitted no returned events/parameter points; return semantics are established by the production SDK fixture, not inferred from Serum audio."
+    "The current Serum clip emitted no returned events/parameter points; return semantics are established by the production SDK fixture, not inferred from Serum audio.",
+    "Cohort CPU snapshots bracket the 40-second capture plus local sample-read/WAV-pack overhead before the second snapshot. The ~1.25% difference is not a reliable CPU-saving claim."
   ],
   "recommended_added_frames": 512,
   "fixture": {
