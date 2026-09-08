@@ -95,8 +95,11 @@ class EditorSession {
       m.steps = info.stepCount;
       std::memcpy(m.title, info.title, sizeof(m.title));
       std::memcpy(m.units, info.units, sizeof(m.units));
-      if (!std::isfinite(m.value) || m.value < 0 || m.value > 1 ||
-          m.title[127] || m.units[127]) {
+      if (!std::isfinite(m.value) || m.value < 0 || m.value > 1) {
+        m.result=1; // explicitly unavailable readback; zero bytes carry no value
+        m.value=0;
+      }
+      if (m.title[127] || m.units[127]) {
         channel_.fail(AP11::Controller);
         return;
       }
@@ -340,8 +343,7 @@ public:
           break;
         }
       } else if (m.kind == AP11::Refresh)
-        request_refresh(Steinberg::Vst::kParamValuesChanged |
-                        Steinberg::Vst::kParamTitlesChanged);
+        request_refresh(uint32_t(m.flags));
       else {
         channel_.fail(AP11::Protocol);
         break;

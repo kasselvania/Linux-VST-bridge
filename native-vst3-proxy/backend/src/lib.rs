@@ -63,7 +63,11 @@ fn retain(error: &io::Error) -> i32 {
             .take(384)
             .collect()
     });
-    2
+    if state::save_refused(error) {
+        5
+    } else {
+        2
+    }
 }
 fn ffi(f: impl FnOnce() -> i32) -> i32 {
     catch_unwind(AssertUnwindSafe(f)).unwrap_or_else(|_| {
@@ -149,7 +153,7 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11) {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -325,11 +329,11 @@ impl Session {
         context: context::Context,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            matches!(self.minor, 5 | 7 | 8 | 9 | 10) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8 | 9 | 10) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -418,7 +422,7 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8 | 9 | 10) {
+            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) {
                 request
                     .payload
                     .extend_from_slice(&events::encode(events, n)?);

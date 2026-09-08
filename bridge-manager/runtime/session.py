@@ -41,7 +41,7 @@ def environment(reg):
     return env
 
 def command(spec):
-    reg=spec['registration'];root=pathlib.Path(reg['environment']['root']);prefix=root/'compatdata/pfx';runner=reg['environment']['runner'];sid=spec['session'];mode='ap8-module-inspection' if spec['inspect'] else 'ap9-commercial'
+    reg=spec['registration'];root=pathlib.Path(reg['environment']['root']);prefix=root/'compatdata/pfx';runner=reg['environment']['runner'];sid=spec['session'];mode='ap12-vendor-access' if spec.get('vendor_access') else 'ap8-module-inspection' if spec['inspect'] else 'ap9-commercial'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),
            ('module',windows(reg['module']['path'],prefix)),('module-sha256',reg['module']['sha256']),('bundle-manifest-sha256',reg['module']['sha256']),
@@ -115,7 +115,12 @@ def run(spec,peer=None):
                 if r['pid']==root.pid:owned.add((r['pid'],r['start_ticks']))
             owned.update((r['pid'],r['start_ticks']) for r in descendant_identities(root.pid,census))
             pump(.05)
-            if native_stopped():break
+            if native_stopped():
+                if spec.get('vendor_access'):
+                    (directory/'vendor.stop').write_text(sid+'\n')
+                    end=time.monotonic()+10
+                    while time.monotonic()<end and not any(r.get('state')=='scanner_completed' for r in records):pump(.05)
+                break
             if not gated and any(r.get('state')=='readiness_announced' for r in records):
                 ready=directory/(sid+'.ready');m=ready.lstat()
                 if not stat.S_ISREG(m.st_mode) or m.st_size>1024 or ready.read_bytes()!=binding:raise RuntimeError('Windows readiness binding differs')
@@ -149,8 +154,10 @@ def run(spec,peer=None):
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
-        atomic(report,outcome)
+        outcome={'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        # Diagnostic persistence cannot skip physical cleanup or peer retirement.
+        try:atomic(report,outcome)
+        except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     if clean:
         retired=peer is None or disconnected is not None
         if peer is not None and not retired:
@@ -171,7 +178,14 @@ def run(spec,peer=None):
             if peer is not None:
                 try:peer.settimeout(5);peer.sendall(b'R')
                 except OSError:pass
-        atomic(report,outcome)
+        try:atomic(report,outcome)
+        except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
+    # Minimal ownership receipt is independent of the rich report, with a
+    # bounded stdout result to the live Rust parent even if persistence fails.
+    receipt={k:outcome.get(k,False) for k in ('session','cleanup_confirmed','transport_retired')}
+    receipt['reporting_error']=outcome.get('reporting_error')
+    try:atomic(report.with_suffix('.ownership.json'),receipt)
+    except OSError as e:outcome['ownership_reporting_error']=type(e).__name__+': '+str(e)[:256]
     return outcome
 
 def keep(spec):
@@ -244,7 +258,7 @@ def install(spec):
 if __name__=='__main__':
     os.umask(0o077)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
-    spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] else socket.socket(fileno=0)
+    spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
     operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
     # Standalone setup inspection is exclusive: it may start Wine services and
     # must never become their transient owner underneath a live audio instance.
@@ -252,7 +266,11 @@ if __name__=='__main__':
     fcntl.flock(operation,mode|fcntl.LOCK_NB)
     try:
         outcome=keep(spec) if spec.get('keeper') else run(spec,peer)
-        sys.exit(0 if outcome['cleanup_confirmed'] else 2)
+        complete=outcome['cleanup_confirmed'] and (spec.get('keeper') or outcome.get('transport_retired',False))
+        # This is an owner result, not the vendor launcher's exit status.
+        if complete:print('LVO1 '+spec['session']+' retired',flush=True)
+        if outcome.get('reporting_error'):print('Bridge reporting failure: '+outcome['reporting_error'],file=sys.stderr)
+        sys.exit(0 if complete else 2)
     finally:
         operation.close()
         if peer is not None:peer.close()

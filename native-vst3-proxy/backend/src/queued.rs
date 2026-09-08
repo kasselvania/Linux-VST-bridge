@@ -483,7 +483,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             }),
                             _ => Err(invalid("unknown owner operation")),
                         };
-                        let failed = result.is_err();
+                        let failed = result.as_ref().is_err_and(|e| !state::save_refused(e));
                         if let Ok(bytes) = &result {
                             if matches!(c.op, 16 | 18) {
                                 s.snapshots
@@ -497,9 +497,11 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                     )?;
                             }
                         } else if let Err(error) = &result {
-                            if let Ok(mut detail) = s.detail.lock() {
-                                if detail.is_empty() {
-                                    *detail = bounded_detail(error);
+                            if !state::save_refused(error) {
+                                if let Ok(mut detail) = s.detail.lock() {
+                                    if detail.is_empty() {
+                                        *detail = bounded_detail(error);
+                                    }
                                 }
                             }
                         }
@@ -1498,7 +1500,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 10 } else { 6 },
+        if identity.is_some() { 11 } else { 6 },
         identity,
     )
 }
@@ -2119,6 +2121,244 @@ mod tests {
         assert_eq!(reader.observation.comparison.samples, 0); // none checked
         drop(reader);
         std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling() {
+        use ap1_native_client::{
+            endpoint::{receive_version, send_version},
+            mapping::Mapping,
+            ClientState, Frame, Slot, OUTPUT, STRIDE,
+        };
+        use std::os::unix::fs::FileExt;
+        fn fixture() -> (u64, Arc<Shared>, thread::JoinHandle<()>, std::path::PathBuf) {
+            let path = std::env::temp_dir().join(format!(
+                "ap12-state-{}",
+                u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+            ));
+            let mapping = Mapping::new(&path).unwrap();
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&path)
+                .unwrap();
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let socket = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            let (mut remote, _) = listener.accept().unwrap();
+            let peer = thread::spawn(move || {
+                let mut saves = 0;
+                let mut next = 1;
+                loop {
+                    let f = match receive_version(&mut remote, 5, 11) {
+                        Ok(f) => f,
+                        Err(_) => break,
+                    };
+                    assert_eq!(f.sequence, next);
+                    let mut kind = f.kind + 1;
+                    let payload = match f.kind {
+                        16 => {
+                            saves += 1;
+                            next += 1;
+                            if saves == 2 {
+                                kind = 7;
+                                [
+                                    1u32.to_le_bytes(),
+                                    16u32.to_le_bytes(),
+                                    1u32.to_le_bytes(),
+                                    1u32.to_le_bytes(),
+                                ]
+                                .concat()
+                            } else {
+                                // v2 opaque state, one explicitly unavailable parameter.
+                                let mut b = vec![0; 35];
+                                b[0] = 3;
+                                b[8] = 1;
+                                b[12] = 2;
+                                b[16..19].copy_from_slice(&[0xde, 0xad, 0xff]);
+                                b[19..23].copy_from_slice(&42u32.to_le_bytes());
+                                b
+                            }
+                        }
+                        3 => {
+                            next += 1;
+                            for ch in 0..2 {
+                                file.write_all_at(
+                                    &0.25f32.to_le_bytes(),
+                                    (OUTPUT + ch * STRIDE + 4) as u64,
+                                )
+                                .unwrap();
+                            }
+                            let mut b = vec![0; 72];
+                            b[..4].copy_from_slice(&1u32.to_le_bytes());
+                            b[4..8].copy_from_slice(&(OUTPUT as u32).to_le_bytes());
+                            b[16..32].copy_from_slice(&f.payload[32..48]);
+
+                            b
+                        }
+                        12 => f.payload.clone(),
+                        _ => vec![],
+                    };
+                    send_version(
+                        &mut remote,
+                        &Frame {
+                            kind,
+                            session: f.session,
+                            sequence: f.sequence,
+                            payload,
+                        },
+                        5,
+                        11,
+                    )
+                    .unwrap();
+                    if f.kind == 5 {
+                        break;
+                    }
+                }
+            });
+            let identity = Some(state::Identity {
+                class: [4; 16],
+                module: [5; 32],
+            });
+            let session = Session {
+                gui: None,
+                gui_revision: 0,
+                mailbox: None,
+                mailbox_enabled: false,
+                notices: (0, 0),
+                returned: Default::default(),
+                mapping: Some(mapping),
+                socket,
+                state: ClientState {
+                    session: [4; 16],
+                    next: 1,
+                    slot: Slot::Writable,
+                },
+                phase: 11,
+                max: CAP,
+                minor: 11,
+                identity,
+                epoch: 1,
+                position: 0,
+                witness: None,
+                trace: Default::default(),
+                sample_rate: 48000,
+                armed: false,
+                owner: None,
+            };
+            let mut s = Shared::new();
+            s.identity = identity;
+            let shared = Arc::new(s);
+            shared.state_capable.store(true, Ordering::Release);
+            shared.wanted.store(1, Ordering::Release);
+            let service = shared.clone();
+            let worker = thread::spawn(move || super::worker(session, service, None));
+            let id = INSTANCES
+                .insert(|| {
+                    Ok::<_, ()>(Live {
+                        shared: shared.clone(),
+                        callback: UnsafeCell::new(Callback::new()),
+                        busy: AtomicBool::new(false),
+                        worker: Some(worker),
+                        report: None,
+                        max: CAP,
+                        recovery_blocked: false,
+                        minor: 11,
+                        setup: None,
+                    })
+                })
+                .unwrap()
+                .unwrap();
+            (id, shared, peer, path)
+        }
+        let a = fixture();
+        let b = fixture();
+        let mut bytes = vec![0; state::LIMIT + state::HEADER_SIZE];
+        let mut n = 0;
+        unsafe {
+            assert_eq!(
+                ap4_state(
+                    a.0,
+                    std::ptr::null(),
+                    0,
+                    bytes.as_mut_ptr(),
+                    bytes.len() as u32,
+                    &mut n
+                ),
+                0
+            );
+        }
+        let snapshot = a.1.snapshots.lock().unwrap().latest().unwrap().clone();
+        assert_eq!(snapshot.revision, 1);
+        assert_eq!(&snapshot.bytes[8..12], &3u32.to_le_bytes());
+        bytes.fill(0xA5);
+        n = 123;
+        unsafe {
+            assert_eq!(
+                ap4_state(
+                    a.0,
+                    std::ptr::null(),
+                    0,
+                    bytes.as_mut_ptr(),
+                    bytes.len() as u32,
+                    &mut n
+                ),
+                5
+            );
+        }
+        assert_eq!(n, 123);
+        assert!(bytes.iter().all(|v| *v == 0xA5));
+        let prior = a.1.snapshots.lock().unwrap().latest().unwrap().clone();
+        assert_eq!(prior.revision, 1);
+        assert_eq!(prior.digest, snapshot.digest);
+        assert_eq!(a.1.fault.load(Ordering::Acquire), 0);
+        for s in [&a.1, &b.1] {
+            let mut item = Item::control(AUDIO, 1);
+            item.n = 1;
+            item.gain = f64::NAN;
+            assert!(s.requests.push(item));
+            let end = Instant::now() + Duration::from_secs(3);
+            while s.processed.load(Ordering::Acquire) == 0 {
+                if s.fault.load(Ordering::Acquire) != 0 {
+                    thread::sleep(Duration::from_millis(10));
+                    panic!("{:?}", s.detail.lock().unwrap());
+                }
+                assert!(Instant::now() < end);
+                thread::yield_now();
+            }
+            let output = loop {
+                if let Some(v) = s.results.pop() {
+                    break v;
+                }
+                assert!(Instant::now() < end);
+                thread::yield_now();
+            };
+            assert_eq!(output.audio.data[0][0], 0.25);
+            assert_eq!(s.fault.load(Ordering::Acquire), 0);
+        }
+        unsafe {
+            assert_eq!(
+                ap4_state(
+                    a.0,
+                    std::ptr::null(),
+                    0,
+                    bytes.as_mut_ptr(),
+                    bytes.len() as u32,
+                    &mut n
+                ),
+                0
+            );
+        }
+        assert_eq!(a.1.snapshots.lock().unwrap().latest().unwrap().revision, 2);
+        for (id, s, peer, path) in [a, b] {
+            assert!(s.requests.push(Item::control(STOP, 1)));
+            assert!(s.requests.push(Item::control(DEACTIVATE, 1)));
+            assert!(s.requests.push(Item::control(CLOSE, 1)));
+            INSTANCES
+                .remove(id, |live| live.worker.take().unwrap().join().unwrap())
+                .unwrap();
+            peer.join().unwrap();
+            assert_eq!(s.fault.load(Ordering::Acquire), 0);
+            std::fs::remove_file(path).unwrap();
+        }
     }
     #[test]
     fn first_callback_fault_survives_later_worker_failure() {

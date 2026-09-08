@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-// UI ABI 2 / independent shared-memory protocol 2. No host/SDK pointer crosses.
+// UI ABI 2 / independent shared-memory protocol 3. No host/SDK pointer crosses.
 // Calls are native owner/UI-thread only, except the private atomic revision
 // assigned by the Rust audio admission path. No GUI queue is used by audio.
 struct ap11_gui_message_t {
@@ -33,7 +33,7 @@ enum Kind : uint32_t {
   RequestOpen = 107,
   EditorStatus = 108,
   RefreshBegin = 109,
-  Parameter = 110,
+  Parameter = 110, // result: 0=available, 1=unavailable (canonical value bits zero)
   RefreshEnd = 111,
   Restart = 112
 };

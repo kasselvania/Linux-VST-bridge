@@ -19,7 +19,9 @@ void check(bool ok, const char *why) {
 struct FixtureComponent final : AudioEffect {
   double value = .375;
   unsigned restores = 0;
+  tresult capture_result=kResultOk;
   tresult PLUGIN_API getState(IBStream *s) override {
+    if(capture_result!=kResultOk)return capture_result;
     int32 n = 0;
     return s->write(&value, 8, &n) == kResultOk && n == 8 ? kResultOk
                                                           : kResultFalse;
@@ -85,13 +87,27 @@ int main() {
   controller.invalid_readback = true;
   for (auto value : {-.25, 1.25, std::numeric_limits<double>::quiet_NaN()}) {
     controller.readback_value = value;
-    bool refused = false;
-    try { commercial_state(component, controller, true, nullptr); }
-    catch (const std::runtime_error& e) {
-      refused = std::string(e.what()).find("state parameter readback: id=42 value=") == 0;
-    }
-    check(refused, "invalid readback identifies parameter and value; never clamps or fabricates state");
+    auto captured=commercial_state(component, controller, true, nullptr);
+    check(captured.size()==original.size(),"unavailable parameter retains every ID");
+    check(std::equal(original.begin(),original.end()-16,captured.begin()),"opaque component/controller state preserved");
+    auto* p=captured.data()+captured.size()-16;
+    check(linux_vst_bridge::ap1::get(p,4)==42&&linux_vst_bridge::ap1::get(p+4,4)==0&&linux_vst_bridge::ap1::get(p+8,8)==0,"explicit unavailable tag, no invalid value or clamping");
   }
+  for(auto r:{kResultFalse,kNotImplemented}){
+    component.capture_result=r;
+    bool refused=false;
+    try{commercial_state(component,controller,true,nullptr);}
+    catch(const linux_vst_bridge::wf0::SaveRefusal& e){refused=e.stage==1&&e.result==r;}
+    check(refused,"completed capture refusal retains stage and SDK result");
+    bool unsafe=false;
+    try{commercial_state(component,controller,true,&original);}
+    catch(const linux_vst_bridge::wf0::SaveRefusal&){check(false,"restore must never be recoverable save refusal");}
+    catch(const std::runtime_error&){unsafe=true;}
+    check(unsafe,"post-restore capture refusal remains unsafe");
+  }
+  component.capture_result=kResultOk;
+  controller.invalid_readback=false;
+  check(commercial_state(component,controller,true,nullptr)==original,"capture can succeed after refusal");
   controller.terminate();
   component.terminate();
   std::cout << "AP11 pure state capture and exactly-once restore "

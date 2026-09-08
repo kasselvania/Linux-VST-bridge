@@ -37,6 +37,8 @@ struct SessionSpec {
     first_audio: bool,
     keeper: bool,
     binding_sent: bool,
+    #[serde(default)]
+    vendor_access: bool,
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct ClassSelection {
@@ -65,7 +67,7 @@ impl From<Registration> for HostBinding {
         }
     }
 }
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct InspectionRequest {
     environment_id: String,
@@ -235,6 +237,7 @@ fn spec(
         first_audio,
         keeper,
         binding_sent: !inspect,
+        vendor_access: false,
     };
     let path = directory.join("owner.json");
     atomic_json(&path, &s)?;
@@ -254,7 +257,7 @@ fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
         .arg(&s.supervisor.path)
         .arg(path)
         .stdin(stdin)
-        .stdout(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn();
     if child.is_err() {
@@ -273,7 +276,26 @@ fn reconcile_leases(m: &Manager) -> Result<bool> {
             report.parent() == Some(m.root.join("runtime/results").as_path()),
             "lease report outside owned results",
         )?;
-        match read_json::<serde_json::Value>(&report) {
+        let receipt = report.with_extension("ownership.json");
+        let proof = if receipt.exists() {
+            read_json::<serde_json::Value>(&receipt).and_then(|r| {
+                require(
+                    r["session"].as_str() == path.file_stem().and_then(|s| s.to_str())
+                        && r["transport_retired"] == true,
+                    "ownership receipt identity/retirement",
+                )?;
+                Ok(r)
+            })
+        } else {
+            read_json::<serde_json::Value>(&report).and_then(|r| {
+                require(
+                    r["ownership_schema"].is_null(),
+                    "new owner requires minimal retirement receipt",
+                )?;
+                Ok(r)
+            })
+        };
+        match proof {
             Ok(r) if r["cleanup_confirmed"] == true => fs::remove_file(path)?,
             _ => unconfirmed = true,
         }
@@ -354,7 +376,23 @@ fn serve(m: Manager) -> Result<()> {
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 53];
-                peer.read_exact(&mut greeting)?;
+                peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5]==b"LVA1\n" {
+                    let mut size=[0;4];peer.read_exact(&mut size)?;
+                    let size=u32::from_le_bytes(size) as usize;require(size<=65536,"vendor access request bound")?;
+                    let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
+                    let r=inspection_binding(&m,serde_json::from_slice(&bytes)?)?;
+                    ensure_keeper(&m,&s,&r,&keepers)?;
+                    let (mut job,path)=spec(&m,r,false,false,false)?;
+                    job.vendor_access=true;atomic_json(&path,&job)?;
+                    let mut child=spawn(&s,&path,None)?;
+                    let _=peer.write_all(format!("Vendor access {}: editor only; no DAW audio or project recall. Close its window to finish.\n",job.session).as_bytes());
+                    let status=child.wait()?;
+                    let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
+                    if !status.success()||disposition!=format!("LVO1 {} retired\n",job.session){blocked.store(true,Ordering::Release);return Err("vendor access cleanup unconfirmed".into());}
+                    fs::remove_file(&job.lease)?;peer.write_all(b"Vendor access retired.\n")?;return Ok(());
+                }
+                peer.read_exact(&mut greeting[5..])?;
                 require(
                     &greeting[..5] == b"LVB1\n",
                     "registration protocol mismatch",
@@ -375,19 +413,13 @@ fn serve(m: Manager) -> Result<()> {
                 ensure_keeper(&m, &s, &r, &keepers)?;
                 let mut child = spawn(&s, &path, Some(peer))?;
                 let status = child.wait()?;
-                if !status.success() {
+                let mut disposition=String::new();
+                if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
+                if !status.success() || disposition!=format!("LVO1 {} retired\n",job.session) {
                     blocked.store(true, Ordering::Release);
                     return Err(
                         "instance owner did not confirm cleanup; new admissions blocked".into(),
                     );
-                }
-                let report = read_json::<serde_json::Value>(&job.report);
-                if !report
-                    .as_ref()
-                    .is_ok_and(|r| r["cleanup_confirmed"] == true)
-                {
-                    blocked.store(true, Ordering::Release);
-                    return Err("instance cleanup unconfirmed; new admissions blocked".into());
                 }
                 fs::remove_file(&job.lease)?;
                 Ok(())
@@ -470,8 +502,7 @@ fn environment_import(m: &Manager, path: &Path) -> Result<()> {
     atomic_json(&marker, &e)?;
     Ok(())
 }
-fn inspect(m: &Manager, path: &Path) -> Result<()> {
-    let request: InspectionRequest = read_json(path)?;
+fn inspection_binding(m: &Manager, request: InspectionRequest) -> Result<HostBinding> {
     require(
         valid_hex(&request.class_id, 32),
         "inspection class ID syntax",
@@ -497,6 +528,11 @@ fn inspect(m: &Manager, path: &Path) -> Result<()> {
         host_source_sha256: sw.source_sha256.clone(),
         compatibility: request.compatibility,
     };
+    Ok(r)
+}
+fn inspect(m: &Manager, path: &Path) -> Result<()> {
+    let r = inspection_binding(m, read_json(path)?)?;
+    let sw = software(m)?;
     let (job, path) = spec(m, r, true, false, false)?;
     let status = spawn(&sw, &path, None)?.wait()?;
     println!("{}", job.report.display());
@@ -557,8 +593,23 @@ fn main() -> Result<()> {
   Some("status") if args.len()==1=>status(&m),
   Some("reconcile") if args.len()==1=>m.reconcile(),
   Some("inspect") if args.len()==2=>inspect(&m,Path::new(&args[1])),
-  _=>Err("Usage: linux-vst-bridge setup PACKAGE | environment-create RUNNER.json | environment-import ENVIRONMENT.json | install ENV_ID INSTALLER SHA256 | inspect INSPECTION.json | register REGISTRATION.json | status | reconcile | unpublish CLASS_ID | serve".into())
+  Some("vendor-editor") if args.len()==2=>vendor_editor(&m,Path::new(&args[1])),
+  _=>Err("Usage: linux-vst-bridge setup PACKAGE | environment-create RUNNER.json | environment-import ENVIRONMENT.json | install ENV_ID INSTALLER SHA256 | inspect INSPECTION.json | vendor-editor INSPECTION.json | register REGISTRATION.json | status | reconcile | unpublish CLASS_ID | serve".into())
  }
+}
+fn vendor_editor(m: &Manager, path: &Path) -> Result<()> {
+    let request: InspectionRequest = read_json(path)?;
+    let bytes = serde_json::to_vec(&request)?;
+    require(bytes.len() <= 65536, "vendor access request bound")?;
+    let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
+    peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+    peer.set_read_timeout(Some(Duration::from_secs(1900)))?;
+    peer.write_all(b"LVA1\n")?;
+    peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
+    peer.write_all(&bytes)?;
+    let mut reply = peer.take(1024);
+    std::io::copy(&mut reply, &mut std::io::stdout())?;
+    Ok(())
 }
 fn status(m: &Manager) -> Result<()> {
     let db = m.registry()?;

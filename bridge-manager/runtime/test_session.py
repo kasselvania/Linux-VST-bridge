@@ -98,6 +98,24 @@ class OwnershipTests(unittest.TestCase):
                 native.close()
                 owner.close()
 
+    def test_report_failure_does_not_skip_retirement_or_kill_sibling(self):
+        sibling=subprocess.Popen(["/bin/sleep","30"],start_new_session=True)
+        atomic=session.atomic
+        receipts=[]
+        def fail_report(path,value):
+            if path.name=='report.json':raise OSError('injected rich report failure')
+            receipts.append(value.copy());return atomic(path,value)
+        try:
+            with patch.object(session,'atomic',side_effect=fail_report):
+                self.test_early_failure_wakes_native_and_retires_only_after_release()
+            self.assertIsNone(sibling.poll())
+            self.assertEqual(len(receipts),1)
+            self.assertTrue(receipts[0]['cleanup_confirmed'])
+            self.assertTrue(receipts[0]['transport_retired'])
+            self.assertIn('injected rich report failure',receipts[0]['reporting_error'])
+        finally:
+            sibling.terminate();sibling.wait(timeout=5)
+
 
 class CensusTests(unittest.TestCase):
     def test_stat_only_parsing_and_descendant_identity(self):

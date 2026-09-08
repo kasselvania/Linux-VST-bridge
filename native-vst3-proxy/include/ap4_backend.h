@@ -8,7 +8,10 @@ uint32_t ap9_setup(uint64_t handle,uint32_t maximum,uint32_t mode,double sample_
 /* ABI 1: all AP4 functions are owner-thread only, never concurrent with close.
    No C++ ownership crosses this boundary. Caller owns/caps all byte buffers.
    ap4_state releases registry ownership before waiting; callbacks may continue.
-   restore=null snapshots; restore!=null applies and reads back. No retry. */
+   restore=null snapshots; restore!=null applies and reads back.
+   Return 5 means a completed read-only save refusal: output/written unchanged,
+   prior snapshot retained, session usable; ap2_last_error carries stage/SDK result.
+   Other failures remain unsafe/terminal. No implicit retry. */
 uint32_t ap4_open(uint64_t *handle);
 /* Copy this instance's private report path; non-RT, caller-owned buffer. */
 uint32_t ap5_report_path(uint64_t handle, uint8_t *path, uint32_t capacity);

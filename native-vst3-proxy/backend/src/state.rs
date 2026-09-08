@@ -1,6 +1,25 @@
 //! Durable state binds only logical processor/module/content, never a session.
 use crate::*;
 use sha2::{Digest, Sha256};
+#[derive(Debug)]
+pub struct SaveRefusal {
+    pub operation: u32,
+    pub stage: u32,
+    pub sdk_result: i32,
+}
+impl std::fmt::Display for SaveRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "save refused: operation={} stage={} SDK result={}",
+            self.operation, self.stage, self.sdk_result
+        )
+    }
+}
+impl std::error::Error for SaveRefusal {}
+pub fn save_refused(e: &io::Error) -> bool {
+    e.get_ref().is_some_and(|e| e.is::<SaveRefusal>())
+}
 pub const LIMIT: usize = 1 << 20;
 pub const HEADER_SIZE: usize = 104;
 const CLASS: [u8; 16] = [
@@ -40,7 +59,7 @@ pub fn envelope(payload: &[u8]) -> io::Result<Vec<u8>> {
     envelope_for(REFERENCE, 1, payload)
 }
 pub fn envelope_for(identity: Identity, version: u32, payload: &[u8]) -> io::Result<Vec<u8>> {
-    need(matches!(version, 1 | 2), "state envelope version")?;
+    need(matches!(version, 1 | 2 | 3), "state envelope version")?;
     need(payload.len() <= LIMIT, "component state exceeds cap")?;
     let mut blob = vec![0; HEADER_SIZE];
     blob[..8].copy_from_slice(b"LVBSTATE");
@@ -119,11 +138,38 @@ impl Session {
             self.send_control(&request)?;
             let reply = receive_version(&mut self.socket, 10, self.minor)?;
             need(
-                reply.kind == kind + 1
-                    && reply.session == request.session
-                    && reply.sequence == request.sequence,
+                reply.session == request.session && reply.sequence == request.sequence,
                 "state response correlation",
             )?;
+            if reply.kind == 7 && self.minor >= 11 && restore.is_none() {
+                need(
+                    reply.payload.len() == 16
+                        && get(&reply.payload[..4]) == 1
+                        && get(&reply.payload[4..8]) == 16,
+                    "save refusal extent/operation",
+                )?;
+                let stage = get(&reply.payload[8..12]) as u32;
+                let sdk_result = i32::from_le_bytes(reply.payload[12..16].try_into().unwrap());
+                // Pinned Windows SDK: kResultFalse=1, kNotImplemented=0x80004001.
+                need(
+                    matches!(stage, 1 | 2) && matches!(sdk_result, 1 | -2147467263),
+                    "save refusal stage/result",
+                )?;
+                self.state.next = self
+                    .state
+                    .next
+                    .checked_add(1)
+                    .ok_or_else(|| invalid("sequence exhausted"))?;
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    SaveRefusal {
+                        operation: 16,
+                        stage,
+                        sdk_result,
+                    },
+                ));
+            }
+            need(reply.kind == kind + 1, "state response kind")?;
             need(reply.payload.len() <= LIMIT, "state response cap")?;
             if let Some(p) = restore.filter(|_| matches!(self.minor, 4 | 6)) {
                 need(
@@ -146,7 +192,7 @@ impl Session {
                 .ok_or_else(|| invalid("sequence exhausted"))?;
             Ok(reply.payload)
         })();
-        if result.is_err() {
+        if result.as_ref().is_err_and(|e| !save_refused(e)) {
             self.phase = ERROR;
             self.state.failed();
         }
@@ -270,18 +316,26 @@ pub fn commercial_payload(p: &[u8]) -> io::Result<()> {
     let n = get(&p[8..12]) as usize;
     let flags = get(&p[12..16]);
     need(
-        flags <= 1
+        flags <= 3
             && n <= 8192
-            && (flags == 1 || b == 0)
-            && p.len() == 16 + a + b + n * 12
+            && (flags & 1 == 1 || b == 0)
+            && p.len() == 16 + a + b + n * if flags & 2 != 0 { 16 } else { 12 }
             && p.len() <= LIMIT,
         "commercial state extent",
     )?;
     let mut ids = std::collections::HashSet::new();
-    for b in p[16 + a + b..].chunks_exact(12) {
-        let v = f64::from_le_bytes(b[4..].try_into().unwrap());
+    let width = if flags & 2 != 0 { 16 } else { 12 };
+    for b in p[16 + a + b..].chunks_exact(width) {
+        let available = if width == 16 { get(&b[4..8]) } else { 1 };
+        let v = f64::from_le_bytes(b[width - 8..].try_into().unwrap());
         need(
-            v.is_finite() && (0.0..=1.0).contains(&v) && ids.insert(get(&b[..4])),
+            available <= 1
+                && (if available == 1 {
+                    v.is_finite() && (0.0..=1.0).contains(&v)
+                } else {
+                    v.to_bits() == 0
+                })
+                && ids.insert(get(&b[..4])),
             "state parameter value/identity",
         )?;
     }
@@ -290,15 +344,22 @@ pub fn commercial_payload(p: &[u8]) -> io::Result<()> {
 pub fn bound_envelope(identity: Option<Identity>, p: &[u8]) -> io::Result<Vec<u8>> {
     if let Some(id) = identity {
         commercial_payload(p)?;
-        envelope_for(id, 2, p)
+        envelope_for(id, if get(&p[12..16]) & 2 != 0 { 3 } else { 2 }, p)
     } else {
         envelope(p)
     }
 }
 pub fn bound_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> {
     if let Some(id) = identity {
-        let p = payload_for(id, 2, b)?;
+        need(b.len() >= HEADER_SIZE, "commercial envelope header")?;
+        let version = get(&b[8..12]) as u32;
+        need(matches!(version, 2 | 3), "commercial envelope version")?;
+        let p = payload_for(id, version, b)?;
         commercial_payload(p)?;
+        need(
+            (get(&p[12..16]) & 2 != 0) == (version == 3),
+            "commercial mirror version",
+        )?;
         Ok(p)
     } else {
         payload(b)
@@ -349,6 +410,39 @@ mod tests {
         corrupt[HEADER_SIZE + 1] ^= 1;
         assert!(payload_for(identity, 2, &corrupt).is_err());
         assert!(envelope_for(identity, 2, &vec![0; LIMIT + 1]).is_err());
+    }
+    #[test]
+    fn tagged_readback_preserves_opaque_and_legacy_envelopes() {
+        let identity = Some(Identity {
+            class: [1; 16],
+            module: [2; 32],
+        });
+        let mut p = vec![0; 35];
+        p[0] = 3;
+        p[8] = 1;
+        p[12] = 2;
+        p[16..19].copy_from_slice(&[0xde, 0xad, 0xff]);
+        p[19] = 42;
+        let e = bound_envelope(identity, &p).unwrap();
+        assert_eq!(get(&e[8..12]), 3);
+        assert_eq!(bound_payload(identity, &e).unwrap(), p);
+        let mut legacy = p[..19].to_vec();
+        legacy[12] = 0;
+        legacy.extend(42u32.to_le_bytes());
+        legacy.extend(0.25f64.to_le_bytes());
+        let old = bound_envelope(identity, &legacy).unwrap();
+        assert_eq!(get(&old[8..12]), 2);
+        assert_eq!(bound_payload(identity, &old).unwrap(), legacy);
+        for (offset, value) in [(23, 2), (27, 1), (12, 4)] {
+            let mut invalid = p.clone();
+            invalid[offset] = value;
+            assert!(commercial_payload(&invalid).is_err());
+        }
+        let mut bad = p.clone();
+        bad[8] = 2;
+        bad.extend_from_slice(&p[19..]);
+        assert!(commercial_payload(&bad).is_err());
+        assert!(bound_payload(identity, &envelope_for(identity.unwrap(), 2, &p).unwrap()).is_err());
     }
     #[test]
     fn full_reference_payload_and_identity() {

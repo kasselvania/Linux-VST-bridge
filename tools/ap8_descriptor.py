@@ -1,5 +1,5 @@
 """Prepare one native descriptor from actual SDK inspection (not a scanner)."""
-import argparse,hashlib,json,pathlib,uuid
+import argparse,hashlib,json,pathlib,uuid,math
 
 def generate(records,class_id,module_sha256):
     buses=[r for r in records if r.get('state')=='ap8_bus']
@@ -51,6 +51,10 @@ def generate(records,class_id,module_sha256):
     params=[p for r in records if r.get('state')=='ap8_parameters' for p in r['parameters']]
     if len(params)!=next(r['count'] for r in records if r.get('state')=='ap8_parameter_count') or len({p[0] for p in params})!=len(params):
         raise ValueError('incomplete/duplicate parameter metadata')
+    for p in params:
+        if not math.isfinite(p[5]) or not 0<=p[5]<=1:
+            raise ValueError('invalid SDK default; no presentation fallback')
+    available=lambda p: isinstance(p[6],(int,float)) and math.isfinite(p[6]) and 0<=p[6]<=1
     # Immutable UUIDv5 namespace and logical vendor CID. No path/build/session in native class IDs.
     namespace=uuid.UUID('9389480f-b4b0-5e02-a1d7-687a57b54b3f')
     ids=[uuid.uuid5(namespace,class_id.upper()+suffix).hex for suffix in (':processor',':controller')]
@@ -60,7 +64,7 @@ def generate(records,class_id,module_sha256):
     return '''#pragma once
 #include <cstdint>
 namespace AP8 {
-struct Parameter {uint32_t id;const char16_t* title;const char16_t* units;int32_t steps,flags;double initial;};
+struct Parameter {uint32_t id;const char16_t* title;const char16_t* units;int32_t steps,flags;double initial;bool available=true;};
 struct Bus {uint32_t media,direction,index,channels,type,flags;uint64_t arrangement;const char16_t* name;};
 inline constexpr char class_name[]='''+label+''';
 inline constexpr char vendor[]='''+literals['vendor']+''';
@@ -74,7 +78,7 @@ inline constexpr uint8_t identity[48]={'''+','.join(str(x) for x in identity)+''
 #define AP8_PROCESSOR_UID '''+words(ids[0])+'''
 #define AP8_CONTROLLER_UID '''+words(ids[1])+'''
 inline constexpr Parameter parameters[]={
-'''+',\n'.join('{'+','.join([str(p[0]),quote(p[1]),quote(p[2]),str(p[3]),str(p[4]),repr(p[6])])+'}' for p in params)+'''\n};
+'''+',\n'.join('{'+','.join([str(p[0]),quote(p[1]),quote(p[2]),str(p[3]),str(p[4]),repr(p[6] if available(p) else p[5]),str(available(p)).lower()])+'}' for p in params)+'''\n};
 }
 '''
 

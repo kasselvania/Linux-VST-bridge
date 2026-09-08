@@ -18,7 +18,7 @@ class Controller final : public Steinberg::Vst::EditController,
   struct ParameterState {
     uint32_t id;
     uint64_t revision = 0;
-    bool editing = false, refreshed = false;
+    bool editing = false, refreshed = false, available = false;
   };
   struct Timer final : Steinberg::Linux::ITimerHandler {
     Controller *parent;
@@ -79,7 +79,7 @@ public:
     for (const auto &p : AP8::parameters) {
       parameters.addParameter(p.title, p.units, p.steps, p.initial, p.flags,
                               p.id);
-      states_.push_back({p.id});
+      states_.push_back({p.id}); // descriptor/default projection is stale until a live refresh
     }
     std::sort(states_.begin(), states_.end(),
               [](const auto &a, const auto &b) { return a.id < b.id; });
@@ -187,6 +187,7 @@ public:
         for (auto &p : states_)
           p.revision = 0;
       }
+      bool bootstrap=generation_!=uint64_t(generation);
       generation_ = uint64_t(generation);
       capabilities();
       auto count = pending_count_;
@@ -194,6 +195,7 @@ public:
       for (size_t i = 0; i < count; ++i)
         if (command(pending_[i]) != kResultOk)
           return kResultFalse;
+      if(bootstrap){ap11_gui_message_t refresh{};refresh.kind=AP11::Refresh;command(refresh);}
       return kResultOk;
     }
     if (!std::strncmp(id, "AP11.", 5)) {
@@ -310,6 +312,7 @@ public:
     }
   }
   const char *panelStatus() const override { return status_; }
+  bool readbackAvailable(uint32_t id) {auto* p=state(id);return p&&p->available;}
 
 private:
   uint64_t activation_serial_ = 0;
@@ -445,8 +448,8 @@ private:
         s.refreshed = false;
       return kResultOk;
     case AP11::Parameter: {
-      if (!refreshing_ || !p || p->refreshed || !std::isfinite(m.value) ||
-          m.value < 0 || m.value > 1 || m.steps < 0 || m.title[127] ||
+      if (!refreshing_ || !p || p->refreshed || m.result>1 || !std::isfinite(m.value) ||
+          (m.result==0 ? (m.value < 0 || m.value > 1) : m.value!=0) || m.steps < 0 || m.title[127] ||
           m.units[127])
         return kResultFalse;
       p->refreshed = true;
@@ -462,7 +465,8 @@ private:
       info.flags = m.flags;
       if (m.revision >= p->revision) {
         p->revision = m.revision;
-        EditController::setParamNormalized(m.id, m.value);
+        p->available=m.result==0;
+        if(p->available)EditController::setParamNormalized(m.id, m.value);
       }
       return kResultOk;
     }
@@ -473,7 +477,7 @@ private:
                       [](const auto &s) { return !s.refreshed; }))
         return kResultFalse;
       refreshing_ = false;
-      return componentHandler
+      return !refresh_flags_ ? kResultOk : componentHandler
                  ? componentHandler->restartComponent(refresh_flags_)
                  : kResultFalse;
     default:
@@ -573,14 +577,16 @@ private:
     auto n = read(p + 8);
     if (n != std::size(AP8::parameters))
       return false;
+    const auto width=(read(p+12)&2)?16u:12u;
     p += 16 + read(p) + read(p + 4);
-    for (uint32_t i = 0; i < n; ++i, p += 12) {
+    // Verify every identity before mutating even the presentation projection.
+    for(uint32_t i=0;i<n;++i)if(!state(read(p+i*width)))return false;
+    for (uint32_t i = 0; i < n; ++i, p += width) {
       double value;
-      std::memcpy(&value, p + 4, 8);
+      std::memcpy(&value, p + width-8, 8);
       auto id = read(p);
-      if (!parameters.getParameter(id) ||
-          EditController::setParamNormalized(id, value) != Steinberg::kResultOk)
-        return false;
+      auto* projection=state(id);projection->available=width==12||read(p+4)==1;
+      if(projection->available&&EditController::setParamNormalized(id,value)!=Steinberg::kResultOk)return false;
     }
     return true;
   }

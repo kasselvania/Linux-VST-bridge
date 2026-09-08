@@ -1,6 +1,8 @@
 #include "inspect_module.h"
 #include "offline_processing.h"
 #include "vendor_handler.h"
+#include "ap8_state.h"
+#include "vendor_view.h"
 #include "component_instance_session.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
@@ -43,7 +45,7 @@ template<size_t N> std::string bounded(const char (&value)[N]) {
 }
 
 }
-int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external) {
+int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory) {
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;VendorHandler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
@@ -133,9 +135,9 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         for(int i=0;i<n;++i){ParameterInfo p{};
             if(controller->getParameterInfo(i,p)!=kResultOk)throw std::runtime_error("getParameterInfo index "+std::to_string(i));
             auto value=controller->getParamNormalized(p.id);
-            if(!std::isfinite(value)||!std::isfinite(p.defaultNormalizedValue))throw std::runtime_error("nonfinite parameter value");
+            if(!std::isfinite(p.defaultNormalizedValue)||p.defaultNormalizedValue<0||p.defaultNormalizedValue>1)throw std::runtime_error("invalid SDK default");
             if(!parameters.empty())parameters+=',';
-            parameters+='['+std::to_string(p.id)+','+text16(p.title)+','+text16(p.units)+','+std::to_string(p.stepCount)+','+std::to_string(p.flags)+','+std::to_string(p.defaultNormalizedValue)+','+std::to_string(value)+']';
+            parameters+='['+std::to_string(p.id)+','+text16(p.title)+','+text16(p.units)+','+std::to_string(p.stepCount)+','+std::to_string(p.flags)+','+std::to_string(p.defaultNormalizedValue)+','+(std::isfinite(value)&&value>=0&&value<=1?std::to_string(value):"null")+']';
             if(i%32==31||i+1==n){events.lifecycle("ap8_parameters",",\"columns\":[\"id\",\"title\",\"units\",\"steps\",\"flags\",\"default\",\"value\"],\"parameters\":["+parameters+"]");parameters.clear();}
         }
         ok(kResultOk,"enumerateParameters");
@@ -145,11 +147,26 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         LVBState::Stream state;step("getComponentState");auto state_result=component->getState(&state);
         char unknown_iid[33]{};FUID::fromTUID(reinterpret_cast<const char*>(state.last_unknown_iid)).toString(unknown_iid);
         events.lifecycle("ap12_state_stream",",\"result\":"+std::to_string(state_result)+",\"bytes\":"+std::to_string(state.bytes.size())+",\"failed\":"+(state.failed?"true":"false")+",\"writes\":"+std::to_string(state.write_calls)+",\"largest_write\":"+std::to_string(state.largest_write)+",\"reads\":"+std::to_string(state.read_calls)+",\"seeks\":"+std::to_string(state.seek_calls)+",\"last_seek_offset\":"+std::to_string(state.last_seek_offset)+",\"last_seek_mode\":"+std::to_string(state.last_seek_mode)+",\"unknown_queries\":"+std::to_string(state.unknown_queries)+",\"last_unknown_iid\":"+quoted(unknown_iid));
-        ok(state_result,"getComponentState");
         if(state.failed||!state.quiescent())throw std::runtime_error("state stream bounds/lifetime");
-        if(controller_initialized){state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");}
+        events.lifecycle("ap12_persistence",",\"capture_available\":"+std::string(state_result==kResultOk?"true":"false")+",\"sdk_result\":"+std::to_string(state_result));
+        if(state_result!=kResultOk&&!ordinary_refusal(state_result))throw std::runtime_error("initial state SDK failure");
+        if(state_result==kResultOk&&controller_initialized){state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");}
         if(state.failed||!state.quiescent())throw std::runtime_error("controller state stream lifetime");
-        events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
+        if(state_result==kResultOk)events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
+        if(!access_directory.empty()){
+            // Explicit unpublished access session: no DAW/DSP impersonation.
+            // Reuse the same SDK view lifecycle on this initialized controller.
+            VendorView view;
+            if(!view.open(*controller))throw std::runtime_error("vendor access editor open failed");
+            std::wstring title(name.begin(),name.end());
+            title+=state_result==kResultOk?L" — Vendor access (no DAW audio)":L" — Vendor access (saving unavailable; no DAW audio)";
+            SetWindowTextW(view.window(),title.c_str());
+            events.lifecycle("ap12_vendor_access_open",",\"save_available\":"+std::string(state_result==kResultOk?"true":"false"));
+            const auto deadline=GetTickCount64()+30*60*1000;
+            while(VendorView::pump()&&!view.close_requested()&&GetTickCount64()<deadline&&GetFileAttributesW((access_directory+L"\\vendor.stop").c_str())==INVALID_FILE_ATTRIBUTES)Sleep(10);
+            if(!view.close())ExitProcess(92);
+            events.lifecycle("ap12_vendor_access_closed");
+        }
         if(external){
             external->bind_controller(controller,controller_initialized);
             HostCallbackSink calls(&events,GetCurrentThreadId());

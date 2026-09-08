@@ -113,7 +113,14 @@ struct MappedSession::Impl {
    update_controller();require(!controller_update_failed.load(),"controller automation update failed");
    if(editor)editor->service(true);
    events.lifecycle("ap4_state_started",",\"operation\":\"opaque\",\"owner_thread\":true");
-   auto payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr);
+   std::vector<uint8_t> payload;
+   try{payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr);}
+   catch(const SaveRefusal& e){
+    require(socket.minor>=11&&f.kind==GetState,"save refusal requires protocol 11");
+    std::vector<uint8_t> error(16);put(error.data(),1,4);put(error.data()+4,GetState,4);put(error.data()+8,e.stage,4);put(error.data()+12,uint32_t(e.result),4);
+    socket.write(frame(Error,state.next,std::move(error)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;
+    events.lifecycle("ap12_save_refused",",\"operation\":16,\"stage\":"+std::to_string(e.stage)+",\"sdk_result\":"+std::to_string(e.result));return;
+   }
    events.lifecycle("ap10_controller_sync",",\"applied\":"+std::to_string(controller_updates_applied)+",\"state_request_sequence\":"+std::to_string(state.next));
    events.lifecycle("ap4_state_result",",\"operation\":\"opaque\",\"result\":0,\"bytes\":"+std::to_string(payload.size()));
    socket.write(frame(uint16_t(f.kind+1),state.next,std::move(payload)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;return;
@@ -185,7 +192,7 @@ struct MappedSession::Impl {
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
 MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful,bool commercial,bool performance):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?10:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
+ auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?11:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");

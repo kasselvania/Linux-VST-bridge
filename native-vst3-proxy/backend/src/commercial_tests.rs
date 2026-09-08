@@ -316,3 +316,77 @@ fn performance_setup_and_reference_state_keep_their_protocol_roles() {
     assert_eq!(session.phase, ERROR);
     remote.join().unwrap();
 }
+
+#[test]
+fn save_failure_is_terminal_for_restore_or_malformed_protocol() {
+    for case in 0..5 {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut peer, _) = listener.accept().unwrap();
+        let remote = thread::spawn(move || {
+            let f = receive_version(&mut peer, 5, 11).unwrap();
+            if case == 4 {
+                return;
+            } // exited host, not a completed refusal
+            let mut reply = Frame {
+                kind: 7,
+                session: f.session,
+                sequence: f.sequence,
+                payload: [
+                    1u32.to_le_bytes(),
+                    16u32.to_le_bytes(),
+                    1u32.to_le_bytes(),
+                    1u32.to_le_bytes(),
+                ]
+                .concat(),
+            };
+            if case == 1 {
+                reply.sequence += 1;
+            }
+            if case == 2 {
+                reply.payload[8] = 9;
+            }
+            if case == 3 {
+                reply.payload.pop();
+            }
+            send_version(&mut peer, &reply, 5, 11).unwrap();
+        });
+        let mut session = Session {
+            gui: None,
+            gui_revision: 0,
+            mailbox: None,
+            mailbox_enabled: false,
+            notices: (0, 0),
+            returned: Default::default(),
+            mapping: None,
+            socket,
+            state: ClientState {
+                session: [3; 16],
+                next: 1,
+                slot: Slot::Writable,
+            },
+            phase: 13,
+            max: 256,
+            minor: 11,
+            epoch: 1,
+            position: 0,
+            witness: None,
+            trace: Default::default(),
+            sample_rate: 48000,
+            armed: false,
+            owner: None,
+            identity: Some(state::Identity {
+                class: [3; 16],
+                module: [4; 32],
+            }),
+        };
+        let p = opaque(0.5);
+        let error = session
+            .component_state(if case == 0 { Some(&p) } else { None })
+            .unwrap_err();
+        assert!(!state::save_refused(&error));
+        assert_eq!(session.phase, ERROR);
+        assert_eq!(session.state.next, 1);
+        remote.join().unwrap();
+    }
+}
