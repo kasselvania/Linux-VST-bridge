@@ -650,6 +650,20 @@ mod tests {
         assert!(!reconcile_leases(&m).unwrap());
         assert!(!lease.exists());
         assert!(report.exists());
+        atomic_json(&lease, &report).unwrap();
+        atomic_json(
+            &report,
+            &serde_json::json!({"ownership_schema":1,"cleanup_confirmed":true}),
+        )
+        .unwrap();
+        assert!(reconcile_leases(&m).unwrap()); // physical report alone cannot retire new transport
+        let receipt = report.with_extension("ownership.json");
+        atomic_json(&receipt,&serde_json::json!({"session":"wrong","cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        assert!(reconcile_leases(&m).unwrap());
+        atomic_json(&receipt,&serde_json::json!({"session":"one","cleanup_confirmed":true,"transport_retired":true,"reporting_error":"disk refusal"})).unwrap();
+        fs::remove_file(&report).unwrap();
+        assert!(!reconcile_leases(&m).unwrap());
+        assert!(!lease.exists());
         fs::remove_dir_all(outer).unwrap();
     }
 }

@@ -35,4 +35,10 @@ class Descriptor(unittest.TestCase):
   r.append(dict(state='ap8_failure',reason='getComponentState returned 1'))
   self.assertIn('effect=true',self.gen(r))
   self.assertEqual(r[-1]['state'],'ap8_failure')
+ def test_unavailable_readback_uses_only_validated_sdk_default(self):
+  for value in [None,-1,1.25,float('nan')]:
+   r=self.records();r[-2]['parameters'][0][6]=value
+   text=self.gen(r);self.assertIn('{0,u"Mix",u"%",0,1,0.5,false}',text)
+  r=self.records();r[-2]['parameters'][0][5]=-1;r[-2]['parameters'][0][6]=None
+  with self.assertRaises(ValueError):self.gen(r)
 if __name__=='__main__':unittest.main()

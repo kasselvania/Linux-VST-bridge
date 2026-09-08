@@ -147,11 +147,11 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         LVBState::Stream state;step("getComponentState");auto state_result=component->getState(&state);
         char unknown_iid[33]{};FUID::fromTUID(reinterpret_cast<const char*>(state.last_unknown_iid)).toString(unknown_iid);
         events.lifecycle("ap12_state_stream",",\"result\":"+std::to_string(state_result)+",\"bytes\":"+std::to_string(state.bytes.size())+",\"failed\":"+(state.failed?"true":"false")+",\"writes\":"+std::to_string(state.write_calls)+",\"largest_write\":"+std::to_string(state.largest_write)+",\"reads\":"+std::to_string(state.read_calls)+",\"seeks\":"+std::to_string(state.seek_calls)+",\"last_seek_offset\":"+std::to_string(state.last_seek_offset)+",\"last_seek_mode\":"+std::to_string(state.last_seek_mode)+",\"unknown_queries\":"+std::to_string(state.unknown_queries)+",\"last_unknown_iid\":"+quoted(unknown_iid));
-        if(state.failed||!state.quiescent())throw std::runtime_error("state stream bounds/lifetime");
+        events.lifecycle("ap8_result",",\"operation\":\"getComponentState\",\"result\":"+std::to_string(state_result));
         events.lifecycle("ap12_persistence",",\"capture_available\":"+std::string(state_result==kResultOk?"true":"false")+",\"sdk_result\":"+std::to_string(state_result));
-        if(state_result!=kResultOk&&!ordinary_refusal(state_result))throw std::runtime_error("initial state SDK failure");
-        if(state_result==kResultOk&&controller_initialized){state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");}
-        if(state.failed||!state.quiescent())throw std::runtime_error("controller state stream lifetime");
+        if(state_result==kResultOk&&controller_initialized)step("synchronizeController");
+        synchronize_initial(*controller,controller_initialized,state_result,state);
+        if(state_result==kResultOk&&controller_initialized)ok(kResultOk,"synchronizeController");
         if(state_result==kResultOk)events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
         if(!access_directory.empty()){
             // Explicit unpublished access session: no DAW/DSP impersonation.

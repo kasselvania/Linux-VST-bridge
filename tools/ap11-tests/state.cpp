@@ -108,6 +108,13 @@ int main() {
   component.capture_result=kResultOk;
   controller.invalid_readback=false;
   check(commercial_state(component,controller,true,nullptr)==original,"capture can succeed after refusal");
+  auto before=controller.synchronizations;
+  for(auto r:{kResultFalse,kNotImplemented}){
+    LVBState::Stream partial;partial.bytes={1,2,3};
+    check(!linux_vst_bridge::wf0::synchronize_initial(controller,true,r,partial)&&controller.synchronizations==before,"fresh initialization refuses no editor and never synchronizes a declined stream");
+  }
+  LVBState::Stream fresh;component.getState(&fresh);
+  check(linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,fresh)&&controller.synchronizations==before+1,"available initial state synchronizes once");
   controller.terminate();
   component.terminate();
   std::cout << "AP11 pure state capture and exactly-once restore "

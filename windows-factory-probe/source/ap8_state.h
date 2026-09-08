@@ -20,6 +20,15 @@ inline void capture_result(Steinberg::tresult r,LVBState::Stream&s,uint32_t stag
   throw std::runtime_error("unsafe state SDK result");
  }
 }
+// Fresh initialization can expose the real editor without persistence. A
+// successful stream still synchronizes a separate controller exactly once.
+inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool separate,Steinberg::tresult result,LVBState::Stream&state){
+ using namespace Steinberg;
+ ap1::require(!state.failed&&state.quiescent(),"initial state stream bounds/lifetime");
+ if(result!=kResultOk){ap1::require(ordinary_refusal(result),"initial state SDK failure");return false;}
+ if(separate){state.position=0;auto r=controller.setComponentState(&state);ap1::require(r==kResultOk&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
+ return true;
+}
 inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&component,
  Steinberg::Vst::IEditController&controller,bool separate,const std::vector<uint8_t>*restore){
  using namespace Steinberg;using namespace ap1;
