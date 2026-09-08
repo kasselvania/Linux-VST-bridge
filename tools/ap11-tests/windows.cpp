@@ -6,6 +6,7 @@
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "vendor_handler.h"
+#include "ui_apartment.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -227,6 +228,12 @@ struct External final : ExternalProcessing {
 };
 } // namespace
 int main() {
+  UiApartment apartment;
+  APTTYPE type{};
+  APTTYPEQUALIFIER qualifier{};
+  check(CoGetApartmentType(&type, &qualifier) == S_OK &&
+            (type == APTTYPE_STA || type == APTTYPE_MAINSTA),
+        "controller and view own a Windows STA apartment");
   HostApplication host;
   auto *c = new Controller;
   check(c->initialize(&host) == kResultOk, "controller initialize");

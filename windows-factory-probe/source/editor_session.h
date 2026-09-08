@@ -128,6 +128,9 @@ public:
           static_cast<GuiChannel *>(p)->view_stage(stage);
         },
         &channel_);
+    view_.fault_diagnostic([](void *p, EXCEPTION_POINTERS *e) {
+      static_cast<GuiChannel *>(p)->view_fault(e);
+    });
     channel_.ready();
   }
   void name(const std::wstring &name) { name_ = name; }

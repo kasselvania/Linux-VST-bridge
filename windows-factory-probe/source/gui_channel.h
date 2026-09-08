@@ -93,6 +93,22 @@ public:
       flag(164).store(stage, std::memory_order_release);
     flag(160).store(stage, std::memory_order_release);
   }
+  void view_fault(EXCEPTION_POINTERS *e) {
+    auto *r = e->ExceptionRecord;
+    auto *c = e->ContextRecord;
+    word(176).store(c->Rip, std::memory_order_relaxed);
+    word(184).store(r->NumberParameters > 1 ? r->ExceptionInformation[1] : 0,
+                    std::memory_order_relaxed);
+    word(192).store(c->Rcx, std::memory_order_relaxed);
+    word(200).store(c->Rdx, std::memory_order_relaxed);
+    word(208).store(c->R8, std::memory_order_relaxed);
+    word(216).store(c->R9, std::memory_order_relaxed);
+    word(224).store(c->Rax, std::memory_order_relaxed);
+    word(232).store(c->Rbp, std::memory_order_relaxed);
+    word(240).store(c->Rsp, std::memory_order_relaxed);
+    flag(172).store(r->NumberParameters, std::memory_order_relaxed);
+    flag(168).store(r->ExceptionCode, std::memory_order_release);
+  }
   void ready() { flag(112).store(1, std::memory_order_release); }
   void heartbeat() { word(144).fetch_add(1, std::memory_order_release); }
   uint64_t close_requested() const {

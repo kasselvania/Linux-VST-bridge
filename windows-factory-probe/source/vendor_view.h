@@ -21,6 +21,21 @@ class VendorView final : public Steinberg::IPlugFrame {
   bool attached_ = false, closing_ = false;
   void (*trace_)(void *, uint32_t) = nullptr;
   void *trace_context_ = nullptr;
+  void (*fault_trace_)(void *, EXCEPTION_POINTERS *) = nullptr;
+  LONG attach_fault(EXCEPTION_POINTERS *e) {
+    if (fault_trace_)
+      fault_trace_(trace_context_, e);
+    // Preserve normal exception handling and outer process containment. This
+    // records only bounded exception metadata, never a vendor memory dump.
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+  static Steinberg::tresult attach_view(VendorView *self) {
+    __try {
+      return self->view_->attached(self->window_, Steinberg::kPlatformTypeHWND);
+    } __except (self->attach_fault(GetExceptionInformation())) {
+      return Steinberg::kInternalError;
+    }
+  }
   void stage(uint32_t code) {
     if (trace_)
       trace_(trace_context_, code);
@@ -197,6 +212,9 @@ public:
     trace_ = trace;
     trace_context_ = context;
   }
+  void fault_diagnostic(void (*trace)(void *, EXCEPTION_POINTERS *)) {
+    fault_trace_ = trace;
+  }
   uint64_t opens = 0, closes = 0, focuses = 0;
   bool scale_supported = false;
   float scale = 1.f;
@@ -231,12 +249,14 @@ public:
     if (result == Steinberg::kResultOk) {
       stage(13);
       result = resize(*size) ? Steinberg::kResultOk : Steinberg::kResultFalse;
+      stage(15);
       if (result == Steinberg::kResultOk &&
           !same(current, *size)) {
         stage(14);
         result = view_->onSize(size);
       }
     }
+    stage(16);
     --resizing_;
     return result;
   }
@@ -336,7 +356,7 @@ public:
         return false;
       }
       stage(9);
-      if (view_->attached(window_, kPlatformTypeHWND) != kResultOk) {
+      if (attach_view(this) != kResultOk) {
         error_ = AP11::Attach;
         close();
         return false;

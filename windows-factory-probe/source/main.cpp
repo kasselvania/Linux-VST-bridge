@@ -53,6 +53,7 @@ int main() {
 #include "component_instance_session.h"
 #include "factory_census.h"
 #include "inspect_module.h"
+#include "ui_apartment.h"
 #include "mapped_processing.h"
 #include "win32_module.h"
 
@@ -273,6 +274,13 @@ int main(int argc, char** argv) {
         const bool ap3_mode=args.at("--mode")=="ap3-queued-audio-preview";
         const bool ap2_mode=args.at("--mode")=="ap2-native-vst3-offline-bridge";
         const bool ap1_mode=args.at("--mode")=="ap1-linux-windows-audio-roundtrip";
+        std::unique_ptr<wf0::UiApartment> apartment;
+        if (ap8_mode || args.at("--mode") == "ap8-module-inspection") {
+            apartment = std::make_unique<wf0::UiApartment>();
+            events.lifecycle("ap11_ui_apartment", ",\"initial_result\":" +
+                std::to_string(apartment->initial) + ",\"initialize_result\":" +
+                std::to_string(apartment->initialized));
+        }
         std::unique_ptr<wf0::MappedSession> mapped;
         if(ap1_mode||ap2_mode||ap3_mode||ap4_mode||ap8_mode) mapped=std::make_unique<wf0::MappedSession>(
             ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events,ap2_mode||ap3_mode||ap4_mode||ap8_mode,ap3_mode||ap4_mode||ap8_mode,ap4_mode||ap8_mode,ap8_mode,ap9_mode);
