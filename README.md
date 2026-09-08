@@ -1,45 +1,43 @@
 # Linux Audio Compatibility Bridge
 
-A managed bridge for using supported Windows audio plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxies, runtime versions or recovery steps.
+A managed bridge for using supported Windows audio plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxies or runtime versions.
 
-Working repository name; not affiliated with Bitwig, Valve, Steinberg or a plug-in vendor. This is an experimental implementation, not a consumer-ready release.
+This is an experimental implementation, not a consumer-ready release. Working repository name; not affiliated with Bitwig, Valve, Steinberg or a plug-in vendor.
 
-## What works
+## Current baseline: AP10 accepted
 
-**AP7 is accepted through PR #65**, merge `cdfd05be9af2576768d8f2ccc55d3064e9e72a36`, reviewed at `5232870e6ce024efe52c2d6be0af7f62b7f021c3`. A temporarily late result now causes an accurately counted presentation gap and aligned continuation, not automatic destruction of the Windows instance. Mandatory validation remains; optional comparison and fingerprinting run independently. The bounded two-instance Bitwig check recorded zero gaps or terminal failures, 21,244,928 returned channel samples checked at zero error and no lost comparison coverage. See [AP7 repair and source-specific limits](docs/AP7_PLAYBACK_REPAIR.md).
+AP8 (#67), AP9 (#69) and AP10 (#71) form the integrated development baseline. AP10's code was reviewed at `fb0faed7cfc097ecb78653421d6e704bb9f25a00`, including the native returned-payload lifetime repair. The integration resolves documentation/status only; original code/build observations keep their provenance.
 
-This builds on [AP4's real state/normal Applications-launch recall](docs/AP4_RESULT.md), [AP5's independent instances](docs/AP5_RESULT.md) and [AP6's explicit recovery](docs/AP6_RESULT.md). Recovery restores the last confirmed complete snapshot, not later uncaptured edits. The private preview owner starts Windows endpoints, not the DAW. The [preview setup](docs/AP4_PREVIEW.md) remains useful, superseded where later results change its historical limits. Reuse the established [desktop access](docs/DECK_REMOTE_DESKTOP.md).
+**Actual Windows Serum 2 and Efx FRAGMENTS work through our native Linux proxy in normally Applications-launched Bitwig.** Retained checks cover notes or audio input, real controls, opaque component/controller state and project recall. The shared delivery path includes bounded returned VST3 events and parameter feedback, aligned continuation after transient audio gaps, and independent optional observation. Reference-effect multi-instance and recovery evidence remains separately scoped; this does not certify simultaneous commercial instances.
 
-**Historical transport/timing failures remain unresolved unless separately explained.** Successful later runs and the repaired underrun policy do not identify their original causes or establish long-run reliability. Original [AP7 observations](docs/AP7_RESULT.md), AP4/D9/A2 and AP5/AP6 evidence retain their original labels. Review and merge records establish acceptance.
+See [AP10 findings and limits](docs/AP10.md), [R1 regression evidence](evidence/AP10/r1-payload-lifetime.json), [AP9 performance](docs/AP9.md), [owner CPU improvement](docs/AP9_OWNER_COST.md), and [AP8 first Serum result](docs/AP8_RESULT.md). Historical attempts and handoffs are evidence, not instructions to resume completed tasks.
 
-The accepted fixture remains AGain: float32 stereo at 48 kHz, 1–256-frame callbacks and **1024 samples of added latency (21.33 ms at 48 kHz)**. Native/owner capacity is four, with actual desktop evidence for two. Prepared artifacts/runtime and a private owner are required. Commercial compatibility, instruments, vendor editors, automatic installation, reboot persistence and low-latency suitability remain unproved. AP7 review N1 notes a nonblocking multi-record diagnostic emission limit; AP8 includes its small local repair.
+## Operating recommendation and limits
 
-## Current goal
+Use **512 added bridge frames at 48 kHz (10.67 ms)** for the retained desktop fixture. Short 256-frame mailbox checks passed, but do not establish a new general default. Vendor-reported latency is additional and reported separately; FRAGMENTS' retained setup reported 192 vendor frames, for 704 total. Observed mean non-plug-in service of roughly 241 microseconds is not presentation delay, physical round trip, or a worst-case guarantee.
 
-**AP9 — Lower bridge latency and measure practical limits**, tracked in #68 and [CURRENT_SLICE.md](CURRENT_SLICE.md). The candidate adds coherent processing setup, configurable presentation delay, larger host blocks and correlated Windows/native timing. A measured Winsock bottleneck is reduced. The candidate default halves added delay to 512 frames (10.67 ms at 48 kHz), the gap-free setting observed in normally launched Bitwig. Lower 128/256 settings passed selected SDK loads but exposed desktop gaps. [AP9 measurements and settings](docs/AP9.md) distinguish fast light-Serum operation from the headroom needed for heavier chord attacks, with explicit gap accounting.
+Float32 is implemented. Host setup and supported buses are negotiated within documented bounds; auxiliary routing, arbitrary dynamic topology, all input-event types and float64 are not universally implemented. Prepared artifacts, a compatible retained runtime/vendor environment and a private preview owner are still required. No polished vendor editor, installer/manager, reboot persistence, general licensing guarantee or broad customer-hardware qualification is claimed.
 
-The branch retains the reviewed AP8 implementation and its [real Serum result](docs/AP8_RESULT.md). PR #67 remains untouched. AP9 is a separate, unmerged candidate; the accepted AP7 boundary above and earlier evidence retain their original status.
+Tracked follow-through: [residual latency stalls and lower settings #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72), [historical native engine close crash #73](https://github.com/kasselvania/Linux-VST-bridge/issues/73), and [prompt endpoint-failure notification #74](https://github.com/kasselvania/Linux-VST-bridge/issues/74). Later clean runs do not explain earlier failures.
 
 ## Start here
 
-Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then relevant code and design sections. [Development guidance](docs/DEVELOPMENT_PROCESS.md) covers iteration; [governance](GOVERNANCE.md) covers decisions and evidence. The [design dossier](docs/DESIGN_DOSSIER.md) and [architecture](docs/ARCHITECTURE.md) describe the broader product, not a checklist to implement in every slice.
+Read [AGENTS.md](AGENTS.md) and [CURRENT_SLICE.md](CURRENT_SLICE.md), then the relevant code and [design dossier](docs/DESIGN_DOSSIER.md). [Development guidance](docs/DEVELOPMENT_PROCESS.md) and [governance](GOVERNANCE.md) retain the outcome-led workflow: implement, test proportionately, review one PR. No receipt-writing loop, compulsory duplicate campaign or arbitrary retry quota.
 
-An approved task includes implementation, focused tests and routine repair. No mandatory receipt-writing, two-run diagnostic rule, duplicated acceptance campaign or separate status-closure PR. Review the actual result and its limitations. Preserve safe process ownership, real-time behavior and existing user work.
+No successor implementation task is selected by this integration cleanup. Start subsequent work from current `main`, not the completed AP8/AP9/AP10 branches. Preserve any dirty local work before switching or integrating; repository cleanup does not authorize discarding it. The next selection should combine user-visible progress with honest audio performance, rather than reopen completed proofs.
+
+Reuse [SSH/Moonlight desktop access](docs/DECK_REMOTE_DESKTOP.md); launch Bitwig through Applications. Remote access is development tooling, not a runtime dependency. Older [preview setup](docs/AP4_PREVIEW.md) is historical where later results supersede it.
 
 ## Code and records
 
-- `native-vst3-proxy/`: official SDK-facing Linux plug-in shell and Rust backend.
-- `native-audio-client/`: Linux transport/client code and tests.
-- `windows-factory-probe/`: Windows SDK host, lifecycle and processing.
-- `tools/`: builds, preview owner, supervised test helpers and legacy transaction tooling.
-- `docs/` and `evidence/`: product design, guidance and retained observations with original labels/failures.
+- `native-vst3-proxy/`: Linux SDK-facing proxy and Rust backend.
+- `native-audio-client/`: transport/client code; `windows-factory-probe/`: actual Windows SDK host.
+- `tools/`: builds, private preview owner and test helpers; `docs/` and `evidence/`: design and source-specific results.
 
-Rust is primary. C++20 is used at the official VST3 edges; C++ objects do not cross the C ABI. A Linux host loads a native proxy, not a Windows DLL directly. The supervised Windows endpoint runs the real plug-in.
+Rust is primary; C++20 is used at the SDK edges. The optional `tools/proof-run.py` and historical ledgers do not govern new task permission. Build products, proprietary installers, plug-ins, presets, activation data and credentials must remain outside version control.
 
-`tools/proof-run.py` is an optional legacy exact-transaction interface, not the default development permission system. Its fail-closed defaults and old ledgers do not define the current task.
+## Product direction
 
-## Product direction and licensing
+A separate manager will organize installation, vendor authorization, scanning and selective publication. Each published native proxy represents its actual Windows plug-in class; the manager window should not be needed for playback. Generic prototype names are temporary. Vendor editors, correct identity/automation, low-latency instruments and audio effects are product priorities.
 
-The intended experience is install, authorize, scan, publish to a DAW, use, save, reopen, update and recover predictably. Broader runtime management, commercial support and a user-facing installer still need implementation and verification.
-
-No repository-wide software license has been selected. Third-party SDK/runtime licensing and a final product name remain open decisions. Do not commit proprietary installers, plug-ins, presets, license/activation data or credentials.
+No repository-wide software license or final product name has been selected. Third-party licensing and distribution remain explicit future decisions.
