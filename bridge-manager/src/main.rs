@@ -23,6 +23,7 @@ struct Software {
     supervisor: Artifact,
     ownership: Artifact,
     host: Artifact,
+    source_manifest: Artifact,
     source_sha256: String,
 }
 #[derive(Serialize, Deserialize)]
@@ -73,9 +74,19 @@ struct InspectionRequest {
 }
 fn software(m: &Manager) -> Result<Software> {
     let s: Software = read_json(&m.root.join("software.json"))?;
-    for a in [&s.manager, &s.supervisor, &s.ownership, &s.host] {
+    for a in [
+        &s.manager,
+        &s.supervisor,
+        &s.ownership,
+        &s.host,
+        &s.source_manifest,
+    ] {
         a.verify()?;
     }
+    require(
+        s.source_manifest.sha256 == s.source_sha256,
+        "host source manifest differs",
+    )?;
     Ok(s)
 }
 fn systemd(s: &str) -> String {
@@ -94,6 +105,10 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
         ("session.py", package.join("session.py")),
         ("ownership.py", package.join("ownership.py")),
         ("host.exe", package.join("host.exe")),
+        (
+            "host-source-manifest.json",
+            package.join("host-source-manifest.json"),
+        ),
     ];
     let mut identity = String::new();
     for (_, p) in &files {
@@ -135,8 +150,13 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
         supervisor: a("session.py")?,
         ownership: a("ownership.py")?,
         host: a("host.exe")?,
+        source_manifest: a("host-source-manifest.json")?,
         source_sha256: source,
     };
+    require(
+        installed.source_manifest.sha256 == installed.source_sha256,
+        "host source manifest hash differs",
+    )?;
     if let Ok(old) = read_json::<Software>(&m.root.join("software.json")) {
         if old.manager.path != installed.manager.path {
             let running = Command::new("systemctl")
@@ -310,6 +330,10 @@ fn serve(m: Manager) -> Result<()> {
                     "registration protocol mismatch",
                 )?;
                 let r: HostBinding = m.resolve(&greeting[5..])?.into();
+                require(
+                    r.host == s.host && r.host_source_sha256 == s.source_sha256,
+                    "registered host differs from installed software revision",
+                )?;
                 let (job, path) = spec(&m, r.clone(), false, false, false)?;
                 // Deliver the private binding inside the native greeting deadline.
                 // Cold Wine startup then uses the existing bounded transport accept.
