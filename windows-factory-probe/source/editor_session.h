@@ -24,6 +24,9 @@ class EditorSession {
        group_ = false, was_open_ = false, ever_opened_ = false;
   std::wstring name_;
   ap11_gui_message_t last_open_{};
+  uint32_t focus_result_ = AP11::FocusNotRequested;
+  bool focus_pending_ = false;
+  bool desktop_confirmed_ = false;
   Parameter *parameter(uint32_t id) {
     auto p =
         std::lower_bound(parameters_.begin(), parameters_.end(), id,
@@ -50,9 +53,9 @@ class EditorSession {
     m.requestor_x11 = last_open_.requestor_x11;
     m.target_x11 = view_.is_open() ? view_.x11_window() : 0;
     m.view_epoch = uint32_t(view_.opens);
-    m.focus_flags = uint32_t(view_.focus_api_result) |
-                    (uint32_t(view_.focus_window) << 1) |
+    m.focus_flags = (uint32_t(view_.focus_window) << 1) |
                     (uint32_t(view_.focus_keyboard) << 2);
+    m.focus_result = focus_result_;
     channel_.open_state(view_.is_open());
     channel_.send(m);
     was_open_ = view_.is_open();
@@ -262,6 +265,8 @@ public:
     refresh_revision_ = channel_.revision();
   }
   bool close() {
+    focus_pending_ = false;
+    focus_result_ = AP11::FocusCancelled;
     if (!view_.close())
       return false;
     for (auto &p : parameters_)
@@ -309,10 +314,26 @@ public:
         }
         ever_opened_ = true;
         last_open_ = m;
+        focus_pending_ = false;
+        focus_result_ = AP11::FocusPending;
+        ++view_.focus_requests;
         view_.open(controller_);
         if (view_.window() && !name_.empty())
           SetWindowTextW(view_.window(), name_.c_str());
         status();
+      } else if (m.kind == AP11::Focus) {
+        if (m.activation != last_open_.activation || !view_.is_open() ||
+            m.target_x11 != view_.x11_window() || m.view_epoch != view_.opens ||
+            focus_result_ != AP11::FocusPending)
+          continue;
+        if (m.focus_result < AP11::FocusConfirmed ||
+            m.focus_result > AP11::FocusCancelled) {
+          channel_.fail(AP11::Protocol);
+          break;
+        }
+        desktop_confirmed_ = m.focus_result == AP11::FocusConfirmed;
+        focus_result_ = m.focus_result;
+        focus_pending_ = true;
       } else if (m.kind == AP11::Set) {
         if (!m.revision || !host_value(m.id, m.value, m.revision)) {
           channel_.fail(AP11::Controller);
@@ -330,6 +351,15 @@ public:
       channel_.fail(AP11::Closed);
       close();
       return;
+    }
+    if (focus_pending_) {
+      focus_pending_ = false;
+      if (desktop_confirmed_ && !view_.confirm_focus(true))
+        focus_result_ = AP11::FocusDenied;
+      // A negative native result remains negative even if Wine cached focus.
+      if (!desktop_confirmed_)
+        view_.confirm_focus(false);
+      status();
     }
     if (view_.close_requested() || was_open_ != view_.is_open()) {
       if (!close())

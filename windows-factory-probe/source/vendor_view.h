@@ -231,7 +231,7 @@ public:
   }
   uint64_t opens = 0, closes = 0, focuses = 0, removal_messages = 0;
   uint64_t focus_requests = 0;
-  bool focus_api_result = false, focus_window = false, focus_keyboard = false;
+  bool focus_window = false, focus_keyboard = false;
   uint32_t x11_window() const {
     // Pinned Wine X11 driver capability, not a cast of HWND to XID. Missing
     // property is unsupported; never find another window by its display name.
@@ -288,24 +288,8 @@ public:
       error_ = AP11::WrongThread;
       return false;
     }
-    if (window_ && view_) {
-      ShowWindow(window_, SW_RESTORE);
-      // A detached editor can sit behind the native DAW after host controls
-      // are used. Raise its existing top-level window on explicit open/focus.
-      SetWindowPos(window_, HWND_TOP, 0, 0, 0, 0,
-                   SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-      focus_api_result = SetForegroundWindow(window_) != FALSE;
-      SetFocus(window_);
-      focus_window = GetForegroundWindow() == window_;
-      auto keyboard = GetFocus();
-      focus_keyboard =
-          keyboard == window_ || (keyboard && IsChild(window_, keyboard));
-      ++focus_requests;
-      if (focus_api_result && focus_window && focus_keyboard &&
-          !IsIconic(window_))
-        ++focuses;
-      return true;
-    }
+    if (window_ && view_)
+      return true; // activation is a separate WM transaction
     error_ = 0;
     try {
       stage(1);
@@ -404,17 +388,9 @@ public:
         return false;
       }
       stage(11);
-      ShowWindow(window_, SW_SHOW);
-      focus_api_result = SetForegroundWindow(window_) != FALSE;
-      SetFocus(window_);
-      focus_window = GetForegroundWindow() == window_;
-      auto keyboard = GetFocus();
-      focus_keyboard =
-          keyboard == window_ || (keyboard && IsChild(window_, keyboard));
-      ++focus_requests;
-      if (focus_api_result && focus_window && focus_keyboard &&
-          !IsIconic(window_))
-        ++focuses;
+      // Mapping an editor does not establish foreground or keyboard ownership.
+      // The native click is activated by the desktop WM after target handoff.
+      ShowWindow(window_, SW_SHOWNOACTIVATE);
       stage(100);
       ++opens;
       return true;
@@ -474,6 +450,20 @@ public:
       closing_ = false;
       return false;
     }
+  }
+  bool confirm_focus(bool desktop_confirmed) {
+    if (owner_ != std::this_thread::get_id() || !attached_ || !window_)
+      return false;
+    auto foreground = GetForegroundWindow();
+    auto keyboard = GetFocus();
+    focus_window = foreground == window_;
+    focus_keyboard =
+        keyboard == window_ || (keyboard && IsChild(window_, keyboard));
+    const bool accepted = desktop_confirmed && focus_window && focus_keyboard &&
+                          IsWindowEnabled(window_) && !IsIconic(window_);
+    if (accepted)
+      ++focuses;
+    return accepted;
   }
   bool close_requested() const { return close_requested_; }
   bool is_open() const { return attached_; }

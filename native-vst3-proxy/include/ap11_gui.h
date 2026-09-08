@@ -23,6 +23,7 @@ enum Kind : uint32_t {
   Close = 2,
   Set = 3,
   Refresh = 4,
+  Focus = 5,
   Begin = 101,
   Value = 102,
   End = 103,

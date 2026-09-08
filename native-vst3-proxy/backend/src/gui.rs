@@ -166,7 +166,7 @@ impl Gui {
         if self.fail(0) != 0 {
             return 2;
         }
-        if !matches!(message.kind, 1 | 3 | 4)
+        if !matches!(message.kind, 1 | 3 | 4 | 5)
             || (message.kind == 3
                 && (!message.value.is_finite() || !(0.0..=1.0).contains(&message.value)))
         {

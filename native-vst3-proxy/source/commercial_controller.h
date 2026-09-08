@@ -3,6 +3,7 @@
 #include "ap10_backend.h"
 #include "ap11_gui.h"
 #include "ap8_descriptor.h"
+#include "desktop_activation.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "vendor_panel.h"
 #include <algorithm>
@@ -181,6 +182,7 @@ public:
         finishGestures();
         pending_count_ = 0;
         failure_ = 0;
+        activation_.cancel();
         refreshing_ = false;
         for (auto &p : states_)
           p.revision = 0;
@@ -285,14 +287,20 @@ public:
     status_ = "Opening vendor editor...";
     ap11_gui_message_t m{};
     m.kind = AP11::Open;
+    if (activation_serial_ == UINT64_MAX) {
+      status_ = "Editor activation identity exhausted";
+      return;
+    }
     m.activation = ++activation_serial_;
     m.user_time = activation.user_time;
     m.requestor_x11 = activation.requestor_x11;
+    activation_.begin(m);
     command(m);
     m.kind = AP11::Refresh;
     command(m);
   }
   void panelClose() override {
+    activation_.cancel();
     if (onOwner() && connected_) {
       ap11_gui_message_t m{};
       m.kind = AP11::Close;
@@ -303,6 +311,7 @@ public:
 
 private:
   uint64_t activation_serial_ = 0;
+  AP11::DesktopActivation activation_;
   bool onOwner() const { return owner_ == std::this_thread::get_id(); }
   ParameterState *state(uint32_t id) {
     auto p =
@@ -389,6 +398,12 @@ private:
                  ? componentHandler2->requestOpenEditor(ViewType::kEditor)
                  : kNotImplemented;
     case AP11::EditorStatus:
+      if (m.activation != activation_serial_)
+        return kResultOk;
+      if (!m.count)
+        activation_.cancel();
+      if (m.count && m.focus_result == AP11::FocusPending)
+        activation_.target(m);
       if (m.result) {
         switch (m.result) {
         case AP11::NoView:
@@ -404,8 +419,18 @@ private:
           status_ = "Vendor editor could not open or close";
           break;
         }
-      } else
-        status_ = m.count ? "Vendor editor open" : "Vendor editor closed";
+      } else if (!m.count)
+        status_ = "Vendor editor closed";
+      else if (m.focus_result == AP11::FocusConfirmed)
+        status_ = "Focus transferred to vendor editor";
+      else if (m.focus_result == AP11::FocusDenied)
+        status_ = "Editor open; desktop focus request refused";
+      else if (m.focus_result == AP11::FocusUnsupported)
+        status_ = "Editor open; click Open to request focus";
+      else if (m.focus_result == AP11::FocusCancelled)
+        status_ = "Editor open; focus request cancelled";
+      else
+        status_ = "Vendor editor open; requesting focus...";
       return kResultOk;
     case AP11::RefreshBegin:
       if (refreshing_ || m.count != states_.size() || !m.revision ||
@@ -462,6 +487,12 @@ private:
       request("AP11.bind");
     else
       request("AP11.poll");
+    ap11_gui_message_t focus{};
+    if (activation_.poll(focus)) {
+      focus.kind = AP11::Focus;
+      // A focus denial is a UI result, never a failed audio/session channel.
+      command(focus);
+    }
     ticking_ = false;
   }
   void capabilities(bool attached = true) {
@@ -470,7 +501,8 @@ private:
     auto *m = allocateMessage();
     if (m) {
       m->setMessageID("AP10.capabilities");
-      m->getAttributes()->setInt("notifications", attached && componentHandler && timer_ ? 1 : 0);
+      m->getAttributes()->setInt(
+          "notifications", attached && componentHandler && timer_ ? 1 : 0);
       sendMessage(m);
       m->release();
     }
@@ -480,9 +512,10 @@ private:
     if (m) {
       m->setMessageID("AP11.capabilities");
       m->getAttributes()->setInt("generation", Steinberg::int64(generation_));
-      m->getAttributes()->setInt("caps", attached ? ((componentHandler ? 1 : 0) |
-                                             (componentHandler2 ? 2 : 0) |
-                                             (timer_ ? 4 : 0)) : 0);
+      m->getAttributes()->setInt(
+          "caps", attached ? ((componentHandler ? 1 : 0) |
+                              (componentHandler2 ? 2 : 0) | (timer_ ? 4 : 0))
+                           : 0);
       sendMessage(m);
       m->release();
     }

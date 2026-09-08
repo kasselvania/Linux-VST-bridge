@@ -193,13 +193,16 @@ struct Mapping {
     return std::atomic_ref<uint64_t>(*reinterpret_cast<uint64_t *>(data + off));
   }
   void command(uint32_t kind, double value = 0, uint64_t revision = 0) {
-    auto p = word(64).load(), c = word(72).load();
-    check(p - c < 512, "command bound");
     ap11_gui_message_t m{};
     m.kind = kind;
     m.id = 42;
     m.value = value;
     m.revision = revision;
+    command(m);
+  }
+  void command(const ap11_gui_message_t &m) {
+    auto p = word(64).load(), c = word(72).load();
+    check(p - c < 512, "command bound");
     std::memcpy(data + 256 + p % 512 * sizeof(m), &m, sizeof(m));
     word(64).store(p + 1, std::memory_order_release);
   }
@@ -279,21 +282,37 @@ int main() {
   native.drain();
   native.command(AP11::Open);
   session.service(true);
-  check(c->stats.created == 1 && session.view().focus_requests == 2,
-        "repeated open attempts focus on the existing view");
-  const auto successes = session.view().focuses;
-  const auto window = session.view().window();
-  EnableWindow(window, FALSE);
-  SetFocus(nullptr);
-  native.command(AP11::Open);
+  check(c->stats.created == 1 && session.view().focuses == 0,
+        "repeated open preserves view without claiming desktop activation");
+  auto pending = native.drain();
+  check(pending.size() == 1 && pending[0].kind == AP11::EditorStatus &&
+            pending[0].focus_result == AP11::FocusPending,
+        "editor exposes pending desktop handoff");
+  auto focus = pending[0];
+  focus.kind = AP11::Focus;
+  focus.focus_result = AP11::FocusDenied;
+  ++focus.view_epoch;
+  native.command(focus);
   session.service(true);
-  check(c->stats.created == 1 && session.is_open() && channel.failure() == 0 &&
-            session.view().focus_requests == 3 &&
-            session.view().focuses == successes &&
-            !session.view().focus_keyboard,
-        "denied keyboard activation is not counted and preserves the "
-        "view/session");
-  EnableWindow(window, TRUE);
+  check(native.drain().empty(), "stale view focus result ignored");
+  --focus.view_epoch;
+  ++focus.activation;
+  native.command(focus);
+  session.service(true);
+  check(native.drain().empty(), "stale activation result ignored");
+  --focus.activation;
+  native.command(focus);
+  session.service(true);
+  auto refused = native.drain();
+  check(refused.size() == 1 && refused[0].focus_result == AP11::FocusDenied &&
+            session.is_open() && channel.failure() == 0 &&
+            session.view().focuses == 0 && c->stats.created == 1,
+        "refused desktop handoff never counts cached Windows focus or closes "
+        "DSP");
+  native.command(focus);
+  session.service(true);
+  check(native.drain().empty(), "duplicate completed focus result ignored");
+  SendMessageW(session.view().window(), WM_SETFOCUS, 0, 0);
   SendMessageW(session.view().window(), WM_KEYDOWN, VK_LEFT, 0);
   SendMessageW(session.view().window(), WM_KEYUP, VK_LEFT, 0);
   SendMessageW(session.view().window(), WM_CHAR, L'a', 0);
