@@ -171,6 +171,10 @@ class VendorView final : public Steinberg::IPlugFrame {
     if (size.getWidth() < 1 || size.getHeight() < 1 || size.getWidth() > 8192 ||
         size.getHeight() > 8192)
       return false;
+    RECT current{};
+    if (GetClientRect(window_, &current) &&
+        current.right == size.getWidth() && current.bottom == size.getHeight())
+      return true;
     RECT r{0, 0, size.getWidth(), size.getHeight()};
     auto style = DWORD(GetWindowLongPtrW(window_, GWL_STYLE));
     if (!AdjustWindowRectEx(&r, style, FALSE, 0))

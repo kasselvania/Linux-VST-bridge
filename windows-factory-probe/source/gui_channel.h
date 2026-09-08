@@ -89,6 +89,8 @@ public:
     return flag(136).load(std::memory_order_acquire);
   }
   void view_stage(uint32_t stage) {
+    if (stage < 12 || stage == 100)
+      flag(164).store(stage, std::memory_order_release);
     flag(160).store(stage, std::memory_order_release);
   }
   void ready() { flag(112).store(1, std::memory_order_release); }
