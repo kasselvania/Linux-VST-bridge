@@ -53,7 +53,7 @@ public:
    auto e=sdk(owned,payload);if(e.type==Event::kNoteOnEvent&&note_count==notes.size()){++rejected;return false;}
    bool accepted=false;try{accepted=data.outputEvents->addEvent(e)==kResultOk;}catch(...){accepted=false;}
    if(!accepted){++rejected;return false;}++events;
-   if(e.type==Event::kNoteOnEvent)notes[note_count++]=e;
+   if(e.type==Event::kNoteOnEvent)notes[note_count++]=sdk(r,packet.payload);
    if(e.type==Event::kNoteOffEvent)for(size_t j=0;j<note_count;++j)if(match(notes[j],e)){for(size_t k=j+1;k<note_count;++k)notes[k-1]=notes[k];--note_count;break;}
   }
   for(uint32_t i=0;i<packet.points;++i){const auto&p=packet.point[i];if(!known(p.id)){++rejected;return false;}

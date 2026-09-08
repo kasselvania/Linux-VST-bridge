@@ -3,7 +3,7 @@
   "review": 5136589052,
   "reviewed_head": "ce1c39324040099b6236eac83c03c3ffe55f6831",
   "source_blobs": {
-    "native-vst3-proxy/source/output_results.h": "56bad3078c99d7937f109c378f23a4e3bde29f41",
+    "native-vst3-proxy/source/output_results.h": "a8c42e4b382c2792b0b7cb62f0dc58d78d92a8b4",
     "native-vst3-proxy/source/processor.cpp": "4b92f639e448970feefd4c1073d8ea0e476116d4",
     "native-vst3-proxy/tests/result_lifetime/main.cpp": "aaf72998a6022ec05038b367ead61858316dc998",
     "native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h": "498c28aba73ff2e4091c2fc1e2ea354a5ecf21ff",
@@ -31,7 +31,7 @@
     "original_collector_tests": "pass"
   },
   "green": {
-    "input_archive_sha256": "182b9d0d89182681c2bfaed3a766839b1182e06338b3972f18c18a86313ba0dc",
+    "input_archive_sha256": "09d00c4fa73dd5aff31ccb15dca184bced0b7be2a3b75aa6d0d4c4e1bc5007b2",
     "test_exit": 0,
     "native_proxy_build": "pass",
     "original_collector_tests": "pass (unchanged source, assertions enabled)",
@@ -80,10 +80,10 @@
     "close": "controlled owner closed exactly once; failed instance remains reported unclean",
     "binaries": {
       "libap2_backend.a": "4b93e86a136468d148f9891e399557db579a0bf08bf050d5592f39d478447860",
-      "build/native-vst3-proxy/ap10-result-lifetime": "254e131baf8e354c0bf057197c6dffb2a42cd3fdaef7d9d4a3a2d17c1f427014",
-      "build/native-vst3-proxy/ap10-results-tests": "ff38f2499d7c18d188915e717a29c9993f603ce75e218d34ae6255ffb3350690",
+      "build/native-vst3-proxy/ap10-result-lifetime": "7e5a5dc0f8bba7487f715c618db34835fbf6e69f96813ecb9600963133390609",
+      "build/native-vst3-proxy/ap10-results-tests": "aa653411e0427a3eee11c59ba00220086c1fdf1bb84d369111b97708052e3466",
       "build/native-vst3-proxy/libap3-callback-audit.so": "91d720d478ea70f39387a1da859624696c9c57ff57ef60995b03ca41f39b9f69",
-      "build/VST3/Release/CommercialInstrumentBridge.vst3/Contents/x86_64-linux/CommercialInstrumentBridge.so": "428827bd9c7174dca9b860ce05075ca3a1ac85b2bbf0f2a180bba652b16b438a"
+      "build/VST3/Release/CommercialInstrumentBridge.vst3/Contents/x86_64-linux/CommercialInstrumentBridge.so": "aeba2b6fa4a06e816fcf4c61554f55e7820ada38b930e4d707d5a634450c26a6"
     }
   },
   "preserved": {
@@ -97,5 +97,13 @@
     "Existing commercial workloads emitted no returned events or parameter points; their audio/recall/close evidence is retained at its recorded source, not relabeled as a new R1 run.",
     "Historical stalls, gap counts and close-time engine crash remain unchanged.",
     "Fixed storage adds 256 KiB per processor and one bounded copy per requested payload; no new performance claim."
+  ],
+  "ci_attempts": [
+    {
+      "source": "8c49af8f2f0a8538151b902983d0fca4eee5a673",
+      "run": 34180420931,
+      "result": "configuration failure before tests",
+      "reason": "Ubuntu runner lacked X11 development headers/library required by the existing native proxy build. Workflow now installs libx11-dev; Deck native regression already passed."
+    }
   ]
 }
