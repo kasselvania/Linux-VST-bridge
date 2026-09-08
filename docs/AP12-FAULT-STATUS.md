@@ -13,7 +13,10 @@ Three single-writer lanes start at offsets 64, 384 and 704: native transport,
 Windows delivery and Windows UI owner. Each lane has a 64-bit publication counter
 and two 128-byte slots at lane+64 and lane+192. Slots contain ten atomic u64
 fields: generation, epoch, request sequence, stream position, stage, detail,
-clock ticks, frequency, thread ID, process ID. The Windows lanes copy a stable
+clock ticks, frequency, thread ID, process ID.
+The owner also atomically reads the existing mailbox request/reply flags (two
+independent samples, not a simultaneous transaction). Thus a writer interrupted
+between flag publication and its diagnostic update remains distinguishable. The Windows lanes copy a stable
 native generation when available; zero means not yet published, not generation 1.
 The random session and epoch distinguish endpoint replacement and processing
 intervals. Owner activity has no invented per-request identity; correlate the

@@ -104,7 +104,7 @@ class OwnershipTests(unittest.TestCase):
         receipts=[]
         def fail_report(path,value):
             if path.name in ('report.json','report.fault.json'):raise OSError('injected rich report failure')
-            
+
             if path.name.endswith('.ownership.json'):receipts.append(value.copy())
             return atomic(path,value)
         try:

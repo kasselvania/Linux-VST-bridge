@@ -75,7 +75,7 @@ class FaultStatus:
     """
     fields=('generation','epoch','request_sequence','position','stage','detail','ticks','frequency','thread_id','process_id')
     def __init__(self,directory,sid):
-        self.map=None;self.last=[None]*3;self.pending=None;self.suspect=None
+        self.map=None;self.mailbox=None;self.last=[None]*3;self.pending=None;self.suspect=None
         try:
             fd=os.open(directory/'ap12.status',os.O_RDWR|os.O_NOFOLLOW)
         except FileNotFoundError:return # legacy diagnostic clients
@@ -90,6 +90,17 @@ class FaultStatus:
         self.lib=ctypes.CDLL('libatomic.so.1')
         self.load=getattr(self.lib,'__atomic_load_8');self.load.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load.restype=ctypes.c_uint64
         self.address=ctypes.addressof(ctypes.c_char.from_buffer(self.map))
+        self.load4=getattr(self.lib,'__atomic_load_4');self.load4.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load4.restype=ctypes.c_uint32
+        try:fd=os.open(directory/'ap10.delivery',os.O_RDWR|os.O_NOFOLLOW)
+        except FileNotFoundError:return
+        try:
+            st=os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=33024 or st.st_mode&0o077:raise RuntimeError('fault mailbox ownership/extent')
+            self.mailbox=mmap.mmap(fd,33024,access=mmap.ACCESS_WRITE)
+            if self.mailbox[:32]!=b'LVBM'+struct.pack('<III',2,33024,0)+bytes.fromhex(sid):raise RuntimeError('fault mailbox identity/version')
+            self.mailbox_address=ctypes.addressof(ctypes.c_char.from_buffer(self.mailbox))
+        except Exception:self.close();raise
+        finally:os.close(fd)
     def word(self,offset):return self.load(self.address+offset,5) # sequentially consistent
     def lane(self,index):
         base=64+index*320
@@ -106,7 +117,11 @@ class FaultStatus:
         if self.map is None:return {'available':False}
         return {'available':True,'schema':1,'sample_monotonic_ns':time.monotonic_ns(),
                 'clock_domains':['linux_monotonic_ns','windows_qpc','windows_qpc'],
-                **{name:self.lane(i) for i,name in enumerate(('native','delivery','owner'))}}
+                **{name:self.lane(i) for i,name in enumerate(('native','delivery','owner'))},
+                'mailbox_flags':None if self.mailbox is None else {
+                    'request':self.load4(self.mailbox_address+64,5),
+                    'reply':self.load4(self.mailbox_address+128,5),
+                    'independently_sampled':True}}
     def poll(self):
         if self.map is None or self.suspect is not None:return
         native=self.lane(0)
@@ -119,6 +134,7 @@ class FaultStatus:
             # deadline or declare that this request necessarily fails later.
             self.suspect=self.snapshot();self.suspect['observed_pending_seconds']=now-self.pending[1]
     def close(self):
+        if self.mailbox is not None:self.mailbox.close();self.mailbox=None
         if self.map is not None:self.map.close();self.map=None
 
 def fault_threads(owned):
