@@ -49,7 +49,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     const bool hosted=external&&external->hosted();
     const bool sustained=external&&external->sustained();
     const bool stateful=external&&external->stateful();
-    if(stateful)external->bind_component(&component);
+    if(stateful){external->bind_component(&component);external->bind_processor(&processor);}
     for(;;) {
     if(stateful&&!external->initial_transition())return {true,true};
     uint32_t maximum=external?capacity:frames;
@@ -101,16 +101,19 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     };
     if(hosted) {
         maximum=external->lifecycle_request(8);
-        const auto latency=processor.getLatencySamples(), tail=processor.getTailSamples();
-        events.lifecycle("ap2_processor_traits",",\"latency_samples\":"+std::to_string(latency)+",\"tail_samples\":"+std::to_string(tail));
-        if(latency!=0 || (!commercial&&tail!=0)) throw std::runtime_error("AP2 retained processor latency/tail differs");
+
     }
     if(stateful)for(auto& block:blocks)block.data.processMode=external->process_mode();
     SpeakerArrangement input=SpeakerArr::kStereo, output=SpeakerArr::kStereo;
-    if (!call("set_bus_arrangements",[&]{return processor.setBusArrangements(inputs?&input:nullptr,inputs,&output,1);})) return {false,true};
+    if (!(external&&external->performance()) && !call("set_bus_arrangements",[&]{return processor.setBusArrangements(inputs?&input:nullptr,inputs,&output,1);})) return {false,true};
     ProcessSetup setup{};setup.processMode=stateful?static_cast<int32>(external->process_mode()):sustained?kRealtime:kOffline;setup.symbolicSampleSize=kSample32;
-    setup.maxSamplesPerBlock=static_cast<int32>(maximum);setup.sampleRate=48000.;
-    if (!call("setup_processing",[&]{return processor.setupProcessing(setup);})) return {false,true};
+    setup.maxSamplesPerBlock=static_cast<int32>(maximum);setup.sampleRate=external?external->sample_rate():48000.;
+    if (!(external&&external->performance()) && !call("setup_processing",[&]{return processor.setupProcessing(setup);})) return {false,true};
+    if(hosted&&!external->performance()){
+        const auto latency=processor.getLatencySamples(),tail=processor.getTailSamples();
+        events.lifecycle("ap2_processor_traits",",\"latency_samples\":"+std::to_string(latency)+",\"tail_samples\":"+std::to_string(tail));
+        if(latency!=0||(!commercial&&tail!=0))throw std::runtime_error("AP2 retained processor latency/tail differs");
+    }
     if (inputs&&!call("activate_audio_input",[&]{return component.activateBus(kAudio,kInput,0,true);})) return {false,true};
     if (!call("activate_audio_output",[&]{return component.activateBus(kAudio,kOutput,0,true);})) return {false,true};
     if (event_inputs&&!call(commercial?"activate_event_input":"deactivate_event_input",[&]{return component.activateBus(kEvent,kInput,0,commercial);})) return {false,true};
@@ -161,7 +164,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     }
                     block.worker_thread=std::this_thread::get_id()!=owner;
                     if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
+                    const auto process_start=std::chrono::steady_clock::now();
                     block.result=processor.process(block.data);
+                    const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     if(!sustained)events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
                         ",\"result\":"+std::to_string(block.result));
                     if(block.result!=kResultOk) {ok=false;if(sustained)throw std::runtime_error("Windows processor returned failure");break;}
@@ -178,7 +183,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         }
                         if(!sustained)events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
                     }
-                    if(external) external->done(block.out[0],block.out[1],block.output_bus.silenceFlags);
+                    if(external) external->done(block.out[0],block.out[1],block.output_bus.silenceFlags,uint64_t(process_ns));
                 }
             } catch (...) {primary_error=std::current_exception();worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after

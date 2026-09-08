@@ -38,9 +38,9 @@ public:
   Steinberg::tresult PLUGIN_API canProcessSampleSize(Steinberg::int32) override;
   Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData &) override;
   Steinberg::uint32 PLUGIN_API getLatencySamples() override {
-    return preview_ || queued_ ? 1024 : 0;
+    return preview_ ? latency_ : queued_ ? 1024 : 0;
   }
-  Steinberg::uint32 PLUGIN_API getTailSamples() override { return 0; }
+  Steinberg::uint32 PLUGIN_API getTailSamples() override { return tail_; }
   Steinberg::tresult PLUGIN_API
   getControllerClassId(Steinberg::TUID id) override {
     if (preview_) {
@@ -88,6 +88,7 @@ private:
   uint64_t handle_ = 0;
   char report_path_[4096]{};
   int maximum_ = 0;
+  uint32_t latency_ = 1024, tail_ = 0;
   unsigned blocks_ = 0;
   std::atomic<uint64_t> callback_rejections_{0};
   uint64_t frames_ = 0, zero_gain_blocks_ = 0;

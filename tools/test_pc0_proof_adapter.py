@@ -472,7 +472,7 @@ class PC0AdapterTests(unittest.TestCase):
                 "verify_diagnostic_runner":self.runtime_observation,
                 "handshake":expected,"command_vector":["inert-test-command"],
                 "controlled_environment":{},"process_identity":{"pid":123,"start_ticks":1},
-                "descendants":[],"topology":{},"protected_snapshot":self.protected,
+                "descendants":[],"descendant_identities":[],"topology":{},"protected_snapshot":self.protected,
                 "cleanup_process":{"owned_descendants_zero":True,"process_group_empty":True},
             }.items():
                 stack.enter_context(patch.object(self.diagnostic,name,return_value=value))
@@ -504,7 +504,7 @@ class PC0AdapterTests(unittest.TestCase):
                 "verify_diagnostic_runner":self.runtime_observation,"verify_environment":None,
                 "handshake":b"ready","command_vector":["inert-test-command"],
                 "controlled_environment":{},"process_identity":{"pid":123,"start_ticks":1},
-                "descendants":[],"protected_snapshot":self.protected,
+                "descendants":[],"descendant_identities":[],"protected_snapshot":self.protected,
             }.items():
                 stack.enter_context(patch.object(self.diagnostic,name,return_value=value))
             cleanup = stack.enter_context(patch.object(self.diagnostic,"cleanup_process",return_value={

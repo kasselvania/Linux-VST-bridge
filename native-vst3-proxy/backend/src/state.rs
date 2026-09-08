@@ -125,13 +125,13 @@ impl Session {
                 "state response correlation",
             )?;
             need(reply.payload.len() <= LIMIT, "state response cap")?;
-            if let Some(p) = restore.filter(|_| self.minor == 4) {
+            if let Some(p) = restore.filter(|_| matches!(self.minor, 4 | 6)) {
                 need(
                     reply.payload == p,
                     "restored Windows state readback differs",
                 )?;
             }
-            if self.minor == 4 {
+            if matches!(self.minor, 4 | 6) {
                 reference(&reply.payload)?;
             } else {
                 commercial_payload(&reply.payload)?;

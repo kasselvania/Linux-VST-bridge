@@ -106,7 +106,7 @@ class PreviewTests(unittest.TestCase):
                 now+=200
             for name,value in {'verify_environment':None,'verify_diagnostic_runner':{'launch_critical_manifest_sha256':'c'*64},
                 'handshake':b'ready','command_vector':['inert-test-command'],'controlled_environment':{},
-                'process_identity':{'pid':123,'start_ticks':1},'descendants':[],'topology':{},'protected_snapshot':{}}.items():
+                'process_identity':{'pid':123,'start_ticks':1},'descendants':[],'descendant_identities':[],'topology':{},'protected_snapshot':{}}.items():
                 stack.enter_context(patch.object(d,name,return_value=value))
             cleanup=stack.enter_context(patch.object(d,'cleanup_process',return_value=CLEAN))
             stack.enter_context(patch.object(d.subprocess,'Popen',return_value=root))

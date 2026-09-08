@@ -54,7 +54,9 @@ impl Frame {
     }
     pub fn encode_version(&self, minor: u64) -> io::Result<Vec<u8>> {
         need(
-            (1..=if minor >= 4 {
+            (1..=if minor >= 6 {
+                21
+            } else if minor >= 4 {
                 19
             } else if minor >= 2 {
                 15
@@ -62,11 +64,11 @@ impl Frame {
                 7
             })
                 .contains(&self.kind)
-                && (1..=5).contains(&minor)
+                && (1..=7).contains(&minor)
                 && self.payload.len()
                     <= if minor >= 4 && matches!(self.kind, 17..=19) {
                         1 << 20
-                    } else if minor == 5 && self.kind == PROCESS {
+                    } else if matches!(minor, 5 | 7) && self.kind == PROCESS {
                         8248
                     } else {
                         4040
@@ -109,12 +111,14 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
             && get(&b[6..8]) == minor
-            && (1..=5).contains(&minor)
+            && (1..=7).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
     need(
-        (1..=if minor >= 4 {
+        (1..=if minor >= 6 {
+            21
+        } else if minor >= 4 {
             19
         } else if minor >= 2 {
             15
@@ -130,7 +134,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
     need(
         n <= if minor >= 4 && matches!(get(&b[8..10]), 17..=19) {
             1 << 20
-        } else if minor == 5 && get(&b[8..10]) == PROCESS as u64 {
+        } else if matches!(minor, 5 | 7) && get(&b[8..10]) == PROCESS as u64 {
             8248
         } else {
             4040

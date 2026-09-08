@@ -87,3 +87,4 @@ jobs:
         run: |
           python3 tools/test_ap4_preview.py -v
           python3 tools/test_ap5_preview.py -v
+          python3 tools/test_process_tracking.py -v

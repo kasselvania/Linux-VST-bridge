@@ -236,7 +236,7 @@ class AP4ExecutionTests(AP2ExecutionTests):
   with contextlib.ExitStack() as stack:
    for name,value in {'verify_diagnostic_runner':self.runtime_observation,'verify_environment':None,
     'handshake':expected,'command_vector':['inert-test-command'],'controlled_environment':{},
-    'process_identity':{'pid':123,'start_ticks':1},'descendants':[],'topology':{},
+    'process_identity':{'pid':123,'start_ticks':1},'descendants':[],'descendant_identities':[],'topology':{},
     'protected_snapshot':self.protected}.items():
     stack.enter_context(patch.object(self.diagnostic,name,return_value=value))
    clean=stack.enter_context(patch.object(self.diagnostic,'cleanup_process',side_effect=cleanup))

@@ -3,6 +3,7 @@
 mod commercial_tests;
 mod instances;
 mod observer;
+mod performance;
 mod preview;
 mod queue;
 mod queued;
@@ -36,6 +37,8 @@ struct Session {
     witness: Option<observer::Observer>,
     identity: Option<state::Identity>,
     trace: observer::Trace,
+    sample_rate: u32,
+    armed: bool,
     owner: Option<preview::Owner>,
 }
 // Mapping has no escaping references; the registry serializes every access.
@@ -117,9 +120,9 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if minor == 5 {
+            witness: if matches!(minor, 5 | 7) {
                 observer::Observer::commercial().ok()
-            } else if minor == 4
+            } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
             {
                 observer::Observer::new().ok()
@@ -128,6 +131,8 @@ impl Session {
             },
             owner,
             trace: observer::Trace::default(),
+            sample_rate: 48000,
+            armed: false,
             identity: None,
         };
         if minor >= 4 {
@@ -157,8 +162,10 @@ impl Session {
                 if reply.kind == kind + 1
                     && reply.session == f.session
                     && reply.sequence == f.sequence
-                    && (reply.payload.is_empty()
-                        && !(self.minor >= 3 && matches!(kind, 10 | 12))
+                    && (kind == 20 && self.minor >= 6 && reply.payload.len() == 16
+                        || reply.payload.is_empty()
+                            && kind != 20
+                            && !(self.minor >= 3 && matches!(kind, 10 | 12))
                         || self.minor >= 3
                             && matches!(kind, 10 | 12)
                             && reply.payload == f.payload) =>
@@ -177,12 +184,30 @@ impl Session {
             }
         }
     }
+    fn configure(&mut self, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
+        need(
+            self.minor >= 6 && matches!(self.phase, 17 | 15),
+            "setup requires inactive session",
+        )?;
+        performance::validate_wire(&bytes)?;
+        self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
+        let reply = self.exchange(20, bytes)?;
+        need(
+            get(&reply.payload[12..16]) == 0 && matches!(get(&reply.payload[8..12]), 1 | 3),
+            "invalid setup response",
+        )?;
+        Ok(reply.payload)
+    }
     fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
         need(
             self.minor >= 4
                 && matches!(self.phase, 17 | 15)
                 && (1..=CAP).contains(&maximum)
-                && mode <= 1,
+                && if self.minor >= 6 {
+                    matches!(mode, 0 | 2)
+                } else {
+                    mode <= 1
+                },
             "state session activation",
         )?;
         self.exchange(
@@ -253,11 +278,11 @@ impl Session {
         events: &[events::Event],
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            self.minor == 5 || events.is_empty(),
+            matches!(self.minor, 5 | 7) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            self.minor != 5 || gain.is_nan(),
+            !matches!(self.minor, 5 | 7) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -273,7 +298,10 @@ impl Session {
             (self.minor >= 4 && gain.is_nan()) || gain.is_finite() && (0.0..=1.0).contains(&gain),
             "gain",
         )?;
+        self.armed |= self.minor == 6 || events.iter().any(|e| e.kind == events::NOTE_ON);
         self.trace = observer::Trace {
+            sample_rate: self.sample_rate,
+            armed: self.armed,
             epoch: self.epoch,
             position: self.position,
             frames: n as u64,
@@ -338,7 +366,7 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if self.minor == 5 {
+            if matches!(self.minor, 5 | 7) {
                 request
                     .payload
                     .extend_from_slice(&events::encode(events, n)?);
@@ -350,11 +378,14 @@ impl Session {
             self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
                 need(
-                    reply.payload.len() == 32
+                    reply.payload.len() == if self.minor >= 6 { 40 } else { 32 }
                         && get(&reply.payload[16..24]) == self.epoch
                         && get(&reply.payload[24..32]) == self.position,
                     "Done epoch/position differs",
                 )?;
+                if self.minor >= 6 {
+                    self.trace.process_ns = Some(get(&reply.payload[32..40]));
+                }
                 reply.payload.truncate(16);
             }
             let flags = self.state.done(&reply)?;

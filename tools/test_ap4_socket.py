@@ -40,7 +40,7 @@ int main(){
 #ifdef _WIN32
  WSADATA data{};require(WSAStartup(MAKEWORD(2,2),&data)==0,"WSAStartup");
 #endif
- for(int scenario=0;scenario<5;++scenario){
+ for(int fast=0;fast<2;++fast)for(int scenario=0;scenario<5;++scenario){
   SOCKET listener=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   sockaddr_in a{};a.sin_family=AF_INET;a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
   require(bind(listener,reinterpret_cast<sockaddr*>(&a),sizeof(a))==0,"bind");
@@ -51,10 +51,10 @@ int main(){
 #endif
   require(getsockname(listener,reinterpret_cast<sockaddr*>(&a),&size)==0,"name");
   require(listen(listener,1)==0,"listen");
-  Socket sender;sender.value=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+  Socket sender;sender.eager=fast!=0;sender.value=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   require(connect(sender.value,reinterpret_cast<sockaddr*>(&a),sizeof(a))==0,"connect");
-  Socket receiver;receiver.value=accept(listener,nullptr,nullptr);closesocket(listener);
-  unsigned long nonblock=1;require(ioctlsocket(receiver.value,FIONBIO,&nonblock)==0,"nonblock");
+  Socket receiver;receiver.eager=fast!=0;receiver.value=accept(listener,nullptr,nullptr);closesocket(listener);
+  unsigned long nonblock=1;require(ioctlsocket(sender.value,FIONBIO,&nonblock)==0,"sender nonblock");require(ioctlsocket(receiver.value,FIONBIO,&nonblock)==0,"nonblock");
   auto started=std::chrono::steady_clock::now();bool failed=false;
   std::thread peer([&]{
    if(scenario==0){
@@ -89,7 +89,7 @@ int main(){
                     '/Fe:' + str(executable), '/link', 'ws2_32.lib'] if os.name == 'nt' else
                    ['c++', '-std=c++20', '-pthread', '-I', str(ROOT/'windows-factory-probe/source'), str(unit), '-o', str(executable)])
         subprocess.run(command, cwd=root, check=True)
-        subprocess.run([str(executable)], cwd=root, check=True, timeout=35)
+        subprocess.run([str(executable)], cwd=root, check=True, timeout=60)
 
 if __name__ == '__main__':
     main()

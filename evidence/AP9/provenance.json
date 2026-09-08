@@ -1,0 +1,193 @@
+{
+  "schema": 1,
+  "repository": "kasselvania/Linux-VST-bridge",
+  "branch": "codex/ap9-bridge-latency-performance",
+  "issue": 68,
+  "ap8_preserved_head": "938791e42e6a6fde1f44ab07e9f1d4edc2357ded",
+  "ap8_pr_unchanged": 67,
+  "fixture": {
+    "system": "Steam Deck OLED / SteamOS 3.8.16, build 20260716.1",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "architecture": "x86_64",
+    "bitwig_version": "6.1",
+    "bitwig_flatpak_commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+    "bitwig_flatpak_runtime": "org.freedesktop.Platform/x86_64/25.08",
+    "observed_flatpak_permissions": "[Context]\nshared=network;ipc;\nsockets=x11;pulseaudio;\ndevices=all;\nfeatures=multiarch;\nfilesystems=xdg-run/pipewire-0;/usr/lib;host;\npersistent=.BitwigStudio;Bitwig Studio;.java;\n\n[Session Bus Policy]\norg.freedesktop.Notifications=talk\n\n[Environment]\nVST_PATH=/app/extensions/Plugins/vst;=/usr/lib/\nALSA_CONFIG_PATH=\nCLAP_PATH=\nVST3_PATH=\n",
+    "runner_launch_manifest_sha256": "20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7",
+    "runner": {
+      "build_id": "25118279",
+      "depot_manifest": "2978628887517351791",
+      "directory_name": "Proton 11.0",
+      "required_tool_app_id": "4183110",
+      "steam_app_id": "4628710",
+      "version": "1788504981 proton-11.0-2c-x86_64"
+    },
+    "runtime": {
+      "directory_name": "SteamLinuxRuntime_4",
+      "steam_app_id": "4183110",
+      "build_id": "24599767",
+      "depot_manifest": "78117001432799844",
+      "depot_version": "4.0.20260805.254769",
+      "pressure_vessel_version": "0.20260805.0"
+    },
+    "serum": {
+      "version": "2.0.18",
+      "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175",
+      "class_id": "56534558667350736572756D20320000",
+      "authorization": "Retained maintainer-installed environment; no installer, licensing or account flow performed; license channel not newly established.",
+      "native_component_id": "b7e8c3508fc755db9fdc29f971604942",
+      "native_controller_id": "f52ccadd0aff58ea8bcad3d50cfc70b9"
+    },
+    "reference": {
+      "module": "Actual Windows VST3 SDK AGain effect",
+      "module_sha256": "60aa9ff6b9918d4330449e7b3ab34b588dd93cba09f37413a3cd91f6e7d2e18f"
+    },
+    "audio": "Bitwig PipeWire float32 graph -> local Deck speaker sink, observed S16LE 48 kHz. No bridge precision conversion or resampling. Device/converter latency unmeasured."
+  },
+  "windows_builds": {
+    "baseline": {
+      "source_commit": "c91a8342db146e2a69fb6370b6bc9af678614647",
+      "build_run": 34065211934,
+      "sha256": "1e85c9e8cdedb325eea648e08308ccf84802d4e173ad18e0992f6e23f0d3a943"
+    },
+    "optimized": {
+      "source_commit": "cf1aed2ebf0dbeb0ddeb426459856c6b635cad8a",
+      "build_run": 34065704779,
+      "sha256": "11c70ede96c3ac34153f1af84a663d6ff628f137d557e29fa02c211243ebc35d"
+    }
+  },
+  "native_builds": [
+    {
+      "label": "native-baseline",
+      "returncode": 1,
+      "stage": 1,
+      "source_commit": "c91a8342db146e2a69fb6370b6bc9af678614647",
+      "input_archive_sha256": "415a019e54aa810ae5dc18b54487955db1d093dccbffb8a09dd944edb350ac97",
+      "descriptor_sha256": "f776297c77cbe8bff78a646f936a18d8fc8799b5d0c908ae7af90c03bce4d6d9",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    {
+      "label": "native-baseline-fixed",
+      "returncode": 0,
+      "sha256": "68232d40836099c9a2c4bf658c419d0c5b244ad9c65c525552a661ccebc255ee",
+      "source_commit": "d8ed94a6936ac96b8f5e115e22fdec08b9a00a27",
+      "input_archive_sha256": "1d791f6aec7e8ef615510e993e68d28b184afd3adf34a53e703533cd9f0b00c8",
+      "descriptor_sha256": "f776297c77cbe8bff78a646f936a18d8fc8799b5d0c908ae7af90c03bce4d6d9",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    {
+      "label": "native-optimized",
+      "returncode": 0,
+      "sha256": "b911e8ffe27294f2ee48257cc0bd0a19748bda34e4ecf606fc72d0cb6304347c",
+      "source_commit": "70fbae3f4b09742edbd9d30178110756e8de6bc1",
+      "input_archive_sha256": "bf70928c2a1d1762420bbc4b803e6254ec235471535ff40fdc65a8fe8b030ed7",
+      "descriptor_sha256": "f776297c77cbe8bff78a646f936a18d8fc8799b5d0c908ae7af90c03bce4d6d9",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    {
+      "label": "native-final",
+      "returncode": 0,
+      "sha256": "4bb5b628cb735b0819beedda04b3b77a370333b1a069a80e39ce472660fd13c6",
+      "source_commit": "bcb6b81891da176f844d30c1187c4ac654514254",
+      "input_archive_sha256": "7cfb8379f2ea9f14d1db20b4f7fb2d58417c38403fdb9746cd325b70ee15f76a",
+      "descriptor_sha256": "f776297c77cbe8bff78a646f936a18d8fc8799b5d0c908ae7af90c03bce4d6d9",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    {
+      "label": "native-reviewed",
+      "returncode": 0,
+      "sha256": "ecdac667792006136aace108e06ce3c88af81dc960bf3cd2f984da185d4f10fa",
+      "source_commit": "9532e0ecc6685ddc60008343dc6344870b30fdac",
+      "input_archive_sha256": "0a019a4a052323b8f1e9e775b67ac417c708c69ab1575401051e17c875a3fcb5",
+      "descriptor_sha256": "f776297c77cbe8bff78a646f936a18d8fc8799b5d0c908ae7af90c03bce4d6d9",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    {
+      "label": "native-delivery",
+      "returncode": 0,
+      "sha256": "7622114c1f1218e4f2b3944bcf99f7bd7fab588056371faa387152fa9849a5f4",
+      "source_commit": "03ea36672421ddef4a1779b146a64bf36d699f90",
+      "input_archive_sha256": "f33c736d5d2499a267c2903d2927f20135093ee8c94837cc087a91260ecc3aa8",
+      "descriptor_sha256": "f776297c77cbe8bff78a646f936a18d8fc8799b5d0c908ae7af90c03bce4d6d9",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    }
+  ],
+  "build_application": {
+    "baseline": "native-baseline-fixed with Windows baseline; earlier attempts retain their own source artifacts.",
+    "optimized_sdk": "native-optimized with Windows optimized except optimized-serum-light-1024 (native-delivery) and reviewed-reference-128 (native-reviewed).",
+    "desktop": "512 and 128 use native-final; 256 uses native-delivery; Windows optimized throughout.",
+    "final_delta": "native-reviewed stores successful setup for recovery and separates unpublished timing; native-delivery rejects malformed setup replies. These do not alter successful steady-state audio math, queue depth, IPC or measured service path. Final native-delivery ran matched light Serum and the 256-frame desktop comparison."
+  },
+  "validation": {
+    "backend_tests": 32,
+    "native_client_tests": 9,
+    "clippy_all_targets_deny_warnings": "pass",
+    "native_sdk_build": "pass",
+    "windows_build_and_socket_tests": "pass; 5 cases for each of legacy/eager paths",
+    "python_compile": "pass",
+    "large_block_offsets": "1024-frame input with note/parameter offsets 7, 511, 1023; invalid final offset rejected before any admission",
+    "recovery_setup_regression": "failed before retained-setup fix, passed after",
+    "malformed_setup_reply": "empty Configured payload explicitly rejected through real socket peer",
+    "real_recovery_after_crash": "not rerun as AP9 acceptance; retained setup verified through public setup regression and existing recovery logic"
+  },
+  "development_failures": [
+    {
+      "kind": "native build",
+      "detail": "Initial SDK harness compile warning failed the first build; fixed before completed baseline."
+    },
+    {
+      "kind": "reference owner parser",
+      "detail": "Incorrect commercial parser rejected reference host callback attribution; contained and repaired."
+    },
+    {
+      "kind": "reference state routing",
+      "detail": "Protocol minor 6 incorrectly used commercial state validation; completed audio attempt failed at state capture; repaired."
+    },
+    {
+      "kind": "commercial owner parser",
+      "detail": "Reference-only activation parser was incorrectly applied to Serum; contained and separated."
+    },
+    {
+      "kind": "owner launch",
+      "detail": "systemctl start could not recreate a collected transient unit; no valid host result; corrected with systemd-run."
+    },
+    {
+      "kind": "final review",
+      "detail": "Successful setup was not stored for recovery; public setup regression demonstrated failure and fix."
+    },
+    {
+      "kind": "test host capability",
+      "detail": "Unescalated sandbox denied local test sockets; same tests passed with authorized local socket access."
+    }
+  ],
+  "cleanup": {
+    "reference_owner_inactive": true,
+    "reference_session_empty": true,
+    "serum_owner_inactive": true,
+    "serum_session_empty": true,
+    "serum_scanner_restored_sha256": "80451fef2e3f0111ad127616c079eedf8fe216d27bcbf5d4761fadfe579fdd57",
+    "serum_marker_restored_sha256": "2b66cafd01aad7edc74a8a321be7462a2d08b08b9fdf78f93fb55299cdf082d1",
+    "prefs_restored_sha256": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "scanner_cache_restored": true,
+    "test_publication_removed": true,
+    "original_project_sha256": "faa8dfb8cf75fec0f951fb21e703bdb5ee1d150d34189c49b99f9872f53dc0d2",
+    "saved_ap9_project_sha256": "7f554ef5dad0a1a7914c6837f1ef8a07149a28cf7a47e37ebe9a38987f51bb8f",
+    "private_ap9_delay_reset": 512,
+    "retained": "Prepared reference environment and original Serum environment retained inactive; private AP9 project, receipts and build artifacts retained.",
+    "audio_restored": {
+      "rate": 48000,
+      "quantum": 512,
+      "min_quantum": 256,
+      "max_quantum": 8192,
+      "force_quantum": 0,
+      "force_rate": 0,
+      "default_sink": "Deck built-in speakers"
+    }
+  }
+}

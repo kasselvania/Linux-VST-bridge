@@ -150,9 +150,9 @@ bool Processor::stateSession() {
   queued_ = true;
   if (
 #ifdef AP8_PREVIEW
-      ap8_open(AP8::identity,&handle_)
+      ap9_open(AP8::identity,&handle_)
 #else
-      ap4_open(&handle_)
+      ap9_open(nullptr,&handle_)
 #endif
   ) {
     phase_ = Failed;
@@ -400,7 +400,7 @@ tresult Processor::recover(uint64_t revision) {
     gain_ = restored; // existing reference validator; recovery transports opaque bytes
     phase_ = Deactivated;
     if (want_active_) {
-      if (ap4_activate(handle_, static_cast<uint32_t>(maximum_), static_cast<uint32_t>(process_mode_))) {
+      if (ap4_activate(handle_, static_cast<uint32_t>(std::min(maximum_,256)), static_cast<uint32_t>(process_mode_))) {
         phase_ = Failed; snapshotStatus("Recovered state but activation failed"); return kResultFalse;
       }
       phase_ = Active;
@@ -487,9 +487,15 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
       (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
       (setup.processMode != kOffline &&
        !(preview_ && setup.processMode == kRealtime)) ||
-      setup.symbolicSampleSize != kSample32 || setup.sampleRate != 48000. ||
-      setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > 256)
+      setup.symbolicSampleSize != kSample32 ||
+      (!preview_ && setup.sampleRate != 48000.) || !std::isfinite(setup.sampleRate) ||
+      setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > (preview_ ? 1024 : 256))
     return kResultFalse;
+  if(preview_){
+    uint32_t traits[2]{};
+    if(!stateSession()||ap9_setup(handle_,static_cast<uint32_t>(setup.maxSamplesPerBlock),static_cast<uint32_t>(setup.processMode),setup.sampleRate,traits))return kResultFalse;
+    latency_=traits[0];tail_=traits[1];
+  }
   auto r = AudioEffect::setupProcessing(setup);
   if (r == kResultOk) {
     maximum_ = setup.maxSamplesPerBlock;
@@ -513,7 +519,7 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
       return kResultFalse;
     if (preview_
             ? (!stateSession() ||
-               ap4_activate(handle_, static_cast<uint32_t>(maximum_),
+               ap4_activate(handle_, static_cast<uint32_t>(std::min(maximum_,256)),
                             static_cast<uint32_t>(process_mode_)))
             : (queued_ ? ap3_open(static_cast<uint32_t>(maximum_), &handle_)
                        : ap2_open(static_cast<uint32_t>(maximum_), &handle_))) {
@@ -615,7 +621,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
       d.numInputs != 0)
     return reject();
-  float silent_input[256]{};float* in[2]={silent_input,silent_input};
+  float silent_input[1024]{};float* in[2]={silent_input,silent_input};
 #else
       d.numInputs != 1 || !d.inputs || d.inputs[0].numChannels != 2 ||
       !d.inputs[0].channelBuffers32 || !d.inputs[0].channelBuffers32[0] ||

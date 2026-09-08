@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
+#include <sys/resource.h>
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 namespace {
@@ -241,6 +242,7 @@ void interval(IAudioProcessor &p, int block_size, int active_frames, bool fault,
   // Leave a known gain for the next processing interval in this same instance.
 }
 #include "commercial_cases.h"
+#include "performance_cases.h"
 #include "state_cases.h"
 #include "instances_cases.h"
 #include "recovery_cases.h"
@@ -248,7 +250,7 @@ void interval(IAudioProcessor &p, int block_size, int active_frames, bool fault,
 } // namespace
 int main(int argc, char **argv) {
   try {
-    need(argc == 3, "usage: ap3-sustained-host BUNDLE CASE");
+    need(argc == 3 || argc == 7, "usage: ap3-sustained-host BUNDLE CASE");
     std::string scenario = argv[2], error;
     audit_begin =
         reinterpret_cast<Mark>(dlsym(RTLD_DEFAULT, "ap3_audit_begin"));
@@ -270,6 +272,7 @@ int main(int argc, char **argv) {
     module->getFactory().setHostContext(host);
     auto classes = module->getFactory().classInfos();
     need(classes.size() == 2, "preview processor/controller factory");
+    if(scenario.starts_with("ap9-")){need(argc==7,"performance arguments");performanceCase(module->getFactory(),host,scenario=="ap9-serum",std::stod(argv[3]),std::stoi(argv[4]),std::stoi(argv[5]),std::stoi(argv[6]));return 0;}
     if(scenario=="commercial"){commercialCase(module->getFactory(),host);return 0;}
     need(classes[0].ID().toString() == "84E8DE5F92554F5396FAE4133C935A18",
          "processor identity");
