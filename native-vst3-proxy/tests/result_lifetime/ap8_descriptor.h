@@ -2,6 +2,7 @@
 #include <cstdint>
 // Synthetic SDK effect descriptor; never a published commercial identity.
 namespace AP8 {
+inline constexpr char vendor[]="Bridge test fixture",version[]="1.0",subcategories[]="Fx";
 inline constexpr char class_name[]="AP10 result lifetime fixture";
 struct Parameter {uint32_t id;const char16_t* title;const char16_t* units;int32_t steps,flags;double initial;};
 struct Bus {uint32_t media,direction,index,channels,type,flags;uint64_t arrangement;const char16_t* name;};

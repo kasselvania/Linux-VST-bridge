@@ -161,9 +161,9 @@ static constexpr Steinberg::TUID processorID =
 #include "commercial_controller.h"
 #define AP8_UID(...) INLINE_UID(__VA_ARGS__)
 namespace AP8 {static constexpr Steinberg::TUID processorID=AP8_UID(AP8_PROCESSOR_UID);static constexpr Steinberg::TUID controlID=AP8_UID(AP8_CONTROLLER_UID);}
-BEGIN_FACTORY_DEF("Kasselvania Research", "https://github.com/kasselvania/Linux-VST-bridge", "", 2)
-DEF_CLASS(AP8::processorID,Steinberg::PClassInfo::kManyInstances,kVstAudioEffectClass,AP8::class_name,0,AP8::effect?"Fx":"Instrument|Synth","0.11.0",kVstVersionString,AP2::Processor::create,nullptr)
-DEF_CLASS(AP8::controlID,Steinberg::PClassInfo::kManyInstances,kVstComponentControllerClass,AP8::class_name,0,"","0.11.0",kVstVersionString,AP8::Controller::create,nullptr)
+BEGIN_FACTORY_DEF(AP8::vendor, "https://github.com/kasselvania/Linux-VST-bridge", "", 2)
+DEF_CLASS(AP8::processorID,Steinberg::PClassInfo::kManyInstances,kVstAudioEffectClass,AP8::class_name,0,AP8::subcategories,AP8::version,kVstVersionString,AP2::Processor::create,nullptr)
+DEF_CLASS(AP8::controlID,Steinberg::PClassInfo::kManyInstances,kVstComponentControllerClass,AP8::class_name,0,"",AP8::version,kVstVersionString,AP8::Controller::create,nullptr)
 #elif defined(AP3_PREVIEW)
 BEGIN_FACTORY_DEF("Kasselvania Research",
                   "https://github.com/kasselvania/Linux-VST-bridge", "", 2)

@@ -13,6 +13,7 @@
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
+#include <iterator>
 
 namespace linux_vst_bridge::wf0 {
 namespace {
@@ -26,14 +27,19 @@ std::string quoted(const char* value) {
     }
     return out+'"';
 }
-std::string text16(const TChar* value, size_t limit=128) {
+std::string utf8(const TChar* value, size_t limit=128) {
     size_t n=0;while(n<limit&&value[n])++n;
     if(n==limit)throw std::runtime_error("unterminated SDK string");
     int size=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,reinterpret_cast<const wchar_t*>(value),static_cast<int>(n),nullptr,0,nullptr,nullptr);
     if(n&&size<=0)throw std::runtime_error("invalid SDK string");
     std::string out(size,'\0');
     if(size)WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,reinterpret_cast<const wchar_t*>(value),static_cast<int>(n),out.data(),size,nullptr,nullptr);
-    return quoted(out.c_str());
+    return out;
+}
+std::string text16(const TChar* value, size_t limit=128) { return quoted(utf8(value,limit).c_str()); }
+template<size_t N> std::string bounded(const char (&value)[N]) {
+    if(!std::memchr(value,0,N))throw std::runtime_error("unterminated factory metadata");
+    return value;
 }
 
 }
@@ -60,16 +66,41 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             if(result!=kResultOk&&result!=kNotImplemented&&result!=kResultFalse)
                 throw std::runtime_error("setHostContext failed");
         }
-        PClassInfo selected{};bool found=false;FUID wanted;
+        PClassInfo selected{};int selected_index=-1;bool found=false;FUID wanted;
         if(!class_id.empty()&&!wanted.fromString(class_id.c_str()))throw std::runtime_error("selected class syntax");
         int count=factory->countClasses();
         if(count<1||count>256)throw std::runtime_error("class count bound");
-        for(int i=0;i<count;++i){PClassInfo info{};ok(factory->getClassInfo(i,&info),"getClassInfo");if(std::strcmp(info.category,kVstAudioEffectClass)==0&&(class_id.empty()||FUID::fromTUID(info.cid)==wanted)){if(found)throw std::runtime_error("multiple audio classes require explicit selection");selected=info;found=true;}}
+        for(int i=0;i<count;++i){
+            PClassInfo info{};ok(factory->getClassInfo(i,&info),"getClassInfo");
+            if(bounded(info.category)==kVstAudioEffectClass && (class_id.empty()||FUID::fromTUID(info.cid)==wanted)){
+                if(found)throw std::runtime_error("multiple audio classes require explicit selection");
+                selected=info;selected_index=i;found=true;
+            }
+        }
         if(!found)throw std::runtime_error("audio class absent");
         if(!std::memchr(selected.name,0,sizeof(selected.name)))throw std::runtime_error("unterminated vendor class name");
         char selected_id[33]{};FUID::fromTUID(selected.cid).toString(selected_id);
         events.lifecycle("ap11_class",",\"class_id\":"+quoted(selected_id)+",\"name\":"+quoted(selected.name));
-        if(external)external->editor_name(selected.name);
+        // Publication uses format-declared metadata, independently of bus layout.
+        // Factory-1 fallback is explicit and cannot invent an instrument/FX role.
+        PFactoryInfo factory_info{};ok(factory->getFactoryInfo(&factory_info),"getFactoryInfo");
+        std::string name=bounded(selected.name),vendor=bounded(factory_info.vendor),version,subcategories;
+        const char* tier="factory_1";
+        FUnknownPtr<IPluginFactory2> f2(factory);
+        if(f3){
+            PClassInfoW info{};ok(f3->getClassInfoUnicode(selected_index,&info),"getClassInfoUnicode");
+            if(FUID::fromTUID(info.cid)!=FUID::fromTUID(selected.cid))throw std::runtime_error("factory metadata class identity changed");
+            name=utf8(info.name,std::size(info.name));auto class_vendor=utf8(info.vendor,std::size(info.vendor));
+            if(!class_vendor.empty())vendor=class_vendor;
+            version=utf8(info.version,std::size(info.version));subcategories=bounded(info.subCategories);tier="factory_3_unicode";
+        }else if(f2){
+            PClassInfo2 info{};ok(f2->getClassInfo2(selected_index,&info),"getClassInfo2");
+            if(FUID::fromTUID(info.cid)!=FUID::fromTUID(selected.cid))throw std::runtime_error("factory metadata class identity changed");
+            name=bounded(info.name);auto class_vendor=bounded(info.vendor);if(!class_vendor.empty())vendor=class_vendor;
+            version=bounded(info.version);subcategories=bounded(info.subCategories);tier="factory_2";
+        }
+        events.lifecycle("ap12_class",",\"class_id\":"+quoted(selected_id)+",\"name\":"+quoted(name.c_str())+",\"vendor\":"+quoted(vendor.c_str())+",\"version\":"+quoted(version.c_str())+",\"subcategories\":"+quoted(subcategories.c_str())+",\"metadata_tier\":"+quoted(tier));
+        if(external)external->editor_name(name.c_str());
         step("createComponent");ok(factory->createInstance(selected.cid,IComponent::iid,reinterpret_cast<void**>(&component)),"createComponent");
         if(!component)throw std::runtime_error("null component");
         step("initializeComponent");ok(component->initialize(&host),"initializeComponent");initialized=true;
