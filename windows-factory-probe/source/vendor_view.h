@@ -100,7 +100,7 @@ class VendorView final : public Steinberg::IPlugFrame {
         self->close();
         return 0;
       }
-      if (msg == WM_SETFOCUS && self->view_) {
+      if (msg == WM_SETFOCUS && self->view_ && self->attached_) {
         self->view_->onFocus(true);
         if (auto child = GetWindow(window, GW_CHILD))
           SetFocus(child);
@@ -129,7 +129,7 @@ class VendorView final : public Steinberg::IPlugFrame {
                 Steinberg::kResultOk)
           return 0;
       }
-      if (msg == WM_KILLFOCUS && self->view_)
+      if (msg == WM_KILLFOCUS && self->view_ && self->attached_)
         self->view_->onFocus(false);
       if (msg == WM_SIZE && self->attached_ && !self->closing_ &&
           !self->resizing_ && wp != SIZE_MINIMIZED) {
@@ -264,8 +264,7 @@ public:
       window_ = CreateWindowExW(0, wc.lpszClassName, L"Vendor editor", style,
                                 CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
                                 nullptr, wc.hInstance, this);
-      stage(5);
-      if (!window_ || view_->setFrame(this) != kResultOk) {
+      if (!window_) {
         error_ = AP11::Attach;
         close();
         return false;
@@ -298,6 +297,15 @@ public:
           close();
           return false;
         }
+      }
+      // Initial scale precedes frame installation. The SDK explicitly permits
+      // this order: getSize then returns the scaled size without a resizeView
+      // callback into a not-yet-attached platform view (observed with Serum).
+      stage(5);
+      if (view_->setFrame(this) != kResultOk) {
+        error_ = AP11::Attach;
+        close();
+        return false;
       }
       stage(8);
       if (!resize(rect)) {

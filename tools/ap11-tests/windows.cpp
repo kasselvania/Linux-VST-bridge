@@ -71,6 +71,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return kResultOk;
   }
   tresult PLUGIN_API onSize(ViewRect *r) override {
+    check(systemWindow, "no platform sizing before attached");
     ++stats.sizes;
     return CPluginView::onSize(r);
   }
@@ -88,6 +89,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
   }
   tresult PLUGIN_API canResize() override { return kResultFalse; }
   tresult PLUGIN_API setContentScaleFactor(float scale) override {
+    check(!plugFrame, "initial scale before frame installation");
     ViewRect r{0, 0, int32(400 * scale), int32(240 * scale)};
     setRect(r);
     return plugFrame ? plugFrame->resizeView(this, &r) : kResultOk;
