@@ -19,6 +19,12 @@ class VendorView final : public Steinberg::IPlugFrame {
   View *view_ = nullptr;
   HWND window_ = nullptr;
   bool attached_ = false, closing_ = false;
+  void (*trace_)(void *, uint32_t) = nullptr;
+  void *trace_context_ = nullptr;
+  void stage(uint32_t code) {
+    if (trace_)
+      trace_(trace_context_, code);
+  }
   unsigned resizing_ = 0;
   uint32_t error_ = 0;
   static Steinberg::int16 modifiers() {
@@ -175,6 +181,10 @@ class VendorView final : public Steinberg::IPlugFrame {
   }
 
 public:
+  void diagnostic(void (*trace)(void *, uint32_t), void *context) {
+    trace_ = trace;
+    trace_context_ = context;
+  }
   uint64_t opens = 0, closes = 0, focuses = 0;
   bool scale_supported = false;
   float scale = 1.f;
@@ -203,6 +213,7 @@ public:
         !window_ || closing_ || resizing_ >= 8)
       return Steinberg::kResultFalse;
     ++resizing_;
+    stage(12);
     auto result = resize(*size) ? view_->onSize(size) : Steinberg::kResultFalse;
     --resizing_;
     return result;
@@ -222,11 +233,13 @@ public:
     }
     error_ = 0;
     try {
+      stage(1);
       view_ = controller.createView(Vst::ViewType::kEditor);
       if (!view_) {
         error_ = AP11::NoView;
         return false;
       }
+      stage(2);
       if (view_->isPlatformTypeSupported(kPlatformTypeHWND) != kResultOk) {
         error_ = AP11::Platform;
         close();
@@ -243,17 +256,21 @@ public:
         close();
         return false;
       }
+      stage(3);
       bool resizable = view_->canResize() == kResultTrue;
       DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
                     (resizable ? (WS_THICKFRAME | WS_MAXIMIZEBOX) : 0);
+      stage(4);
       window_ = CreateWindowExW(0, wc.lpszClassName, L"Vendor editor", style,
                                 CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
                                 nullptr, wc.hInstance, this);
+      stage(5);
       if (!window_ || view_->setFrame(this) != kResultOk) {
         error_ = AP11::Attach;
         close();
         return false;
       }
+      stage(6);
       ViewRect rect{};
       if (view_->getSize(&rect) != kResultOk) {
         error_ = AP11::Size;
@@ -270,6 +287,7 @@ public:
             std::min({1.f, float(work.right - work.left - 24) / rect.getWidth(),
                       float(work.bottom - work.top - 64) / rect.getHeight()});
         scale = std::max(.5f, scale);
+        stage(7);
         if (content->setContentScaleFactor(scale) != kResultOk) {
           error_ = AP11::Size;
           close();
@@ -281,25 +299,30 @@ public:
           return false;
         }
       }
+      stage(8);
       if (!resize(rect)) {
         error_ = AP11::Size;
         close();
         return false;
       }
+      stage(9);
       if (view_->attached(window_, kPlatformTypeHWND) != kResultOk) {
         error_ = AP11::Attach;
         close();
         return false;
       }
       attached_ = true;
+      stage(10);
       if (view_->onSize(&rect) != kResultOk) {
         error_ = AP11::Size;
         close();
         return false;
       }
+      stage(11);
       ShowWindow(window_, SW_SHOW);
       SetForegroundWindow(window_);
       SetFocus(window_);
+      stage(100);
       ++opens;
       return true;
     } catch (...) {

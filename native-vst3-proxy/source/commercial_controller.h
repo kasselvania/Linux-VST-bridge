@@ -321,7 +321,9 @@ private:
     if (failure_)
       return;
     failure_ = code;
-    status_ = "Editor control failed; close and inspect diagnostics";
+    status_ = code == AP11::Closed
+                  ? "Processing session closed"
+                  : "Editor control failed; close and inspect diagnostics";
     finishGestures();
     if (publish && connected_ && generation_) {
       auto *m = allocateMessage();

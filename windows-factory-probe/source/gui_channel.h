@@ -88,6 +88,9 @@ public:
   uint32_t capabilities() const {
     return flag(136).load(std::memory_order_acquire);
   }
+  void view_stage(uint32_t stage) {
+    flag(160).store(stage, std::memory_order_release);
+  }
   void ready() { flag(112).store(1, std::memory_order_release); }
   void heartbeat() { word(144).fetch_add(1, std::memory_order_release); }
   uint64_t close_requested() const {

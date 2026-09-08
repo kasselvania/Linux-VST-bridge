@@ -123,6 +123,11 @@ public:
                                       return a.id == b.id;
                                     }) == parameters_.end(),
                  "GUI duplicate parameter ID");
+    view_.diagnostic(
+        [](void *p, uint32_t stage) {
+          static_cast<GuiChannel *>(p)->view_stage(stage);
+        },
+        &channel_);
     channel_.ready();
   }
   void name(const std::wstring &name) { name_ = name; }

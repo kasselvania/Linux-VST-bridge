@@ -120,7 +120,12 @@ impl Gui {
                 .flag(108)
                 .compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire);
         }
-        self.flag(108).load(Ordering::Acquire)
+        let fault = self.flag(108).load(Ordering::Acquire);
+        if fault == 0 && self.flag(104).load(Ordering::Acquire) != 0 {
+            11
+        } else {
+            fault
+        }
     }
     pub fn capabilities(&self, caps: u32) -> u32 {
         if caps & !7 != 0 {
