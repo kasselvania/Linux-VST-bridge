@@ -1,0 +1,473 @@
+{
+  "claim": "Bounded FRAGMENTS audio/control/recall/tail proof; development failures retained; AP10 incomplete",
+  "collection": "Initially transcribed through read-only Kate/Dolphin after project close; subsequently verified against the exact native and owner JSON records collected through restored SSH. Raw files remain private on the fixture and in the AP10 work directory.",
+  "implementation": "91a2fcd28b33eec975490a7408ec7a04b55593df",
+  "fixture": {
+    "host": "Bitwig Studio 6.1, normal Applications launch",
+    "effect": "Efx FRAGMENTS 1.0.0.2925",
+    "class_id": "41727475415649536772616E50726F63",
+    "sample_rate": 48000,
+    "precision": "float32",
+    "host_maximum": 128,
+    "bridge_frames": 256,
+    "configured_vendor_frames": 192,
+    "reported_total_frames": 448,
+    "input": "Recorded local Serum audio clip, Raw mode, audio track at -10 dB"
+  },
+  "wait_probe": {
+    "samples_per_method": 32,
+    "sleep50_mean_ns": 1073921,
+    "ntdelay50_mean_ns": 111696,
+    "limitation": "Pre-activation elapsed-time comparison, not a dropout-free performance result"
+  },
+  "native_lifecycle": {
+    "phase": 7,
+    "phase_name": "Failed",
+    "frames": 4204544,
+    "blocks": 32848,
+    "callback_rejections": 231395,
+    "rejected_silent_frames": 29618560,
+    "discontinuities": 1,
+    "successful_silent_callbacks": 2,
+    "successful_silent_frames": 256,
+    "priming_frames": 256,
+    "underrun_frames": 128,
+    "underrun_gaps": 1,
+    "underrun_callbacks": 1,
+    "expired_output_frames": 128,
+    "delivered_frames": 4204160,
+    "clean": false
+  },
+  "preclose_worker_snapshot": {
+    "fault": 0,
+    "processed": 32848,
+    "position": 4204544,
+    "request_high": 2,
+    "result_high": 3
+  },
+  "returned_audio_observation": {
+    "position": 4200000,
+    "samples": 5632,
+    "nonzero": 5248,
+    "rms": 0.00175946267959217,
+    "peak": 0.006741289049386978,
+    "limitation": "A short nonzero return establishes neither sustained effect behavior nor correct controls/state/tails"
+  },
+  "desktop_observation": {
+    "bypassed": "Recorded clip produced visible track/master output meters",
+    "enabled": "Bridge output meters subsequently silent",
+    "project_close": "Returned to Bitwig dashboard without a visible crash dialog; native lifecycle was not clean"
+  },
+  "next_test": "Resolve the current Serum output-bus activation contract before another matched musical-load comparison.",
+  "not_claimed": [
+    "Completed AP10",
+    "Current-candidate Serum playback",
+    "A vendor authorization/content blocker",
+    "Matched untraced performance for the current NtDelayExecution/controller candidate",
+    "128- or 256-frame recommended operation",
+    "Broad effect or host-tail compatibility"
+  ],
+  "owner_retirement": {
+    "retired": true,
+    "containment_confirmed": true,
+    "error": null
+  },
+  "admission_reproduction": {
+    "native_source": "d260dc2f1c1d4894fb8295c10e8a97999ce9c0d9",
+    "windows_source": "91a2fcd28b33eec975490a7408ec7a04b55593df",
+    "host_and_bridge_frames_unchanged": true,
+    "first_failure": {
+      "event": "ap10_admission_failure",
+      "code": 260,
+      "frames": 128,
+      "input_flags": 3,
+      "context_state": 11778,
+      "rate": 48000,
+      "cycle_start": 0,
+      "cycle_end": 0,
+      "nonfinite_fields": 0
+    },
+    "native_lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 7,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 824064,
+      "blocks": 6438,
+      "callback_rejections": 7307,
+      "rejected_silent_frames": 935296,
+      "discontinuities": 1,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 256,
+      "underrun_gaps": 1,
+      "underrun_callbacks": 2,
+      "expired_output_frames": 256,
+      "delivered_frames": 823552,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": false
+    },
+    "owner": {
+      "error": null,
+      "retired": true,
+      "containment_confirmed": true
+    },
+    "finding": "0x104: native rejection of nonzero input samples under host silenceFlags=3; worker had not faulted."
+  },
+  "silence_repair": {
+    "native_source": "93e8da112a17b9d0998e36f1519e44949c206efc",
+    "windows_source": "91a2fcd28b33eec975490a7408ec7a04b55593df",
+    "native_lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 4077312,
+      "blocks": 31854,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 256,
+      "underrun_gaps": 1,
+      "underrun_callbacks": 2,
+      "expired_output_frames": 256,
+      "delivered_frames": 4076800,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    },
+    "input_hint_observation": {
+      "event": "ap10_input_silence_hints",
+      "callbacks": 5,
+      "nonzero_samples": 1280,
+      "first_nonzero_bits": 871046507,
+      "finite_peak": 1.0948391349074882e-07
+    },
+    "owner": {
+      "retired": true,
+      "containment_confirmed": true,
+      "error": null
+    }
+  },
+  "control_session": {
+    "native_source": "93e8da112a17b9d0998e36f1519e44949c206efc",
+    "windows_source": "91a2fcd28b33eec975490a7408ec7a04b55593df",
+    "grain_mix_values": [
+      0,
+      1
+    ],
+    "local_audio_comparison": {
+      "dry": {
+        "frames": 1343488,
+        "rms": 0.0004289189847958184,
+        "peak": 0.0029610556084662676,
+        "first_above_1e_6_seconds": 4.1,
+        "last_above_1e_6_seconds": 22.975916666666667
+      },
+      "wet": {
+        "frames": 1343488,
+        "rms": 0.00041664367399116373,
+        "peak": 0.005556195974349976,
+        "first_above_1e_6_seconds": 4.217333333333333,
+        "last_above_1e_6_seconds": 23.093333333333334
+      },
+      "sample_correlation_best_lag_frames": 5632,
+      "best_fit_gain": 0.7006057005052589,
+      "normalized_correlation": 0.7212472060940378,
+      "residual_rms_fraction": 0.692677751700943,
+      "limitations": [
+        "Local monitor has unsynchronized capture starts and s16 device path; lag is not bridge latency.",
+        "A wet granular signal is not expected to be bit identical across passes."
+      ]
+    },
+    "native_lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 27543552,
+      "blocks": 215184,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 1792,
+      "underrun_gaps": 3,
+      "underrun_callbacks": 14,
+      "expired_output_frames": 1792,
+      "delivered_frames": 27541504,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    },
+    "owner": {
+      "retired": true,
+      "containment_confirmed": true,
+      "error": null
+    },
+    "recall": "FAIL: UI returned to 0.5000 after saving 1.0000, quitting Bitwig and reopening from Applications.",
+    "saved_project_sha256": "36c2d0372385c56bc182620d9d5b35c06418647319d1f5df81d07ea42da013b2",
+    "state_observation": "The final opaque GetState succeeded on the Windows owner, but returned the same 128272-byte state digest as the initial snapshot."
+  },
+  "controller_repair": {
+    "native_source": "93e8da112a17b9d0998e36f1519e44949c206efc",
+    "windows_source": "f885a620a8f4e06a2753e65aef2f933e9d277b47",
+    "native_unchanged": true,
+    "state_records": [
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128272,
+        "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128272,
+        "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_set",
+        "payload_bytes": 128328,
+        "sha256": "17303b7e7cbd6137032160280f24c1e56cf80a4de9fded51ddcc16f8751fa9a4",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128324,
+        "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128324,
+        "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+        "gain": 0
+      }
+    ],
+    "controller_sync": [
+      {
+        "applied": 0,
+        "event": "lifecycle",
+        "sequence": 140,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 1
+      },
+      {
+        "applied": 0,
+        "event": "lifecycle",
+        "sequence": 143,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 2
+      },
+      {
+        "applied": 0,
+        "event": "lifecycle",
+        "sequence": 149,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 3
+      },
+      {
+        "applied": 0,
+        "event": "lifecycle",
+        "sequence": 152,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 4
+      },
+      {
+        "applied": 61,
+        "event": "lifecycle",
+        "sequence": 166,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 5408
+      },
+      {
+        "applied": 61,
+        "event": "lifecycle",
+        "sequence": 169,
+        "state": "ap10_controller_sync",
+        "state_request_sequence": 33107
+      }
+    ],
+    "lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 128,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 5103488,
+      "blocks": 39871,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 256,
+      "priming_frames": 256,
+      "underrun_frames": 2176,
+      "underrun_gaps": 4,
+      "underrun_callbacks": 17,
+      "expired_output_frames": 2176,
+      "delivered_frames": 5101056,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    },
+    "owner": {
+      "retired": true,
+      "containment_confirmed": true,
+      "error": null
+    },
+    "project_sha256": "c0da5e2d1947388822a95713e8edd4f3816abe965228d76da8b5b71bf5687825",
+    "desktop_recall": "PASS: quit Bitwig, normally launch through Applications, reopen saved project; Grain Mix readback 1.0000 and local output resumed.",
+    "local_captures": {
+      "controller": {
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 2686976,
+          "nonzero": 858868,
+          "rms": 0.00041668901178230184,
+          "peak": 0.005450934171676636,
+          "stderr": ""
+        },
+        "wall_seconds": 30.001747956033796,
+        "cohort_cpu_seconds": 28.954009
+      },
+      "recall": {
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 2686976,
+          "nonzero": 1041328,
+          "rms": 0.0004604782768768042,
+          "peak": 0.005516420118510723,
+          "stderr": ""
+        },
+        "wall_seconds": 30.001577886054292,
+        "cohort_cpu_seconds": 28.241896
+      },
+      "tail": {
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 770048,
+          "nonzero": 360648,
+          "rms": 0.0004989789725078418,
+          "peak": 0.005220129620283842,
+          "stderr": ""
+        },
+        "wall_seconds": 10.001626184908673,
+        "cohort_cpu_seconds": 9.224262
+      },
+      "released": {
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 770048,
+          "nonzero": 0,
+          "rms": 0.0,
+          "peak": 0.0,
+          "stderr": ""
+        },
+        "wall_seconds": 10.001635267050005,
+        "cohort_cpu_seconds": 8.688131
+      }
+    },
+    "recall_session": {
+      "lifecycle": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 128,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 13172096,
+        "blocks": 102907,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 2,
+        "successful_silent_frames": 256,
+        "priming_frames": 256,
+        "underrun_frames": 2560,
+        "underrun_gaps": 4,
+        "underrun_callbacks": 20,
+        "expired_output_frames": 2560,
+        "delivered_frames": 13169280,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "state_records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128272,
+          "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 128324,
+          "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128324,
+          "sha256": "daf7fb10564226708ad4f637c258fa397831e8a68a8e968eccdd08e5e14f7fbe",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 128324,
+          "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+          "gain": 0
+        }
+      ],
+      "owner": {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      }
+    },
+    "tail_observation": "Freeze enabled before clip end; track/master output continued at transport 41.238 seconds and when stopped at 67.706 seconds. Local tail capture was nonzero. Releasing Freeze with no input produced 770048 exactly zero captured samples. SDK configured tail remained 0; this is a vendor-report limitation, not a measured zero tail."
+  }
+}

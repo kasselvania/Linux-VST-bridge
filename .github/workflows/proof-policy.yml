@@ -78,6 +78,9 @@ jobs:
           tools/test_ap3_execution.py
       - name: Check native codec and ownership
         run: |
+          python3 tools/test_ap10_input_silence.py
+          python3 tools/test_ap10_controller_updates.py
+          python3 tools/test_ap10_descriptor.py
           rustup run stable cargo fetch --manifest-path native-vst3-proxy/backend/Cargo.toml --locked
           RUSTC="$(rustup which --toolchain stable rustc)" rustup run stable cargo test --manifest-path native-audio-client/Cargo.toml --locked --offline
           RUSTC="$(rustup which --toolchain stable rustc)" rustup run stable cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --offline

@@ -36,6 +36,7 @@ pub struct Item {
     pub gain: f64,
     pub flags: u64,
     pub queued: Option<Instant>,
+    pub context: crate::context::Context,
     pub event_count: u32,
     pub events: [Event; MAX_EVENTS],
     pub data: [[f32; CAP]; 2],
@@ -50,9 +51,47 @@ impl Item {
             gain: 0.,
             flags: 0,
             queued: None,
+            context: crate::context::Context::default(),
             event_count: 0,
             events: [Event::default(); MAX_EVENTS],
             data: [[0.; CAP]; 2],
+        }
+    }
+}
+#[derive(Clone, Copy)]
+struct AudioResult {
+    n: u32,
+    position: u64,
+    flags: u64,
+    data: [[f32; CAP]; 2],
+}
+impl AudioResult {
+    fn empty() -> Self {
+        Self {
+            n: 0,
+            position: 0,
+            flags: 0,
+            data: [[0.; CAP]; 2],
+        }
+    }
+}
+#[derive(Clone, Copy)]
+struct Completion {
+    audio: AudioResult,
+    epoch: u64,
+    returned: crate::process_results::Packet,
+}
+impl From<Item> for Completion {
+    fn from(i: Item) -> Self {
+        Self {
+            audio: AudioResult {
+                n: i.n,
+                position: i.position,
+                flags: i.flags,
+                data: i.data,
+            },
+            epoch: i.epoch,
+            returned: crate::process_results::Packet::default(),
         }
     }
 }
@@ -60,10 +99,12 @@ struct Shared {
     snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
     generation: u64,
     identity: Option<state::Identity>,
+    notices: AtomicU64,
+    notice_traits: AtomicU64,
     last_edit: AtomicU64,
     retired: AtomicBool,
     requests: Queue<Item>,
-    results: Queue<Item>,
+    results: Queue<Completion>,
     wanted: AtomicU64,
     fault: AtomicU64,
     ack: AtomicU64,
@@ -94,6 +135,8 @@ impl Shared {
             snapshots: Arc::new(std::sync::Mutex::new(crate::recovery::Store::default())),
             generation: 1,
             identity: None,
+            notices: AtomicU64::new(0),
+            notice_traits: AtomicU64::new(0),
             last_edit: AtomicU64::new(0),
             retired: AtomicBool::new(false),
             requests: Queue::new(DESCRIPTORS),
@@ -171,7 +214,9 @@ struct Callback {
     running: bool,
     have: bool,
     offset: usize,
-    current: Item,
+    current: AudioResult,
+    audio: std::collections::VecDeque<AudioResult>,
+    returned: crate::process_results::Pending,
     next_result: u64,
     in_gap: bool,
     delivery: Delivery,
@@ -185,7 +230,9 @@ impl Callback {
             running: false,
             have: false,
             offset: 0,
-            current: Item::control(0, 0),
+            current: AudioResult::empty(),
+            audio: std::collections::VecDeque::with_capacity(DESCRIPTORS),
+            returned: crate::process_results::Pending::new(),
             next_result: 0,
             in_gap: false,
             delivery: Delivery::default(),
@@ -204,11 +251,15 @@ impl Callback {
                 self.next_result = 0;
                 self.in_gap = false;
                 s.results.discard_published();
+                self.audio.clear();
+                self.returned.reset();
                 s.wanted.store(self.epoch, Ordering::Release);
                 self.running = true;
             }
             STOP if self.running => {
                 self.running = false;
+                self.audio.clear();
+                self.returned.reset();
                 s.wanted.store(0, Ordering::Release);
             }
             _ => return 1,
@@ -244,7 +295,40 @@ impl Callback {
         self.delivery = Delivery::default();
         let n = request.n as usize;
         let mut flags = 3;
-        let mut popped = 0;
+        // Consume whole completions independently of audio presentation. This
+        // admits zero-frame results and preserves late events before audio expiry.
+        for _ in 0..DESCRIPTORS {
+            let Some(item) = s.results.pop() else {
+                break;
+            };
+            if item.epoch < self.epoch {
+                continue;
+            }
+            let a = item.audio;
+            if item.epoch != self.epoch
+                || a.n as usize > CAP
+                || a.position != self.next_result
+                || a.position.checked_add(a.n as u64).is_none()
+            {
+                s.fail(CORRELATION, self.position);
+                return Err(2);
+            }
+            self.next_result += a.n as u64;
+            if !self
+                .returned
+                .append(&item.returned, a.position, a.n as usize, self.delay)
+            {
+                s.fail(OVERFLOW, self.position);
+                return Err(2);
+            }
+            if a.n > 0 {
+                if self.audio.len() == DESCRIPTORS {
+                    s.fail(OVERFLOW, self.position);
+                    return Err(2);
+                }
+                self.audio.push_back(a);
+            }
+        }
         let mut i = 0;
         while i < n {
             let position = self.position + i as u64;
@@ -259,28 +343,8 @@ impl Callback {
             }
             let expected = position - self.delay;
             if !self.have {
-                // One bound for the entire callback, including expired and
-                // old-epoch output. Admitted inputs are never discarded.
-                if popped == DESCRIPTORS {
-                    s.fail(OVERFLOW, position);
-                    return Err(2);
-                }
-                match s.results.pop() {
+                match self.audio.pop_front() {
                     Some(item) => {
-                        popped += 1;
-                        if item.epoch < self.epoch {
-                            continue;
-                        }
-                        if item.epoch != self.epoch
-                            || item.n == 0
-                            || item.n as usize > CAP
-                            || item.position != self.next_result
-                            || item.position.checked_add(item.n as u64).is_none()
-                        {
-                            s.fail(CORRELATION, position);
-                            return Err(2);
-                        }
-                        self.next_result += item.n as u64;
                         self.current = item;
                         self.offset = 0;
                         self.have = true;
@@ -457,11 +521,18 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         [&item.data[0][..n], &item.data[1][..n]],
                         (item.epoch, item.position),
                         &item.events[..item.event_count as usize],
+                        item.context,
                     )?;
                     for (ch, word) in words.iter().enumerate() {
                         for i in 0..n {
                             item.data[ch][i] = f32::from_bits(word[i + 1]);
                         }
+                    }
+                    if session.notices.0 != 0 {
+                        s.notice_traits.store(session.notices.1, Ordering::Relaxed);
+                        s.notices
+                            .fetch_or(u64::from(session.notices.0), Ordering::Release);
+                        session.notices.0 = 0;
                     }
                     item.flags = flags;
                     s.service_us_max.fetch_max(
@@ -469,8 +540,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         Ordering::Relaxed,
                     );
                     s.processed.fetch_add(1, Ordering::Relaxed);
-                    let publish = n > 0 && s.wanted.load(Ordering::Acquire) == item.epoch;
-                    if publish && !s.results.push(item) {
+                    let publish = s.wanted.load(Ordering::Acquire) == item.epoch;
+                    let mut completion = Completion::from(item);
+                    completion.returned = session.returned;
+                    if publish && !s.results.push(completion) {
                         s.fail(OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
                     }
@@ -895,13 +968,66 @@ pub unsafe extern "C" fn ap9_setup(
     rate: f64,
     out: *mut u32,
 ) -> u32 {
+    setup(
+        id,
+        maximum,
+        mode,
+        rate,
+        &[],
+        false,
+        out,
+        std::ptr::null_mut(),
+    )
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap10_setup(
+    id: u64,
+    maximum: u32,
+    mode: u32,
+    rate: f64,
+    io: *const u8,
+    len: u32,
+    notifications: u32,
+    out: *mut u32,
+) -> u32 {
+    if io.is_null() || out.is_null() || notifications > 1 || !(4..=1028).contains(&len) {
+        return 1;
+    }
+    setup(
+        id,
+        maximum,
+        mode,
+        rate,
+        std::slice::from_raw_parts(io, len as usize),
+        notifications == 1,
+        out,
+        out.add(2),
+    )
+}
+#[allow(clippy::too_many_arguments)]
+unsafe fn setup(
+    id: u64,
+    maximum: u32,
+    mode: u32,
+    rate: f64,
+    io: &[u8],
+    notifications: bool,
+    out: *mut u32,
+    vendor_out: *mut u32,
+) -> u32 {
     crate::ffi(|| {
         if out.is_null() {
             return 1;
         }
         let result = (|| -> io::Result<()> {
             let delay = crate::performance::selected_delay(maximum)?;
-            let bytes = crate::performance::wire(maximum, mode, rate)?;
+            let mut bytes = crate::performance::wire(maximum, mode, rate)?;
+            if !io.is_empty() {
+                bytes[20..24]
+                    .copy_from_slice(&(if notifications { 3u32 } else { 1u32 }).to_le_bytes());
+                bytes.extend(io);
+            }
+            crate::performance::validate_wire(&bytes)?;
             let reply = control(id, 20, bytes.clone())?;
             let vendor = ap1_native_client::get(&reply[..4]) as u32;
             let total = vendor
@@ -917,6 +1043,9 @@ pub unsafe extern "C" fn ap9_setup(
                 }
                 Ok(())
             }).map_err(|_|invalid("setup instance ownership"))??;
+            if !vendor_out.is_null() {
+                *vendor_out = vendor;
+            }
             *out = total;
             *out.add(1) = ap1_native_client::get(&reply[4..8]) as u32;
             Ok(())
@@ -1064,6 +1193,8 @@ pub unsafe extern "C" fn ap7_process(
         out_flags,
         delivery,
         &[],
+        crate::context::Context::default(),
+        false,
     )
 }
 // Mirrors the fixed C ABI and adds a borrowed bounded event span.
@@ -1080,6 +1211,8 @@ unsafe fn process_events(
     out_flags: *mut u64,
     delivery: *mut Delivery,
     events: &[Event],
+    context: crate::context::Context,
+    detailed: bool,
 ) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
@@ -1099,23 +1232,32 @@ unsafe fn process_events(
         || out_right.is_null()
         || out_flags.is_null()
     {
-        return 1;
+        return if detailed { 0x101 } else { 1 };
     }
     if events.len() > MAX_EVENTS
         || (!events.is_empty() && l.shared.identity.is_none())
         || events.iter().any(|e| !e.valid_host(n))
     {
-        return 1;
+        return if detailed { 0x102 } else { 1 };
     }
     // Validate all host input before admitting any subblock. In-place output
     // can replace earlier samples only after their input has been copied.
     for (ch, p) in [left, right].into_iter().enumerate() {
-        if std::slice::from_raw_parts(p, n)
-            .iter()
-            .any(|v| !v.is_finite() || (flags & (1 << ch) != 0 && *v != 0.))
-        {
-            return 1;
+        for v in std::slice::from_raw_parts(p, n) {
+            if !v.is_finite() {
+                return if detailed { 0x103 } else { 1 };
+            }
+            if flags & (1 << ch) != 0 && *v != 0. {
+                return if detailed { 0x104 } else { 1 };
+            }
         }
+    }
+    if context.chunk(n).is_none() {
+        return if detailed { 0x105 } else { 1 };
+    }
+    {
+        let callback = &mut *l.callback.get();
+        callback.returned.window(callback.position, n);
     }
     let mut total = Delivery::default();
     let mut combined = 3;
@@ -1124,6 +1266,7 @@ unsafe fn process_events(
         let count = (n - offset).min(CAP);
         let mut item = Item::control(AUDIO, 0);
         item.n = count as u32;
+        item.context = context.chunk(offset).unwrap();
         item.flags = flags;
         item.gain = if offset == 0 { gain } else { f64::NAN };
         for e in events {
@@ -1342,7 +1485,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 7 } else { 6 },
+        if identity.is_some() { 9 } else { 6 },
         identity,
     )
 }
@@ -1395,7 +1538,119 @@ pub unsafe extern "C" fn ap8_process(
         out_flags,
         delivery,
         events,
+        crate::context::Context::default(),
+        false,
     )
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ap10_process(
+    id: u64,
+    n: u32,
+    events: *const Event,
+    count: u32,
+    context: *const crate::context::Context,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+) -> u32 {
+    if count as usize > MAX_EVENTS || (count > 0 && events.is_null()) || context.is_null() {
+        return 1;
+    }
+    let events = if count == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(events, count as usize)
+    };
+    process_events(
+        id,
+        n,
+        f64::NAN,
+        flags,
+        left,
+        right,
+        out_left,
+        out_right,
+        out_flags,
+        delivery,
+        events,
+        *context,
+        true,
+    )
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ap10_notices(id: u64, out: *mut u32) -> u32 {
+    if out.is_null() {
+        return 1;
+    }
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let flags = l.shared.notices.swap(0, Ordering::AcqRel);
+    let traits = l.shared.notice_traits.load(Ordering::Acquire);
+    *out = flags as u32;
+    *out.add(1) = traits as u32;
+    *out.add(2) = (traits >> 32) as u32;
+    0
+}
+
+#[no_mangle]
+pub extern "C" fn ap10_results_abi_version() -> u32 {
+    1
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap10_take_results(
+    id: u64,
+    out: *mut crate::process_results::Packet,
+) -> u32 {
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let Some(_g) = Guard::acquire(&l) else {
+        return 3;
+    };
+    if out.is_null() {
+        return 1;
+    }
+    if l.shared.fault.load(Ordering::Acquire) != 0 {
+        return 2;
+    }
+    (*l.callback.get()).returned.take(&mut *out);
+    0
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap10_result_stats(
+    id: u64,
+    out: *mut crate::process_results::Stats,
+) -> u32 {
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let Some(_g) = Guard::acquire(&l) else {
+        return 3;
+    };
+    if out.is_null() {
+        return 1;
+    }
+    *out = (*l.callback.get()).returned.stats();
+    0
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let Some(_g) = Guard::acquire(&l) else {
+        return 3;
+    };
+    l.shared.fail(5, (*l.callback.get()).position);
+    (*l.callback.get()).returned.reset();
+    0
 }
 
 #[cfg(test)]
@@ -1574,6 +1829,84 @@ mod tests {
             );
         }
         assert_eq!(shared.requests.published(), count);
+        // AP10 must reject an invalid last sample/context before admitting the
+        // first chunk, and keep the legacy return codes unchanged above.
+        let valid_context = crate::context::Context {
+            present: 1,
+            state: 2,
+            rate: 48000.,
+            project: 100,
+            ..Default::default()
+        };
+        for (last, input_flags, context, expected) in [
+            (f32::NAN, 0, valid_context, 0x103),
+            (1., 1, valid_context, 0x104),
+            (
+                0.,
+                0,
+                crate::context::Context {
+                    rate: 0.,
+                    ..valid_context
+                },
+                0x105,
+            ),
+        ] {
+            let mut bad_input = [0f32; 1024];
+            bad_input[1023] = last;
+            left.fill(7.);
+            right.fill(8.);
+            let result = unsafe {
+                ap10_process(
+                    id,
+                    1024,
+                    std::ptr::null(),
+                    0,
+                    &context,
+                    input_flags,
+                    bad_input.as_ptr(),
+                    input.as_ptr(),
+                    left.as_mut_ptr(),
+                    right.as_mut_ptr(),
+                    &mut flags,
+                    &mut delivery,
+                )
+            };
+            assert_eq!(result, expected);
+            assert_eq!(shared.requests.published(), count);
+            assert_eq!(left, [7.; 1024]);
+            assert_eq!(right, [8.; 1024]);
+        }
+        // A valid in-place effect block preserves both inputs and the actual
+        // host context before delayed output replaces its buffers.
+        left.fill(0.25);
+        right.fill(-0.5);
+        assert_eq!(
+            unsafe {
+                ap10_process(
+                    id,
+                    512,
+                    events.as_ptr(),
+                    2,
+                    &valid_context,
+                    0,
+                    left.as_ptr(),
+                    right.as_ptr(),
+                    left.as_mut_ptr(),
+                    right.as_mut_ptr(),
+                    &mut flags,
+                    &mut delivery,
+                )
+            },
+            0
+        );
+        for offset in [0, 256] {
+            let item = shared.requests.pop().unwrap();
+            assert_eq!(item.context.project, 100 + offset);
+            assert_eq!(item.data[0], [0.25; CAP]);
+            assert_eq!(item.data[1], [-0.5; CAP]);
+            assert_eq!(item.event_count, 1);
+            assert_eq!(item.events[0].offset, if offset == 0 { 7 } else { 255 });
+        }
         INSTANCES.remove(id, |_| ()).unwrap();
     }
     #[test]
@@ -1653,6 +1986,10 @@ mod tests {
         );
         let observation = observer.shared.clone();
         let session = Session {
+            mailbox: None,
+            mailbox_enabled: false,
+            notices: (0, 0),
+            returned: crate::process_results::Packet::default(),
             mapping: Some(mapping),
             socket,
             state: ClientState {
@@ -1739,7 +2076,7 @@ mod tests {
                     }
                 }
                 r.flags = if r.gain == 0. { 3 } else { r.flags };
-                assert!(s.results.push(r));
+                assert!(s.results.push(r.into()));
             }
         }
     }
@@ -1770,9 +2107,9 @@ mod tests {
             let mut out = [[999.; CAP]; 2];
             cb.process(&s, r, &mut out).unwrap();
             for i in 0..n {
-                for ch in 0..2 {
+                for (ch, plane) in out.iter().enumerate() {
                     assert_eq!(
-                        out[ch][i],
+                        plane[i],
                         if count + i < DELAY as usize {
                             0.
                         } else {
@@ -1816,7 +2153,7 @@ mod tests {
         assert_eq!(cb.delivery.missing_frames, 0);
         assert_eq!(&out[0][..128], &[0.125; 128]);
         assert_eq!(cb.epoch, 1);
-        assert_eq!(cb.next_result, 256);
+        assert_eq!(cb.next_result, 1152); // all five completions decoded before presentation
         pump(&s);
         // A second gap can outlive several complete returned blocks.
         let s = Shared::new();
@@ -1834,6 +2171,59 @@ mod tests {
         assert_eq!(out, [[0.125; CAP]; 2]);
         assert_eq!(cb.delivery.missing_frames, 0);
         assert_eq!(cb.epoch, 1);
+    }
+    #[test]
+    fn production_audio_expiry_keeps_required_returned_note_off_and_zero_flush() {
+        let s = Shared::new();
+        let mut cb = Callback::new();
+        cb.delay = 128;
+        cb.transition(&s, START);
+        let mut request = Item::control(AUDIO, 0);
+        request.n = 128;
+        let mut out = [[0.; CAP]; 2];
+        for _ in 0..4 {
+            cb.returned.window(cb.position, 128);
+            cb.process(&s, request, &mut out).unwrap();
+        }
+        assert_eq!(cb.delivery.missing_frames, 128);
+        let mut first = Completion::from(Item::control(AUDIO, 1));
+        first.audio.n = 128;
+        first.returned.events = 1;
+        first.returned.event[0] = crate::process_results::Event {
+            kind: 1,
+            a: -77,
+            offset: 7,
+            ..Default::default()
+        };
+        assert!(s.results.push(first));
+        let mut flush = Completion::from(Item::control(AUDIO, 1));
+        flush.audio.position = 128;
+        flush.returned.points = 1;
+        flush.returned.point[0] = crate::process_results::Point {
+            offset: 0,
+            id: 42,
+            value: 0.25,
+        };
+        assert!(s.results.push(flush));
+        cb.returned.window(cb.position, 128);
+        cb.process(&s, request, &mut out).unwrap();
+        assert_eq!(cb.delivery.expired_frames, 128);
+        assert_eq!(s.fault.load(Ordering::Acquire), 0);
+        let mut packet = crate::process_results::Packet::default();
+        cb.returned.take(&mut packet);
+        assert_eq!((packet.events, packet.points), (1, 1));
+        assert_eq!(
+            (
+                packet.event[0].kind,
+                packet.event[0].a,
+                packet.event[0].offset
+            ),
+            (1, -77, 0)
+        );
+        assert_eq!(packet.point[0].offset, 0);
+        assert_eq!(cb.returned.stats().late_events, 1);
+        cb.returned.take(&mut packet);
+        assert_eq!((packet.events, packet.points), (0, 0));
     }
     #[test]
     fn stop_restart_discards_old_epoch_and_resets_delay() {
@@ -1857,7 +2247,7 @@ mod tests {
         let mut old = r;
         old.epoch = 1;
         old.position = 999;
-        assert!(s.results.push(old));
+        assert!(s.results.push(old.into()));
         for _ in 0..4 {
             cb.process(&s, r, &mut out).unwrap();
             assert_eq!(out, [[0.; CAP]; 2]);
@@ -1889,7 +2279,7 @@ mod tests {
         }
         r.epoch = 1;
         r.position = 1;
-        assert!(s.results.push(r));
+        assert!(s.results.push(r.into()));
         assert_eq!(cb.process(&s, r, &mut out), Err(2));
         assert_eq!(s.fault.load(Ordering::Acquire), CORRELATION);
     }

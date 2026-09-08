@@ -61,6 +61,64 @@ pub struct Report {
     pub reader_skips: u64,
     pub traces: Vec<(Gap, Option<Trace>)>,
     pub timing: crate::performance::Timings,
+    delivery: Vec<Trace>,
+    clock: Option<ClockSample>,
+}
+// One bounded clock bracket outside the callback, repeated at report time.
+// Its width and drift are retained; no Windows/Linux clock equality is assumed.
+#[derive(Clone, Copy)]
+struct ClockSample {
+    instant: Instant,
+    before: u64,
+    after: u64,
+}
+#[cfg(target_os = "linux")]
+fn monotonic_ns() -> u64 {
+    #[repr(C)]
+    struct Timespec {
+        sec: i64,
+        nsec: i64,
+    }
+    unsafe extern "C" {
+        fn clock_gettime(clock: i32, value: *mut Timespec) -> i32;
+    }
+    let mut ts = Timespec { sec: 0, nsec: 0 };
+    if unsafe { clock_gettime(1, &mut ts) } != 0 {
+        return 0;
+    }
+    ts.sec as u64 * 1_000_000_000 + ts.nsec as u64
+}
+#[cfg(not(target_os = "linux"))]
+fn monotonic_ns() -> u64 {
+    0
+}
+impl ClockSample {
+    fn sample() -> Self {
+        let before = monotonic_ns();
+        let instant = Instant::now();
+        Self {
+            instant,
+            before,
+            after: monotonic_ns(),
+        }
+    }
+    fn at(self, t: Option<Instant>) -> u64 {
+        let Some(t) = t else {
+            return 0;
+        };
+        let midpoint = self.before + (self.after - self.before) / 2;
+        if t >= self.instant {
+            midpoint.saturating_add(t.duration_since(self.instant).as_nanos() as u64)
+        } else {
+            midpoint.saturating_sub(self.instant.duration_since(t).as_nanos() as u64)
+        }
+    }
+}
+fn delivery_enabled() -> bool {
+    std::env::var_os("HOME").is_some_and(|home| {
+        std::fs::read(std::path::PathBuf::from(home).join("AP10-Work/trace-enable"))
+            .is_ok_and(|b| b == b"1\n")
+    })
 }
 pub struct Shared {
     jobs: Queue<Job>,
@@ -203,6 +261,10 @@ struct Consumer {
     recent: std::collections::VecDeque<Trace>,
     gaps: Vec<(Gap, Option<Trace>)>,
     timing: crate::performance::Timings,
+    delivery: Vec<Trace>,
+    clock: Option<ClockSample>,
+    following: usize,
+    captured: bool,
 }
 fn covers(t: Trace, g: Gap) -> bool {
     t.epoch == g.epoch && t.position < g.position + g.frames && g.position < t.position + t.frames
@@ -220,6 +282,10 @@ impl Consumer {
             recent: std::collections::VecDeque::with_capacity(CAPACITY),
             gaps: Vec::with_capacity(32),
             timing: Default::default(),
+            delivery: Vec::with_capacity(96),
+            clock: delivery_enabled().then(ClockSample::sample),
+            following: 0,
+            captured: false,
         }
     }
     fn step(&mut self, s: &Shared) -> bool {
@@ -228,6 +294,16 @@ impl Consumer {
             let Some(g) = s.gaps.pop() else {
                 break;
             };
+            if self.clock.is_some() && !self.captured {
+                self.delivery.extend(
+                    self.recent
+                        .iter()
+                        .skip(self.recent.len().saturating_sub(32))
+                        .copied(),
+                );
+                self.following = 64;
+                self.captured = true;
+            }
             if self.gaps.len() < 32 {
                 let t = self.recent.iter().find(|t| covers(**t, g)).copied();
                 self.gaps.push((g, t));
@@ -246,6 +322,10 @@ impl Consumer {
                     self.witness.ready = false;
                 }
             } else {
+                if self.following > 0 {
+                    self.delivery.push(job.trace);
+                    self.following -= 1;
+                }
                 if job.trace.armed {
                     self.timing.add(job.trace);
                 }
@@ -323,6 +403,8 @@ impl Consumer {
             report.reader_skips = self.reader_skips;
             report.traces.clone_from(&self.gaps);
             report.timing = self.timing.clone();
+            report.delivery.clone_from(&self.delivery);
+            report.clock = self.clock;
         } else {
             self.reader_skips += 1;
         }
@@ -354,6 +436,23 @@ pub fn report_text(s: &Shared) -> String {
         r.reader_skips, s.gap_drops.load(Ordering::Relaxed), w.maximum_error,
         w.before_edit_samples, w.edits);
     text.push_str(&r.timing.json());
+    if let Some(clock) = r.clock {
+        let end = ClockSample::sample();
+        let _=writeln!(text,"{{\"event\":\"ap10_linux_clock\",\"start_before_ns\":{},\"start_after_ns\":{},\"end_before_ns\":{},\"end_after_ns\":{},\"instant_elapsed_ns\":{}}}",clock.before,clock.after,end.before,end.after,end.instant.duration_since(clock.instant).as_nanos());
+        for t in &r.delivery {
+            let points = [
+                t.queued,
+                t.started,
+                t.prepared,
+                t.sent,
+                t.replied,
+                t.validated,
+                t.published,
+            ]
+            .map(|v| clock.at(v));
+            let _=writeln!(text,"{{\"event\":\"ap10_linux_request\",\"epoch\":{},\"sequence\":{},\"position\":{},\"frames\":{},\"monotonic_ns\":{:?}}}",t.epoch,t.sequence,t.position,t.frames,points);
+        }
+    }
     for w in &r.audio_windows {
         let _=writeln!(text,"{{\"event\":\"ap8_returned_audio\",\"epoch\":{},\"position\":{},\"samples\":{},\"nonzero\":{},\"rms\":{},\"peak\":{},\"unretained_window_samples\":{}}}",w.epoch,w.position,w.samples,w.nonzero,(w.energy/w.samples.max(1) as f64).sqrt(),w.peak,r.audio_unretained);
     }
@@ -373,6 +472,50 @@ pub fn report_text(s: &Shared) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn delivery_history_keeps_first_gap_predecessors_and_a_bounded_followup() {
+        let shared = Shared::new();
+        let mut consumer = Consumer::new();
+        consumer.clock = Some(ClockSample::sample());
+        let mut producer = Observer {
+            shared: shared.clone(),
+            sequence: 0,
+            thread: None,
+        };
+        let now = Instant::now();
+        for sequence in 0..240 {
+            if sequence == 80 || sequence == 180 {
+                assert!(shared.gaps.push(Gap {
+                    epoch: 1,
+                    position: sequence * 128,
+                    frames: 128,
+                    at: now
+                }));
+            }
+            producer.audio(
+                0,
+                f64::NAN,
+                [&[], &[]],
+                [[0; CAP + 2]; 2],
+                Trace {
+                    epoch: 1,
+                    sequence,
+                    position: sequence * 128,
+                    frames: 128,
+                    ..Default::default()
+                },
+            );
+            assert!(consumer.step(&shared));
+        }
+        assert_eq!(consumer.delivery.len(), 96);
+        assert_eq!(consumer.delivery.first().unwrap().sequence, 48);
+        assert_eq!(consumer.delivery.last().unwrap().sequence, 143);
+        assert_eq!(consumer.gaps.len(), 2);
+        assert_eq!(shared.dropped.load(Ordering::Relaxed), 0);
+        let report = report_text(&shared);
+        assert_eq!(report.matches("ap10_linux_request").count(), 96);
+        assert!(report.len() < 32_768);
+    }
     #[test]
     fn eight_complete_traces_reach_the_capped_jsonl_sink() {
         let shared = Shared::new();

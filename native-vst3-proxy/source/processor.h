@@ -5,7 +5,9 @@
 #include <thread>
 #ifdef AP8_PREVIEW
 #include "ap8_descriptor.h"
+#include "output_results.h"
 #include <vector>
+#include <array>
 #endif
 namespace AP2 {
 inline constexpr Steinberg::Vst::ParamID recoveryID = 0x41503601;
@@ -72,6 +74,19 @@ private:
   std::atomic<Phase> phase_{New};
   bool stateSession();
 #ifdef AP8_PREVIEW
+  AP10Results::Output returned_;
+  bool deliverResults(Steinberg::Vst::ProcessData&);
+  int eventOutputActive(int)const;
+  bool notifications_=false;uint32_t vendor_latency_=0;
+  std::array<bool,32> bus_active_{};
+  bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);
+  // Written under busy_ by the callback, read only after quiescence at terminate.
+  struct AdmissionFailure {
+    uint32_t code=0, context_state=0;
+    int32_t frames=0;
+    uint64_t input_flags=0;
+    double rate=0, cycle_start=0, cycle_end=0;
+  } admission_failure_;
   std::vector<uint8_t> state_readback_;
   Steinberg::tresult readback();
 #endif
@@ -95,6 +110,9 @@ private:
   uint64_t silent_callbacks_ = 0, silent_frames_ = 0;
   uint64_t priming_frames_ = 0, underrun_frames_ = 0, underrun_gaps_ = 0;
   uint64_t expired_frames_ = 0, delivered_frames_ = 0, underrun_callbacks_ = 0;
+  uint64_t input_hint_adjustments_ = 0, input_hint_samples_ = 0;
+  uint32_t input_hint_first_bits_ = 0;
+  double input_hint_peak_ = 0.;
   double gain_min_ = 1., gain_max_ = 0.;
   int requested_maximum_ = 0, requested_mode_ = -1;
   double requested_rate_ = 0.;

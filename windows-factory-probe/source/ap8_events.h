@@ -6,10 +6,10 @@
 namespace linux_vst_bridge::wf0 {
 constexpr size_t event_capacity=256;
 struct InputEvent { uint32_t offset=0,kind=0,id=0;int16_t channel=0,pitch=0;double value=0;float tuning=0; };
-inline size_t decode_events(const std::vector<uint8_t>& p,std::array<InputEvent,event_capacity>& out,uint32_t frames){
+inline size_t decode_events(const std::vector<uint8_t>& p,std::array<InputEvent,event_capacity>& out,uint32_t frames,size_t suffix=0){
  using namespace ap1;
  require(p.size()>=56,"event request header");auto n=get(p.data()+48,4);
- require(n<=event_capacity&&get(p.data()+52,4)==0&&p.size()==56+32*n,"event request extent/reserved");
+ require(n<=event_capacity&&get(p.data()+52,4)==0&&p.size()==56+32*n+suffix,"event request extent/reserved");
  for(size_t i=0;i<n;++i){const auto*b=p.data()+56+32*i;auto&e=out[i];
   e.offset=uint32_t(get(b,4));e.kind=uint32_t(get(b+4,4));e.id=uint32_t(get(b+8,4));
   e.channel=int16_t(get(b+12,2));e.pitch=int16_t(get(b+14,2));std::memcpy(&e.value,b+16,8);std::memcpy(&e.tuning,b+24,4);

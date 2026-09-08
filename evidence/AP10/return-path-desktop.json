@@ -1,0 +1,2552 @@
+{
+  "schema": "ap10-return-path-desktop/v1",
+  "date": "2026-09-07",
+  "processing_source": "9ba67d0e595bc9d26af198405fd5334378daf72d",
+  "windows_execution_source": "fd1024e839bf8503b1499cb54d8a3eeabead25b6",
+  "native_serum_sha256": "944795474b2a78f270187e36ec74748fe3e9a9ddd24833cde19b3fc82b166fd5",
+  "windows_host_sha256": "53b074c7f2b41bc3adf376eab5fecbb6413caf4f51d2e73d2f4cee49f81077f3",
+  "workload": {
+    "fixture": "Serum 2.0.18",
+    "project": "Exact AP9 Latency project copy",
+    "project_sha256": "7f554ef5dad0a1a7914c6837f1ef8a07149a28cf7a47e37ebe9a38987f51bb8f",
+    "rate": 48000,
+    "bridge_precision": "float32",
+    "host_block": 128,
+    "vendor_latency": 0,
+    "local_audio": "Steam Deck speaker, observed s16le stereo 48000 Hz device route",
+    "control": "Moonlight only; Bitwig launched through Applications",
+    "tracing": "All comparison windows use bounded native/Windows history, 38-second selected-thread perf switch capture and 4-ms wait-channel sampling."
+  },
+  "comparisons": [
+    {
+      "name": "return-serum512b",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 0,
+          "total_frames": 512,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33682,
+          "sha256": "2463666f24bdf89d0fb17b0475b7571f7c1921070560b1cf63747c35a2c62622",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33682,
+          "sha256": "2463666f24bdf89d0fb17b0475b7571f7c1921070560b1cf63747c35a2c62622",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 43506,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 5568768,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 11137536,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 11137536,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 37543,
+          "mean_ns": 68517,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 128000,
+          "p99_upper_ns": 176000,
+          "max_ns": 4145282
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 37543,
+          "mean_ns": 11022,
+          "p50_upper_ns": 10000,
+          "p95_upper_ns": 13000,
+          "p99_upper_ns": 80000,
+          "max_ns": 244689
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 37543,
+          "mean_ns": 653,
+          "p50_upper_ns": 1125,
+          "p95_upper_ns": 1125,
+          "p99_upper_ns": 1125,
+          "max_ns": 100915
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 37543,
+          "mean_ns": 240621,
+          "p50_upper_ns": 240000,
+          "p95_upper_ns": 352000,
+          "p99_upper_ns": 448000,
+          "max_ns": 2522726
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 37543,
+          "mean_ns": 8283,
+          "p50_upper_ns": 8000,
+          "p95_upper_ns": 11000,
+          "p99_upper_ns": 15000,
+          "max_ns": 480026
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 37543,
+          "mean_ns": 4611,
+          "p50_upper_ns": 4500,
+          "p95_upper_ns": 7000,
+          "p99_upper_ns": 9000,
+          "max_ns": 180912
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 37543,
+          "mean_ns": 333710,
+          "p50_upper_ns": 352000,
+          "p95_upper_ns": 480000,
+          "p99_upper_ns": 576000,
+          "max_ns": 4382422
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 37543,
+          "mean_ns": 98875,
+          "p50_upper_ns": 104000,
+          "p95_upper_ns": 192000,
+          "p99_upper_ns": 240000,
+          "max_ns": 977400
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 37543,
+          "mean_ns": 234834,
+          "p50_upper_ns": 240000,
+          "p95_upper_ns": 352000,
+          "p99_upper_ns": 416000,
+          "max_ns": 4317822
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 34697,
+          "position": 4440448,
+          "service_ns": 4382422,
+          "windows_process_ns": 64600
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 40683,
+          "position": 5206528,
+          "service_ns": 3800794,
+          "windows_process_ns": 52900
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 8724,
+          "position": 1116032,
+          "service_ns": 2596163,
+          "windows_process_ns": 927200
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 8670,
+          "position": 1109120,
+          "service_ns": 1964306,
+          "windows_process_ns": 118700
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 34698,
+          "position": 4440576,
+          "service_ns": 1831587,
+          "windows_process_ns": 42900
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 8702,
+          "position": 1113216,
+          "service_ns": 1719270,
+          "windows_process_ns": 73500
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 8733,
+          "position": 1117184,
+          "service_ns": 1717739,
+          "windows_process_ns": 143800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 18846,
+          "position": 2411648,
+          "service_ns": 1483046,
+          "windows_process_ns": 977400
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 128,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 5568768,
+          "blocks": 43506,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 25019,
+          "successful_silent_frames": 3202432,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 5568256,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "owners": [
+        {
+          "retired": true,
+          "containment_confirmed": true,
+          "error": null
+        }
+      ],
+      "windows_setup": [
+        {
+          "event": "lifecycle",
+          "ntdelay50_mean_ns": 112381,
+          "samples_per_method": 32,
+          "sequence": 170,
+          "sleep50_mean_ns": 1075796,
+          "state": "ap10_wait_resolution"
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 172,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 180,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 182,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "retained": 194,
+          "sequence": 229,
+          "state": "ap10_windows_clock",
+          "triggers": 2
+        }
+      ],
+      "bridge_frames": 512,
+      "delivery": "mailbox",
+      "playback_capture": {
+        "wall_seconds": 40.001900398987345,
+        "cohort_cpu_seconds": 36.121919,
+        "process_cpu_seconds_by_name": {
+          "python3": 9.9,
+          "srt-bwrap": 0.0,
+          "pv-adverb": 0.0,
+          "start.exe": 0.0,
+          "wineserver": 6.57,
+          "services.exe": 0.0,
+          "winedevice.exe": 8.72,
+          "plugplay.exe": 0.0,
+          "svchost.exe": 0.0,
+          "wf0-factory-pro": 6.49,
+          "explorer.exe": 0.0,
+          "rpcss.exe": 0.0,
+          "tabtip.exe": 0.0,
+          "xalia.exe": 4.41
+        },
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 3637248,
+          "nonzero": 2358852,
+          "rms": 0.0016610156020761453,
+          "peak": 0.009363681077957153,
+          "stderr": ""
+        },
+        "scope": "40-second active note playback unless explicitly shorter; CPU is the supervised Windows cohort, excluding the native DAW and capture/perf processes. Start/end process CPU deltas use PID/start-time identity."
+      }
+    },
+    {
+      "name": "return-serum256",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 256,
+          "vendor_frames": 0,
+          "total_frames": 256,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 256,
+          "vendor_frames": 0,
+          "total_frames": 256,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 256,
+          "vendor_frames": 0,
+          "total_frames": 256,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 43435,
+          "request_high": 1,
+          "result_high": 2,
+          "position": 5559680,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 11119360,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 11119360,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 24783,
+          "mean_ns": 70277,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 128000,
+          "p99_upper_ns": 192000,
+          "max_ns": 1046098
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 24783,
+          "mean_ns": 11413,
+          "p50_upper_ns": 11000,
+          "p95_upper_ns": 13000,
+          "p99_upper_ns": 80000,
+          "max_ns": 250256
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 24783,
+          "mean_ns": 658,
+          "p50_upper_ns": 1125,
+          "p95_upper_ns": 1125,
+          "p99_upper_ns": 1125,
+          "max_ns": 89409
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 24783,
+          "mean_ns": 258069,
+          "p50_upper_ns": 240000,
+          "p95_upper_ns": 384000,
+          "p99_upper_ns": 480000,
+          "max_ns": 1625586
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 24783,
+          "mean_ns": 8427,
+          "p50_upper_ns": 8000,
+          "p95_upper_ns": 11000,
+          "p99_upper_ns": 18000,
+          "max_ns": 177617
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 24783,
+          "mean_ns": 4712,
+          "p50_upper_ns": 4500,
+          "p95_upper_ns": 7000,
+          "p99_upper_ns": 9000,
+          "max_ns": 130498
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 24783,
+          "mean_ns": 353557,
+          "p50_upper_ns": 352000,
+          "p95_upper_ns": 512000,
+          "p99_upper_ns": 640000,
+          "max_ns": 2274973
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 24783,
+          "mean_ns": 112231,
+          "p50_upper_ns": 120000,
+          "p95_upper_ns": 208000,
+          "p99_upper_ns": 288000,
+          "max_ns": 1256800
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 24783,
+          "mean_ns": 241326,
+          "p50_upper_ns": 240000,
+          "p95_upper_ns": 384000,
+          "p99_upper_ns": 416000,
+          "max_ns": 1546845
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 21337,
+          "position": 2730496,
+          "service_ns": 2274973,
+          "windows_process_ns": 1039100
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 21961,
+          "position": 2810368,
+          "service_ns": 1728984,
+          "windows_process_ns": 797400
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 21302,
+          "position": 2726016,
+          "service_ns": 1707535,
+          "windows_process_ns": 851400
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 21153,
+          "position": 2706944,
+          "service_ns": 1697145,
+          "windows_process_ns": 150300
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 21290,
+          "position": 2724480,
+          "service_ns": 1614656,
+          "windows_process_ns": 1256800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 35883,
+          "position": 4592384,
+          "service_ns": 1504602,
+          "windows_process_ns": 135200
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 21368,
+          "position": 2734464,
+          "service_ns": 1434360,
+          "windows_process_ns": 199700
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 25874,
+          "position": 3311232,
+          "service_ns": 1371182,
+          "windows_process_ns": 1028400
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 128,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 5559680,
+          "blocks": 43435,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 27363,
+          "successful_silent_frames": 3502464,
+          "priming_frames": 256,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 5559424,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "owners": [
+        {
+          "retired": true,
+          "containment_confirmed": true,
+          "error": null
+        }
+      ],
+      "windows_setup": [
+        {
+          "event": "lifecycle",
+          "ntdelay50_mean_ns": 108953,
+          "samples_per_method": 32,
+          "sequence": 170,
+          "sleep50_mean_ns": 1077615,
+          "state": "ap10_wait_resolution"
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 172,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 180,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 182,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "retained": 0,
+          "sequence": 223,
+          "state": "ap10_windows_clock",
+          "triggers": 0
+        }
+      ],
+      "bridge_frames": 256,
+      "delivery": "mailbox",
+      "playback_capture": {
+        "wall_seconds": 40.002014653990045,
+        "cohort_cpu_seconds": 37.687006,
+        "process_cpu_seconds_by_name": {
+          "python3": 9.85,
+          "srt-bwrap": 0.0,
+          "pv-adverb": 0.0,
+          "start.exe": 0.0,
+          "wineserver": 7.11,
+          "services.exe": 0.0,
+          "winedevice.exe": 9.5,
+          "plugplay.exe": 0.0,
+          "svchost.exe": 0.0,
+          "wf0-factory-pro": 6.55,
+          "explorer.exe": 0.0,
+          "rpcss.exe": 0.0,
+          "tabtip.exe": 0.0,
+          "xalia.exe": 4.65
+        },
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 3637248,
+          "nonzero": 2347786,
+          "rms": 0.0016576689479664594,
+          "peak": 0.009363681077957153,
+          "stderr": ""
+        },
+        "scope": "40-second active note playback unless explicitly shorter; CPU is the supervised Windows cohort, excluding the native DAW and capture/perf processes. Start/end process CPU deltas use PID/start-time identity."
+      }
+    },
+    {
+      "name": "return-serum-socket256",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 256,
+          "vendor_frames": 0,
+          "total_frames": 256,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 33652,
+          "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 33683,
+          "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 256,
+          "vendor_frames": 0,
+          "total_frames": 256,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 128,
+          "transport_maximum": 128,
+          "sample_rate": 48000,
+          "bridge_frames": 256,
+          "vendor_frames": 0,
+          "total_frames": 256,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 44282,
+          "request_high": 11,
+          "result_high": 11,
+          "position": 5668096,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 11336192,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 11336192,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 33981,
+          "mean_ns": 74768,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 128000,
+          "p99_upper_ns": 176000,
+          "max_ns": 28985237
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 33981,
+          "mean_ns": 12542,
+          "p50_upper_ns": 11000,
+          "p95_upper_ns": 14000,
+          "p99_upper_ns": 80000,
+          "max_ns": 31009949
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 33981,
+          "mean_ns": 76037,
+          "p50_upper_ns": 72000,
+          "p95_upper_ns": 144000,
+          "p99_upper_ns": 192000,
+          "max_ns": 2110432
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 33981,
+          "mean_ns": 527911,
+          "p50_upper_ns": 576000,
+          "p95_upper_ns": 768000,
+          "p99_upper_ns": 896000,
+          "max_ns": 2533419
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 33981,
+          "mean_ns": 9159,
+          "p50_upper_ns": 9000,
+          "p95_upper_ns": 12000,
+          "p99_upper_ns": 20000,
+          "max_ns": 543355
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 33981,
+          "mean_ns": 4496,
+          "p50_upper_ns": 4500,
+          "p95_upper_ns": 6000,
+          "p99_upper_ns": 9000,
+          "max_ns": 467507
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 33981,
+          "mean_ns": 704915,
+          "p50_upper_ns": 704000,
+          "p95_upper_ns": 960000,
+          "p99_upper_ns": 1152000,
+          "max_ns": 31634774
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 33981,
+          "mean_ns": 105079,
+          "p50_upper_ns": 112000,
+          "p95_upper_ns": 176000,
+          "p99_upper_ns": 240000,
+          "max_ns": 1163200
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 33981,
+          "mean_ns": 599836,
+          "p50_upper_ns": 640000,
+          "p95_upper_ns": 768000,
+          "p99_upper_ns": 960000,
+          "max_ns": 31574974
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 10797,
+          "position": 1381376,
+          "service_ns": 31634774,
+          "windows_process_ns": 59800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 10798,
+          "position": 1381504,
+          "service_ns": 29337044,
+          "windows_process_ns": 47000
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 10799,
+          "position": 1381632,
+          "service_ns": 26957564,
+          "windows_process_ns": 46700
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 10800,
+          "position": 1381760,
+          "service_ns": 24402017,
+          "windows_process_ns": 29300
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 10801,
+          "position": 1381888,
+          "service_ns": 21976078,
+          "windows_process_ns": 23600
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 10802,
+          "position": 1382016,
+          "service_ns": 19526770,
+          "windows_process_ns": 26000
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 10803,
+          "position": 1382144,
+          "service_ns": 17001441,
+          "windows_process_ns": 27900
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 10804,
+          "position": 1382272,
+          "service_ns": 14477373,
+          "windows_process_ns": 25000
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1270016,
+          "gap_frames": 128,
+          "request_position": 1270016,
+          "request_frames": 128,
+          "sequence": 9927,
+          "output_published": true,
+          "queue_us": 18,
+          "prepare_us": 12,
+          "send_us": 79,
+          "reply_us": 5614,
+          "validation_us": 10,
+          "publication_us": 6,
+          "publication_after_gap_us": 410,
+          "admission_to_gap_us": 5331
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1381376,
+          "gap_frames": 128,
+          "request_position": 1381376,
+          "request_frames": 128,
+          "sequence": 10797,
+          "output_published": true,
+          "queue_us": 11,
+          "prepare_us": 31009,
+          "send_us": 79,
+          "reply_us": 517,
+          "validation_us": 11,
+          "publication_us": 4,
+          "publication_after_gap_us": 26330,
+          "admission_to_gap_us": 5303
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1381504,
+          "gap_frames": 128,
+          "request_position": 1381504,
+          "request_frames": 128,
+          "sequence": 10798,
+          "output_published": true,
+          "queue_us": 28985,
+          "prepare_us": 7,
+          "send_us": 30,
+          "reply_us": 302,
+          "validation_us": 8,
+          "publication_us": 3,
+          "publication_after_gap_us": 23951,
+          "admission_to_gap_us": 5385
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1381632,
+          "gap_frames": 128,
+          "request_position": 1381632,
+          "request_frames": 128,
+          "sequence": 10799,
+          "output_published": true,
+          "queue_us": 26700,
+          "prepare_us": 5,
+          "send_us": 28,
+          "reply_us": 214,
+          "validation_us": 5,
+          "publication_us": 2,
+          "publication_after_gap_us": 21614,
+          "admission_to_gap_us": 5342
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1381760,
+          "gap_frames": 128,
+          "request_position": 1381760,
+          "request_frames": 128,
+          "sequence": 10800,
+          "output_published": true,
+          "queue_us": 24222,
+          "prepare_us": 3,
+          "send_us": 18,
+          "reply_us": 153,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 19150,
+          "admission_to_gap_us": 5251
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1381888,
+          "gap_frames": 128,
+          "request_position": 1381888,
+          "request_frames": 128,
+          "sequence": 10801,
+          "output_published": true,
+          "queue_us": 21805,
+          "prepare_us": 2,
+          "send_us": 12,
+          "reply_us": 150,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 16619,
+          "admission_to_gap_us": 5356
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1382016,
+          "gap_frames": 128,
+          "request_position": 1382016,
+          "request_frames": 128,
+          "sequence": 10802,
+          "output_published": true,
+          "queue_us": 19330,
+          "prepare_us": 2,
+          "send_us": 12,
+          "reply_us": 176,
+          "validation_us": 3,
+          "publication_us": 1,
+          "publication_after_gap_us": 14119,
+          "admission_to_gap_us": 5407
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1382144,
+          "gap_frames": 128,
+          "request_position": 1382144,
+          "request_frames": 128,
+          "sequence": 10803,
+          "output_published": true,
+          "queue_us": 16826,
+          "prepare_us": 2,
+          "send_us": 16,
+          "reply_us": 151,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 11690,
+          "admission_to_gap_us": 5310
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1382272,
+          "gap_frames": 128,
+          "request_position": 1382272,
+          "request_frames": 128,
+          "sequence": 10804,
+          "output_published": true,
+          "queue_us": 14304,
+          "prepare_us": 2,
+          "send_us": 12,
+          "reply_us": 152,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 9175,
+          "admission_to_gap_us": 5301
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1382400,
+          "gap_frames": 128,
+          "request_position": 1382400,
+          "request_frames": 128,
+          "sequence": 10805,
+          "output_published": true,
+          "queue_us": 11871,
+          "prepare_us": 2,
+          "send_us": 12,
+          "reply_us": 146,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 6711,
+          "admission_to_gap_us": 5326
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1382528,
+          "gap_frames": 128,
+          "request_position": 1382528,
+          "request_frames": 128,
+          "sequence": 10806,
+          "output_published": true,
+          "queue_us": 9349,
+          "prepare_us": 2,
+          "send_us": 12,
+          "reply_us": 143,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 4179,
+          "admission_to_gap_us": 5333
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1382656,
+          "gap_frames": 128,
+          "request_position": 1382656,
+          "request_frames": 128,
+          "sequence": 10807,
+          "output_published": true,
+          "queue_us": 6883,
+          "prepare_us": 2,
+          "send_us": 12,
+          "reply_us": 148,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 1648,
+          "admission_to_gap_us": 5402
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 128,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 5668096,
+          "blocks": 44282,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 22171,
+          "successful_silent_frames": 2837888,
+          "priming_frames": 256,
+          "underrun_frames": 1536,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 12,
+          "expired_output_frames": 1536,
+          "delivered_frames": 5666304,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "owners": [
+        {
+          "retired": true,
+          "containment_confirmed": true,
+          "error": null
+        }
+      ],
+      "windows_setup": [
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 171,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 179,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "latency_samples": 0,
+          "maximum": 128,
+          "precision": "float32",
+          "sample_rate": 48000.0,
+          "sequence": 181,
+          "state": "ap9_processing_setup",
+          "tail_samples": 0,
+          "vendor_float64": false
+        },
+        {
+          "event": "lifecycle",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "retained": 97,
+          "sequence": 222,
+          "state": "ap10_windows_clock",
+          "triggers": 1
+        }
+      ],
+      "bridge_frames": 256,
+      "delivery": "socket",
+      "playback_capture": {
+        "wall_seconds": 40.00187715596985,
+        "cohort_cpu_seconds": 38.164636,
+        "process_cpu_seconds_by_name": {
+          "python3": 9.89,
+          "srt-bwrap": 0.0,
+          "pv-adverb": 0.0,
+          "start.exe": 0.0,
+          "wineserver": 8.99,
+          "services.exe": 0.0,
+          "winedevice.exe": 8.34,
+          "plugplay.exe": 0.0,
+          "svchost.exe": 0.0,
+          "wf0-factory-pro": 6.56,
+          "explorer.exe": 0.0,
+          "rpcss.exe": 0.0,
+          "tabtip.exe": 0.0,
+          "xalia.exe": 4.35
+        },
+        "capture": {
+          "source": "local default sink monitor; converter path excluded",
+          "requested_rate": 48000,
+          "channels": 2,
+          "format": "float32le",
+          "samples": 3637248,
+          "nonzero": 2358910,
+          "rms": 0.0016690527289437236,
+          "peak": 0.009363681077957153,
+          "stderr": ""
+        },
+        "scope": "40-second active note playback unless explicitly shorter; CPU is the supervised Windows cohort, excluding the native DAW and capture/perf processes. Start/end process CPU deltas use PID/start-time identity."
+      }
+    }
+  ],
+  "serum_recall": {
+    "name": "return-serum-recall",
+    "native": [
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 33652,
+        "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 33652,
+        "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_set",
+        "payload_bytes": 33682,
+        "sha256": "9d38a13a628213bf7ace28ca6ba357640e674df336ab45163a224703adab6191",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap10_process_results",
+        "stats_status": 0,
+        "events_delivered": 0,
+        "points_delivered": 0,
+        "late_events": 0,
+        "late_points": 0,
+        "host_unrequested_events": 0,
+        "host_unrequested_points": 0,
+        "rejected": 0,
+        "cleanup_sent": 0,
+        "cleanup_unavailable": 0,
+        "active_notes_unreleased": 0,
+        "discarded_on_reset": 0,
+        "pending_events": 0,
+        "pending_points": 0
+      },
+      {
+        "event": "ap3_proxy_stats",
+        "fault": 0,
+        "first_position": 18446744073709551615,
+        "processed": 21557,
+        "request_high": 1,
+        "result_high": 2,
+        "position": 2759296,
+        "epoch": 1
+      },
+      {
+        "event": "ap7_observation",
+        "offered_samples": 5518592,
+        "verified_returned_samples": 0,
+        "unchecked_samples": 5518592,
+        "dropped_jobs": 0,
+        "dropped_samples": 0,
+        "reader_skips": 0,
+        "unretained_gap_traces": 0,
+        "maximum_error": 0,
+        "before_edit_samples": 0,
+        "edits": 0
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "queue",
+        "requests": 14284,
+        "mean_ns": 68582,
+        "p50_upper_ns": 72000,
+        "p95_upper_ns": 128000,
+        "p99_upper_ns": 176000,
+        "max_ns": 2068855
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "prepare",
+        "requests": 14284,
+        "mean_ns": 11467,
+        "p50_upper_ns": 11000,
+        "p95_upper_ns": 14000,
+        "p99_upper_ns": 88000,
+        "max_ns": 146386
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "send",
+        "requests": 14284,
+        "mean_ns": 630,
+        "p50_upper_ns": 1125,
+        "p95_upper_ns": 1125,
+        "p99_upper_ns": 1125,
+        "max_ns": 105517
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "reply",
+        "requests": 14284,
+        "mean_ns": 258204,
+        "p50_upper_ns": 240000,
+        "p95_upper_ns": 352000,
+        "p99_upper_ns": 480000,
+        "max_ns": 1004118
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "validation",
+        "requests": 14284,
+        "mean_ns": 8506,
+        "p50_upper_ns": 8000,
+        "p95_upper_ns": 11000,
+        "p99_upper_ns": 15000,
+        "max_ns": 722198
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "publication",
+        "requests": 14284,
+        "mean_ns": 4722,
+        "p50_upper_ns": 4500,
+        "p95_upper_ns": 7000,
+        "p99_upper_ns": 9000,
+        "max_ns": 118216
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "admission_to_publication",
+        "requests": 14284,
+        "mean_ns": 352114,
+        "p50_upper_ns": 352000,
+        "p95_upper_ns": 512000,
+        "p99_upper_ns": 576000,
+        "max_ns": 2480613
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "windows_process",
+        "requests": 14284,
+        "mean_ns": 113306,
+        "p50_upper_ns": 120000,
+        "p95_upper_ns": 208000,
+        "p99_upper_ns": 256000,
+        "max_ns": 757700
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "correlated_non_plugin",
+        "requests": 14284,
+        "mean_ns": 238808,
+        "p50_upper_ns": 240000,
+        "p95_upper_ns": 352000,
+        "p99_upper_ns": 416000,
+        "max_ns": 2272913
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 17992,
+        "position": 2302336,
+        "service_ns": 2480613,
+        "windows_process_ns": 207700
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 17692,
+        "position": 2263936,
+        "service_ns": 2363486,
+        "windows_process_ns": 152000
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 11592,
+        "position": 1483136,
+        "service_ns": 1303668,
+        "windows_process_ns": 66500
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 19542,
+        "position": 2500736,
+        "service_ns": 1134845,
+        "windows_process_ns": 82500
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 19630,
+        "position": 2512000,
+        "service_ns": 1105566,
+        "windows_process_ns": 757700
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 13893,
+        "position": 1777664,
+        "service_ns": 1074465,
+        "windows_process_ns": 729600
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 15510,
+        "position": 1984640,
+        "service_ns": 1056977,
+        "windows_process_ns": 579400
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 8251,
+        "position": 1055488,
+        "service_ns": 982197,
+        "windows_process_ns": 212600
+      },
+      {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 128,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 2759296,
+        "blocks": 21557,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 12154,
+        "successful_silent_frames": 1555712,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 2758784,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      }
+    ],
+    "owners": [
+      {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      }
+    ],
+    "windows_setup": [
+      {
+        "event": "lifecycle",
+        "ntdelay50_mean_ns": 112668,
+        "samples_per_method": 32,
+        "sequence": 170,
+        "sleep50_mean_ns": 1089206,
+        "state": "ap10_wait_resolution"
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 0,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 172,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 0,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 180,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 0,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 182,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "frequency": 10000000,
+        "minimum_observed_tick": 1,
+        "retained": 0,
+        "sequence": 223,
+        "state": "ap10_windows_clock",
+        "triggers": 0
+      }
+    ],
+    "initial_main_vol": 0.115,
+    "saved_main_vol": 0.22,
+    "reopened_main_vol": 0.22,
+    "route": "Quit Bitwig; fresh Applications launch; reopen same saved project; start original note clip",
+    "capture": {
+      "wall_seconds": 10.001707206945866,
+      "cohort_cpu_seconds": 8.67683,
+      "process_cpu_seconds_by_name": {
+        "python3": 2.5,
+        "srt-bwrap": 0.0,
+        "pv-adverb": 0.0,
+        "start.exe": 0.0,
+        "wineserver": 1.51,
+        "services.exe": 0.0,
+        "winedevice.exe": 2.1599999999999997,
+        "plugplay.exe": 0.0,
+        "svchost.exe": 0.0,
+        "wf0-factory-pro": 1.43,
+        "explorer.exe": 0.0,
+        "rpcss.exe": 0.0,
+        "tabtip.exe": 0.0,
+        "xalia.exe": 1.08
+      },
+      "capture": {
+        "source": "local default sink monitor; converter path excluded",
+        "requested_rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 770048,
+        "nonzero": 499798,
+        "rms": 0.006079432571581391,
+        "peak": 0.0338788740336895,
+        "stderr": ""
+      },
+      "scope": "40-second active note playback unless explicitly shorter; CPU is the supervised Windows cohort, excluding the native DAW and capture/perf processes. Start/end process CPU deltas use PID/start-time identity."
+    },
+    "saved_project_sha256": "c92490f460d2ad3212c1bcc4daa76e0a2e15cab093126e5c95f32ecefb221fea"
+  },
+  "interrupted_first_512": {
+    "name": "return-serum512",
+    "native": [
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 33652,
+        "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 33652,
+        "sha256": "58df047e6b20c55c3793d3579a6dda9388094a7a5694af1268e1979577a9b31f",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_set",
+        "payload_bytes": 33683,
+        "sha256": "ceaa41ddfc9d0970b18021b51600ea5008c1c12b8274083fe73e07c7ddd3b82b",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 0,
+        "total_frames": 512,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap10_process_results",
+        "stats_status": 0,
+        "events_delivered": 0,
+        "points_delivered": 0,
+        "late_events": 0,
+        "late_points": 0,
+        "host_unrequested_events": 0,
+        "host_unrequested_points": 0,
+        "rejected": 0,
+        "cleanup_sent": 0,
+        "cleanup_unavailable": 0,
+        "active_notes_unreleased": 0,
+        "discarded_on_reset": 0,
+        "pending_events": 0,
+        "pending_points": 0
+      },
+      {
+        "event": "ap3_proxy_stats",
+        "fault": 0,
+        "first_position": 18446744073709551615,
+        "processed": 11273,
+        "request_high": 2,
+        "result_high": 2,
+        "position": 1442944,
+        "epoch": 1
+      },
+      {
+        "event": "ap7_observation",
+        "offered_samples": 2885888,
+        "verified_returned_samples": 0,
+        "unchecked_samples": 2885888,
+        "dropped_jobs": 0,
+        "dropped_samples": 0,
+        "reader_skips": 0,
+        "unretained_gap_traces": 0,
+        "maximum_error": 0,
+        "before_edit_samples": 0,
+        "edits": 0
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "queue",
+        "requests": 5569,
+        "mean_ns": 73556,
+        "p50_upper_ns": 72000,
+        "p95_upper_ns": 128000,
+        "p99_upper_ns": 208000,
+        "max_ns": 4047134
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "prepare",
+        "requests": 5569,
+        "mean_ns": 12119,
+        "p50_upper_ns": 11000,
+        "p95_upper_ns": 14000,
+        "p99_upper_ns": 88000,
+        "max_ns": 251320
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "send",
+        "requests": 5569,
+        "mean_ns": 685,
+        "p50_upper_ns": 1125,
+        "p95_upper_ns": 1125,
+        "p99_upper_ns": 1125,
+        "max_ns": 118071
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "reply",
+        "requests": 5569,
+        "mean_ns": 276882,
+        "p50_upper_ns": 240000,
+        "p95_upper_ns": 416000,
+        "p99_upper_ns": 640000,
+        "max_ns": 4504343
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "validation",
+        "requests": 5569,
+        "mean_ns": 8726,
+        "p50_upper_ns": 9000,
+        "p95_upper_ns": 12000,
+        "p99_upper_ns": 20000,
+        "max_ns": 171607
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "publication",
+        "requests": 5569,
+        "mean_ns": 5239,
+        "p50_upper_ns": 5000,
+        "p95_upper_ns": 7500,
+        "p99_upper_ns": 12000,
+        "max_ns": 148889
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "admission_to_publication",
+        "requests": 5569,
+        "mean_ns": 377210,
+        "p50_upper_ns": 384000,
+        "p95_upper_ns": 576000,
+        "p99_upper_ns": 768000,
+        "max_ns": 4797796
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "windows_process",
+        "requests": 5569,
+        "mean_ns": 124449,
+        "p50_upper_ns": 128000,
+        "p95_upper_ns": 224000,
+        "p99_upper_ns": 352000,
+        "max_ns": 4183500
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "correlated_non_plugin",
+        "requests": 5569,
+        "mean_ns": 252760,
+        "p50_upper_ns": 256000,
+        "p95_upper_ns": 384000,
+        "p99_upper_ns": 512000,
+        "max_ns": 4571842
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 5842,
+        "position": 747136,
+        "service_ns": 4797796,
+        "windows_process_ns": 598900
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 8143,
+        "position": 1041664,
+        "service_ns": 4651142,
+        "windows_process_ns": 79300
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 5841,
+        "position": 747008,
+        "service_ns": 4442563,
+        "windows_process_ns": 4183500
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 5843,
+        "position": 747264,
+        "service_ns": 3250977,
+        "windows_process_ns": 206000
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 8073,
+        "position": 1032704,
+        "service_ns": 2771137,
+        "windows_process_ns": 72000
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 11274,
+        "position": 1442432,
+        "service_ns": 2635391,
+        "windows_process_ns": 80900
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 5837,
+        "position": 746496,
+        "service_ns": 2422271,
+        "windows_process_ns": 569200
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 8139,
+        "position": 1041152,
+        "service_ns": 2196561,
+        "windows_process_ns": 89400
+      },
+      {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 128,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 1442944,
+        "blocks": 11273,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 7613,
+        "successful_silent_frames": 974464,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 1442432,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      }
+    ],
+    "owners": [
+      {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      }
+    ],
+    "windows_setup": [
+      {
+        "event": "lifecycle",
+        "ntdelay50_mean_ns": 107762,
+        "samples_per_method": 32,
+        "sequence": 170,
+        "sleep50_mean_ns": 1071087,
+        "state": "ap10_wait_resolution"
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 0,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 172,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 0,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 180,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 0,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 182,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "frequency": 10000000,
+        "minimum_observed_tick": 1,
+        "retained": 0,
+        "sequence": 223,
+        "state": "ap10_windows_clock",
+        "triggers": 0
+      }
+    ],
+    "limitation": "The project saved and closed during the 40-second capture without an assistant close action. Native/Windows teardown was clean; initiating action is unknown. Excluded from matched CPU comparison."
+  },
+  "limitations": [
+    "Whole-session counters include stopped transport, save and close; they are not counts restricted to the active 40-second CPU capture. Session lengths and pre-play idle times differ.",
+    "Timing distributions cover observed correlated completions, including silence, and are not exhaustive per-note or full-session worst-case distributions; gap traces retain missed requests separately.",
+    "Current socket gaps preceded perf/capture attachment. Native detailed history retained the first gap near sequence 9927; Windows history triggered later near 10797. There are no overlapping detailed requests for cross-clock attribution in this run.",
+    "No current mailbox residual gap occurred to diagnose; historical 31.903-ms Windows reply-preparation and engine-close crash remain unexplained. The socket control also retained a distinct 31.010-ms Linux preparation interval.",
+    "Local monitor audio establishes continued output, not exact converter latency, float32 device precision or absence of device xruns. PipeWire error counters were sampled cumulatively, not as matched start/end deltas.",
+    "Short runs do not qualify 256 for long sessions; 512 remains recommended. No new 128-frame desktop claim.",
+    "The current Serum clip emitted no returned events/parameter points; return semantics are established by the production SDK fixture, not inferred from Serum audio.",
+    "Cohort CPU snapshots bracket the 40-second capture plus local sample-read/WAV-pack overhead before the second snapshot. The ~1.25% difference is not a reliable CPU-saving claim."
+  ],
+  "recommended_added_frames": 512,
+  "fixture": {
+    "system": "Steam Deck OLED / SteamOS 3.8.16, build 20260716.1",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "architecture": "x86_64",
+    "bitwig_version": "6.1",
+    "bitwig_flatpak_commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+    "bitwig_flatpak_runtime": "org.freedesktop.Platform/x86_64/25.08",
+    "runner_launch_manifest_sha256": "20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7",
+    "runner": {
+      "build_id": "25118279",
+      "depot_manifest": "2978628887517351791",
+      "directory_name": "Proton 11.0",
+      "required_tool_app_id": "4183110",
+      "steam_app_id": "4628710",
+      "version": "1788504981 proton-11.0-2c-x86_64"
+    },
+    "runtime": {
+      "directory_name": "SteamLinuxRuntime_4",
+      "steam_app_id": "4183110",
+      "build_id": "24599767",
+      "depot_manifest": "78117001432799844",
+      "depot_version": "4.0.20260805.254769",
+      "pressure_vessel_version": "0.20260805.0"
+    },
+    "serum": {
+      "version": "2.0.18",
+      "module_sha256": "838bc7ab42d5d039156768680ffc3e0175d6e6bed9f99802989a01d695e13175",
+      "class_id": "56534558667350736572756D20320000",
+      "authorization": "Retained maintainer-installed environment; no installer, licensing or account flow performed; license channel not newly established.",
+      "native_component_id": "b7e8c3508fc755db9fdc29f971604942",
+      "native_controller_id": "f52ccadd0aff58ea8bcad3d50cfc70b9"
+    },
+    "provenance": "Same managed environments and pinned runner as AP9; current owner verified its launch identity. Bitwig 6.1 / Flatpak commit, runtime branch and kernel re-read after the checks; no authorization flow performed."
+  },
+  "first_current_socket_gap": {
+    "sequence": 9927,
+    "queued_monotonic_ns": 631047994237244,
+    "previous_callback_spacing_us": 2687.266,
+    "linux_reply_us": 5614,
+    "perf_started_seconds_later": 9.354905735,
+    "cross_clock_attribution": "Unavailable: Windows detailed trace triggered at a later interval with no common retained request."
+  },
+  "fragments": {
+    "name": "return-fragments",
+    "native": [
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128272,
+        "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 192,
+        "total_frames": 704,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128272,
+        "sha256": "6197a106543a6c27cc461d85cede590b9cda34cc52312db05c815982965df75b",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_set",
+        "payload_bytes": 128324,
+        "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 192,
+        "total_frames": 704,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 128,
+        "transport_maximum": 128,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 192,
+        "total_frames": 704,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128330,
+        "sha256": "51c520299373c8a2f2156a4bcb16453e1ef7447dde654bdb22e6dd77b7b5531d",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128324,
+        "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 128324,
+        "sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+        "gain": 0
+      },
+      {
+        "event": "ap10_process_results",
+        "stats_status": 0,
+        "events_delivered": 0,
+        "points_delivered": 0,
+        "late_events": 0,
+        "late_points": 0,
+        "host_unrequested_events": 0,
+        "host_unrequested_points": 0,
+        "rejected": 0,
+        "cleanup_sent": 0,
+        "cleanup_unavailable": 0,
+        "active_notes_unreleased": 0,
+        "discarded_on_reset": 0,
+        "pending_events": 0,
+        "pending_points": 0
+      },
+      {
+        "event": "ap3_proxy_stats",
+        "fault": 0,
+        "first_position": 18446744073709551615,
+        "processed": 103925,
+        "request_high": 4,
+        "result_high": 4,
+        "position": 13302400,
+        "epoch": 1
+      },
+      {
+        "event": "ap7_observation",
+        "offered_samples": 26604800,
+        "verified_returned_samples": 0,
+        "unchecked_samples": 26604800,
+        "dropped_jobs": 0,
+        "dropped_samples": 0,
+        "reader_skips": 0,
+        "unretained_gap_traces": 0,
+        "maximum_error": 0,
+        "before_edit_samples": 0,
+        "edits": 0
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "queue",
+        "requests": 72882,
+        "mean_ns": 68472,
+        "p50_upper_ns": 72000,
+        "p95_upper_ns": 128000,
+        "p99_upper_ns": 160000,
+        "max_ns": 9835739
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "prepare",
+        "requests": 72882,
+        "mean_ns": 10640,
+        "p50_upper_ns": 10000,
+        "p95_upper_ns": 13000,
+        "p99_upper_ns": 80000,
+        "max_ns": 284031
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "send",
+        "requests": 72882,
+        "mean_ns": 934,
+        "p50_upper_ns": 1125,
+        "p95_upper_ns": 1250,
+        "p99_upper_ns": 1500,
+        "max_ns": 395069
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "reply",
+        "requests": 72882,
+        "mean_ns": 294841,
+        "p50_upper_ns": 352000,
+        "p95_upper_ns": 384000,
+        "p99_upper_ns": 480000,
+        "max_ns": 2218219
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "validation",
+        "requests": 72882,
+        "mean_ns": 8152,
+        "p50_upper_ns": 8000,
+        "p95_upper_ns": 11000,
+        "p99_upper_ns": 18000,
+        "max_ns": 242150
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "publication",
+        "requests": 72882,
+        "mean_ns": 4581,
+        "p50_upper_ns": 4500,
+        "p95_upper_ns": 7000,
+        "p99_upper_ns": 9000,
+        "max_ns": 298330
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "admission_to_publication",
+        "requests": 72882,
+        "mean_ns": 387623,
+        "p50_upper_ns": 416000,
+        "p95_upper_ns": 512000,
+        "p99_upper_ns": 576000,
+        "max_ns": 10177179
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "windows_process",
+        "requests": 72882,
+        "mean_ns": 153488,
+        "p50_upper_ns": 160000,
+        "p95_upper_ns": 224000,
+        "p99_upper_ns": 288000,
+        "max_ns": 1539500
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "correlated_non_plugin",
+        "requests": 72882,
+        "mean_ns": 234134,
+        "p50_upper_ns": 240000,
+        "p95_upper_ns": 352000,
+        "p99_upper_ns": 384000,
+        "max_ns": 10012979
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 52197,
+        "position": 6680448,
+        "service_ns": 10177179,
+        "windows_process_ns": 164200
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 103916,
+        "position": 13300224,
+        "service_ns": 8554332,
+        "windows_process_ns": 111800
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 52198,
+        "position": 6680576,
+        "service_ns": 7801980,
+        "windows_process_ns": 161600
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 99903,
+        "position": 12786688,
+        "service_ns": 7496650,
+        "windows_process_ns": 202600
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 103917,
+        "position": 13300352,
+        "service_ns": 6090348,
+        "windows_process_ns": 83700
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 52199,
+        "position": 6680704,
+        "service_ns": 5575380,
+        "windows_process_ns": 286000
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 99904,
+        "position": 12786816,
+        "service_ns": 5244687,
+        "windows_process_ns": 228800
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 1,
+        "sequence": 103918,
+        "position": 13300480,
+        "service_ns": 3851096,
+        "windows_process_ns": 139000
+      },
+      {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 128,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 13302400,
+        "blocks": 103925,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 4,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 13301888,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      }
+    ],
+    "owners": [
+      {
+        "retired": true,
+        "containment_confirmed": true,
+        "error": null
+      }
+    ],
+    "windows_setup": [
+      {
+        "event": "lifecycle",
+        "ntdelay50_mean_ns": 113375,
+        "samples_per_method": 32,
+        "sequence": 145,
+        "sleep50_mean_ns": 1079828,
+        "state": "ap10_wait_resolution"
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 192,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 147,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 192,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 155,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "latency_samples": 192,
+        "maximum": 128,
+        "precision": "float32",
+        "sample_rate": 48000.0,
+        "sequence": 157,
+        "state": "ap9_processing_setup",
+        "tail_samples": 0,
+        "vendor_float64": false
+      },
+      {
+        "event": "lifecycle",
+        "frequency": 10000000,
+        "minimum_observed_tick": 1,
+        "retained": 275,
+        "sequence": 201,
+        "state": "ap10_windows_clock",
+        "triggers": 3
+      }
+    ],
+    "fixture": "Efx FRAGMENTS 1.0.0.2925",
+    "native_source": "79fd5508a1985ef1461f8be926f307cfb55425d8",
+    "processing_same_as": "9ba67d0e595bc9d26af198405fd5334378daf72d",
+    "native_sha256": "2165d8e6141c0f7432861c1b0f1892058e59aeca0b489f6c56ae834cd806a8fb",
+    "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+    "class_id": "41727475415649536772616E50726F63",
+    "bridge_frames": 512,
+    "vendor_frames": 192,
+    "total_reported_frames": 704,
+    "recalled_grain_mix": 1.0,
+    "control_sequence": [
+      1.0,
+      0.11,
+      0.0,
+      1.0
+    ],
+    "saved_and_initial_state_sha256": "9f32f4beb75049b1bfedeafe571f27464eb8992859d4c0b85764482f061b120f",
+    "saved_project_sha256": "872e3dab7aeaeeb9362be82f8dd9766d10899cffbafb06b5addcf8702338dc5e",
+    "wet_capture": {
+      "wall_seconds": 10.00193072995171,
+      "cohort_cpu_seconds": 8.959903,
+      "process_cpu_seconds_by_name": {
+        "python3": 2.53,
+        "srt-bwrap": 0.0,
+        "pv-adverb": 0.0,
+        "start.exe": 0.0,
+        "wineserver": 1.52,
+        "services.exe": 0.0,
+        "winedevice.exe": 2.14,
+        "plugplay.exe": 0.0,
+        "svchost.exe": 0.0,
+        "wf0-factory-pro": 1.67,
+        "explorer.exe": 0.0,
+        "rpcss.exe": 0.0,
+        "tabtip.exe": 0.0,
+        "xalia.exe": 1.12
+      },
+      "capture": {
+        "source": "local default sink monitor; converter path excluded",
+        "requested_rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 770048,
+        "nonzero": 364062,
+        "rms": 0.0005158018517799752,
+        "peak": 0.005295251030474901,
+        "stderr": ""
+      },
+      "scope": "40-second active note playback unless explicitly shorter; CPU is the supervised Windows cohort, excluding the native DAW and capture/perf processes. Start/end process CPU deltas use PID/start-time identity."
+    },
+    "dry_capture": {
+      "wall_seconds": 10.001813194947317,
+      "cohort_cpu_seconds": 8.2046,
+      "process_cpu_seconds_by_name": {
+        "python3": 2.4,
+        "srt-bwrap": 0.0,
+        "pv-adverb": 0.0,
+        "start.exe": 0.0,
+        "wineserver": 1.36,
+        "services.exe": 0.0,
+        "winedevice.exe": 1.9,
+        "plugplay.exe": 0.0,
+        "svchost.exe": 0.0,
+        "wf0-factory-pro": 1.56,
+        "explorer.exe": 0.0,
+        "rpcss.exe": 0.0,
+        "tabtip.exe": 0.0,
+        "xalia.exe": 0.99
+      },
+      "capture": {
+        "source": "local default sink monitor; converter path excluded",
+        "requested_rate": 48000,
+        "channels": 2,
+        "format": "float32le",
+        "samples": 770048,
+        "nonzero": 176236,
+        "rms": 0.0003068356070013637,
+        "peak": 0.002920744242146611,
+        "stderr": ""
+      },
+      "scope": "40-second active note playback unless explicitly shorter; CPU is the supervised Windows cohort, excluding the native DAW and capture/perf processes. Start/end process CPU deltas use PID/start-time identity."
+    },
+    "reused_evidence": "effect-development.json: prior input-dependent residual comparison, controller/state repair and frozen-tail/release proof. These unaffected tests were not replayed.",
+    "limits": [
+      "Ten-second wet/dry captures are unsynchronized device-monitor observations, not exact input/output comparison.",
+      "No returned events or parameter feedback were emitted in this effect check; SDK-produced regression supplies that proof.",
+      "Vendor tail still reports zero; no new tail-duration claim."
+    ]
+  },
+  "bitwig_closes": {
+    "serum_comparison_512": "Engine exit code 0; without errors",
+    "serum_recall": "Engine exit code 0; without errors",
+    "serum_comparison_256": "Engine exit code 0; without errors",
+    "socket_control_256": "Engine exit code 0; without errors",
+    "fragments": "Engine exit code 0; without errors",
+    "evidence": "Current and archived private Bitwig logs, separately from owner/native cleanup."
+  }
+}

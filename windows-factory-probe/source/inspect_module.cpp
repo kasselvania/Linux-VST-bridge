@@ -37,6 +37,7 @@ std::string text16(const TChar* value, size_t limit=128) {
 class Handler final:public IComponentHandler {
     std::atomic<uint32> refs{1};
 public:
+    ExternalProcessing* external=nullptr;
     tresult PLUGIN_API queryInterface(const TUID id,void**out) override {
         if(!out)return kInvalidArgument;*out=nullptr;
         if(FUnknownPrivate::iidEqual(id,IComponentHandler::iid)||FUnknownPrivate::iidEqual(id,FUnknown::iid)){
@@ -45,15 +46,15 @@ public:
     }
     uint32 PLUGIN_API addRef()override{return ++refs;}
     uint32 PLUGIN_API release()override{return --refs;}
-    tresult PLUGIN_API beginEdit(ParamID)override{return kResultOk;}
-    tresult PLUGIN_API performEdit(ParamID,ParamValue)override{return kResultOk;}
-    tresult PLUGIN_API endEdit(ParamID)override{return kResultOk;}
-    tresult PLUGIN_API restartComponent(int32)override{return kResultOk;}
+    tresult PLUGIN_API beginEdit(ParamID)override{return kNotImplemented;}
+    tresult PLUGIN_API performEdit(ParamID,ParamValue)override{return kNotImplemented;}
+    tresult PLUGIN_API endEdit(ParamID)override{return kNotImplemented;}
+    tresult PLUGIN_API restartComponent(int32 flags)override{return external?external->request_restart(flags):kNotImplemented;}
 };
 }
 int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external) {
     using namespace Steinberg;using namespace Steinberg::Vst;
-    HostApplication host;Handler handler;
+    HostApplication host;Handler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
     IConnectionPoint *cp=nullptr,*cc=nullptr;
     bool initialized=false,controller_initialized=false,connected_pc=false,connected_cp=false,handler_set=false;
@@ -101,7 +102,8 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             step("getBusCount");int n=component->getBusCount(media,dir);
             if(n<0||n>64)throw std::runtime_error("bus count bound");
             for(int i=0;i<n;++i){BusInfo b{};ok(component->getBusInfo(media,dir,i,b),"getBusInfo");
-                events.lifecycle("ap8_bus",",\"media\":"+std::to_string(media)+",\"direction\":"+std::to_string(dir)+",\"index\":"+std::to_string(i)+",\"channels\":"+std::to_string(b.channelCount)+",\"type\":"+std::to_string(b.busType)+",\"flags\":"+std::to_string(b.flags)+",\"name\":"+text16(b.name));}
+                SpeakerArrangement arrangement=0;if(media==kAudio)ok(audio->getBusArrangement(dir,i,arrangement),"getBusArrangement");
+                events.lifecycle("ap8_bus",",\"media\":"+std::to_string(media)+",\"direction\":"+std::to_string(dir)+",\"index\":"+std::to_string(i)+",\"channels\":"+std::to_string(b.channelCount)+",\"type\":"+std::to_string(b.busType)+",\"flags\":"+std::to_string(b.flags)+",\"arrangement\":"+std::to_string(arrangement)+",\"name\":"+text16(b.name));}
         }
         int n=controller->getParameterCount();if(n<0||n>8192)throw std::runtime_error("parameter count bound");
         events.lifecycle("ap8_parameter_count",",\"count\":"+std::to_string(n));
@@ -121,7 +123,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         if(state.failed||!state.quiescent())throw std::runtime_error("state stream bounds/lifetime");
         if(controller_initialized){state.position=0;step("synchronizeController");ok(controller->setComponentState(&state),"synchronizeController");}
         if(state.failed||!state.quiescent())throw std::runtime_error("controller state stream lifetime");
-        events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32)));
+        events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
         if(external){
             external->bind_controller(controller,controller_initialized);
             HostCallbackSink calls(&events,GetCurrentThreadId());

@@ -3,8 +3,10 @@
 #include "ap2_backend.h"
 #include "ap3_backend.h"
 #include "ap4_backend.h"
+#include "input_silence.h"
 #ifdef AP8_PREVIEW
-#include "ap8_backend.h"
+#include "ap10_backend.h"
+#include "pluginterfaces/vst/ivstprocesscontext.h"
 #endif
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
@@ -346,6 +348,13 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   const auto *id = message->getMessageID();
   if (!id) return kResultFalse;
 #ifdef AP8_PREVIEW
+  if(!std::strcmp(id,"AP10.capabilities")){int64 enabled=0;if(message->getAttributes()->getInt("notifications",enabled)!=kResultOk)return kResultFalse;notifications_=enabled==1;return kResultOk;}
+  if(!std::strcmp(id,"AP10.poll")){
+    uint32_t notice[3]{};if(!handle_||ap10_notices(handle_,notice)||!notice[0])return kResultOk;
+    if(notice[1]>UINT32_MAX-(latency_-vendor_latency_))return kResultFalse;
+    latency_=latency_-vendor_latency_+notice[1];vendor_latency_=notice[1];tail_=notice[2];
+    auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP10.restart");m->getAttributes()->setInt("flags",notice[0]);auto r=sendMessage(m);m->release();return r;
+  }
   if(!std::strcmp(id,"AP8.readback"))return readback();
 #endif
   if (!std::strcmp(id, "AP6.synced")) {
@@ -424,6 +433,9 @@ Processor::~Processor() {
     queued_ ? (void)ap3_close(handle_) : (void)ap2_close(handle_);
 }
 tresult PLUGIN_API Processor::initialize(FUnknown *context) {
+#ifdef AP8_PREVIEW
+  if(ap10_results_abi_version()!=1)return kResultFalse;
+#endif
   Guard g(busy_);
   if (!g.held || phase_ != New || ap2_abi_version() != 1)
     return kResultFalse;
@@ -431,49 +443,62 @@ tresult PLUGIN_API Processor::initialize(FUnknown *context) {
   if (result != kResultOk)
     return result;
 #ifdef AP8_PREVIEW
-  addEventInput(STR16("Note Input"),16);
+  size_t ordinal=0;
+  for(const auto& b:AP8::buses){
+    bool enabled=b.type==kMain&&(b.flags&BusInfo::kDefaultActive);
+    bus_active_[ordinal++]=enabled;
+    auto flags=b.flags;
+    const auto* name=reinterpret_cast<const TChar*>(b.name);
+    if(b.media==kAudio){if(b.direction==kInput)addAudioInput(name,b.arrangement,b.type,flags);else addAudioOutput(name,b.arrangement,b.type,flags);}
+    else {if(b.direction==kInput)addEventInput(name,b.channels,b.type,flags);else addEventOutput(name,b.channels,b.type,flags);}
+  }
 #else
   addAudioInput(STR16("Offline Stereo In"), SpeakerArr::kStereo);
 #endif
+#ifndef AP8_PREVIEW
   addAudioOutput(STR16("Offline Stereo Out"), SpeakerArr::kStereo);
+#endif
   owner_ = std::this_thread::get_id();
   phase_ = Initialized;
   return kResultOk;
 }
-tresult PLUGIN_API Processor::activateBus(MediaType media,
-                                          BusDirection direction, int32 index,
-                                          TBool active) {
-  Guard g(busy_);
-  if (!g.held || owner_ != std::this_thread::get_id() ||
-      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
 #ifdef AP8_PREVIEW
-      !((media==kAudio&&direction==kOutput)||(media==kEvent&&direction==kInput)) ||
-#else
-      media != kAudio ||
-#endif
-      index != 0 ||
-      (direction != kInput && direction != kOutput))
-    return kResultFalse;
-  auto r = AudioEffect::activateBus(media, direction, index, active);
-  if (r == kResultOk)
-    (direction == kInput ? input_active_ : output_active_) = active != 0;
-  return r;
+bool Processor::setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits){
+ std::vector<uint8_t> bytes;auto put=[&](uint64_t v,int n){for(int i=0;i<n;++i)bytes.push_back(uint8_t(v>>(8*i)));};
+ put(std::size(AP8::buses),4);size_t i=0;
+ for(const auto& b:AP8::buses){for(auto v:{b.media,b.direction,b.index,b.channels,b.type,uint32_t(bus_active_[i++])})put(v,4);put(b.arrangement,8);}
+ return stateSession()&&!ap10_setup(handle_,maximum,mode,rate,bytes.data(),uint32_t(bytes.size()),notifications_?1:0,traits);
 }
-tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement *in,
-                                                 int32 ni,
-                                                 SpeakerArrangement *out,
-                                                 int32 no) {
-  Guard g(busy_);
-  if (!g.held || owner_ != std::this_thread::get_id() ||
-      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
-#ifdef AP8_PREVIEW
-      ni != 0 || no != 1 || !out ||
-#else
-      ni != 1 || no != 1 || !in || !out || *in != SpeakerArr::kStereo ||
 #endif
-      *out != SpeakerArr::kStereo)
+tresult PLUGIN_API Processor::activateBus(MediaType media,BusDirection direction,int32 index,TBool active){
+ Guard g(busy_);if(!g.held||owner_!=std::this_thread::get_id()||(phase_!=Initialized&&phase_!=Setup&&phase_!=Deactivated))return kResultFalse;
+#ifdef AP8_PREVIEW
+ size_t ordinal=0;for(const auto&b:AP8::buses){
+  if(int(b.media)==media&&int(b.direction)==direction&&int(b.index)==index){
+   if(active&&b.type!=kMain){
+    // This owner-thread, inactive SDK operation is outside process().
+    char text[256];auto n=std::snprintf(text,sizeof(text),
+      "{\"event\":\"ap10_unsupported_bus_activation\",\"media\":%d,\"direction\":%d,\"index\":%d,\"active\":true}\n",media,direction,index);
+    if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
     return kResultFalse;
-  return AudioEffect::setBusArrangements(in, ni, out, no);
+   }
+   auto r=AudioEffect::activateBus(media,direction,index,active);if(r==kResultOk)bus_active_[ordinal]=active!=0;return r;
+  }++ordinal;
+ }return kResultFalse;
+#else
+ if(media!=kAudio||index!=0||(direction!=kInput&&direction!=kOutput))return kResultFalse;
+ auto r=AudioEffect::activateBus(media,direction,index,active);if(r==kResultOk)(direction==kInput?input_active_:output_active_)=active!=0;return r;
+#endif
+}
+tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement* in,int32 ni,SpeakerArrangement* out,int32 no){
+ Guard g(busy_);if(!g.held||owner_!=std::this_thread::get_id()||(phase_!=Initialized&&phase_!=Setup&&phase_!=Deactivated))return kResultFalse;
+#ifdef AP8_PREVIEW
+ int inputs=0,outputs=0;for(const auto&b:AP8::buses)if(b.media==kAudio){if(b.direction==kInput){if(!in||inputs>=ni||in[inputs++]!=b.arrangement)return kResultFalse;}else{if(!out||outputs>=no||out[outputs++]!=b.arrangement)return kResultFalse;}}
+ if(inputs!=ni||outputs!=no)return kResultFalse;
+#else
+ if(ni!=1||no!=1||!in||!out||*in!=SpeakerArr::kStereo||*out!=SpeakerArr::kStereo)return kResultFalse;
+#endif
+ return AudioEffect::setBusArrangements(in,ni,out,no);
 }
 tresult PLUGIN_API Processor::canProcessSampleSize(int32 size) {
   return size == kSample32 ? kResultTrue : kResultFalse;
@@ -492,9 +517,16 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
       setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > (preview_ ? 1024 : 256))
     return kResultFalse;
   if(preview_){
-    uint32_t traits[2]{};
+    uint32_t traits[3]{};
+    #ifdef AP8_PREVIEW
+    if(!setupBuses(uint32_t(setup.maxSamplesPerBlock),uint32_t(setup.processMode),setup.sampleRate,traits))return kResultFalse;
+#else
     if(!stateSession()||ap9_setup(handle_,static_cast<uint32_t>(setup.maxSamplesPerBlock),static_cast<uint32_t>(setup.processMode),setup.sampleRate,traits))return kResultFalse;
+#endif
     latency_=traits[0];tail_=traits[1];
+#ifdef AP8_PREVIEW
+    vendor_latency_=traits[2];
+#endif
   }
   auto r = AudioEffect::setupProcessing(setup);
   if (r == kResultOk) {
@@ -514,6 +546,15 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     return kResultOk;
   }
   if (active) {
+    if(phase_!=Setup&&phase_!=Deactivated)return kResultFalse;
+#ifdef AP8_PREVIEW
+    size_t i=0;for(const auto& b:AP8::buses){if(b.media==kAudio&&b.type==kMain&&!bus_active_[i])return kResultFalse;++i;}
+    uint32_t traits[3]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),requested_rate_,traits))return kResultFalse;
+    latency_=traits[0];tail_=traits[1];
+#ifdef AP8_PREVIEW
+    vendor_latency_=traits[2];
+#endif
+#endif
     if ((phase_ != Setup && phase_ != Deactivated) || !input_active_ ||
         !output_active_)
       return kResultFalse;
@@ -548,6 +589,9 @@ tresult PLUGIN_API Processor::setProcessing(TBool running) {
   Guard g(busy_);
   if (!g.held)
     return kResultFalse;
+#ifdef AP8_PREVIEW
+  if(!running)returned_.release_requested=true;
+#endif
   if (!running && phase_ == Failed) {
     want_processing_ = false;
     return kResultOk;
@@ -581,6 +625,13 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   Guard g(busy_);
   auto reject = [&] { return rejected(d); };
   if (!g.held) return reject();
+#ifdef AP8_PREVIEW
+  returned_.beginCallback();
+  if(d.numSamples>=0&&returned_.release_requested){
+    auto rejected=returned_.rejected;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
+    if(returned_.rejected!=rejected){ap10_fail_results(handle_);phase_=Failed;return reject();}
+  }
+#endif
   if (phase_ != Running || d.processMode != process_mode_ ||
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||
       d.numSamples > maximum_)
@@ -595,7 +646,11 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     else if(e.type==Event::kNoteOffEvent){v.kind=1;v.id=static_cast<uint32_t>(e.noteOff.noteId);v.channel=e.noteOff.channel;v.pitch=e.noteOff.pitch;v.value=e.noteOff.velocity;v.tuning=e.noteOff.tuning;}else return reject();
     if(!append(v))return reject();}}
   if(d.inputParameterChanges){auto n=d.inputParameterChanges->getParameterCount();if(n<0||n>256)return reject();for(int i=0;i<n;++i){auto*q=d.inputParameterChanges->getParameterData(i);if(!q)return reject();auto id=q->getParameterId();bool known=false;for(const auto&p:AP8::parameters)if(p.id==id){known=true;break;}if(!known)return reject();auto points=q->getPointCount();if(points<0||points>256)return reject();int previous=-1;for(int j=0;j<points;++j){int offset=0;double value=0;if(q->getPoint(j,offset,value)!=kResultOk||offset<previous)return reject();previous=offset;if(!append({static_cast<uint32_t>(offset),2,id,0,0,value,0,0}))return reject();}}}
-  if(d.numSamples==0){if(d.numInputs||d.numOutputs)return reject();float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};if(event_count&&ap8_process(handle_,0,events,event_count,&dummy,&dummy,&dummy,&dummy,&flags,&delivery)){phase_=Failed;return reject();}return kResultOk;}
+  if(d.numSamples==0){
+    if(d.numInputs||d.numOutputs)return reject();
+    float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};ap10_context_t context{};
+    if(ap10_process(handle_,0,events,event_count,&context,0,&dummy,&dummy,&dummy,&dummy,&flags,&delivery)||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}return kResultOk;
+  }
 #else
   bool changed = false;
   if (!parameters(d.inputParameterChanges, pending, changed) ||
@@ -619,9 +674,13 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   if ((!queued_ && blocks_ >= 64) || !outputs(d, maximum_) ||
 #ifdef AP8_PREVIEW
-      d.numInputs != 0)
-    return reject();
-  float silent_input[1024]{};float* in[2]={silent_input,silent_input};
+      d.numInputs != int(std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kInput;})))return reject();
+  float silent_input[1024]{};float* in[2]={silent_input,silent_input};uint64_t input_flags=3;
+  if(AP8::effect){
+    if(!d.inputs||d.inputs[0].numChannels!=2||!d.inputs[0].channelBuffers32||!d.inputs[0].channelBuffers32[0]||!d.inputs[0].channelBuffers32[1]||(d.inputs[0].silenceFlags&~uint64_t(3)))return reject();
+    in[0]=d.inputs[0].channelBuffers32[0];in[1]=d.inputs[0].channelBuffers32[1];input_flags=d.inputs[0].silenceFlags;
+    for(int i=1;i<d.numInputs;++i)if(d.inputs[i].numChannels!=2)return reject();
+  }
 #else
       d.numInputs != 1 || !d.inputs || d.inputs[0].numChannels != 2 ||
       !d.inputs[0].channelBuffers32 || !d.inputs[0].channelBuffers32[0] ||
@@ -629,10 +688,12 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       (d.inputs[0].silenceFlags & ~uint64(3)))
     return reject();
   auto **in = d.inputs[0].channelBuffers32;
+  auto input_flags = d.inputs[0].silenceFlags;
   #endif
   auto **out = d.outputs[0].channelBuffers32;
 #ifdef AP8_PREVIEW
   if(overlap(out[0],out[1],d.numSamples))return reject();
+  if(AP8::effect&&(overlap(in[0],in[1],d.numSamples)||overlap(out[0],in[1],d.numSamples)||overlap(out[1],in[0],d.numSamples)||(in[0]!=out[0]&&overlap(in[0],out[0],d.numSamples))||(in[1]!=out[1]&&overlap(in[1],out[1],d.numSamples))))return reject();
 #else
   if (overlap(out[0], out[1], d.numSamples) ||
       overlap(in[0], in[1], d.numSamples) ||
@@ -641,30 +702,59 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
       (in[0] != out[0] && overlap(in[0], out[0], d.numSamples)) ||
       (in[1] != out[1] && overlap(in[1], out[1], d.numSamples)))
     return reject();
-  for (int ch = 0; ch < 2; ++ch)
-    for (int i = 0; i < d.numSamples; ++i)
-      if (!std::isfinite(in[ch][i]) ||
-          ((d.inputs[0].silenceFlags & (uint64(1) << ch)) && in[ch][i] != 0.f))
-        return reject();
   #endif
+#ifdef AP8_PREVIEW
+  if constexpr (AP8::effect) {
+#endif
+  const auto hints = inputSilence(in[0], in[1], d.numSamples, input_flags);
+  if (hints.flags != input_flags) {
+    ++input_hint_adjustments_;
+    input_hint_samples_ += hints.nonzero;
+    if (!input_hint_first_bits_) input_hint_first_bits_ = hints.first_bits;
+    input_hint_peak_ = std::max(input_hint_peak_, hints.finite_peak);
+    input_flags = hints.flags;
+  }
+#ifdef AP8_PREVIEW
+  }
+#endif
   uint64_t silence = 0;
   ap7_delivery_t delivery{};
+#ifdef AP8_PREVIEW
+  ap10_context_t c{};
+  if(d.processContext){const auto& p=*d.processContext;c.present=1;c.state=p.state&0x2bf0e;c.rate=p.sampleRate;c.project=p.projectTimeSamples;
+   if(c.rate!=requested_rate_)return reject();
+   if(c.state&0x100)c.system=p.systemTime;
+   if(c.state&0x20000)c.continuous=p.continousTimeSamples;
+   if(c.state&0x200)c.music=p.projectTimeMusic;
+   if(c.state&0x800)c.bar=p.barPositionMusic;
+   if(c.state&0x1000){c.cycle_start=p.cycleStartMusic;c.cycle_end=p.cycleEndMusic;}
+   if(c.state&0x400)c.tempo=p.tempo;
+   if(c.state&0x2000){c.numerator=p.timeSigNumerator;c.denominator=p.timeSigDenominator;}
+   if(c.state&0x8000)c.clock=p.samplesToNextClock;
+  }
+#endif
   auto r =
 #ifdef AP8_PREVIEW
-      ap8_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,in[0],in[1],out[0],out[1],&silence,&delivery);
+      ap10_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery);
 #else
       queued_
           ? static_cast<int32_t>(ap7_process(
                 handle_, static_cast<uint32_t>(d.numSamples),
                 preview_ && !changed ? std::numeric_limits<double>::quiet_NaN()
                                      : pending,
-                d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
+                input_flags, in[0], in[1], out[0], out[1],
                 &silence, &delivery))
           : ap2_process(handle_, static_cast<uint32_t>(d.numSamples), pending,
-                        d.inputs[0].silenceFlags, in[0], in[1], out[0], out[1],
+                        input_flags, in[0], in[1], out[0], out[1],
                         &silence);
   #endif
   if (r) {
+#ifdef AP8_PREVIEW
+    returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
+    if (!admission_failure_.code)
+      admission_failure_ = {uint32_t(r), c.state, d.numSamples, input_flags,
+                            c.rate, c.cycle_start, c.cycle_end};
+#endif
     if (!queued_)
       report();
     phase_ = Failed;
@@ -688,8 +778,24 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   gain_max_ = std::max(gain_max_, pending);
   ++blocks_;
   d.outputs[0].silenceFlags = silence;
+#ifdef AP8_PREVIEW
+  if(!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}
+#endif
   return kResultOk;
 }
+#ifdef AP8_PREVIEW
+int Processor::eventOutputActive(int index)const{
+ size_t i=0;for(const auto&b:AP8::buses){if(b.media==kEvent&&b.direction==kOutput&&int(b.index)==index)return bus_active_[i]?1:0;++i;}return -1;
+}
+bool Processor::deliverResults(ProcessData&d){
+ for(size_t i=0;i<1537;++i){
+  if(ap10_take_results(handle_,&returned_.packet))return false;
+  if(!returned_.packet.events&&!returned_.packet.points)return true;
+  if(!returned_.deliver(d,[&](int bus){return eventOutputActive(bus);},[](uint32_t id){for(const auto&p:AP8::parameters)if(p.id==id)return true;return false;})){ap10_fail_results(handle_);return false;}
+ }
+ ap10_fail_results(handle_);return false;
+}
+#endif
 tresult PLUGIN_API Processor::terminate() {
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -697,6 +803,37 @@ tresult PLUGIN_API Processor::terminate() {
     return kResultFalse;
   bool clean =
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated;
+  if (input_hint_adjustments_) {
+    char text[320];
+    const auto n = std::snprintf(text, sizeof(text),
+        "{\"event\":\"ap10_input_silence_hints\",\"callbacks\":%llu,"
+        "\"nonzero_samples\":%llu,\"first_nonzero_bits\":%u,\"finite_peak\":%.17g}\n",
+        (unsigned long long)input_hint_adjustments_,
+        (unsigned long long)input_hint_samples_, input_hint_first_bits_, input_hint_peak_);
+    if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+      diagnostic_report(report_path_, text, static_cast<size_t>(n));
+  }
+#ifdef AP8_PREVIEW
+  if(handle_){ap10_result_stats_t stats{};auto status=ap10_result_stats(handle_,&stats);char text[768];
+   auto n=std::snprintf(text,sizeof(text),"{\"event\":\"ap10_process_results\",\"stats_status\":%u,\"events_delivered\":%llu,\"points_delivered\":%llu,\"late_events\":%llu,\"late_points\":%llu,\"host_unrequested_events\":%llu,\"host_unrequested_points\":%llu,\"rejected\":%llu,\"cleanup_sent\":%llu,\"cleanup_unavailable\":%llu,\"active_notes_unreleased\":%zu,\"discarded_on_reset\":%llu,\"pending_events\":%llu,\"pending_points\":%llu}\n",status,(unsigned long long)returned_.events,(unsigned long long)returned_.points,(unsigned long long)stats.late_events,(unsigned long long)stats.late_points,(unsigned long long)returned_.unrequested_events,(unsigned long long)returned_.unrequested_points,(unsigned long long)returned_.rejected,(unsigned long long)returned_.cleanup_sent,(unsigned long long)returned_.cleanup_unavailable,returned_.active_notes(),(unsigned long long)stats.discarded_on_reset,(unsigned long long)stats.pending_events,(unsigned long long)stats.pending_points);
+   if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));}
+  if (admission_failure_.code) {
+    const auto& f = admission_failure_;
+    char text[384];
+    const auto n = std::snprintf(text, sizeof(text),
+        "{\"event\":\"ap10_admission_failure\",\"code\":%u,\"frames\":%d,"
+        "\"input_flags\":%llu,\"context_state\":%u,\"rate\":%.17g,"
+        "\"cycle_start\":%.17g,\"cycle_end\":%.17g,\"nonfinite_fields\":%u}\n",
+        f.code, f.frames, (unsigned long long)f.input_flags, f.context_state,
+        std::isfinite(f.rate) ? f.rate : 0.,
+        std::isfinite(f.cycle_start) ? f.cycle_start : 0.,
+        std::isfinite(f.cycle_end) ? f.cycle_end : 0.,
+        unsigned(!std::isfinite(f.rate)) | (unsigned(!std::isfinite(f.cycle_start)) << 1) |
+            (unsigned(!std::isfinite(f.cycle_end)) << 2));
+    if (n > 0 && static_cast<size_t>(n) < sizeof(text))
+      diagnostic_report(report_path_, text, static_cast<size_t>(n));
+  }
+#endif
   if (handle_) {
     if (queued_)
       report_stats(handle_, report_path_);

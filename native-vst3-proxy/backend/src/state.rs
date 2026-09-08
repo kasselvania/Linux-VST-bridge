@@ -116,7 +116,7 @@ impl Session {
             payload: restore.unwrap_or(&[]).to_vec(),
         };
         let result = (|| {
-            send_version(&mut self.socket, &request, 5, self.minor)?;
+            self.send_control(&request)?;
             let reply = receive_version(&mut self.socket, 10, self.minor)?;
             need(
                 reply.kind == kind + 1

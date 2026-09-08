@@ -1,54 +1,59 @@
 # Product Design Dossier
 
 **Document identity:** `linux-audio-compatibility-bridge.soft-design-dossier.v1`  
-**Purpose:** Human-facing product direction, not a release promise or implementation checklist.
+**Purpose:** Product direction and current capability boundaries, not a release promise or an implementation checklist.
 
 ## Product
 
-A native Linux proxy represents a Windows plug-in class to the DAW. A supervised Windows host loads the actual module under a deliberately selected compatible runner. Explicit control/state and real-time audio/event interfaces connect them. The intended manager covers installation, vendor-authorized activation, scanning, publication, organization, updates, diagnostics and rollback.
+A native Linux proxy represents an actual Windows plug-in class to the DAW. A supervised Windows host loads the real module under a selected compatible runner. Explicit control/state and real-time audio/event interfaces connect them. The separate manager is intended to handle installation, vendor-authorized activation, scanning, selective publication, organization, updates and recovery without needing its window open for playback.
 
-The user should not need to administer Wine prefixes, Flatpak paths, synchronization commands or runner archaeology to make music. State and project recall are product behavior, not optional reporting polish. Instruments and audio effects are both core product coverage. Published devices should identify their actual product, with stable class identity and optional user labels; the prototype's generic name is not the intended experience.
+Users should not administer Wine prefixes or Flatpak paths to make music. Published devices should identify the actual product, retain stable class identity, and respect user labels. Instruments and effects are both core coverage. Actual exported classes and negotiated buses determine I/O; product names do not. Audio and notes may coexist when the class declares and the bridge supports them.
 
 ## Dossier set
 
-- [Product and user experience](design-dossier/01-product-and-user-experience.md): product declaration, user laws and installation-to-recall workflows.
-- [Identity, presets and visuals](design-dossier/02-identity-presets-and-visual-system.md): persistent identity, DAW state, content and editor presentation.
-- [Activation, Flatpak, runtime and recovery](design-dossier/03-activation-flatpak-runtime-and-recovery.md): vendor-owned authorization, publication and environment lifetime.
-- [Fixtures, development dependencies and pre-mortem](design-dossier/04-fixtures-proof-sequence-and-next-decision.md): Serum/Kontakt pressure, technical dependencies, risks and scenarios.
+- [Product and user experience](design-dossier/01-product-and-user-experience.md).
+- [Identity, presets and visuals](design-dossier/02-identity-presets-and-visual-system.md).
+- [Activation, Flatpak, runtime and recovery](design-dossier/03-activation-flatpak-runtime-and-recovery.md).
+- [Fixtures, dependencies and pre-mortem](design-dossier/04-fixtures-proof-sequence-and-next-decision.md).
 
-These retain the original product reasoning. Historical status statements and suggested ordering in them are not current progress or an obligatory task sequence. Consult [current work](../CURRENT_SLICE.md) and reviewed results. Development follows [AGENTS.md](../AGENTS.md) and [the simplified process](DEVELOPMENT_PROCESS.md), not the retired selection/receipt/acceptance ceremony formerly reproduced here.
+These retain the original reasoning, not a mandatory task sequence or current status. Follow [AGENTS.md](../AGENTS.md), the [simplified process](DEVELOPMENT_PROCESS.md) and [current position](../CURRENT_SLICE.md). The integration preserves the commercial-effects and causal-investigation direction recorded on main at `1adde984cb33cc29a7c9aab79ec4508c977887e1`, updated with the subsequently reviewed implementation.
 
-## Landed baseline and current candidates
+## Accepted development baseline
 
-AP7 is accepted through PR #65, merge `cdfd05be9af2576768d8f2ccc55d3064e9e72a36`, reviewed at `5232870e6ce024efe52c2d6be0af7f62b7f021c3`. Transient presentation gaps do not destroy healthy instances; optional numerical observation does not hold up audio delivery. [Results](AP7_PLAYBACK_REPAIR.md) retain source and coverage distinctions. [AP4](AP4_RESULT.md) complete-state recall, [AP5](AP5_RESULT.md) independent instances and [AP6](AP6_RESULT.md) explicit last-confirmed-state recovery remain the accepted reference-effect baseline. AGain already exercises real Windows audio input/output; Serum was not our first round-trip audio test.
+| Milestone | Reviewed source | Capability and evidence |
+| --- | --- | --- |
+| AP8 / #67 | `938791e42e6a6fde1f44ab07e9f1d4edc2357ded` | Actual Windows Serum 2.0.18 notes and normal Bitwig setting recall. [Results](AP8_RESULT.md) distinguish SDK audio measurements from desktop observations. |
+| AP9 / #69 | `b45b76332a4fc06cd314f7463b7a86ac6601865c` | Configurable delay, actual host processing setup, measured socket and supervisor improvements. [Performance](AP9.md); [owner cost](AP9_OWNER_COST.md). |
+| AP10 / #71 | `fb0faed7cfc097ecb78653421d6e704bb9f25a00` | Mailbox delivery repair, real FRAGMENTS effect processing/control/recall, restored Serum, and bounded returned events/parameter feedback including native callback payload lifetime. [Findings](AP10.md); [R1 evidence](../evidence/AP10/r1-payload-lifetime.json). |
 
-AP8 [PR #67](https://github.com/kasselvania/Linux-VST-bridge/pull/67), reviewed at `938791e42e6a6fde1f44ab07e9f1d4edc2357ded`, adds installed Serum 2.0.18 note processing and normal Bitwig setting recall. [AP8 results](https://github.com/kasselvania/Linux-VST-bridge/blob/938791e42e6a6fde1f44ab07e9f1d4edc2357ded/docs/AP8_RESULT.md) distinguish SDK audio measurements from desktop observations and do not establish a license channel, full editor support or general commercial compatibility.
+The integration accepts these bounded outcomes, not every original stretch target or universal compatibility. AP4 [state recall](AP4_RESULT.md), AP5 [independent reference instances](AP5_RESULT.md), AP6 [last-confirmed-state recovery](AP6_RESULT.md), and AP7 [aligned transient gaps and independent observation](AP7_PLAYBACK_REPAIR.md) remain the foundation. AGain already exercised actual Windows audio input/output; FRAGMENTS expands commercial effect coverage rather than inventing a separate bridge.
 
-AP9 [PR #69](https://github.com/kasselvania/Linux-VST-bridge/pull/69) adds configurable delay, host setup propagation and measured IPC improvements. Its follow-up at `b45b76332a4fc06cd314f7463b7a86ac6601865c` reports 57% less Python CPU and 22% less whole-owner CPU on a matched workload, not a whole-owner utilization of 22%. The matched pair does not demonstrate reduced service latency. 512 added frames at 48 kHz remains the observed desktop recommendation; the newer 256-frame run missed 2,688 frames in two gaps. A Bitwig close-time engine crash is separately unresolved. [Owner-cost report](https://github.com/kasselvania/Linux-VST-bridge/blob/b45b76332a4fc06cd314f7463b7a86ac6601865c/docs/AP9_OWNER_COST.md) preserves the facts and limitations.
+Source/build distinctions matter. Earlier commercial observations are reused for the reviewed R1 native storage-only repair; they are not renamed as fresh executions. The production SDK fixture, not commercial audio that emitted no events, establishes the returned-event semantics. Historical unsuccessful attempts, ledgers and handoffs retain their original labels and are not active instructions.
 
-At this direction update, both PRs remain unmerged; this document does not merge or newly approve their implementation. Preserve the distinction between the landed baseline, reviewed candidate improvements and unresolved failures.
+## Performance and compatibility boundaries
 
-## Immediate follow-through: explain and repair, not just benchmark
+**512 added bridge frames at 48 kHz (10.67 ms)** remains the observed desktop recommendation. Short mailbox runs at 256 passed, but lower latency is not yet a general reliability guarantee. The 599.836 to 241.326 microsecond comparison measures observed mean non-plug-in service, not fixed presentation delay, converter latency or a worst case. AP9's 57% Python / 22% owner-cohort CPU reductions are separate findings and did not prove that those changes removed desktop stalls.
 
-Keep the existing workload and trace the first stalled request through queueing, IPC, Windows host work, the plug-in call and output publication. Separate thread CPU execution from elapsed time, scheduling delay and blocking. The latest long request includes time queued behind earlier work: do not mistake that follower's queue delay for the original cause. Test a concrete hypothesis and repair the demonstrated bottleneck; another buffer-size table alone is not closure. Retain useful improvements without claiming they explain historical failures or establish a universal minimum latency.
+The causal Wine-server dependency and mailbox improvement are real; the precise monopolizing server operation and all historical outliers are not explained. Vendor-reported delay is separate: retained FRAGMENTS setup reports 512 bridge plus 192 vendor frames. Its zero tail report despite observed frozen output remains a compatibility limitation, not a reason to discard continuing audio on silent input.
 
-Triage the retained Bitwig engine crash independently using existing application/engine logs and available stack/core records, plus the native teardown path. Normal Windows exit and positive owned cleanup do not establish correct native host teardown or explain an engine crash. Use a targeted reproduction or fault test where the evidence warrants one, preserve failures, and state any missing diagnostic evidence. Do not invent a cause or repeat an entire playback campaign to get a quiet close. This is follow-through on the current reliability work, not a restart of selection or a new permission gate.
+Current operation still needs prepared artifacts, a private owner and retained vendor environment. Float32 and bounded main-stereo paths are implemented. Auxiliary sidechain activation, arbitrary dynamic/multichannel topology, complete MIDI/MPE input, all format/precision modes, simultaneous commercial instances, vendor-editor integration, reboot persistence, authorization channels and hardware round trip are not broadly established. Named reference success cannot silently stand in for a different vendor mode.
 
-## Next product coverage: a real commercial audio effect
+## Tracked follow-through
 
-After that focused follow-through, prioritize **audio track -> actual Windows Efx FRAGMENTS -> processed audio in normally launched Bitwig**. A recorded clip provides repeatable input without requiring new hardware; physical input/output round-trip remains a separately measured device claim. Reuse the working transport and installed candidates rather than start another bridge. Effects are a different compatibility and signal-integrity challenge, not inherently more CPU-intensive than an instrument.
+[Latency #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72): identify the first stalled request, separating execution, scheduling, blocking, queueing and host callback bursts. A queued follower is not the initiating cause. Fix measured mechanisms and compare like-for-like; another unexplained table of buffer failures is not the desired deliverable. Keep 512 as a baseline while evaluating lower settings under real instrument/effect and eventual editor load.
 
-AP8 [inspection evidence](https://github.com/kasselvania/Linux-VST-bridge/blob/938791e42e6a6fde1f44ab07e9f1d4edc2357ded/evidence/ap8-commercial-instrument/installed-module-inspections.json) records FRAGMENTS initializing with stereo main input/output and an auxiliary sidechain; processing was not tested. Its current runtime/content/authorization must be checked without disturbing the user's installation. It is the preferred effect fixture, not an assumed success. The commercial descriptor currently requires zero audio inputs and a 16-channel note input; generalize those actual restrictions instead of carrying instrument assumptions into the effect path.
+[Engine close #73](https://github.com/kasselvania/Linux-VST-bridge/issues/73): the historical Bitwig engine crash has no useful retained stack. Inspect native callback/worker/controller teardown and capture useful evidence on relevant closes. Successful Windows cleanup or a later clean host exit does not explain the old failure. Do not demand indefinite reproduction before independent progress.
 
-The useful result is changing a real effect control, hearing/measuring input-dependent output, stopping/starting safely, and saving/reopening the effect state. Required coverage should follow the admitted modes:
+[Failure notification #74](https://github.com/kasselvania/Linux-VST-bridge/issues/74): known endpoint failure can currently be learned through the five-second reply deadline. Improve prompt terminal notification without making transient lateness fatal, replaying work or adding callback waits.
 
-- Preserve input samples and channel/bus identity through in-place buffers and block splitting. Support the main stereo route first; explicitly deactivate unsupported auxiliary buses or implement and test sidechain routing before claiming it.
-- Separate transport delay from intentional effect timing. Check dry/bypass and parallel-path alignment under the plug-in's documented behavior, including its reported latency. Use AGain or another known deterministic route for exact displacement, not a bit-identical oracle for randomized granular processing.
-- Preserve effect tails or retained/frozen audio when input becomes silent. Carry actual tempo/transport context for any admitted host-synchronized mode; automation and context must remain aligned across chunks. Do not substitute hard-coded tempo or equate silent input with silent output.
-- Measure selected real effect workloads, gaps and chain-added latency, then investigate failures. Keep CPU/latency, input integrity, intended wet processing and clean host teardown separate. A successful instrument run does not certify these effect behaviors.
+These are normal backlog items, not new execution gates or an instruction to keep AP10 open.
 
-A practical detached vendor editor may be included where needed to operate the selected effect; full editor embedding, a preset-manager UI and an exhaustive compatibility matrix are not prerequisites. The next effects task is not activated by this roadmap addition, and ongoing AP9 code/experiments are not changed. References: [Arturia FRAGMENTS](https://www.arturia.com/store/software-effects/efx-fragments), [VST3 processing and buffers](https://steinbergmedia.github.io/vst3_dev_portal/pages/FAQ/Processing.html), [processing context](https://steinbergmedia.github.io/vst3_dev_portal/pages/Technical%2BDocumentation/API%2BDocumentation/Index.html), [latency and tail interfaces](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/classSteinberg_1_1Vst_1_1IAudioProcessor.html).
+## Next user-facing candidate: the actual vendor editor
 
-## Using this material
+Prefer a practical editor attached to the **same processing instance**: open it from the DAW, change real controls/presets, synchronize host parameters, save/reopen the result and close the window without stopping audio. Product-derived naming fits this work. Confirm the SDK/UI-thread and current controller architecture before selecting the concrete implementation; do not assume a second standalone plug-in window controls the playing instance.
 
-Leads use the dossier and current code to choose a coherent result. Implementers receive that result, relevant boundaries and a few targeted references, with room to choose private implementation details. Additional design is for consequential unresolved behavior; ordinary debugging and test-helper repairs stay within the implementation task. A successful, relevant observation is reviewed on its merits without a compulsory second run under another label.
+Use the existing permitted desktop/SSH workflow and keep GUI operations outside the audio deadline path. Include representative playing/editing and gap checks rather than a complete historical benchmark replay. A detached editor may be a useful first increment; full embedding, a manager UI, arbitrary routing and customer hardware qualification are not automatic prerequisites. No new editor slice is activated by this candidate description.
+
+## Working standard
+
+One useful outcome, ordinary implementation/debugging, focused tests and one reviewed PR. Decisions about private types, instrumentation and algorithms belong to the engineer. Consequential changes to public realtime/security behavior require a concrete decision, not speculative permission machinery. Preserve projects, vendor environments, credentials, old evidence and dirty local work. New work branches from current main; completed slice branches and historical status reports are not live work orders.
