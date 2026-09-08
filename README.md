@@ -28,6 +28,8 @@ Tracked engineering follow-through: [residual latency stalls #72](https://github
 
 [Issue #78](https://github.com/kasselvania/Linux-VST-bridge/issues/78) is active on `codex/ap12-arturia-everyday-use`, prepared from main `1d5d693e2e2d12547dfd6b02e2b8492b27418592`.
 
+The normal Arturia installers now complete in a persistent bridge-owned environment, and Pure LoFi initializes successfully. Both new modules currently refuse state capture; Pure LoFi visibly reports Demo restrictions. The registered startup core and automatic service are implemented and tested, but the real two-device Bitwig workflow remains pending lawful vendor access. See [AP12 results and remaining work](docs/AP12.md); AP12 is not yet an everyday-use qualification.
+
 The target is a human-usable Pure LoFi → Efx FRAGMENTS chain. Use the normal user-owned installers to establish a persistent Arturia environment; publish Pure LoFi as an Arturia instrument and Efx FRAGMENTS as an Arturia audio effect; start the supervised bridge automatically when Bitwig loads either device; support both independent instances and editors simultaneously; and save/restart/reopen without an agent, SSH session, development checkout, or manually started preview owner.
 
 A typed setup CLI is sufficient. This is not a full manager GUI or universal installer system. The intended publications remain installed at handoff.

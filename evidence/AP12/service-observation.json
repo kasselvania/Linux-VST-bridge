@@ -1,0 +1,21 @@
+{
+  "schema": "linux-vst-bridge-ap12-service-observation/v1",
+  "source_commit": "aaf07286f16aa39efd791b2bdade9845f70d336c",
+  "manager_sha256": "7f4b019f23a5833c2ae9f5535927008d6a2e3b1916a8b99a0c51ac8d92bc4376",
+  "supervisor_sha256": "86634ae16d6dead1449c74c1677a99db2a05691ab284d1bb0603cba797af3e45",
+  "host_sha256": "ed05a620fa742604e7e181f96fcbda8d091c388ec494771d5ac26a1e2524324a",
+  "host_source_manifest_sha256": "b960804792fa673792dc5032cb4f7e2dfd0afd34ff0d92f9fbd7d3ad545cb418",
+  "host_source_commit": "47a7ecd131b16081cd192bc39cffd199b433393e",
+  "setup_exits": [
+    0,
+    0
+  ],
+  "service_enabled": true,
+  "service_active": true,
+  "installed_status_exit": 0,
+  "registered_classes": [],
+  "setup_has_exited": true,
+  "installed_execstart_uses_no_checkout_or_build_directory": true,
+  "graphical_session_restarted": false,
+  "bitwig_playback_verified": false
+}
