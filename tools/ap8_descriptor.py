@@ -26,6 +26,12 @@ def generate(records,class_id,module_sha256):
     notes=[r for r in buses if r['media']==1 and r['direction']==0]
     if len(notes)>1 or (notes and notes[0]['index']!=0):raise ValueError('one event input supported')
     metadata=next(r for r in records if r.get('state')=='ap8_inspected')
+    vendor=next(r for r in records if r.get('state')=='ap11_class' and r['class_id'].upper()==class_id.upper())
+    name=vendor['name']
+    if not name or '\0' in name or len(name.encode('utf-8'))>63:
+        raise ValueError('vendor class display name outside SDK bound')
+    # Octal UTF-8 bytes keep the SDK class label identical on every compiler.
+    label='"'+''.join('\\%03o'%b for b in name.encode('utf-8'))+'"'
     if metadata['float32_result']!=0:raise ValueError('float32 processing unsupported')
     effect=any(r['media']==0 and r['direction']==0 for r in buses)
     params=[p for r in records if r.get('state')=='ap8_parameters' for p in r['parameters']]
@@ -42,6 +48,7 @@ def generate(records,class_id,module_sha256):
 namespace AP8 {
 struct Parameter {uint32_t id;const char16_t* title;const char16_t* units;int32_t steps,flags;double initial;};
 struct Bus {uint32_t media,direction,index,channels,type,flags;uint64_t arrangement;const char16_t* name;};
+inline constexpr char class_name[]='''+label+''';
 inline constexpr bool effect='''+('true' if effect else 'false')+''';
 inline constexpr Bus buses[]={
 '''+',\n'.join('{'+','.join([str(r[k]) for k in ('media','direction','index','channels','type','flags')]+[str(r.get('arrangement',0)),quote(r['name'])])+'}' for r in buses)+'''

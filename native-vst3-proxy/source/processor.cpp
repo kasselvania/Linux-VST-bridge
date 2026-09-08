@@ -6,6 +6,7 @@
 #include "input_silence.h"
 #ifdef AP8_PREVIEW
 #include "ap10_backend.h"
+#include "ap11_gui.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 #endif
 #include "pluginterfaces/vst/ivstevents.h"
@@ -232,6 +233,12 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
   try {
     if (!stateSession())
       return kResultFalse;
+#ifdef AP8_PREVIEW
+    // Deliver already accepted UI gestures before the existing DSP/state
+    // barrier. Never wait here for work owned by this native UI thread.
+    uint64_t generation=0;
+    if(!ap11_gui_generation(handle_,&generation)&&guiPoll(generation,512)!=kResultOk)return kResultFalse;
+#endif
     std::vector<uint8_t> blob(LVBState::payloadLimit + LVBState::overhead);
     uint32_t size = 0;
     if (ap4_state(handle_, nullptr, 0, blob.data(),
@@ -354,6 +361,25 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
     if(notice[1]>UINT32_MAX-(latency_-vendor_latency_))return kResultFalse;
     latency_=latency_-vendor_latency_+notice[1];vendor_latency_=notice[1];tail_=notice[2];
     auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP10.restart");m->getAttributes()->setInt("flags",notice[0]);auto r=sendMessage(m);m->release();return r;
+  }
+  if(!std::strcmp(id,"AP11.bind")){
+    if(!stateSession())return kResultFalse;
+    uint64_t generation=0;if(ap11_gui_generation(handle_,&generation))return kResultFalse;
+    auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.identity");m->getAttributes()->setInt("generation",int64(generation));auto r=sendMessage(m);m->release();return r;
+  }
+  if(!std::strncmp(id,"AP11.",5)){
+    int64 generation=0;if(message->getAttributes()->getInt("generation",generation)!=kResultOk||generation<=0||!handle_)return kResultFalse;
+    if(!std::strcmp(id,"AP11.capabilities")){int64 caps=0;if(message->getAttributes()->getInt("caps",caps)!=kResultOk||caps<0||caps>7)return kResultFalse;return ap11_gui_capabilities(handle_,uint64_t(generation),uint32_t(caps))?kResultFalse:kResultOk;}
+    if(!std::strcmp(id,"AP11.failure")){int64 code=0;if(message->getAttributes()->getInt("code",code)!=kResultOk||code<1||code>11)return kResultFalse;ap11_gui_failure(handle_,uint64_t(generation),uint32_t(code));return kResultOk;}
+    if(!std::strcmp(id,"AP11.poll"))return guiPoll(uint64_t(generation),64);
+    if(!std::strcmp(id,"AP11.command")){
+      const void* bytes=nullptr;uint32 size=0;
+      if(message->getAttributes()->getBinary("command",bytes,size)!=kResultOk||size!=sizeof(ap11_gui_message_t))return kResultFalse;
+      ap11_gui_message_t command{};std::memcpy(&command,bytes,sizeof(command));
+      command.result=ap11_gui_command(handle_,uint64_t(generation),&command);
+      auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.result");m->getAttributes()->setInt("generation",generation);m->getAttributes()->setBinary("command",&command,sizeof(command));auto r=sendMessage(m);m->release();return r;
+    }
+    return kResultFalse;
   }
   if(!std::strcmp(id,"AP8.readback"))return readback();
 #endif
@@ -912,5 +938,22 @@ Steinberg::tresult Processor::readback(){
  }
  auto*m=allocateMessage();if(!m)return Steinberg::kResultFalse;m->setMessageID("AP8.readback");m->getAttributes()->setBinary("state",state_readback_.data(),static_cast<uint32_t>(state_readback_.size()));auto r=sendMessage(m);m->release();return r;
 }
+}
+#endif
+
+#ifdef AP8_PREVIEW
+Steinberg::tresult AP2::Processor::guiPoll(uint64_t generation,unsigned limit){
+ using namespace Steinberg;
+ if(gui_polling_)return kResultOk;
+ struct PollGuard{bool&flag;explicit PollGuard(bool&f):flag(f){flag=true;}~PollGuard(){flag=false;}}guard(gui_polling_);
+ for(unsigned i=0;i<limit;++i){
+  ap11_gui_message_t event{};if(ap11_gui_take(handle_,generation,&event))return kResultFalse;if(!event.kind)break;
+  auto*m=allocateMessage();if(!m){ap11_gui_failure(handle_,generation,AP11::Host);return kResultFalse;}
+  m->setMessageID("AP11.event");m->getAttributes()->setInt("generation",int64(generation));m->getAttributes()->setBinary("event",&event,sizeof(event));auto r=sendMessage(m);m->release();
+  if(r!=kResultOk){ap11_gui_failure(handle_,generation,AP11::Host);return r;}
+ }
+ auto code=ap11_gui_failure(handle_,generation,0);
+ if(code){auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.failed");m->getAttributes()->setInt("generation",int64(generation));m->getAttributes()->setInt("code",code);auto r=sendMessage(m);m->release();return r;}
+ return kResultOk;
 }
 #endif

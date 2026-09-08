@@ -9,6 +9,8 @@ public:
     MappedSession(const std::wstring& directory, const std::string& session, EventWriter&, bool hosted=false, bool sustained=false, bool stateful=false, bool commercial=false, bool performance=false);
     ~MappedSession();
     Steinberg::tresult request_restart(int32_t) override;
+    Steinberg::tresult editor_edit(uint32_t,uint32_t,double) override;
+    void editor_name(const char*) override;
     bool commercial() const override;
     bool performance() const override;
     bool returned_results() const override;

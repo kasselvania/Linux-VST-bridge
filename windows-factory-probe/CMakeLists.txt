@@ -14,7 +14,7 @@ target_include_directories(wf0-factory-probe PRIVATE
 target_compile_definitions(wf0-factory-probe PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(wf0-factory-probe PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(wf0-factory-probe PRIVATE /Brepro /INCREMENTAL:NO)
-target_link_libraries(wf0-factory-probe PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32)
+target_link_libraries(wf0-factory-probe PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32)
 set_target_properties(wf0-factory-probe PROPERTIES
     OUTPUT_NAME "wf0-factory-probe"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
@@ -33,7 +33,7 @@ target_compile_definitions(wf0-loader-adapter-tests PRIVATE
     WF0_LOADER_ADAPTER_TEST UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(wf0-loader-adapter-tests PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(wf0-loader-adapter-tests PRIVATE /Brepro /INCREMENTAL:NO)
-target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32)
+target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32)
 set_target_properties(wf0-loader-adapter-tests PROPERTIES
     OUTPUT_NAME "wf0-loader-adapter-tests"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

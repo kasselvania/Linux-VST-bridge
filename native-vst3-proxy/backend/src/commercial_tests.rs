@@ -136,6 +136,8 @@ fn real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization() {
             .unwrap();
         });
         let mut session = Session {
+            gui: None,
+            gui_revision: 0,
             mailbox: None,
             mailbox_enabled: false,
             notices: (0, 0),
@@ -272,6 +274,8 @@ fn performance_setup_and_reference_state_keep_their_protocol_roles() {
         .unwrap();
     });
     let mut session = Session {
+        gui: None,
+        gui_revision: 0,
         mailbox: None,
         mailbox_enabled: false,
         notices: (0, 0),
