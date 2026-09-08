@@ -626,6 +626,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   auto reject = [&] { return rejected(d); };
   if (!g.held) return reject();
 #ifdef AP8_PREVIEW
+  returned_.beginCallback();
   if(d.numSamples>=0&&returned_.release_requested){
     auto rejected=returned_.rejected;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
     if(returned_.rejected!=rejected){ap10_fail_results(handle_);phase_=Failed;return reject();}
