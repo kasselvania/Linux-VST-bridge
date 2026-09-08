@@ -71,7 +71,11 @@ failure and cannot silently replace DSP or restore guessed state.
 
 Registered proxies retain 512 added frames and the mailbox delivery path without
 reading historical preview settings. Existing counters remain enabled; optional
-correlated tracing reads `managed/runtime/trace-enable` at inactive setup.
+correlated tracing reads `managed/runtime/trace-enable` at inactive setup. The
+installed supervisor passes that same explicit `1\n` opt-in to the Windows
+audio host; inspection/vendor-access jobs do not inherit it. Windows request
+retention still arms on actual input/notes, so silent startup can lack its
+Windows-side detail. Remove the flag after diagnostics.
 Two serial proxies add 1,024 frames (21.33 ms at 48 kHz), before vendor/device
 latency. This arithmetic is not a measured whole-chain result.
 

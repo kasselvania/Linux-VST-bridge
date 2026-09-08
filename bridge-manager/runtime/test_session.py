@@ -118,6 +118,17 @@ class OwnershipTests(unittest.TestCase):
 
 
 class CensusTests(unittest.TestCase):
+    def test_registered_trace_flag_reaches_only_audio_host(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            flag=pathlib.Path(tmp)/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'
+            flag.parent.mkdir(parents=True)
+            for contents,expected in [(b'1\n',True),(b'1\nextra',False),(b'0\n',False)]:
+                flag.write_bytes(contents)
+                for spec in [{'inspect':False},{'inspect':True},{'inspect':False,'vendor_access':True}]:
+                    env={'HOME':tmp}
+                    session.delivery_trace(spec,env)
+                    self.assertEqual(env.get('LVB_AP10_TRACE')=='1',expected and not spec['inspect'] and not spec.get('vendor_access',False))
+
     def test_stat_only_parsing_and_descendant_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

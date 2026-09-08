@@ -52,12 +52,23 @@ def command(spec):
     binding=('schema=linux-vst-bridge-wf0-handshake/v1\n'+''.join(k.replace('-','_')+'='+v+'\n' for k,v in [pairs[0],pairs[1],pairs[4],pairs[5],pairs[2],pairs[10],pairs[11]])+'run_ordinal=1\n').encode()
     return cmd,binding
 
+def delivery_trace(spec,env):
+    # Match the registered native observer's opt-in flag. The supervisor's
+    # deliberately small environment must not drop the Windows half of a trace.
+    # This is read once before launch, never by either audio delivery thread.
+    if spec['inspect'] or spec.get('vendor_access'):return
+    flag=pathlib.Path(env['HOME'])/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'
+    try:
+        with flag.open('rb') as f:enabled=f.read(3)==b'1\n'
+    except OSError:enabled=False
+    if enabled:env['LVB_AP10_TRACE']='1'
+
 def run(spec,peer=None):
     os.umask(0o077);reg=spec['registration'];directory=pathlib.Path(spec['directory']);sid=spec['session'];report=pathlib.Path(spec['report']);expected_dir=pathlib.Path(reg['environment']['root'])/'compatdata/pfx/drive_c/bridge/sessions'/sid
     if directory!=expected_dir or len(sid)!=32 or any(c not in '0123456789abcdef' for c in sid):raise RuntimeError('session binding differs')
     if directory.is_symlink() or not directory.is_dir() or directory.stat().st_mode&0o077:raise RuntimeError('session directory is not private')
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg);stop=False
+    cmd,binding=command(spec);env=environment(reg);delivery_trace(spec,env);stop=False
     def stopped(*_):
         nonlocal stop
         stop=True
