@@ -1,0 +1,57 @@
+{
+  "native": {
+    "baseline": {
+      "returncode": 0,
+      "sha256": "24d8f6a8fdda2870fc4b88916f585207d1bd7b67c4c6e25a44aaf52b9568a2fb",
+      "source_commit": "ef00b1a25d605b294432f7c30e4351b73e31f1d4",
+      "input_archive_sha256": "c67885ad27cb1fc522037a9a29292b7f62967d97054de4a4540671f509518be1",
+      "descriptor_sha256": "86a966cf08d7b11e3027cf75bf2267670efb51dc0b68048dc022cb173025cbce",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    "candidate": {
+      "returncode": 0,
+      "sha256": "39531c35728986ae591a61aae99f56d6c26d0d1e47cbb7cedd1dc5c77150006a",
+      "source_commit": "47de06396b2bb67dc3a2d72d719068d19b1f6a9e",
+      "input_archive_sha256": "c01bd7e4d18bb4041b89f0192100ce90ccd319643a9ce1d1c576cec0a3fb4790",
+      "descriptor_sha256": "86a966cf08d7b11e3027cf75bf2267670efb51dc0b68048dc022cb173025cbce",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    "no-refresh": {
+      "returncode": 0,
+      "sha256": "ca12641ee997255c996d901d0db58f7fb4c4b5d782f9769e6f937ad1e8838a1f",
+      "source_commit": "f400017b7a7d5ef28c96e853bb0328e7f4ed1dca",
+      "input_archive_sha256": "8b5483519497b89e9feacc0015e713260c130a8bd9d146ee01911a44f4bd5340",
+      "descriptor_sha256": "86a966cf08d7b11e3027cf75bf2267670efb51dc0b68048dc022cb173025cbce",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    }
+  },
+  "windows_baseline": {
+    "source_commit": "f3757797fa790c4789aab8173f9d39e398b895a0",
+    "pr_head": "ef00b1a25d605b294432f7c30e4351b73e31f1d4",
+    "ci_run": 34237444261,
+    "sha256": "cea7910dd52dfd7bee461124a5695391c15bb981f988a0faaf559c41983ec85a"
+  },
+  "windows_reused": {
+    "source_commit": "95e95311ba0044b2889678cdc06b73eb98623f14",
+    "pr_head": "47de06396b2bb67dc3a2d72d719068d19b1f6a9e",
+    "ci_run": 34239497063,
+    "sha256": "3a25339dce18da7a794dc0df0bede2478ec404e05f755af7c1cdc3b6bee7361c"
+  },
+  "pr_head_technical": "f400017b7a7d5ef28c96e853bb0328e7f4ed1dca",
+  "native_tests": "Six pinned-SDK/Xvfb production tests pass, including new activation and focus-without-refresh assertions; AP10 shallow-copy output lifetime unchanged.",
+  "native_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34242632338",
+  "windows_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34242632273",
+  "policy_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34242632300",
+  "windows_executed_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34239497063",
+  "rust_tests": 43,
+  "historical_failed_native_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34237444264",
+  "historical_failure": "Missing include in SDK panel regression at diagnostic head ef00; repaired in 47de. Windows diagnostic build passed.",
+  "late_target_guard_source": "c3f728ce82acbe53787cc8a3add53db2e32d6f52",
+  "late_target_guard_scope": "Native-only expired target reply and panel timeout status; tested via production activation regression. Successful commercial/audio results reused from f400017. Windows unchanged.",
+  "late_target_guard_native_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34244534110",
+  "late_target_guard_native_result": "Six tests pass, including bounded late-attachment denial and existing shallow-payload lifetime.",
+  "late_target_guard_policy_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34244534387"
+}

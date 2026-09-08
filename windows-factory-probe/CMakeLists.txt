@@ -14,7 +14,7 @@ target_include_directories(wf0-factory-probe PRIVATE
 target_compile_definitions(wf0-factory-probe PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(wf0-factory-probe PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(wf0-factory-probe PRIVATE /Brepro /INCREMENTAL:NO)
-target_link_libraries(wf0-factory-probe PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32)
+target_link_libraries(wf0-factory-probe PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32)
 set_target_properties(wf0-factory-probe PROPERTIES
     OUTPUT_NAME "wf0-factory-probe"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
@@ -33,7 +33,7 @@ target_compile_definitions(wf0-loader-adapter-tests PRIVATE
     WF0_LOADER_ADAPTER_TEST UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(wf0-loader-adapter-tests PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(wf0-loader-adapter-tests PRIVATE /Brepro /INCREMENTAL:NO)
-target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32)
+target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32)
 set_target_properties(wf0-loader-adapter-tests PROPERTIES
     OUTPUT_NAME "wf0-loader-adapter-tests"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
@@ -51,3 +51,15 @@ target_include_directories(ap10-results-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${C
 target_compile_options(ap10-results-tests PRIVATE /UNDEBUG)
 target_link_libraries(ap10-results-tests PRIVATE sdk)
 set_target_properties(ap10-results-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(ap11-editor-tests ../tools/ap11-tests/windows.cpp)
+target_include_directories(ap11-editor-tests PRIVATE source "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap11-editor-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap11-editor-tests PRIVATE /W4 /permissive- /EHsc)
+target_link_libraries(ap11-editor-tests PRIVATE sdk sdk_hosting user32 ole32)
+set_target_properties(ap11-editor-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(ap11-state-tests ../tools/ap11-tests/state.cpp)
+target_include_directories(ap11-state-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${WF0_VST3_SDK_ROOT}")
+target_link_libraries(ap11-state-tests PRIVATE sdk sdk_hosting)
+set_target_properties(ap11-state-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

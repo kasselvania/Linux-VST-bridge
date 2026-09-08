@@ -8,8 +8,19 @@ import argparse,fcntl,json,os,pathlib,secrets,signal,socket,subprocess,threading
 import ap8_fixture as fixture
 owner=fixture.owner
 
+def launch_environment(environment, desktop, *, trace_delivery=False, disable_windows_accessibility=False):
+    values = {**owner.runtime.controlled_environment(environment), **desktop}
+    if trace_delivery:
+        values['LVB_AP10_TRACE'] = '1'
+    if disable_windows_accessibility:
+        # Explicit per-process compatibility setting; never change the runner,
+        # registry or other environments. This is Windows UIA, not DAW automation.
+        existing = values.get('WINEDLLOVERRIDES', '')
+        values['WINEDLLOVERRIDES'] = (existing + ';' if existing else '') + 'uiautomationcore='
+    return values
+
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--environment',type=pathlib.Path,required=True);p.add_argument('--class-id',default='');p.add_argument('--performance',choices=['reference','serum']);p.add_argument('--trace-delivery',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--environment',type=pathlib.Path,required=True);p.add_argument('--class-id',default='');p.add_argument('--performance',choices=['reference','serum']);p.add_argument('--trace-delivery',action='store_true');p.add_argument('--disable-windows-accessibility',action='store_true',help='Disable Windows UI Automation in this owned process; screen-reader support unavailable');a=p.parse_args()
     if a.performance!='reference' and len(a.class_id)!=32:raise ValueError('class ID length')
     cid=bytes.fromhex(a.class_id)
     os.chdir(owner.ROOT);os.umask(0o077)
@@ -25,7 +36,7 @@ def main():
     if not desktop.get('DISPLAY'):raise RuntimeError('existing desktop display absent')
     profile=types.SimpleNamespace(MODE=('ap9-'+('commercial' if a.performance=='serum' else 'reference')) if a.performance else 'ap8-commercial-preview',verify_runtime=fixture.verify_runtime,
         verify_environment=fixture.verify_environment,command_vector=fixture.command_vector,StreamState=fixture.ReferenceStreamState if a.performance=='reference' else fixture.StreamState,
-        controlled_environment=lambda e:{**owner.runtime.controlled_environment(e),**desktop,**({"LVB_AP10_TRACE":"1"} if a.trace_delivery else {})})
+        controlled_environment=lambda e:launch_environment(e,desktop,trace_delivery=a.trace_delivery,disable_windows_accessibility=a.disable_windows_accessibility))
     address_root=pathlib.Path.home()/(('AP9-Performance/'+a.performance) if a.performance else 'AP8-Commercial-Test/preview');owner.private_directory(address_root)
     output=address_root/'results';owner.private_directory(output)
     profile.native_report_directory=output
@@ -48,7 +59,7 @@ def main():
         listener.bind(str(address));inode=address.stat().st_ino;listener.listen(4);listener.setblocking(False)
         sessions=owner.Sessions(run);sessions.capacity=1
         try:
-            print('AP8 prepared commercial preview ready',flush=True)
+            print('AP8 prepared commercial preview ready; Windows accessibility '+('disabled' if a.disable_windows_accessibility else 'runner default'),flush=True)
             while not stopping.is_set():
                 sessions.reap()
                 try:peer,_=listener.accept()

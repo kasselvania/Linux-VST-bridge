@@ -1,5 +1,6 @@
 #include "inspect_module.h"
 #include "offline_processing.h"
+#include "vendor_handler.h"
 #include "component_instance_session.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
@@ -34,27 +35,11 @@ std::string text16(const TChar* value, size_t limit=128) {
     if(size)WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,reinterpret_cast<const wchar_t*>(value),static_cast<int>(n),out.data(),size,nullptr,nullptr);
     return quoted(out.c_str());
 }
-class Handler final:public IComponentHandler {
-    std::atomic<uint32> refs{1};
-public:
-    ExternalProcessing* external=nullptr;
-    tresult PLUGIN_API queryInterface(const TUID id,void**out) override {
-        if(!out)return kInvalidArgument;*out=nullptr;
-        if(FUnknownPrivate::iidEqual(id,IComponentHandler::iid)||FUnknownPrivate::iidEqual(id,FUnknown::iid)){
-            *out=static_cast<IComponentHandler*>(this);addRef();return kResultOk;
-        }return kNoInterface;
-    }
-    uint32 PLUGIN_API addRef()override{return ++refs;}
-    uint32 PLUGIN_API release()override{return --refs;}
-    tresult PLUGIN_API beginEdit(ParamID)override{return kNotImplemented;}
-    tresult PLUGIN_API performEdit(ParamID,ParamValue)override{return kNotImplemented;}
-    tresult PLUGIN_API endEdit(ParamID)override{return kNotImplemented;}
-    tresult PLUGIN_API restartComponent(int32 flags)override{return external?external->request_restart(flags):kNotImplemented;}
-};
+
 }
 int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external) {
     using namespace Steinberg;using namespace Steinberg::Vst;
-    HostApplication host;Handler handler;handler.external=external;
+    HostApplication host;VendorHandler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
     IConnectionPoint *cp=nullptr,*cc=nullptr;
     bool initialized=false,controller_initialized=false,connected_pc=false,connected_cp=false,handler_set=false;
@@ -81,6 +66,10 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         if(count<1||count>256)throw std::runtime_error("class count bound");
         for(int i=0;i<count;++i){PClassInfo info{};ok(factory->getClassInfo(i,&info),"getClassInfo");if(std::strcmp(info.category,kVstAudioEffectClass)==0&&(class_id.empty()||FUID::fromTUID(info.cid)==wanted)){if(found)throw std::runtime_error("multiple audio classes require explicit selection");selected=info;found=true;}}
         if(!found)throw std::runtime_error("audio class absent");
+        if(!std::memchr(selected.name,0,sizeof(selected.name)))throw std::runtime_error("unterminated vendor class name");
+        char selected_id[33]{};FUID::fromTUID(selected.cid).toString(selected_id);
+        events.lifecycle("ap11_class",",\"class_id\":"+quoted(selected_id)+",\"name\":"+quoted(selected.name));
+        if(external)external->editor_name(selected.name);
         step("createComponent");ok(factory->createInstance(selected.cid,IComponent::iid,reinterpret_cast<void**>(&component)),"createComponent");
         if(!component)throw std::runtime_error("null component");
         step("initializeComponent");ok(component->initialize(&host),"initializeComponent");initialized=true;
@@ -135,6 +124,9 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
     // A crashing/hung vendor call is contained by the existing outer process owner.
     // Ordinary failures retain the first operation and still unwind every lease.
     auto cleanup=[&](const char* name,auto call){step(name);try{ok(call(),name);}catch(...){if(!primary)primary=91;}};
+    // No view/frame may outlive its controller or connection points. Refusing
+    // removal retains containment rather than releasing still-attached SDK objects.
+    if(external)try{external->bind_controller(nullptr,false);}catch(...){ExitProcess(92);}
     if(connected_cp)cleanup("disconnectController",[&]{return cc->disconnect(cp);});
     if(connected_pc)cleanup("disconnectComponent",[&]{return cp->disconnect(cc);});
     if(cc)cc->release();if(cp)cp->release();

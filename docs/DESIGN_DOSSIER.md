@@ -48,11 +48,15 @@ Current operation still needs prepared artifacts, a private owner and retained v
 
 These are normal backlog items, not new execution gates or an instruction to keep AP10 open.
 
-## Next user-facing candidate: the actual vendor editor
+## Selected: AP11 — Actual vendor editor, control and recall
 
-Prefer a practical editor attached to the **same processing instance**: open it from the DAW, change real controls/presets, synchronize host parameters, save/reopen the result and close the window without stopping audio. Product-derived naming fits this work. Confirm the SDK/UI-thread and current controller architecture before selecting the concrete implementation; do not assume a second standalone plug-in window controls the playing instance.
+[Issue #75](https://github.com/kasselvania/Linux-VST-bridge/issues/75) is authorized on `codex/ap11-vendor-editor` from integrated main `b8c332c2e536e4d9d6103d6d3d0696ffd6369f29`. [CURRENT_SLICE.md](../CURRENT_SLICE.md) is the implementation work order. The selected first presentation is a native SDK launch/status panel plus a detached Win32 vendor window created by the existing Windows host from the same connected controller as the playing component. No duplicate instrument, streamed image editor, cross-platform parent reparenting or full embedding is required.
 
-Use the existing permitted desktop/SSH workflow and keep GUI operations outside the audio deadline path. Include representative playing/editing and gap checks rather than a complete historical benchmark replay. A detached editor may be a useful first increment; full embedding, a manager UI, arbitrary routing and customer hardware qualification are not automatic prerequisites. No new editor slice is activated by this candidate description.
+A visible window alone does not complete the task. Editor gestures must reach the DAW's real automation interfaces on its UI thread; host-delivered changes must return through the existing processor path and keep the vendor GUI synchronized without echo loops. Preset/dirty notifications and stopped-transport editing followed by save must preserve the actual opaque sound state. Native class names should derive from vendor metadata while established class and parameter identities remain stable.
+
+The engineer may extend the existing session with bounded asynchronous UI/control delivery and refactor the Windows owner dispatcher to pump messages even while audio is inactive. That work is included, not another approval boundary. UI service must not become a dependency for audio completion. View attachment/removal, timers, focus/resize and controller teardown use their proper SDK/OS threads and lifetimes.
+
+Prove useful Serum editing, automation and fresh recall, plus a focused FRAGMENTS editor/control check through the same generic mechanism. Compare closed/open/active-editor audio behavior at the 512-frame baseline and repair demonstrated UI-induced regressions. Preserve #72/#73/#74 without imposing all of them as prior gates. Full embedding, manager/installer, wider routing and customer hardware qualification remain later work. No editor success is claimed by this selection.
 
 ## Working standard
 

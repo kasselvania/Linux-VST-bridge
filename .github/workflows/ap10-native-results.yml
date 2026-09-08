@@ -9,6 +9,7 @@ on:
       - 'native-vst3-proxy/**'
       - 'vst-state/**'
       - 'tools/ap10-tests/**'
+      - 'tools/ap11-tests/**'
       - 'windows-factory-probe/source/*.h'
 permissions:
   contents: read
@@ -23,19 +24,19 @@ jobs:
       - name: Install native build dependency
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-dev
+          sudo apt-get install -y libx11-dev libxcb1-dev libxtst-dev xvfb
       - name: Acquire existing pinned official SDK
         run: python3 tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/ap10-sdk"
-      - name: Build unchanged Rust backend
+      - name: Build Rust backend
         run: RUSTFLAGS="-C relocation-model=pic" cargo build --manifest-path native-vst3-proxy/backend/Cargo.toml --release --locked
       - name: Build production native processor and SDK regressions
         run: |
           cmake -S . -B "${{ runner.temp }}/ap10-build" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DAP2_BUILD_ONLY=ON -DAP10_RESULTS_TESTS=ON \
+            -DCMAKE_BUILD_TYPE=Release -DAP2_BUILD_ONLY=ON -DAP10_RESULTS_TESTS=ON -DAP11_PANEL_TESTS=ON \
             -DVST3_SDK_ROOT="${{ runner.temp }}/ap10-sdk" \
             -DAP2_RUST_LIBRARY="$PWD/native-vst3-proxy/backend/target/release/libap2_backend.a" \
             -DAP8_DESCRIPTOR="$PWD/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
           cmake --build "${{ runner.temp }}/ap10-build" --target \
-            ap10-result-lifetime ap10-results-tests ap3-callback-audit CommercialInstrumentBridge -j 4
+            ap10-result-lifetime ap10-results-tests ap11-native-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit CommercialInstrumentBridge -j 4
       - name: Test shallow host lifetime and existing collector behavior
         run: ctest --test-dir "${{ runner.temp }}/ap10-build/native-vst3-proxy" --verbose

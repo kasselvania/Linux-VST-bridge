@@ -1,0 +1,1501 @@
+{
+  "desktop": "SteamOS KDE Plasma Wayland session, XWayland clients, KWin 6.4.3",
+  "access": "Normally Applications-launched Bitwig 6.1; actual Moonlight input. Read-only SSH X11 properties and root ClientMessage observer. No fake input on the real desktop.",
+  "diagnostic_native": [
+    {
+      "event": "ap11_editor_status",
+      "activation": 1,
+      "user_time": 0,
+      "requestor_x11": 0,
+      "target_x11": 94371843,
+      "view_epoch": 1,
+      "focus_flags": 7,
+      "open": 1,
+      "result": 0
+    },
+    {
+      "event": "ap11_editor_status",
+      "activation": 2,
+      "user_time": 677615311,
+      "requestor_x11": 60817408,
+      "target_x11": 94371843,
+      "view_epoch": 1,
+      "focus_flags": 0,
+      "open": 1,
+      "result": 0
+    },
+    {
+      "event": "ap11_editor_status",
+      "activation": 2,
+      "user_time": 677615311,
+      "requestor_x11": 60817408,
+      "target_x11": 0,
+      "view_epoch": 1,
+      "focus_flags": 0,
+      "open": 0,
+      "result": 0
+    },
+    {
+      "event": "ap11_editor_status",
+      "activation": 2,
+      "user_time": 677615311,
+      "requestor_x11": 60817408,
+      "target_x11": 0,
+      "view_epoch": 1,
+      "focus_flags": 0,
+      "open": 0,
+      "result": 0
+    },
+    {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 256,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 13083904,
+      "blocks": 51109,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 2,
+      "successful_silent_frames": 512,
+      "priming_frames": 512,
+      "underrun_frames": 0,
+      "underrun_gaps": 0,
+      "underrun_callbacks": 0,
+      "expired_output_frames": 0,
+      "delivered_frames": 13083392,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    }
+  ],
+  "observations": [
+    {
+      "time": 677566089269352,
+      "statuses": [],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x4200133\n_NET_CLIENT_LIST(WINDOW): window id # 0x4200133\n",
+      "focus": 69206323,
+      "targets": {},
+      "identity": [
+        {
+          "pid": 3135348,
+          "start": 68117839
+        }
+      ]
+    },
+    {
+      "time": 677591912855162,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 7,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x5a00003\n_NET_CLIENT_LIST(WINDOW): window id # 0x4200133, 0x3a00000, 0x5a00003\n",
+      "focus": 94371843,
+      "targets": {
+        "94371843": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME:  not found.\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3135348\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED\n"
+      },
+      "identity": [
+        {
+          "pid": 3135348,
+          "start": 68117839
+        }
+      ]
+    },
+    {
+      "time": 677620577236808,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 7,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "activation": 2,
+          "user_time": 677615311,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x3a00000\n_NET_CLIENT_LIST(WINDOW): window id # 0x4200133, 0x3a00000, 0x5a00003\n",
+      "focus": 60817409,
+      "targets": {
+        "94371843": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 677605714\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3135348\n_NET_WM_STATE(ATOM) = \n"
+      },
+      "identity": [
+        {
+          "pid": 3135348,
+          "start": 68117839
+        }
+      ]
+    },
+    {
+      "time": 678332261701159,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678299397188150,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678299427190645,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678307447177722,
+          "focus_result": 1,
+          "activation": 2,
+          "user_time": 678307371,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678307527185001,
+          "focus_result": 2,
+          "activation": 2,
+          "user_time": 678307371,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678326897173507,
+          "focus_result": 1,
+          "activation": 3,
+          "user_time": 678326829,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678326957187430,
+          "focus_result": 2,
+          "activation": 3,
+          "user_time": 678326829,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x5a00003\n_NET_CLIENT_LIST(WINDOW): window id # 0x4200133, 0x3a00000, 0x5a00003\n",
+      "focus": 94371843,
+      "targets": {
+        "94371843": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 678321041\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3139554\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED\n"
+      },
+      "identity": [
+        {
+          "pid": 3139554,
+          "start": 68184638
+        }
+      ]
+    },
+    {
+      "time": 678350982384642,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678299397188150,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678299427190645,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678307447177722,
+          "focus_result": 1,
+          "activation": 2,
+          "user_time": 678307371,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678307527185001,
+          "focus_result": 2,
+          "activation": 2,
+          "user_time": 678307371,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678326897173507,
+          "focus_result": 1,
+          "activation": 3,
+          "user_time": 678326829,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678326957187430,
+          "focus_result": 2,
+          "activation": 3,
+          "user_time": 678326829,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x3a00000\n_NET_CLIENT_LIST(WINDOW): window id # 0x4200133, 0x3a00000, 0x5a00003\n",
+      "focus": 60817409,
+      "targets": {
+        "94371843": "WM_STATE(WM_STATE):\n\t\twindow state: Iconic\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 678321041\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3139554\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_HIDDEN\n"
+      },
+      "identity": [
+        {
+          "pid": 3139554,
+          "start": 68184638
+        }
+      ]
+    },
+    {
+      "time": 678364050806582,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678299397188150,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678299427190645,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678307447177722,
+          "focus_result": 1,
+          "activation": 2,
+          "user_time": 678307371,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678307527185001,
+          "focus_result": 2,
+          "activation": 2,
+          "user_time": 678307371,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678326897173507,
+          "focus_result": 1,
+          "activation": 3,
+          "user_time": 678326829,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678326957187430,
+          "focus_result": 2,
+          "activation": 3,
+          "user_time": 678326829,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678356897180096,
+          "focus_result": 1,
+          "activation": 4,
+          "user_time": 678356840,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678356947186803,
+          "focus_result": 2,
+          "activation": 4,
+          "user_time": 678356840,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x4200133\n_NET_CLIENT_LIST(WINDOW): window id # 0x4200133, 0x3a00000, 0x5a00003\n",
+      "focus": 69206323,
+      "targets": {
+        "94371843": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 678321041\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3139554\n_NET_WM_STATE(ATOM) = \n"
+      },
+      "identity": [
+        {
+          "pid": 3139554,
+          "start": 68184638
+        }
+      ]
+    },
+    {
+      "time": 678853543962390,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678452577196834,
+          "focus_result": 2,
+          "activation": 5,
+          "user_time": 678452405,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678602097179167,
+          "focus_result": 1,
+          "activation": 6,
+          "user_time": 678602026,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678602167177289,
+          "focus_result": 2,
+          "activation": 6,
+          "user_time": 678602026,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678692347176210,
+          "focus_result": 1,
+          "activation": 7,
+          "user_time": 678692277,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678692427191883,
+          "focus_result": 2,
+          "activation": 7,
+          "user_time": 678692277,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678717797171062,
+          "focus_result": 1,
+          "activation": 8,
+          "user_time": 678717731,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678717867185921,
+          "focus_result": 2,
+          "activation": 8,
+          "user_time": 678717731,
+          "requestor_x11": 60817408,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678839777403529,
+          "focus_result": 5,
+          "activation": 8,
+          "user_time": 678717731,
+          "requestor_x11": 60817408,
+          "target_x11": 0,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 0,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678845147178615,
+          "focus_result": 1,
+          "activation": 9,
+          "user_time": 678845051,
+          "requestor_x11": 60817408,
+          "target_x11": 94371851,
+          "view_epoch": 2,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 678845247188839,
+          "focus_result": 2,
+          "activation": 9,
+          "user_time": 678845051,
+          "requestor_x11": 60817408,
+          "target_x11": 94371851,
+          "view_epoch": 2,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x5a0000b\n_NET_CLIENT_LIST(WINDOW): window id # 0x4200133, 0x3a00000, 0x5a0000b\n",
+      "focus": 94371851,
+      "targets": {
+        "94371851": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 0\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3139554\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED\n",
+        "94371843": "WM_STATE"
+      },
+      "identity": [
+        {
+          "pid": 3139554,
+          "start": 68184638
+        }
+      ]
+    }
+  ],
+  "final_observations": [
+    {
+      "time": 679821657283443,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679810993043909,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679811013071177,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x3a00133\n_NET_CLIENT_LIST(WINDOW): window id # 0x3a00133, 0x3600000, 0x5800003\n",
+      "focus": 60817715,
+      "targets": {
+        "92274691": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 0\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3148293\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_DEMANDS_ATTENTION\n"
+      },
+      "identity": [
+        {
+          "pid": 3148293,
+          "start": 68338179
+        }
+      ]
+    },
+    {
+      "time": 679844215427749,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679810993043909,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679811013071177,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679829863037760,
+          "focus_result": 1,
+          "activation": 2,
+          "user_time": 679829811,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679829923042897,
+          "focus_result": 2,
+          "activation": 2,
+          "user_time": 679829811,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679839563034047,
+          "focus_result": 1,
+          "activation": 3,
+          "user_time": 679839488,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679839613054676,
+          "focus_result": 2,
+          "activation": 3,
+          "user_time": 679839488,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x5800003\n_NET_CLIENT_LIST(WINDOW): window id # 0x3a00133, 0x3600000, 0x5800003\n",
+      "focus": 92274691,
+      "targets": {
+        "92274691": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 679838251\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3148293\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED\n"
+      },
+      "identity": [
+        {
+          "pid": 3148293,
+          "start": 68338179
+        }
+      ]
+    },
+    {
+      "time": 679856057729215,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679810993043909,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679811013071177,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679829863037760,
+          "focus_result": 1,
+          "activation": 2,
+          "user_time": 679829811,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679829923042897,
+          "focus_result": 2,
+          "activation": 2,
+          "user_time": 679829811,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679839563034047,
+          "focus_result": 1,
+          "activation": 3,
+          "user_time": 679839488,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679839613054676,
+          "focus_result": 2,
+          "activation": 3,
+          "user_time": 679839488,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x3600000\n_NET_CLIENT_LIST(WINDOW): window id # 0x3a00133, 0x3600000, 0x5800003\n",
+      "focus": 56623105,
+      "targets": {
+        "92274691": "WM_STATE(WM_STATE):\n\t\twindow state: Iconic\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 679838251\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3148293\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_HIDDEN\n"
+      },
+      "identity": [
+        {
+          "pid": 3148293,
+          "start": 68338179
+        }
+      ]
+    },
+    {
+      "time": 679876198058476,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679810993043909,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679811013071177,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679829863037760,
+          "focus_result": 1,
+          "activation": 2,
+          "user_time": 679829811,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679829923042897,
+          "focus_result": 2,
+          "activation": 2,
+          "user_time": 679829811,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679839563034047,
+          "focus_result": 1,
+          "activation": 3,
+          "user_time": 679839488,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679839613054676,
+          "focus_result": 2,
+          "activation": 3,
+          "user_time": 679839488,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679861413071797,
+          "focus_result": 1,
+          "activation": 4,
+          "user_time": 679861320,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679861463053878,
+          "focus_result": 2,
+          "activation": 4,
+          "user_time": 679861320,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x5800003\n_NET_CLIENT_LIST(WINDOW): window id # 0x3a00133, 0x3600000, 0x5800003\n",
+      "focus": 92274691,
+      "targets": {
+        "92274691": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 679838251\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3148293\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED\n"
+      },
+      "identity": [
+        {
+          "pid": 3148293,
+          "start": 68338179
+        }
+      ]
+    },
+    {
+      "time": 680005296855320,
+      "statuses": [
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679811013071177,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679829863037760,
+          "focus_result": 1,
+          "activation": 2,
+          "user_time": 679829811,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679829923042897,
+          "focus_result": 2,
+          "activation": 2,
+          "user_time": 679829811,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679839563034047,
+          "focus_result": 1,
+          "activation": 3,
+          "user_time": 679839488,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679839613054676,
+          "focus_result": 2,
+          "activation": 3,
+          "user_time": 679839488,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679861413071797,
+          "focus_result": 1,
+          "activation": 4,
+          "user_time": 679861320,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679861463053878,
+          "focus_result": 2,
+          "activation": 4,
+          "user_time": 679861320,
+          "requestor_x11": 56623104,
+          "target_x11": 92274691,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 679999953071984,
+          "focus_result": 5,
+          "activation": 4,
+          "user_time": 679861320,
+          "requestor_x11": 56623104,
+          "target_x11": 0,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 0,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 680000403037636,
+          "focus_result": 1,
+          "activation": 5,
+          "user_time": 680000288,
+          "requestor_x11": 56623104,
+          "target_x11": 92274696,
+          "view_epoch": 2,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 680000493038340,
+          "focus_result": 2,
+          "activation": 5,
+          "user_time": 680000288,
+          "requestor_x11": 56623104,
+          "target_x11": 92274696,
+          "view_epoch": 2,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        }
+      ],
+      "root": "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x5800008\n_NET_CLIENT_LIST(WINDOW): window id # 0x3a00133, 0x3600000, 0x5800008\n",
+      "focus": 92274696,
+      "targets": {
+        "92274696": "WM_STATE(WM_STATE):\n\t\twindow state: Normal\n\t\ticon window: 0x0\nWM_CLASS(STRING) = \"steam_app_0\", \"steam_app_0\"\n_NET_WM_USER_TIME(CARDINAL) = 0\n_NET_WM_USER_TIME_WINDOW:  not found.\n_NET_WM_PID(CARDINAL) = 3148293\n_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED\n",
+        "92274691": "WM_STATE"
+      },
+      "identity": [
+        {
+          "pid": 3148293,
+          "start": 68338179
+        }
+      ]
+    }
+  ],
+  "passive_wm_events": [
+    {
+      "started": 677448402249104,
+      "root": 831
+    },
+    {
+      "monotonic_ns": 677473839953322,
+      "target": 60817411,
+      "message": "_NET_WM_STATE",
+      "data": [
+        0,
+        359,
+        0,
+        1,
+        0
+      ],
+      "focus_at_observation": 2097152
+    },
+    {
+      "monotonic_ns": 677485473437179,
+      "target": 69206323,
+      "message": "_NET_WM_STATE",
+      "data": [
+        1,
+        355,
+        354,
+        1,
+        32700
+      ],
+      "focus_at_observation": 2097152
+    },
+    {
+      "monotonic_ns": 677485473643445,
+      "target": 69206323,
+      "message": "_NET_WM_STATE",
+      "data": [
+        0,
+        360,
+        0,
+        1,
+        32700
+      ],
+      "focus_at_observation": 2097152
+    },
+    {
+      "monotonic_ns": 677532280734852,
+      "target": 60817415,
+      "message": "_NET_WM_STATE",
+      "data": [
+        0,
+        359,
+        0,
+        1,
+        0
+      ],
+      "focus_at_observation": 69206323
+    },
+    {
+      "monotonic_ns": 677532892046566,
+      "target": 60818057,
+      "message": "_NET_WM_STATE",
+      "data": [
+        0,
+        359,
+        0,
+        1,
+        0
+      ],
+      "focus_at_observation": 60817416
+    },
+    {
+      "monotonic_ns": 677532959397899,
+      "target": 60818057,
+      "message": "_NET_WM_STATE",
+      "data": [
+        0,
+        359,
+        0,
+        1,
+        0
+      ],
+      "focus_at_observation": 60817416
+    },
+    {
+      "monotonic_ns": 677554230112857,
+      "target": 60817415,
+      "message": "_NET_WM_STATE",
+      "data": [
+        0,
+        352,
+        0,
+        1,
+        0
+      ],
+      "focus_at_observation": 60817416
+    },
+    {
+      "monotonic_ns": 677576026974213,
+      "target": 94371843,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "focus_at_observation": 69206323
+    },
+    {
+      "monotonic_ns": 677606486416679,
+      "target": 831,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        2,
+        0,
+        831,
+        0,
+        0
+      ],
+      "focus_at_observation": 69206323
+    },
+    {
+      "monotonic_ns": 678200189565321,
+      "target": 60817411,
+      "message": "_NET_WM_STATE",
+      "data": [
+        0,
+        359,
+        0,
+        1,
+        0
+      ],
+      "focus_at_observation": 2097152
+    },
+    {
+      "monotonic_ns": 678211916436203,
+      "target": 69206323,
+      "message": "_NET_WM_STATE",
+      "data": [
+        1,
+        355,
+        354,
+        1,
+        32576
+      ],
+      "focus_at_observation": 2097152
+    },
+    {
+      "monotonic_ns": 678211916927733,
+      "target": 69206323,
+      "message": "_NET_WM_STATE",
+      "data": [
+        0,
+        360,
+        0,
+        1,
+        32576
+      ],
+      "focus_at_observation": 2097152
+    },
+    {
+      "monotonic_ns": 678307457536360,
+      "target": 94371843,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        1,
+        678307371,
+        60817408,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    },
+    {
+      "monotonic_ns": 678321803154416,
+      "target": 831,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "focus_at_observation": 69206323
+    },
+    {
+      "monotonic_ns": 678326897829001,
+      "target": 94371843,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        1,
+        678326829,
+        60817408,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    },
+    {
+      "monotonic_ns": 678342252656686,
+      "target": 831,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    },
+    {
+      "monotonic_ns": 678356897715077,
+      "target": 94371843,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        1,
+        678356840,
+        60817408,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    },
+    {
+      "monotonic_ns": 678363998433716,
+      "target": 831,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "focus_at_observation": 69206323
+    },
+    {
+      "monotonic_ns": 678452497680390,
+      "target": 94371843,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        1,
+        678452405,
+        60817408,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    },
+    {
+      "monotonic_ns": 678482019615489,
+      "target": 94371847,
+      "message": "_NET_WM_STATE",
+      "data": [
+        1,
+        361,
+        0,
+        1,
+        0
+      ],
+      "focus_at_observation": 94371843
+    },
+    {
+      "monotonic_ns": 678491120829987,
+      "target": 831,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "focus_at_observation": 69206323
+    },
+    {
+      "monotonic_ns": 678602097669297,
+      "target": 94371843,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        1,
+        678602026,
+        60817408,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    },
+    {
+      "monotonic_ns": 678681380473356,
+      "target": 831,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "focus_at_observation": 69206323
+    },
+    {
+      "monotonic_ns": 678692347767702,
+      "target": 94371843,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        1,
+        678692277,
+        60817408,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    },
+    {
+      "monotonic_ns": 678704030673491,
+      "target": 94371850,
+      "message": "_NET_WM_STATE",
+      "data": [
+        1,
+        361,
+        0,
+        1,
+        0
+      ],
+      "focus_at_observation": 94371843
+    },
+    {
+      "monotonic_ns": 678705163273382,
+      "target": 831,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "focus_at_observation": 69206323
+    },
+    {
+      "monotonic_ns": 678717797627401,
+      "target": 94371843,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        1,
+        678717731,
+        60817408,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    },
+    {
+      "monotonic_ns": 678845157781156,
+      "target": 94371851,
+      "message": "_NET_ACTIVE_WINDOW",
+      "data": [
+        1,
+        678845051,
+        60817408,
+        0,
+        0
+      ],
+      "focus_at_observation": 60817409
+    }
+  ],
+  "finding": "Old hidden-window Win32 route returned false and produced no target _NET_ACTIVE_WINDOW request. Initial old-route requests used source 2, timestamp 0, requestor 0. The native click timestamp was not reaching KWin. Native application-source requests with the real timestamp/requestor and session-owned target succeeded. This locates the failed handoff; it does not claim knowledge of every KWin policy branch.",
+  "repair": "One original EWMH application activation from the native UI thread; owned Wine X11 property supplies target XID. Verify active and keyboard target (including child ancestry), then independent Windows foreground/keyboard result. Count only confirmed success. No HWND cast/title lookup, global focus setting or topmost workaround.",
+  "bounds": "At most four ready XCB replies per tick; target wait 2 s, WM confirmation 750 ms, child ancestry 32. Stale/cancelled/destroyed targets fail explicitly without failing audio.",
+  "windows_results": {
+    "candidate_session": "1b231d72058665b127ba6682c8e12ec1",
+    "windows_pid_start": [
+      3139554,
+      68184638
+    ],
+    "opens": 2,
+    "closes": 2,
+    "confirmed_focuses": 8,
+    "hidden_and_minimized_view_epoch": 1,
+    "final_session": "8901a957c935c3ec3b676cabfe5dcd2b",
+    "final_windows_pid_start": [
+      3148293,
+      68338179
+    ],
+    "final_hidden_minimized_target": 92274691,
+    "final_reopened_target": 92274696,
+    "final_confirmed_focuses": 4
+  },
+  "limits": "Confirmation is an observed handoff, not permanent foreground ownership after subsequent user actions. Native auto-open without click context remains unsupported for focus; Open button supplies it."
+}

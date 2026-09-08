@@ -16,8 +16,11 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
   if(separate){c.position=0;checked(controller.setComponentState(&c),c);}
   if(flags){LVBState::Stream v({p.begin()+16+a,p.begin()+16+a+b});checked(controller.setState(&v),v);}
  }
+ // Capture is read-only. Reapplying component state here makes Serum emit
+ // kParamValuesChanged; Bitwig then captures state again, creating a refresh
+ // loop. Owner-thread automation is already drained before this barrier.
+ // Only an actual restore synchronizes the controller above.
  LVBState::Stream c;checked(component.getState(&c),c);
- if(separate){c.position=0;checked(controller.setComponentState(&c),c);}
  LVBState::Stream v;auto result=controller.getState(&v);
  bool supported=result==kResultOk;
  require((supported||result==kNotImplemented||result==kResultFalse)&&!v.failed&&v.quiescent(),"controller getState failure");

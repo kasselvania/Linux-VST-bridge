@@ -29,6 +29,7 @@ const WORKER: u64 = 3;
 const CORRELATION: u64 = 4;
 #[derive(Clone, Copy)]
 pub struct Item {
+    pub gui_revision: u64,
     pub kind: u32,
     pub n: u32,
     pub epoch: u64,
@@ -44,6 +45,7 @@ pub struct Item {
 impl Item {
     fn control(kind: u32, epoch: u64) -> Self {
         Self {
+            gui_revision: 0,
             kind,
             n: 0,
             epoch,
@@ -96,6 +98,7 @@ impl From<Item> for Completion {
     }
 }
 struct Shared {
+    gui: Option<Arc<crate::gui::Gui>>,
     snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
     generation: u64,
     identity: Option<state::Identity>,
@@ -132,6 +135,7 @@ struct Shared {
 impl Shared {
     fn new() -> Self {
         Self {
+            gui: None,
             snapshots: Arc::new(std::sync::Mutex::new(crate::recovery::Store::default())),
             generation: 1,
             identity: None,
@@ -285,6 +289,12 @@ impl Callback {
         request.epoch = self.epoch;
         request.position = self.position;
         request.queued = Some(Instant::now());
+        if request.events[..request.event_count as usize]
+            .iter()
+            .any(|e| e.kind == 2)
+        {
+            request.gui_revision = s.gui.as_ref().map_or(0, |gui| gui.revision());
+        }
         if !s.requests.push(request) {
             s.fail(OVERFLOW, self.position);
             return Err(2);
@@ -514,6 +524,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     let started = Instant::now();
                     let n = item.n as usize;
                     let original = item.data;
+                    session.gui_revision = item.gui_revision;
                     let (words, flags) = session.process_positioned(
                         n,
                         item.gain,
@@ -705,6 +716,7 @@ pub(crate) unsafe fn open(
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
             let mut shared = Shared::new();
+            shared.gui = session.gui.clone();
             shared.identity = identity;
             shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
             let shared = Arc::new(shared);
@@ -853,6 +865,7 @@ pub unsafe extern "C" fn ap6_recover(
                 return Err(error);
             }
             let mut shared = Shared::new();
+            shared.gui = session.gui.clone();
             shared.generation = l
                 .shared
                 .generation
@@ -1485,7 +1498,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 9 } else { 6 },
+        if identity.is_some() { 10 } else { 6 },
         identity,
     )
 }
@@ -1602,6 +1615,64 @@ pub unsafe extern "C" fn ap10_notices(id: u64, out: *mut u32) -> u32 {
 #[no_mangle]
 pub extern "C" fn ap10_results_abi_version() -> u32 {
     1
+}
+// UI access leases the same instance/generation but never takes the callback
+// guard, state mailbox or transport-worker lock. Retirement invalidates it.
+#[no_mangle]
+pub unsafe extern "C" fn ap11_gui_generation(id: u64, out: *mut u64) -> u32 {
+    if out.is_null() {
+        return 4;
+    }
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    if l.shared.gui.is_none() {
+        return 1;
+    }
+    *out = l.shared.generation;
+    0
+}
+fn gui_call(id: u64, generation: u64, f: impl FnOnce(&crate::gui::Gui) -> u32) -> u32 {
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    if generation != l.shared.generation {
+        return 5;
+    }
+    let Some(gui) = &l.shared.gui else {
+        return 1;
+    };
+    f(gui)
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap11_gui_command(
+    id: u64,
+    generation: u64,
+    m: *mut crate::gui::Message,
+) -> u32 {
+    if m.is_null() {
+        return 4;
+    }
+    gui_call(id, generation, |gui| gui.send(&mut *m))
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap11_gui_take(
+    id: u64,
+    generation: u64,
+    m: *mut crate::gui::Message,
+) -> u32 {
+    if m.is_null() {
+        return 4;
+    }
+    gui_call(id, generation, |gui| gui.take(&mut *m))
+}
+#[no_mangle]
+pub extern "C" fn ap11_gui_capabilities(id: u64, generation: u64, caps: u32) -> u32 {
+    gui_call(id, generation, |gui| gui.capabilities(caps))
+}
+#[no_mangle]
+pub extern "C" fn ap11_gui_failure(id: u64, generation: u64, code: u32) -> u32 {
+    gui_call(id, generation, |gui| gui.fail(code))
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap10_take_results(
@@ -1986,6 +2057,8 @@ mod tests {
         );
         let observation = observer.shared.clone();
         let session = Session {
+            gui: None,
+            gui_revision: 0,
             mailbox: None,
             mailbox_enabled: false,
             notices: (0, 0),
@@ -2079,6 +2152,81 @@ mod tests {
                 assert!(s.results.push(r.into()));
             }
         }
+    }
+    #[test]
+    fn stalled_gui_and_stale_generation_do_not_hold_audio_delivery() {
+        let path = std::env::temp_dir().join(format!(
+            "ap11-queued-{}-{}",
+            std::process::id(),
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+        ));
+        let gui = Arc::new(crate::gui::Gui::create(&path, [19; 16]).unwrap());
+        let mut shared = Shared::new();
+        shared.gui = Some(gui.clone());
+        shared.generation = 8;
+        let shared = Arc::new(shared);
+        let id = INSTANCES
+            .insert(|| {
+                Ok::<_, ()>(Live {
+                    shared: shared.clone(),
+                    callback: UnsafeCell::new(Callback::new()),
+                    busy: AtomicBool::new(false),
+                    worker: None,
+                    report: None,
+                    max: 256,
+                    recovery_blocked: false,
+                    minor: 10,
+                    setup: None,
+                })
+            })
+            .unwrap()
+            .unwrap();
+        let mut message = crate::gui::Message {
+            kind: 1,
+            ..Default::default()
+        };
+        assert_eq!(unsafe { ap11_gui_command(id, 7, &mut message) }, 5);
+        assert_eq!(ap11_gui_failure(id, 8, 0), 0);
+        for _ in 0..crate::gui::CAPACITY {
+            assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 0);
+        }
+        assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 3);
+        assert_eq!(ap11_gui_failure(id, 8, 0), 1);
+        let mut cb = Callback::new();
+        cb.delay = 512;
+        assert_eq!(cb.transition(&shared, START), 0);
+        let mut request = Item::control(AUDIO, 0);
+        request.n = 256;
+        request.gain = 0.5;
+        request.data = [[0.25; CAP]; 2];
+        request.event_count = 1;
+        request.events[0].kind = 2;
+        request.events[0].value = 0.5;
+        let mut out = [[0.; CAP]; 2];
+        for i in 0..64 {
+            cb.process(&shared, request, &mut out).unwrap();
+            assert_eq!(cb.delivery.missing_frames, 0);
+            assert_eq!(out, [[if i < 2 { 0. } else { 0.125 }; CAP]; 2]);
+            while let Some(mut admitted) = shared.requests.pop() {
+                if admitted.kind == AUDIO {
+                    assert!(admitted.gui_revision > 0);
+                    for channel in &mut admitted.data {
+                        for value in channel {
+                            *value *= 0.5;
+                        }
+                    }
+                    assert!(shared.results.push(admitted.into()));
+                }
+            }
+        }
+        assert_eq!(shared.fault.load(Ordering::Acquire), 0);
+        message.kind = 2;
+        assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 0);
+        INSTANCES.remove(id, |_| ()).unwrap();
+        assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 1);
+        drop(shared);
+        drop(gui);
+        std::fs::remove_file(path).unwrap();
     }
     #[test]
     fn variable_lengths_delayed_gain_and_silence_are_exact() {

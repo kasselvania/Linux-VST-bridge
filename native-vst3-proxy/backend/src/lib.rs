@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod commercial_tests;
 mod context;
+mod gui;
 mod instances;
 mod mailbox;
 mod observer;
@@ -29,6 +30,8 @@ use std::{
     },
 };
 struct Session {
+    gui: Option<std::sync::Arc<gui::Gui>>,
+    gui_revision: u64,
     mapping: Option<Mapping>,
     mailbox: Option<mailbox::Mailbox>,
     mailbox_enabled: bool,
@@ -111,6 +114,14 @@ impl Session {
         minor: u64,
         mut owner: Option<preview::Owner>,
     ) -> io::Result<Self> {
+        let gui = if minor >= 10 {
+            Some(std::sync::Arc::new(gui::Gui::create(
+                &path.join("ap11.ui"),
+                id,
+            )?))
+        } else {
+            None
+        };
         let mailbox = if minor >= 6 && performance::use_mailbox()? {
             Some(mailbox::Mailbox::create(&path.join("ap10.delivery"), id)?)
         } else {
@@ -120,6 +131,8 @@ impl Session {
         let (mapping, socket) =
             prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
+            gui,
+            gui_revision: 0,
             mapping: Some(mapping),
             mailbox,
             mailbox_enabled: false,
@@ -136,7 +149,7 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8 | 9) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10) {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -312,11 +325,11 @@ impl Session {
         context: context::Context,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            matches!(self.minor, 5 | 7 | 8 | 9) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9 | 10) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8 | 9) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9 | 10) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -405,13 +418,16 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8 | 9) {
+            if matches!(self.minor, 5 | 7 | 8 | 9 | 10) {
                 request
                     .payload
                     .extend_from_slice(&events::encode(events, n)?);
             }
             if self.minor >= 8 {
                 request.payload.extend(context.encode());
+            }
+            if self.minor >= 10 {
+                request.payload.extend(self.gui_revision.to_le_bytes());
             }
             self.trace.prepared = Some(std::time::Instant::now());
             let mut reply = if self.mailbox_enabled {
@@ -433,7 +449,7 @@ impl Session {
             self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
                 need(
-                    (if self.minor == 9 {
+                    (if self.minor >= 9 {
                         reply.payload.len() >= 72
                     } else {
                         reply.payload.len()
@@ -458,7 +474,7 @@ impl Session {
                         "restart notification fields",
                     )?;
                     self.notices = (flags, get(&reply.payload[44..52]));
-                    if self.minor == 9 {
+                    if self.minor >= 9 {
                         self.returned = process_results::Packet::decode(&reply.payload[56..], n)?;
                     }
                 }
@@ -495,6 +511,9 @@ impl Session {
         result
     }
     fn close(mut self) -> io::Result<()> {
+        if let Some(gui) = &self.gui {
+            gui.shutdown();
+        }
         let result = if self.phase == 15 || self.minor >= 4 && self.phase == 17 {
             let f = self.state.close()?;
             send_version(&mut self.socket, &f, 5, self.minor)

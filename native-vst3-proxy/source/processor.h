@@ -75,6 +75,9 @@ private:
   bool stateSession();
 #ifdef AP8_PREVIEW
   AP10Results::Output returned_;
+  bool gui_polling_=false;
+  bool gui_consumer_=false; // UI-thread capability, withdrawn before peer retirement.
+  Steinberg::tresult guiPoll(uint64_t generation,unsigned limit);
   bool deliverResults(Steinberg::Vst::ProcessData&);
   int eventOutputActive(int)const;
   bool notifications_=false;uint32_t vendor_latency_=0;

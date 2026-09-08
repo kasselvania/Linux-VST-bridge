@@ -1,0 +1,291 @@
+{
+  "method": "Private /proc PID/start-time and owned UI mapping snapshots; no process command lines or paths retained. GUI observations made through Moonlight are distinct from these process identity checks.",
+  "observations": [
+    {
+      "time": 651204338715028,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+          "native_sent": 2,
+          "windows_consumed": 2,
+          "windows_sent": 2351,
+          "native_consumed": 2351,
+          "failure": 0,
+          "open": 1,
+          "stage": 100,
+          "heartbeat": 9620,
+          "close_epoch": 0,
+          "close_ack": 0
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3026508,
+          "start_ticks": 65477574,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 651225706028723,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+          "native_sent": 2,
+          "windows_consumed": 2,
+          "windows_sent": 2352,
+          "native_consumed": 2352,
+          "failure": 0,
+          "open": 0,
+          "stage": 217,
+          "heartbeat": 14497,
+          "close_epoch": 0,
+          "close_ack": 0
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3026508,
+          "start_ticks": 65477574,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 651261107487921,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+          "native_sent": 4,
+          "windows_consumed": 4,
+          "windows_sent": 4703,
+          "native_consumed": 4703,
+          "failure": 0,
+          "open": 1,
+          "stage": 100,
+          "heartbeat": 22530,
+          "close_epoch": 0,
+          "close_ack": 0
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3026508,
+          "start_ticks": 65477574,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 651571703377573,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+          "native_sent": 6,
+          "windows_consumed": 6,
+          "windows_sent": 7074,
+          "native_consumed": 7074,
+          "failure": 0,
+          "open": 1,
+          "stage": 100,
+          "heartbeat": 93588,
+          "close_epoch": 2,
+          "close_ack": 2
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3026508,
+          "start_ticks": 65477574,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 651892051211877,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+          "native_sent": 10,
+          "windows_consumed": 10,
+          "windows_sent": 9432,
+          "native_consumed": 9432,
+          "failure": 0,
+          "open": 0,
+          "stage": 217,
+          "heartbeat": 166130,
+          "close_epoch": 3,
+          "close_ack": 3
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3026508,
+          "start_ticks": 65477574,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 652447590454797,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "715565fdf2d0b4ebb5b927c2b46285c4",
+          "native_sent": 13,
+          "windows_consumed": 13,
+          "windows_sent": 11790,
+          "native_consumed": 11790,
+          "failure": 0,
+          "open": 0,
+          "stage": 217,
+          "heartbeat": 293127,
+          "close_epoch": 4,
+          "close_ack": 4
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3026508,
+          "start_ticks": 65477574,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 653170877492340,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "b25caef96c1bdb0186c1ebd840a92a6c",
+          "native_sent": 2,
+          "windows_consumed": 2,
+          "windows_sent": 2351,
+          "native_consumed": 2351,
+          "failure": 0,
+          "open": 1,
+          "stage": 100,
+          "heartbeat": 4392,
+          "close_epoch": 0,
+          "close_ack": 0
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3037310,
+          "start_ticks": 65676519,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 653223520042611,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "b25caef96c1bdb0186c1ebd840a92a6c",
+          "native_sent": 4,
+          "windows_consumed": 4,
+          "windows_sent": 4702,
+          "native_consumed": 4702,
+          "failure": 0,
+          "open": 1,
+          "stage": 100,
+          "heartbeat": 16335,
+          "close_epoch": 0,
+          "close_ack": 0
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3037310,
+          "start_ticks": 65676519,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 653254089337833,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "b25caef96c1bdb0186c1ebd840a92a6c",
+          "native_sent": 4,
+          "windows_consumed": 4,
+          "windows_sent": 4703,
+          "native_consumed": 4703,
+          "failure": 0,
+          "open": 0,
+          "stage": 217,
+          "heartbeat": 23292,
+          "close_epoch": 1,
+          "close_ack": 1
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3037310,
+          "start_ticks": 65676519,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 653299931679447,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "b25caef96c1bdb0186c1ebd840a92a6c",
+          "native_sent": 6,
+          "windows_consumed": 6,
+          "windows_sent": 7059,
+          "native_consumed": 7059,
+          "failure": 0,
+          "open": 0,
+          "stage": 217,
+          "heartbeat": 33702,
+          "close_epoch": 2,
+          "close_ack": 2
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3037310,
+          "start_ticks": 65676519,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    },
+    {
+      "time": 653416403386162,
+      "ui": [
+        {
+          "vendor": "fragments",
+          "session": "0aeee894c81186a76b57c9b79323c9f1",
+          "native_sent": 0,
+          "windows_consumed": 0,
+          "windows_sent": 0,
+          "native_consumed": 0,
+          "failure": 0,
+          "open": 0,
+          "stage": 0,
+          "heartbeat": 5109,
+          "close_epoch": 0,
+          "close_ack": 0
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3039110,
+          "start_ticks": 65700822,
+          "uiautomationcore_mapped": false
+        }
+      ]
+    }
+  ]
+}

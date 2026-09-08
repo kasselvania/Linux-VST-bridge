@@ -1,0 +1,134 @@
+{
+  "method": "One bounded normally launched Bitwig/FRAGMENTS open under owned strace -ff -e trace=%file -e status=failed. No file payloads, credential data or vendor network inspection. Separate diagnostic run, not performance evidence.",
+  "session": "250096baec197e79dcfb011acd047e33",
+  "warning_reproduced": true,
+  "install_directory_entries": 0,
+  "resources_top_level_entries": 15,
+  "resource_layout": [
+    {
+      "directory": "Install",
+      "entries": [],
+      "count": 0
+    },
+    {
+      "directory": "resources",
+      "entries": [
+        "images",
+        "Efx FRAGMENTS_actions.xml",
+        "x64",
+        "fonts",
+        "log.conf",
+        "uninstall.sh",
+        "bitmap",
+        "fx_vst_shared_parameters.xml",
+        "Efx FRAGMENTS_gui.xml",
+        "gui_xml",
+        "dictionary",
+        "fx_internal_shared_parameters.xml",
+        "Efx FRAGMENTS.xml",
+        "functions_presets",
+        "models"
+      ],
+      "count": 15
+    },
+    {
+      "directory": "User",
+      "entries": [
+        "Playlist"
+      ],
+      "count": 1
+    },
+    {
+      "directory": "tmp",
+      "entries": [
+        "plugin.pref.xml",
+        "plugin.prefmidi.xml"
+      ],
+      "count": 2
+    }
+  ],
+  "actual_missing_resource_probes": [
+    {
+      "path": "Efx FRAGMENTS/resources/controllers/controllers.prefmidi.xml",
+      "errno": "ENOENT",
+      "failed_calls": 1,
+      "exists_in_install": false
+    },
+    {
+      "path": "Efx FRAGMENTS/resources/controllers",
+      "errno": "ENOENT",
+      "failed_calls": 2,
+      "exists_in_install": false
+    },
+    {
+      "path": "Efx FRAGMENTS/resources/controllers?",
+      "errno": "ENOENT",
+      "failed_calls": 2,
+      "exists_in_install": false
+    },
+    {
+      "path": "Efx FRAGMENTS/resources/controllers/controllers-common.prefmidi.xml",
+      "errno": "ENOENT",
+      "failed_calls": 1,
+      "exists_in_install": false
+    },
+    {
+      "path": "Efx FRAGMENTS/resources/mapping.pref.xml",
+      "errno": "ENOENT",
+      "failed_calls": 2,
+      "exists_in_install": false
+    },
+    {
+      "path": "Efx FRAGMENTS/resources/mapping.pref.xml?",
+      "errno": "ENOENT",
+      "failed_calls": 1,
+      "exists_in_install": false
+    },
+    {
+      "path": "Efx FRAGMENTS/resources/plugin.prefmidi.xml",
+      "errno": "ENOENT",
+      "failed_calls": 2,
+      "exists_in_install": false
+    },
+    {
+      "path": "Efx FRAGMENTS/resources/plugin.prefmidi.xml?",
+      "errno": "ENOENT",
+      "failed_calls": 1,
+      "exists_in_install": false
+    }
+  ],
+  "other_observation": "Missing /Efx FRAGMENTS/Tutorials/... tutorial paths and ordinary loader fallback probes also occur. Existing XML/fonts/images show ENODATA xattr and EINVAL link probes; those are not proof that their file reads failed.",
+  "trace_file_count": 252,
+  "private_trace_bytes": 14897910,
+  "finding": "The installed resource layout and actual failed requests were inspected. No evidence identifies the precise proprietary integrity check responsible for the warning; empty Install is not proof of which manifest should exist. No guessed files, runtime changes or installer work were performed. Warning remains.",
+  "accessibility": "Explicit per-owned-process, default-off --disable-windows-accessibility remains necessary on this fixture; Windows UI Automation unavailable, VST gestures work. Does not repair corruption warning or prove vendor caller of prior removal crash.",
+  "diagnostic_accounting": {
+    "event": "ap3_proxy_lifecycle",
+    "phase": 6,
+    "requested_maximum": 256,
+    "requested_rate": 48000,
+    "requested_mode": 0,
+    "frames": 3132160,
+    "blocks": 12235,
+    "callback_rejections": 0,
+    "rejected_silent_frames": 0,
+    "discontinuities": 0,
+    "successful_silent_callbacks": 2,
+    "successful_silent_frames": 512,
+    "priming_frames": 512,
+    "underrun_frames": 2560,
+    "underrun_gaps": 7,
+    "underrun_callbacks": 10,
+    "expired_output_frames": 2560,
+    "delivered_frames": 3129088,
+    "zero_gain_blocks": 0,
+    "gain_min": 1,
+    "gain_max": 1,
+    "clean": true
+  },
+  "raw_exit": 0,
+  "cleanup": {
+    "owned_descendants_zero": true,
+    "process_group_empty": true
+  }
+}

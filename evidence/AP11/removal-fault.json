@@ -1,0 +1,21 @@
+{
+  "session": "06c500080b94ef3fa39fd6da51446f55",
+  "windows_source": "940a4d5509d23ef28406c90c1df9456b87cbe5d6",
+  "native_source": "81838833c80bee6866227ca686248fe6c5dd558b",
+  "operation": "IPlugView::removed, view stage 212",
+  "exception": "0xc0000005",
+  "observed_register_rcx": 0,
+  "module": "pinned runner uiautomationcore.dll",
+  "instruction_rva": "0x7988",
+  "symbol": "create_uia_node_from_elprov+0x18",
+  "instruction": "mov (%rcx),%rax",
+  "observed_rax_symbol": "UiaDisconnectProvider",
+  "observed_rax_rva": "0x2ce0",
+  "resolution": "Owned process mappings plus local pinned PE symbols/disassembly. No stack was captured; exact vendor caller remains unproven.",
+  "comparison": "Same native/Windows binaries and sound close successfully with uiautomationcore disabled for this owned process. The delivered option is explicit, defaults off, preserves unrelated overrides and does not alter the prefix or siblings. Windows accessibility is unavailable in that configuration; VST parameter automation remains enabled.",
+  "rejected_sufficient_hypotheses": [
+    "Defer removal outside WM_CLOSE dispatch only",
+    "Guard focus/size/input callbacks during removal only",
+    "Add two existing vendor resource manifest files; removed again after no improvement"
+  ]
+}

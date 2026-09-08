@@ -1,0 +1,32 @@
+{
+  "owned_sessions_retired_and_contained": 20,
+  "owned_owner_stopped": true,
+  "owner_socket_absent": true,
+  "publication_restored_empty": true,
+  "bitwig_prefs_metadata_and_delay_restored_to_original_hashes": true,
+  "original_scanners_markers_and_session_files_restored": true,
+  "serum_renderer_setting_restored": true,
+  "temporary_serum_font_files_and_two_registry_entries_removed": true,
+  "vendor_authorization_data_not_restored_or_modified": true,
+  "temporary_fragments_resource_manifest_additions_absent": true,
+  "temporary_trace_and_mailbox_override_files_removed": true,
+  "pipewire_clock_values_unchanged": {
+    "clock.rate": "48000",
+    "clock.allowed-rates": "[ 48000 ]",
+    "clock.quantum": "512",
+    "clock.min-quantum": "256",
+    "clock.max-quantum": "8192",
+    "clock.force-quantum": "0",
+    "clock.force-rate": "0"
+  },
+  "original_project_hashes": {
+    "AP9 Latency": "7f554ef5dad0a1a7914c6837f1ef8a07149a28cf7a47e37ebe9a38987f51bb8f",
+    "AP10 FRAGMENTS": "c0da5e2d1947388822a95713e8edd4f3816abe965228d76da8b5b71bf5687825"
+  },
+  "private_AP11_projects_diagnostics_and_builds_retained": true,
+  "settings_sha256": {
+    "delay-frames": "240269e94afb4bbc4c643851e366bf4f0d870ff0753d250b854f748cf3516285",
+    "6.1.prefs": "b5d4f90df6acc62c4c879c94b385b4ab1a77cb647f8ff3f4696b9b23e7ae12d2",
+    "vst3-metadata-11": "138eb39ee7351ff5e8510259275b5d0fa00926844e056e2bd8231f449cb9ded4"
+  }
+}

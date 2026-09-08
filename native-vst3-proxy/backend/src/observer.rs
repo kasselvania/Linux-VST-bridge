@@ -457,6 +457,15 @@ pub fn report_text(s: &Shared) -> String {
         let _=writeln!(text,"{{\"event\":\"ap8_returned_audio\",\"epoch\":{},\"position\":{},\"samples\":{},\"nonzero\":{},\"rms\":{},\"peak\":{},\"unretained_window_samples\":{}}}",w.epoch,w.position,w.samples,w.nonzero,(w.energy/w.samples.max(1) as f64).sqrt(),w.peak,r.audio_unretained);
     }
     for (g, t) in &r.traces {
+        // Correlate every retained gap with external editor/CPU brackets using
+        // the existing clock sample. No extra callback clock or queue work.
+        if let Some(clock) = r.clock {
+            let points = t.map(|t| [t.queued, t.started, t.prepared, t.sent,
+                t.replied, t.validated, t.published].map(|v| clock.at(v)));
+            let points = points.unwrap_or([0; 7]);
+            let _ = writeln!(text, "{{\"event\":\"ap11_gap_clock\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"gap_monotonic_ns\":{},\"request_monotonic_ns\":{:?}}}",
+                g.epoch, g.position, g.frames, clock.at(Some(g.at)), points);
+        }
         if let Some(t) = t {
             let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"output_published\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{}}}",
                 g.epoch, g.position, g.frames, t.position, t.frames, t.sequence, t.published.is_some(),
@@ -514,6 +523,7 @@ mod tests {
         assert_eq!(shared.dropped.load(Ordering::Relaxed), 0);
         let report = report_text(&shared);
         assert_eq!(report.matches("ap10_linux_request").count(), 96);
+        assert_eq!(report.matches("ap11_gap_clock").count(), 2);
         assert!(report.len() < 32_768);
     }
     #[test]
