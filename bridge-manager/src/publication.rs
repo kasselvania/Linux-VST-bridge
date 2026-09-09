@@ -352,8 +352,15 @@ impl Manager {
                 entry.registration.metadata == profile.class
                     && entry.registration.module.sha256 == profile.module_sha256
                     && entry.registration.native.sha256 == profile.requirements.native_sha256
+                    && entry.registration.host.sha256 == profile.requirements.host_sha256
+                    && entry.registration.host_source_sha256
+                        == profile.requirements.host_source_sha256
                     && entry.registration.compatibility == profile.capabilities.compatibility(),
                 "legacy_profile_mismatch",
+            )?;
+            profile.verify_environment(
+                &entry.registration.environment,
+                &profile.requirements.environment_family,
             )?;
             let r = Revision {
                 schema: 1,
@@ -543,6 +550,41 @@ impl Manager {
         sync(&self.root.join("transactions"))?;
         boundary(fail, Boundary::Cleanup)
     }
+    fn read_intent(&self, path: &Path) -> Result<Intent> {
+        let i: Intent = read_json(path)?;
+        require(
+            i.schema == 1 && valid_hex(&i.id, 32) && path == self.pending_path(&i.class_id),
+            "transaction_identity",
+        )?;
+        let original = self
+            .root
+            .join("transactions")
+            .join(format!("{}.json", i.id));
+        require(
+            digest(&original)? == digest(path)?,
+            "transaction_intent_changed",
+        )?;
+        Ok(i)
+    }
+    pub(crate) fn pending_physical_revision(
+        &self,
+        key: &str,
+        target: &Path,
+    ) -> Result<Option<(RevisionRef, Revision)>> {
+        let i = self.read_intent(&self.pending_path(key))?;
+        require(i.class_id == key, "transaction_identity")?;
+        for reference in [i.candidate.as_ref(), i.prior.as_ref().map(|p| &p.revision)]
+            .into_iter()
+            .flatten()
+        {
+            if let Ok(revision) = self.load_revision(key, reference) {
+                if revision.target == target {
+                    return Ok(Some((reference.clone(), revision)));
+                }
+            }
+        }
+        Ok(None)
+    }
     /// Used under the existing registry lock by normal reconcile and admission.
     pub(crate) fn reconcile_revisions(&self, db: &mut Registry) -> Result<()> {
         let dir = self.root.join("transactions");
@@ -561,19 +603,7 @@ impl Manager {
             }
             count += 1;
             require(count <= 256, "pending_transaction_bound")?;
-            let i: Intent = read_json(&path)?;
-            require(
-                i.schema == 1 && valid_hex(&i.id, 32) && path == self.pending_path(&i.class_id),
-                "transaction_identity",
-            )?;
-            let original = self
-                .root
-                .join("transactions")
-                .join(format!("{}.json", i.id));
-            require(
-                digest(&original)? == digest(&path)?,
-                "transaction_intent_changed",
-            )?;
+            let i = self.read_intent(&path)?;
             let actual = physical(&self.link(&i.class_id))?;
             let prior = i.prior.as_ref().and_then(|p| p.target.clone());
             if actual == prior {

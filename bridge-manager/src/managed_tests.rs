@@ -678,3 +678,23 @@ fn two_managed_classes_update_remove_and_roll_back_independently() {
         2
     );
 }
+#[test]
+fn pending_status_reads_the_activated_candidate_before_registry_commit() {
+    let (f, p, c, n) = prepared();
+    let old = publish(&f, &p, &c, &n, None).unwrap();
+    assert!(publish(&f, &p, &c, &n, Some(Boundary::PointerExchanged)).is_err());
+    let row =
+        f.m.managed_status(&c.host, &c.host_source_sha256)
+            .unwrap()
+            .products
+            .remove(0);
+    assert!(row.recovery_pending);
+    assert_eq!(row.recorded_revision, Some(old.clone()));
+    assert_ne!(row.active_revision, Some(old));
+    assert!(row.active_revision.is_some());
+    let physical =
+        f.m.load_revision(&f.r.key(), row.active_revision.as_ref().unwrap())
+            .unwrap();
+    assert_eq!(row.physical_target, Some(physical.target));
+    f.m.reconcile().unwrap();
+}

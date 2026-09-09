@@ -169,7 +169,25 @@ impl Manager {
             } else {
                 inactive.err()
             };
-            let revision = loaded.ok().flatten();
+            let pending_physical = if pending {
+                physical
+                    .as_ref()
+                    .ok()
+                    .and_then(|p| p.as_ref())
+                    .and_then(|target| self.pending_physical_revision(key, target).ok().flatten())
+            } else {
+                None
+            };
+            let active_revision = if let Some((reference, _)) = &pending_physical {
+                Some(reference.clone())
+            } else if physical_valid && native_valid && e.publication == Publication::Published {
+                e.managed_revision.clone()
+            } else {
+                None
+            };
+            let revision = pending_physical
+                .map(|(_, r)| r)
+                .or_else(|| loaded.ok().flatten());
             let prior = revision
                 .as_ref()
                 .and_then(|r| r.parent.as_ref())
@@ -205,14 +223,7 @@ impl Manager {
                 native_artifact_valid: native_valid,
                 publication: e.publication.clone(),
                 recorded_revision: e.managed_revision.clone(),
-                active_revision: if publication_valid
-                    && !pending
-                    && e.publication == Publication::Published
-                {
-                    e.managed_revision.clone()
-                } else {
-                    None
-                },
+                active_revision,
                 expected_target: target.ok(),
                 physical_target: physical.ok().flatten(),
                 publication_valid,
