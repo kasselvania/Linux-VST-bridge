@@ -59,7 +59,7 @@ pub fn envelope(payload: &[u8]) -> io::Result<Vec<u8>> {
     envelope_for(REFERENCE, 1, payload)
 }
 pub fn envelope_for(identity: Identity, version: u32, payload: &[u8]) -> io::Result<Vec<u8>> {
-    need(matches!(version, 1 | 2 | 3), "state envelope version")?;
+    need(matches!(version, 1..=3), "state envelope version")?;
     need(payload.len() <= LIMIT, "component state exceeds cap")?;
     let mut blob = vec![0; HEADER_SIZE];
     blob[..8].copy_from_slice(b"LVBSTATE");
@@ -208,8 +208,7 @@ impl Session {
                 matches!(stage, 1 | 2) && matches!(sdk_result, 1 | -2147467263),
                 "save refusal stage/result",
             )?;
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 SaveRefusal {
                     operation: 16,
                     stage,
@@ -533,10 +532,8 @@ mod tests {
     }
     #[test]
     fn tagged_readback_preserves_opaque_and_legacy_envelopes() {
-        let identity = Some(Identity {
-            class: [1; 16],
-            module: [2; 32],
-        });
+        let fixture = Identity { class: [1; 16], module: [2; 32] };
+        let identity = Some(fixture);
         let mut p = vec![0; 35];
         p[0] = 3;
         p[8] = 1;
@@ -562,7 +559,7 @@ mod tests {
         bad[8] = 2;
         bad.extend_from_slice(&p[19..]);
         assert!(commercial_payload(&bad).is_err());
-        assert!(bound_payload(identity, &envelope_for(identity.unwrap(), 2, &p).unwrap()).is_err());
+        assert!(bound_payload(identity, &envelope_for(fixture, 2, &p).unwrap()).is_err());
     }
     #[test]
     fn full_reference_payload_and_identity() {

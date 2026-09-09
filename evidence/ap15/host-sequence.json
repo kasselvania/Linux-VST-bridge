@@ -1,0 +1,225 @@
+{
+  "schema": 1,
+  "method": "bounded GDB breakpoints in existing native UI methods; retained build objects relinked for symbols only; stripped image exactly equals installed native SHA-256",
+  "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+  "symbol_image_sha256": "1ba0523dd24db2c9df4a4051df423669fec2e61c15702cbff4488fd7d4a5b8b6",
+  "source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+  "project": "AP15 Lifecycle",
+  "transport": "stopped",
+  "maximum_events": 256,
+  "maximum_seconds": 240,
+  "completion": {
+    "exit": 0,
+    "seconds": 154.39683794298617
+  },
+  "rows": [
+    {
+      "n": 1,
+      "name": "non-virtual thunk to Steinberg::CPluginView::getSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794064,
+      "relative_ns": 0
+    },
+    {
+      "n": 2,
+      "name": "non-virtual thunk to AP11::VendorPanel::attached(void*, char const*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 46137344,
+      "relative_ns": 1160386
+    },
+    {
+      "n": 3,
+      "name": "non-virtual thunk to Steinberg::CPluginView::getSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794064,
+      "relative_ns": 2587588
+    },
+    {
+      "n": 4,
+      "name": "non-virtual thunk to Steinberg::CPluginView::onSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794664,
+      "rect": [
+        0,
+        0,
+        560,
+        150
+      ],
+      "relative_ns": 2999437
+    },
+    {
+      "n": 5,
+      "name": "non-virtual thunk to AP11::VendorPanel::removed()",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 94371830398896,
+      "relative_ns": 33613960750
+    },
+    {
+      "n": 6,
+      "name": "AP11::VendorPanel::~VendorPanel()",
+      "thread": 45060,
+      "this": 94371835142048,
+      "arg": 4294967295,
+      "relative_ns": 33614646465
+    },
+    {
+      "n": 7,
+      "name": "non-virtual thunk to AP8::Controller::createView(char const*)",
+      "thread": 45060,
+      "this": 139716029997120,
+      "arg": 94371401201893,
+      "relative_ns": 44712594839
+    },
+    {
+      "n": 8,
+      "name": "non-virtual thunk to Steinberg::CPluginView::setFrame(Steinberg::IPlugFrame*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 94371830396152,
+      "relative_ns": 44713081840
+    },
+    {
+      "n": 9,
+      "name": "non-virtual thunk to Steinberg::CPluginView::getSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794064,
+      "relative_ns": 44713670903
+    },
+    {
+      "n": 10,
+      "name": "non-virtual thunk to AP11::VendorPanel::attached(void*, char const*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 46137346,
+      "relative_ns": 44714534462
+    },
+    {
+      "n": 11,
+      "name": "non-virtual thunk to Steinberg::CPluginView::getSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794064,
+      "relative_ns": 44715957283
+    },
+    {
+      "n": 12,
+      "name": "non-virtual thunk to Steinberg::CPluginView::onSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794664,
+      "rect": [
+        0,
+        0,
+        560,
+        150
+      ],
+      "relative_ns": 44716502025
+    },
+    {
+      "n": 13,
+      "name": "non-virtual thunk to AP11::VendorPanel::removed()",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 46137346,
+      "relative_ns": 66634596671
+    },
+    {
+      "n": 14,
+      "name": "AP11::VendorPanel::~VendorPanel()",
+      "thread": 45060,
+      "this": 94371835142048,
+      "arg": 4294967295,
+      "relative_ns": 66635385008
+    },
+    {
+      "n": 15,
+      "name": "non-virtual thunk to AP8::Controller::createView(char const*)",
+      "thread": 45060,
+      "this": 139716029997120,
+      "arg": 94371401201893,
+      "relative_ns": 81086899596
+    },
+    {
+      "n": 16,
+      "name": "non-virtual thunk to Steinberg::CPluginView::setFrame(Steinberg::IPlugFrame*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 94371830396152,
+      "relative_ns": 81087404527
+    },
+    {
+      "n": 17,
+      "name": "non-virtual thunk to Steinberg::CPluginView::getSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794064,
+      "relative_ns": 81088489411
+    },
+    {
+      "n": 18,
+      "name": "non-virtual thunk to AP11::VendorPanel::attached(void*, char const*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 46137348,
+      "relative_ns": 81089549834
+    },
+    {
+      "n": 19,
+      "name": "non-virtual thunk to Steinberg::CPluginView::getSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794064,
+      "relative_ns": 81091280482
+    },
+    {
+      "n": 20,
+      "name": "non-virtual thunk to Steinberg::CPluginView::onSize(Steinberg::ViewRect*)",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 140733028794664,
+      "rect": [
+        0,
+        0,
+        560,
+        150
+      ],
+      "relative_ns": 81091905516
+    },
+    {
+      "n": 21,
+      "name": "non-virtual thunk to AP11::VendorPanel::removed()",
+      "thread": 45060,
+      "this": 94371835142064,
+      "arg": 94371830398896,
+      "relative_ns": 110256052463
+    },
+    {
+      "n": 22,
+      "name": "AP11::VendorPanel::~VendorPanel()",
+      "thread": 45060,
+      "this": 94371835142048,
+      "arg": 4294967295,
+      "relative_ns": 110257287390
+    }
+  ],
+  "observations": [
+    "First observed open: getSize, attached, getSize, onSize 560x150. createView/setFrame preceded debugger attachment for that first object.",
+    "Vendor close leaves native panel and host editor toggle open; first toggle closes shell, second creates a new view and opens vendor.",
+    "Subsequent opens: createView, setFrame, getSize, attached, getSize, onSize. Host shell close and device removal: removed then destructor.",
+    "All recorded SDK calls ran on one native UI thread. Object addresses were reused after destruction; they are not durable view identities.",
+    "No onFocus or checkSizeConstraint call was observed in these normal editor-toggle actions.",
+    "First vendor open appeared foreground, subsequent reopen was behind Bitwig with native status requesting another click; no explicit activation acceptance is claimed.",
+    "Debugger detached normally; disposable removal edit was discarded on normal Bitwig quit. No publication or installed binary was changed."
+  ],
+  "nonclaims": [
+    "No musical, latency or CPU result. Debugger pauses are not normal playback evidence.",
+    "No direct delegate has been qualified yet.",
+    "Original projects and revision-3 publications remain the baseline."
+  ]
+}

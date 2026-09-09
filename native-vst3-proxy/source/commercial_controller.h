@@ -4,6 +4,7 @@
 #include "ap11_gui.h"
 #include "ap8_descriptor.h"
 #include "desktop_activation.h"
+#include "editor_lifecycle.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "vendor_panel.h"
 #include <algorithm>
@@ -54,7 +55,7 @@ class Controller final : public Steinberg::Vst::EditController,
 public:
   ~Controller() override { stopTimer(); }
   Result PLUGIN_API terminate() override {
-    panelClose();
+    panelClose(editor_.owner());
     finishGestures();
     capabilities(false);
     connected_ = false;
@@ -103,7 +104,8 @@ public:
         std::strcmp(name, Steinberg::Vst::ViewType::kEditor))
       return nullptr;
     try {
-      return new AP11::VendorPanel(this, *this, AP8::class_name);
+      auto token = editor_.allocate();
+      return token ? new AP11::VendorPanel(this, *this, token) : nullptr;
     } catch (...) {
       return nullptr;
     }
@@ -120,7 +122,7 @@ public:
   }
   Result PLUGIN_API
   disconnect(Steinberg::Vst::IConnectionPoint *peer) override {
-    panelClose();
+    panelClose(editor_.owner());
     finishGestures();
     capabilities(false);
     connected_ = false;
@@ -183,6 +185,7 @@ public:
           generation < 1)
         return kResultFalse;
       if (generation_ && generation_ != uint64_t(generation)) {
+        editor_.sessionRetired();
         finishGestures();
         pending_count_ = 0;
         failure_ = 0;
@@ -283,7 +286,7 @@ public:
     }
     capabilities();
   }
-  void panelOpen(AP11::ActivationContext activation = {}) override {
+  void panelOpen(uint64_t view, AP11::ActivationContext activation = {}) override {
     if (!onOwner() || !connected_ || failure_)
       return;
     if (!timer_ || !componentHandler) {
@@ -297,9 +300,8 @@ public:
       status_ = "Editor activation identity exhausted";
       return;
     }
-    m.activation = ++activation_serial_;
-    m.user_time = activation.user_time;
-    m.requestor_x11 = activation.requestor_x11;
+    if (!editor_.begin(view, ++activation_serial_, activation, m))
+      return;
     activation_.begin(m);
     command(m);
     // Opening/focusing a view is not a parameter invalidation. An unsolicited
@@ -307,18 +309,23 @@ public:
     // capture on the serialized audio transport. Real vendor restart callbacks
     // still publish complete value/title refreshes through the UI queue.
   }
-  void panelClose() override {
+  void panelClose(uint64_t view) override {
+    if (!onOwner())
+      return;
+    ap11_gui_message_t m{};
+    if (!editor_.close(view, m))
+      return;
     activation_.cancel();
-    if (onOwner() && connected_) {
-      ap11_gui_message_t m{};
-      m.kind = AP11::Close;
+    if (connected_)
       command(m);
-    }
   }
-  const char *panelStatus() const override { return save_unavailable_ ? "Saving unavailable; vendor editor remains accessible" : status_; }
+  uint64_t allocateEditorView() { return onOwner() ? editor_.allocate() : 0; }
+  uint32_t panelState(uint64_t view) const override { return editor_.state(view); }
+  const char *panelStatus() const { return save_unavailable_ ? "Saving unavailable; vendor editor remains accessible" : status_; }
   bool readbackAvailable(uint32_t id) {auto* p=state(id);return p&&p->available;}
 
 private:
+  AP15::EditorLifecycle editor_;
   bool save_unavailable_=false;
   uint64_t activation_serial_ = 0;
   AP11::DesktopActivation activation_;
@@ -346,6 +353,7 @@ private:
     if (failure_)
       return;
     failure_ = code;
+    editor_.failed();
     status_ = code == AP11::Closed
                   ? "Processing session closed"
                   : "Editor control failed; close and inspect diagnostics";
@@ -362,6 +370,7 @@ private:
     }
   }
   Result deliver(const ap11_gui_message_t &m) {
+    if (!AP11::valid(m)) return Steinberg::kResultFalse;
     using namespace Steinberg;
     using namespace Steinberg::Vst;
     auto *p = state(m.id);
@@ -408,7 +417,7 @@ private:
                  ? componentHandler2->requestOpenEditor(ViewType::kEditor)
                  : kNotImplemented;
     case AP11::EditorStatus:
-      if (m.activation != activation_serial_)
+      if (!editor_.status(m))
         return kResultOk;
       if (!m.count)
         activation_.cancel();
@@ -436,7 +445,7 @@ private:
       else if (m.focus_result == AP11::FocusDenied)
         status_ = "Editor open; desktop focus request refused";
       else if (m.focus_result == AP11::FocusUnsupported)
-        status_ = "Editor open; click Open to request focus";
+        status_ = "Editor open; host activation context unavailable";
       else if (m.focus_result == AP11::FocusCancelled)
         status_ = "Editor open; focus request cancelled";
       else
@@ -544,8 +553,8 @@ private:
           AP11::Close) { // cancel only pending opens; preserve host values
         size_t n = 0;
         for (size_t i = 0; i < pending_count_; ++i)
-          if (pending_[i].kind != AP11::Open &&
-              pending_[i].kind != AP11::Refresh)
+          if (pending_[i].kind != AP11::Open ||
+              pending_[i].native_view != event.native_view)
             pending_[n++] = pending_[i];
         pending_count_ = n;
         return Steinberg::kResultOk;

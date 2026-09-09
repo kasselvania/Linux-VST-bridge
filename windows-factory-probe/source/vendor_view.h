@@ -19,6 +19,8 @@ class VendorView final : public Steinberg::IPlugFrame {
   View *view_ = nullptr;
   HWND window_ = nullptr;
   bool attached_ = false, closing_ = false, close_requested_ = false;
+  bool window_lost_ = false;
+  uint64_t close_epoch_ = 0;
   void (*trace_)(void *, uint32_t) = nullptr;
   void *trace_context_ = nullptr;
   void (*fault_trace_)(void *, EXCEPTION_POINTERS *) = nullptr;
@@ -125,7 +127,10 @@ class VendorView final : public Steinberg::IPlugFrame {
       if (msg == WM_CLOSE) {
         // Keep vendor teardown outside a Win32 callback. The owner service
         // removes the view after DispatchMessage has returned.
-        self->close_requested_ = true;
+        if (!self->closing_ && window == self->window_) {
+          self->close_requested_ = true;
+          self->close_epoch_ = self->opens;
+        }
         return 0;
       }
       // removed() can destroy/focus child windows synchronously. Never call
@@ -133,6 +138,10 @@ class VendorView final : public Steinberg::IPlugFrame {
       if (self->closing_) {
         ++self->removal_messages;
         return DefWindowProcW(window, msg, wp, lp);
+      }
+      if (msg == WM_NCDESTROY && window == self->window_) {
+        self->window_lost_ = true;
+        self->error_ = AP11::WindowLost;
       }
       if (msg == WM_SETFOCUS && self->view_ && self->attached_) {
         self->view_->onFocus(true);
@@ -290,7 +299,13 @@ public:
     }
     if (window_ && view_)
       return true; // activation is a separate WM transaction
+    if (opens == UINT32_MAX) {
+      error_ = AP11::GenerationExhausted;
+      return false;
+    }
     error_ = 0;
+    window_lost_ = false;
+    close_epoch_ = 0;
     try {
       stage(1);
       view_ = controller.createView(Vst::ViewType::kEditor);
@@ -440,7 +455,8 @@ public:
         auto w = window_;
         window_ = nullptr;
         stage(216);
-        DestroyWindow(w);
+        if (IsWindow(w))
+          DestroyWindow(w);
       }
       closing_ = false;
       stage(217);
@@ -465,8 +481,9 @@ public:
       ++focuses;
     return accepted;
   }
-  bool close_requested() const { return close_requested_; }
-  bool is_open() const { return attached_; }
+  bool close_requested() const { return close_requested_ && close_epoch_ == opens; }
+  bool window_lost() const { return window_lost_ || (window_ && !IsWindow(window_)); }
+  bool is_open() const { return attached_ && !window_lost(); }
   uint32_t error() const { return error_; }
   HWND window() const { return window_; }
   static bool pump() {

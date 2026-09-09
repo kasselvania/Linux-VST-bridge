@@ -1,8 +1,10 @@
-// Real X11 event routing to the production panel. The parent selects mouse
-// presses just as a host may; XTest lets the server assign the implicit grab.
+// Production IPlugView ownership against an isolated X11 host shell.
+// This tests protocol/lifetime mechanics; actual Bitwig acceptance is separate.
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "vendor_panel.h"
-#include <X11/extensions/XTest.h>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include "editor_lifecycle.h"
 #include <algorithm>
 #include <chrono>
 #include <iostream>
@@ -20,6 +22,8 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
   std::vector<Linux::ITimerHandler *> timers;
   unsigned opens = 0, closes = 0;
   AP11::ActivationContext lastActivation{};
+  uint32_t lifecycle = AP11::Opening;
+  uint64_t lastToken = 0;
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
     if (!out)
       return kInvalidArgument;
@@ -60,12 +64,13 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
     return kResultOk;
   }
   void panelLoop(Linux::IRunLoop *) override {}
-  void panelOpen(AP11::ActivationContext context = {}) override {
+  void panelOpen(uint64_t token, AP11::ActivationContext context = {}) override {
+    lastToken = token;
     ++opens;
     lastActivation = context;
   }
-  void panelClose() override { ++closes; }
-  const char *panelStatus() const override { return "Fixture"; }
+  void panelClose(uint64_t token) override { check(token == lastToken, "exact native view close"); ++closes; }
+  uint32_t panelState(uint64_t token) const override { return token == lastToken ? lifecycle : AP11::Absent; }
   void drain() {
     for (unsigned i = 0; i < 20; ++i) {
       for (auto *t : timers)
@@ -80,53 +85,56 @@ int main() {
   check(display != nullptr, "isolated X server");
   auto parent = XCreateSimpleWindow(display, DefaultRootWindow(display), 40, 40,
                                     560, 150, 0, 0, 0);
-  XSelectInput(display, parent, ButtonPressMask | ButtonReleaseMask);
-  XMapWindow(display, parent);
+  const auto protocols = XInternAtom(display, "WM_PROTOCOLS", False);
+  const auto close = XInternAtom(display, "WM_DELETE_WINDOW", False);
+  XSetWMProtocols(display, parent, const_cast<Atom *>(&close), 1);
+  unsigned long requestor = parent, timestamp = 12345;
+  XChangeProperty(display, DefaultRootWindow(display), XInternAtom(display, "_NET_ACTIVE_WINDOW", False),
+      XA_WINDOW, 32, PropModeReplace, reinterpret_cast<unsigned char *>(&requestor), 1);
+  XChangeProperty(display, parent, XInternAtom(display, "_NET_WM_USER_TIME", False),
+      XA_CARDINAL, 32, PropModeReplace, reinterpret_cast<unsigned char *>(&timestamp), 1);
   XSync(display, False);
   Frame frame;
   auto *controller = new Vst::EditController;
-  auto *panel = new AP11::VendorPanel(controller, frame, "SDK fixture");
+  auto *panel = new AP11::VendorPanel(controller, frame, 7);
   controller->release();
   check(panel->setFrame(&frame) == kResultOk &&
             panel->attached(reinterpret_cast<void *>(parent),
                             kPlatformTypeX11EmbedWindowID) == kResultOk,
         "production panel attached");
+  check(frame.opens == 1 && frame.lastToken == 7 && frame.lastActivation.user_time == timestamp &&
+        frame.lastActivation.requestor_x11 == parent, "one automatic open with host context");
+  check(panel->attached(reinterpret_cast<void *>(parent), kPlatformTypeX11EmbedWindowID) != kResultOk &&
+        frame.opens == 1, "duplicate attach creates no second editor request");
+  ViewRect size{};
+  check(panel->getSize(&size) == kResultOk && size.getWidth() > 0 && size.getHeight() > 0 &&
+        panel->onSize(&size) == kResultOk, "nonzero SDK geometry lifecycle");
+  Window root, actualParent, *children = nullptr;
+  unsigned count = 0;
+  check(XQueryTree(display, parent, &root, &actualParent, &children, &count) && count == 0,
+        "no bridge control windows or button hit regions");
+  if (children) XFree(children);
+  XMapWindow(display, parent); XSync(display, False); frame.drain();
+  XWindowAttributes attributes{};
+  check(XGetWindowAttributes(display, parent, &attributes) && attributes.map_state == IsUnmapped,
+        "host shell hidden without destroying host ownership");
+  frame.lifecycle = AP11::ClosedByVendor;
   frame.drain();
-  check(frame.opens == 1, "one initial open");
-  auto click = [&](int x) {
-    Window child;
-    int rootX = 0, rootY = 0;
-    XTranslateCoordinates(display, parent, DefaultRootWindow(display), x, 100,
-                          &rootX, &rootY, &child);
-    check(XTestFakeMotionEvent(display, DefaultScreen(display), rootX, rootY,
-                               CurrentTime),
-          "server pointer motion");
-    check(XTestFakeButtonEvent(display, 1, True, CurrentTime), "server press");
-    check(XTestFakeButtonEvent(display, 1, False, CurrentTime),
-          "server release");
-    XSync(display, False);
-    frame.drain();
-  };
-  click(400);
-  check(frame.closes == 1,
-        "close click reaches child despite host press selection");
-  unsigned long requestor = parent;
-  XChangeProperty(display, DefaultRootWindow(display),
-                  XInternAtom(display, "_NET_ACTIVE_WINDOW", False), XA_WINDOW,
-                  32, PropModeReplace,
-                  reinterpret_cast<unsigned char *>(&requestor), 1);
-  XSync(display, False);
-  click(100);
-  check(frame.opens == 2 && frame.lastActivation.user_time != 0 &&
-            frame.lastActivation.requestor_x11 == parent,
-        "real press timestamp and active requestor survive panel dispatch");
-  check(panel->removed() == kResultOk && frame.timers.empty() &&
-            frame.closes == 2,
-        "panel removal closes once and cancels timer");
+  unsigned closeMessages = 0;
+  while (XPending(display)) {
+    XEvent event{}; XNextEvent(display, &event);
+    if (event.type == ClientMessage && event.xclient.window == parent &&
+        event.xclient.message_type == protocols && Atom(event.xclient.data.l[0]) == close)
+      ++closeMessages;
+  }
+  check(closeMessages == 1, "vendor close requests one normal host-owned shell retirement");
+  check(panel->removed() == kResultOk && panel->removed() == kResultOk && frame.timers.empty() &&
+        frame.closes == 1, "native removal closes exact view once and cancels timer");
+  check(XGetWindowAttributes(display, parent, &attributes), "host parent survives delegate retirement");
   panel->setFrame(nullptr);
   panel->release();
   XDestroyWindow(display, parent);
   XCloseDisplay(display);
   std::cout
-      << "AP11 production X11 panel implicit-grab routing and lifetime PASS\n";
+      << "AP15 production X11 delegate ownership and retirement PASS\n";
 }

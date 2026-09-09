@@ -236,7 +236,41 @@ uint32_t __wrap_ap10_take_results(uint64_t, ap10_results_t *p) {
   return 0;
 }
 }
+void lifecycle_identity_regression() {
+  AP15::EditorLifecycle owner;
+  const auto a = owner.allocate();
+  ap11_gui_message_t open{}, close{};
+  check(owner.begin(a,1,{111,222},open) && open.native_view==a && open.view_epoch==0,
+        "native view and activation identities are explicit before binding");
+  auto status=open;status.kind=AP11::EditorStatus;status.count=1;status.view_epoch=1;
+  status.lifecycle=AP11::AwaitingFocus;
+  check(owner.status(status),"active editor epoch acknowledged");
+  auto stale=status;stale.native_view++;
+  check(!owner.status(stale),"status from another native view refused");
+  stale=status;stale.activation++;
+  check(!owner.status(stale),"status from another activation refused");
+  status.count=0;status.lifecycle=AP11::ClosedByVendor;
+  check(owner.status(status) && owner.state(a)==AP11::ClosedByVendor,"vendor close retires only editor");
+  stale=status;stale.count=1;stale.lifecycle=AP11::Focused;
+  check(!owner.status(stale),"late focus cannot resurrect a closed editor");
+  check(owner.close(a,close) && close.native_view==a && close.view_epoch==1 &&
+        !owner.close(a,close),"native retirement closes exact epoch once");
+  const auto b=owner.allocate();
+  check(b>a && owner.begin(b,2,{},open),"fresh native view permits one replacement opening");
+  check(!owner.close(a,close) && owner.state(b)==AP11::Opening && !owner.status(status),
+        "retired native view close and status cannot affect replacement");
+  status=open;status.kind=AP11::EditorStatus;status.view_epoch=2;status.count=1;
+  status.lifecycle=AP11::Focused;
+  check(owner.status(status),"replacement editor advances epoch");
+  status.view_epoch=1;
+  check(!owner.status(status),"old editor epoch refused even with current activation");
+  status.view_epoch=2;status.abi_version=2;
+  check(!owner.status(status),"unsupported UI ABI refused");
+  owner.sessionRetired();
+  check(!owner.begin(b,3,{},open),"processing replacement invalidates old native view");
+}
 int main() {
+  lifecycle_identity_regression();
   Host host;
   auto processor = std::make_unique<AP2::Processor>();
   auto *c = new AP8::Controller;
@@ -259,10 +293,11 @@ int main() {
         "start processing");
   check(state_calls==0&&commands.size()==1&&commands[0].kind==AP11::Refresh&&commands[0].flags==0,"fresh native bootstrap requires no opaque saving or restart");
   commands.clear();
-  c->panelOpen();
+  auto viewToken = c->allocateEditorView();
+  c->panelOpen(viewToken);
   check(commands.size() == 1 && commands[0].kind == AP11::Open,
         "native entry opens same session without inventing a refresh");
-  c->panelOpen({123, 456});
+  c->panelOpen(viewToken, {123, 456});
   host.tick();
   check(commands.size() == 2 && commands[1].kind == AP11::Open &&
             commands[1].user_time == 123 && commands[1].requestor_x11 == 456 &&
@@ -326,7 +361,7 @@ int main() {
   check(processor->getState(&refused)==kResultFalse&&refused.bytes.empty(),"ordinary save refusal is truthful");
   check(std::strstr(c->panelStatus(),"Saving unavailable")!=nullptr,"fresh audition exposes save-unavailable status");
   host.audio(.7);check(dsp==.7,"audio continues after failed save");
-  c->panelOpen();check(commands.back().kind==AP11::Open,"editor continues after refused save");
+  c->panelOpen(viewToken);check(commands.back().kind==AP11::Open,"editor continues after refused save");
   save_code=0;
   LVBState::Stream projected;projected.bytes.resize(136);projected.bytes[64]=32;projected.bytes[112]=1;projected.bytes[116]=2;
   check(c->setComponentState(&projected)==kResultOk&&!c->readbackAvailable(0)&&c->getParamNormalized(0)==.65,"native tagged state apply preserves unavailable ID and stale projection");
@@ -337,8 +372,9 @@ int main() {
   LVBState::Stream saved;
   check(processor->getState(&saved) == kResultOk && dsp == .9,
         "stopped editing and immediate save drains UI and host flush");
-  c->panelClose();
-  c->panelOpen();
+  c->panelClose(viewToken);
+  viewToken = c->allocateEditorView();
+  c->panelOpen(viewToken);
   check(closes == 0 && commands.back().kind == AP11::Open,
         "view close/reopen retains processing instance");
   c->disconnect(processor.get());

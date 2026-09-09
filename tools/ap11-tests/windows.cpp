@@ -148,7 +148,7 @@ struct Controller final : EditController {
   }
 };
 struct Mapping {
-  static constexpr size_t bytes = 256 + 2 * 512 * sizeof(ap11_gui_message_t);
+  static constexpr size_t bytes = 320 + 2 * 512 * sizeof(ap11_gui_message_t);
   std::filesystem::path dir;
   HANDLE file = INVALID_HANDLE_VALUE, map = nullptr;
   uint8_t *data = nullptr;
@@ -174,7 +174,7 @@ struct Mapping {
     check(data, "native mapping");
     std::memset(data, 0, bytes);
     std::memcpy(data, "LVBU", 4);
-    put(4, 3, 4);
+    put(4, 4, 4);
     put(8, bytes, 4);
     put(12, sizeof(ap11_gui_message_t), 4);
     std::copy(id.begin(), id.end(), data + 16);
@@ -195,18 +195,21 @@ struct Mapping {
   auto word(size_t off) {
     return std::atomic_ref<uint64_t>(*reinterpret_cast<uint64_t *>(data + off));
   }
+  uint64_t native_view = 1, activation = 0;
   void command(uint32_t kind, double value = 0, uint64_t revision = 0) {
     ap11_gui_message_t m{};
     m.kind = kind;
+    if (kind == AP11::Open) { m.native_view = native_view; m.activation = ++activation; }
     m.id = 42;
     m.value = value;
     m.revision = revision;
     command(m);
   }
-  void command(const ap11_gui_message_t &m) {
+  void command(ap11_gui_message_t m) {
+    if (m.kind == AP11::Open && !m.native_view) { m.native_view = native_view; if (!m.activation) m.activation = ++activation; }
     auto p = word(64).load(), c = word(72).load();
     check(p - c < 512, "command bound");
-    std::memcpy(data + 256 + p % 512 * sizeof(m), &m, sizeof(m));
+    std::memcpy(data + 320 + p % 512 * sizeof(m), &m, sizeof(m));
     word(64).store(p + 1, std::memory_order_release);
   }
   std::vector<ap11_gui_message_t> drain() {
@@ -214,7 +217,7 @@ struct Mapping {
     auto p = word(80).load(std::memory_order_acquire), c = word(88).load();
     while (c < p) {
       ap11_gui_message_t m{};
-      std::memcpy(&m, data + 256 + (512 + c % 512) * sizeof(m), sizeof(m));
+      std::memcpy(&m, data + 320 + (512 + c % 512) * sizeof(m), sizeof(m));
       result.push_back(m);
       ++c;
     }
@@ -222,6 +225,9 @@ struct Mapping {
     return result;
   }
   void close() {
+    word(120).fetch_add(1);
+    word(256).store(native_view);
+    put(264,0,4);
     word(152).store(word(64).load(), std::memory_order_release);
     word(120).fetch_add(1, std::memory_order_acq_rel);
   }
@@ -272,6 +278,7 @@ int main() {
                         }),
         "ordinary open failure explicit without poisoning session");
   c->no_view = false;
+  ++native.native_view;
   native.command(AP11::Open);
   session.service(true);
   check(session.is_open() && c->stats.created == 1 && c->stats.attached == 1,
@@ -376,6 +383,7 @@ int main() {
   session.service(true);
   check(c->stats.created == 1, "queued open before close cutoff cancelled");
   native.drain();
+  ++native.native_view;
   native.command(AP11::Open);
   session.service(true);
   check(c->stats.created == 2 && c->getParamNormalized(42) == .4,
@@ -391,11 +399,44 @@ int main() {
   check(!session.is_open() && c->stats.removed == 2 && c->stats.destroyed == 2,
         "queued repeated window close removes exactly once");
   native.drain();
+  ++native.native_view;
   native.command(AP11::Open);
   session.service(true);
   check(c->stats.created == 3 && c->getParamNormalized(42) == .4,
         "window close and reopen retains controller sound");
   native.drain();
+  const auto replacementOwner=native.native_view;
+  const auto replacementEpoch=session.view().opens;
+  const auto replacementWindow=session.view().window();
+  const auto createdBefore=c->stats.created;
+  // The production close fast path is a stable seqlock snapshot. A late A
+  // close whose cutoff includes B's queued focus must not retire or cancel B.
+  native.command(AP11::Open);
+  native.word(120).fetch_add(1);
+  native.word(256).store(replacementOwner-1);
+  native.put(264,replacementEpoch-1,4);
+  native.word(152).store(native.word(64).load());
+  native.word(120).fetch_add(1);
+  session.service(true);
+  check(session.view().window()==replacementWindow && c->stats.created==createdBefore &&
+        session.is_open(),"late close from native A cannot affect replacement B");
+  native.drain();
+  native.word(120).fetch_add(1);
+  native.word(256).store(replacementOwner);
+  native.put(264,replacementEpoch+1,4);
+  native.word(120).fetch_add(1);
+  session.service(true);
+  check(session.is_open() && native.drain().empty(),"wrong editor epoch close has no result or teardown");
+  // A writer interrupted mid-close leaves an odd sequence. Owner never spins
+  // and cannot observe a partially replaced token/epoch pair.
+  native.word(120).fetch_add(1);
+  native.word(256).store(replacementOwner);
+  native.put(264,replacementEpoch,4);
+  session.service(true);
+  check(session.is_open(),"unfinished close publication is deferred without touching editor");
+  // Restore an acknowledged even value rather than completing this fixture's
+  // synthetic request, retaining the live view for the existing refusal test.
+  native.word(120).store(native.word(128).load());
   c->stats.refuse = true;
   check(!session.close() && session.is_open() &&
             IsWindow(session.view().window()),

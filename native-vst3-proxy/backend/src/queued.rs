@@ -2343,11 +2343,7 @@ mod tests {
             let peer = thread::spawn(move || {
                 let mut saves = 0;
                 let mut next = 1;
-                loop {
-                    let f = match receive_version(&mut remote, 5, 11) {
-                        Ok(f) => f,
-                        Err(_) => break,
-                    };
+                while let Ok(f) = receive_version(&mut remote, 5, 11) {
                     assert_eq!(f.sequence, next);
                     let mut kind = f.kind + 1;
                     let payload = match f.kind {
@@ -2661,6 +2657,7 @@ mod tests {
         }
         assert_eq!(shared.fault.load(Ordering::Acquire), 0);
         message.kind = 2;
+        message.native_view = 1;
         assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 0);
         INSTANCES.remove(id, |_| ()).unwrap();
         assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 1);

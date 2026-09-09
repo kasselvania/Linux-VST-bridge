@@ -177,6 +177,24 @@ class FaultStatusTests(unittest.TestCase):
                 self.assertEqual(observer.snapshot()['editor'],result)
             finally:observer.close()
 
+    def test_gui_diagnostic_versions_are_exact_and_preserve_retained_layout(self):
+        for version,header,message in [(3,256,584),(4,320,608),(5,320,608),(4,256,584)]:
+            with self.subTest(version=version,header=header), tempfile.TemporaryDirectory() as tmp:
+                root=pathlib.Path(tmp);sid='34'*16
+                data=bytearray(1024);data[:32]=b'LVFS'+session.struct.pack('<III',1,1024,0)+bytes.fromhex(sid)
+                (root/'ap12.status').write_bytes(data);(root/'ap12.status').chmod(0o600)
+                extent=header+2*512*message;gui=bytearray(extent)
+                gui[:36]=b'LVBU'+session.struct.pack('<III',version,extent,message)+bytes.fromhex(sid)+session.struct.pack('<I',512)
+                session.struct.pack_into('<I',gui,116,1)
+                (root/'ap11.ui').write_bytes(gui);(root/'ap11.ui').chmod(0o600)
+                observer=session.FaultStatus(root,sid)
+                try:
+                    if (version,header) in [(3,256),(4,320)]:
+                        self.assertEqual(observer.snapshot()['editor']['open'],1)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError,'GUI identity/version'):observer.snapshot()
+                finally:observer.close()
+
     def test_pending_peer_is_retained_before_containment_without_completion(self):
         for stage in (1,2,3,4,5,6):
             with self.subTest(stage=stage), tempfile.TemporaryDirectory() as tmp:

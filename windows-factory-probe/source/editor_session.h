@@ -27,6 +27,9 @@ class EditorSession {
   std::wstring name_;
   ap11_gui_message_t last_open_{};
   uint32_t focus_result_ = AP11::FocusNotRequested;
+  uint32_t lifecycle_ = AP11::Absent;
+  uint64_t retired_native_view_ = 0;
+  uint64_t closed_native_view_ = 0;
   bool focus_pending_ = false;
   bool desktop_confirmed_ = false;
   Parameter *parameter(uint32_t id) {
@@ -50,6 +53,8 @@ class EditorSession {
     m.kind = AP11::EditorStatus;
     m.count = view_.is_open() ? 1 : 0;
     m.result = view_.error();
+    m.native_view = last_open_.native_view;
+    m.lifecycle = lifecycle_;
     m.activation = last_open_.activation;
     m.user_time = last_open_.user_time;
     m.requestor_x11 = last_open_.requestor_x11;
@@ -270,11 +275,14 @@ public:
     refresh_flags_ = flags;
     refresh_revision_ = channel_.revision();
   }
-  bool close() {
+  bool close(uint32_t reason = AP11::ClosedByDaw) {
+    lifecycle_ = AP11::Closing;
     focus_pending_ = false;
     focus_result_ = AP11::FocusCancelled;
-    if (!view_.close())
+    if (!view_.close()) {
+      lifecycle_ = AP11::EditorFailed;
       return false;
+    }
     for (auto &p : parameters_)
       if (p.editing) {
         emit(AP11::End, p.id);
@@ -285,6 +293,8 @@ public:
       emit(AP11::GroupEnd);
       group_ = false;
     }
+    lifecycle_ = reason;
+    retired_native_view_ = std::max(retired_native_view_, last_open_.native_view);
     return true;
   }
   void service(bool force = false) {
@@ -300,36 +310,80 @@ public:
         channel_.fail(AP11::Removal);
       return;
     }
-    auto close_epoch = channel_.close_requested();
-    if (close_epoch != channel_.close_acknowledged()) {
-      close_cutoff_ = channel_.close_cutoff();
-      if (!close()) {
-        channel_.fail(AP11::Removal);
+    GuiChannel::CloseRequest closing;
+    if (channel_.take_close(closing)) {
+      if (!closing.native_view) {
+        channel_.fail(AP11::Protocol);
         return;
       }
-      channel_.close_ack(close_epoch);
-      status();
+      // A late close from native view A cannot close B, even if the queue
+      // cutoff includes B's Open. Zero epoch cancels only A's pending opening.
+      const bool owned = closing.native_view == last_open_.native_view &&
+          (!closing.view_epoch || closing.view_epoch == view_.opens);
+      const bool pending = closing.native_view > last_open_.native_view && !closing.view_epoch;
+      if (owned || pending) {
+        close_cutoff_ = closing.cutoff;
+        closed_native_view_ = std::max(closed_native_view_, closing.native_view);
+        if (owned && lifecycle_ < AP11::ClosedByVendor) {
+          if (!close(AP11::ClosedByDaw)) {
+            channel_.fail(AP11::Removal);
+            return;
+          }
+          status();
+        }
+      }
+      channel_.close_ack(closing.sequence);
     }
     for (unsigned n = 0; n < 64; ++n) {
       ap11_gui_message_t m{};
       if (!channel_.take(m))
         break;
       if (m.kind == AP11::Open) {
-        if (channel_.commands_consumed() <= close_cutoff_) {
-          status();
+        if (!m.native_view || !m.activation) {
+          channel_.fail(AP11::Protocol);
+          break;
+        }
+        if (m.native_view <= retired_native_view_ ||
+            (m.native_view <= closed_native_view_ &&
+             channel_.commands_consumed() <= close_cutoff_) ||
+            m.native_view < last_open_.native_view ||
+            (m.native_view == last_open_.native_view &&
+             m.activation <= last_open_.activation))
+          continue;
+        if (view_.is_open() && m.native_view != last_open_.native_view) {
+          // Replacement requires positive retirement of the existing owner.
+          auto refused = m;
+          refused.kind = AP11::EditorStatus;
+          refused.lifecycle = AP11::OpenRefused;
+          refused.result = AP11::Removal;
+          channel_.send(refused);
           continue;
         }
+        if (m.view_epoch && m.view_epoch != view_.opens)
+          continue;
         ever_opened_ = true;
         last_open_ = m;
+        lifecycle_ = AP11::Opening;
         focus_pending_ = false;
         focus_result_ = AP11::FocusPending;
+        if (view_.focus_requests == UINT64_MAX) {
+          channel_.fail(AP11::GenerationExhausted);
+          break;
+        }
         ++view_.focus_requests;
-        view_.open(controller_);
-        if (view_.window() && !name_.empty())
-          SetWindowTextW(view_.window(), name_.c_str());
+        if (!view_.open(controller_)) {
+          lifecycle_ = AP11::OpenRefused;
+          focus_result_ = AP11::FocusNotRequested;
+          retired_native_view_ = std::max(retired_native_view_, m.native_view);
+        } else {
+          lifecycle_ = AP11::AwaitingFocus;
+          if (view_.window() && !name_.empty())
+            SetWindowTextW(view_.window(), name_.c_str());
+        }
         status();
       } else if (m.kind == AP11::Focus) {
-        if (m.activation != last_open_.activation || !view_.is_open() ||
+        if (m.native_view != last_open_.native_view ||
+            m.activation != last_open_.activation || !view_.is_open() ||
             m.target_x11 != view_.x11_window() || m.view_epoch != view_.opens ||
             focus_result_ != AP11::FocusPending)
           continue;
@@ -356,8 +410,8 @@ public:
     bool pumped=false;
     {FaultStatus::Scope pumping(fault_,2,25);pumped=VendorView::pump();}
     if (!pumped) {
-      channel_.fail(AP11::Closed);
-      close();
+      channel_.fail(AP11::GuiLoopLost);
+      close(AP11::EditorFailed);
       return;
     }
     if (focus_pending_) {
@@ -367,10 +421,12 @@ public:
       // A negative native result remains negative even if Wine cached focus.
       if (!desktop_confirmed_)
         view_.confirm_focus(false);
+      lifecycle_ = focus_result_ == AP11::FocusConfirmed ? AP11::Focused : AP11::FocusRefused;
       status();
     }
-    if (view_.close_requested() || was_open_ != view_.is_open()) {
-      if (!close())
+    if (view_.close_requested() || (view_.window() && view_.window_lost()) || was_open_ != view_.is_open()) {
+      const auto reason = view_.window_lost() ? AP11::EditorFailed : AP11::ClosedByVendor;
+      if (!close(reason))
         channel_.fail(AP11::Removal);
       status();
     }
