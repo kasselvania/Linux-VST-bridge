@@ -461,6 +461,7 @@ impl Drop for Guard<'_> {
 }
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
     let mut previous_control = [0u64; 4];
+    let mut deferred = None;
     if let Some(status) = &mut session.fault_status {
         status.generation = s.generation;
     }
@@ -478,8 +479,13 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 if let Some(c) = mailbox.as_mut() {
                     if c.result.is_none() && s.requests.consumed() >= c.barrier {
                         s.worker_op.store(c.op as u64, Ordering::Release);
-                        previous_control = [c.op as u64, crate::observer::monotonic_ns(), 0, c.barrier];
-                        let result = match c.op {
+                        if session.capture.is_none() {
+                            previous_control = [c.op as u64, crate::observer::monotonic_ns(), 0, c.barrier];
+                            if c.op == 16 && session.can_capture_during_audio() { session.begin_capture()?; }
+                        }
+                        let completed = if session.capture.is_some() {
+                            session.poll_capture().map(|r| r.and_then(|p| state::bound_envelope(session.identity, &p)))
+                        } else { Some(match c.op {
                             16 => session
                                 .component_state(None)
                                 .and_then(|p| state::bound_envelope(session.identity, &p)),
@@ -502,7 +508,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                 vec![]
                             }),
                             _ => Err(invalid("unknown owner operation")),
-                        };
+                        }) };
+                        if let Some(result) = completed {
                         previous_control[2] = crate::observer::monotonic_ns();
                         let failed = result.as_ref().is_err_and(|e| !state::save_refused(e));
                         if let Ok(bytes) = &result {
@@ -514,7 +521,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                         bytes.clone(),
                                         c.op,
                                         s.generation,
-                                        s.requests.consumed(),
+                                        c.barrier,
                                     )?;
                             }
                         } else if let Err(error) = &result {
@@ -531,14 +538,26 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         if failed {
                             return Err(invalid("component state/control failed; original detail retained in response"));
                         }
+                        }
                     }
                 }
             }
             s.worker_op.store(0, Ordering::Release);
-            let Some(mut item) = s.requests.pop() else {
+            if session.mailbox.as_ref().is_some_and(|m| m.control_handoff_pending()) {
+                thread::sleep(Duration::from_micros(50));
+                continue;
+            }
+            let Some(mut item) = deferred.take().or_else(|| s.requests.pop()) else {
                 thread::sleep(Duration::from_micros(50));
                 continue;
             };
+            // Restore/lifecycle keep exclusive control-stream ownership. Only
+            // ordered audio can pass an admitted read-only capture.
+            if session.capture.is_some() && item.kind != AUDIO {
+                deferred = Some(item);
+                thread::sleep(Duration::from_micros(50));
+                continue;
+            }
             s.worker_epoch.store(item.epoch, Ordering::Relaxed);
             s.worker_position.store(item.position, Ordering::Relaxed);
             s.worker_op.store(item.kind as u64, Ordering::Release);
@@ -1549,7 +1568,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 11 } else { 6 },
+        if identity.is_some() { 12 } else { 6 },
         identity,
     )
 }
@@ -2238,6 +2257,7 @@ mod tests {
             gui_revision: 0,
             mailbox: None,
             mailbox_enabled: false,
+                capture: None,
         fault_status: None,
             notices: (0, 0),
             returned: crate::process_results::Packet::default(),
@@ -2399,6 +2419,7 @@ mod tests {
                 gui_revision: 0,
                 mailbox: None,
                 mailbox_enabled: false,
+                capture: None,
         fault_status: None,
                 notices: (0, 0),
                 returned: Default::default(),

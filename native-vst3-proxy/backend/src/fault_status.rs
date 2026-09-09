@@ -109,7 +109,7 @@ mod tests {
         let socket=TcpStream::connect(listener.local_addr().unwrap()).unwrap();
         let (_peer,_)=listener.accept().unwrap();
         let mut session=Session {
-            gui:None,gui_revision:0,mailbox:Some(mailbox::Mailbox::create(&dir.join("ap10.delivery"),id).unwrap()),mailbox_enabled:true,fault_status:Some(status),
+            gui:None,gui_revision:0,mailbox:Some(mailbox::Mailbox::create(&dir.join("ap10.delivery"),id).unwrap()),mailbox_enabled:true,capture:None,fault_status:Some(status),
             notices:(0,0),returned:Default::default(),mapping:Some(Mapping::new(&dir.join("ap1.audio")).unwrap()),socket,
             state:ClientState { session:id,next:9,slot:Slot::Writable },phase:11,max:256,minor:11,epoch:1,position:0,witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None,
         };

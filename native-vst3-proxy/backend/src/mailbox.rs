@@ -84,6 +84,11 @@ impl Mailbox {
             "delivery slot is not free",
         )
     }
+    // Control notification is consumed before the Windows delivery thread
+    // resumes mailbox requests. The worker yields until this handoff is done.
+    pub fn control_handoff_pending(&self) -> bool {
+        self.flag(64).load(Ordering::Acquire) == 2
+    }
     pub fn send(&mut self, frame: &Frame, minor: u64) -> io::Result<()> {
         self.idle()?;
         let bytes = frame.encode_version(minor)?;
@@ -140,13 +145,16 @@ impl Mailbox {
 /// Non-consuming endpoint check on the transport worker. Do not turn a known
 /// dead socket into a five-second wait for an impossible mailbox response.
 pub fn peer_alive(socket: &std::net::TcpStream) -> io::Result<()> {
+    peer_status(socket, false)
+}
+pub fn peer_status(socket: &std::net::TcpStream, capture_pending: bool) -> io::Result<()> {
     unsafe extern "C" { fn recv(fd: i32, p: *mut u8, n: usize, flags: i32) -> isize; }
     #[cfg(target_os = "linux")] const DONTWAIT: i32 = 0x40;
     #[cfg(target_os = "macos")] const DONTWAIT: i32 = 0x80;
     let mut byte = 0;
     match unsafe { recv(socket.as_raw_fd(), &mut byte, 1, DONTWAIT | 2) } {
         0 => Err(invalid("delivery endpoint disconnected")),
-        n if n > 0 => Err(invalid("unexpected socket data during mailbox delivery")),
+        n if n > 0 => need(capture_pending, "unexpected socket data during mailbox delivery"),
         _ => {
             let error = io::Error::last_os_error();
             if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) { Ok(()) } else { Err(error) }
