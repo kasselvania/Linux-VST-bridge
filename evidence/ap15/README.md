@@ -5,3 +5,12 @@
 Bitwig creates a fresh IPlugView on each reopen and destroys it on host close/removal. Vendor-window close alone leaves the existing panel and toggle open; the next host action closes that shell before a following action reopens. The source had no onFocus override, and no onFocus or size-constraint call was observed. This corrects the preparation's focus-forwarding description.
 
 The direct delegate, generation repair and qualification route remain implementation work. These records are not AP15 acceptance, musical evidence or a performance measurement.
+
+Local checkpoint:
+
+- `local-validation.json` binds performed commands/results to exact changed source hashes, records all 16 qualification transaction injection boundaries, and separates the unavailable Windows/Bitwig checks.
+- `native-ctest.log` is the six-test SDK/Xvfb run. It uses synthetic/reference fixture state only. Its X server is isolated from the operator desktop.
+- `runtime-linux.log` records all 15 Linux ownership/fault tests passing.
+- `installed-left.json` compares installed software, physical publications and original projects with baseline, retains both positive DSP retirement receipts, and records the unrelated runtime CPUWeight override and restoration. No candidate was installed.
+
+The production qualification roster is intentionally unavailable until exact Windows/native artifacts can be bound into immutable candidate profiles. This draft checkpoint is not completion, independent acceptance, a commercial lifecycle result or a new latency claim. 512 remains selected/supported/recommended; 256 remains unqualified.

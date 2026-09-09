@@ -24,7 +24,8 @@ std::thread::id owner = std::this_thread::get_id();
 struct Stats {
   uint32_t created = 0, attached = 0, removed = 0, destroyed = 0, focus = 0,
            keys = 0, sizes = 0;
-  bool refuse = false;
+  bool refuse = false, refuse_attach = false, refuse_size = false, lost_parent = false,
+       close_during_attach = false;
 };
 struct View final : CPluginView, IPlugViewContentScaleSupport {
   Stats &stats;
@@ -68,12 +69,14 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
               plugFrame,
           "attached local parent and frame on owner");
     check(isPlatformTypeSupported(type) == kResultOk, "HWND negotiation");
+    if (stats.refuse_attach) return kResultFalse;
     systemWindow = parent;
     ++stats.attached;
+    if (stats.close_during_attach) SendMessageW(HWND(parent),WM_CLOSE,0,0);
     return kResultOk;
   }
   tresult PLUGIN_API removed() override {
-    check(std::this_thread::get_id() == owner && IsWindow(HWND(systemWindow)),
+    check(std::this_thread::get_id() == owner && (stats.lost_parent || IsWindow(HWND(systemWindow))),
           "remove before destroying parent");
     if (stats.refuse)
       return kResultFalse;
@@ -92,6 +95,9 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     check(systemWindow, "no platform sizing before attached");
     ++stats.sizes;
     return CPluginView::onSize(r);
+  }
+  tresult PLUGIN_API getSize(ViewRect *r) override {
+    return stats.refuse_size ? kResultFalse : CPluginView::getSize(r);
   }
   tresult PLUGIN_API onFocus(TBool) override {
     ++stats.focus;
@@ -245,6 +251,92 @@ struct External final : ExternalProcessing {
   void done(const float *, const float *, uint64_t, uint64_t,
             const ap10_results_t *) override {}
 };
+void lifecycle_faults() {
+  HostApplication host;
+  auto *c=new Controller;
+  check(c->initialize(&host)==kResultOk,"lifecycle fixture controller");
+  {
+    Mapping native;GuiChannel channel(native.dir.wstring(),native.id);EditorSession session(channel,*c);
+    for (auto reason:{AP11::Attach,AP11::Size}) {
+      c->stats.refuse_attach=reason==AP11::Attach;c->stats.refuse_size=reason==AP11::Size;
+      native.command(AP11::Open);session.service(true);
+      auto results=native.drain();
+      check(!session.is_open() && !channel.failure() && results.size()==1 &&
+            results[0].kind==AP11::EditorStatus && results[0].lifecycle==AP11::OpenRefused &&
+            results[0].native_view==native.native_view && results[0].result==reason,
+            "attachment/size refusal is bound, truthful and editor-only");
+      check(session.host_value(42,.6,channel.revision()) && c->getParamNormalized(42)==.6,
+            "controller remains usable after editor refusal");
+      ++native.native_view;
+    }
+    c->stats.refuse_attach=c->stats.refuse_size=false;
+    // Close while opening cancels only that native lifetime, even when the
+    // next generation is already in the same command batch.
+    const auto created=c->stats.created;
+    native.command(AP11::Open);native.close();++native.native_view;native.command(AP11::Open);
+    session.service(true);auto results=native.drain();
+    check(session.is_open() && c->stats.created==created+1 && results.size()==1 &&
+          results[0].native_view==native.native_view,"pending close does not cancel later native open");
+    auto active=results[0];
+    for(unsigned cycle=0;cycle<8;++cycle) {
+      const auto epoch=session.view().opens;const auto views=c->stats.created;
+      native.command(AP11::Open);native.command(AP11::Open);session.service(true);native.drain();
+      check(session.view().opens==epoch && c->stats.created==views,"duplicate opens only focus active generation");
+      if(cycle%2) native.close();
+      else {SendMessageW(session.view().window(),WM_CLOSE,0,0);SendMessageW(session.view().window(),WM_CLOSE,0,0);}
+      session.service(true);results=native.drain();
+      check(results.size()==1 && !results[0].count && results[0].view_epoch==epoch &&
+            results[0].native_view==native.native_view &&
+            results[0].lifecycle==(cycle%2?AP11::ClosedByDaw:AP11::ClosedByVendor),
+            "one close acknowledgment carries the exact retired epoch and cause");
+      session.service(true);check(native.drain().empty(),"duplicate close acknowledgment is absent");
+      ++native.native_view;native.command(AP11::Open);session.service(true);results=native.drain();
+      check(session.is_open() && session.view().opens==epoch+1 && results.size()==1 &&
+            c->getParamNormalized(42)==.6,"reopen advances editor only and preserves controller value");
+      auto stale=active;stale.kind=AP11::Focus;stale.focus_result=AP11::FocusConfirmed;
+      native.command(stale);session.service(true);
+      check(native.drain().empty(),"late focus cannot confirm replacement editor");
+      active=results[0];
+    }
+    c->stats.lost_parent=true;
+    DestroyWindow(session.view().window());
+    session.service(true);results=native.drain();
+    check(!session.is_open() && !channel.failure() && results.size()==1 &&
+          results[0].lifecycle==AP11::EditorFailed && results[0].result==AP11::WindowLost,
+          "unexpected window loss differs from normal close and whole host failure");
+    c->stats.lost_parent=false;
+    ++native.native_view;native.command(AP11::Open);session.service(true);native.drain();
+    channel.fail(AP11::Backlog);native.close();session.service(true);
+    check(!session.is_open() && channel.failure()==AP11::Backlog &&
+          channel.close_acknowledged()==channel.close_requested() &&
+          session.host_value(42,.7,channel.revision()),"GUI failure retires view and acknowledges close without losing controller");
+    const auto views=c->stats.created;
+    ++native.native_view;native.command(AP11::Open);session.service(true);
+    check(!session.is_open() && c->stats.created==views,"irrecoverable GUI channel refuses reopening");
+  }
+  // The shared view helper is also used directly by standalone vendor access.
+  // It owns no GuiChannel, DAW view token, DSP instance or project snapshot.
+  {
+    VendorView access;
+    c->stats.close_during_attach=true;
+    check(access.open(*c) && access.close_requested(),"close during attachment binds the opening epoch");
+    check(access.close(),"deferred opening close retires positively");c->stats.close_during_attach=false;
+    check(access.open(*c),"standalone owner can open shared mechanical view");
+    SendMessageW(access.window(),WM_CLOSE,0,0);
+    check(access.close_requested() && access.is_open(),"standalone user close remains deferred");
+    check(access.close() && !access.is_open(),"standalone positive close receipt");
+    const auto count=c->stats.created;access.opens=UINT32_MAX;
+    check(!access.open(*c) && access.error()==AP11::GenerationExhausted &&
+          c->stats.created==count,"vendor epoch exhaustion refuses before SDK creation");
+  }
+  check(c->stats.created==c->stats.destroyed && c->stats.attached==c->stats.removed,
+        "all successful and refused views return SDK ownership to baseline");
+  c->terminate();c->release();
+  Mapping invalid;invalid.put(4,3,4);
+  bool refused=false;
+  try {GuiChannel bad(invalid.dir.wstring(),invalid.id);} catch(...) {refused=true;}
+  check(refused,"old mapped UI protocol refused before consuming payloads");
+}
 } // namespace
 int main() {
   UiApartment apartment;
@@ -253,6 +345,7 @@ int main() {
   check(CoGetApartmentType(&type, &qualifier) == S_OK &&
             (type == APTTYPE_STA || type == APTTYPE_MAINSTA),
         "controller and view own a Windows STA apartment");
+  lifecycle_faults();
   HostApplication host;
   auto *c = new Controller;
   check(c->initialize(&host) == kResultOk, "controller initialize");

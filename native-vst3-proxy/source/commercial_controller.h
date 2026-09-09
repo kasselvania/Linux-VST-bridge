@@ -213,7 +213,7 @@ public:
       if (!std::strcmp(id, "AP11.failed")) {
         int64 code = 0;
         if (m->getAttributes()->getInt("code", code) != kResultOk || code < 1 ||
-            code > 11)
+            code > AP11::GenerationExhausted)
           return kResultFalse;
         fail(uint32_t(code), false);
         return kResultOk;
@@ -226,9 +226,12 @@ public:
         return kResultFalse;
       ap11_gui_message_t event{};
       std::memcpy(&event, bytes, sizeof(event));
+      if (!AP11::valid(event)) return kResultFalse;
       if (!std::strcmp(id, "AP11.result")) {
+        if (!editor_.accepts_result(event)) return kResultOk;
         if (event.result) {
-          fail(event.result == 5 ? AP11::Closed : AP11::Backlog);
+          fail(event.result == 1 || event.result == 5 ? AP11::Closed :
+               event.result == 4 ? AP11::Protocol : AP11::Backlog);
           return kResultOk;
         }
         if (event.kind == AP11::Set) {
@@ -286,28 +289,29 @@ public:
     }
     capabilities();
   }
-  void panelOpen(uint64_t view, AP11::ActivationContext activation = {}) override {
+  bool panelOpen(uint64_t view, AP11::ActivationContext activation = {}) override {
     if (!onOwner() || !connected_ || failure_)
-      return;
+      return false;
     if (!timer_ || !componentHandler) {
       status_ = "Host editor control unavailable";
-      return;
+      return false;
     }
     status_ = "Opening vendor editor...";
     ap11_gui_message_t m{};
     m.kind = AP11::Open;
     if (activation_serial_ == UINT64_MAX) {
       status_ = "Editor activation identity exhausted";
-      return;
+      return false;
     }
     if (!editor_.begin(view, ++activation_serial_, activation, m))
-      return;
+      return false;
     activation_.begin(m);
     command(m);
     // Opening/focusing a view is not a parameter invalidation. An unsolicited
     // Refresh causes a host restart notification and, in Bitwig, a full state
     // capture on the serialized audio transport. Real vendor restart callbacks
     // still publish complete value/title refreshes through the UI queue.
+    return !failure_;
   }
   void panelClose(uint64_t view) override {
     if (!onOwner())

@@ -73,13 +73,22 @@ impl Default for Message {
     }
 }
 impl Message {
+    // The caller must supply at least this fixed eight-byte prefix. Reject an
+    // older/short extent before forming a reference to the new full structure.
+    pub unsafe fn valid_prefix(message: *const Self) -> bool {
+        !message.is_null()
+            && message.cast::<u32>().read_unaligned() == 3
+            && message.cast::<u32>().add(1).read_unaligned() == MESSAGE as u32
+    }
     fn valid(&self) -> bool {
         self.abi_version == 3 && self.extent == MESSAGE as u32 && self.reserved == 0
     }
 }
 const _: () = assert!(std::mem::size_of::<Message>() == MESSAGE);
+const _: () = assert!(std::mem::offset_of!(Message, extent) == 4);
 const _: () = assert!(std::mem::offset_of!(Message, activation) == 560);
 const _: () = assert!(std::mem::offset_of!(Message, native_view) == 592);
+const _: () = assert!(std::mem::offset_of!(Message, lifecycle) == 600);
 unsafe extern "C" {
     fn mmap(a: *mut c_void, n: usize, p: i32, f: i32, fd: i32, o: i64) -> *mut c_void;
     fn munmap(a: *mut c_void, n: usize) -> i32;

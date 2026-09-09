@@ -15,7 +15,7 @@ review_candidate
 -> superseded / withdrawn when appropriate
 ```
 
-`Claim` and `SelectionPurpose` own eligibility. Ordinary managed preview/publication and current installed-host policy require `verified_exact_fixture`. `review_candidate` may be evaluated only through the explicit nonactivating qualification route; `withdrawn` authorizes no new selection. Exact retained history is separate: rollback may activate an immutable prior revision only through the existing artifact, ancestry, physical-target, performance and lease laws.
+`Claim` and `SelectionPurpose` own eligibility. Ordinary managed preview/publication and current installed-host policy require `verified_exact_fixture`. `review_candidate` may be evaluated through the nonactivating `managed check-candidate` route; only the separately bounded AP15 engineering route described below may exercise a candidate publication; `withdrawn` authorizes no new selection. Exact retained history is separate: rollback may activate an immutable prior revision only through the existing artifact, ancestry, physical-target, performance and lease laws.
 
 ## Accepted AP14 profiles
 
@@ -44,3 +44,8 @@ AP15 changes the native/editor behavior to a direct detached vendor-window lifec
 A candidate build may be deployed only through an explicit bounded, reversible engineering qualification path. It must not become normal activation authority merely because it is committed or embedded. The final verified revision is selected after review; candidate and verified records remain immutable.
 
 A profile claim never generalizes across a changed module digest, runner, environment, host/proxy revision, DAW, machine or capability matrix. Repository profile data is not permission to copy or redistribute a matched commercial module.
+### AP15 implementation checkpoint
+
+`detached_direct_vendor_lifecycle` is now a closed editor capability. The ordinary installed profiles remain the byte-identical verified revision 3 above. There is currently **no complete AP15 candidate profile**: its exact Windows/native artifact roster awaits the Windows build. The separate engineering `qualify-editor` command therefore returns `qualification_artifacts_pending` before publication work.
+
+When the finite compiled roster is complete, this engineering route can activate only an exact review candidate descended from the installed verified revision-3 parent. The immutable revision is explicitly marked `ap15_editor` qualification, never ordinary support. Reconcile/service startup restores its exact verified parent through retained-history rollback, subject to inactive DSP and physical ownership checks. Normal `managed preview/publish` eligibility and nonactivating `managed check-candidate` are unchanged. A later independent review must select a new immutable verified revision; neither candidate nor revision 3 is relabeled.

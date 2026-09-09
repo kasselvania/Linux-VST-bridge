@@ -237,6 +237,9 @@ uint32_t __wrap_ap10_take_results(uint64_t, ap10_results_t *p) {
 }
 }
 void lifecycle_identity_regression() {
+  uint64_t exhausted=UINT64_MAX-1;
+  check(AP15::advance(exhausted)==UINT64_MAX && !AP15::advance(exhausted) &&
+        exhausted==UINT64_MAX,"identity exhaustion never wraps or reuses zero");
   AP15::EditorLifecycle owner;
   const auto a = owner.allocate();
   ap11_gui_message_t open{}, close{};
@@ -255,12 +258,16 @@ void lifecycle_identity_regression() {
   check(!owner.status(stale),"late focus cannot resurrect a closed editor");
   check(owner.close(a,close) && close.native_view==a && close.view_epoch==1 &&
         !owner.close(a,close),"native retirement closes exact epoch once");
+  check(owner.accepts_result(close),"close command failure remains observable for retired owner");
   const auto b=owner.allocate();
   check(b>a && owner.begin(b,2,{},open),"fresh native view permits one replacement opening");
+  check(!owner.accepts_result(close),"late retired close result cannot poison replacement");
   check(!owner.close(a,close) && owner.state(b)==AP11::Opening && !owner.status(status),
         "retired native view close and status cannot affect replacement");
   status=open;status.kind=AP11::EditorStatus;status.view_epoch=2;status.count=1;
   status.lifecycle=AP11::Focused;
+  auto reused=status;reused.view_epoch=1;
+  check(!owner.status(reused),"new native view cannot reuse a prior editor epoch");
   check(owner.status(status),"replacement editor advances epoch");
   status.view_epoch=1;
   check(!owner.status(status),"old editor epoch refused even with current activation");
@@ -304,6 +311,14 @@ int main() {
             commands[1].activation > commands[0].activation &&
             host.restarts == 0 && host.gestures.empty() && dsp == .5,
         "repeat focus preserves click context without invalidating parameters");
+  auto refusedEditor=commands.back();refusedEditor.kind=AP11::EditorStatus;
+  refusedEditor.count=0;refusedEditor.result=AP11::NoView;refusedEditor.lifecycle=AP11::OpenRefused;
+  events.push_back(refusedEditor);host.tick();
+  check(c->panelState(viewToken)==AP11::OpenRefused && !gui_fault && !closes,
+        "open refusal remains an editor result with the same processing session");
+  host.audio(.5);
+  check(dsp==.5,"audio remains callable after editor refusal");
+  c->panelClose(viewToken);viewToken=c->allocateEditorView();c->panelOpen(viewToken);
   commands.clear();
   host.reentrant = true;
   event(AP11::GroupBegin);
@@ -391,6 +406,9 @@ int main() {
         "post-disconnect state capture does not consume or fail UI delivery");
   events.clear();
   check(c->connect(processor.get()) == kResultOk, "restore controller peer");
+  viewToken=c->allocateEditorView();c->panelOpen(viewToken);
+  check(commands.back().kind==AP11::Open && commands.back().native_view==viewToken,
+        "a fresh owned editor is active before opposite disconnect order");
   // The opposite SDK disconnect order must also deliver the close request.
   // Its response no longer has a processor-to-controller route.
   check(processor->disconnect(c) == kResultOk, "processor disconnects first");

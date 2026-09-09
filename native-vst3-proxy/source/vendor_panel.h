@@ -9,7 +9,7 @@
 namespace AP11 {
 struct PanelOwner {
   virtual void panelLoop(Steinberg::Linux::IRunLoop *) = 0;
-  virtual void panelOpen(uint64_t, ActivationContext = {}) = 0;
+  virtual bool panelOpen(uint64_t, ActivationContext = {}) = 0;
   virtual void panelClose(uint64_t) = 0;
   virtual uint32_t panelState(uint64_t) const = 0;
   virtual ~PanelOwner() = default;
@@ -91,6 +91,20 @@ public:
   }
   Steinberg::uint32 PLUGIN_API addRef() override { return CPluginView::addRef(); }
   Steinberg::uint32 PLUGIN_API release() override { return CPluginView::release(); }
+  Steinberg::tresult PLUGIN_API setFrame(Steinberg::IPlugFrame *frame) override {
+    return thread_ == std::this_thread::get_id() ? CPluginView::setFrame(frame) : Steinberg::kResultFalse;
+  }
+  Steinberg::tresult PLUGIN_API getSize(Steinberg::ViewRect *size) override {
+    return thread_ == std::this_thread::get_id() ? CPluginView::getSize(size) : Steinberg::kResultFalse;
+  }
+  Steinberg::tresult PLUGIN_API onSize(Steinberg::ViewRect *size) override {
+    return thread_ == std::this_thread::get_id() ? CPluginView::onSize(size) : Steinberg::kResultFalse;
+  }
+  Steinberg::tresult PLUGIN_API checkSizeConstraint(Steinberg::ViewRect *size) override {
+    if (thread_ != std::this_thread::get_id() || !size) return Steinberg::kResultFalse;
+    *size = {0, 0, 1, 1};
+    return Steinberg::kResultOk;
+  }
   Steinberg::tresult PLUGIN_API isPlatformTypeSupported(Steinberg::FIDString type) override {
     return type && !std::strcmp(type, Steinberg::kPlatformTypeX11EmbedWindowID)
       ? Steinberg::kResultOk : Steinberg::kResultFalse;
@@ -132,12 +146,13 @@ public:
     owner_.panelLoop(loop_);
     const auto context = activation();
     opened_ = true;
-    owner_.panelOpen(token_, context);
+    if (!owner_.panelOpen(token_, context)) { removed(); return kResultFalse; }
     return kResultOk;
   }
   Steinberg::tresult PLUGIN_API onFocus(Steinberg::TBool focused) override {
     if (thread_ != std::this_thread::get_id()) return Steinberg::kResultFalse;
-    if (focused && opened_ && !close_requested_) owner_.panelOpen(token_, activation());
+    if (focused && opened_ && !close_requested_ && !owner_.panelOpen(token_, activation()))
+      return Steinberg::kResultFalse;
     return Steinberg::kResultOk;
   }
   Steinberg::tresult PLUGIN_API removed() override {

@@ -860,8 +860,251 @@ fn canonical_claim_names_preserve_all_lifecycle_states() {
         let selected = readback::ProfileSelection {
             id: "fixture.instrument".into(),
             revision: 2,
+            activation_permitted: claim.permits(SelectionPurpose::Activation),
             claim,
         };
         assert_eq!(serde_json::to_value(selected).unwrap()["claim"], name);
+    }
+}
+
+fn editor_candidate(
+    f: &Fixture,
+    prior: &Profile,
+    census: &Census,
+    native: &NativeArtifact,
+) -> (Profile, Census, NativeArtifact) {
+    let mut p = prior.clone();
+    p.revision = 4;
+    p.claim = Claim::ReviewCandidate;
+    p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+    let mut c = census.clone();
+    let mut n = native.clone();
+    let dir = f.m.root.join("software/ap15-fixture");
+    private_dir(&dir).unwrap();
+    fs::write(dir.join("host.exe"), b"candidate owner with GUI v4").unwrap();
+    fs::write(
+        dir.join("host-source-manifest.json"),
+        b"candidate host source",
+    )
+    .unwrap();
+    fs::write(dir.join("native.so"), b"candidate direct native").unwrap();
+    c.host = Artifact {
+        path: dir.join("host.exe"),
+        sha256: digest(&dir.join("host.exe")).unwrap(),
+    };
+    c.host_source_sha256 = digest(&dir.join("host-source-manifest.json")).unwrap();
+    c.report.path = dir.join("inspection.json");
+    atomic_json(&c.report.path, &inspection_report(&c)).unwrap();
+    c.report.sha256 = digest(&c.report.path).unwrap();
+    n.artifact = Artifact {
+        path: dir.join("native.so"),
+        sha256: digest(&dir.join("native.so")).unwrap(),
+    };
+    n.source_commit = "ce".repeat(20);
+    p.requirements.host_sha256 = c.host.sha256.clone();
+    p.requirements.host_source_sha256 = c.host_source_sha256.clone();
+    p.requirements.native_sha256 = n.artifact.sha256.clone();
+    p.requirements.native_source_commit = n.source_commit.clone();
+    (p, c, n)
+}
+fn qualify(
+    f: &Fixture,
+    p: &Profile,
+    c: &Census,
+    n: &NativeArtifact,
+    fail: Option<Boundary>,
+) -> Result<RevisionRef> {
+    f.m.publish_selected(
+        p,
+        c,
+        derive_for(p, c, n, SelectionPurpose::Qualification)?,
+        (&c.host, &c.host_source_sha256),
+        Some(Qualification::Ap15Editor),
+        fail,
+    )
+}
+#[test]
+fn qualification_boundaries_restore_exact_verified_parent() {
+    for point in BOUNDARIES {
+        let (f, mut p, c, n) = prepared();
+        p.revision = 3;
+        let parent = publish(&f, &p, &c, &n, None).unwrap();
+        let key = p.class.class_id.clone();
+        let prior = f.m.load_revision(&key, &parent).unwrap();
+        let original = snapshot(prior.target.parent().unwrap());
+        let vendor = snapshot(&f.r.environment.root);
+        let (candidate, census, native) = editor_candidate(&f, &p, &c, &n);
+        let result = qualify(&f, &candidate, &census, &native, Some(point));
+        reason(result, &format!("injected_{point:?}"));
+        f.m.reconcile().unwrap();
+        f.m.reconcile().unwrap();
+        assert_eq!(
+            f.m.registry().unwrap().classes[&key]
+                .managed_revision
+                .as_ref(),
+            Some(&parent),
+            "{point:?}"
+        );
+        assert_eq!(
+            fs::read_link(f.m.link(&key)).unwrap(),
+            prior.target,
+            "{point:?}"
+        );
+        assert_eq!(
+            snapshot(prior.target.parent().unwrap()),
+            original,
+            "{point:?}"
+        );
+        assert_eq!(snapshot(&f.r.environment.root), vendor);
+        assert!(!f.m.publication_pending(&key).unwrap());
+    }
+}
+#[test]
+fn qualification_is_visible_bounded_inactive_and_preserves_ordinary_authority() {
+    let (f, mut p, c, n) = prepared();
+    p.revision = 3;
+    let parent = publish(&f, &p, &c, &n, None).unwrap();
+    let key = p.class.class_id.clone();
+    let prior = f.m.load_revision(&key, &parent).unwrap();
+    // AP14 records encode byte-identically: absent AP15 field is not serialized.
+    assert!(serde_json::to_value(&prior)
+        .unwrap()
+        .get("qualification")
+        .is_none());
+    let (candidate, census, native) = editor_candidate(&f, &p, &c, &n);
+    let before = snapshot(&f.outer);
+    reason(
+        f.m.managed_publish(
+            &candidate,
+            &census,
+            derive_for(
+                &candidate,
+                &census,
+                &native,
+                SelectionPurpose::Qualification,
+            )
+            .unwrap(),
+            &census.host,
+            &census.host_source_sha256,
+            None,
+        ),
+        "profile_review_candidate_not_activatable",
+    );
+    assert_eq!(snapshot(&f.outer), before);
+    // Missing production Windows/native identities cannot acquire authority.
+    reason(
+        f.m.qualify_editor(&census, None),
+        "ap15_candidate_artifacts_pending",
+    );
+    reason(
+        qualification::stage(&f.m, &f.outer),
+        "ap15_candidate_artifacts_pending",
+    );
+    assert_eq!(snapshot(&f.outer), before);
+    let active = lease(&f, &key, false);
+    reason(
+        qualify(&f, &candidate, &census, &native, None),
+        "active_device_lease",
+    );
+    fs::remove_file(active).unwrap();
+    let keeper = lease(&f, &key, true);
+    let selected = qualify(&f, &candidate, &census, &native, None).unwrap();
+    let r = f.m.load_revision(&key, &selected).unwrap();
+    assert_eq!(r.qualification, Some(Qualification::Ap15Editor));
+    assert_eq!(r.parent, Some(parent.clone()));
+    assert_eq!(r.external_ids, prior.external_ids);
+    f.m.verify_served_host(
+        &r.registration,
+        &c.host,
+        &c.host_source_sha256,
+        std::slice::from_ref(&p),
+    )
+    .unwrap();
+    assert!(f
+        .m
+        .verify_served_host(
+            &r.registration,
+            &c.host,
+            &c.host_source_sha256,
+            std::slice::from_ref(&candidate)
+        )
+        .is_err());
+    let status =
+        f.m.managed_status_for_policy(&c.host, &c.host_source_sha256, std::slice::from_ref(&p))
+            .unwrap();
+    assert_eq!(
+        status.products[0].qualification,
+        Some(Qualification::Ap15Editor)
+    );
+    assert!(
+        !status.products[0]
+            .profile
+            .as_ref()
+            .unwrap()
+            .activation_permitted
+    );
+    assert!(status.products[0].installed_host_valid);
+    let active = lease(&f, &key, false);
+    reason(f.m.reconcile(), "active_device_lease");
+    assert_eq!(fs::read_link(f.m.link(&key)).unwrap(), r.target);
+    fs::remove_file(active).unwrap();
+    let foreign = f.outer.join("foreign");
+    private_dir(&foreign).unwrap();
+    fs::remove_file(f.m.link(&key)).unwrap();
+    symlink(&foreign, f.m.link(&key)).unwrap();
+    assert!(f.m.reconcile().is_err());
+    assert_eq!(fs::read_link(f.m.link(&key)).unwrap(), foreign);
+    fs::remove_file(f.m.link(&key)).unwrap();
+    symlink(&r.target, f.m.link(&key)).unwrap();
+    f.m.reconcile().unwrap();
+    assert_eq!(fs::read_link(f.m.link(&key)).unwrap(), prior.target);
+    assert!(keeper.exists());
+    // Qualification cannot be rebased onto an unverified or later ordinary parent.
+    let mut next = p.clone();
+    next.revision = 5;
+    publish(&f, &next, &c, &n, None).unwrap();
+    reason(
+        qualify(&f, &candidate, &census, &native, None),
+        "qualification_verified_parent_mismatch",
+    );
+}
+
+#[test]
+fn ap15_capability_is_closed_and_verified_revision_three_bytes_are_immutable() {
+    use sha2::Digest;
+    for (bytes, expected) in [
+        (
+            include_bytes!("../../compatibility/arturia-pure-lofi.json").as_slice(),
+            "52c66718ce8aaa0c4bbfb9f395d515636e5628e779e69aac403635349133653e",
+        ),
+        (
+            include_bytes!("../../compatibility/arturia-efx-fragments.json").as_slice(),
+            "c0d6daf0f3c30c995429ec75afded4e5c70323a0a8858ec8a10c667f3ee3c350",
+        ),
+    ] {
+        assert_eq!(hex(&sha2::Sha256::digest(bytes)), expected);
+        let prior = Profile::parse(bytes).unwrap();
+        assert_eq!(prior.revision, 3);
+        assert_eq!(prior.claim, Claim::VerifiedExactFixture);
+        let mut candidate = prior.clone();
+        candidate.revision = 4;
+        candidate.claim = Claim::ReviewCandidate;
+        candidate.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+        let mut value = serde_json::to_value(&candidate).unwrap();
+        assert_eq!(
+            value["capabilities"]["editor"],
+            "detached_direct_vendor_lifecycle"
+        );
+        assert_eq!(
+            Profile::parse(&serde_json::to_vec(&value).unwrap()).unwrap(),
+            candidate
+        );
+        assert!(!candidate.claim.permits(SelectionPurpose::Activation));
+        assert_eq!(
+            external_ids(&prior.class.class_id).unwrap(),
+            external_ids(&candidate.class.class_id).unwrap()
+        );
+        value["capabilities"]["editor"] = serde_json::json!("arbitrary_editor_hook");
+        assert!(Profile::parse(&serde_json::to_vec(&value).unwrap()).is_err());
     }
 }

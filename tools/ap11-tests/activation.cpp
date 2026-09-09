@@ -37,6 +37,7 @@ int main() {
   };
   AP11::DesktopActivation activation;
   ap11_gui_message_t request{};
+  request.native_view = 3;
   request.activation = 12;
   request.user_time = 123456;
   request.requestor_x11 = uint32_t(source);
@@ -105,6 +106,14 @@ int main() {
   activate(source, source);
   activation.begin(request);
   auto stale = reply;
+  ++stale.native_view;
+  activation.target(stale);
+  check(!activation.poll(result), "old native view cannot select a replacement target");
+  stale = reply;
+  stale.abi_version = 2;
+  activation.target(stale);
+  check(!activation.poll(result), "old UI ABI cannot select a target");
+  stale = reply;
   ++stale.activation;
   activation.target(stale);
   check(!activation.poll(result), "stale activation does not select a target");

@@ -21,8 +21,10 @@ struct ap11_gui_message_t {
   uint32_t lifecycle = 0, reserved = 0;
 };
 static_assert(sizeof(ap11_gui_message_t) == 608);
+static_assert(offsetof(ap11_gui_message_t, extent) == 4);
 static_assert(offsetof(ap11_gui_message_t, activation) == 560);
 static_assert(offsetof(ap11_gui_message_t, native_view) == 592);
+static_assert(offsetof(ap11_gui_message_t, lifecycle) == 600);
 namespace AP11 {
 inline bool valid(const ap11_gui_message_t &m) {
   return m.abi_version == 3 && m.extent == sizeof(m) && !m.reserved;

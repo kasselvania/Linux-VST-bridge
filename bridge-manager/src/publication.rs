@@ -25,6 +25,14 @@ pub struct Revision {
     pub parent: Option<RevisionRef>,
     pub transaction: String,
     pub adopted_legacy: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qualification: Option<Qualification>,
+}
+/// A bounded engineering publication is retained history, not ordinary policy.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Qualification {
+    Ap15Editor,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -141,7 +149,7 @@ pub(crate) fn physical(link: &Path) -> Result<Option<PathBuf>> {
 }
 /// Never replace an unobserved entry with ordinary rename. An exchange retains
 /// the old link at the transaction's exact temporary name until it is checked.
-fn rename_link(from: &Path, to: &Path, exchange: bool) -> Result<()> {
+pub(crate) fn rename_link(from: &Path, to: &Path, exchange: bool) -> Result<()> {
     let from = CString::new(from.as_os_str().as_bytes())?;
     let to = CString::new(to.as_os_str().as_bytes())?;
     #[cfg(target_os = "linux")]
@@ -437,6 +445,7 @@ impl Manager {
                 parent: None,
                 transaction: transaction.into(),
                 adopted_legacy: true,
+                qualification: None,
             };
             let dir = self.revision_dir(&key, &r.id)?;
             self.durable_dir(&dir)?;
@@ -726,6 +735,27 @@ impl Manager {
         // Refuse before lock/reconcile: even pending work must not be mutated
         // as a side effect of attempting to activate an unverified profile.
         profile.claim.require(SelectionPurpose::Activation)?;
+        self.publish_selected(
+            profile,
+            census,
+            registration,
+            (installed_host, source),
+            None,
+            fail,
+        )
+    }
+    // Only the sealed AP15 qualification owner may choose this purpose. The
+    // ordinary public method above retains its verified-only gate.
+    pub(crate) fn publish_selected(
+        &self,
+        profile: &Profile,
+        census: &Census,
+        registration: Registration,
+        host: (&Artifact, &str),
+        qualification: Option<Qualification>,
+        fail: Option<Boundary>,
+    ) -> Result<RevisionRef> {
+        let (installed_host, source) = host;
         let _lock = self.lock("registry.lock")?;
         let key = registration.key();
         self.require_inactive(Some(&key))?;
@@ -737,7 +767,26 @@ impl Manager {
             source,
             crate::observation::now()?,
         )?;
-        crate::observation::select(std::slice::from_ref(profile), census)?;
+        let purpose = if qualification.is_some() {
+            SelectionPurpose::Qualification
+        } else {
+            SelectionPurpose::Activation
+        };
+        crate::observation::select_for(std::slice::from_ref(profile), census, purpose)?;
+        if let Some(current) = db
+            .classes
+            .get(&key)
+            .and_then(|e| e.managed_revision.as_ref())
+        {
+            let prior = self.load_revision(&key, current)?;
+            require(
+                prior.qualification.is_none(),
+                "qualification_active_restore_first",
+            )?;
+        }
+        if qualification.is_some() {
+            self.verify_qualification_parent(&db, profile, &registration)?;
+        }
         registration.verify(&self.root)?;
         require(
             registration.metadata == census.selected
@@ -805,6 +854,7 @@ impl Manager {
             parent: prior.as_ref().map(|p| p.revision.clone()),
             transaction: transaction.clone(),
             adopted_legacy: false,
+            qualification,
         };
         let reference = Self::revision_ref(&r)?;
         let intent = Intent {
@@ -823,6 +873,15 @@ impl Manager {
         Ok(reference)
     }
     pub fn rollback(&self, key: &str, id: &str, fail: Option<Boundary>) -> Result<RevisionRef> {
+        self.rollback_expected(key, id, fail, None)
+    }
+    pub(crate) fn rollback_expected(
+        &self,
+        key: &str,
+        id: &str,
+        fail: Option<Boundary>,
+        expected: Option<&RevisionRef>,
+    ) -> Result<RevisionRef> {
         require(valid_hex(key, 32) && valid_hex(id, 32), "rollback_identity")?;
         let _lock = self.lock("registry.lock")?;
         self.require_inactive(Some(key))?;
@@ -830,6 +889,10 @@ impl Manager {
         self.reconcile_revisions(&mut db)?;
         let e = db.classes.get(key).ok_or("registration_absent")?.clone();
         let current = e.managed_revision.as_ref().ok_or("no_managed_revision")?;
+        require(
+            expected.is_none_or(|expected| expected == current),
+            "qualification_publication_changed",
+        )?;
         let mut reference = Some(current.clone());
         let mut selected = None;
         for _ in 0..256 {
@@ -946,6 +1009,7 @@ pub(crate) fn retained_candidate_fixture(
         parent: Some(prior.revision.clone()),
         transaction: transaction.clone(),
         adopted_legacy: false,
+        qualification: None,
     };
     let reference = Manager::revision_ref(&r).unwrap();
     let intent = Intent {

@@ -5,6 +5,7 @@ mod managed_tests;
 pub mod observation;
 pub mod profiles;
 pub mod publication;
+pub mod qualification;
 pub mod readback;
 #[cfg(test)]
 mod test_fixture;
@@ -590,7 +591,8 @@ impl Manager {
         if changed {
             self.save(&mut db)?;
         }
-        Ok(())
+        drop(_lock);
+        self.restore_editor_qualifications()
     }
     pub fn unpublish(&self, key: &str) -> Result<()> {
         require(valid_hex(key, 32), "class ID syntax")?;

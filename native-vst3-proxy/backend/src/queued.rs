@@ -1740,7 +1740,7 @@ pub unsafe extern "C" fn ap11_gui_command(
     generation: u64,
     m: *mut crate::gui::Message,
 ) -> u32 {
-    if m.is_null() {
+    if !crate::gui::Message::valid_prefix(m) {
         return 4;
     }
     gui_call(id, generation, |gui| gui.send(&mut *m))
@@ -1751,7 +1751,7 @@ pub unsafe extern "C" fn ap11_gui_take(
     generation: u64,
     m: *mut crate::gui::Message,
 ) -> u32 {
-    if m.is_null() {
+    if !crate::gui::Message::valid_prefix(m) {
         return 4;
     }
     gui_call(id, generation, |gui| gui.take(&mut *m))
@@ -1817,6 +1817,20 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn gui_abi_rejects_short_prefix_before_forming_full_message() {
+        for mut prefix in [[2u32, 584u32], [3, 8], [4, 608], [0, 0]] {
+            let pointer = prefix.as_mut_ptr().cast::<crate::gui::Message>();
+            unsafe {
+                assert_eq!(ap11_gui_command(0, 0, pointer), 4);
+                assert_eq!(ap11_gui_take(0, 0, pointer), 4);
+            }
+        }
+        unsafe {
+            assert_eq!(ap11_gui_command(0, 0, std::ptr::null_mut()), 4);
+            assert_eq!(ap11_gui_take(0, 0, std::ptr::null_mut()), 4);
+        }
+    }
     #[test]
     fn parent_callbacks_preserve_exact_one_and_two_proxy_delay() {
         // The consumer runs only after the complete parent host callback. A

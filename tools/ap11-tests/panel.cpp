@@ -24,6 +24,8 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
   AP11::ActivationContext lastActivation{};
   uint32_t lifecycle = AP11::Opening;
   uint64_t lastToken = 0;
+  uint32 references = 1;
+  bool acceptOpen = true;
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
     if (!out)
       return kInvalidArgument;
@@ -38,8 +40,8 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
     addRef();
     return kResultOk;
   }
-  uint32 PLUGIN_API addRef() override { return 1; }
-  uint32 PLUGIN_API release() override { return 1; }
+  uint32 PLUGIN_API addRef() override { return ++references; }
+  uint32 PLUGIN_API release() override { check(references > 1,"host reference balance");return --references; }
   tresult PLUGIN_API resizeView(IPlugView *, ViewRect *) override {
     return kResultOk;
   }
@@ -64,10 +66,11 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
     return kResultOk;
   }
   void panelLoop(Linux::IRunLoop *) override {}
-  void panelOpen(uint64_t token, AP11::ActivationContext context = {}) override {
+  bool panelOpen(uint64_t token, AP11::ActivationContext context = {}) override {
     lastToken = token;
     ++opens;
     lastActivation = context;
+    return acceptOpen;
   }
   void panelClose(uint64_t token) override { check(token == lastToken, "exact native view close"); ++closes; }
   uint32_t panelState(uint64_t token) const override { return token == lastToken ? lifecycle : AP11::Absent; }
@@ -132,6 +135,38 @@ int main() {
         frame.closes == 1, "native removal closes exact view once and cancels timer");
   check(XGetWindowAttributes(display, parent, &attributes), "host parent survives delegate retirement");
   panel->setFrame(nullptr);
+  panel->release();
+  check(frame.references==1,"host frame and run loop return to baseline");
+  for (uint64_t token=8;token<24;++token) {
+    const auto priorOpens=frame.opens,priorCloses=frame.closes;
+    controller=new Vst::EditController;
+    panel=new AP11::VendorPanel(controller,frame,token);controller->release();
+    frame.lifecycle=AP11::Opening;
+    check(panel->setFrame(&frame)==kResultOk &&
+          panel->attached(reinterpret_cast<void*>(parent),kPlatformTypeX11EmbedWindowID)==kResultOk,
+          "repeated SDK attachment");
+    XMapWindow(display,parent);XSync(display,False);frame.drain();
+    check(frame.opens==priorOpens+1,"each attached lifetime emits one automatic open");
+    bool refusedWrongThread=false;
+    std::thread wrong([&] {ViewRect r{};refusedWrongThread=panel->getSize(&r)!=kResultOk &&
+      panel->onSize(&r)!=kResultOk && panel->setFrame(nullptr)!=kResultOk &&
+      panel->removed()!=kResultOk;});wrong.join();
+    check(refusedWrongThread,"native UI ownership checked before host or X11 work");
+    panel->removed();panel->release();
+    check(frame.closes==priorCloses+1 && frame.timers.empty() && frame.references==1,
+          "repeated removals balance exact close, timers and host references");
+  }
+  const auto refusedParent=XCreateSimpleWindow(display,DefaultRootWindow(display),0,0,1,1,0,0,0);
+  controller=new Vst::EditController;panel=new AP11::VendorPanel(controller,frame,24);controller->release();
+  const auto priorOpens=frame.opens;
+  panel->setFrame(&frame);
+  check(panel->attached(reinterpret_cast<void*>(refusedParent),kPlatformTypeX11EmbedWindowID)!=kResultOk &&
+        frame.opens==priorOpens && frame.timers.empty(),"host without close protocol refused before opening");
+  panel->release();XDestroyWindow(display,refusedParent);
+  frame.acceptOpen=false;controller=new Vst::EditController;
+  panel=new AP11::VendorPanel(controller,frame,25);controller->release();panel->setFrame(&frame);
+  check(panel->attached(reinterpret_cast<void*>(parent),kPlatformTypeX11EmbedWindowID)!=kResultOk &&
+        frame.timers.empty() && frame.references==1,"unavailable editor control refuses host attachment without blank shell");
   panel->release();
   XDestroyWindow(display, parent);
   XCloseDisplay(display);

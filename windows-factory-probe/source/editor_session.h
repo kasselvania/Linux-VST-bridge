@@ -306,8 +306,13 @@ public:
     FaultStatus::Scope activity(fault_,2,22);
     channel_.heartbeat();
     if (channel_.closed() || channel_.failure()) {
-      if (!close())
+      if (!close(AP11::EditorFailed))
         channel_.fail(AP11::Removal);
+      else {
+        channel_.open_state(false);
+        GuiChannel::CloseRequest closing;
+        if (channel_.take_close(closing)) channel_.close_ack(closing.sequence);
+      }
       return;
     }
     GuiChannel::CloseRequest closing;
@@ -324,7 +329,7 @@ public:
       if (owned || pending) {
         close_cutoff_ = closing.cutoff;
         closed_native_view_ = std::max(closed_native_view_, closing.native_view);
-        if (owned && lifecycle_ < AP11::ClosedByVendor) {
+        if (owned && (view_.is_open() || lifecycle_ < AP11::ClosedByVendor)) {
           if (!close(AP11::ClosedByDaw)) {
             channel_.fail(AP11::Removal);
             return;
@@ -372,7 +377,7 @@ public:
         }
         ++view_.focus_requests;
         if (!view_.open(controller_)) {
-          lifecycle_ = AP11::OpenRefused;
+          lifecycle_ = view_.is_open() ? AP11::EditorFailed : AP11::OpenRefused;
           focus_result_ = AP11::FocusNotRequested;
           retired_native_view_ = std::max(retired_native_view_, m.native_view);
         } else {

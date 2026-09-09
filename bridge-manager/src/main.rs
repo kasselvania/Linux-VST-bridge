@@ -452,13 +452,14 @@ fn serve(m: Manager) -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 53];
                 peer.read_exact(&mut greeting[..5])?;
-                if &greeting[..5] == b"LVI1\n" {
+                if &greeting[..5] == b"LVI1\n" || &greeting[..5] == b"LVQ1\n" {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
                     let _admission=m.lock("registry.lock")?;
                     m.require_inactive(None)?;
-                    let r=inspection_binding(&m,serde_json::from_slice(&bytes)?)?;
+                    let request=serde_json::from_slice(&bytes)?;
+                    let r=if &greeting[..5]==b"LVQ1\n" {qualification_binding(&m,request)?} else {inspection_binding(&m,request)?};
                     ensure_keeper(&m,&s,&r,&keepers)?;
                     let (mut job,path)=spec(&m,r,true,false,false)?;
                     let mut pending=PendingAdmission(Some(job.lease.clone()));
@@ -637,6 +638,35 @@ fn inspection_binding(m: &Manager, request: InspectionRequest) -> Result<HostBin
     };
     Ok(r)
 }
+// Engineering inspection has a distinct admission selector. Its host can only
+// come from the sealed installed candidate roster, never from request data.
+fn qualification_binding(m: &Manager, request: InspectionRequest) -> Result<HostBinding> {
+    let candidates = qualification::installed(m)?;
+    let r = inspection_binding(m, request)?;
+    let matching: Vec<_> = candidates
+        .iter()
+        .filter(|c| c.profile.class.class_id == r.metadata.class_id)
+        .collect();
+    require(
+        matching.len() == 1,
+        "qualification_exact_candidate_required",
+    )?;
+    let c = matching[0];
+    let db = m.registry()?;
+    let prior = db
+        .classes
+        .get(&r.metadata.class_id)
+        .ok_or("qualification_verified_parent_required")?;
+    let mut registration = prior.registration.clone();
+    registration.module = r.module;
+    registration.environment = r.environment;
+    registration.compatibility = r.compatibility;
+    registration.host = c.host.clone();
+    registration.native = c.native.artifact.clone();
+    registration.host_source_sha256 = c.source_manifest.sha256.clone();
+    m.check_editor_qualification_parent(&c.profile, &registration)?;
+    Ok(registration.into())
+}
 fn inspect(m: &Manager, path: &Path) -> Result<()> {
     let r = inspection_binding(m, read_json(path)?)?;
     let sw = software(m)?;
@@ -692,6 +722,7 @@ fn main() -> Result<()> {
     match args.first().map(String::as_str){
   Some("setup") if args.len()==2=>setup(&m,Path::new(&args[1])),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
+  Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
   Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),
   Some("install") if args.len()==4=>install(&m,&args[1],Path::new(&args[2]),&args[3]),

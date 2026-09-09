@@ -168,3 +168,6 @@ Update the single implementation PR with:
 - explicit confirmation that 512 remains supported/recommended and 256 unqualified.
 
 Leave the PR open and unmerged for independent technical review.
+## Implementation checkpoint (not acceptance)
+
+Local AP15 lifecycle/GUI-ownership changes and a sealed engineering qualification route are in progress on the existing PR #86. The exact Windows artifact is unavailable because GitHub jobs cannot start under the account's current billing/spending allowance. The operator authorized continuing locally and deferring Windows issues. The candidate roster remains closed with `qualification_artifacts_pending`; no candidate profile is verified or ordinarily activatable. The unmapped noninteractive delegate has SDK/Xvfb fixture evidence but still needs actual Bitwig acceptance. Keep this PR draft. See `docs/AP15.md` and `evidence/ap15/` for performed checks and untouched installed revision-3 state; the acceptance criteria above remain outstanding where no exact evidence exists.

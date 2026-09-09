@@ -20,7 +20,7 @@ class VendorView final : public Steinberg::IPlugFrame {
   HWND window_ = nullptr;
   bool attached_ = false, closing_ = false, close_requested_ = false;
   bool window_lost_ = false;
-  uint64_t close_epoch_ = 0;
+  uint64_t close_epoch_ = 0, opening_epoch_ = 0;
   void (*trace_)(void *, uint32_t) = nullptr;
   void *trace_context_ = nullptr;
   void (*fault_trace_)(void *, EXCEPTION_POINTERS *) = nullptr;
@@ -129,7 +129,7 @@ class VendorView final : public Steinberg::IPlugFrame {
         // removes the view after DispatchMessage has returned.
         if (!self->closing_ && window == self->window_) {
           self->close_requested_ = true;
-          self->close_epoch_ = self->opens;
+          self->close_epoch_ = self->opening_epoch_;
         }
         return 0;
       }
@@ -306,6 +306,7 @@ public:
     error_ = 0;
     window_lost_ = false;
     close_epoch_ = 0;
+    opening_epoch_ = opens + 1;
     try {
       stage(1);
       view_ = controller.createView(Vst::ViewType::kEditor);

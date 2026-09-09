@@ -46,7 +46,8 @@ closed_enum!(Accessibility {
     DisabledForVendorProcess
 });
 closed_enum!(Editor {
-    DetachedOwnerThreadWithNativePanel
+    DetachedOwnerThreadWithNativePanel,
+    DetachedDirectVendorLifecycle
 });
 closed_enum!(State {
     ConcurrentReadOnlyCaptureV12
