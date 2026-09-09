@@ -1,0 +1,630 @@
+{
+  "comparison": "Restart only the old non-GUI keeper, skip new scan, same host/vendor/runtime/project: editor opens. This is a mechanism comparison, not a repair. Persistent hidden GUI owner added before scanner/DSP admission; fresh scan plus multiple instance/editor lifetimes then pass, including old LoFi host under the new keeper.",
+  "fresh_old_keeper": [
+    {
+      "native": [
+        {
+          "admission_to_gap_us": 9932,
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3328,
+          "output_published": true,
+          "prepare_us": 10,
+          "publication_after_gap_us": 3795,
+          "publication_us": 9,
+          "queue_us": 6932,
+          "reply_us": 6761,
+          "request_frames": 256,
+          "request_position": 3328,
+          "send_us": 1,
+          "sequence": 17,
+          "validation_us": 13
+        },
+        {
+          "admission_to_gap_us": 10678,
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3584,
+          "output_published": true,
+          "prepare_us": 10,
+          "publication_after_gap_us": 430,
+          "publication_us": 28,
+          "queue_us": 3822,
+          "reply_us": 7236,
+          "request_frames": 256,
+          "request_position": 3584,
+          "send_us": 1,
+          "sequence": 18,
+          "validation_us": 10
+        },
+        {
+          "admission_to_gap_us": 10679,
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3840,
+          "output_published": true,
+          "prepare_us": 10,
+          "publication_after_gap_us": 3029,
+          "publication_us": 10,
+          "queue_us": 11113,
+          "reply_us": 2561,
+          "request_frames": 256,
+          "request_position": 3840,
+          "send_us": 0,
+          "sequence": 19,
+          "validation_us": 12
+        },
+        {
+          "blocks": 43383,
+          "callback_rejections": 0,
+          "clean": true,
+          "delivered_frames": 22210816,
+          "discontinuities": 0,
+          "event": "ap3_proxy_lifecycle",
+          "expired_output_frames": 768,
+          "frames": 22212096,
+          "gain_max": 1,
+          "gain_min": 1,
+          "phase": 6,
+          "priming_frames": 512,
+          "rejected_silent_frames": 0,
+          "requested_maximum": 512,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "underrun_callbacks": 2,
+          "underrun_frames": 768,
+          "underrun_gaps": 1,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "owner": {
+        "cleanup_confirmed": true,
+        "discarded_diagnostic_bytes": {
+          "stderr": 0,
+          "vendor": 0
+        },
+        "error": null,
+        "exit_before_cleanup": null,
+        "fault_reporting_error": null,
+        "fault_status": {
+          "before_containment": {
+            "available": true,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "delivery": {
+              "current": true,
+              "detail": 0,
+              "epoch": 1,
+              "frequency": 10000000,
+              "generation": 1,
+              "position": 22212096,
+              "process_id": 240,
+              "publication": 520604,
+              "request_sequence": 86771,
+              "stage": 0,
+              "thread_id": 448,
+              "ticks": 585188005617
+            },
+            "editor": {
+              "available": true,
+              "closed": 1,
+              "exception_code": 0,
+              "failure": 0,
+              "independently_sampled": true,
+              "open": 0,
+              "open_stage": 100,
+              "view_stage": 217
+            },
+            "mailbox_flags": {
+              "independently_sampled": true,
+              "reply": 0,
+              "request": 0
+            },
+            "native": {
+              "admitted_frames": 22212096,
+              "current": true,
+              "delivered_frames": 22210816,
+              "detail": 0,
+              "epoch": 1,
+              "expired_frames": 768,
+              "frequency": 1000000000,
+              "gaps": 1,
+              "generation": 1,
+              "missing_frames": 768,
+              "position": 22211840,
+              "priming_frames": 512,
+              "process_id": 454,
+              "publication": 260298,
+              "request_sequence": 86770,
+              "stage": 3,
+              "thread_id": 0,
+              "ticks": 58519984087233
+            },
+            "owner": {
+              "current": true,
+              "detail": 0,
+              "epoch": 0,
+              "frequency": 10000000,
+              "generation": 1,
+              "position": 0,
+              "process_id": 240,
+              "publication": 105229,
+              "request_sequence": 0,
+              "stage": 0,
+              "thread_id": 244,
+              "ticks": 585188185439
+            },
+            "sample_monotonic_ns": 58520248714811,
+            "schema": 2
+          },
+          "early_pending": null,
+          "session": "53b698110d9146fdd98ff6c97d4b65e0"
+        },
+        "raw_exit": -15,
+        "transport_retired": true
+      },
+      "session": "53b698110d9146fdd98ff6c97d4b65e0"
+    },
+    {
+      "native": [
+        {
+          "blocks": 43025,
+          "callback_rejections": 0,
+          "clean": true,
+          "delivered_frames": 22028288,
+          "discontinuities": 0,
+          "event": "ap3_proxy_lifecycle",
+          "expired_output_frames": 0,
+          "frames": 22028800,
+          "gain_max": 1,
+          "gain_min": 1,
+          "phase": 6,
+          "priming_frames": 512,
+          "rejected_silent_frames": 0,
+          "requested_maximum": 512,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "underrun_callbacks": 0,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "owner": {
+        "cleanup_confirmed": true,
+        "discarded_diagnostic_bytes": {
+          "stderr": 0,
+          "vendor": 0
+        },
+        "error": null,
+        "exit_before_cleanup": null,
+        "fault_reporting_error": null,
+        "fault_status": {
+          "before_containment": {
+            "available": true,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "delivery": {
+              "current": true,
+              "detail": 0,
+              "epoch": 1,
+              "frequency": 10000000,
+              "generation": 1,
+              "position": 22028800,
+              "process_id": 472,
+              "publication": 516306,
+              "request_sequence": 86054,
+              "stage": 0,
+              "thread_id": 584,
+              "ticks": 585188003309
+            },
+            "editor": {
+              "available": true,
+              "closed": 1,
+              "exception_code": 0,
+              "failure": 0,
+              "independently_sampled": true,
+              "open": 0,
+              "open_stage": 0,
+              "view_stage": 217
+            },
+            "mailbox_flags": {
+              "independently_sampled": true,
+              "reply": 0,
+              "request": 0
+            },
+            "native": {
+              "admitted_frames": 22028800,
+              "current": true,
+              "delivered_frames": 22028288,
+              "detail": 0,
+              "epoch": 1,
+              "expired_frames": 0,
+              "frequency": 1000000000,
+              "gaps": 0,
+              "generation": 1,
+              "missing_frames": 0,
+              "position": 22028544,
+              "priming_frames": 512,
+              "process_id": 454,
+              "publication": 258150,
+              "request_sequence": 86053,
+              "stage": 3,
+              "thread_id": 0,
+              "ticks": 58519983036538
+            },
+            "owner": {
+              "current": true,
+              "detail": 0,
+              "epoch": 0,
+              "frequency": 10000000,
+              "generation": 1,
+              "position": 0,
+              "process_id": 472,
+              "publication": 427033,
+              "request_sequence": 0,
+              "stage": 0,
+              "thread_id": 476,
+              "ticks": 585192378092
+            },
+            "sample_monotonic_ns": 58520894372233,
+            "schema": 2
+          },
+          "early_pending": null,
+          "session": "51d8055bfe7550ec3bf36d67b97a1f79"
+        },
+        "raw_exit": -15,
+        "transport_retired": true
+      },
+      "session": "51d8055bfe7550ec3bf36d67b97a1f79"
+    }
+  ],
+  "new_owner_session": "51d1bcb75e0af0aabdfd6ad9bd2a1ba4",
+  "nonclaims": [
+    "Fontconfig warnings were not established as causal; no OOM/GPU reset found in focused checks.",
+    "Short preparation/publication delivery gaps remain the AP13 performance backlog; no buffering or runtime change.",
+    "Bitwig discovery cache required normal relaunch after pointer update; stable IDs and target bytes were unchanged."
+  ],
+  "original_playing": [
+    {
+      "native": [
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3777280,
+          "request_trace_missing": true
+        },
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3777536,
+          "request_trace_missing": true
+        },
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3777792,
+          "request_trace_missing": true
+        },
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3778048,
+          "request_trace_missing": true
+        },
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3778304,
+          "request_trace_missing": true
+        },
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3778560,
+          "request_trace_missing": true
+        },
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3778816,
+          "request_trace_missing": true
+        },
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3779072,
+          "request_trace_missing": true
+        },
+        {
+          "epoch": 1,
+          "event": "ap7_gap_request",
+          "gap_frames": 256,
+          "gap_position": 3779328,
+          "request_trace_missing": true
+        },
+        {
+          "blocks": 7383,
+          "callback_rejections": 42290,
+          "clean": false,
+          "delivered_frames": 3776000,
+          "discontinuities": 1,
+          "event": "ap3_proxy_lifecycle",
+          "expired_output_frames": 0,
+          "frames": 3780096,
+          "gain_max": 1,
+          "gain_min": 1,
+          "phase": 7,
+          "priming_frames": 512,
+          "rejected_silent_frames": 21652480,
+          "requested_maximum": 512,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "underrun_callbacks": 7,
+          "underrun_frames": 3584,
+          "underrun_gaps": 1,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "owner": {
+        "cleanup_confirmed": true,
+        "discarded_diagnostic_bytes": {
+          "stderr": 0,
+          "vendor": 0
+        },
+        "error": "Windows host exited without successful close",
+        "exit_before_cleanup": 1,
+        "fault_reporting_error": null,
+        "fault_status": {
+          "before_containment": {
+            "available": true,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "delivery": {
+              "current": true,
+              "detail": 0,
+              "epoch": 1,
+              "frequency": 10000000,
+              "generation": 1,
+              "position": 3776000,
+              "process_id": 560,
+              "publication": 88505,
+              "request_sequence": 14754,
+              "stage": 3,
+              "thread_id": 656,
+              "ticks": 565206917540
+            },
+            "editor": {
+              "available": true,
+              "closed": 1,
+              "exception_code": 0,
+              "failure": 0,
+              "independently_sampled": true,
+              "open": 1,
+              "open_stage": 100,
+              "view_stage": 16
+            },
+            "mailbox_flags": {
+              "independently_sampled": true,
+              "reply": 0,
+              "request": 0
+            },
+            "native": {
+              "admitted_frames": 3776512,
+              "current": true,
+              "delivered_frames": 3776000,
+              "detail": 0,
+              "epoch": 1,
+              "expired_frames": 0,
+              "frequency": 1000000000,
+              "gaps": 0,
+              "generation": 1,
+              "missing_frames": 0,
+              "position": 3776000,
+              "priming_frames": 512,
+              "process_id": 214,
+              "publication": 44252,
+              "request_sequence": 14754,
+              "stage": 2,
+              "thread_id": 0,
+              "ticks": 56521850093749
+            },
+            "owner": {
+              "current": true,
+              "detail": 0,
+              "epoch": 0,
+              "frequency": 10000000,
+              "generation": 1,
+              "position": 0,
+              "process_id": 560,
+              "publication": 71893,
+              "request_sequence": 0,
+              "stage": 25,
+              "thread_id": 564,
+              "ticks": 565206501161
+            },
+            "sample_monotonic_ns": 56521954186386,
+            "schema": 2
+          },
+          "early_pending": null,
+          "session": "7e8bdfab64533c5e0b66a3dee2338e06"
+        },
+        "raw_exit": 1,
+        "transport_retired": true
+      },
+      "session": "7e8bdfab64533c5e0b66a3dee2338e06"
+    },
+    {
+      "native": [
+        {
+          "blocks": 49346,
+          "callback_rejections": 0,
+          "clean": true,
+          "delivered_frames": 25264640,
+          "discontinuities": 0,
+          "event": "ap3_proxy_lifecycle",
+          "expired_output_frames": 0,
+          "frames": 25265152,
+          "gain_max": 1,
+          "gain_min": 1,
+          "phase": 6,
+          "priming_frames": 512,
+          "rejected_silent_frames": 0,
+          "requested_maximum": 512,
+          "requested_mode": 0,
+          "requested_rate": 48000,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "underrun_callbacks": 0,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "zero_gain_blocks": 0
+        }
+      ],
+      "owner": {
+        "cleanup_confirmed": true,
+        "discarded_diagnostic_bytes": {
+          "stderr": 0,
+          "vendor": 0
+        },
+        "error": null,
+        "exit_before_cleanup": null,
+        "fault_reporting_error": null,
+        "fault_status": {
+          "before_containment": {
+            "available": true,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "delivery": {
+              "current": true,
+              "detail": 0,
+              "epoch": 1,
+              "frequency": 10000000,
+              "generation": 1,
+              "position": 25265152,
+              "process_id": 680,
+              "publication": 592160,
+              "request_sequence": 98697,
+              "stage": 0,
+              "thread_id": 752,
+              "ticks": 569718585493
+            },
+            "editor": {
+              "available": true,
+              "closed": 1,
+              "exception_code": 0,
+              "failure": 0,
+              "independently_sampled": true,
+              "open": 0,
+              "open_stage": 100,
+              "view_stage": 217
+            },
+            "mailbox_flags": {
+              "independently_sampled": true,
+              "reply": 0,
+              "request": 0
+            },
+            "native": {
+              "admitted_frames": 25265152,
+              "current": true,
+              "delivered_frames": 25264640,
+              "detail": 0,
+              "epoch": 1,
+              "expired_frames": 0,
+              "frequency": 1000000000,
+              "gaps": 0,
+              "generation": 1,
+              "missing_frames": 0,
+              "position": 25264896,
+              "priming_frames": 512,
+              "process_id": 214,
+              "publication": 296076,
+              "request_sequence": 98696,
+              "stage": 3,
+              "thread_id": 0,
+              "ticks": 56973025238124
+            },
+            "owner": {
+              "current": true,
+              "detail": 0,
+              "epoch": 0,
+              "frequency": 10000000,
+              "generation": 1,
+              "position": 0,
+              "process_id": 680,
+              "publication": 486907,
+              "request_sequence": 0,
+              "stage": 0,
+              "thread_id": 684,
+              "ticks": 569718889344
+            },
+            "sample_monotonic_ns": 56973665643989,
+            "schema": 2
+          },
+          "early_pending": null,
+          "session": "27169a8f1777f6615076d3b939e6e519"
+        },
+        "raw_exit": -15,
+        "transport_retired": true
+      },
+      "session": "27169a8f1777f6615076d3b939e6e519"
+    }
+  ],
+  "original_windows_host_sha256": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
+  "schema": 1,
+  "stopped_retry": [
+    {
+      "native": [],
+      "owner": null,
+      "session": "9a81a5c26419c55c232b5b5e2e987999"
+    },
+    {
+      "native": [],
+      "owner": null,
+      "session": "9a81a5c26419c55c232b5b5e2e987999"
+    },
+    {
+      "native": [],
+      "owner": null,
+      "session": "9a81a5c26419c55c232b5b5e2e987999"
+    }
+  ],
+  "symptom": "BadWindow in X_UnmapWindow, resource 0x1400001, request serial 241/current 242; LoFi Windows host exits 1 when editor message processing begins after managed scan retirement.",
+  "targeted_debugger": {
+    "result": {
+      "elapsed": 6.188976029996411,
+      "exit": 0
+    },
+    "scope": "Only exact LoFi host; conditional XUnmapWindow breakpoint and default X11 error; frame arguments off; detached after capture. Initial GDB attempt stopped on Wine SIGUSR1 and yielded no causal stack.",
+    "symbol_stack": "AP14 stale-window unmap\n#0  0x00007f2e5bab5fd8 in XUnmapWindow ()\n#1  0x00007f2e5bdf1e14 in ungrab_clipping_window () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/winex11.so\n#2  0x00007f2e5bdf21a5 in X11DRV_ClipCursor () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/winex11.so\n#3  0x00007f2e5c0c2dd6 in process_wine_clipcursor () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/win32u.so\n#4  0x00007f2e5c0d78ca in peek_message () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/win32u.so\n#5  0x00007f2e5c0d850f in process_driver_events () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/win32u.so\n#6  0x00007f2e5c0d8c17 in NtUserPeekMessage () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/win32u.so\n#7  0x00007f2e5ca881f6 in __wine_syscall_dispatcher () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/ntdll.so\n#8  0x00007f2e5ca86368 in server_init_process_done () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/ntdll.so\n#9  0x00007f2e5cd6417a in ?? ()\n#10 0x00007ffe169f6388 in ?? ()\n#11 0x0000000000000000 in ?? ()\nAP14 default X11 error\n#0  0x00007f2e5bab47a8 in _XDefaultError ()\n#1  0x00007f2e5be0a788 in error_handler () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/winex11.so\n#2  0x00007f2e5bab4927 in _XError ()\n#3  0x00007f2e5bab4a40 in ?? ()\n#4  0x00007f2e5bab4afd in ?? ()\n#5  0x00007f2e5bab4b82 in _XEventsQueued ()\n#6  0x00007f2e5ba8f4d7 in XCheckIfEvent ()\n#7  0x00007f2e5bde19d8 in X11DRV_ProcessEvents () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/winex11.so\n#8  0x00007f2e5c0d830b in process_driver_events () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/win32u.so\n#9  0x00007f2e5c0d8d7d in NtUserPeekMessage () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/win32u.so\n#10 0x00007f2e5ca881f6 in __wine_syscall_dispatcher () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/ntdll.so\n#11 0x00007f2e5ca86368 in server_init_process_done () from /proc/35923/root$RUNNER/files/lib/wine/x86_64-unix/ntdll.so\n#12 0x00007f2e5cd6417a in ?? ()\n#13 0x00007ffe169f6388 in ?? ()\n#14 0x0000000000000000 in ?? ()\n[Inferior 1 (process 35923) detached]\n"
+  }
+}

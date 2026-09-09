@@ -28,11 +28,11 @@ Short gaps and 24–31 ms native preparation/publication outliers remain. Their 
 
 Float32 and bounded stereo/main-bus/event paths are implemented. Arbitrary multichannel/dynamic routing, sidechains, every SDK interface, float64, broad MIDI/MPE, native Wayland editor hosting and general customer-hardware reliability are not claimed. Operator-supplied modules, original installer outputs, entitlement and authorization posture remain separate.
 
-## Next direction: AP14 managed compatibility publication
+## AP14 managed compatibility publication
 
-[AP14 / #83](https://github.com/kasselvania/Linux-VST-bridge/issues/83) is being implemented on `codex/ap14-profile-publication`. It introduces the first closed declarative compatibility profiles and one coherent manager workflow that derives exact registrations and immutable publications from supervised local observations. The normal user should not type class IDs, module hashes, compatibility flags, native build paths or Wine commands.
+[AP14 / #83](https://github.com/kasselvania/Linux-VST-bridge/issues/83) is implemented for the exact installed Arturia fixture on `codex/ap14-profile-publication`, pending independent review in PR #85. It provides the first closed declarative compatibility profiles and one coherent manager workflow that derives exact registrations and immutable publications from supervised local observations. The normal operation does not require class IDs, module hashes, compatibility flags, native build paths or Wine commands.
 
-AP14 also adds an explicit revisioned publication update/reconcile/rollback transaction. A failed or incompatible candidate must leave the prior known-good publication active; rollback must select an exact retained revision without reinstalling or modifying vendor software. Read [CURRENT_SLICE.md](CURRENT_SLICE.md) on the prepared branch for the active contract.
+AP14 also adds an explicit revisioned publication update/reconcile/rollback transaction. A failed or incompatible candidate leaves the prior known-good publication active; rollback selects an exact retained revision without reinstalling or modifying vendor software. Read [CURRENT_SLICE.md](CURRENT_SLICE.md) on the prepared branch for the active contract.
 
 This remains a narrow Arturia productization cut. It does not add another vendor, promote 256 frames, redesign the editor, migrate runtimes or build a consumer GUI.
 
@@ -47,4 +47,4 @@ Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), the relevant 
 `native-vst3-proxy/` is the Linux SDK proxy and Rust backend; `native-audio-client/` contains transport; `windows-factory-probe/` is the Windows SDK host; `bridge-manager/` owns environments, registration/publication and installed supervision. Rust is primary, with C++ at SDK/platform edges. Proprietary binaries, presets, license data and credentials stay out of version control.
 
 The independent bridge remains selected. Maintained Wine/Proton work may provide a suitable runtime underneath it; it is not a yabridge pivot. Full manager UI, general vendor updates, broad profile distribution/trust, final product naming and repository-wide licensing/distribution remain later decisions.
-The [AP14 implementation and managed commands](docs/AP14.md) are under verification in draft PR #85. The two exact compatibility profiles remain review candidates.
+The [AP14 implementation and managed commands](docs/AP14.md) have completed focused tests and the exact Deck workflow in PR #85, pending independent review. The two exact compatibility profiles remain review candidates.
