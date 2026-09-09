@@ -1,0 +1,2328 @@
+{
+  "after": {
+    "heavy_trace": false,
+    "physical": [
+      {
+        "class": "417274754156495350724C4650726F63",
+        "link_target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+        "provenance_sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+        "revision": {
+          "adopted_legacy": false,
+          "census": {
+            "captured_at": 1788979754,
+            "classes": [
+              "417274754156495350724C4650726F63",
+              "4AFD4B6A35D7C240A5C31414FB7D15E6"
+            ],
+            "environment": {
+              "environment": {
+                "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "revision": 1,
+                "root": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "runner": {
+                  "entry_point": "$RUNNER_CONTAINER/_v2-entry-point",
+                  "files": [
+                    {
+                      "path": "$RUNNER/version",
+                      "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                    },
+                    {
+                      "path": "$RUNNER/toolmanifest.vdf",
+                      "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                    },
+                    {
+                      "path": "$RUNNER/proton",
+                      "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                    },
+                    {
+                      "path": "$RUNNER/steampipe_fixups.json",
+                      "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                    },
+                    {
+                      "path": "$RUNNER/steampipe_fixups.py",
+                      "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                    },
+                    {
+                      "path": "$RUNNER/filelock.py",
+                      "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                    },
+                    {
+                      "path": "$RUNNER/dist.lock",
+                      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    {
+                      "path": "$RUNNER/files/steampipe_fixups_mtime",
+                      "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                    },
+                    {
+                      "path": "$RUNNER/files/bin/wine",
+                      "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                    },
+                    {
+                      "path": "$RUNNER/files/bin/wineserver",
+                      "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-unix/wine",
+                      "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-unix/wine-preloader",
+                      "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-windows/cmd.exe",
+                      "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/system.reg",
+                      "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/user.reg",
+                      "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/userdef.reg",
+                      "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                    },
+                    {
+                      "path": "$RUNNER/LICENSE",
+                      "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                    },
+                    {
+                      "path": "$RUNNER/LICENSE.OFL",
+                      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                    },
+                    {
+                      "path": "$RUNNER/PATENTS.AV1",
+                      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/VERSIONS.txt",
+                      "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/toolmanifest.vdf",
+                      "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/_v2-entry-point",
+                      "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/run",
+                      "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/steamrt4_platform_4.0.20260805.254769/metadata",
+                      "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-unruntime",
+                      "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-wrap",
+                      "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-supervisor",
+                      "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                      "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launch-client",
+                      "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                      "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                      "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                    }
+                  ],
+                  "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                  "proton": "$RUNNER/proton",
+                  "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+                }
+              },
+              "family": "arturia_persistent_v1"
+            },
+            "factory_vendor": "Arturia",
+            "float32": true,
+            "float64": false,
+            "host": {
+              "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "id": "8399895f62a8c4469346650b8636a418",
+            "module": {
+              "path": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pure LoFi.vst3",
+              "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+            },
+            "module_stamp": {
+              "bytes": 26519616,
+              "device": 66312,
+              "inode": 6259069,
+              "modified": 1745507199,
+              "modified_ns": 626894200
+            },
+            "parameter_count": 3053,
+            "report": {
+              "path": "$MANAGED/runtime/results/windows-f510d5b8fa90dd48bf9419927454394b.json",
+              "sha256": "d1154eb3a5c9c16d77bd9619dca7636a16b0e7c7de89e7f2593800a9eb46136d"
+            },
+            "schema": 1,
+            "selected": {
+              "class_id": "417274754156495350724C4650726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Pure LoFi",
+              "subcategories": "Instrument|Synth",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121"
+            }
+          },
+          "class_id": "417274754156495350724C4650726F63",
+          "external_ids": [
+            "ac7f2418f2915958b5b67620593b9a2d",
+            "0c80f2acc39f5975a38d177102555683"
+          ],
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "parent": {
+            "id": "c6766455f13f73c3756db665b1bf92be",
+            "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+          },
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "profile": {
+            "capabilities": {
+              "accessibility": "disabled_for_vendor_process",
+              "editor": "detached_owner_thread_with_native_panel",
+              "performance": "frames512_recommended256_unqualified",
+              "precision": "float32_only",
+              "state": "concurrent_read_only_capture_v12"
+            },
+            "claim": "verified_exact_fixture",
+            "class": {
+              "class_id": "417274754156495350724C4650726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Pure LoFi",
+              "subcategories": "Instrument|Synth",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121"
+            },
+            "evidence": [
+              "docs/AP12.md",
+              "docs/AP13.md",
+              "evidence/AP13/installation-final.json",
+              "docs/AP14.md",
+              "evidence/ap14/transactions.json",
+              "evidence/ap14/installed-identities.json",
+              "evidence/ap14/musical-smoke.json"
+            ],
+            "factory_vendor": "Arturia",
+            "id": "arturia-pure-lofi",
+            "limitations": [
+              "short_delivery_gaps",
+              "unqualified256",
+              "windows_accessibility_unavailable",
+              "detached_focus_refusal",
+              "exact_operator_artifact_only"
+            ],
+            "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+            "requirements": {
+              "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+              "environment_family": "arturia_persistent_v1",
+              "environment_revision": 1,
+              "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+              "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+              "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+              "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+              "runner": {
+                "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                "file_sha256": [
+                  "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+                  "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+                  "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+                  "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+                  "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+                  "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+                  "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+                  "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                  "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+                  "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+                  "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+                  "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+                  "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+                  "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+                  "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+                  "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+                  "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+                  "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+                  "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+                  "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+                  "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+                  "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                  "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+                  "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+                  "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+                  "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+                  "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+                  "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+                  "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                ],
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+              }
+            },
+            "revision": 3,
+            "role": "instrument",
+            "schema": 1
+          },
+          "profile_sha256": "13b02bb8a4643772039df81b30b681f66d58c2b9d4976e39c4daabe087a18766",
+          "registration": {
+            "compatibility": {
+              "disable_windows_accessibility": true
+            },
+            "environment": {
+              "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "revision": 1,
+              "root": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "runner": {
+                "entry_point": "$RUNNER_CONTAINER/_v2-entry-point",
+                "files": [
+                  {
+                    "path": "$RUNNER/version",
+                    "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                  },
+                  {
+                    "path": "$RUNNER/toolmanifest.vdf",
+                    "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                  },
+                  {
+                    "path": "$RUNNER/proton",
+                    "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                  },
+                  {
+                    "path": "$RUNNER/steampipe_fixups.json",
+                    "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                  },
+                  {
+                    "path": "$RUNNER/steampipe_fixups.py",
+                    "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                  },
+                  {
+                    "path": "$RUNNER/filelock.py",
+                    "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                  },
+                  {
+                    "path": "$RUNNER/dist.lock",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                    "path": "$RUNNER/files/steampipe_fixups_mtime",
+                    "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                  },
+                  {
+                    "path": "$RUNNER/files/bin/wine",
+                    "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                  },
+                  {
+                    "path": "$RUNNER/files/bin/wineserver",
+                    "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-unix/wine",
+                    "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-unix/wine-preloader",
+                    "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-windows/cmd.exe",
+                    "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/system.reg",
+                    "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/user.reg",
+                    "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/userdef.reg",
+                    "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                  },
+                  {
+                    "path": "$RUNNER/LICENSE",
+                    "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                  },
+                  {
+                    "path": "$RUNNER/LICENSE.OFL",
+                    "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                  },
+                  {
+                    "path": "$RUNNER/PATENTS.AV1",
+                    "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/VERSIONS.txt",
+                    "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/toolmanifest.vdf",
+                    "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/_v2-entry-point",
+                    "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/run",
+                    "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/steamrt4_platform_4.0.20260805.254769/metadata",
+                    "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-unruntime",
+                    "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-wrap",
+                    "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-supervisor",
+                    "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                    "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launch-client",
+                    "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                    "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                    "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                  }
+                ],
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "proton": "$RUNNER/proton",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+              }
+            },
+            "host": {
+              "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "metadata": {
+              "class_id": "417274754156495350724C4650726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Pure LoFi",
+              "subcategories": "Instrument|Synth",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121"
+            },
+            "module": {
+              "path": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pure LoFi.vst3",
+              "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+            },
+            "native": {
+              "path": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+              "sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a"
+            }
+          },
+          "schema": 1,
+          "target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+          "transaction": "20186a9abbb84f4fc0b90e34fc0a65be"
+        },
+        "revision_sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+        "target_exists": true
+      },
+      {
+        "class": "41727475415649536772616E50726F63",
+        "link_target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+        "provenance_sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+        "revision": {
+          "adopted_legacy": false,
+          "census": {
+            "captured_at": 1788979748,
+            "classes": [
+              "41727475415649536772616E50726F63"
+            ],
+            "environment": {
+              "environment": {
+                "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "revision": 1,
+                "root": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "runner": {
+                  "entry_point": "$RUNNER_CONTAINER/_v2-entry-point",
+                  "files": [
+                    {
+                      "path": "$RUNNER/version",
+                      "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                    },
+                    {
+                      "path": "$RUNNER/toolmanifest.vdf",
+                      "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                    },
+                    {
+                      "path": "$RUNNER/proton",
+                      "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                    },
+                    {
+                      "path": "$RUNNER/steampipe_fixups.json",
+                      "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                    },
+                    {
+                      "path": "$RUNNER/steampipe_fixups.py",
+                      "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                    },
+                    {
+                      "path": "$RUNNER/filelock.py",
+                      "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                    },
+                    {
+                      "path": "$RUNNER/dist.lock",
+                      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    {
+                      "path": "$RUNNER/files/steampipe_fixups_mtime",
+                      "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                    },
+                    {
+                      "path": "$RUNNER/files/bin/wine",
+                      "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                    },
+                    {
+                      "path": "$RUNNER/files/bin/wineserver",
+                      "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-unix/wine",
+                      "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-unix/wine-preloader",
+                      "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-windows/cmd.exe",
+                      "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/system.reg",
+                      "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/user.reg",
+                      "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/userdef.reg",
+                      "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                    },
+                    {
+                      "path": "$RUNNER/LICENSE",
+                      "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                    },
+                    {
+                      "path": "$RUNNER/LICENSE.OFL",
+                      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                    },
+                    {
+                      "path": "$RUNNER/PATENTS.AV1",
+                      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/VERSIONS.txt",
+                      "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/toolmanifest.vdf",
+                      "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/_v2-entry-point",
+                      "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/run",
+                      "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/steamrt4_platform_4.0.20260805.254769/metadata",
+                      "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-unruntime",
+                      "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-wrap",
+                      "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-supervisor",
+                      "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                      "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launch-client",
+                      "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                      "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                      "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                    }
+                  ],
+                  "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                  "proton": "$RUNNER/proton",
+                  "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+                }
+              },
+              "family": "arturia_persistent_v1"
+            },
+            "factory_vendor": "Arturia",
+            "float32": true,
+            "float64": false,
+            "host": {
+              "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "id": "9566606fe3d117f84b5922205d8587d8",
+            "module": {
+              "path": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+              "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+            },
+            "module_stamp": {
+              "bytes": 20673024,
+              "device": 66312,
+              "inode": 6263228,
+              "modified": 946717200,
+              "modified_ns": 0
+            },
+            "parameter_count": 2348,
+            "report": {
+              "path": "$MANAGED/runtime/results/windows-ff49dc82067f846c9012f1e9e72bf27b.json",
+              "sha256": "b4e3f4054e776735fd691919e4076929e41f44da1b100fd730706a1c690c9c05"
+            },
+            "schema": 1,
+            "selected": {
+              "class_id": "41727475415649536772616E50726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Efx FRAGMENTS",
+              "subcategories": "Fx|Tools",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925"
+            }
+          },
+          "class_id": "41727475415649536772616E50726F63",
+          "external_ids": [
+            "96bd361810b3568a9671700732903d6e",
+            "d3181e9d37e75871ba5ffbcae0775861"
+          ],
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "parent": {
+            "id": "d2fb889b4a3797a2b90c0a57152b0296",
+            "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+          },
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "profile": {
+            "capabilities": {
+              "accessibility": "disabled_for_vendor_process",
+              "editor": "detached_owner_thread_with_native_panel",
+              "performance": "frames512_recommended256_unqualified",
+              "precision": "float32_only",
+              "state": "concurrent_read_only_capture_v12"
+            },
+            "claim": "verified_exact_fixture",
+            "class": {
+              "class_id": "41727475415649536772616E50726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Efx FRAGMENTS",
+              "subcategories": "Fx|Tools",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925"
+            },
+            "evidence": [
+              "docs/AP12.md",
+              "docs/AP13.md",
+              "evidence/AP13/installation-final.json",
+              "docs/AP14.md",
+              "evidence/ap14/transactions.json",
+              "evidence/ap14/installed-identities.json",
+              "evidence/ap14/musical-smoke.json"
+            ],
+            "factory_vendor": "Arturia",
+            "id": "arturia-efx-fragments",
+            "limitations": [
+              "short_delivery_gaps",
+              "unqualified256",
+              "windows_accessibility_unavailable",
+              "detached_focus_refusal",
+              "exact_operator_artifact_only",
+              "fragments_advanced_redraw"
+            ],
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "requirements": {
+              "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+              "environment_family": "arturia_persistent_v1",
+              "environment_revision": 1,
+              "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+              "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+              "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+              "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+              "runner": {
+                "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                "file_sha256": [
+                  "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+                  "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+                  "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+                  "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+                  "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+                  "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+                  "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+                  "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                  "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+                  "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+                  "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+                  "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+                  "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+                  "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+                  "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+                  "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+                  "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+                  "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+                  "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+                  "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+                  "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+                  "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                  "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+                  "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+                  "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+                  "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+                  "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+                  "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+                  "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                ],
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+              }
+            },
+            "revision": 3,
+            "role": "effect",
+            "schema": 1
+          },
+          "profile_sha256": "f9819ff473e0670eb44c52f4479a00f6addc8c4020e8ffbbee380fa8e22b4abc",
+          "registration": {
+            "compatibility": {
+              "disable_windows_accessibility": true
+            },
+            "environment": {
+              "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "revision": 1,
+              "root": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "runner": {
+                "entry_point": "$RUNNER_CONTAINER/_v2-entry-point",
+                "files": [
+                  {
+                    "path": "$RUNNER/version",
+                    "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                  },
+                  {
+                    "path": "$RUNNER/toolmanifest.vdf",
+                    "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                  },
+                  {
+                    "path": "$RUNNER/proton",
+                    "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                  },
+                  {
+                    "path": "$RUNNER/steampipe_fixups.json",
+                    "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                  },
+                  {
+                    "path": "$RUNNER/steampipe_fixups.py",
+                    "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                  },
+                  {
+                    "path": "$RUNNER/filelock.py",
+                    "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                  },
+                  {
+                    "path": "$RUNNER/dist.lock",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                    "path": "$RUNNER/files/steampipe_fixups_mtime",
+                    "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                  },
+                  {
+                    "path": "$RUNNER/files/bin/wine",
+                    "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                  },
+                  {
+                    "path": "$RUNNER/files/bin/wineserver",
+                    "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-unix/wine",
+                    "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-unix/wine-preloader",
+                    "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-windows/cmd.exe",
+                    "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/system.reg",
+                    "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/user.reg",
+                    "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/userdef.reg",
+                    "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                  },
+                  {
+                    "path": "$RUNNER/LICENSE",
+                    "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                  },
+                  {
+                    "path": "$RUNNER/LICENSE.OFL",
+                    "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                  },
+                  {
+                    "path": "$RUNNER/PATENTS.AV1",
+                    "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/VERSIONS.txt",
+                    "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/toolmanifest.vdf",
+                    "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/_v2-entry-point",
+                    "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/run",
+                    "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/steamrt4_platform_4.0.20260805.254769/metadata",
+                    "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-unruntime",
+                    "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-wrap",
+                    "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-supervisor",
+                    "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                    "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launch-client",
+                    "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                    "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                    "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                  }
+                ],
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "proton": "$RUNNER/proton",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+              }
+            },
+            "host": {
+              "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "metadata": {
+              "class_id": "41727475415649536772616E50726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Efx FRAGMENTS",
+              "subcategories": "Fx|Tools",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925"
+            },
+            "module": {
+              "path": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+              "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+            },
+            "native": {
+              "path": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so",
+              "sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374"
+            }
+          },
+          "schema": 1,
+          "target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+          "transaction": "3cc89a955f938bbbff7b2b1d5eeb0a84"
+        },
+        "revision_sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+        "target_exists": true
+      }
+    ],
+    "projects": [
+      {
+        "name": "AP12 Arturia Chain",
+        "sha256": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+        "size": 83551
+      },
+      {
+        "name": "AP13 Delivery",
+        "sha256": "4c4b43844afecd3e233b270e719da9de257997fd8a01fa3b3a6f20ac3c6284c4",
+        "size": 84026
+      },
+      {
+        "name": "AP14 Publication",
+        "sha256": "abb3b4fc74f811ad381305b7d42aad363991a61b135b5b1234010c03aded9995",
+        "size": 84027
+      },
+      {
+        "name": "AP14 Removal",
+        "sha256": "89b2932d3078b4bcbb40a374008f5516f4822a691f1717b0f7deefdf11de6b64",
+        "size": 65010
+      }
+    ],
+    "service": "NRestarts=0\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+    "software": {
+      "host": {
+        "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+        "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+      },
+      "manager": {
+        "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/linux-vst-bridge",
+        "sha256": "1cd35705c4c0d8e0d56316b63f7aec1d75da7d425074c98cc83b5c8cdc0029c5"
+      },
+      "native_catalogue": {
+        "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/native-catalogue.json",
+        "sha256": "45ddb62565391d3fdc3b08c9b54e8428f0d50bb3ddb440dff5877c80f79c6c2e"
+      },
+      "ownership": {
+        "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "source_manifest": {
+        "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host-source-manifest.json",
+        "sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d"
+      },
+      "source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+      "supervisor": {
+        "path": "$MANAGED/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/session.py",
+        "sha256": "1ec8c609a4584ee98b45aa7b89f4d56e7b45c0f88f2aa2371afcf7d8ac23f3d7"
+      }
+    },
+    "status": {
+      "products": [
+        {
+          "active_revision": {
+            "id": "2452b7ebaeb57a847ba957637e3369a7",
+            "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+          },
+          "build": "1.0.0.6121",
+          "capabilities": {
+            "accessibility": "disabled_for_vendor_process",
+            "editor": "detached_owner_thread_with_native_panel",
+            "performance": "frames512_recommended256_unqualified",
+            "precision": "float32_only",
+            "state": "concurrent_read_only_capture_v12"
+          },
+          "class_id": "417274754156495350724C4650726F63",
+          "compatibility": {
+            "disable_windows_accessibility": true
+          },
+          "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+          "environment_revision": 1,
+          "environment_valid": true,
+          "expected_target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+          "external_ids": [
+            "ac7f2418f2915958b5b67620593b9a2d",
+            "0c80f2acc39f5975a38d177102555683"
+          ],
+          "installed_host_valid": true,
+          "limitations": [
+            "short_delivery_gaps",
+            "unqualified256",
+            "windows_accessibility_unavailable",
+            "detached_focus_refusal",
+            "exact_operator_artifact_only"
+          ],
+          "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+          "module_valid": true,
+          "name": "Pure LoFi",
+          "native_artifact_valid": true,
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "performance_policy": "frames512_recommended256_unqualified",
+          "physical_target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+          "prior_rollback": {
+            "revision": {
+              "id": "c6766455f13f73c3756db665b1bf92be",
+              "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+            },
+            "target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3",
+            "valid": true
+          },
+          "profile": {
+            "claim": "verified_exact_fixture",
+            "id": "arturia-pure-lofi",
+            "revision": 3
+          },
+          "publication": "Published",
+          "publication_valid": true,
+          "recommended_frames": 512,
+          "recorded_revision": {
+            "id": "2452b7ebaeb57a847ba957637e3369a7",
+            "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+          },
+          "recovery_pending": false,
+          "refusal": null,
+          "role": "instrument",
+          "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+          "runner_valid": true,
+          "selection": 1
+        },
+        {
+          "active_revision": {
+            "id": "213f36d41e964bcbdccd30093a6cded0",
+            "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+          },
+          "build": "1.0.0.2925",
+          "capabilities": {
+            "accessibility": "disabled_for_vendor_process",
+            "editor": "detached_owner_thread_with_native_panel",
+            "performance": "frames512_recommended256_unqualified",
+            "precision": "float32_only",
+            "state": "concurrent_read_only_capture_v12"
+          },
+          "class_id": "41727475415649536772616E50726F63",
+          "compatibility": {
+            "disable_windows_accessibility": true
+          },
+          "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+          "environment_revision": 1,
+          "environment_valid": true,
+          "expected_target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+          "external_ids": [
+            "96bd361810b3568a9671700732903d6e",
+            "d3181e9d37e75871ba5ffbcae0775861"
+          ],
+          "installed_host_valid": true,
+          "limitations": [
+            "short_delivery_gaps",
+            "unqualified256",
+            "windows_accessibility_unavailable",
+            "detached_focus_refusal",
+            "exact_operator_artifact_only",
+            "fragments_advanced_redraw"
+          ],
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+          "module_valid": true,
+          "name": "Efx FRAGMENTS",
+          "native_artifact_valid": true,
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "performance_policy": "frames512_recommended256_unqualified",
+          "physical_target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+          "prior_rollback": {
+            "revision": {
+              "id": "d2fb889b4a3797a2b90c0a57152b0296",
+              "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+            },
+            "target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3",
+            "valid": true
+          },
+          "profile": {
+            "claim": "verified_exact_fixture",
+            "id": "arturia-efx-fragments",
+            "revision": 3
+          },
+          "publication": "Published",
+          "publication_valid": true,
+          "recommended_frames": 512,
+          "recorded_revision": {
+            "id": "213f36d41e964bcbdccd30093a6cded0",
+            "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+          },
+          "recovery_pending": false,
+          "refusal": null,
+          "role": "effect",
+          "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+          "runner_valid": true,
+          "selection": 2
+        }
+      ],
+      "schema": 1
+    }
+  },
+  "before": {
+    "physical": [
+      {
+        "class": "417274754156495350724C4650726F63",
+        "link_target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3",
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+        "provenance_sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4",
+        "revision": {
+          "adopted_legacy": false,
+          "census": {
+            "captured_at": 1788976754,
+            "classes": [
+              "417274754156495350724C4650726F63",
+              "4AFD4B6A35D7C240A5C31414FB7D15E6"
+            ],
+            "environment": {
+              "environment": {
+                "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "revision": 1,
+                "root": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "runner": {
+                  "entry_point": "$RUNNER_CONTAINER/_v2-entry-point",
+                  "files": [
+                    {
+                      "path": "$RUNNER/version",
+                      "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                    },
+                    {
+                      "path": "$RUNNER/toolmanifest.vdf",
+                      "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                    },
+                    {
+                      "path": "$RUNNER/proton",
+                      "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                    },
+                    {
+                      "path": "$RUNNER/steampipe_fixups.json",
+                      "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                    },
+                    {
+                      "path": "$RUNNER/steampipe_fixups.py",
+                      "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                    },
+                    {
+                      "path": "$RUNNER/filelock.py",
+                      "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                    },
+                    {
+                      "path": "$RUNNER/dist.lock",
+                      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    {
+                      "path": "$RUNNER/files/steampipe_fixups_mtime",
+                      "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                    },
+                    {
+                      "path": "$RUNNER/files/bin/wine",
+                      "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                    },
+                    {
+                      "path": "$RUNNER/files/bin/wineserver",
+                      "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-unix/wine",
+                      "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-unix/wine-preloader",
+                      "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-windows/cmd.exe",
+                      "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/system.reg",
+                      "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/user.reg",
+                      "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/userdef.reg",
+                      "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                    },
+                    {
+                      "path": "$RUNNER/LICENSE",
+                      "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                    },
+                    {
+                      "path": "$RUNNER/LICENSE.OFL",
+                      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                    },
+                    {
+                      "path": "$RUNNER/PATENTS.AV1",
+                      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/VERSIONS.txt",
+                      "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/toolmanifest.vdf",
+                      "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/_v2-entry-point",
+                      "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/run",
+                      "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/steamrt4_platform_4.0.20260805.254769/metadata",
+                      "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-unruntime",
+                      "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-wrap",
+                      "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-supervisor",
+                      "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                      "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launch-client",
+                      "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                      "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                      "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                    }
+                  ],
+                  "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                  "proton": "$RUNNER/proton",
+                  "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+                }
+              },
+              "family": "arturia_persistent_v1"
+            },
+            "factory_vendor": "Arturia",
+            "float32": true,
+            "float64": false,
+            "host": {
+              "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "id": "d3eedbbe9a102afdbf4b179f409e640f",
+            "module": {
+              "path": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pure LoFi.vst3",
+              "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+            },
+            "module_stamp": {
+              "bytes": 26519616,
+              "device": 66312,
+              "inode": 6259069,
+              "modified": 1745507199,
+              "modified_ns": 626894200
+            },
+            "parameter_count": 3053,
+            "report": {
+              "path": "$MANAGED/runtime/results/windows-000fb3396465ef0cac67e7ca6f05a31e.json",
+              "sha256": "5f9c778867ad388644a9c4f57c81b12bb7d56de045b02f68f8b96146eb5e1548"
+            },
+            "schema": 1,
+            "selected": {
+              "class_id": "417274754156495350724C4650726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Pure LoFi",
+              "subcategories": "Instrument|Synth",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121"
+            }
+          },
+          "class_id": "417274754156495350724C4650726F63",
+          "external_ids": [
+            "ac7f2418f2915958b5b67620593b9a2d",
+            "0c80f2acc39f5975a38d177102555683"
+          ],
+          "id": "c6766455f13f73c3756db665b1bf92be",
+          "parent": {
+            "id": "18f3da27dda66a44ed19677d4921af8c",
+            "sha256": "63d76ba0c39bb56cfdf045672778cb87370b009de2cbf51313a0e4429fe9ffca"
+          },
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "profile": {
+            "capabilities": {
+              "accessibility": "disabled_for_vendor_process",
+              "editor": "detached_owner_thread_with_native_panel",
+              "performance": "frames512_recommended256_unqualified",
+              "precision": "float32_only",
+              "state": "concurrent_read_only_capture_v12"
+            },
+            "claim": "review_candidate",
+            "class": {
+              "class_id": "417274754156495350724C4650726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Pure LoFi",
+              "subcategories": "Instrument|Synth",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121"
+            },
+            "evidence": [
+              "docs/AP12.md",
+              "docs/AP13.md",
+              "evidence/AP13/installation-final.json"
+            ],
+            "factory_vendor": "Arturia",
+            "id": "arturia-pure-lofi",
+            "limitations": [
+              "short_delivery_gaps",
+              "unqualified256",
+              "windows_accessibility_unavailable",
+              "detached_focus_refusal",
+              "exact_operator_artifact_only"
+            ],
+            "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+            "requirements": {
+              "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+              "environment_family": "arturia_persistent_v1",
+              "environment_revision": 1,
+              "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+              "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+              "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+              "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+              "runner": {
+                "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                "file_sha256": [
+                  "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+                  "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+                  "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+                  "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+                  "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+                  "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+                  "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+                  "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                  "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+                  "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+                  "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+                  "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+                  "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+                  "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+                  "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+                  "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+                  "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+                  "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+                  "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+                  "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+                  "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+                  "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                  "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+                  "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+                  "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+                  "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+                  "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+                  "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+                  "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                ],
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+              }
+            },
+            "revision": 2,
+            "role": "instrument",
+            "schema": 1
+          },
+          "profile_sha256": "044482ca6edd1c4faa7d85869b4149d877b4bcc2b993d70b3eed14b5186408dc",
+          "registration": {
+            "compatibility": {
+              "disable_windows_accessibility": true
+            },
+            "environment": {
+              "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "revision": 1,
+              "root": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "runner": {
+                "entry_point": "$RUNNER_CONTAINER/_v2-entry-point",
+                "files": [
+                  {
+                    "path": "$RUNNER/version",
+                    "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                  },
+                  {
+                    "path": "$RUNNER/toolmanifest.vdf",
+                    "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                  },
+                  {
+                    "path": "$RUNNER/proton",
+                    "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                  },
+                  {
+                    "path": "$RUNNER/steampipe_fixups.json",
+                    "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                  },
+                  {
+                    "path": "$RUNNER/steampipe_fixups.py",
+                    "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                  },
+                  {
+                    "path": "$RUNNER/filelock.py",
+                    "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                  },
+                  {
+                    "path": "$RUNNER/dist.lock",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                    "path": "$RUNNER/files/steampipe_fixups_mtime",
+                    "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                  },
+                  {
+                    "path": "$RUNNER/files/bin/wine",
+                    "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                  },
+                  {
+                    "path": "$RUNNER/files/bin/wineserver",
+                    "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-unix/wine",
+                    "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-unix/wine-preloader",
+                    "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-windows/cmd.exe",
+                    "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/system.reg",
+                    "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/user.reg",
+                    "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/userdef.reg",
+                    "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                  },
+                  {
+                    "path": "$RUNNER/LICENSE",
+                    "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                  },
+                  {
+                    "path": "$RUNNER/LICENSE.OFL",
+                    "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                  },
+                  {
+                    "path": "$RUNNER/PATENTS.AV1",
+                    "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/VERSIONS.txt",
+                    "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/toolmanifest.vdf",
+                    "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/_v2-entry-point",
+                    "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/run",
+                    "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/steamrt4_platform_4.0.20260805.254769/metadata",
+                    "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-unruntime",
+                    "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-wrap",
+                    "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-supervisor",
+                    "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                    "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launch-client",
+                    "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                    "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                    "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                  }
+                ],
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "proton": "$RUNNER/proton",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+              }
+            },
+            "host": {
+              "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "metadata": {
+              "class_id": "417274754156495350724C4650726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Pure LoFi",
+              "subcategories": "Instrument|Synth",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121"
+            },
+            "module": {
+              "path": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pure LoFi.vst3",
+              "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+            },
+            "native": {
+              "path": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+              "sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a"
+            }
+          },
+          "schema": 1,
+          "target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3",
+          "transaction": "645b5ca055e0ac96df5d5272e46c1c9b"
+        },
+        "revision_sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4",
+        "target_exists": true
+      },
+      {
+        "class": "41727475415649536772616E50726F63",
+        "link_target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3",
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+        "provenance_sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882",
+        "revision": {
+          "adopted_legacy": false,
+          "census": {
+            "captured_at": 1788975515,
+            "classes": [
+              "41727475415649536772616E50726F63"
+            ],
+            "environment": {
+              "environment": {
+                "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "revision": 1,
+                "root": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "runner": {
+                  "entry_point": "$RUNNER_CONTAINER/_v2-entry-point",
+                  "files": [
+                    {
+                      "path": "$RUNNER/version",
+                      "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                    },
+                    {
+                      "path": "$RUNNER/toolmanifest.vdf",
+                      "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                    },
+                    {
+                      "path": "$RUNNER/proton",
+                      "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                    },
+                    {
+                      "path": "$RUNNER/steampipe_fixups.json",
+                      "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                    },
+                    {
+                      "path": "$RUNNER/steampipe_fixups.py",
+                      "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                    },
+                    {
+                      "path": "$RUNNER/filelock.py",
+                      "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                    },
+                    {
+                      "path": "$RUNNER/dist.lock",
+                      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    {
+                      "path": "$RUNNER/files/steampipe_fixups_mtime",
+                      "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                    },
+                    {
+                      "path": "$RUNNER/files/bin/wine",
+                      "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                    },
+                    {
+                      "path": "$RUNNER/files/bin/wineserver",
+                      "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-unix/wine",
+                      "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-unix/wine-preloader",
+                      "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                    },
+                    {
+                      "path": "$RUNNER/files/lib/wine/x86_64-windows/cmd.exe",
+                      "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/system.reg",
+                      "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/user.reg",
+                      "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                    },
+                    {
+                      "path": "$RUNNER/files/share/default_pfx/userdef.reg",
+                      "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                    },
+                    {
+                      "path": "$RUNNER/LICENSE",
+                      "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                    },
+                    {
+                      "path": "$RUNNER/LICENSE.OFL",
+                      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                    },
+                    {
+                      "path": "$RUNNER/PATENTS.AV1",
+                      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/VERSIONS.txt",
+                      "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/toolmanifest.vdf",
+                      "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/_v2-entry-point",
+                      "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/run",
+                      "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/steamrt4_platform_4.0.20260805.254769/metadata",
+                      "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-unruntime",
+                      "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-wrap",
+                      "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-supervisor",
+                      "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                      "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launch-client",
+                      "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                      "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                    },
+                    {
+                      "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                      "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                    }
+                  ],
+                  "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                  "proton": "$RUNNER/proton",
+                  "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+                }
+              },
+              "family": "arturia_persistent_v1"
+            },
+            "factory_vendor": "Arturia",
+            "float32": true,
+            "float64": false,
+            "host": {
+              "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "id": "885686b73b58eb51b6656720ae537821",
+            "module": {
+              "path": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+              "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+            },
+            "module_stamp": {
+              "bytes": 20673024,
+              "device": 66312,
+              "inode": 6263228,
+              "modified": 946717200,
+              "modified_ns": 0
+            },
+            "parameter_count": 2348,
+            "report": {
+              "path": "$MANAGED/runtime/results/windows-e33ba5a7bbba7c5018259a5f181d34ea.json",
+              "sha256": "f3de73796e013a3af30a42c176b3effd90e2866d002a6fae88c8d90cd2ae180f"
+            },
+            "schema": 1,
+            "selected": {
+              "class_id": "41727475415649536772616E50726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Efx FRAGMENTS",
+              "subcategories": "Fx|Tools",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925"
+            }
+          },
+          "class_id": "41727475415649536772616E50726F63",
+          "external_ids": [
+            "96bd361810b3568a9671700732903d6e",
+            "d3181e9d37e75871ba5ffbcae0775861"
+          ],
+          "id": "d2fb889b4a3797a2b90c0a57152b0296",
+          "parent": {
+            "id": "9b8970282584cc344c4f2dbd9339fd71",
+            "sha256": "de339aadd05610d43d9b75ee2d6e6fc48dca686f70f16466db02a36a490e2e78"
+          },
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "profile": {
+            "capabilities": {
+              "accessibility": "disabled_for_vendor_process",
+              "editor": "detached_owner_thread_with_native_panel",
+              "performance": "frames512_recommended256_unqualified",
+              "precision": "float32_only",
+              "state": "concurrent_read_only_capture_v12"
+            },
+            "claim": "review_candidate",
+            "class": {
+              "class_id": "41727475415649536772616E50726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Efx FRAGMENTS",
+              "subcategories": "Fx|Tools",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925"
+            },
+            "evidence": [
+              "docs/AP12.md",
+              "docs/AP13.md",
+              "evidence/AP13/installation-final.json"
+            ],
+            "factory_vendor": "Arturia",
+            "id": "arturia-efx-fragments",
+            "limitations": [
+              "short_delivery_gaps",
+              "unqualified256",
+              "windows_accessibility_unavailable",
+              "detached_focus_refusal",
+              "exact_operator_artifact_only",
+              "fragments_advanced_redraw"
+            ],
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "requirements": {
+              "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+              "environment_family": "arturia_persistent_v1",
+              "environment_revision": 1,
+              "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+              "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+              "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+              "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+              "runner": {
+                "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                "file_sha256": [
+                  "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+                  "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+                  "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+                  "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+                  "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+                  "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+                  "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+                  "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                  "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+                  "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+                  "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+                  "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+                  "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+                  "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+                  "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+                  "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+                  "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+                  "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+                  "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+                  "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+                  "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+                  "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                  "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+                  "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+                  "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+                  "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+                  "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+                  "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+                  "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                ],
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+              }
+            },
+            "revision": 2,
+            "role": "effect",
+            "schema": 1
+          },
+          "profile_sha256": "11e19dde31ea185a86a340b8a8007cf672d514c2c2a055a33d4dbefa9e52dfeb",
+          "registration": {
+            "compatibility": {
+              "disable_windows_accessibility": true
+            },
+            "environment": {
+              "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "revision": 1,
+              "root": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "runner": {
+                "entry_point": "$RUNNER_CONTAINER/_v2-entry-point",
+                "files": [
+                  {
+                    "path": "$RUNNER/version",
+                    "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                  },
+                  {
+                    "path": "$RUNNER/toolmanifest.vdf",
+                    "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                  },
+                  {
+                    "path": "$RUNNER/proton",
+                    "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                  },
+                  {
+                    "path": "$RUNNER/steampipe_fixups.json",
+                    "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                  },
+                  {
+                    "path": "$RUNNER/steampipe_fixups.py",
+                    "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                  },
+                  {
+                    "path": "$RUNNER/filelock.py",
+                    "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                  },
+                  {
+                    "path": "$RUNNER/dist.lock",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                    "path": "$RUNNER/files/steampipe_fixups_mtime",
+                    "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                  },
+                  {
+                    "path": "$RUNNER/files/bin/wine",
+                    "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                  },
+                  {
+                    "path": "$RUNNER/files/bin/wineserver",
+                    "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-unix/wine",
+                    "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-unix/wine-preloader",
+                    "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                  },
+                  {
+                    "path": "$RUNNER/files/lib/wine/x86_64-windows/cmd.exe",
+                    "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/system.reg",
+                    "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/user.reg",
+                    "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                  },
+                  {
+                    "path": "$RUNNER/files/share/default_pfx/userdef.reg",
+                    "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                  },
+                  {
+                    "path": "$RUNNER/LICENSE",
+                    "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                  },
+                  {
+                    "path": "$RUNNER/LICENSE.OFL",
+                    "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                  },
+                  {
+                    "path": "$RUNNER/PATENTS.AV1",
+                    "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/VERSIONS.txt",
+                    "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/toolmanifest.vdf",
+                    "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/_v2-entry-point",
+                    "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/run",
+                    "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/steamrt4_platform_4.0.20260805.254769/metadata",
+                    "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-unruntime",
+                    "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/pressure-vessel-wrap",
+                    "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-supervisor",
+                    "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                    "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/bin/steam-runtime-launch-client",
+                    "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                    "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                  },
+                  {
+                    "path": "$RUNNER_CONTAINER/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                    "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                  }
+                ],
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "proton": "$RUNNER/proton",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769"
+              }
+            },
+            "host": {
+              "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "metadata": {
+              "class_id": "41727475415649536772616E50726F63",
+              "metadata_tier": "factory_3_unicode",
+              "name": "Efx FRAGMENTS",
+              "subcategories": "Fx|Tools",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925"
+            },
+            "module": {
+              "path": "$MANAGED/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+              "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+            },
+            "native": {
+              "path": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so",
+              "sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374"
+            }
+          },
+          "schema": 1,
+          "target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3",
+          "transaction": "13e4106dc76189fb5679d223d03077ec"
+        },
+        "revision_sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882",
+        "target_exists": true
+      }
+    ],
+    "projects": [
+      {
+        "name": "AP12 Arturia Chain",
+        "sha256": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+        "size": 83551
+      },
+      {
+        "name": "AP13 Delivery",
+        "sha256": "4c4b43844afecd3e233b270e719da9de257997fd8a01fa3b3a6f20ac3c6284c4",
+        "size": 84026
+      },
+      {
+        "name": "AP14 Publication",
+        "sha256": "abb3b4fc74f811ad381305b7d42aad363991a61b135b5b1234010c03aded9995",
+        "size": 84027
+      },
+      {
+        "name": "AP14 Removal",
+        "sha256": "89b2932d3078b4bcbb40a374008f5516f4822a691f1717b0f7deefdf11de6b64",
+        "size": 65010
+      }
+    ],
+    "service": "NRestarts=0\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+    "software": {
+      "host": {
+        "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/host.exe",
+        "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+      },
+      "manager": {
+        "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/linux-vst-bridge",
+        "sha256": "04b4d762674030e1b591d6934ce49bdd3303e22089bf0214372061ee22aaeed2"
+      },
+      "native_catalogue": {
+        "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/native-catalogue.json",
+        "sha256": "7b12d3e09cb0fe92670f270cdf8ee5125b29e9662cd5f9477966a4a4ecb9c34a"
+      },
+      "ownership": {
+        "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "source_manifest": {
+        "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/host-source-manifest.json",
+        "sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d"
+      },
+      "source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+      "supervisor": {
+        "path": "$MANAGED/software/f2e6eb04d1647e90ecfc5d3f0377ea21baa2e9a631b09406aae08580d7ad83fb/session.py",
+        "sha256": "1ec8c609a4584ee98b45aa7b89f4d56e7b45c0f88f2aa2371afcf7d8ac23f3d7"
+      }
+    },
+    "status": {
+      "products": [
+        {
+          "active_revision": {
+            "id": "c6766455f13f73c3756db665b1bf92be",
+            "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+          },
+          "build": "1.0.0.6121",
+          "capabilities": {
+            "accessibility": "disabled_for_vendor_process",
+            "editor": "detached_owner_thread_with_native_panel",
+            "performance": "frames512_recommended256_unqualified",
+            "precision": "float32_only",
+            "state": "concurrent_read_only_capture_v12"
+          },
+          "class_id": "417274754156495350724C4650726F63",
+          "compatibility": {
+            "disable_windows_accessibility": true
+          },
+          "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+          "environment_revision": 1,
+          "environment_valid": true,
+          "expected_target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3",
+          "external_ids": [
+            "ac7f2418f2915958b5b67620593b9a2d",
+            "0c80f2acc39f5975a38d177102555683"
+          ],
+          "installed_host_valid": true,
+          "limitations": [
+            "short_delivery_gaps",
+            "unqualified256",
+            "windows_accessibility_unavailable",
+            "detached_focus_refusal",
+            "exact_operator_artifact_only"
+          ],
+          "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+          "module_valid": true,
+          "name": "Pure LoFi",
+          "native_artifact_valid": true,
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "performance_policy": "frames512_recommended256_unqualified",
+          "physical_target": "$MANAGED/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3",
+          "prior_rollback": {
+            "revision": {
+              "id": "18f3da27dda66a44ed19677d4921af8c",
+              "sha256": "63d76ba0c39bb56cfdf045672778cb87370b009de2cbf51313a0e4429fe9ffca"
+            },
+            "target": "$MANAGED/publications/417274754156495350724C4650726F63/95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a/LVB_417274754156495350724C4650726F63.vst3",
+            "valid": true
+          },
+          "profile": {
+            "claim": "review_candidate",
+            "id": "arturia-pure-lofi",
+            "revision": 2
+          },
+          "publication": "Published",
+          "publication_valid": true,
+          "recommended_frames": 512,
+          "recorded_revision": {
+            "id": "c6766455f13f73c3756db665b1bf92be",
+            "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+          },
+          "recovery_pending": false,
+          "refusal": null,
+          "role": "instrument",
+          "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+          "runner_valid": true,
+          "selection": 1
+        },
+        {
+          "active_revision": {
+            "id": "d2fb889b4a3797a2b90c0a57152b0296",
+            "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+          },
+          "build": "1.0.0.2925",
+          "capabilities": {
+            "accessibility": "disabled_for_vendor_process",
+            "editor": "detached_owner_thread_with_native_panel",
+            "performance": "frames512_recommended256_unqualified",
+            "precision": "float32_only",
+            "state": "concurrent_read_only_capture_v12"
+          },
+          "class_id": "41727475415649536772616E50726F63",
+          "compatibility": {
+            "disable_windows_accessibility": true
+          },
+          "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+          "environment_revision": 1,
+          "environment_valid": true,
+          "expected_target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3",
+          "external_ids": [
+            "96bd361810b3568a9671700732903d6e",
+            "d3181e9d37e75871ba5ffbcae0775861"
+          ],
+          "installed_host_valid": true,
+          "limitations": [
+            "short_delivery_gaps",
+            "unqualified256",
+            "windows_accessibility_unavailable",
+            "detached_focus_refusal",
+            "exact_operator_artifact_only",
+            "fragments_advanced_redraw"
+          ],
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+          "module_valid": true,
+          "name": "Efx FRAGMENTS",
+          "native_artifact_valid": true,
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "performance_policy": "frames512_recommended256_unqualified",
+          "physical_target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3",
+          "prior_rollback": {
+            "revision": {
+              "id": "9b8970282584cc344c4f2dbd9339fd71",
+              "sha256": "de339aadd05610d43d9b75ee2d6e6fc48dca686f70f16466db02a36a490e2e78"
+            },
+            "target": "$MANAGED/publications/41727475415649536772616E50726F63/revisions/9b8970282584cc344c4f2dbd9339fd71/LVB_41727475415649536772616E50726F63.vst3",
+            "valid": true
+          },
+          "profile": {
+            "claim": "review_candidate",
+            "id": "arturia-efx-fragments",
+            "revision": 2
+          },
+          "publication": "Published",
+          "publication_valid": true,
+          "recommended_frames": 512,
+          "recorded_revision": {
+            "id": "d2fb889b4a3797a2b90c0a57152b0296",
+            "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+          },
+          "recovery_pending": false,
+          "refusal": null,
+          "role": "effect",
+          "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+          "runner_valid": true,
+          "selection": 2
+        }
+      ],
+      "schema": 1
+    }
+  },
+  "cleanup": {
+    "installed_software_and_history_untouched": true,
+    "removed_temporary_task_files": [
+      "r1-package",
+      "r1-manager",
+      "r1-software-before.json",
+      "r1-history-before.json"
+    ]
+  },
+  "cpu_weight": {
+    "effective_cpu_weight": "100",
+    "files": [
+      {
+        "cpu_settings": [],
+        "mtime_ns": 1788979704565085032,
+        "path": "$HOME/.config/systemd/user/linux-vst-bridge.service"
+      }
+    ],
+    "readback": "ControlGroup=/user.slice/user-1000.slice/user@1000.service/app.slice/linux-vst-bridge.service\nCPUWeight=[not set]\nFragmentPath=$HOME/.config/systemd/user/linux-vst-bridge.service\nDropInPaths=\n"
+  },
+  "final_retirement": {
+    "all_prior_history_files_unchanged": true,
+    "pending_transactions": 0,
+    "prior_history_files_checked": 47,
+    "remaining_leases": [
+      {
+        "keeper": true,
+        "session": "6bbb8a503fbe5f836403e32f2d6ddb5d"
+      }
+    ]
+  },
+  "fixture": {
+    "bitwig": "Bitwig Studio - Modern music production and performance\n\n          ID: com.bitwig.BitwigStudio\n         Ref: app/com.bitwig.BitwigStudio/x86_64/stable\n        Arch: x86_64\n      Branch: stable\n     Version: 6.1\n     License: LicenseRef-proprietary\n      Origin: flathub\n  Collection: org.flathub.Stable\nInstallation: system\n   Installed: 744.6\u00a0MB\n     Runtime: org.freedesktop.Platform/x86_64/25.08\n         Sdk: org.freedesktop.Sdk/x86_64/25.08\n\n      Commit: 8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231\n      Parent: 7b66aed37386ffff99e40bbd486f90ceee7ac1d5c59508c7952094122cebf50e\n     Subject: Publish 6.1 (32a12c31f947)\n        Date: 2026-08-31 13:39:41 +0000",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "os_release": {
+      "BUILD_ID": "20260716.1",
+      "PRETTY_NAME": "\"SteamOS\"",
+      "VERSION_ID": "3.8.16"
+    },
+    "runtime": "org.freedesktop.Platform/x86_64/25.08"
+  },
+  "observed_date": "2026-09-09",
+  "publication": {
+    "all_prior_history_files_unchanged": true,
+    "command": [
+      "linux-vst-bridge",
+      "managed",
+      "publish"
+    ],
+    "prior_history_files_checked": 47,
+    "returncode": 0,
+    "seconds": 19.046593113002018
+  },
+  "review": 5158330660,
+  "schema": 1,
+  "setup": {
+    "commands": [
+      {
+        "args": [
+          "systemctl",
+          "--user",
+          "stop",
+          "linux-vst-bridge"
+        ],
+        "code": 0,
+        "seconds": 2.087185320997378
+      },
+      {
+        "args": [
+          "$HOME/AP14-Work/r1-package/linux-vst-bridge",
+          "setup",
+          "$HOME/AP14-Work/r1-package"
+        ],
+        "code": 0,
+        "seconds": 1.0139032020015293
+      }
+    ],
+    "pre_setup_keeper_only": [
+      "51d1bcb75e0af0aabdfd6ad9bd2a1ba4"
+    ],
+    "prior_history_unchanged": true,
+    "registry_unchanged": true
+  },
+  "source_commit": "f4aecf855ca1c23fda7fddf68cd76ec3b3b1e3f6",
+  "unchanged_bindings": "Exact module/runner/environment/SDK metadata, stable Linux IDs, host/source/native content hashes, capabilities and limitations verified equal. Host location advances to the new immutable software directory; native location advances to the new publication target. These location changes are retained explicitly. No vendor/state/project or authorization changes."
+}

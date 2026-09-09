@@ -40,3 +40,7 @@ The one debugger probe attached only to the failing LoFi host, loaded X11 symbol
 ## Claim limits
 
 The complete candidate was tested with the current exact operator artifacts, Bitwig 6.1 and pinned runtime. Normal Applications launches, explicit save/reopen and sibling removal are direct GUI observations; process counters and audio monitor metrics substantiate different parts of the result. The historical AP13 recorded automation evidence is reused, not relabeled as a new gesture qualification. The remaining short preparation/publication gaps are retained; the main repaired-session totals are not a uniform benchmark. The late CPUWeight change has unknown provenance and excludes that interval from performance comparisons. No AP14 CPU/dropout improvement, 256 qualification, general plug-in support, licensing guarantee or full-reboot result is claimed. 512 remains supported/recommended and installed.
+
+## R1 follow-up
+
+The original observations above are retained unchanged. [R1 evidence](r1/README.md) records the immutable revision-3 verified-profile transition selected by technical review 5158330660, the nonactivating candidate gate tests, exact retained revision-2 parents and one focused saved-chain admission check.
