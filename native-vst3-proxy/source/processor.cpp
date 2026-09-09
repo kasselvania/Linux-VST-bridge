@@ -49,7 +49,9 @@ void diagnostic_report(const char *path, const char *text, size_t size) {
   struct stat st{};
   bool valid = fd >= 0 && !::fstat(fd, &st) && S_ISREG(st.st_mode) &&
                st.st_uid == ::getuid() && (st.st_mode & 077) == 0 &&
-               st.st_size >= 0 && st.st_size + static_cast<off_t>(size) <= 65536;
+               // Match the bounded Rust writer after AP13's added correlation
+               // fields; reserve the same capacity for final lifecycle counts.
+               st.st_size >= 0 && st.st_size + static_cast<off_t>(size) <= 131072;
   if (!valid || ::write(fd, text, size) != static_cast<ssize_t>(size))
     std::fputs("AP3 diagnostic persistence failed\n", stderr);
   if (fd >= 0)
