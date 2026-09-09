@@ -5,6 +5,7 @@
 #include "mapped_processing.h"
 #include "ap8_state.h"
 #include "delivery_trace.h"
+#include "fault_status.h"
 #include "delivery_mailbox.h"
 #include "process_context.h"
 #include "controller_updates.h"
@@ -77,7 +78,7 @@ struct Socket {
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
 }
 struct MappedSession::Impl {
- EventWriter& events;DeliveryTrace diagnostic;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
+ EventWriter& events;DeliveryTrace diagnostic;std::unique_ptr<FaultStatus> fault;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
  BusLayout buses;
  std::unique_ptr<GuiChannel> gui;std::unique_ptr<EditorSession> editor;std::wstring editor_title;
  std::atomic<bool> can_notify{false},audio_active{false};
@@ -96,6 +97,7 @@ struct MappedSession::Impl {
   if(!commercial||controller_update_failed.load())return;
   try {
    const bool ok=controller_updates.drain([&](uint32_t id,double value,uint64_t revision){
+    FaultStatus::Scope activity(fault.get(),2,21,id);
     if(editor?!editor->host_value(id,value,revision):controller->setParamNormalized(id,value)!=Steinberg::kResultOk)return false;
     ++controller_updates_applied;return true;
    });
@@ -104,6 +106,7 @@ struct MappedSession::Impl {
  }
  explicit Impl(EventWriter&e):events(e){}
  void state_call(Frame f){
+  FaultStatus::Scope activity(fault.get(),2,23,f.kind);
   require(component&&std::this_thread::get_id()==owner,"state owner thread");
   require(!state.failed&&!state.outstanding&&f.session==state.session&&f.sequence==state.next,"state request correlation");
   require(f.kind==GetState||f.kind==SetState,"state request kind");
@@ -113,7 +116,15 @@ struct MappedSession::Impl {
    update_controller();require(!controller_update_failed.load(),"controller automation update failed");
    if(editor)editor->service(true);
    events.lifecycle("ap4_state_started",",\"operation\":\"opaque\",\"owner_thread\":true");
-   auto payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr);
+   ReadbackStatus readback;std::vector<uint8_t> payload;
+   try{payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr,&readback);}
+   catch(const SaveRefusal& e){
+    require(socket.minor>=11&&f.kind==GetState,"save refusal requires protocol 11");
+    std::vector<uint8_t> error(16);put(error.data(),1,4);put(error.data()+4,GetState,4);put(error.data()+8,e.stage,4);put(error.data()+12,uint32_t(e.result),4);
+    socket.write(frame(Error,state.next,std::move(error)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;
+    events.lifecycle("ap12_save_refused",",\"operation\":16,\"stage\":"+std::to_string(e.stage)+",\"sdk_result\":"+std::to_string(e.result));return;
+   }
+   events.lifecycle("ap12_readback",",\"unavailable_count\":"+std::to_string(readback.unavailable)+",\"first_unavailable_id\":"+std::to_string(readback.first_id)+",\"first_unavailable_bits\":"+std::to_string(readback.first_bits));
    events.lifecycle("ap10_controller_sync",",\"applied\":"+std::to_string(controller_updates_applied)+",\"state_request_sequence\":"+std::to_string(state.next));
    events.lifecycle("ap4_state_result",",\"operation\":\"opaque\",\"result\":0,\"bytes\":"+std::to_string(payload.size()));
    socket.write(frame(uint16_t(f.kind+1),state.next,std::move(payload)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;return;
@@ -143,6 +154,7 @@ struct MappedSession::Impl {
  }
  void dispatch(Frame f){
   if(std::this_thread::get_id()==owner){state_call(std::move(f));return;}
+  FaultStatus::Scope activity(fault.get(),1,7,f.kind);
   std::unique_lock lock(mutex);require(!waiting,"state already pending");
   state_frame=std::move(f);waiting=true;serviced=false;state_error=nullptr;condition.notify_all();
   require(condition.wait_for(lock,std::chrono::seconds(10),[&]{return serviced;}),"owner state service timeout");
@@ -150,6 +162,7 @@ struct MappedSession::Impl {
  }
  void configure(const Frame& f){
   using namespace Steinberg;using namespace Steinberg::Vst;
+  FaultStatus::Scope activity(fault.get(),2,24,Configure);
   require(performance&&processor&&std::this_thread::get_id()==owner&&!active&&!timeline.running&&!state.outstanding,"configuration requires inactive owner");
   require(f.session==state.session&&f.sequence==state.next&&(f.payload.size()==24||(socket.minor>=8&&f.payload.size()>=28)),"configuration correlation/extent");
   auto p=f.payload.data();auto m=uint32_t(get(p,4)),md=uint32_t(get(p+4,4));double hz;std::memcpy(&hz,p+8,8);
@@ -185,9 +198,10 @@ struct MappedSession::Impl {
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
 MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful,bool commercial,bool performance):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?10:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
+ auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?11:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
+  x.fault=std::make_unique<FaultStatus>(directory,x.state.session);x.fault->stage(2,20);
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
   LARGE_INTEGER size{};require(GetFileSizeEx(config.value,&size)&&size.QuadPart==52,"control configuration length");std::array<uint8_t,52>b{};DWORD read=0;require(ReadFile(config.value,b.data(),DWORD(b.size()),&read,nullptr)&&read==b.size(),"control configuration read");
   require(get(b.data()+2,2)==0&&std::equal(x.state.session.begin(),x.state.session.end(),b.begin()+4),"control session binding");auto port=get(b.data(),2);require(port>0,"control port");
@@ -221,6 +235,7 @@ double MappedSession::sample_rate() const{return impl_->rate;}
 bool MappedSession::commercial() const{return impl_->commercial;}
 void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool separate){
  auto&x=*impl_;
+ FaultStatus::Scope activity(x.fault.get(),2,24,c?1:2);
  if(!c&&x.editor){
   require(x.editor->close(),"vendor view refused removal");
   const auto&v=x.editor->view();
@@ -231,7 +246,7 @@ void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool sepa
  if(c){auto n=c->getParameterCount();require(n>=0&&n<=8192,"controller update parameter bound");std::vector<uint32_t> ids;
   for(int i=0;i<n;++i){Steinberg::Vst::ParameterInfo info{};require(c->getParameterInfo(i,info)==Steinberg::kResultOk,"controller update metadata");ids.push_back(info.id);}
   require(x.controller_updates.configure(ids),"duplicate controller parameter identity");
-  if(x.gui){x.editor=std::make_unique<EditorSession>(*x.gui,*c);x.editor->name(x.editor_title);}}
+  if(x.gui){x.editor=std::make_unique<EditorSession>(*x.gui,*c);x.editor->fault_status(x.fault.get());x.editor->name(x.editor_title);}}
 }
 bool MappedSession::hosted() const{return impl_->hosted;}
 bool MappedSession::sustained() const{return impl_->sustained;}
@@ -251,7 +266,7 @@ Steinberg::tresult MappedSession::request_restart(int32_t flags){auto&x=*impl_;
 }
 void MappedSession::service_owner(){auto& x=*impl_;
  x.update_controller();if(x.editor)x.editor->service();
- if(auto flags=x.requested_restart.exchange(0)){auto latency=x.processor->getLatencySamples(),tail=x.processor->getTailSamples();x.published_traits.store(uint64_t(latency)|(uint64_t(tail)<<32));x.published_restart.fetch_or(flags);}
+ if(auto flags=x.requested_restart.exchange(0)){FaultStatus::Scope activity(x.fault.get(),2,24,flags);auto latency=x.processor->getLatencySamples(),tail=x.processor->getTailSamples();x.published_traits.store(uint64_t(latency)|(uint64_t(tail)<<32));x.published_restart.fetch_or(flags);}
  std::unique_lock lock(x.mutex);
  if(x.waiting&&!x.serviced){try{x.state_call(std::move(x.state_frame));}catch(...){x.state_error=std::current_exception();}x.serviced=true;x.condition.notify_all();}}
 bool MappedSession::initial_transition(){auto&x=*impl_;if(!x.has_pending){x.pending=x.receive();x.has_pending=true;}
@@ -277,8 +292,9 @@ void MappedSession::lifecycle_ack(uint16_t kind){auto&x=*impl_;require(!x.state.
  std::vector<uint8_t> payload;if(x.sustained&&(kind==Started||kind==Stopped)){payload.resize(8);put(payload.data(),x.timeline.epoch,8);}
  x.socket.write(x.frame(kind,x.state.next,payload));x.events.lifecycle("ap2_lifecycle_ack",",\"kind\":"+std::to_string(kind)+",\"next_sequence\":"+std::to_string(x.state.next));}
 
+void MappedSession::lifecycle_activity(bool owner,uint64_t stage){if(impl_->fault)impl_->fault->stage(owner?2:1,stage?24:0,stage);}
 void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
-bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{require(!x.controller_update_failed.load(),"controller automation update failed");x.diagnostic.current={};x.diagnostic.stamp(0);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
+bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{require(!x.controller_update_failed.load(),"controller automation update failed");x.diagnostic.current={};x.diagnostic.stamp(0);if(x.fault)x.fault->stage(1,1);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.fault)x.fault->publish(1,{0,x.timeline.epoch,f.sequence,x.timeline.position,2,f.kind});if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
  out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
  if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames,x.socket.minor>=10?104:x.socket.minor>=8?96:0);}
@@ -296,8 +312,8 @@ bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*im
   if(x.diagnostic.armed)x.diagnostic.current.at[0]=x.diagnostic.current.at[1];}
  return true;
  }catch(const std::exception&e){x.error(e);throw;}}
-void MappedSession::before_process(){impl_->diagnostic.stamp(3);}
-void MappedSession::after_process(){impl_->diagnostic.stamp(4);}
+void MappedSession::before_process(){impl_->diagnostic.stamp(3);if(impl_->fault)impl_->fault->stage(1,3);}
+void MappedSession::after_process(){impl_->diagnostic.stamp(4);if(impl_->fault)impl_->fault->stage(1,4);}
 void MappedSession::done(const float* left,const float* right,uint64_t silence,uint64_t process_ns,const ap10_results_t* results) {
  auto& x=*impl_;
  try {
@@ -322,11 +338,11 @@ void MappedSession::done(const float* left,const float* right,uint64_t silence,u
   for(size_t ch=0;ch<2;++ch)
    std::memcpy(x.view+output_offset+ch*stride+4,ch?right:left,x.current.frames*4);
   barrier();
-  x.diagnostic.stamp(6);
+  x.diagnostic.stamp(6);if(x.fault)x.fault->stage(1,5);
   if(x.last_fast&&x.mailbox)x.mailbox->send(x.frame(Done,x.state.next,payload),x.socket.minor);else x.socket.write(x.frame(Done,x.state.next,payload));
-  x.diagnostic.stamp(7);x.diagnostic.complete();
+  if(x.fault)x.fault->stage(1,6);x.diagnostic.stamp(7);x.diagnostic.complete();
   x.state.complete();
  } catch(const std::exception& error) {x.error(error);throw;}
 }
-void MappedSession::finish(bool success){auto&x=*impl_;require(success&&x.closed&&!x.state.outstanding&&!x.state.failed,"session did not close cleanly");require(UnmapViewOfFile(x.view)!=0,"mapping unmap");x.view=nullptr;require(CloseHandle(x.mapping.value)!=0,"mapping handle close");x.mapping.value=nullptr;require(CloseHandle(x.file.value)!=0,"file handle close");x.file.value=INVALID_HANDLE_VALUE;x.socket.write(x.frame(Closed,x.state.next));x.events.lifecycle("ap1_endpoint_closed",",\"mapping_unmapped\":true,\"instance_count\":1");}
+void MappedSession::finish(bool success){auto&x=*impl_;require(success&&x.closed&&!x.state.outstanding&&!x.state.failed,"session did not close cleanly");require(UnmapViewOfFile(x.view)!=0,"mapping unmap");x.view=nullptr;require(CloseHandle(x.mapping.value)!=0,"mapping handle close");x.mapping.value=nullptr;require(CloseHandle(x.file.value)!=0,"file handle close");x.file.value=INVALID_HANDLE_VALUE;x.socket.write(x.frame(Closed,x.state.next));x.diagnostic.dump(x.events);x.events.lifecycle("ap1_endpoint_closed",",\"mapping_unmapped\":true,\"instance_count\":1");}
 }

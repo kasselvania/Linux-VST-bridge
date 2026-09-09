@@ -73,7 +73,7 @@ struct ClockSample {
     after: u64,
 }
 #[cfg(target_os = "linux")]
-fn monotonic_ns() -> u64 {
+pub(crate) fn monotonic_ns() -> u64 {
     #[repr(C)]
     struct Timespec {
         sec: i64,
@@ -89,7 +89,7 @@ fn monotonic_ns() -> u64 {
     ts.sec as u64 * 1_000_000_000 + ts.nsec as u64
 }
 #[cfg(not(target_os = "linux"))]
-fn monotonic_ns() -> u64 {
+pub(crate) fn monotonic_ns() -> u64 {
     0
 }
 impl ClockSample {
@@ -116,7 +116,12 @@ impl ClockSample {
 }
 fn delivery_enabled() -> bool {
     std::env::var_os("HOME").is_some_and(|home| {
-        std::fs::read(std::path::PathBuf::from(home).join("AP10-Work/trace-enable"))
+        let relative = if cfg!(feature = "registered") {
+            ".local/share/linux-vst-bridge/managed/runtime/trace-enable"
+        } else {
+            "AP10-Work/trace-enable"
+        };
+        std::fs::read(std::path::PathBuf::from(home).join(relative))
             .is_ok_and(|b| b == b"1\n")
     })
 }

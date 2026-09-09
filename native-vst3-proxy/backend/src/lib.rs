@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod commercial_tests;
 mod context;
+mod fault_status;
 mod gui;
 mod instances;
 mod mailbox;
@@ -35,6 +36,7 @@ struct Session {
     mapping: Option<Mapping>,
     mailbox: Option<mailbox::Mailbox>,
     mailbox_enabled: bool,
+    fault_status: Option<fault_status::Status>,
     notices: (u32, u64),
     returned: process_results::Packet,
     socket: TcpStream,
@@ -63,7 +65,11 @@ fn retain(error: &io::Error) -> i32 {
             .take(384)
             .collect()
     });
-    2
+    if state::save_refused(error) {
+        5
+    } else {
+        2
+    }
 }
 fn ffi(f: impl FnOnce() -> i32) -> i32 {
     catch_unwind(AssertUnwindSafe(f)).unwrap_or_else(|_| {
@@ -127,6 +133,11 @@ impl Session {
         } else {
             None
         };
+        let fault_status = if minor >= 6 {
+            Some(fault_status::Status::create(&path.join("ap12.status"), id)?)
+        } else {
+            None
+        };
         let prepared = Prepared::create(path, id)?;
         let (mapping, socket) =
             prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
@@ -136,6 +147,7 @@ impl Session {
             mapping: Some(mapping),
             mailbox,
             mailbox_enabled: false,
+            fault_status,
             notices: (0, 0),
             returned: process_results::Packet::default(),
             socket,
@@ -149,7 +161,7 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11) {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -325,11 +337,11 @@ impl Session {
         context: context::Context,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            matches!(self.minor, 5 | 7 | 8 | 9 | 10) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8 | 9 | 10) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -418,7 +430,7 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8 | 9 | 10) {
+            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) {
                 request
                     .payload
                     .extend_from_slice(&events::encode(events, n)?);
@@ -430,6 +442,9 @@ impl Session {
                 request.payload.extend(self.gui_revision.to_le_bytes());
             }
             self.trace.prepared = Some(std::time::Instant::now());
+            if let Some(s) = &mut self.fault_status {
+                s.publish(self.epoch, self.state.next, self.position, 1, 0);
+            }
             let mut reply = if self.mailbox_enabled {
                 let mailbox = self
                     .mailbox
@@ -437,6 +452,9 @@ impl Session {
                     .ok_or_else(|| invalid("delivery mapping absent"))?;
                 mailbox.send(&request, self.minor)?;
                 self.trace.sent = Some(std::time::Instant::now());
+                if let Some(s) = &mut self.fault_status {
+                    s.publish(self.epoch, self.state.next, self.position, 2, 0);
+                }
                 mailbox.receive(
                     self.minor,
                     std::time::Instant::now() + std::time::Duration::from_secs(5),
@@ -444,8 +462,14 @@ impl Session {
             } else {
                 send_version(&mut self.socket, &request, 5, self.minor)?;
                 self.trace.sent = Some(std::time::Instant::now());
+                if let Some(s) = &mut self.fault_status {
+                    s.publish(self.epoch, self.state.next, self.position, 2, 0);
+                }
                 receive_version(&mut self.socket, 5, self.minor)?
             };
+            if let Some(s) = &mut self.fault_status {
+                s.publish(self.epoch, self.state.next, self.position, 3, 0);
+            }
             self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
                 need(

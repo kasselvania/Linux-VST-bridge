@@ -64,13 +64,13 @@ impl Frame {
                 7
             })
                 .contains(&self.kind)
-                && (1..=10).contains(&minor)
+                && (1..=11).contains(&minor)
                 && self.payload.len()
                     <= if minor >= 4 && matches!(self.kind, 17..=19) {
                         1 << 20
                     } else if minor >= 9 && self.kind == DONE {
                         10312
-                    } else if matches!(minor, 5 | 7 | 8 | 9 | 10) && self.kind == PROCESS {
+                    } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11) && self.kind == PROCESS {
                         if minor >= 10 {
                             8352
                         } else if minor >= 8 {
@@ -119,7 +119,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
             && get(&b[6..8]) == minor
-            && (1..=10).contains(&minor)
+            && (1..=11).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
@@ -144,7 +144,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             1 << 20
         } else if minor >= 9 && get(&b[8..10]) == DONE as u64 {
             10312
-        } else if matches!(minor, 5 | 7 | 8 | 9 | 10) && get(&b[8..10]) == PROCESS as u64 {
+        } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11) && get(&b[8..10]) == PROCESS as u64 {
             if minor >= 10 {
                 8352
             } else if minor >= 8 {

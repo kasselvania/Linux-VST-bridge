@@ -1,0 +1,127 @@
+{
+  "schema": "linux-vst-bridge-ap12-installation-observation/v1",
+  "environment_id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+  "environment_revision": 1,
+  "runner": {
+    "build_id": "25118279",
+    "depot_manifest": "2978628887517351791",
+    "directory_name": "Proton 11.0",
+    "required_tool_app_id": "4183110",
+    "steam_app_id": "4628710",
+    "version": "1788504981 proton-11.0-2c-x86_64"
+  },
+  "runtime": {
+    "directory_name": "SteamLinuxRuntime_4",
+    "steam_app_id": "4183110",
+    "build_id": "24599767",
+    "depot_manifest": "78117001432799844",
+    "depot_version": "4.0.20260805.254769",
+    "pressure_vessel_version": "0.20260805.0"
+  },
+  "launch_critical_manifest_sha256": "20064247dc297d0228bbf63d5a49050238c518d14fbb77b61a8c73351db5ebf7",
+  "declared_inputs_sha256": "e701be47751c64e1cef522a4021cc5e283f110ab1124fd535286a53b657c1925",
+  "modules": [
+    {
+      "path": "Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+      "bytes": 20673024,
+      "sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89"
+    },
+    {
+      "path": "Program Files/Common Files/VST3/Pure LoFi.vst3",
+      "bytes": 26519616,
+      "sha256": "d2d4de5caeaf1643a9eb95d6a7060cbb8d8b3abb95e9d9daeb93281f0fb4c847"
+    }
+  ],
+  "observations": {
+    "pure": {
+      "records": [
+        {
+          "state": "ap12_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "state": "ap8_result",
+          "operation": "initializeComponent",
+          "result": 0
+        },
+        {
+          "state": "ap8_parameter_count",
+          "count": 3053
+        },
+        {
+          "state": "ap12_state_stream",
+          "result": 1,
+          "bytes": 0,
+          "failed": false,
+          "writes": 0,
+          "largest_write": 0,
+          "reads": 0,
+          "seeks": 0,
+          "unknown_queries": 0
+        },
+        {
+          "state": "ap8_failure",
+          "reason": "getComponentState"
+        }
+      ],
+      "cleanup_confirmed": true,
+      "error": "TimeoutError: inspection deadline",
+      "raw_exit": -15,
+      "source_commit": "a06d02319b390972806b62ec6476288c96489dbe",
+      "installer": {
+        "returncode": 0,
+        "finished_unix": 1788888946.5334823
+      }
+    },
+    "fragments": {
+      "records": [
+        {
+          "state": "ap12_class",
+          "class_id": "41727475415649536772616E50726F63",
+          "name": "Efx FRAGMENTS",
+          "vendor": "Arturia",
+          "version": "1.0.0.2925",
+          "subcategories": "Fx|Tools",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "state": "ap8_result",
+          "operation": "initializeComponent",
+          "result": 0
+        },
+        {
+          "state": "ap8_parameter_count",
+          "count": 2348
+        },
+        {
+          "state": "ap12_state_stream",
+          "result": 1,
+          "bytes": 0,
+          "failed": false,
+          "writes": 0,
+          "largest_write": 0,
+          "reads": 0,
+          "seeks": 0,
+          "unknown_queries": 0
+        },
+        {
+          "state": "ap8_failure",
+          "reason": "getComponentState"
+        }
+      ],
+      "cleanup_confirmed": true,
+      "error": "Windows host exited without successful close",
+      "raw_exit": 90,
+      "source_commit": "a06d02319b390972806b62ec6476288c96489dbe",
+      "installer": {
+        "returncode": 0,
+        "finished_unix": 1788888657.3053906
+      }
+    }
+  }
+}

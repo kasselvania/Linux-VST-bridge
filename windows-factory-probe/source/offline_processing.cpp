@@ -1,3 +1,4 @@
+#include <string_view>
 #include <windows.h>
 #include "offline_processing.h"
 #include "../../native-vst3-proxy/include/ap10_sdk_results.h"
@@ -97,7 +98,10 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         events.lifecycle("ap0_call_started",",\"operation\":\""+std::string(operation)+
             "\",\"owner_thread\":"+(std::this_thread::get_id()==owner?"true":"false"));
         callbacks.begin_plugin_call(events.sequence(),operation);
+        const uint64_t activity=std::string_view(operation)=="setup_processing"?1:std::string_view(operation)=="set_active_true"?2:std::string_view(operation)=="set_processing_true"?3:std::string_view(operation)=="set_processing_false"?4:5;
+        if(external)external->lifecycle_activity(std::this_thread::get_id()==owner,activity);
         const auto result=function();
+        if(external)external->lifecycle_activity(std::this_thread::get_id()==owner,0);
         callbacks.end_plugin_call();
         events.lifecycle("ap0_call_completed",",\"operation\":\""+std::string(operation)+
             "\",\"result\":"+std::to_string(result));

@@ -1,4 +1,5 @@
 #pragma once
+#include "fault_status.h"
 #include "vendor_view.h"
 #include <chrono>
 #include <vector>
@@ -16,6 +17,7 @@ class EditorSession {
   std::vector<Parameter> parameters_;
   std::thread::id owner_ = std::this_thread::get_id();
   VendorView view_;
+  FaultStatus* fault_=nullptr;
   Clock::time_point serviced_{};
   uint64_t floor_ = 0, close_cutoff_ = 0, refresh_revision_ = 0;
   uint32_t refresh_flags_ = 0, pending_refresh_ = 0;
@@ -95,8 +97,11 @@ class EditorSession {
       m.steps = info.stepCount;
       std::memcpy(m.title, info.title, sizeof(m.title));
       std::memcpy(m.units, info.units, sizeof(m.units));
-      if (!std::isfinite(m.value) || m.value < 0 || m.value > 1 ||
-          m.title[127] || m.units[127]) {
+      if (!std::isfinite(m.value) || m.value < 0 || m.value > 1) {
+        m.result=1; // explicitly unavailable readback; zero bytes carry no value
+        m.value=0;
+      }
+      if (m.title[127] || m.units[127]) {
         channel_.fail(AP11::Controller);
         return;
       }
@@ -145,6 +150,7 @@ public:
     });
     channel_.ready();
   }
+  void fault_status(FaultStatus* f) { fault_=f; }
   void name(const std::wstring &name) { name_ = name; }
   bool host_value(uint32_t id, double value, uint64_t revision) {
     if (owner_ != std::this_thread::get_id())
@@ -287,6 +293,7 @@ public:
     if (!force && now - serviced_ < std::chrono::milliseconds(4))
       return;
     serviced_ = now;
+    FaultStatus::Scope activity(fault_,2,22);
     channel_.heartbeat();
     if (channel_.closed() || channel_.failure()) {
       if (!close())
@@ -340,14 +347,15 @@ public:
           break;
         }
       } else if (m.kind == AP11::Refresh)
-        request_refresh(Steinberg::Vst::kParamValuesChanged |
-                        Steinberg::Vst::kParamTitlesChanged);
+        request_refresh(uint32_t(m.flags));
       else {
         channel_.fail(AP11::Protocol);
         break;
       }
     }
-    if (!VendorView::pump()) {
+    bool pumped=false;
+    {FaultStatus::Scope pumping(fault_,2,25);pumped=VendorView::pump();}
+    if (!pumped) {
       channel_.fail(AP11::Closed);
       close();
       return;

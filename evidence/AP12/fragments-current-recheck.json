@@ -1,0 +1,92 @@
+{
+  "claim": "Normally installed FRAGMENTS still initializes and supplies effect metadata but refuses initial component state on current diagnostic host",
+  "session": "b7b4cc7e801cfe5e87f0db47cf4c40e3",
+  "vendor_module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+  "windows_host_sha256": "54f84d91df0575837fdd333be7cfc541ac11f988458a7ffb0bf3f969f2d21abf",
+  "environment": "AP12 persistent bridge-owned Arturia environment, unchanged normal installer output",
+  "compatibility": {
+    "disable_windows_accessibility": true
+  },
+  "records": [
+    {
+      "event": "lifecycle",
+      "sequence": 39,
+      "state": "ap12_class",
+      "class_id": "41727475415649536772616E50726F63",
+      "name": "Efx FRAGMENTS",
+      "vendor": "Arturia",
+      "version": "1.0.0.2925",
+      "subcategories": "Fx|Tools",
+      "metadata_tier": "factory_3_unicode"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 43,
+      "state": "ap8_result",
+      "operation": "initializeComponent",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 63,
+      "state": "ap8_parameter_count",
+      "count": 2348
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 140,
+      "state": "ap12_capabilities",
+      "latency_samples": 176,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 142,
+      "state": "ap12_state_stream",
+      "result": 1,
+      "bytes": 0,
+      "failed": false,
+      "writes": 0,
+      "largest_write": 0,
+      "reads": 0,
+      "seeks": 0,
+      "last_seek_offset": 0,
+      "last_seek_mode": 0,
+      "unknown_queries": 0,
+      "last_unknown_iid": "00000000000000000000000000000000"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 143,
+      "state": "ap8_result",
+      "operation": "getComponentState",
+      "result": 1
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 144,
+      "state": "ap8_failure",
+      "reason": "getComponentState"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 149,
+      "state": "ap8_inspection_closed",
+      "exit_code": 90
+    }
+  ],
+  "outcome": {
+    "error": "Windows SDK host failed: 90",
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "raw_exit": -15
+  },
+  "limits": [
+    "State failure precedes editor/processing startup in the current host. No actual FRAGMENTS editor/audio/state/removal result from this environment is claimed.",
+    "Cause of state refusal and authorization posture not established. No licensing material or replacement vendor files copied.",
+    "No standalone FRAGMENTS executable is present in the inspected installed product directory; only its uninstaller.",
+    "Older working FRAGMENTS evidence remains bound to its original module/environment."
+  ]
+}

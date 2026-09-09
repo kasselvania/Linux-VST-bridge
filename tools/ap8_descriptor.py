@@ -1,5 +1,5 @@
 """Prepare one native descriptor from actual SDK inspection (not a scanner)."""
-import argparse,hashlib,json,pathlib,uuid
+import argparse,hashlib,json,pathlib,uuid,math
 
 def generate(records,class_id,module_sha256):
     buses=[r for r in records if r.get('state')=='ap8_bus']
@@ -25,8 +25,8 @@ def generate(records,class_id,module_sha256):
         if direction and len(group)!=1:raise ValueError('one audio output supported')
     notes=[r for r in buses if r['media']==1 and r['direction']==0]
     if len(notes)>1 or (notes and notes[0]['index']!=0):raise ValueError('one event input supported')
-    metadata=next(r for r in records if r.get('state')=='ap8_inspected')
-    vendor=next((r for r in records if r.get('state')=='ap11_class' and r['class_id'].upper()==class_id.upper()),None)
+    metadata=next(r for r in records if r.get('state') in ('ap8_inspected','ap12_capabilities'))
+    vendor=next((r for r in records if r.get('state')=='ap12_class' and r['class_id'].upper()==class_id.upper()),None)
     if vendor is None:raise ValueError('selected vendor class metadata absent')
     name=vendor['name']
     if not name or '\0' in name or len(name.encode('utf-8'))>63:
@@ -34,10 +34,28 @@ def generate(records,class_id,module_sha256):
     # Octal UTF-8 bytes keep the SDK class label identical on every compiler.
     label='"'+''.join('\\%03o'%b for b in name.encode('utf-8'))+'"'
     if metadata['float32_result']!=0:raise ValueError('float32 processing unsupported')
-    effect=any(r['media']==0 and r['direction']==0 for r in buses)
+    # A factory-1 class has no declared role: inspectable, but not publishable.
+    if vendor.get('metadata_tier') not in ('factory_2','factory_3_unicode'):
+        raise ValueError('factory lacks declared VST3 subcategories')
+    categories=vendor['subcategories'].split('|')
+    if ('Fx' in categories)==('Instrument' in categories):
+        raise ValueError('ambiguous or absent declared VST3 role')
+    effect='Fx' in categories
+    literals={}
+    for key,limit in [('vendor',63),('version',63),('subcategories',127)]:
+        value=vendor[key]
+        if not value or any(ord(c)<32 for c in value) or len(value.encode('utf-8'))>limit:
+            raise ValueError('vendor '+key+' outside SDK bound')
+        literals[key]='"'+''.join('\\%03o'%b for b in value.encode('utf-8'))+'"'
+
     params=[p for r in records if r.get('state')=='ap8_parameters' for p in r['parameters']]
     if len(params)!=next(r['count'] for r in records if r.get('state')=='ap8_parameter_count') or len({p[0] for p in params})!=len(params):
         raise ValueError('incomplete/duplicate parameter metadata')
+    normal=lambda v: isinstance(v,(int,float)) and math.isfinite(v) and 0<=v<=1
+    available=lambda p: normal(p[6])
+    for p in params:
+        if not available(p) and not normal(p[5]):
+            raise ValueError('no valid readback or SDK default for presentation')
     # Immutable UUIDv5 namespace and logical vendor CID. No path/build/session in native class IDs.
     namespace=uuid.UUID('9389480f-b4b0-5e02-a1d7-687a57b54b3f')
     ids=[uuid.uuid5(namespace,class_id.upper()+suffix).hex for suffix in (':processor',':controller')]
@@ -47,9 +65,12 @@ def generate(records,class_id,module_sha256):
     return '''#pragma once
 #include <cstdint>
 namespace AP8 {
-struct Parameter {uint32_t id;const char16_t* title;const char16_t* units;int32_t steps,flags;double initial;};
+struct Parameter {uint32_t id;const char16_t* title;const char16_t* units;int32_t steps,flags;double initial;bool available=true;};
 struct Bus {uint32_t media,direction,index,channels,type,flags;uint64_t arrangement;const char16_t* name;};
 inline constexpr char class_name[]='''+label+''';
+inline constexpr char vendor[]='''+literals['vendor']+''';
+inline constexpr char version[]='''+literals['version']+''';
+inline constexpr char subcategories[]='''+literals['subcategories']+''';
 inline constexpr bool effect='''+('true' if effect else 'false')+''';
 inline constexpr Bus buses[]={
 '''+',\n'.join('{'+','.join([str(r[k]) for k in ('media','direction','index','channels','type','flags')]+[str(r.get('arrangement',0)),quote(r['name'])])+'}' for r in buses)+'''
@@ -58,7 +79,7 @@ inline constexpr uint8_t identity[48]={'''+','.join(str(x) for x in identity)+''
 #define AP8_PROCESSOR_UID '''+words(ids[0])+'''
 #define AP8_CONTROLLER_UID '''+words(ids[1])+'''
 inline constexpr Parameter parameters[]={
-'''+',\n'.join('{'+','.join([str(p[0]),quote(p[1]),quote(p[2]),str(p[3]),str(p[4]),repr(p[6])])+'}' for p in params)+'''\n};
+'''+',\n'.join('{'+','.join([str(p[0]),quote(p[1]),quote(p[2]),str(p[3]),str(p[4]),repr(p[6] if available(p) else p[5]),str(available(p)).lower()])+'}' for p in params)+'''\n};
 }
 '''
 

@@ -1,0 +1,1547 @@
+{
+  "claim": "Focused operator-replaced Pure LoFi candidate observation; not normal-installer or vendor-authorization qualification",
+  "source_commit": "7d1bb8d0f4101e4fa51872e77c5aa6f0a24e3232",
+  "module": {
+    "class_id": "417274754156495350724C4650726F63",
+    "version": "1.0.0.6121",
+    "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+    "provenance": "Operator replaced main VST3 and two internal module copies after normal installation. Not the original installed bytes. No vendor authorization verified."
+  },
+  "native_build": {
+    "returncode": 0,
+    "sha256": "cab22dc72432c64f188782aad25b1cd1628117c44c7f3fd02511205ec52e20ea",
+    "source_commit": "7d1bb8d0f4101e4fa51872e77c5aa6f0a24e3232",
+    "input_archive_sha256": "adeafeb4b3045a29ee81b9a663b0269e7fdc2681e777966dbade5d1443eda442",
+    "descriptor_sha256": "3b11451ee79ed982d750a2766146f671144c8a3f27610db89f3d84f81bfccd21",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "registration": {
+    "repeat_calls": 2,
+    "exit_codes": [
+      0,
+      0
+    ],
+    "published": true,
+    "artifacts_valid": true,
+    "browser_name": "Pure LoFi",
+    "browser_vendor": "Arturia",
+    "browser_role": "Instrument/Synth"
+  },
+  "earlier_failure": {
+    "conditions": "Operator load preceding agent reproduction; exact initiating action unknown, correlated tracing absent",
+    "native": [
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 184626,
+        "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 184626,
+        "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap11_editor_status",
+        "monotonic_ns": 694011712990111,
+        "focus_result": 1,
+        "activation": 1,
+        "user_time": 0,
+        "view_epoch": 1,
+        "focus_flags": 0,
+        "open": 1,
+        "result": 0
+      },
+      {
+        "event": "ap11_editor_status",
+        "monotonic_ns": 694011753016746,
+        "focus_result": 4,
+        "activation": 1,
+        "user_time": 0,
+        "view_epoch": 1,
+        "focus_flags": 6,
+        "open": 1,
+        "result": 0
+      },
+      {
+        "event": "ap5_worker_fault",
+        "generation": 1,
+        "fault": 3,
+        "first_position": 302592,
+        "processed": 1182,
+        "request_high": 937,
+        "result_high": 2,
+        "detail": "InvalidData: delivery response deadline"
+      },
+      {
+        "event": "ap7_fault_progress",
+        "context_ready": true,
+        "epoch": 1,
+        "worker_op": 3,
+        "worker_epoch": 1,
+        "worker_position": 302592,
+        "request_published": 2121,
+        "request_consumed": 1184,
+        "result_published": 1182,
+        "result_consumed": 1182,
+        "service_us_max_at_report": 7346,
+        "observation_skips": 0
+      },
+      {
+        "event": "ap7_observation",
+        "offered_samples": 605184,
+        "verified_returned_samples": 0,
+        "unchecked_samples": 605184,
+        "dropped_jobs": 0,
+        "dropped_samples": 0,
+        "reader_skips": 0,
+        "unretained_gap_traces": 904,
+        "maximum_error": 0,
+        "before_edit_samples": 0,
+        "edits": 0
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 302592,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 302848,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 303104,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 303360,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 303616,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 303872,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 304128,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 304384,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 304640,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 304896,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 305152,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 305408,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 305664,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 305920,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 306176,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 306432,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 306688,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 306944,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 307200,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 307456,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 307712,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 307968,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 308224,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 308480,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 308736,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 308992,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 309248,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 309504,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 309760,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 310016,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 310272,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap7_gap_request",
+        "epoch": 1,
+        "gap_position": 310528,
+        "gap_frames": 256,
+        "request_trace_missing": true
+      },
+      {
+        "event": "ap4_native_error",
+        "operation": "get",
+        "stage": "failed_instance",
+        "fault": 3,
+        "first_position": 302592,
+        "processed": 1182,
+        "callback_rejections": 1955,
+        "detail": "InvalidData: delivery response deadline"
+      },
+      {
+        "event": "ap10_process_results",
+        "stats_status": 0,
+        "events_delivered": 0,
+        "points_delivered": 0,
+        "late_events": 0,
+        "late_points": 0,
+        "host_unrequested_events": 0,
+        "host_unrequested_points": 0,
+        "rejected": 0,
+        "cleanup_sent": 0,
+        "cleanup_unavailable": 0,
+        "active_notes_unreleased": 0,
+        "discarded_on_reset": 0,
+        "pending_events": 0,
+        "pending_points": 0
+      },
+      {
+        "event": "ap10_admission_failure",
+        "code": 2,
+        "frames": 512,
+        "input_flags": 3,
+        "context_state": 11776,
+        "rate": 48000,
+        "cycle_start": 0,
+        "cycle_end": 0,
+        "nonfinite_fields": 0
+      },
+      {
+        "event": "ap3_proxy_stats",
+        "fault": 3,
+        "first_position": 302592,
+        "processed": 1182,
+        "request_high": 937,
+        "result_high": 2,
+        "position": 542720,
+        "epoch": 1
+      },
+      {
+        "event": "ap5_sample_progress",
+        "samples": 0,
+        "before_edit_samples": 0,
+        "edits": 0,
+        "nonzero_samples": 0,
+        "maximum_error": 0,
+        "restored_gain": 0,
+        "input_fnv1a64": 14695981039346656037,
+        "output_fnv1a64": 14695981039346656037
+      },
+      {
+        "event": "ap4_sample_comparison",
+        "samples": 0,
+        "restored_samples": 0,
+        "before_edit_samples": 0,
+        "restores": 0,
+        "edits": 0,
+        "nonzero_samples": 0,
+        "maximum_error": 0,
+        "restored_gain": 0
+      },
+      {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 7,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 542720,
+        "blocks": 1060,
+        "callback_rejections": 2487,
+        "rejected_silent_frames": 1273344,
+        "discontinuities": 1,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 239616,
+        "underrun_gaps": 1,
+        "underrun_callbacks": 468,
+        "expired_output_frames": 0,
+        "delivered_frames": 302592,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": false
+      }
+    ],
+    "windows": {
+      "outcome": {
+        "error": null,
+        "cleanup_confirmed": true,
+        "raw_exit": -15,
+        "transport_retired": true
+      },
+      "records": [
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "ap12_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 160,
+          "state": "ap12_capabilities",
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap12_state_stream",
+          "result": 0,
+          "bytes": 73987,
+          "failed": false,
+          "writes": 1,
+          "largest_write": 73987,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 164,
+          "state": "ap8_inspected",
+          "controller_separate": false,
+          "state_bytes": 73987,
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 165,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 168,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 170,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 173,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 178,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 180,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        }
+      ]
+    }
+  },
+  "focused_reproduction": {
+    "conditions": "Applications-launched Bitwig 6.1, local audio, editor open then closed, four-note clip, stopped save, project close and Bitwig quit; 512 added frames, no source/buffer change",
+    "native": [
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 184626,
+        "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 184626,
+        "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap11_editor_status",
+        "monotonic_ns": 694211252412456,
+        "focus_result": 1,
+        "activation": 1,
+        "user_time": 0,
+        "view_epoch": 1,
+        "focus_flags": 0,
+        "open": 1,
+        "result": 0
+      },
+      {
+        "event": "ap11_editor_status",
+        "monotonic_ns": 694211292418182,
+        "focus_result": 4,
+        "activation": 1,
+        "user_time": 0,
+        "view_epoch": 1,
+        "focus_flags": 6,
+        "open": 1,
+        "result": 0
+      },
+      {
+        "event": "ap11_editor_status",
+        "monotonic_ns": 694247622443108,
+        "focus_result": 5,
+        "activation": 1,
+        "user_time": 0,
+        "view_epoch": 1,
+        "focus_flags": 6,
+        "open": 0,
+        "result": 0
+      },
+      {
+        "event": "ap11_editor_status",
+        "monotonic_ns": 694257142452439,
+        "focus_result": 5,
+        "activation": 1,
+        "user_time": 0,
+        "view_epoch": 1,
+        "focus_flags": 6,
+        "open": 0,
+        "result": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 184890,
+        "sha256": "824f9d24fdff4a7cc563435b14c4c50423c2b60e65507c78ff6740105b6ee039",
+        "gain": 0
+      },
+      {
+        "event": "ap10_process_results",
+        "stats_status": 0,
+        "events_delivered": 0,
+        "points_delivered": 0,
+        "late_events": 0,
+        "late_points": 0,
+        "host_unrequested_events": 0,
+        "host_unrequested_points": 0,
+        "rejected": 0,
+        "cleanup_sent": 0,
+        "cleanup_unavailable": 0,
+        "active_notes_unreleased": 0,
+        "discarded_on_reset": 0,
+        "pending_events": 0,
+        "pending_points": 0
+      },
+      {
+        "event": "ap3_proxy_stats",
+        "fault": 0,
+        "first_position": 18446744073709551615,
+        "processed": 28640,
+        "request_high": 3,
+        "result_high": 2,
+        "position": 4260864,
+        "epoch": 2
+      },
+      {
+        "event": "ap5_sample_progress",
+        "samples": 0,
+        "before_edit_samples": 0,
+        "edits": 0,
+        "nonzero_samples": 0,
+        "maximum_error": 0,
+        "restored_gain": 0,
+        "input_fnv1a64": 14695981039346656037,
+        "output_fnv1a64": 14695981039346656037
+      },
+      {
+        "event": "ap4_sample_comparison",
+        "samples": 0,
+        "restored_samples": 0,
+        "before_edit_samples": 0,
+        "restores": 0,
+        "edits": 0,
+        "nonzero_samples": 0,
+        "maximum_error": 0,
+        "restored_gain": 0
+      },
+      {
+        "event": "ap7_observation",
+        "offered_samples": 14663680,
+        "verified_returned_samples": 0,
+        "unchecked_samples": 14663680,
+        "dropped_jobs": 0,
+        "dropped_samples": 0,
+        "reader_skips": 0,
+        "unretained_gap_traces": 0,
+        "maximum_error": 0,
+        "before_edit_samples": 0,
+        "edits": 0
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "queue",
+        "requests": 16644,
+        "mean_ns": 812401,
+        "p50_upper_ns": 704000,
+        "p95_upper_ns": 2304000,
+        "p99_upper_ns": 2560000,
+        "max_ns": 4837011
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "prepare",
+        "requests": 16644,
+        "mean_ns": 11155,
+        "p50_upper_ns": 11000,
+        "p95_upper_ns": 15000,
+        "p99_upper_ns": 28000,
+        "max_ns": 558265
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "send",
+        "requests": 16644,
+        "mean_ns": 720,
+        "p50_upper_ns": 1125,
+        "p95_upper_ns": 1125,
+        "p99_upper_ns": 1125,
+        "max_ns": 296242
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "reply",
+        "requests": 16644,
+        "mean_ns": 1354355,
+        "p50_upper_ns": 1408000,
+        "p95_upper_ns": 2304000,
+        "p99_upper_ns": 2816000,
+        "max_ns": 4774429
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "validation",
+        "requests": 16644,
+        "mean_ns": 9214,
+        "p50_upper_ns": 9000,
+        "p95_upper_ns": 12000,
+        "p99_upper_ns": 22000,
+        "max_ns": 261572
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "publication",
+        "requests": 16642,
+        "mean_ns": 5603,
+        "p50_upper_ns": 6000,
+        "p95_upper_ns": 7500,
+        "p99_upper_ns": 9000,
+        "max_ns": 195631
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "admission_to_publication",
+        "requests": 16642,
+        "mean_ns": 2193579,
+        "p50_upper_ns": 1920000,
+        "p95_upper_ns": 3840000,
+        "p99_upper_ns": 5120000,
+        "max_ns": 7278184
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "windows_process",
+        "requests": 16644,
+        "mean_ns": 1211808,
+        "p50_upper_ns": 1280000,
+        "p95_upper_ns": 2048000,
+        "p99_upper_ns": 2560000,
+        "max_ns": 4623000
+      },
+      {
+        "event": "ap9_timing",
+        "stage": "correlated_non_plugin",
+        "requests": 16642,
+        "mean_ns": 981692,
+        "p50_upper_ns": 832000,
+        "p95_upper_ns": 2304000,
+        "p99_upper_ns": 2816000,
+        "max_ns": 4998260
+      },
+      {
+        "event": "ap9_clock_resolution",
+        "negative_correlated_residuals": 0
+      },
+      {
+        "event": "ap9_unpublished",
+        "requests": 2
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 2,
+        "sequence": 23955,
+        "position": 3060480,
+        "service_ns": 7278184,
+        "windows_process_ns": 2906200
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 2,
+        "sequence": 19855,
+        "position": 2010880,
+        "service_ns": 7235860,
+        "windows_process_ns": 2237600
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 2,
+        "sequence": 17671,
+        "position": 1451776,
+        "service_ns": 6923496,
+        "windows_process_ns": 2427000
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 2,
+        "sequence": 17649,
+        "position": 1446144,
+        "service_ns": 6682384,
+        "windows_process_ns": 4242500
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 2,
+        "sequence": 15901,
+        "position": 998656,
+        "service_ns": 6510262,
+        "windows_process_ns": 1792000
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 2,
+        "sequence": 20893,
+        "position": 2276608,
+        "service_ns": 6493255,
+        "windows_process_ns": 2401000
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 2,
+        "sequence": 15081,
+        "position": 788736,
+        "service_ns": 6478101,
+        "windows_process_ns": 3701500
+      },
+      {
+        "event": "ap9_slow_request",
+        "epoch": 2,
+        "sequence": 19655,
+        "position": 1959680,
+        "service_ns": 6364653,
+        "windows_process_ns": 3923100
+      },
+      {
+        "event": "ap10_linux_clock",
+        "start_before_ns": 694205387988917,
+        "start_after_ns": 694205387989227,
+        "end_before_ns": 694454466980010,
+        "end_after_ns": 694454466980630,
+        "instant_elapsed_ns": 249078991403
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 0,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.06595542744170381,
+        "peak": 0.10689467936754227,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 4800,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.06785531163323419,
+        "peak": 0.10322517901659012,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 9600,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.06251301484381097,
+        "peak": 0.09603200107812881,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 14400,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.05658841270847498,
+        "peak": 0.08756645023822784,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 19200,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.05118678567308895,
+        "peak": 0.07914474606513977,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 24000,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.04744402839968381,
+        "peak": 0.07165718078613281,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 28800,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.04401451144223662,
+        "peak": 0.07003872096538544,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 33600,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.03913732645633273,
+        "peak": 0.06064781919121742,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 38400,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.03525800254675129,
+        "peak": 0.05630781874060631,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 43200,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.029441128739232714,
+        "peak": 0.049164410680532455,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 48000,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.02177479871690397,
+        "peak": 0.039947547018527985,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 52800,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.017034603070684794,
+        "peak": 0.029749352484941483,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 57600,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.010818878515349326,
+        "peak": 0.02084583230316639,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 62400,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0072934602173179795,
+        "peak": 0.013922059908509254,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 67200,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.005100791646840926,
+        "peak": 0.009971315041184425,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 72000,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0040000086748938485,
+        "peak": 0.007702731993049383,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 76800,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0036169444370380012,
+        "peak": 0.006654695142060518,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 81600,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.003276035024447672,
+        "peak": 0.005837687756866217,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 86400,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.002842020135218336,
+        "peak": 0.005223033018410206,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 91200,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0024694709255365945,
+        "peak": 0.004546248819679022,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 96000,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0020186929440056305,
+        "peak": 0.0038447685074061155,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 100800,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0016356172699469411,
+        "peak": 0.004180465824902058,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 105600,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.002063147994667551,
+        "peak": 0.004267255309969187,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 110400,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.001725299290002437,
+        "peak": 0.003513760631904006,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 115200,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0014436095817537934,
+        "peak": 0.002814236097037792,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 120000,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0012181598923957035,
+        "peak": 0.002385892439633608,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 124800,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.001042070009562144,
+        "peak": 0.0020132858771830797,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 129600,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0009883865875584526,
+        "peak": 0.0018291776068508625,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 134400,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0009174965418546772,
+        "peak": 0.0016042180359363556,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 139200,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0007934776442078831,
+        "peak": 0.0014526707818731666,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 144000,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.00068335465774634,
+        "peak": 0.001261871657334268,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap8_returned_audio",
+        "epoch": 2,
+        "position": 148800,
+        "samples": 9600,
+        "nonzero": 9600,
+        "rms": 0.0005572065620293211,
+        "peak": 0.0010521210497245193,
+        "unretained_window_samples": 8214528
+      },
+      {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 7331840,
+        "blocks": 14320,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 2,
+        "successful_silent_frames": 1024,
+        "priming_frames": 1024,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 7330816,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      }
+    ],
+    "windows": {
+      "outcome": {
+        "error": null,
+        "cleanup_confirmed": true,
+        "raw_exit": -15,
+        "transport_retired": true
+      },
+      "records": [
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "ap12_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 160,
+          "state": "ap12_capabilities",
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap12_state_stream",
+          "result": 0,
+          "bytes": 73987,
+          "failed": false,
+          "writes": 1,
+          "largest_write": 73987,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 164,
+          "state": "ap8_inspected",
+          "controller_separate": false,
+          "state_bytes": 73987,
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 165,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 168,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 170,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 173,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 178,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 180,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 200,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 202,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184890
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 203,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 28640,
+          "intervals": 2,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 207,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 0,
+          "removal_messages": 13,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 61,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 212,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 224,
+          "state": "module_unloaded"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 226,
+          "state": "scanner_completed",
+          "inspection_complete": true
+        }
+      ]
+    },
+    "local_audio": {
+      "source": "Deck local speaker sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 286720,
+      "seconds": 5.973333333333334,
+      "peak": 0.05593517795205116,
+      "rms": 0.017308644614281877,
+      "nonzero_samples": 572416
+    }
+  },
+  "limitations": [
+    "Earlier delivery timeout did not reproduce; no causal repair claimed.",
+    "Native observation counters do not establish bit-exact vendor audio correctness.",
+    "Local capture is shorter than the requested eight seconds due to monitor startup; not a physical round-trip latency test.",
+    "Pure-only project; no FRAGMENTS chain, automation gesture, Deck/session restart, or broad compatibility claim.",
+    "No proprietary binaries, state bytes, presets or audio committed."
+  ],
+  "recall": {
+    "conditions": "Bitwig quit, relaunched through Applications; reopened AP12 Pure LoFi Check and played its four notes; no Deck/user-session restart",
+    "state_and_setup_snapshot": [
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 184626,
+        "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_get",
+        "payload_bytes": 184626,
+        "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+        "gain": 0
+      },
+      {
+        "event": "ap4_native_state",
+        "operation": "opaque_set",
+        "payload_bytes": 184626,
+        "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+        "gain": 0
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      },
+      {
+        "event": "ap9_setup",
+        "host_maximum": 512,
+        "transport_maximum": 256,
+        "sample_rate": 48000,
+        "bridge_frames": 512,
+        "vendor_frames": 48,
+        "total_frames": 560,
+        "vendor_precision_bits": 1
+      }
+    ],
+    "local_audio": {
+      "source": "Deck local speaker sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 286720,
+      "seconds": 5.973333333333334,
+      "peak": 0.053109973669052124,
+      "rms": 0.017480207663380116,
+      "nonzero_samples": 572416
+    },
+    "left_open": true,
+    "transport_stopped": true,
+    "final_session_counters": "not collected because recalled processing instance remains open"
+  }
+}

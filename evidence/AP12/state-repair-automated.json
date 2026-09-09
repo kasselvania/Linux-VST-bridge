@@ -1,0 +1,42 @@
+{
+  "claim": "Shared state, native editor bootstrap and reporting-independent retirement repairs; automated and vendor-access evidence, not pair qualification",
+  "repair_source": "e836901b93abc5335157f7d072922546d8a371f4",
+  "local_tests": {
+    "rust_backend": {"passed": 46, "platform": "macOS", "coverage": ["production queued worker and C ABI save refusal followed by mapped audio", "unchanged prior snapshot and correctly consumed request sequence", "healthy independently owned sibling", "subsequent successful capture", "legacy envelope and validity-tagged mirror parsing", "terminal restore, correlation, malformed refusal and disconnected peer"]},
+    "descriptor": {"passed": 6, "coverage": ["metadata-based role and stable class IDs", "unavailable readback uses validated default only", "valid actual readback remains usable when vendor default is invalid", "both unavailable refuses publication without invented values"]}
+  },
+  "hosted_tests": {
+    "windows": {"run": 34277564627, "result": "success", "checkout": "5ffb923fe620492f5322c86b597e61f99fb05ed3", "tree": "be4dbd02916da43111a8327905012df711558ff0", "coverage": ["SDK-produced opaque capture with unavailable readback", "completed SDK capture refusals and unsafe restore distinction", "optional fresh controller synchronization", "genuine editor refresh includes unavailable entries and completes", "existing view, gesture, focus, output and socket regressions"]},
+    "native_sdk": {"run": 34277564736, "result": "success", "coverage": ["production Processor and Controller with SDK host", "no opaque capture during fresh mirror bootstrap", "save refusal leaves processor/editor usable and exposes status", "tagged unavailable state applies only stale presentation", "genuine complete refresh and subsequent available value", "existing shallow payload, callback, panel, focus and lifetime regressions"]},
+    "manager": {"run": 34277564645, "result": "success", "rust_tests": 7, "real_process_python_tests": 6, "descriptor_tests": 6, "clippy": "pass", "coverage": ["injected rich report write failure through production supervisor", "positive cleanup and release-before-retirement acknowledgment", "independent healthy sibling", "minimal identity-bound ownership receipt after report failure", "unproved or mismatched ownership remains refused"]}
+  },
+  "installed_repair": {
+    "windows_host_sha256": "17a112aeea973523266329de03e75f8b4e2563e46b0427e06d968898bcc18f57",
+    "manager_sha256": "fe115cecdbf01a2c88a0fa23b29e76e9e25bae151465c1f710ec22e37fd340e9",
+    "supervisor_sha256": "93ece94151c236c002c2c2bf2cf6c59ce7d244fa11c19dc78db81fa87c16fc2c",
+    "pure_native_sha256": "2444a9c1030a9c099e10da2387483751d24b143b177bf51da7865a8042131105",
+    "deployment": "Explicit reversible development replacement of bridge software, preserving prior package, registry and publication; not a shipped vendor update capability",
+    "added_frames_per_proxy": 512,
+    "vendor_files_changed_by_agent": false
+  },
+  "fragments_access_observation": {
+    "session": "c136641723357d949aa124c8584bcd2a",
+    "class_id": "41727475415649536772616E50726F63",
+    "module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+    "environment": "Original AP12 normal Arturia installation, same pinned runner",
+    "compatibility": {"disable_windows_accessibility": true},
+    "route": "Installed manager vendor-editor request to installed automatic service; unpublished exact class; existing Windows host and SDK view lifecycle",
+    "observed_ui": "Authorization dialog: software is not activated on this computer. Demo mode disables Save/Load and import/export and is limited to 20 minutes.",
+    "operator_handoff": "Normal Arturia authorization dialog presented; agent released mouse and keyboard. No account or licensing action taken by agent.",
+    "scope": "Editor-only access session, explicitly no DAW audio or project recall",
+    "cleanup": "Still open at this observation; final retirement not yet claimed"
+  },
+  "limits": [
+    "Commercial edited-state LoFi save/removal/recall has not yet been rerun on this repair.",
+    "FRAGMENTS vendor restriction now observed in its own UI, not inferred solely from getState refusal.",
+    "Existing LoFi operator-replaced module remains distinct from original installer qualification and vendor authorization.",
+    "No original pair/automation/session-restart/recall qualification or whole-chain latency measurement yet.",
+    "Earlier delivery timeouts and gaps remain separate, unresolved historical observations.",
+    "A vendor access title encoding defect observed on Windows is fixed in source e83fd86; its rebuilt host is pending at this observation."
+  ]
+}

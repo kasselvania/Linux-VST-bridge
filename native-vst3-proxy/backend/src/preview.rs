@@ -154,6 +154,10 @@ pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
 }
 
 pub(crate) fn performance_root(commercial: bool) -> PathBuf {
+    if cfg!(feature = "registered") && commercial {
+        return PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
+            .join(".local/share/linux-vst-bridge/managed/runtime");
+    }
     PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(if commercial {
         "AP9-Performance/serum"
     } else {
@@ -161,7 +165,11 @@ pub(crate) fn performance_root(commercial: bool) -> PathBuf {
     })
 }
 pub fn discover_performance(identity: Option<crate::state::Identity>) -> io::Result<Binding> {
-    let mut greeting = b"AP9\n".to_vec();
+    let mut greeting = if cfg!(feature = "registered") && identity.is_some() {
+        b"LVB1\n".to_vec()
+    } else {
+        b"AP9\n".to_vec()
+    };
     if let Some(i) = identity {
         greeting.extend_from_slice(&i.class);
         greeting.extend_from_slice(&i.module);

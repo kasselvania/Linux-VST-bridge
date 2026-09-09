@@ -96,7 +96,7 @@ impl Gui {
             std::ptr::write_bytes(out.pointer.as_ptr(), 0, BYTES);
         }
         out.write(0, b"LVBU");
-        out.write(4, &2u32.to_le_bytes());
+        out.write(4, &3u32.to_le_bytes());
         out.write(8, &(BYTES as u32).to_le_bytes());
         out.write(12, &(MESSAGE as u32).to_le_bytes());
         out.write(16, &session);

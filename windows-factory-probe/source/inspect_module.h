@@ -3,5 +3,5 @@
 namespace linux_vst_bridge::wf0 {
 // Owner-thread SDK inspection of one selected module; never a DAW callback.
 class ExternalProcessing;
-int inspect_module(Steinberg::IPluginFactory*, EventWriter&, const std::string& class_id = {}, ExternalProcessing* external = nullptr);
+int inspect_module(Steinberg::IPluginFactory*, EventWriter&, const std::string& class_id = {}, ExternalProcessing* external = nullptr, const std::wstring& access_directory = {});
 }

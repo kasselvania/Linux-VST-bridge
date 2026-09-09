@@ -116,7 +116,10 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
 };
 struct Controller final : EditController {
   Stats stats;
-  bool echo = true, no_view = false;
+  bool echo = true, no_view = false, invalid_readback=false;
+  ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
+    return invalid_readback?-1:EditController::getParamNormalized(id);
+  }
   View *last_view = nullptr;
   tresult PLUGIN_API initialize(FUnknown *h) override {
     auto r = EditController::initialize(h);
@@ -171,7 +174,7 @@ struct Mapping {
     check(data, "native mapping");
     std::memset(data, 0, bytes);
     std::memcpy(data, "LVBU", 4);
-    put(4, 2, 4);
+    put(4, 3, 4);
     put(8, bytes, 4);
     put(12, sizeof(ap11_gui_message_t), 4);
     std::copy(id.begin(), id.end(), data + 16);
@@ -354,6 +357,11 @@ int main() {
             refresh[1].kind == AP11::Parameter && refresh[1].id == 42 &&
             refresh[1].value == .4 && refresh[2].kind == AP11::RefreshEnd,
         "SDK metadata and value refresh");
+  c->invalid_readback=true;
+  check(handler.restartComponent(kParamValuesChanged)==kResultOk,"genuine invalidation accepted");
+  session.service(true);auto unavailable=native.drain();
+  check(unavailable.size()==3&&unavailable[1].kind==AP11::Parameter&&unavailable[1].result==1&&unavailable[1].value==0&&unavailable[2].kind==AP11::RefreshEnd,"unavailable SDK getter completes real refresh without a numeric value");
+  c->invalid_readback=false;
   check(handler.beginEdit(42) == kResultOk, "gesture active on close");
   native.close();
   session.service(true);

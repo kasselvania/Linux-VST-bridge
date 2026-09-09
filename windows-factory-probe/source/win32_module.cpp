@@ -1,3 +1,4 @@
+#include "module_path.h"
 #include "win32_module.h"
 
 #include <wincrypt.h>
@@ -101,17 +102,7 @@ std::string sha256_file(const std::wstring& path) {
 }
 
 bool is_exact_absolute_module_path(const std::wstring& path) {
-    if (path.size() < 20 || path[0] != L'C' || path[1] != L':' || path[2] != L'\\' ||
-        path.find(L'/') != std::wstring::npos ||
-        path.find(L"\\..\\") != std::wstring::npos ||
-        path.rfind(L"C:\\wf0\\fixture\\", 0) != 0) {
-        return false;
-    }
-    std::vector<wchar_t> canonical(32768);
-    wchar_t* file_part = nullptr;
-    const DWORD size = GetFullPathNameW(path.c_str(), static_cast<DWORD>(canonical.size()),
-                                        canonical.data(), &file_part);
-    return size > 0 && size < canonical.size() && path == canonical.data() && file_part != nullptr;
+    return registered_module_path(path);
 }
 
 int open_module(const std::wstring& path, ModuleBinding& binding, EventWriter& events) {

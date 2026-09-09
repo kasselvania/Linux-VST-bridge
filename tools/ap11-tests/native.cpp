@@ -22,6 +22,7 @@ std::vector<ap11_gui_message_t> commands;
 uint32_t gui_fault = 0, caps = 0, closes = 0;
 uint64_t generation = 7, revision = 1;
 double dsp = .5;
+uint32_t save_code=0, state_calls=0;
 std::thread::id owner = std::this_thread::get_id();
 struct Host final : HostApplication,
                     Linux::IRunLoop,
@@ -207,6 +208,7 @@ uint32_t __wrap_ap8_validate(const uint8_t *, const uint8_t *, uint32_t) {
 }
 uint32_t __wrap_ap4_state(uint64_t, const uint8_t *, uint32_t, uint8_t *out,
                           uint32_t cap, uint32_t *n) {
+  ++state_calls;if(save_code)return save_code;
   check(cap >= 132, "bounded state output");
   std::memset(out, 0, 132);
   out[112] = 1;
@@ -254,7 +256,8 @@ int main() {
             processor->setActive(true) == kResultOk &&
             processor->setProcessing(true) == kResultOk,
         "start processing");
-  check(commands.empty(), "scan and restore do not open editor");
+  check(state_calls==0&&commands.size()==1&&commands[0].kind==AP11::Refresh&&commands[0].flags==0,"fresh native bootstrap requires no opaque saving or restart");
+  commands.clear();
   c->panelOpen();
   check(commands.size() == 1 && commands[0].kind == AP11::Open,
         "native entry opens same session without inventing a refresh");
@@ -309,6 +312,23 @@ int main() {
   check(c->getParameterInfo(0, info) == kResultOk && info.title[0] == u'A' &&
             host.restarts == 20 && dsp == .6,
         "vendor metadata/value refresh through SDK restart");
+  // An unavailable refresh still completes every ID and preserves only stale
+  // presentation. It neither forwards invalid data nor poisons another control.
+  begin.revision=revision++;param.revision=begin.revision;end.revision=begin.revision;
+  param.result=1;param.value=0;
+  events.push_back(begin);events.push_back(param);events.push_back(end);host.tick();
+  check(!c->readbackAvailable(0)&&c->getParamNormalized(0)==.6&&gui_fault==0,"unavailable refresh completes and retains explicitly stale display");
+  param.result=0;param.value=.65;begin.revision=revision++;param.revision=begin.revision;end.revision=begin.revision;
+  events.push_back(begin);events.push_back(param);events.push_back(end);host.tick();
+  check(c->readbackAvailable(0)&&c->getParamNormalized(0)==.65,"later genuine value becomes available");
+  save_code=5;LVBState::Stream refused;
+  check(processor->getState(&refused)==kResultFalse&&refused.bytes.empty(),"ordinary save refusal is truthful");
+  check(std::strstr(c->panelStatus(),"Saving unavailable")!=nullptr,"fresh audition exposes save-unavailable status");
+  host.audio(.7);check(dsp==.7,"audio continues after failed save");
+  c->panelOpen();check(commands.back().kind==AP11::Open,"editor continues after refused save");
+  save_code=0;
+  LVBState::Stream projected;projected.bytes.resize(136);projected.bytes[64]=32;projected.bytes[112]=1;projected.bytes[116]=2;
+  check(c->setComponentState(&projected)==kResultOk&&!c->readbackAvailable(0)&&c->getParamNormalized(0)==.65,"native tagged state apply preserves unavailable ID and stale projection");
   // Saving drains a complete accepted edit before taking the state barrier.
   event(AP11::Begin);
   event(AP11::Value, .9);

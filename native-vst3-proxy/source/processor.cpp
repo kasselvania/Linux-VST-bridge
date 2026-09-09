@@ -241,11 +241,17 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
 #endif
     std::vector<uint8_t> blob(LVBState::payloadLimit + LVBState::overhead);
     uint32_t size = 0;
-    if (ap4_state(handle_, nullptr, 0, blob.data(),
-                  static_cast<uint32_t>(blob.size()), &size)) {
-      phase_ = Failed;
+    auto state_result=ap4_state(handle_, nullptr, 0, blob.data(),
+                  static_cast<uint32_t>(blob.size()), &size);
+#ifdef AP8_PREVIEW
+    if(state_result==0||state_result==5){
+      auto*m=allocateMessage();if(m){m->setMessageID("AP12.persistence");m->getAttributes()->setInt("available",state_result==0?1:0);sendMessage(m);m->release();}
+    }
+#endif
+    if (state_result) {
+      if(state_result!=5)phase_ = Failed;
       stateFailure("get", "state_response");
-      report();
+      if(state_result!=5)report();
       return kResultFalse;
     }
     blob.resize(size);
@@ -288,7 +294,7 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #else
         ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
 #endif
-      return kResultFalse;
+      {phase_=Failed;return kResultFalse;}
     if (!stateSession())
       return kResultFalse;
     std::vector<uint8_t> readback(LVBState::payloadLimit + LVBState::overhead);
@@ -936,11 +942,8 @@ tresult PLUGIN_API Processor::terminate() {
 #ifdef AP8_PREVIEW
 namespace AP2 {
 Steinberg::tresult Processor::readback(){
- if(state_readback_.empty()){
-  if(!stateSession())return Steinberg::kResultFalse;
-  state_readback_.resize(LVBState::payloadLimit+LVBState::overhead);uint32_t size=0;
-  if(ap4_state(handle_,nullptr,0,state_readback_.data(),static_cast<uint32_t>(state_readback_.size()),&size)){state_readback_.clear();return Steinberg::kResultFalse;}state_readback_.resize(size);
- }
+ if(state_readback_.empty())return Steinberg::kResultOk; // fresh UI bootstraps via its own refresh
+
  auto*m=allocateMessage();if(!m)return Steinberg::kResultFalse;m->setMessageID("AP8.readback");m->getAttributes()->setBinary("state",state_readback_.data(),static_cast<uint32_t>(state_readback_.size()));auto r=sendMessage(m);m->release();return r;
 }
 }

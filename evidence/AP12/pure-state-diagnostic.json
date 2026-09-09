@@ -1,0 +1,2863 @@
+{
+  "claim": "Focused diagnostic identifies the rejected Pure LoFi parameter; no causal repair or everyday-use qualification claimed",
+  "host_source_commit": "f3f1ce1eede06c59c69a2bf21d1c6f8eef89df5b",
+  "host_ci_run": 34269208672,
+  "host_ci_merge_commit": "e5aae6a92ee7022a59889ce10e2af30c1e1ca806",
+  "windows_host_sha256": "54f84d91df0575837fdd333be7cfc541ac11f988458a7ffb0bf3f969f2d21abf",
+  "native_module_sha256": "cab22dc72432c64f188782aad25b1cd1628117c44c7f3fd02511205ec52e20ea",
+  "vendor_module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+  "artifact_posture": "Operator-replaced Pure LoFi candidate, distinct from normal installer output; vendor authorization not established by these observations",
+  "finding": {
+    "parameter_id": 1066,
+    "parameter_title": "MIDI CC helper 93 [1]",
+    "returned_value": -1,
+    "parameter_flags": 1024,
+    "mechanism": "After opaque state capture, additional bridge parameter readback rejected a value outside 0..1. The exception terminated processing; the native consumer reported state response correlation. This does not establish why this vendor build returned -1."
+  },
+  "sessions": [
+    {
+      "session": "6a14100b82de6b05a6e33e292cbe9ce0",
+      "actions": "Fresh disposable Bitwig project; vendor control edits, then editor close. Delivery timeout occurred before the planned state-save check.",
+      "correlated_trace_enabled": false,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 184626,
+          "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 184626,
+          "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 696277100064673,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 696277150062815,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 94371843,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 3733504,
+          "processed": 14584,
+          "request_high": 937,
+          "result_high": 3,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 1,
+          "worker_op": 3,
+          "worker_epoch": 1,
+          "worker_position": 3733504,
+          "request_published": 15523,
+          "request_consumed": 14586,
+          "result_published": 14584,
+          "result_consumed": 14584,
+          "service_us_max_at_report": 6482,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 7467008,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 7467008,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 906,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3840,
+          "gap_frames": 256,
+          "request_position": 3840,
+          "request_frames": 256,
+          "sequence": 19,
+          "output_published": true,
+          "queue_us": 5743,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 6452,
+          "validation_us": 13,
+          "publication_us": 8,
+          "publication_after_gap_us": 1675,
+          "admission_to_gap_us": 10552
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4352,
+          "gap_frames": 256,
+          "request_position": 4352,
+          "request_frames": 256,
+          "sequence": 21,
+          "output_published": true,
+          "queue_us": 6564,
+          "prepare_us": 10,
+          "send_us": 0,
+          "reply_us": 4440,
+          "validation_us": 11,
+          "publication_us": 8,
+          "publication_after_gap_us": 349,
+          "admission_to_gap_us": 10686
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3733504,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3733760,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3734016,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3734272,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3734528,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3734784,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3735040,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3735296,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3735552,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3735808,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3736064,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3736320,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3736576,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3736832,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3737088,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3737344,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3737600,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3737856,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3738112,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3738368,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3738624,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3738880,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3739136,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3739392,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3739648,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3739904,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3740160,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3740416,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3740672,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3740928,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "failed_instance",
+          "fault": 3,
+          "first_position": 3733504,
+          "processed": 14584,
+          "callback_rejections": 9810,
+          "detail": "InvalidData: delivery response deadline"
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap10_admission_failure",
+          "code": 2,
+          "frames": 512,
+          "input_flags": 3,
+          "context_state": 11776,
+          "rate": 48000,
+          "cycle_start": 0,
+          "cycle_end": 0,
+          "nonfinite_fields": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 3,
+          "first_position": 3733504,
+          "processed": 14584,
+          "request_high": 937,
+          "result_high": 3,
+          "position": 3973632,
+          "epoch": 1
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_sample_comparison",
+          "samples": 0,
+          "restored_samples": 0,
+          "before_edit_samples": 0,
+          "restores": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 3973632,
+          "blocks": 7761,
+          "callback_rejections": 10378,
+          "rejected_silent_frames": 5313536,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 240128,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 470,
+          "expired_output_frames": 512,
+          "delivered_frames": 3732992,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "windows_records": [
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "ap12_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 61,
+          "state": "ap8_parameter_count",
+          "count": 3053
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 160,
+          "state": "ap12_capabilities",
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap12_state_stream",
+          "result": 0,
+          "bytes": 73987,
+          "failed": false,
+          "writes": 1,
+          "largest_write": 73987,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 165,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 168,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 170,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        }
+      ],
+      "outcome": {
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      }
+    },
+    {
+      "session": "05e92f4459cf2de3e6b5d79f3c4b2a4c",
+      "actions": "Fresh disposable Bitwig project; changed LoFi Amount and Filter Cutoff in vendor editor, minimized editor, then attempted Save. No LFO mapping in this test.",
+      "correlated_trace_enabled": true,
+      "native_records": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 184626,
+          "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 184626,
+          "sha256": "4a01276dfd3d4efc74f1a24f9ff627eb8a58b9216c83a552c29d2fa08f9946a6",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 696512628329141,
+          "focus_result": 1,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 83886083,
+          "view_epoch": 1,
+          "focus_flags": 0,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap11_editor_status",
+          "monotonic_ns": 696512668332781,
+          "focus_result": 4,
+          "activation": 1,
+          "user_time": 0,
+          "requestor_x11": 0,
+          "target_x11": 83886083,
+          "view_epoch": 1,
+          "focus_flags": 6,
+          "open": 1,
+          "result": 0
+        },
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 7478272,
+          "processed": 29212,
+          "request_high": 18,
+          "result_high": 3,
+          "detail": "InvalidData: state response correlation"
+        },
+        {
+          "event": "ap4_native_error",
+          "operation": "get",
+          "stage": "state_response",
+          "fault": 3,
+          "first_position": 7478272,
+          "processed": 29212,
+          "callback_rejections": 0,
+          "detail": "InvalidData: state response correlation"
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 1,
+          "worker_op": 16,
+          "worker_epoch": 1,
+          "worker_position": 7478016,
+          "request_published": 29231,
+          "request_consumed": 29213,
+          "result_published": 29212,
+          "result_consumed": 29212,
+          "service_us_max_at_report": 9761,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 14956544,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 14956544,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap10_linux_clock",
+          "start_before_ns": 696506758983610,
+          "start_after_ns": 696506758984150,
+          "end_before_ns": 696667276281370,
+          "end_after_ns": 696667276281940,
+          "instant_elapsed_ns": 160517297780
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7437,
+          "position": 1902848,
+          "frames": 256,
+          "monotonic_ns": [
+            696551026088762,
+            696551026953719,
+            696551026959889,
+            696551026960439,
+            696551027685324,
+            696551027692514,
+            696551027696324
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7438,
+          "position": 1903104,
+          "frames": 256,
+          "monotonic_ns": [
+            696551036688460,
+            696551036795383,
+            696551036809053,
+            696551036809783,
+            696551037563898,
+            696551037571618,
+            696551037576088
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7439,
+          "position": 1903360,
+          "frames": 256,
+          "monotonic_ns": [
+            696551036695961,
+            696551037581548,
+            696551037587038,
+            696551037587348,
+            696551038232471,
+            696551038237271,
+            696551038239801
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7440,
+          "position": 1903616,
+          "frames": 256,
+          "monotonic_ns": [
+            696551047384751,
+            696551047445062,
+            696551047457922,
+            696551047458742,
+            696551048473002,
+            696551048481852,
+            696551048488102
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7441,
+          "position": 1903872,
+          "frames": 256,
+          "monotonic_ns": [
+            696551047393211,
+            696551048496322,
+            696551048505583,
+            696551048506063,
+            696551049066353,
+            696551049075124,
+            696551049080084
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7442,
+          "position": 1904128,
+          "frames": 256,
+          "monotonic_ns": [
+            696551058097661,
+            696551058143522,
+            696551058156752,
+            696551058157412,
+            696551059029059,
+            696551059037309,
+            696551059042770
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7443,
+          "position": 1904384,
+          "frames": 256,
+          "monotonic_ns": [
+            696551058108521,
+            696551059050740,
+            696551059058330,
+            696551059058790,
+            696551059711013,
+            696551059715613,
+            696551059717923
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7444,
+          "position": 1904640,
+          "frames": 256,
+          "monotonic_ns": [
+            696551068805261,
+            696551068836622,
+            696551068851312,
+            696551068852092,
+            696551070136737,
+            696551070151808,
+            696551070158878
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7445,
+          "position": 1904896,
+          "frames": 256,
+          "monotonic_ns": [
+            696551068817181,
+            696551070170178,
+            696551070180258,
+            696551070180818,
+            696551071105636,
+            696551071117507,
+            696551071124867
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7446,
+          "position": 1905152,
+          "frames": 256,
+          "monotonic_ns": [
+            696551079384359,
+            696551079423300,
+            696551079435850,
+            696551079436660,
+            696551080216695,
+            696551080224845,
+            696551080229586
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7447,
+          "position": 1905408,
+          "frames": 256,
+          "monotonic_ns": [
+            696551079392649,
+            696551080238026,
+            696551080245186,
+            696551080245626,
+            696551080886378,
+            696551080892939,
+            696551080896449
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7448,
+          "position": 1905664,
+          "frames": 256,
+          "monotonic_ns": [
+            696551090079629,
+            696551090145070,
+            696551090158921,
+            696551090159761,
+            696551090952106,
+            696551090964076,
+            696551090971757
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7449,
+          "position": 1905920,
+          "frames": 256,
+          "monotonic_ns": [
+            696551090089999,
+            696551090981117,
+            696551090989587,
+            696551090989967,
+            696551092011087,
+            696551092021287,
+            696551092026977
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7450,
+          "position": 1906176,
+          "frames": 256,
+          "monotonic_ns": [
+            696551100690217,
+            696551100761439,
+            696551100773219,
+            696551100773989,
+            696551101552524,
+            696551101559995,
+            696551101564515
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7451,
+          "position": 1906432,
+          "frames": 256,
+          "monotonic_ns": [
+            696551100697718,
+            696551101571575,
+            696551101578185,
+            696551101578925,
+            696551102244928,
+            696551102254528,
+            696551102259628
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7452,
+          "position": 1906688,
+          "frames": 256,
+          "monotonic_ns": [
+            696551111444299,
+            696551111542590,
+            696551111555391,
+            696551111556211,
+            696551112520450,
+            696551112528420,
+            696551112532170
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7453,
+          "position": 1906944,
+          "frames": 256,
+          "monotonic_ns": [
+            696551111455639,
+            696551112537960,
+            696551112543580,
+            696551112544030,
+            696551113086271,
+            696551113090341,
+            696551113092581
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7454,
+          "position": 1907200,
+          "frames": 256,
+          "monotonic_ns": [
+            696551122080177,
+            696551122147629,
+            696551122160049,
+            696551122161159,
+            696551123132028,
+            696551123140658,
+            696551123146008
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7455,
+          "position": 1907456,
+          "frames": 256,
+          "monotonic_ns": [
+            696551122090568,
+            696551123155729,
+            696551123165509,
+            696551123166079,
+            696551124023036,
+            696551124028956,
+            696551124032036
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7456,
+          "position": 1907712,
+          "frames": 256,
+          "monotonic_ns": [
+            696551132753117,
+            696551132841849,
+            696551132868699,
+            696551132869559,
+            696551133794498,
+            696551133805658,
+            696551133812018
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7457,
+          "position": 1907968,
+          "frames": 256,
+          "monotonic_ns": [
+            696551132761777,
+            696551133821618,
+            696551133831248,
+            696551133831798,
+            696551134450400,
+            696551134458501,
+            696551134462901
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7458,
+          "position": 1908224,
+          "frames": 256,
+          "monotonic_ns": [
+            696551143399566,
+            696551143474858,
+            696551143486628,
+            696551143487398,
+            696551144345815,
+            696551144353415,
+            696551144357525
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7459,
+          "position": 1908480,
+          "frames": 256,
+          "monotonic_ns": [
+            696551143408176,
+            696551144363085,
+            696551144368645,
+            696551144369035,
+            696551144912096,
+            696551144916896,
+            696551144919126
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7460,
+          "position": 1908736,
+          "frames": 256,
+          "monotonic_ns": [
+            696551154050405,
+            696551154130777,
+            696551154143337,
+            696551154144257,
+            696551154799090,
+            696551154807270,
+            696551154812080
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7461,
+          "position": 1908992,
+          "frames": 256,
+          "monotonic_ns": [
+            696551154058705,
+            696551154817930,
+            696551154823531,
+            696551154823901,
+            696551155523374,
+            696551155530504,
+            696551155534715
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7462,
+          "position": 1909248,
+          "frames": 256,
+          "monotonic_ns": [
+            696551164724165,
+            696551164761616,
+            696551164773966,
+            696551164774816,
+            696551165607702,
+            696551165615532,
+            696551165620763
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7463,
+          "position": 1909504,
+          "frames": 256,
+          "monotonic_ns": [
+            696551164734485,
+            696551165628153,
+            696551165634533,
+            696551165634903,
+            696551166190074,
+            696551166200274,
+            696551166204964
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7464,
+          "position": 1909760,
+          "frames": 256,
+          "monotonic_ns": [
+            696551175364914,
+            696551175478076,
+            696551175491576,
+            696551175492296,
+            696551176263162,
+            696551176271032,
+            696551176276342
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7465,
+          "position": 1910016,
+          "frames": 256,
+          "monotonic_ns": [
+            696551175372844,
+            696551176284132,
+            696551176291392,
+            696551176291962,
+            696551176841183,
+            696551176854843,
+            696551176861193
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7466,
+          "position": 1910272,
+          "frames": 256,
+          "monotonic_ns": [
+            696551190758516,
+            696551190856918,
+            696551190879429,
+            696551190881769,
+            696551191894659,
+            696551191908709,
+            696551191916389
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7467,
+          "position": 1910528,
+          "frames": 256,
+          "monotonic_ns": [
+            696551190769916,
+            696551191929179,
+            696551191939789,
+            696551191940330,
+            696551193308526,
+            696551193320027,
+            696551193326777
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7468,
+          "position": 1910784,
+          "frames": 256,
+          "monotonic_ns": [
+            696551196844916,
+            696551196900417,
+            696551196927647,
+            696551196928487,
+            696551201031158,
+            696551201043078,
+            696551201050028
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7469,
+          "position": 1911040,
+          "frames": 256,
+          "monotonic_ns": [
+            696551196856606,
+            696551201062849,
+            696551201071879,
+            696551201072619,
+            696551210810950,
+            696551210819680,
+            696551210825250
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7470,
+          "position": 1911296,
+          "frames": 256,
+          "monotonic_ns": [
+            696551207479525,
+            696551210836131,
+            696551210843791,
+            696551210844301,
+            696551212947822,
+            696551212960162,
+            696551212966522
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7471,
+          "position": 1911552,
+          "frames": 256,
+          "monotonic_ns": [
+            696551207489115,
+            696551212978863,
+            696551212989713,
+            696551212990353,
+            696551214134245,
+            696551214145376,
+            696551214152376
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7472,
+          "position": 1911808,
+          "frames": 256,
+          "monotonic_ns": [
+            696551218351008,
+            696551218417379,
+            696551218431700,
+            696551218432720,
+            696551219511981,
+            696551219524061,
+            696551219530881
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7473,
+          "position": 1912064,
+          "frames": 256,
+          "monotonic_ns": [
+            696551218364198,
+            696551219861838,
+            696551219875858,
+            696551219876608,
+            696551220992910,
+            696551221015620,
+            696551221059161
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7474,
+          "position": 1912320,
+          "frames": 256,
+          "monotonic_ns": [
+            696551229255312,
+            696551229364084,
+            696551229377655,
+            696551229378585,
+            696551230882734,
+            696551230894635,
+            696551230901345
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7475,
+          "position": 1912576,
+          "frames": 256,
+          "monotonic_ns": [
+            696551229265593,
+            696551230950186,
+            696551230988646,
+            696551230989206,
+            696551233543807,
+            696551233556407,
+            696551233563817
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7476,
+          "position": 1912832,
+          "frames": 256,
+          "monotonic_ns": [
+            696551239557855,
+            696551239650937,
+            696551239665997,
+            696551239666867,
+            696551240915061,
+            696551240924331,
+            696551240930502
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7477,
+          "position": 1913088,
+          "frames": 256,
+          "monotonic_ns": [
+            696551239589045,
+            696551240940842,
+            696551240949222,
+            696551240949672,
+            696551241689617,
+            696551241698427,
+            696551241704097
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7478,
+          "position": 1913344,
+          "frames": 256,
+          "monotonic_ns": [
+            696551250078291,
+            696551250105322,
+            696551250118702,
+            696551250119532,
+            696551250883127,
+            696551250892957,
+            696551250899697
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7479,
+          "position": 1913600,
+          "frames": 256,
+          "monotonic_ns": [
+            696551250088331,
+            696551250907537,
+            696551250914128,
+            696551250914528,
+            696551251612871,
+            696551251619522,
+            696551251623632
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7480,
+          "position": 1913856,
+          "frames": 256,
+          "monotonic_ns": [
+            696551260723180,
+            696551260797412,
+            696551260811352,
+            696551260812282,
+            696551261600848,
+            696551261609508,
+            696551261615158
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7481,
+          "position": 1914112,
+          "frames": 256,
+          "monotonic_ns": [
+            696551260730670,
+            696551261624748,
+            696551261632668,
+            696551261633238,
+            696551262295611,
+            696551262304531,
+            696551262309721
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7482,
+          "position": 1914368,
+          "frames": 256,
+          "monotonic_ns": [
+            696551273425670,
+            696551273526252,
+            696551273540952,
+            696551273541832,
+            696551274903589,
+            696551274915259,
+            696551274923109
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7483,
+          "position": 1914624,
+          "frames": 256,
+          "monotonic_ns": [
+            696551273436590,
+            696551274935539,
+            696551274946380,
+            696551274947080,
+            696551275937879,
+            696551275950219,
+            696551275958080
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7484,
+          "position": 1914880,
+          "frames": 256,
+          "monotonic_ns": [
+            696551282281424,
+            696551282372036,
+            696551282385566,
+            696551282386386,
+            696551283612360,
+            696551283624660,
+            696551283631740
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7485,
+          "position": 1915136,
+          "frames": 256,
+          "monotonic_ns": [
+            696551282310014,
+            696551283644111,
+            696551283654081,
+            696551283654631,
+            696551284799313,
+            696551284811363,
+            696551284819694
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7486,
+          "position": 1915392,
+          "frames": 256,
+          "monotonic_ns": [
+            696551292720379,
+            696551292767380,
+            696551292780450,
+            696551292781250,
+            696551293554825,
+            696551293563715,
+            696551293568625
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7487,
+          "position": 1915648,
+          "frames": 256,
+          "monotonic_ns": [
+            696551292728019,
+            696551293576296,
+            696551293583006,
+            696551293583296,
+            696551294232458,
+            696551294238969,
+            696551294242539
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7488,
+          "position": 1915904,
+          "frames": 256,
+          "monotonic_ns": [
+            696551303374348,
+            696551303490580,
+            696551303502030,
+            696551303502780,
+            696551304326057,
+            696551304334417,
+            696551304339667
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7489,
+          "position": 1916160,
+          "frames": 256,
+          "monotonic_ns": [
+            696551303382578,
+            696551304348427,
+            696551304355637,
+            696551304356067,
+            696551304898808,
+            696551304903578,
+            696551304906138
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7490,
+          "position": 1916416,
+          "frames": 256,
+          "monotonic_ns": [
+            696551314087658,
+            696551314154870,
+            696551314169270,
+            696551314169850,
+            696551314935265,
+            696551314945945,
+            696551314951545
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7491,
+          "position": 1916672,
+          "frames": 256,
+          "monotonic_ns": [
+            696551314097249,
+            696551314959626,
+            696551314966856,
+            696551314967746,
+            696551315966935,
+            696551315978405,
+            696551315984976
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7492,
+          "position": 1916928,
+          "frames": 256,
+          "monotonic_ns": [
+            696551324789629,
+            696551324854360,
+            696551324867730,
+            696551324868670,
+            696551325815759,
+            696551325826399,
+            696551325832869
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7493,
+          "position": 1917184,
+          "frames": 256,
+          "monotonic_ns": [
+            696551324799359,
+            696551325843499,
+            696551325852349,
+            696551325852899,
+            696551326601174,
+            696551326611744,
+            696551326618204
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7494,
+          "position": 1917440,
+          "frames": 256,
+          "monotonic_ns": [
+            696551335405047,
+            696551335484769,
+            696551335498759,
+            696551335499599,
+            696551336690532,
+            696551336699383,
+            696551336704783
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7495,
+          "position": 1917696,
+          "frames": 256,
+          "monotonic_ns": [
+            696551335412607,
+            696551336712913,
+            696551336720503,
+            696551336720933,
+            696551337486108,
+            696551337496888,
+            696551337503008
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7496,
+          "position": 1917952,
+          "frames": 256,
+          "monotonic_ns": [
+            696551346090217,
+            696551346143808,
+            696551346156048,
+            696551346156978,
+            696551347236209,
+            696551347243790,
+            696551347248370
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7497,
+          "position": 1918208,
+          "frames": 256,
+          "monotonic_ns": [
+            696551346097617,
+            696551347254920,
+            696551347260280,
+            696551347260570,
+            696551348119807,
+            696551348125897,
+            696551348128147
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7498,
+          "position": 1918464,
+          "frames": 256,
+          "monotonic_ns": [
+            696551356713216,
+            696551356797567,
+            696551356809757,
+            696551356810467,
+            696551357569352,
+            696551357577773,
+            696551357583003
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7499,
+          "position": 1918720,
+          "frames": 256,
+          "monotonic_ns": [
+            696551356721326,
+            696551357589023,
+            696551357596163,
+            696551357596593,
+            696551358126653,
+            696551358134073,
+            696551358138424
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7500,
+          "position": 1918976,
+          "frames": 256,
+          "monotonic_ns": [
+            696551367381375,
+            696551367460907,
+            696551367473097,
+            696551367473737,
+            696551368573778,
+            696551368582009,
+            696551368587139
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7501,
+          "position": 1919232,
+          "frames": 256,
+          "monotonic_ns": [
+            696551367389845,
+            696551368596309,
+            696551368604749,
+            696551368605179,
+            696551369238032,
+            696551369248572,
+            696551369253192
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7502,
+          "position": 1919488,
+          "frames": 256,
+          "monotonic_ns": [
+            696551378079215,
+            696551378195697,
+            696551378207798,
+            696551378208588,
+            696551378964373,
+            696551378971943,
+            696551378975753
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7503,
+          "position": 1919744,
+          "frames": 256,
+          "monotonic_ns": [
+            696551378087915,
+            696551378982053,
+            696551378987303,
+            696551378987523,
+            696551379646116,
+            696551379652526,
+            696551379655786
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7504,
+          "position": 1920000,
+          "frames": 256,
+          "monotonic_ns": [
+            696551388717354,
+            696551388781965,
+            696551388796596,
+            696551388797316,
+            696551389817956,
+            696551389831316,
+            696551389838856
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7505,
+          "position": 1920256,
+          "frames": 256,
+          "monotonic_ns": [
+            696551388725444,
+            696551389850616,
+            696551389860757,
+            696551389861297,
+            696551390419917,
+            696551390431258,
+            696551390436348
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7506,
+          "position": 1920512,
+          "frames": 256,
+          "monotonic_ns": [
+            696551399433065,
+            696551399498876,
+            696551399518226,
+            696551399519306,
+            696551400406614,
+            696551400415654,
+            696551400422074
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7507,
+          "position": 1920768,
+          "frames": 256,
+          "monotonic_ns": [
+            696551399442085,
+            696551400431394,
+            696551400440074,
+            696551400440704,
+            696551401182169,
+            696551401192749,
+            696551401199429
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7508,
+          "position": 1921024,
+          "frames": 256,
+          "monotonic_ns": [
+            696551410546493,
+            696551410614504,
+            696551410629244,
+            696551410630064,
+            696551411674425,
+            696551411687275,
+            696551411694605
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7509,
+          "position": 1921280,
+          "frames": 256,
+          "monotonic_ns": [
+            696551410558533,
+            696551411707606,
+            696551411718646,
+            696551411719226,
+            696551412615633,
+            696551412625504,
+            696551412632164
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7510,
+          "position": 1921536,
+          "frames": 256,
+          "monotonic_ns": [
+            696551420747003,
+            696551420823125,
+            696551420837075,
+            696551420837835,
+            696551421702422,
+            696551421710692,
+            696551421716622
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7511,
+          "position": 1921792,
+          "frames": 256,
+          "monotonic_ns": [
+            696551420755423,
+            696551421724372,
+            696551421732572,
+            696551421733012,
+            696551422530558,
+            696551422541628,
+            696551422548699
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7512,
+          "position": 1922048,
+          "frames": 256,
+          "monotonic_ns": [
+            696551431360762,
+            696551431407472,
+            696551431421343,
+            696551431422133,
+            696551432271929,
+            696551432280100,
+            696551432285460
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7513,
+          "position": 1922304,
+          "frames": 256,
+          "monotonic_ns": [
+            696551431368912,
+            696551432293670,
+            696551432300550,
+            696551432301070,
+            696551432953223,
+            696551432958943,
+            696551432961533
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7514,
+          "position": 1922560,
+          "frames": 256,
+          "monotonic_ns": [
+            696551442088142,
+            696551442104233,
+            696551442116763,
+            696551442117413,
+            696551443248545,
+            696551443256725,
+            696551443262215
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7515,
+          "position": 1922816,
+          "frames": 256,
+          "monotonic_ns": [
+            696551442098302,
+            696551443271825,
+            696551443279146,
+            696551443279946,
+            696551444070751,
+            696551444084791,
+            696551444094792
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7516,
+          "position": 1923072,
+          "frames": 256,
+          "monotonic_ns": [
+            696551452704581,
+            696551452758142,
+            696551452771342,
+            696551452771992,
+            696551453632799,
+            696551453641199,
+            696551453646259
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7517,
+          "position": 1923328,
+          "frames": 256,
+          "monotonic_ns": [
+            696551452713991,
+            696551453654249,
+            696551453662280,
+            696551453662800,
+            696551454206840,
+            696551454212130,
+            696551454215100
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7518,
+          "position": 1923584,
+          "frames": 256,
+          "monotonic_ns": [
+            696551463411821,
+            696551463425851,
+            696551463440542,
+            696551463441422,
+            696551464356240,
+            696551464364930,
+            696551464371460
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7519,
+          "position": 1923840,
+          "frames": 256,
+          "monotonic_ns": [
+            696551463425351,
+            696551464382580,
+            696551464390760,
+            696551464391250,
+            696551465208826,
+            696551465221637,
+            696551465230057
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7520,
+          "position": 1924096,
+          "frames": 256,
+          "monotonic_ns": [
+            696551474123181,
+            696551474143492,
+            696551474159472,
+            696551474160182,
+            696551475136021,
+            696551475149031,
+            696551475156592
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7521,
+          "position": 1924352,
+          "frames": 256,
+          "monotonic_ns": [
+            696551474135922,
+            696551475167052,
+            696551475177672,
+            696551475178562,
+            696551476179342,
+            696551476190602,
+            696551476197182
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7522,
+          "position": 1924608,
+          "frames": 256,
+          "monotonic_ns": [
+            696551484799091,
+            696551484920423,
+            696551484943864,
+            696551484944674,
+            696551485734859,
+            696551485746540,
+            696551485753900
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7523,
+          "position": 1924864,
+          "frames": 256,
+          "monotonic_ns": [
+            696551484811441,
+            696551485765700,
+            696551485774860,
+            696551485775310,
+            696551486593956,
+            696551486606257,
+            696551486613297
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7524,
+          "position": 1925120,
+          "frames": 256,
+          "monotonic_ns": [
+            696551495484791,
+            696551495584233,
+            696551495616334,
+            696551495616964,
+            696551497257486,
+            696551497270796,
+            696551497278306
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7525,
+          "position": 1925376,
+          "frames": 256,
+          "monotonic_ns": [
+            696551495495611,
+            696551497289006,
+            696551497298427,
+            696551497299017,
+            696551498312106,
+            696551498323727,
+            696551498330427
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7526,
+          "position": 1925632,
+          "frames": 256,
+          "monotonic_ns": [
+            696551506197031,
+            696551506297373,
+            696551506318874,
+            696551506319664,
+            696551507332204,
+            696551507343964,
+            696551507349804
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7527,
+          "position": 1925888,
+          "frames": 256,
+          "monotonic_ns": [
+            696551506207532,
+            696551507360494,
+            696551507370834,
+            696551507371224,
+            696551508135769,
+            696551508145810,
+            696551508151710
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7528,
+          "position": 1926144,
+          "frames": 256,
+          "monotonic_ns": [
+            696551516774499,
+            696551516838140,
+            696551516852981,
+            696551516853681,
+            696551517793719,
+            696551517806259,
+            696551517812679
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7529,
+          "position": 1926400,
+          "frames": 256,
+          "monotonic_ns": [
+            696551516785779,
+            696551517822580,
+            696551517837010,
+            696551517837590,
+            696551518732367,
+            696551518744188,
+            696551518750908
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7530,
+          "position": 1926656,
+          "frames": 256,
+          "monotonic_ns": [
+            696551527414718,
+            696551527509420,
+            696551527523880,
+            696551527524780,
+            696551528420598,
+            696551528432858,
+            696551528439888
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7531,
+          "position": 1926912,
+          "frames": 256,
+          "monotonic_ns": [
+            696551527422908,
+            696551528450488,
+            696551528460869,
+            696551528461359,
+            696551529395177,
+            696551529407457,
+            696551529413437
+          ]
+        },
+        {
+          "event": "ap10_linux_request",
+          "epoch": 1,
+          "sequence": 7532,
+          "position": 1927168,
+          "frames": 256,
+          "monotonic_ns": [
+            696551538074237,
+            696551538145589,
+            696551538159089,
+            696551538160059,
+            696551539067787,
+            696551539076857,
+            696551539082697
+          ]
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 1911040,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696551207490395,
+          "request_monotonic_ns": [
+            696551196856606,
+            696551201062849,
+            696551201071879,
+            696551201072619,
+            696551210810950,
+            696551210819680,
+            696551210825250
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1911040,
+          "gap_frames": 256,
+          "request_position": 1911040,
+          "request_frames": 256,
+          "sequence": 7469,
+          "output_published": true,
+          "queue_us": 4206,
+          "prepare_us": 9,
+          "send_us": 0,
+          "reply_us": 9738,
+          "validation_us": 8,
+          "publication_us": 5,
+          "publication_after_gap_us": 3334,
+          "admission_to_gap_us": 10633
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7478272,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667199021090,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7478272,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7478528,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667199024290,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7478528,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7478784,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667209626476,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7478784,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7479040,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667209629356,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7479040,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7479296,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667220339914,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7479296,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7479552,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667220343094,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7479552,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7479808,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667230981851,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7479808,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7480064,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667230984571,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7480064,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7480320,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667241658578,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7480320,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7480576,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667241662048,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7480576,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7480832,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667252357066,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7480832,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7481088,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667252360296,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7481088,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7481344,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667262995202,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7481344,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7481600,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667262997582,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7481600,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7481856,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667273621268,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7481856,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 7482112,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 696667273623508,
+          "request_monotonic_ns": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 7482112,
+          "gap_frames": 256,
+          "request_trace_missing": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 3,
+          "first_position": 7478272,
+          "processed": 29212,
+          "request_high": 18,
+          "result_high": 3,
+          "position": 7482880,
+          "epoch": 1
+        },
+        {
+          "event": "ap5_sample_progress",
+          "samples": 0,
+          "before_edit_samples": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0,
+          "input_fnv1a64": 14695981039346656037,
+          "output_fnv1a64": 14695981039346656037
+        },
+        {
+          "event": "ap4_sample_comparison",
+          "samples": 0,
+          "restored_samples": 0,
+          "before_edit_samples": 0,
+          "restores": 0,
+          "edits": 0,
+          "nonzero_samples": 0,
+          "maximum_error": 0,
+          "restored_gain": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7482880,
+          "blocks": 14615,
+          "callback_rejections": 35669,
+          "rejected_silent_frames": 18262528,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 4352,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 9,
+          "expired_output_frames": 256,
+          "delivered_frames": 7478016,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "windows_records": [
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "ap12_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 61,
+          "state": "ap8_parameter_count",
+          "count": 3053
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 160,
+          "state": "ap12_capabilities",
+          "latency_samples": 44,
+          "float32_result": 0,
+          "float64_result": 1,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap12_state_stream",
+          "result": 0,
+          "bytes": 73987,
+          "failed": false,
+          "writes": 1,
+          "largest_write": 73987,
+          "reads": 0,
+          "seeks": 0,
+          "last_seek_offset": 0,
+          "last_seek_mode": 0,
+          "unknown_queries": 0,
+          "last_unknown_iid": "00000000000000000000000000000000"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 165,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 168,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 170,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 184626
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 188,
+          "state": "ap4_state_started",
+          "operation": "opaque",
+          "owner_thread": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 189,
+          "state": "ap1_transport_error",
+          "detail": "state parameter readback: id=1066 value=-1"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 194,
+          "state": "ap3_processing_error",
+          "detail": "state parameter readback: id=1066 value=-1"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 197,
+          "state": "ap8_failure",
+          "reason": "commercial processing failed"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 198,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 0,
+          "removal_messages": 8,
+          "gestures": 2,
+          "values": 2,
+          "ends": 2,
+          "host_updates": 63,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 203,
+          "state": "ap8_inspection_closed",
+          "exit_code": 90
+        }
+      ],
+      "outcome": {
+        "error": "Windows SDK host failed: 90",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "raw_exit": -15
+      }
+    }
+  ],
+  "cleanup": "Disposable diagnostic tab closed without saving; original operator project retained. Both Windows transports retired with positive cleanup. Temporary trace-enable removed. Installed automatic service enabled and active. Previous host/software/registry retained privately for rollback.",
+  "limits": [
+    "No LFO causality claimed.",
+    "The first attempt delivery timeout remains unclassified; correlated tracing was absent.",
+    "The second attempt first gap at position 1911040 precedes the state failure: queue 4206 us, reply wait 9738 us. Reply wait does not isolate vendor computation from scheduling.",
+    "Post-failure rejected silent frames include time spent displaying and investigating dialogs; they are not steady-state playback performance.",
+    "No further Pure LoFi replay or buffer matrix; focus returns to FRAGMENTS and the original AP12 workflow."
+  ]
+}

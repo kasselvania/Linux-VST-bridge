@@ -5,11 +5,11 @@ from ap2_build_native import ROOT,SDK,SDK_RUNTIME,transfer_port
 from pc0_proof_adapter import StrictSSHPort,SubprocessCommandPort
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--descriptor',type=pathlib.Path,required=True);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--performance',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--descriptor',type=pathlib.Path,required=True);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--performance',action='store_true');p.add_argument('--registered',action='store_true');a=p.parse_args()
     if subprocess.check_output(['git','status','--porcelain'],cwd=ROOT):raise RuntimeError('commit build inputs first')
     source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     compiler=subprocess.check_output(['rustup','which','--toolchain','stable','rustc'],text=True).strip()
-    subprocess.run(['rustup','run','stable','cargo','build','--manifest-path','native-vst3-proxy/backend/Cargo.toml','--release','--locked','--offline','--target','x86_64-unknown-linux-gnu'],cwd=ROOT,env={**os.environ,'RUSTC':compiler,'RUSTFLAGS':'-C relocation-model=pic'},check=True)
+    subprocess.run(['rustup','run','stable','cargo','build','--manifest-path','native-vst3-proxy/backend/Cargo.toml','--release','--locked','--offline','--target','x86_64-unknown-linux-gnu']+(['--features','registered'] if a.registered else []),cwd=ROOT,env={**os.environ,'RUSTC':compiler,'RUSTFLAGS':'-C relocation-model=pic'},check=True)
     files=subprocess.check_output(['git','ls-files','CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0ModernGcc.cmake','native-vst3-proxy','vst-state'],cwd=ROOT,text=True).splitlines()
     a.output.mkdir(parents=True,exist_ok=False);archive=a.output/'native-input.zip'
     with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED) as z:

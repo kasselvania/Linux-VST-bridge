@@ -15,6 +15,12 @@ public:
   std::vector<uint8_t> bytes;
   size_t position = 0;
   bool failed = false;
+  // Bounded state-call diagnostics; never include vendor state payloads.
+  uint32_t write_calls=0,read_calls=0,seek_calls=0,unknown_queries=0;
+  int32_t largest_write=0;
+  int64_t last_seek_offset=0;
+  int32_t last_seek_mode=0;
+  uint8_t last_unknown_iid[16]{};
   explicit Stream(std::vector<uint8_t> input = {}, size_t limit = payloadLimit)
       : bytes(std::move(input)), limit_(limit) {
     if (bytes.size() > limit_)
@@ -31,6 +37,7 @@ public:
       addRef();
       return Steinberg::kResultOk;
     }
+    ++unknown_queries;std::memcpy(last_unknown_iid,id,16);
     return Steinberg::kNoInterface;
   }
   Steinberg::uint32 PLUGIN_API addRef() override { return ++references_; }
@@ -43,6 +50,7 @@ public:
       *count = 0;
     if (failed || n < 0 || (n && !out) || position > bytes.size())
       return Steinberg::kResultFalse;
+    ++read_calls;
     size_t got = std::min(static_cast<size_t>(n), bytes.size() - position);
     if (got)
       std::memcpy(out, bytes.data() + position, got);
@@ -56,6 +64,7 @@ public:
                                       Steinberg::int32 *count) override {
     if (count)
       *count = 0;
+    ++write_calls;largest_write=std::max(largest_write,n);
     if (failed || n < 0 || (n && !input) || position > limit_ ||
         static_cast<size_t>(n) > limit_ - position) {
       failed = true;
@@ -79,6 +88,7 @@ public:
   Steinberg::tresult PLUGIN_API seek(Steinberg::int64 offset,
                                      Steinberg::int32 mode,
                                      Steinberg::int64 *result) override {
+    ++seek_calls;last_seek_offset=offset;last_seek_mode=mode;
     int64_t base = mode == kIBSeekSet   ? 0
                    : mode == kIBSeekCur ? static_cast<int64_t>(position)
                    : mode == kIBSeekEnd ? static_cast<int64_t>(bytes.size())

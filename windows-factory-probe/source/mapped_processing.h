@@ -29,6 +29,7 @@ public:
     uint16_t next_transition() override;
     uint32_t lifecycle_request(uint16_t) override;
     void lifecycle_ack(uint16_t) override;
+    void lifecycle_activity(bool,uint64_t) override;
     void before_process() override;
     void after_process() override;
     void ready() override;

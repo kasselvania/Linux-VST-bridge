@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 void check(bool ok, const char *why) {
@@ -18,7 +19,9 @@ void check(bool ok, const char *why) {
 struct FixtureComponent final : AudioEffect {
   double value = .375;
   unsigned restores = 0;
+  tresult capture_result=kResultOk;
   tresult PLUGIN_API getState(IBStream *s) override {
+    if(capture_result!=kResultOk)return capture_result;
     int32 n = 0;
     return s->write(&value, 8, &n) == kResultOk && n == 8 ? kResultOk
                                                           : kResultFalse;
@@ -32,6 +35,12 @@ struct FixtureComponent final : AudioEffect {
 };
 struct Controller final : EditController {
   unsigned synchronizations = 0, invalidations = 0;
+  bool invalid_readback = false;
+  double readback_value = 0.;
+  ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
+    return invalid_readback && id == 42 ? readback_value
+                                      : EditController::getParamNormalized(id);
+  }
   tresult PLUGIN_API initialize(FUnknown *h) override {
     auto r = EditController::initialize(h);
     parameters.addParameter(u"Gain", u"", 0, .375, ParameterInfo::kCanAutomate,
@@ -75,6 +84,37 @@ int main() {
   check(commercial_state(component, controller, true, nullptr) == original &&
             controller.synchronizations == 1,
         "post-restore capture does not trigger another refresh");
+  controller.invalid_readback = true;
+  for (auto value : {-.25, 1.25, std::numeric_limits<double>::quiet_NaN()}) {
+    controller.readback_value = value;
+    auto captured=commercial_state(component, controller, true, nullptr);
+    check(captured.size()==original.size(),"unavailable parameter retains every ID");
+    check(std::equal(original.begin(),original.end()-16,captured.begin()),"opaque component/controller state preserved");
+    auto* p=captured.data()+captured.size()-16;
+    check(linux_vst_bridge::ap1::get(p,4)==42&&linux_vst_bridge::ap1::get(p+4,4)==0&&linux_vst_bridge::ap1::get(p+8,8)==0,"explicit unavailable tag, no invalid value or clamping");
+  }
+  for(auto r:{kResultFalse,kNotImplemented}){
+    component.capture_result=r;
+    bool refused=false;
+    try{commercial_state(component,controller,true,nullptr);}
+    catch(const linux_vst_bridge::wf0::SaveRefusal& e){refused=e.stage==1&&e.result==r;}
+    check(refused,"completed capture refusal retains stage and SDK result");
+    bool unsafe=false;
+    try{commercial_state(component,controller,true,&original);}
+    catch(const linux_vst_bridge::wf0::SaveRefusal&){check(false,"restore must never be recoverable save refusal");}
+    catch(const std::runtime_error&){unsafe=true;}
+    check(unsafe,"post-restore capture refusal remains unsafe");
+  }
+  component.capture_result=kResultOk;
+  controller.invalid_readback=false;
+  check(commercial_state(component,controller,true,nullptr)==original,"capture can succeed after refusal");
+  auto before=controller.synchronizations;
+  for(auto r:{kResultFalse,kNotImplemented}){
+    LVBState::Stream partial;partial.bytes={1,2,3};
+    check(!linux_vst_bridge::wf0::synchronize_initial(controller,true,r,partial)&&controller.synchronizations==before,"fresh initialization refuses no editor and never synchronizes a declined stream");
+  }
+  LVBState::Stream fresh;component.getState(&fresh);
+  check(linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,fresh)&&controller.synchronizations==before+1,"available initial state synchronizes once");
   controller.terminate();
   component.terminate();
   std::cout << "AP11 pure state capture and exactly-once restore "
