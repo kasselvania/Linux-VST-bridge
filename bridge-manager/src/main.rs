@@ -122,6 +122,10 @@ fn systemd(s: &str) -> String {
 fn setup(m: &Manager, package: &Path) -> Result<()> {
     let _lock = m.lock("setup.lock")?;
     let _registry = m.lock("registry.lock")?;
+    // A stopped prior service may leave a positively retired keeper lease.
+    // Use the existing ownership receipt rule before the inactivity check;
+    // never erase an unresolved lease merely to make setup succeed.
+    let _unresolved = reconcile_leases(m)?;
     m.require_inactive(None)?;
     let profiles = profiles::installed_profiles()?;
     let catalogue = if m.registry()?.classes.is_empty() {
