@@ -1,7 +1,7 @@
 {
   "service_enabled": "enabled",
   "service_active": "active",
-  "scheduling": "CPUWeight=10000\nNice=0\nCPUSchedulingPolicy=0\nCPUSchedulingPriority=0",
+  "scheduling": "CPUWeight=[not set]\nNice=0\nCPUSchedulingPolicy=0\nCPUSchedulingPriority=0",
   "heavy_trace": false,
   "software": {
     "manager": "bebe5686105ca454a6a222f4dad6ef260d5bd5b11772b0828b0fe0e33a948261",
@@ -119,6 +119,20 @@
     },
     "pre_comparison_properties": "Nice=0\nCPUSchedulingPolicy=0\nCPUSchedulingPriority=0",
     "pre_comparison_CPUWeight": "unset",
-    "operator_preference": "pending; external setting preserved"
+    "operator_preference": "Operator confirms making no CPU-weight change; prior unset value restored.",
+    "source_of_change": "unknown",
+    "scheduling_before_restoration": "CPUWeight=10000\nNice=0\nCPUSchedulingPolicy=0\nCPUSchedulingPriority=0",
+    "restoration": {
+      "wall_ns": 1788936899619130311,
+      "CPUWeight": "[not set]",
+      "effective_cpu_weight": 100,
+      "service_active": "active",
+      "service_instance_unchanged": true,
+      "dropin_cpu_lines": [
+        "CPUWeight="
+      ],
+      "other_scheduling_unchanged": true,
+      "installed_software_publications_projects_sessions_unchanged": true
+    }
   }
 }
