@@ -259,6 +259,9 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
         f.sync_all()?;
     }
     fs::rename(temp, unit)?;
+    // Publication/setup records are complete. Let the service's startup
+    // reconcile acquire the same nonblocking admission lock immediately.
+    drop(_registry);
     for args in [
         &["--user", "daemon-reload"][..],
         &["--user", "enable", "--now", "linux-vst-bridge.service"][..],

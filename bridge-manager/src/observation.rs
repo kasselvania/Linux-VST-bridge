@@ -75,7 +75,9 @@ fn decode(v: &Value, key: &str, unicode: bool) -> Result<String> {
     if unicode {
         require(b.len().is_multiple_of(2), "census_utf16")?;
         Ok(String::from_utf16(
-            &b.chunks_exact(2)
+            &b.as_chunks::<2>()
+                .0
+                .iter()
                 .map(|b| u16::from_le_bytes([b[0], b[1]]))
                 .collect::<Vec<_>>(),
         )?)
