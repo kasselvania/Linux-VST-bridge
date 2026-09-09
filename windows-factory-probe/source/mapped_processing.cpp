@@ -116,14 +116,15 @@ struct MappedSession::Impl {
    update_controller();require(!controller_update_failed.load(),"controller automation update failed");
    if(editor)editor->service(true);
    events.lifecycle("ap4_state_started",",\"operation\":\"opaque\",\"owner_thread\":true");
-   ReadbackStatus readback;std::vector<uint8_t> payload;
-   try{payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr,&readback);}
+   ReadbackStatus readback;StateTiming state_timing;std::vector<uint8_t> payload;
+   try{payload=commercial_state(*component,*controller,separate,f.kind==SetState?&f.payload:nullptr,&readback,diagnostic.enabled?&state_timing:nullptr);}
    catch(const SaveRefusal& e){
     require(socket.minor>=11&&f.kind==GetState,"save refusal requires protocol 11");
     std::vector<uint8_t> error(16);put(error.data(),1,4);put(error.data()+4,GetState,4);put(error.data()+8,e.stage,4);put(error.data()+12,uint32_t(e.result),4);
     socket.write(frame(Error,state.next,std::move(error)));require(state.next<UINT64_MAX,"state sequence overflow");++state.next;
     events.lifecycle("ap12_save_refused",",\"operation\":16,\"stage\":"+std::to_string(e.stage)+",\"sdk_result\":"+std::to_string(e.result));return;
    }
+   if(diagnostic.enabled)events.lifecycle("ap13_state_timing",",\"request_sequence\":"+std::to_string(state.next)+",\"component_ns\":"+std::to_string(state_timing.component_ns)+",\"controller_ns\":"+std::to_string(state_timing.controller_ns)+",\"metadata_ns\":"+std::to_string(state_timing.metadata_ns)+",\"values_ns\":"+std::to_string(state_timing.values_ns)+",\"total_ns\":"+std::to_string(state_timing.total_ns));
    events.lifecycle("ap12_readback",",\"unavailable_count\":"+std::to_string(readback.unavailable)+",\"first_unavailable_id\":"+std::to_string(readback.first_id)+",\"first_unavailable_bits\":"+std::to_string(readback.first_bits));
    events.lifecycle("ap10_controller_sync",",\"applied\":"+std::to_string(controller_updates_applied)+",\"state_request_sequence\":"+std::to_string(state.next));
    events.lifecycle("ap4_state_result",",\"operation\":\"opaque\",\"result\":0,\"bytes\":"+std::to_string(payload.size()));
