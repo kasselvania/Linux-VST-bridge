@@ -194,26 +194,58 @@ int main() {
   struct Fault final : AP11::ShellFaults {
     AP11::ShellOperation operation=AP11::ShellOperation::SendClose;
     AP11::ShellResult result=AP11::ShellResult::Transient;
-    unsigned remaining=1;
+    unsigned remaining=1, sends=0, unmaps=0;
     AP11::ShellResult before(AP11::ShellOperation op) override {
+      if(op==AP11::ShellOperation::SendClose)++sends;
+      if(op==AP11::ShellOperation::Unmap)++unmaps;
       if(op==operation && remaining) { --remaining; return result; }
       return AP11::ShellResult::Accepted;
     }
   } fault;
   auto attach=[&](uint64_t token) {
+    fault.sends=fault.unmaps=0;
     controller=new Vst::EditController;panel=new AP11::VendorPanel(controller,frame,token,&fault);
     controller->release();panel->setFrame(&frame);frame.lifecycle=AP11::Opening;
     check(panel->attached(reinterpret_cast<void*>(parent),kPlatformTypeX11EmbedWindowID)==kResultOk,"fault fixture attach");
   };
-  auto closeCount=[&] {unsigned n=0;while(XPending(display)){XEvent e{};XNextEvent(display,&e);if(e.type==ClientMessage)++n;}return n;};
+  auto closeCount=[&] {unsigned n=0;while(XPending(display)){XEvent e{};XNextEvent(display,&e);
+    if(e.type==ClientMessage) {
+      check(e.xclient.window==parent && e.xclient.message_type==protocols && e.xclient.format==32 &&
+            Atom(e.xclient.data.l[0])==close,"exact WM_DELETE to the host-owned parent");
+      ++n;
+    }}return n;};
   closeCount();attach(27);frame.lifecycle=AP11::ClosedByVendor;frame.drain();XSync(display,False);
   check(closeCount()==1,"transient close send refusal retries to one accepted WM_DELETE");panel->removed();panel->release();
-  fault.operation=AP11::ShellOperation::Unmap;fault.result=AP11::ShellResult::Rejected;fault.remaining=1;
-  attach(28);auto failBefore=frame.failures;XMapWindow(display,parent);XSync(display,False);frame.drain();
-  check(frame.failures==failBefore+1,"failed unmap reports editor failure instead of hidden-shell success");panel->removed();panel->release();closeCount();
+  fault.operation=AP11::ShellOperation::Unmap;fault.result=AP11::ShellResult::Rejected;fault.remaining=100;
+  XSync(display,False);check(XGetWindowAttributes(display,parent,&attributes),"live parent before unmap refusal");
+  const auto baselineMask=attributes.all_event_masks;
+  const auto closeBefore=frame.closes, unregisterBeforeUnmap=frame.unregisterCalls;
+  attach(28);controller->addRef();auto failBefore=frame.failures;
+  XMapWindow(display,parent);XSync(display,False);frame.drain();XSync(display,False);
+  check(frame.failures==failBefore+1,"failed unmap reports editor failure instead of hidden-shell success");
+  check(closeCount()==1,"rejected unmap still delivers one accepted host retirement");
+  frame.drain();XSync(display,False);
+  check(closeCount()==0 && frame.failures==failBefore+1 && fault.sends==1 && fault.unmaps==1,
+        "later turns duplicate neither host retirement nor editor failure and never retry rejected unmap");
+  check(panel->removed()==kResultOk && panel->removed()==kResultOk && frame.closes==closeBefore+1 &&
+        frame.unregisterCalls==unregisterBeforeUnmap+1 && frame.timers.empty() && frame.references==1,
+        "normal removal balances exact close, timer, frame and loop after unmap refusal");
+  panel->release();check(controller->release()==0,"unmap failure leaves no controller reference");
+  XSync(display,False);check(XGetWindowAttributes(display,parent,&attributes) && attributes.all_event_masks==baselineMask,
+        "host parent survives and delegate XCB event selection retires with connection");
+  XUnmapWindow(display,parent);XSync(display,False);
+  fault.result=AP11::ShellResult::Transient;fault.remaining=100;attach(32);failBefore=frame.failures;
+  XMapWindow(display,parent);XSync(display,False);frame.drain();XSync(display,False);
+  check(frame.failures==failBefore+1 && fault.unmaps==3 && fault.sends==1 && closeCount()==1,
+        "exhausted transient unmap still delivers one checked host retirement");panel->removed();panel->release();
+  fault.operation=AP11::ShellOperation::SendClose;fault.result=AP11::ShellResult::Rejected;fault.remaining=100;
+  attach(33);failBefore=frame.failures;frame.lifecycle=AP11::ClosedByVendor;frame.drain();XSync(display,False);
+  check(frame.failures==failBefore+1 && fault.sends==1 && closeCount()==0,
+        "conclusively rejected host-close send is not retried");panel->removed();panel->release();
   fault.operation=AP11::ShellOperation::Flush;fault.result=AP11::ShellResult::ConnectionLost;fault.remaining=1;
   attach(29);failBefore=frame.failures;frame.lifecycle=AP11::ClosedByVendor;frame.drain();XSync(display,False);
-  check(frame.failures==failBefore+1 && closeCount()<=1,"flush connection loss retires editor without duplicate sends");panel->removed();panel->release();
+  check(frame.failures==failBefore+1 && closeCount()==1 && fault.sends==1,
+        "flush connection loss after accepted send retires editor without duplicate sends");panel->removed();panel->release();
   fault.operation=AP11::ShellOperation::SendClose;fault.result=AP11::ShellResult::ConnectionLost;fault.remaining=1;
   attach(31);failBefore=frame.failures;frame.lifecycle=AP11::ClosedByVendor;frame.drain();XSync(display,False);
   check(frame.failures==failBefore+1 && closeCount()==0 && panel->shellResult()==AP11::ShellResult::ConnectionLost,

@@ -38,9 +38,13 @@ class VendorPanel final : public Steinberg::CPluginView {
   xcb_atom_t protocols_ = 0, delete_ = 0, active_ = 0, time_ = 0;
   AP15::UiTimer *timer_ = nullptr;
   ShellFaults *faults_;
+  // Diagnostic failure is not authority for another XCB operation. In
+  // particular, rejected Unmap must not suppress a still-deliverable Close.
   ShellResult shell_result_ = ShellResult::Accepted;
+  ShellResult unmap_result_ = ShellResult::Accepted, close_result_ = ShellResult::Accepted;
+  ShellResult flush_result_ = ShellResult::Accepted;
   bool opened_ = false, close_requested_ = false, removing_ = false, failed_ = false;
-  bool needs_unmap_ = false, parent_gone_ = false;
+  bool needs_unmap_ = false, parent_gone_ = false, connection_lost_ = false;
   unsigned close_attempts_ = 0, unmap_attempts_ = 0, close_wait_ = 0;
   ShellResult before(ShellOperation op) {
     if (xcb_connection_has_error(connection_)) return ShellResult::ConnectionLost;
@@ -48,12 +52,14 @@ class VendorPanel final : public Steinberg::CPluginView {
   }
   ShellResult flush() {
     const auto result = before(ShellOperation::Flush);
-    return result != ShellResult::Accepted ? result :
+    flush_result_ = result != ShellResult::Accepted ? result :
       xcb_flush(connection_) > 0 ? ShellResult::Accepted : ShellResult::ConnectionLost;
+    return flush_result_;
   }
   void failure(ShellResult result) {
     shell_result_ = result;
     parent_gone_ |= result == ShellResult::ParentGone;
+    connection_lost_ |= result == ShellResult::ConnectionLost;
     if (!failed_) {
       failed_ = true;
       owner_.panelFailure(token_, parent_gone_ ? WindowLost : Host);
@@ -93,7 +99,7 @@ class VendorPanel final : public Steinberg::CPluginView {
   }
   void closeHost() {
     if (!parent_ || parent_gone_ || close_requested_ || close_attempts_ >= 3 ||
-        shell_result_ == ShellResult::ConnectionLost || shell_result_ == ShellResult::Rejected) return;
+        connection_lost_ || close_result_ == ShellResult::Rejected) return;
     ++close_attempts_;
     auto result = before(ShellOperation::SendClose);
     if (result == ShellResult::Accepted) {
@@ -103,18 +109,14 @@ class VendorPanel final : public Steinberg::CPluginView {
       event.data.data32[0] = delete_; event.data.data32[1] = XCB_CURRENT_TIME;
       result = checkedResult(xcb_send_event_checked(connection_, false, parent_,
           XCB_EVENT_MASK_NO_EVENT, reinterpret_cast<const char *>(&event)));
-      if (result == ShellResult::Accepted) {
-        // A checked send is accepted by the server, not acknowledged by the
-        // host application. Never resend it after an ambiguous flush failure.
-        result = flush();
-        if (result != ShellResult::Accepted) {
-          close_attempts_ = 3; failure(ShellResult::ConnectionLost); return;
-        }
-        close_requested_ = true;
-      }
     }
-    shell_result_ = result;
-    if (result != ShellResult::Accepted && (result != ShellResult::Transient || close_attempts_ == 3))
+    close_result_ = result;
+    if (result == ShellResult::Accepted) {
+      // Server acceptance is final for delivery, even if the later flush is
+      // ambiguous. Host retirement is separate and must never resend this.
+      close_requested_ = true;
+      if (flush() != ShellResult::Accepted) failure(flush_result_);
+    } else if (result != ShellResult::Transient || close_attempts_ == 3)
       failure(result);
   }
 
@@ -183,9 +185,9 @@ public:
     }
     timer_ = new AP15::UiTimer(loop_, this, [](void *p) { static_cast<VendorPanel *>(p)->onTimer(); });
     if (!timer_->start()) { removed(); return kResultFalse; }
-    removing_ = close_requested_ = failed_ = parent_gone_ = false;
+    removing_ = close_requested_ = failed_ = parent_gone_ = connection_lost_ = needs_unmap_ = false;
     close_attempts_ = unmap_attempts_ = close_wait_ = 0;
-    shell_result_ = ShellResult::Accepted;
+    shell_result_ = unmap_result_ = close_result_ = flush_result_ = ShellResult::Accepted;
     systemWindow = parent;
     owner_.panelLoop(loop_);
     const auto context = activation();
@@ -232,13 +234,16 @@ public:
         failure(ShellResult::ParentGone);
       std::free(event);
     }
-    if (needs_unmap_ && !parent_gone_ && unmap_attempts_ < 3) {
+    if (needs_unmap_ && !parent_gone_ && !connection_lost_ && unmap_attempts_ < 3 &&
+        unmap_result_ != ShellResult::Rejected) {
       ++unmap_attempts_;
       auto result = before(ShellOperation::Unmap);
       if (result == ShellResult::Accepted) result = checkedResult(xcb_unmap_window_checked(connection_, parent_));
-      if (result == ShellResult::Accepted) result = flush();
-      shell_result_ = result;
-      if (result == ShellResult::Accepted) { needs_unmap_ = false; unmap_attempts_ = 0; }
+      unmap_result_ = result;
+      if (result == ShellResult::Accepted) {
+        needs_unmap_ = false; unmap_attempts_ = 0;
+        if (flush() != ShellResult::Accepted) failure(flush_result_);
+      }
       else if (result != ShellResult::Transient || unmap_attempts_ == 3) failure(result);
     }
     const auto state = owner_.panelState(token_);
@@ -246,7 +251,7 @@ public:
     // XCB cannot acknowledge host action. One accepted request is never
     // repeated; an unretired shell after 100 UI ticks is a truthful refusal.
     if (close_requested_ && close_wait_ < 100 && ++close_wait_ == 100) failure(ShellResult::Rejected);
-    if (flush() != ShellResult::Accepted) failure(ShellResult::ConnectionLost);
+    if (!connection_lost_ && flush() != ShellResult::Accepted) failure(flush_result_);
   }
 };
 } // namespace AP11
