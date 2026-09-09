@@ -1,0 +1,23 @@
+UpdateCTestConfiguration  from :$HOME/AP15-Work/native-tests/build/native-vst3-proxy/DartConfiguration.tcl
+Test project $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 6
+    Start 6: ap11-panel-tests
+
+6: Test command: $HOME/AP15-Work/native-tests/xvfb-run "-a" "$HOME/AP15-Work/native-tests/build/native-vst3-proxy/ap11-panel-tests"
+6: Working Directory: $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+6: Test timeout computed to be: 10000000
+6: AP15 production X11 delegate ownership and retirement PASS
+1/1 Test #6: ap11-panel-tests .................   Passed    1.18 sec
+
+The following tests passed:
+	ap11-panel-tests
+
+100% tests passed out of 1
+
+Total Test time (real) =   1.19 sec
