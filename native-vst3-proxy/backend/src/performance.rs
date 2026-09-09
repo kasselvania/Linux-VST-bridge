@@ -39,7 +39,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     let rate = f64::from_le_bytes(b[8..16].try_into().unwrap());
     need(
         (1..=256).contains(&get(&b[..4]))
-            && matches!(get(&b[4..8]), 0 | 2 | 3)
+            && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
             && matches!(get(&b[16..20]), 0 | 2 | 3)
             && get(&b[20..24]) <= 3,
@@ -154,6 +154,19 @@ mod tests {
         std::os::unix::fs::symlink(&file, &link).unwrap();
         assert!(read_delay(&link, 64).is_err());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn process_modes_are_distinct_from_mailbox_versions() {
+        for mailbox_version in [0u32, 2, 3] {
+            let mut b = wire(256, 0, 48000.).unwrap();
+            b[16..20].copy_from_slice(&mailbox_version.to_le_bytes());
+            for process_mode in [0u32, 2] {
+                b[4..8].copy_from_slice(&process_mode.to_le_bytes());
+                assert!(validate_wire(&b).is_ok());
+            }
+            b[4..8].copy_from_slice(&3u32.to_le_bytes());
+            assert!(validate_wire(&b).is_err());
+        }
     }
     #[test]
     fn setup_bounds_and_no_precision_conversion() {
