@@ -1,101 +1,66 @@
 # Product Design Dossier
 
 **Document identity:** `linux-audio-compatibility-bridge.soft-design-dossier.v1`  
-**Purpose:** Product direction and current capability boundaries, not a release promise or an implementation checklist.
+**Purpose:** Product direction and current capability boundaries, not a release promise or ceremonial checklist.
 
-## Product
+## Product and architecture
 
-A native Linux proxy represents an actual Windows plug-in class to the DAW. A supervised Windows host loads the real module under a selected compatible runner. Control/state and real-time audio/event interfaces connect them. A separate management plane owns installation, vendor-authorized activation, scanning, selective publication, organization, updates, diagnostics, repair and rollback without being required for playback.
+A native Linux proxy represents an actual Windows plug-in class to the DAW. A supervised Windows host loads the real module under a selected compatible runner. Typed control/state and real-time audio/event paths connect them. A separate management plane owns installation, vendor-access handoff, scanning, publication, profiles, diagnostics and eventually updates/repair/rollback; its UI is not required for music playback.
 
-Users should not administer Wine prefixes, proxy synchronization, service startup or Flatpak paths to make music. Published devices identify the actual vendor product, retain stable class identity and respect user labels. Instruments and effects are both core coverage. Actual exported classes and negotiated buses determine I/O; product names do not. Factory/class subcategories determine browser role; an audio input does not by itself make a class an effect.
+Instruments and effects are equal product requirements. SDK factory/class metadata drives names and browser roles; negotiated buses determine I/O. Product names do not dispatch implementation. Native class IDs, ParamIDs and user projects survive friendly naming. An environment can be shared without sharing instance state, buffers, editors or cleanup identity.
 
-The project remains an independent bridge. Yabridge is prior art, not the implementation. Maintained Wine/Proton work may be reused as a runner beneath our native proxy, Windows host, transport, state, editor and management layers.
+The bridge is independent: yabridge is prior art, not the implementation. Reuse suitable maintained Wine/Proton work underneath the project-owned proxy, Windows host, transport, state and management.
 
-## Dossier set
-
-- [Product and user experience](design-dossier/01-product-and-user-experience.md)
-- [Identity, presets and visuals](design-dossier/02-identity-presets-and-visual-system.md)
-- [Activation, Flatpak, runtime and recovery](design-dossier/03-activation-flatpak-runtime-and-recovery.md)
-- [Fixtures, dependencies and pre-mortem](design-dossier/04-fixtures-proof-sequence-and-next-decision.md)
-
-These retain original reasoning, not a mandatory ceremony or task sequence. Follow [AGENTS.md](../AGENTS.md), [development guidance](DEVELOPMENT_PROCESS.md) and [CURRENT_SLICE.md](../CURRENT_SLICE.md).
+The original [product](design-dossier/01-product-and-user-experience.md), [identity/presets](design-dossier/02-identity-presets-and-visual-system.md), [activation/runtime/recovery](design-dossier/03-activation-flatpak-runtime-and-recovery.md), [fixtures/pre-mortem](design-dossier/04-fixtures-proof-sequence-and-next-decision.md) and [architecture](ARCHITECTURE.md) retain the design reasoning. [AGENTS.md](../AGENTS.md) and [CURRENT_SLICE.md](../CURRENT_SLICE.md) govern active outcome-led work.
 
 ## Accepted development baseline
 
-| Milestone | Reviewed source | Capability and evidence |
+| Milestone | Reviewed source | Evidence |
 | --- | --- | --- |
-| AP8 / #67 | `938791e42e6a6fde1f44ab07e9f1d4edc2357ded` | Windows Serum 2.0.18 note processing and normal Bitwig setting recall. [Results](AP8_RESULT.md). |
-| AP9 / #69 | `b45b76332a4fc06cd314f7463b7a86ac6601865c` | Configurable delay, host processing setup, transport improvements and lower supervisor CPU. [Performance](AP9.md); [owner cost](AP9_OWNER_COST.md). |
-| AP10 / #71 | `fb0faed7cfc097ecb78653421d6e704bb9f25a00` | Mailbox delivery repair, FRAGMENTS effect processing/control/recall, restored Serum, returned events/parameter feedback and corrected callback payload lifetime. [Findings](AP10.md). |
-| AP11 / #76 | `f24cf7b4de60821eebd02fde1df9c67d2798b40c` | Same-instance editor, hidden/minimized focus, FRAGMENTS automation/stopped-edit recall and removal of a focus-triggered false state capture causing an audio stall. [Results](AP11.md); [follow-up](AP11_REVIEW_FOLLOWUP.md). |
+| AP8 / #67 | `938791e42e6a6fde1f44ab07e9f1d4edc2357ded` | Actual Serum note processing and Bitwig recall. [AP8](AP8_RESULT.md). |
+| AP9 / #69 | `b45b76332a4fc06cd314f7463b7a86ac6601865c` | Configurable preview delay, setup, transport and supervisor improvements. [AP9](AP9.md). |
+| AP10 / #71 | `fb0faed7cfc097ecb78653421d6e704bb9f25a00` | Mailbox, commercial effects, bidirectional results and payload lifetime. [AP10](AP10.md). |
+| AP11 / #76 | `f24cf7b4de60821eebd02fde1df9c67d2798b40c` | Detached editor/focus, automation/recall and removal of false focus-triggered state capture. [AP11](AP11_REVIEW_FOLLOWUP.md). |
+| AP12 / #79 | `66430ac40d5a398ea2a0943b330b1056dc7ecb03` | Installed Arturia chain, automatic startup, actual reboot/edited-state/automation recall, independent removal and a scoped editor-removal workaround. [AP12](AP12.md). |
 
-Integrated main remains `1d5d693e2e2d12547dfd6b02e2b8492b27418592`. FRAGMENTS does not certify Serum's editor, every Arturia product, universal low latency or every SDK interface. Serum's lawful authorization/editor qualification remains #77.
+AP12 is accepted by [review 5149097123](https://github.com/kasselvania/Linux-VST-bridge/pull/79#pullrequestreview-5149097123) as an installed engineering preview. Status reconciliation is documentation only. Original failed attempts retain their facts; this does not certify a glitch-free release, arbitrary Arturia installations or vendor entitlement.
 
-AP4 [state recall](AP4_RESULT.md), AP5 [independent reference instances](AP5_RESULT.md), AP6 [last-confirmed-state recovery](AP6_RESULT.md), and AP7 [aligned transient gaps](AP7_PLAYBACK_REPAIR.md) remain the foundation. Historical attempts keep their exact scope and are not standing instructions.
+AP4 [state](AP4_RESULT.md), AP5 [independent instances](AP5_RESULT.md), AP6 [recovery](AP6_RESULT.md) and AP7 [aligned gaps](AP7_PLAYBACK_REPAIR.md) remain foundations, not instructions to repeat their entire campaigns.
 
-## Current candidate: installed use exists; dependable pair use is unfinished
+## What now exists
 
-[AP12/#79](https://github.com/kasselvania/Linux-VST-bridge/pull/79) at preparation input `01bc07ce490256cc160751806c01255b7d2aa38d` has implemented persistent Arturia installation support, SDK-derived browser identities, a Rust register/publish/status/unpublish core, installed automatic startup and distinct Windows sessions. Do not describe these as wholly absent or repeat the initial installation work order.
+The installed Rust register/publish/status/unpublish service and packaged supervision replace manual preview startup. Both exact Arturia devices appear normally in Bitwig. The [musical record](../evidence/AP12/musical-pair-reboot-removal.json) covers note-driven LoFi → FRAGMENTS audio, both same-instance editors, recorded/replayed controls, saved edited sound, a real Deck reboot, the service already active before Bitwig, normal application launch and independent removal. The environment, publications and operator project remain installed.
 
-LoFi has actual edited-state recall and automation results on its recorded candidate. FRAGMENTS' operator-replaced module was reinspected and its proxy fingerprint updated, restoring load/editor/save/close on the installed path. That FRAGMENTS check was silent processing. The complete musical pair, FRAGMENTS automation on this artifact, full user-session/Deck restart and audible-sibling removal are still unverified. LoFi has an intermittent terminal delivery timeout as well as short presentation gaps. See [AP12 results](AP12.md) and [latest evidence](../evidence/AP12/operator-replacement-load-removal.json).
+Normal installation fixed the old copied-module LoFi initialization barrier but did not establish full vendor access. Later operator-supplied module results are distinct from original installer and authorization evidence. Keep module fingerprints and stable class IDs separate: a shared class ID does not guarantee cross-build state compatibility.
 
-The original installer results and operator-replacement results are separate. Normal installation fixed LoFi initialization but did not establish full vendor access. A new module digest or absent login window is not an authorization certificate. Do not change vendor/licensing files, silently relax artifact checks or reuse an earlier artifact's result for a replacement.
+## Retained semantic decisions
 
-**Merge disposition:** keep #79 draft/unmerged and #78 open. The next turn completes AP12; it is not a new AP13 or another stacked implementation PR. Individual passing repairs do not certify the daily-use milestone.
+Opaque vendor state, supplemental parameter readback, persistence availability, editor readiness and process health are separate. Unavailable readback does not discard good opaque state or become a fabricated normalized value. An ordinary completed save refusal does not kill healthy processing or save an older snapshot as current. Unsafe/partial restore, malformed protocol and lost endpoints remain explicit failures. A prior snapshot is only prior state.
 
-## Architectural lessons already implemented in the candidate
+Fresh vendor-editor access can precede save availability without bypassing a vendor restriction. Opening/focusing must not fabricate parameter invalidation or state capture. Respect SDK thread affinity, accepted-edit ordering, same-instance views, sample/event timing and bounded payload ownership.
 
-Opaque vendor component/controller state, the supplemental parameter mirror, persistence availability, editor readiness and process health are distinct facts. An unavailable scalar readback must not discard a successful opaque capture or become a fabricated normalized value. Ordinary completed save refusal returns failure without inventing a saved sound or automatically killing healthy processing. Unsafe restore, malformed protocol and lost endpoints remain explicit failures. A prior snapshot is not a successful fresh save.
+Diagnostics do not own cleanup. Rich-report failure cannot skip physical cleanup or peer retirement; unproved ownership remains visible. Minimal [fault status](AP12-FAULT-STATUS.md) is independently retainable before containment, with atomic single-writer lanes and explicit clock domains. Detailed profiling is optional and outside native audio callbacks.
 
-Fresh vendor-editor access may precede persistence availability. This enables normal user/vendor interaction without pretending a demo can save or restoring an existing project to defaults. Native mirror bootstrap must not recreate a hidden save prerequisite.
+## Repaired crash and remaining limits
 
-Rich reporting is not ownership authority. Diagnostic-write failure must not skip physical cleanup, native release or transport retirement; genuinely unconfirmed cleanup remains visible and blocked. Preserve the fixed-size/real-time boundaries, SDK thread affinity, stable IDs and these production regressions.
+The [measured editor-removal fault](../evidence/AP12/delivery-cause-and-repair.json) is a null dereference in the pinned runner's `uiautomationcore.dll` during LoFi `IPlugView::removed`. The Windows process vanishes and leaves the next audio request unconsumed. The exact-registration `disable_windows_accessibility` option prevents that reproduced crash; FRAGMENTS uses it too. This disables Windows accessibility integration for selected processes, not musical VST automation. It is not an upstream UIA fix. The older untraced timeout remains unassigned.
 
-## Selected next execution: delivery repair plus the actual musical chain
+At 48 kHz, 512 bridge + 48 vendor frames for LoFi and 512 + 192 for FRAGMENTS give 1,264 frames / 26.333 ms, matching the reported chain. Bridge delay alone is 21.333 ms. Device latency is extra. Short gaps remain: the post-reboot enclosing sessions record 23,808 and 6,656 underrun frames (27/7 gaps), not a zero-dropout result or a sum of unique audible chain loss. A 106.603-ms completed service with 1.450 ms inside vendor processing remains incompletely classified.
 
-The latest LoFi timeout preceded the removal/save request. The native mailbox waits five seconds for that reply, distinct from the 512-frame presentation horizon. Do not label it a small-buffer miss or claim that the earlier save repair explains it.
+Float32 and bounded stereo/main-bus paths exist; arbitrary sidechains, all formats/MIDI/MPE, every SDK interface, native Wayland views and broad hardware qualification do not. Historical resource warnings retain their artifact scope. [#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80) tracks Advanced-panel access and redraw separately.
 
-The current Windows trace retains completed, armed requests and dumps after thread shutdown. It can therefore lose the exact unfinished request or omit pre-note idle failures. Extend that existing mechanism with bounded, race-free in-flight identity/stage publication readable and retainable by an independent owner before containment. Minimal installed fault visibility should not require an agent to have enabled a full profiler first; detailed histories and thread sampling remain opt-in. No synchronous logging or diagnostic locks on the audio callback, no cross-clock arithmetic without an established relationship, and no proprietary payload/credential dumps.
+## Next direction: AP13 delivery consistency and lower-delay operation
 
-Use the last observed stage to distinguish request consumption, vendor processing, response publication and native receipt, then repair the demonstrated wait/lifecycle/runtime cause. Test the failure path deliberately; do not rely on the stuck thread returning. Continue the necessary musical workflow even when an intermittent fault does not recur, preserving that uncertainty instead of an indefinite soak. A clean retry is not a causal fix, and instrumentation alone is not full AP12 completion.
+The installed workflow no longer needs another publication milestone. Next improve the real chain's delivery deadlines and validate a lower-delay option. [#72](https://github.com/kasselvania/Linux-VST-bridge/issues/72) is the performance basis. A new implementation branch starts from integrated main; its CURRENT_SLICE selects the bounded outcome.
 
-The product outcome remains:
+Distinguish actual host callback cadence/max block, internal request chunk, bridge presentation delay and vendor delay. The registered baseline hard-codes 512 frames while the preview supports configured delays only when they cover the host maximum. An asynchronous nonwaiting callback cannot promise output from work it has not yet completed. Lowering a number without respecting that constraint is not optimization.
 
-```text
-MIDI / notes
-    → Arturia Pure LoFi (instrument)
-    → Arturia Efx FRAGMENTS (audio effect)
-    → track output
-```
+Trace and repair a demonstrated source of avoidable waiting, scheduling, queueing or copying. Compare matched musical/editor conditions and report gaps, latency and CPU. Preserve state/automation, independent instances and failure semantics. Do not trade away correctness, hide late audio with drift/replay, permanently spin cores, or increase hidden buffering to improve a benchmark. A lower option is not promoted until its actual host/setup boundary passes; useful verified consistency repairs may land without a claimed new default.
 
-Bitwig owns the serial chain. Establish input-dependent musical effect processing, same-instance editors, one recorded/replayed automatable parameter per device, edited-sound/pair recall after an actual Deck or full graphical-user-session restart, and removal of FRAGMENTS while LoFi audibly continues. Preserve user projects before disruptive steps. Installed startup must work with setup tools closed and no checkout/manual preview owner dependency. Leave the intended environment, publications, service and project available.
+Keep the exact Proton runtime and scoped workaround first. The previously inspected `giang17/wine` branch at `dbb8005a228d259f2b3d74f9225eafd832261e0a` is reusable runtime work, not an established Arturia/performance fix. Compare coherently and reversibly only for a matching identified cause; do not mix graphics DLL families or treat another DAW's 64-sample result as our latency.
 
-## Identity, management and deployment boundaries
+## Follow-through and working standard
 
-Registration binds an exact module digest/class to an environment, runner, compatibility settings and proxy artifact. SDK metadata drives names and roles. Friendly naming and paths do not regenerate native class/parameter identity. Stable class IDs do not alone establish saved-state compatibility across changed module bytes.
+[#72](https://github.com/kasselvania/Linux-VST-bridge/issues/72): delivery/latency; [#74](https://github.com/kasselvania/Linux-VST-bridge/issues/74): prompt known-process-loss notification; #73: historical native-close crash; #77: Serum vendor/editor qualification; #80: geometry/redraw. These are ordinary issues, not approval systems.
 
-Each DAW instance has its own transport, buffers, DSP/controller state, editor, automation and cleanup identity. Sharing a vendor environment does not merge instances. Management/status work stays outside processing and must not generate AP11's false refresh/state-capture trigger. The existing installed core is the implementation basis; full manager polish and universal update/installer support remain future work.
-
-## Performance and editor/runtime scope
-
-Retain **512 added frames per proxy at 48 kHz (10.67 ms)**. Two serial bridges contribute 1,024 frames / 21.33 ms before vendor and device latency. Report actual configured vendor delays, computed serial totals and any measured physical path separately. Existing candidate gaps/timeouts mean this is a retained setting, not a new gap-free guarantee. Do not increase buffering or lengthen a terminal deadline to hide the fault.
-
-Float32 and documented bounded stereo/bus/event paths exist. Arbitrary multichannel/dynamic topology, full sidechains/MIDI/MPE, native Wayland, every precision and broad hardware reliability are not claimed. Historical FRAGMENTS resource-integrity warnings retain their original scope; its current explicit Windows-accessibility workaround remains a compatibility setting, not a global default.
-
-[#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80) records the operator's FRAGMENTS Advanced-panel expansion and unsmooth-redraw observations. Resize negotiation, clipping, display scaling and renderer behavior must be distinguished; there is already a plug-in-requested resize implementation. General graphics work is deferred unless it blocks required controls, loses musical updates or shares the demonstrated timeout cause.
-
-The previously reviewed `giang17/wine` `d2d1-dcomp-11.0` at `dbb8005a228d259f2b3d74f9225eafd832261e0a` is a potential runner source below this independent bridge. Retain the current pinned Proton configuration first. A matching measured runtime problem can justify one coherent, isolated, reversible comparison; no speculative Wine build or yabridge migration. Actual renderer, executable-specific defaults, coherent graphics DLL families and AP11's Wine X11 window-ID capability matter. Top-level presentation optimizations need not benefit child/popup editors, and another Windows DAW's 64-sample result is not our bridge latency.
-
-## Tracked follow-through
-
-- [#72](https://github.com/kasselvania/Linux-VST-bridge/issues/72): residual stalls/lower-latency suitability; the current AP12 terminal reply loss is immediate work in #79.
-- [#73](https://github.com/kasselvania/Linux-VST-bridge/issues/73): historical native Bitwig engine-close crash.
-- [#74](https://github.com/kasselvania/Linux-VST-bridge/issues/74): prompt notification of known endpoint failure.
-- [#77](https://github.com/kasselvania/Linux-VST-bridge/issues/77): lawful Serum authorization/editor/preset qualification.
-- [#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80): vendor-editor geometry and redraw follow-through.
-
-These remain normal engineering issues, not new approval systems. Related defects are repairable in the active task; unrelated historical unknowns do not demand repeated campaigns.
-
-## Working standard
-
-One useful outcome, ordinary implementation/debugging, focused tests and one reviewed PR. Preserve projects, vendor environments, credentials, original evidence and dirty local work. Use real plug-ins, not substitute DSP or fabricated state. Keep exact sources and limits visible. Diagnose repeated failures instead of rerunning them without learning; complete product work rather than substituting an information-only report.
+One selected outcome, ordinary implementation/debugging, focused tests and one reviewed PR. Preserve user projects, installed environments, historical evidence, credentials and dirty work. Leave the product installed. Reuse unaffected proof; do not replace progress with repeated information-only campaigns.
