@@ -214,6 +214,25 @@ time.sleep(30)
 
 
 class CensusTests(unittest.TestCase):
+    def test_accessibility_workaround_is_explicit_and_process_scoped(self):
+        # The measured UIA removal fault is selected on an exact registration,
+        # not inferred from a product name and not written to the environment.
+        reg={'environment':{'root':'/tmp/ap12-test-environment'},
+             'compatibility':{'disable_windows_accessibility':False}}
+        before=dict(os.environ)
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:1\nUNRELATED=private\n'):
+            ordinary=session.environment(reg)
+            reg['compatibility']['disable_windows_accessibility']=True
+            selected=session.environment(reg)
+            reg['compatibility']['disable_windows_accessibility']=False
+            sibling=session.environment(reg)
+        self.assertNotIn('WINEDLLOVERRIDES',ordinary)
+        self.assertEqual(selected.pop('WINEDLLOVERRIDES'),'uiautomationcore=')
+        self.assertEqual(selected,ordinary)
+        self.assertEqual(sibling,ordinary)
+        self.assertNotIn('UNRELATED',ordinary)
+        self.assertEqual(dict(os.environ),before)
+
     def test_registered_trace_flag_reaches_only_audio_host(self):
         with tempfile.TemporaryDirectory() as tmp:
             flag=pathlib.Path(tmp)/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'

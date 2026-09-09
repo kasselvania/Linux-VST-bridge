@@ -1,0 +1,2654 @@
+{
+  "schema": 1,
+  "slice": "AP12 completion in PR #79",
+  "fixture_date": "2026-09-08",
+  "claim": "The reproduced LoFi editor-removal crash loses an unconsumed audio request; selecting the existing per-process UI Automation workaround on the exact LoFi registration prevents that measured crash in matched cold-start close/reopen and musical use.",
+  "diagnostic_source": "009720d3a654b40a171ea0bd7a5f2b2947b56c39",
+  "diagnostic_contract": "docs/AP12-FAULT-STATUS.md",
+  "clock_rule": "Windows QPC and Linux monotonic are separate; no cross-domain subtraction.",
+  "causal_baseline": {
+    "session": "03de91db67a69b27b6acc213aca7d323",
+    "condition": "Fresh bridge owner/environment after prior clean shutdown; normally Applications-launched Bitwig; saved pair; transport stopped; real LoFi editor close.",
+    "observations": [
+      {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715250260551874,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 26454,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 8821,
+          "position": 2257152,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 715250252470710,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 52911,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 8821,
+          "position": 2257152,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7152381450800,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 36297,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 25,
+          "detail": 0,
+          "ticks": 7152379977441,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 16,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "host_exists": true
+      },
+      {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715271094782200,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 38177,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12729,
+          "position": 3257600,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 715271094549165,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 76355,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12729,
+          "position": 3257600,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 7152589869382,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 38910,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7152589822250,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 212,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "host_exists": true
+      },
+      {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715271155589786,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 38204,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12738,
+          "position": 3259904,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 715271146709845,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 76407,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12737,
+          "position": 3259648,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7152590297927,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 38910,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7152589822250,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 212,
+          "open_stage": 100,
+          "exception_code": 3221225477
+        },
+        "host_exists": true
+      },
+      {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715271236840911,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 38204,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12738,
+          "position": 3259904,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 715271146709845,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 76407,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12737,
+          "position": 3259648,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7152590297927,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 38910,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7152589822250,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 212,
+          "open_stage": 100,
+          "exception_code": 3221225477
+        },
+        "host_exists": false
+      }
+    ],
+    "loaded_module": "pinned x86_64-windows/uiautomationcore.dll",
+    "module_sha256": "33a195f56bd5a84ace582ef480db2e272f21856df6437843eda406af295c6049",
+    "exception": "0xc0000005",
+    "fault_rva": "0x7988",
+    "function": "create_uia_node_from_elprov + 0x18",
+    "instruction": "mov (%rcx), %rax",
+    "rcx": 0,
+    "rax_symbol": "UiaDisconnectProvider",
+    "rax_rva": "0x2ce0",
+    "interpretation": "UI owner is inside IPlugView::removed (view stage 212). Previous audio request 12737 completed; request 12738 is published but not consumed. The host disappears before the unchanged five-second reply timeout. This is process loss during editor teardown, not a five-second vendor DSP computation.",
+    "prior_matching_evidence": "evidence/AP11/removal-fault.json",
+    "limitations": [
+      "No complete vendor call stack was captured.",
+      "The original operator failure at position 823296 lacked this status and is not retrospectively proven to have this cause.",
+      "A warm unmodified close also succeeded when UI Automation was not mapped; that retry is not the repair. Xalia/runtime activation explains a possible loading difference, but its precise trigger is unproved."
+    ]
+  },
+  "selection": {
+    "selected_class": "417274754156495350724C4650726F63",
+    "before": false,
+    "after": true,
+    "only_registration_setting_changed": true,
+    "native_and_windows_binaries_unchanged": true,
+    "vendor_artifact_unchanged": true,
+    "runner_unchanged": true,
+    "registry_revision": 28,
+    "status": [
+      {
+        "added_frames": 512,
+        "artifacts_valid": true,
+        "class": {
+          "class_id": "417274754156495350724C4650726F63",
+          "metadata_tier": "factory_3_unicode",
+          "name": "Pure LoFi",
+          "subcategories": "Instrument|Synth",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121"
+        },
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "publication": "Published",
+        "refusal": null,
+        "revision": 1
+      },
+      {
+        "added_frames": 512,
+        "artifacts_valid": true,
+        "class": {
+          "class_id": "41727475415649536772616E50726F63",
+          "metadata_tier": "factory_3_unicode",
+          "name": "Efx FRAGMENTS",
+          "subcategories": "Fx|Tools",
+          "vendor": "Arturia",
+          "version": "1.0.0.2925"
+        },
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "publication": "Published",
+        "refusal": null,
+        "revision": 1
+      }
+    ],
+    "monotonic_ns": 715440658345436
+  },
+  "repair_check": {
+    "session": "526e9afc97d1c7e2531a1151b27aea80",
+    "uia_module_mapped": false,
+    "launch_override_contains_uia_disable": true,
+    "same_host_identity_across_close": true,
+    "observations": [
+      {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715857742477863,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 21348,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 7119,
+          "position": 1821440,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 715857742223157,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 42699,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 7119,
+          "position": 1821440,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7158456224335,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 18857,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 25,
+          "detail": 0,
+          "ticks": 7158456114279,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 16,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "host_exists": true
+      },
+      {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715864251148133,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 25008,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 8339,
+          "position": 2133760,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 715864250349947,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 50019,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 8339,
+          "position": 2133760,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7158521304193,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 19666,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7158521149360,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 212,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "host_exists": true
+      },
+      {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715864271573358,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 1,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 25019,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 8343,
+          "position": 2134784,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 715864269675259,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 50043,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 8343,
+          "position": 2134784,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7158521509051,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 19669,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 25,
+          "detail": 0,
+          "ticks": 7158521467311,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "host_exists": true
+      }
+    ],
+    "both_same_sessions_editors_open": [
+      {
+        "session": "526e9afc97d1c7e2531a1151b27aea80",
+        "status": {
+          "available": true,
+          "schema": 1,
+          "sample_monotonic_ns": 716040184977494,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          },
+          "native": {
+            "publication": 123966,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 41325,
+            "position": 10578176,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 716040180571753,
+            "frequency": 1000000000,
+            "current": true
+          },
+          "delivery": {
+            "publication": 247935,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 41325,
+            "position": 10578176,
+            "stage": 1,
+            "detail": 0,
+            "ticks": 7160280571881,
+            "frequency": 10000000,
+            "current": true
+          },
+          "owner": {
+            "publication": 107009,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 25,
+            "detail": 0,
+            "ticks": 7160279652082,
+            "frequency": 10000000,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 16,
+            "open_stage": 100,
+            "exception_code": 0
+          }
+        }
+      },
+      {
+        "session": "f1229fc3d41fa4e205fad11cc77146d2",
+        "status": {
+          "available": true,
+          "schema": 1,
+          "sample_monotonic_ns": 716040185454784,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          },
+          "native": {
+            "publication": 121656,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 40555,
+            "position": 10381056,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 716040177892647,
+            "frequency": 1000000000,
+            "current": true
+          },
+          "delivery": {
+            "publication": 243315,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 40555,
+            "position": 10381056,
+            "stage": 1,
+            "detail": 0,
+            "ticks": 7160280544429,
+            "frequency": 10000000,
+            "current": true
+          },
+          "owner": {
+            "publication": 196457,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 0,
+            "detail": 0,
+            "ticks": 7160280610986,
+            "frequency": 10000000,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 100,
+            "open_stage": 100,
+            "exception_code": 0
+          }
+        }
+      }
+    ],
+    "limitation": "Windows UI Automation/screen-reader integration is disabled for these selected processes. VST parameter automation remains active. No global override, runtime/vendor replacement or timeout/buffer change."
+  },
+  "sessions": [
+    {
+      "label": "first musical pair; LoFi editor-close terminal failure",
+      "session": "4c97b555b62471d2efdb9df1e738abcc",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 196838,
+          "sha256": "b9e4e13388ca69bb7d2ff321d15f315e239f5993039d7ffc1656c250ab6d7025",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 197102,
+          "sha256": "bc93cad5b808fbb536696a0fde66042f1aed9fb08f8fe74e8476109fd4caf404",
+          "gain": 0
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 67246080,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 67246080,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 990,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 3,
+          "first_position": 9910784,
+          "processed": 131340,
+          "request_high": 937,
+          "result_high": 7,
+          "position": 10150912,
+          "epoch": 2
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 33863168,
+          "blocks": 66139,
+          "callback_rejections": 69201,
+          "rejected_silent_frames": 35430912,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 261632,
+          "underrun_gaps": 33,
+          "underrun_callbacks": 523,
+          "expired_output_frames": 22016,
+          "delivered_frames": 33600512,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "windows": [],
+      "completed_windows_rows": 0,
+      "worker_faults": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 9910784,
+          "processed": 131340,
+          "request_high": 937,
+          "result_high": 7,
+          "detail": "InvalidData: delivery response deadline"
+        }
+      ],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2048,
+          "gap_frames": 256,
+          "request_position": 2048,
+          "request_frames": 256,
+          "sequence": 12,
+          "output_published": true,
+          "queue_us": 29032,
+          "prepare_us": 17,
+          "send_us": 2,
+          "reply_us": 2490,
+          "validation_us": 17,
+          "publication_us": 34,
+          "publication_after_gap_us": 9492,
+          "admission_to_gap_us": 22101
+        },
+        "ap11_gap_clock": {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 2048,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 711985450190217,
+          "request_monotonic_ns": [
+            711985428088379,
+            711985457120431,
+            711985457138211,
+            711985457140921,
+            711985459631070,
+            711985459648350,
+            711985459682721
+          ]
+        }
+      },
+      "slowest_completed": [
+        {
+          "event": "ap9_slow_request",
+          "epoch": 2,
+          "sequence": 119676,
+          "position": 6923520,
+          "service_ns": 61000767,
+          "windows_process_ns": 2775100
+        }
+      ],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 712859420886257,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 394022,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 131345,
+          "position": 9910784,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 712852331789916,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 788051,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 131344,
+          "position": 9910528,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7128402684468,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 740990,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7128402537169,
+          "frequency": 10000000,
+          "current": true
+        }
+      },
+      "early_pending": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 712853430093724,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "observed_pending_seconds": 1.0471003770362586,
+        "native": {
+          "publication": 394022,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 131345,
+          "position": 9910784,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 712852331789916,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 788051,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 131344,
+          "position": 9910528,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7128402684468,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 740990,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7128402537169,
+          "frequency": 10000000,
+          "current": true
+        }
+      }
+    },
+    {
+      "label": "healthy FRAGMENTS sibling; recorded/replayed real Grain Mix gesture",
+      "session": "85b2d6ab4fdcf1e2f468b5dbb372a309",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 251100,
+          "request_high": 5,
+          "result_high": 5,
+          "position": 45581312,
+          "epoch": 2
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 128563200,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 128563200,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 27,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 64281600,
+          "blocks": 125550,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 15104,
+          "underrun_gaps": 28,
+          "underrun_callbacks": 40,
+          "expired_output_frames": 15104,
+          "delivered_frames": 64265472,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 189,
+          "state": "ap11_editor_summary",
+          "opens": 2,
+          "closes": 2,
+          "focuses": 3,
+          "removal_messages": 12,
+          "gestures": 1,
+          "values": 1,
+          "ends": 1,
+          "host_updates": 614,
+          "stale_updates": 1,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 194,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 207,
+          "state": "ap10_windows_clock",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "triggers": 4,
+          "retained": 298
+        }
+      ],
+      "completed_windows_rows": 298,
+      "worker_faults": [],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 0,
+          "gap_frames": 256,
+          "request_position": 0,
+          "request_frames": 256,
+          "sequence": 3,
+          "output_published": true,
+          "queue_us": 3332,
+          "prepare_us": 150,
+          "send_us": 3,
+          "reply_us": 6610,
+          "validation_us": 17,
+          "publication_us": 12,
+          "publication_after_gap_us": 183,
+          "admission_to_gap_us": 9943
+        },
+        "ap11_gap_clock": {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 0,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 712105757605737,
+          "request_monotonic_ns": [
+            712105747662019,
+            712105750994872,
+            712105751145835,
+            712105751149195,
+            712105757759590,
+            712105757776840,
+            712105757789041
+          ]
+        }
+      },
+      "slowest_completed": [
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 68938,
+          "position": 17647360,
+          "service_ns": 31464440,
+          "windows_process_ns": 10436600
+        }
+      ],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 713596198123462,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 753300,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 251103,
+          "position": 45581056,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 713595482730019,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 1506614,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 251104,
+          "position": 45581312,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7135834124837,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 1338599,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7135834457676,
+          "frequency": 10000000,
+          "current": true
+        }
+      }
+    },
+    {
+      "label": "focused idle close; editor stage 212 exception",
+      "session": "e490181d6e9eea7913c107f49dd65b5a",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 196838,
+          "sha256": "b9e4e13388ca69bb7d2ff321d15f315e239f5993039d7ffc1656c250ab6d7025",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 9461760,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 9461760,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 912,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 3,
+          "first_position": 4730880,
+          "processed": 18480,
+          "request_high": 937,
+          "result_high": 4,
+          "position": 4971008,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 4971008,
+          "blocks": 9709,
+          "callback_rejections": 11954,
+          "rejected_silent_frames": 6120448,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 241664,
+          "underrun_gaps": 5,
+          "underrun_callbacks": 473,
+          "expired_output_frames": 2048,
+          "delivered_frames": 4728832,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "windows": [],
+      "completed_windows_rows": 0,
+      "worker_faults": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 4730880,
+          "processed": 18480,
+          "request_high": 937,
+          "result_high": 4,
+          "detail": "InvalidData: delivery response deadline"
+        }
+      ],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1024,
+          "gap_frames": 256,
+          "request_position": 1024,
+          "request_frames": 256,
+          "sequence": 8,
+          "output_published": true,
+          "queue_us": 2064,
+          "prepare_us": 359,
+          "send_us": 2,
+          "reply_us": 826,
+          "validation_us": 11,
+          "publication_us": 17,
+          "publication_after_gap_us": 1518,
+          "admission_to_gap_us": 1763
+        },
+        "ap11_gap_clock": {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 1024,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 714393146056042,
+          "request_monotonic_ns": [
+            714393144292736,
+            714393146356850,
+            714393146716149,
+            714393146718729,
+            714393147545541,
+            714393147556871,
+            714393147574631
+          ]
+        }
+      },
+      "slowest_completed": [],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 714498740572774,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 55442,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 18484,
+          "position": 4730880,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 714491683544888,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 110883,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 18483,
+          "position": 4730624,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7144795845040,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 38102,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7144795688506,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 1,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 212,
+          "open_stage": 100,
+          "exception_code": 3221225477
+        }
+      },
+      "early_pending": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 714492686866595,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "observed_pending_seconds": 1.000325083034113,
+        "native": {
+          "publication": 55442,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 18484,
+          "position": 4730880,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 714491683544888,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 110883,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 18483,
+          "position": 4730624,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7144795845040,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 38102,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7144795688506,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 212,
+          "open_stage": 100,
+          "exception_code": 3221225477
+        }
+      }
+    },
+    {
+      "label": "matched cold baseline with actual loaded UI Automation module",
+      "session": "03de91db67a69b27b6acc213aca7d323",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 196838,
+          "sha256": "b9e4e13388ca69bb7d2ff321d15f315e239f5993039d7ffc1656c250ab6d7025",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 6519808,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 6519808,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 908,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 3,
+          "first_position": 3259904,
+          "processed": 12734,
+          "request_high": 937,
+          "result_high": 4,
+          "position": 3500032,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 3500032,
+          "blocks": 6836,
+          "callback_rejections": 11788,
+          "rejected_silent_frames": 6035456,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 240640,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 470,
+          "expired_output_frames": 1024,
+          "delivered_frames": 3258880,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "windows": [],
+      "completed_windows_rows": 0,
+      "worker_faults": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 3259904,
+          "processed": 12734,
+          "request_high": 937,
+          "result_high": 4,
+          "detail": "InvalidData: delivery response deadline"
+        }
+      ],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3072,
+          "gap_frames": 256,
+          "request_position": 3072,
+          "request_frames": 256,
+          "sequence": 16,
+          "output_published": true,
+          "queue_us": 3313,
+          "prepare_us": 13,
+          "send_us": 2,
+          "reply_us": 1204,
+          "validation_us": 12,
+          "publication_us": 17,
+          "publication_after_gap_us": 751,
+          "admission_to_gap_us": 3812
+        },
+        "ap11_gap_clock": {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 3072,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 715203301880027,
+          "request_monotonic_ns": [
+            715203298067945,
+            715203301381336,
+            715203301394366,
+            715203301397047,
+            715203302601153,
+            715203302614113,
+            715203302631963
+          ]
+        }
+      },
+      "slowest_completed": [],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715278206199535,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 38204,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12738,
+          "position": 3259904,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 715271146709845,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 76407,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12737,
+          "position": 3259648,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7152590297927,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 38910,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7152589822250,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 1,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 212,
+          "open_stage": 100,
+          "exception_code": 3221225477
+        }
+      },
+      "early_pending": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715272255683762,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "observed_pending_seconds": 1.0515782739967108,
+        "native": {
+          "publication": 38204,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12738,
+          "position": 3259904,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 715271146709845,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 76407,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 12737,
+          "position": 3259648,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 7152590297927,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 38910,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 22,
+          "detail": 0,
+          "ticks": 7152589822250,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 212,
+          "open_stage": 100,
+          "exception_code": 3221225477
+        }
+      }
+    },
+    {
+      "label": "cold-baseline healthy FRAGMENTS sibling",
+      "session": "782d633eb24ed8dc04744740983872ad",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 36484,
+          "request_high": 5,
+          "result_high": 6,
+          "position": 9339904,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 18679808,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 18679808,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 9339904,
+          "blocks": 18242,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 2048,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 4,
+          "expired_output_frames": 2048,
+          "delivered_frames": 9337344,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 186,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 199,
+          "state": "ap10_windows_clock",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "triggers": 0,
+          "retained": 0
+        }
+      ],
+      "completed_windows_rows": 0,
+      "worker_faults": [],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1691648,
+          "gap_frames": 256,
+          "request_position": 1691648,
+          "request_frames": 256,
+          "sequence": 6612,
+          "output_published": true,
+          "queue_us": 592,
+          "prepare_us": 14,
+          "send_us": 2,
+          "reply_us": 2564,
+          "validation_us": 12,
+          "publication_us": 7,
+          "publication_after_gap_us": 1534,
+          "admission_to_gap_us": 1659
+        },
+        "ap11_gap_clock": {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 1691648,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 715242559673674,
+          "request_monotonic_ns": [
+            715242558014599,
+            715242558606721,
+            715242558621132,
+            715242558623962,
+            715242561188647,
+            715242561200847,
+            715242561208467
+          ]
+        }
+      },
+      "slowest_completed": [],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 715402498927335,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 109452,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 36487,
+          "position": 9339648,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 715401878866027,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 218910,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 36488,
+          "position": 9339904,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7153897687777,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 180803,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7153897968087,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 1,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 0,
+          "exception_code": 0
+        }
+      }
+    },
+    {
+      "label": "repaired LoFi; same-instance editor close/reopen, automation, save and clean quit",
+      "session": "526e9afc97d1c7e2531a1151b27aea80",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 196838,
+          "sha256": "b9e4e13388ca69bb7d2ff321d15f315e239f5993039d7ffc1656c250ab6d7025",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 197102,
+          "sha256": "bc93cad5b808fbb536696a0fde66042f1aed9fb08f8fe74e8476109fd4caf404",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 56382,
+          "request_high": 20,
+          "result_high": 6,
+          "position": 14433792,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 28867584,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 28867584,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 21,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 14433792,
+          "blocks": 28191,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 13568,
+          "underrun_gaps": 9,
+          "underrun_callbacks": 30,
+          "expired_output_frames": 13568,
+          "delivered_frames": 14419712,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 204,
+          "state": "ap11_editor_summary",
+          "opens": 3,
+          "closes": 3,
+          "focuses": 2,
+          "removal_messages": 25,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 214,
+          "stale_updates": 1,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 209,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 222,
+          "state": "ap10_windows_clock",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "triggers": 4,
+          "retained": 298
+        }
+      ],
+      "completed_windows_rows": 298,
+      "worker_faults": [],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 3072,
+          "gap_frames": 256,
+          "request_position": 3072,
+          "request_frames": 256,
+          "sequence": 16,
+          "output_published": true,
+          "queue_us": 96,
+          "prepare_us": 16,
+          "send_us": 3,
+          "reply_us": 1922,
+          "validation_us": 64,
+          "publication_us": 9,
+          "publication_after_gap_us": 1035,
+          "admission_to_gap_us": 1077
+        },
+        "ap11_gap_clock": {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 3072,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 715819873338791,
+          "request_monotonic_ns": [
+            715819872261189,
+            715819872358001,
+            715819872374471,
+            715819872377491,
+            715819874300021,
+            715819874364682,
+            715819874374413
+          ]
+        }
+      },
+      "slowest_completed": [
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 51868,
+          "position": 13276928,
+          "service_ns": 106603245,
+          "windows_process_ns": 1450000
+        }
+      ],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 716120903908033,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 169146,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 56386,
+          "position": 14433536,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 716120503229240,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 338300,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 56387,
+          "position": 14433792,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7161083789094,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 133783,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7161084037256,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 1,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        }
+      }
+    },
+    {
+      "label": "repaired pair FRAGMENTS; editor, automation, save and clean quit",
+      "session": "f1229fc3d41fa4e205fad11cc77146d2",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 55612,
+          "request_high": 7,
+          "result_high": 6,
+          "position": 14236672,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 28473344,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 28473344,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 14236672,
+          "blocks": 27806,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 6144,
+          "underrun_gaps": 7,
+          "underrun_callbacks": 14,
+          "expired_output_frames": 5120,
+          "delivered_frames": 14230016,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 189,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 6,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 212,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 194,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 207,
+          "state": "ap10_windows_clock",
+          "frequency": 10000000,
+          "minimum_observed_tick": 1,
+          "triggers": 4,
+          "retained": 298
+        }
+      ],
+      "completed_windows_rows": 298,
+      "worker_faults": [],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1734656,
+          "gap_frames": 256,
+          "request_position": 1734656,
+          "request_frames": 256,
+          "sequence": 6780,
+          "output_published": true,
+          "queue_us": 2640,
+          "prepare_us": 16,
+          "send_us": 3,
+          "reply_us": 19078,
+          "validation_us": 12,
+          "publication_us": 7,
+          "publication_after_gap_us": 12051,
+          "admission_to_gap_us": 9708
+        },
+        "ap11_gap_clock": {
+          "event": "ap11_gap_clock",
+          "epoch": 1,
+          "gap_position": 1734656,
+          "gap_frames": 256,
+          "gap_monotonic_ns": 715860055114224,
+          "request_monotonic_ns": [
+            715860045405602,
+            715860048046427,
+            715860048063377,
+            715860048067187,
+            715860067146054,
+            715860067158214,
+            715860067165774
+          ]
+        }
+      },
+      "slowest_completed": [
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55609,
+          "position": 14234368,
+          "service_ns": 35800369,
+          "windows_process_ns": 1034700
+        }
+      ],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 716121670547814,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 166836,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 55617,
+          "position": 14236416,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 716120510884739,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 333682,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 55618,
+          "position": 14236672,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7161083864491,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 268179,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 7161089594654,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 1,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        }
+      }
+    }
+  ],
+  "tests": {
+    "deck_python": {
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "test_accessibility_workaround_is_explicit_and_process_scoped (test_session.CensusTests.test_accessibility_workaround_is_explicit_and_process_scoped) ... ok\ntest_changed_artifact_is_refused (test_session.CensusTests.test_changed_artifact_is_refused) ... ok\ntest_registered_trace_flag_reaches_only_audio_host (test_session.CensusTests.test_registered_trace_flag_reaches_only_audio_host) ... ok\ntest_stat_only_parsing_and_descendant_identity (test_session.CensusTests.test_stat_only_parsing_and_descendant_identity) ... ok\ntest_editor_removal_fault_survives_transport_retirement (test_session.FaultStatusTests.test_editor_removal_fault_survives_transport_retirement) ... ok\ntest_pending_peer_is_retained_before_containment_without_completion (test_session.FaultStatusTests.test_pending_peer_is_retained_before_containment_without_completion) ... ok\ntest_reader_rejects_identity_and_never_uses_unstable_slot (test_session.FaultStatusTests.test_reader_rejects_identity_and_never_uses_unstable_slot) ... ok\ntest_cleanup_preserves_independent_sibling (test_session.OwnershipTests.test_cleanup_preserves_independent_sibling) ... ok\ntest_early_failure_wakes_native_and_retires_only_after_release (test_session.OwnershipTests.test_early_failure_wakes_native_and_retires_only_after_release) ... ok\ntest_report_failure_does_not_skip_retirement_or_kill_sibling (test_session.OwnershipTests.test_report_failure_does_not_skip_retirement_or_kill_sibling) ... ok\ntest_terminal_sdk_failure_does_not_wait_for_launcher_companion (test_session.OwnershipTests.test_terminal_sdk_failure_does_not_wait_for_launcher_companion) ... ok\n\n----------------------------------------------------------------------\nRan 11 tests in 22.653s\n\nOK\n"
+    },
+    "native_backend_tests": 47,
+    "production_sdk_fault_boundaries": 6,
+    "ci_at_009720d": {
+      "PX2": 34295581526,
+      "AP10_native": 34295581536,
+      "AP12_owner": 34295581499,
+      "AP8_windows": 34295581514
+    },
+    "ci_result": "all four passed"
+  },
+  "repaired_local_audio": {
+    "source": "Deck local speaker sink monitor",
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 286720,
+    "seconds": 5.973333333333334,
+    "peak": 0.09520351886749268,
+    "rms": 0.022158515137120326,
+    "nonzero_samples": 572416
+  },
+  "latency": {
+    "sample_rate": 48000,
+    "format": "float32",
+    "host_callback_frames": 512,
+    "transport_request_frames": 256,
+    "bridge_frames_each": 512,
+    "lofi_vendor_frames": 48,
+    "fragments_vendor_frames": 192,
+    "chain_frames": 1264,
+    "chain_ms": 26.333333333333332,
+    "bitwig_ui_ms": 26.3,
+    "physical_round_trip_measured": false
+  },
+  "accounting_limit": "Enclosing sessions include silent processing, editor interaction, playback, saves and close. Their durations differ. These are honest workflow counters, not comparable steady-state CPU/latency benchmark windows or gap-free qualification."
+}

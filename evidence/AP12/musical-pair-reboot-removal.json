@@ -1,0 +1,1116 @@
+{
+  "schema": 1,
+  "slice": "AP12 completion in PR #79",
+  "date": "2026-09-08",
+  "scope": "Actual installed operator-supplied candidates, not a qualification of the original installer modules or proof of vendor entitlement. No vendor files, presets, content or licensing state were changed by the agent during this completion.",
+  "fixture": {
+    "installed_host": {
+      "os": {
+        "ID": "steamos",
+        "VERSION": null,
+        "VERSION_ID": "3.8.16",
+        "BUILD_ID": "20260716.1"
+      },
+      "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+      "architecture": "x86_64",
+      "bitwig": "com.bitwig.BitwigStudio\t6.1\tstable",
+      "bitwig_commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+      "bitwig_runtime": "org.freedesktop.Platform/x86_64/25.08"
+    },
+    "host": "Steam Deck, SteamOS, normally Applications-launched Bitwig Studio 6.1 Flatpak",
+    "audio": "48 kHz float32; 512-frame host callback; 256-frame mailbox requests; 512 added frames per proxy",
+    "runner": "Proton 11.0-2c / build 25118279",
+    "runtime": "Steam Linux Runtime 4.0.20260805.254769 / build 24599767",
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime_sha256": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+    "module_sha256": {
+      "Pure LoFi 1.0.0.6121": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "Efx FRAGMENTS 1.0.0.2925": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+    },
+    "native_sha256": {
+      "Pure LoFi": "1bea58cb409ffdfee51abeaa8d2822f18c73c933099d6fee9967078367de8869",
+      "Efx FRAGMENTS": "07aa3ba4c58dccd97f63be3855ec0a84b89bb5090f8b0f5c18ee6c848d383ecd"
+    },
+    "native_receipts": {
+      "Pure LoFi": {
+        "returncode": 0,
+        "sha256": "1bea58cb409ffdfee51abeaa8d2822f18c73c933099d6fee9967078367de8869",
+        "source_commit": "d866a822e65dcce995c30d1879a557ca37ca3c39",
+        "input_archive_sha256": "a683a63e466a36bf164340be7be4ca7a743f0b6b9232e70fbba5c8d5b9143ad0",
+        "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+        "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+      },
+      "Efx FRAGMENTS": {
+        "returncode": 0,
+        "sha256": "07aa3ba4c58dccd97f63be3855ec0a84b89bb5090f8b0f5c18ee6c848d383ecd",
+        "source_commit": "d866a822e65dcce995c30d1879a557ca37ca3c39",
+        "input_archive_sha256": "f743495a64ad01332bb9d33a70f69672451f303317028f1ea46f691e3ddbde41",
+        "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+        "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+      }
+    },
+    "native_source": "d866a822e65dcce995c30d1879a557ca37ca3c39",
+    "windows_build": {
+      "run": 34292804216,
+      "merge_source": "0571fec4d4ad1d408ac218817476d300f68f3be8",
+      "tree": "bc7f4609f3797b2b30dd73c8b9dec390c1f30a7f",
+      "host_source_unchanged_since": "d866a822e65dcce995c30d1879a557ca37ca3c39"
+    },
+    "supervisor_source": "009720d3a654b40a171ea0bd7a5f2b2947b56c39"
+  },
+  "musical_workflow": {
+    "chain": "Pure LoFi instrument -> Efx FRAGMENTS effect on one Bitwig track, created through the normal device browser; Arturia Instrument|Synth and Fx|Tools metadata retained.",
+    "notes": "Four-note, one-bar Scene 1 clip routed through both independent processing instances. Empty Audio 2 track contributes no input.",
+    "lofi": {
+      "preset": "Little Pleasures, edited",
+      "automation_parameter_id": 5,
+      "automation_parameter": "LoFi Amount",
+      "replayed_range": [
+        0.3653333485,
+        0.4226666689
+      ],
+      "recording_reused": "evidence/AP12/state-repair-commercial.json",
+      "loop_start": "88.1.1.00",
+      "loop_length_bars": 2,
+      "observed": "Existing recorded clip replayed hands-off in the current pair before and after reboot; real vendor knob moved with playback. Prior two-control 36.5 percent / 193 Hz edit-save-recall evidence remains applicable."
+    },
+    "fragments": {
+      "preset": "Ocean Sweep, edited",
+      "automation_parameter_id": 1,
+      "automation_parameter": "Grain Mix",
+      "recorded_range": [
+        0.556,
+        0.644
+      ],
+      "recorded_point_position": "74.1.2.12",
+      "loop_start": "73.1.1.00",
+      "loop_stop": "75.1.1.00",
+      "loop_length_bars": 2,
+      "gesture": "A real upward vendor-control drag with Bitwig Write Automation enabled; SDK summary records one begin, one value and one end. The recorded region was loop-trimmed, not replaced by drawn automation. Write Automation was then disabled.",
+      "observed": "Hands-off playback changes native value 0.556/0.644 and vendor knob/tooltip 55.6/64.4 percent. Reopened Ocean Sweep and the same automation after actual reboot; live grain/input display responds to LoFi notes."
+    },
+    "editor_ownership": "Independent Windows hosts; both real editors opened together. Close/reopen before reboot retained the same processing sessions. Post-reboot editors belonged to the recalled pair, not standalone access instances.",
+    "save": "Transport stopped, actual vendor state captured without a save warning. AP12 Arturia Chain saved before reboot and reopened afterward. Opaque payload hashes need not match supplemental readback envelopes; no blanket byte-identical vendor state claim.",
+    "local_audio": [
+      {
+        "source": "Deck local speaker sink monitor",
+        "sample_rate": 48000,
+        "channels": 2,
+        "frames": 286720,
+        "seconds": 5.973333333333334,
+        "peak": 0.09520351886749268,
+        "rms": 0.022158515137120326,
+        "nonzero_samples": 572416
+      },
+      {
+        "source": "Deck local speaker sink monitor",
+        "sample_rate": 48000,
+        "channels": 2,
+        "frames": 286720,
+        "seconds": 5.973333333333334,
+        "peak": 0.11050813645124435,
+        "rms": 0.022010950522452787,
+        "nonzero_samples": 572416
+      }
+    ],
+    "audio_limit": "Captures use the Deck local speaker sink monitor, not Moonlight. These are rendered audio/finite/nonzero observations, not physical input/output loopback or an exact deterministic vendor-output comparison."
+  },
+  "actual_restart": {
+    "different_kernel_boot_ids": true,
+    "after_uptime_seconds": 36.71,
+    "service_active_before_bitwig": true,
+    "service_enabled": true,
+    "bitwig_was_not_running_at_startup_observation": true,
+    "saved_project_sha256_unchanged": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+    "normal_applications_launch_after_restart": true,
+    "setup_and_preview_owner_not_used": true,
+    "access_note": "Normal KDE Restart was used. The Deck booted its configured Gaming Mode. Remote restoration briefly selected X11; its portal capture failed. Returning to the configured Wayland desktop and restarting the existing desktop portal/Sunshine services restored Moonlight. No default login/desktop setting was changed; this access recovery did not launch the bridge. Its service was already active at 36.71 seconds uptime."
+  },
+  "removal_copy": {
+    "project": "AP12 Effect Removal",
+    "main_project_unchanged": true,
+    "fragments_editor_open_at_removal": true,
+    "lofi_editor_open_at_removal": true,
+    "lofi_same_session": "29f8770cbd7d0b6c29e46519b9980c2a",
+    "lofi_same_windows_process_and_epoch": true,
+    "lofi_requests_advance": true,
+    "before": [
+      {
+        "session": "29f8770cbd7d0b6c29e46519b9980c2a",
+        "status": {
+          "available": true,
+          "schema": 1,
+          "sample_monotonic_ns": 992013064456,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          },
+          "native": {
+            "publication": 139422,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 46477,
+            "position": 11897088,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 992010533417,
+            "frequency": 1000000000,
+            "current": true
+          },
+          "delivery": {
+            "publication": 278847,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 46477,
+            "position": 11897088,
+            "stage": 1,
+            "detail": 0,
+            "ticks": 9918896227,
+            "frequency": 10000000,
+            "current": true
+          },
+          "owner": {
+            "publication": 43333,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 25,
+            "detail": 0,
+            "ticks": 9918870368,
+            "frequency": 10000000,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 16,
+            "open_stage": 100,
+            "exception_code": 0
+          }
+        }
+      },
+      {
+        "session": "59c530642200140df9f3ddd87af43139",
+        "status": {
+          "available": true,
+          "schema": 1,
+          "sample_monotonic_ns": 992013567134,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          },
+          "native": {
+            "publication": 137286,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 45765,
+            "position": 11714816,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 992007846506,
+            "frequency": 1000000000,
+            "current": true
+          },
+          "delivery": {
+            "publication": 274575,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 45765,
+            "position": 11714816,
+            "stage": 1,
+            "detail": 0,
+            "ticks": 9918869031,
+            "frequency": 10000000,
+            "current": true
+          },
+          "owner": {
+            "publication": 220137,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 0,
+            "detail": 0,
+            "ticks": 9918914612,
+            "frequency": 10000000,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 100,
+            "open_stage": 100,
+            "exception_code": 0
+          }
+        }
+      }
+    ],
+    "after": [
+      {
+        "session": "29f8770cbd7d0b6c29e46519b9980c2a",
+        "status": {
+          "available": true,
+          "schema": 1,
+          "sample_monotonic_ns": 1088827064727,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          },
+          "native": {
+            "publication": 193878,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 64630,
+            "position": 16544000,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 1088821794843,
+            "frequency": 1000000000,
+            "current": true
+          },
+          "delivery": {
+            "publication": 387761,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 64630,
+            "position": 16544000,
+            "stage": 1,
+            "detail": 0,
+            "ticks": 10886989986,
+            "frequency": 10000000,
+            "current": true
+          },
+          "owner": {
+            "publication": 53239,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 25,
+            "detail": 0,
+            "ticks": 10886674720,
+            "frequency": 10000000,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 16,
+            "open_stage": 100,
+            "exception_code": 0
+          }
+        }
+      }
+    ],
+    "local_lofi_audio_after_removal": {
+      "source": "Deck local speaker sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 286720,
+      "seconds": 5.973333333333334,
+      "peak": 0.052775900810956955,
+      "rms": 0.017670083648013438,
+      "nonzero_samples": 573440
+    },
+    "lofi_followup": "After saving the LoFi-only copy, transport was stopped and LoFi was removed with its vendor editor open, matching the operator action. No save error or engine crash; successful SDK close and positive cleanup. The final empty-device edit was discarded, retaining the saved LoFi-only copy."
+  },
+  "sessions": [
+    {
+      "label": "post-reboot LoFi; pair replay, healthy sibling after effect removal, then own editor-open device removal",
+      "session": "29f8770cbd7d0b6c29e46519b9980c2a",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 196838,
+          "sha256": "152d01698b37afe8b4a8051d5df6dc34d5d4d3232f90220f7cd352d79a235208",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 197102,
+          "sha256": "f880da463005e6b1d8bad574afe807320f45c330dc4b5f9882af38fdf144648e",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 197102,
+          "sha256": "f880da463005e6b1d8bad574afe807320f45c330dc4b5f9882af38fdf144648e",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 197102,
+          "sha256": "f880da463005e6b1d8bad574afe807320f45c330dc4b5f9882af38fdf144648e",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 85232,
+          "request_high": 14,
+          "result_high": 10,
+          "position": 21819392,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 43638784,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 43638784,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 61,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 21819392,
+          "blocks": 42616,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 23808,
+          "underrun_gaps": 27,
+          "underrun_callbacks": 57,
+          "expired_output_frames": 23808,
+          "delivered_frames": 21795072,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 212,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 0,
+          "removal_messages": 6,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 394,
+          "stale_updates": 1,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 217,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        }
+      ],
+      "completed_windows_rows": 0,
+      "worker_faults": [],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1449216,
+          "gap_frames": 256,
+          "request_position": 1449216,
+          "request_frames": 256,
+          "sequence": 5665,
+          "output_published": true,
+          "queue_us": 8860,
+          "prepare_us": 8,
+          "send_us": 1,
+          "reply_us": 3168,
+          "validation_us": 12,
+          "publication_us": 6,
+          "publication_after_gap_us": 2708,
+          "admission_to_gap_us": 9349
+        },
+        "ap11_gap_clock": null
+      },
+      "slowest_completed": [
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 49930,
+          "position": 12780800,
+          "service_ns": 75484576,
+          "windows_process_ns": 2182400
+        }
+      ],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 1199125623712,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 255696,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 85238,
+          "position": 21819136,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 1198725549713,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 511404,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 85239,
+          "position": 21819392,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 11986099184,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 69659,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 11987391454,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 1,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        }
+      },
+      "returned_audio_window": {
+        "event": "ap8_returned_audio",
+        "epoch": 1,
+        "position": 974400,
+        "samples": 8704,
+        "nonzero": 8618,
+        "rms": 0.064783499328623,
+        "peak": 0.10385900735855103,
+        "unretained_window_samples": 41382784
+      }
+    },
+    {
+      "label": "post-reboot FRAGMENTS; pair replay and editor-open effect removal",
+      "session": "59c530642200140df9f3ddd87af43139",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "c7a3287130d8a05c963ac2151fe3c2093f38432d8fe42eb3d52a567d85adbec4",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 62016,
+          "request_high": 7,
+          "result_high": 5,
+          "position": 15876096,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 31752192,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 31752192,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 15876096,
+          "blocks": 31008,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 6656,
+          "underrun_gaps": 7,
+          "underrun_callbacks": 15,
+          "expired_output_frames": 6656,
+          "delivered_frames": 15868928,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 189,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 6,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 347,
+          "stale_updates": 1,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 194,
+          "state": "ap8_inspection_closed",
+          "exit_code": 0
+        }
+      ],
+      "completed_windows_rows": 0,
+      "worker_faults": [],
+      "first_gap": {
+        "ap7_gap_request": {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 1266432,
+          "gap_frames": 256,
+          "request_position": 1266432,
+          "request_frames": 256,
+          "sequence": 4951,
+          "output_published": true,
+          "queue_us": 7994,
+          "prepare_us": 102,
+          "send_us": 2,
+          "reply_us": 7734,
+          "validation_us": 12,
+          "publication_us": 6,
+          "publication_after_gap_us": 6941,
+          "admission_to_gap_us": 8910
+        },
+        "ap11_gap_clock": null
+      },
+      "slowest_completed": [
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 56624,
+          "position": 14494464,
+          "service_ns": 37742830,
+          "windows_process_ns": 959300
+        }
+      ],
+      "before_containment": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 1079269386480,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 186048,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 62021,
+          "position": 15875840,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 1078701183596,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 372106,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 62022,
+          "position": 15876096,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 10785840382,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 296867,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 10786048280,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 1,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        }
+      },
+      "returned_audio_window": {
+        "event": "ap8_returned_audio",
+        "epoch": 1,
+        "position": 792000,
+        "samples": 7424,
+        "nonzero": 6954,
+        "rms": 0.01645897755176734,
+        "peak": 0.04233390465378761,
+        "unretained_window_samples": 29860992
+      }
+    }
+  ],
+  "final_installed": {
+    "monotonic_ns": 1493270625666,
+    "service_active": "active",
+    "service_enabled": "enabled",
+    "trace_enabled": false,
+    "registry_revision": 28,
+    "status": [
+      {
+        "added_frames": 512,
+        "artifacts_valid": true,
+        "class": {
+          "class_id": "417274754156495350724C4650726F63",
+          "metadata_tier": "factory_3_unicode",
+          "name": "Pure LoFi",
+          "subcategories": "Instrument|Synth",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121"
+        },
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "publication": "Published",
+        "refusal": null,
+        "revision": 1
+      },
+      {
+        "added_frames": 512,
+        "artifacts_valid": true,
+        "class": {
+          "class_id": "41727475415649536772616E50726F63",
+          "metadata_tier": "factory_3_unicode",
+          "name": "Efx FRAGMENTS",
+          "subcategories": "Fx|Tools",
+          "vendor": "Arturia",
+          "version": "1.0.0.2925"
+        },
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "publication": "Published",
+        "refusal": null,
+        "revision": 1
+      }
+    ],
+    "software": {
+      "manager": {
+        "sha256": "fe115cecdbf01a2c88a0fa23b29e76e9e25bae151465c1f710ec22e37fd340e9"
+      },
+      "supervisor": {
+        "sha256": "71ad286f904c0db078d5975099b2d871568783cfa9254a38b08da3cd0b55b3d0"
+      },
+      "ownership": {
+        "sha256": "49b2693c802bb5d18350b7852869b8d332d8eb9bb51dfc8a92aeb3f8f468504d"
+      },
+      "host": {
+        "sha256": "8ad30abb03643f48d3e1b4c1a2d6234a0b70be59933767858ccbc4893ebadd55"
+      },
+      "source_manifest": {
+        "sha256": "f7dbf7ecc53185180abf58d70d502132188c1252c5ae1ab7498b78faaff55fb2"
+      }
+    },
+    "projects": {
+      "AP12 Pure LoFi Check": {
+        "sha256": "21dd90979a8e509c7ffaa1c713f08745bade491bb4fdbde014512958cee65eb0",
+        "bytes": 58719,
+        "unchanged": true
+      },
+      "AP12 State Repair Check": {
+        "sha256": "f54ee93bfae3437fc71e201d33e3ea3bafb7e1ae2447ff641d1db05130b79e38",
+        "bytes": 60700,
+        "unchanged": true
+      },
+      "AP12 Preserved Before Chain": {
+        "sha256": "dded9c4fc0ced0738d0fa3a6a550b5e0e9616a24bd1ec86faadfc6e8bd9d8c82",
+        "bytes": 43316,
+        "unchanged": true
+      },
+      "AP12 Arturia Chain": {
+        "sha256": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+        "bytes": 83551,
+        "unchanged": true
+      }
+    },
+    "desktop_default": "plasma.desktop",
+    "login_default": "game"
+  },
+  "final_intended_pair": [
+    {
+      "session": "8438f61baa35056da415433890aa6203",
+      "status": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 1510506502427,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 92808,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 30939,
+          "position": 7919360,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 1510503316768,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 185619,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 30939,
+          "position": 7919360,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 15103724865,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 153859,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 15103719579,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 0,
+          "open_stage": 0,
+          "exception_code": 0
+        }
+      }
+    },
+    {
+      "session": "aa7f54053a5b8d165fc15108ce446f00",
+      "status": {
+        "available": true,
+        "schema": 1,
+        "sample_monotonic_ns": 1510507231101,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "mailbox_flags": {
+          "request": 0,
+          "reply": 0,
+          "independently_sampled": true
+        },
+        "native": {
+          "publication": 90690,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 30233,
+          "position": 7738624,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 1510503487861,
+          "frequency": 1000000000,
+          "current": true
+        },
+        "delivery": {
+          "publication": 181383,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 30233,
+          "position": 7738624,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 15103727039,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 150165,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 15103762832,
+          "frequency": 10000000,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 0,
+          "open_stage": 0,
+          "exception_code": 0
+        }
+      }
+    }
+  ],
+  "final_desktop": "AP12 Arturia Chain restored, stopped transport, Write Automation off, both editors closed. Two intentionally live processing sessions belong to this open project; test instances were positively retired. Automatic service and persistent Arturia installation/publications remain available. Heavy tracing and temporary sampling are off; minimal fault visibility remains active.",
+  "limits": [
+    "512 frames remains selected. These sessions have short presentation gaps and are not a gap-free or lower-buffer claim.",
+    "Graphics issue #80 remains deferred; simple controls needed here were usable.",
+    "Explicit initial editor activation can be refused by the desktop; status reports it. The native Open/focus action succeeded for FRAGMENTS after reboot; no forced-global-focus setting was used.",
+    "The narrow private development registration/software updates retain rollback records; no new general module/software update UI is claimed.",
+    "Historical failures and authorization/installer provenance boundaries remain unchanged."
+  ]
+}

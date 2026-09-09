@@ -74,8 +74,13 @@ reading historical preview settings. Existing counters remain enabled; optional
 correlated tracing reads `managed/runtime/trace-enable` at inactive setup. The
 installed supervisor passes that same explicit `1\n` opt-in to the Windows
 audio host; inspection/vendor-access jobs do not inherit it. Windows request
-retention still arms on actual input/notes, so silent startup can lack its
-Windows-side detail. Remove the flag after diagnostics.
+history still arms on actual input/notes, so silent startup can lack its
+completed Windows timing detail. The separate bounded
+[unfinished-request status](../docs/AP12-FAULT-STATUS.md) is always available,
+including idle/pre-note processing. The independent supervisor preserves it
+before containment, with editor teardown/exception markers and explicit clock
+domains. Detailed histories and owned-thread sampling remain opt-in. Remove
+the flag after diagnostics.
 Two serial proxies add 1,024 frames (21.33 ms at 48 kHz), before vendor/device
 latency. This arithmetic is not a measured whole-chain result.
 

@@ -1,6 +1,8 @@
 # AP12 unfinished delivery status
 
-This is fault visibility, not a repair claim for the intermittent LoFi timeout.
+This mechanism provides fault visibility. The separate measured editor-removal
+cause and process-scoped repair are retained in
+[delivery-cause-and-repair.json](../evidence/AP12/delivery-cause-and-repair.json).
 The existing five-second reply deadline and 512-frame bridge delay are unchanged.
 
 `ap12.status` is an independently versioned, 1024-byte, session-private mapping.
