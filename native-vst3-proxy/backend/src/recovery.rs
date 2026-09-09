@@ -10,6 +10,9 @@ pub struct Snapshot {
     pub revision: u64,
     pub source: u32,
     pub generation: u64,
+    // Admission barrier completed before capture began. Later audio may run
+    // concurrently with a read-only capture; this is a lower bound, not a
+    // fabricated sample-exact snapshot timestamp.
     pub through: u64,
     pub digest: [u8; 32],
 }

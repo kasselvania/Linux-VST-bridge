@@ -40,6 +40,14 @@ struct SessionSpec {
     #[serde(default)]
     vendor_access: bool,
 }
+// Before spawn, admission owns only a reservation. Binding/keeper failures must
+// release it; after spawn the existing supervisor owns positive retirement.
+struct PendingAdmission(Option<PathBuf>);
+impl Drop for PendingAdmission {
+    fn drop(&mut self) {
+        if let Some(path) = &self.0 { let _ = fs::remove_file(path); }
+    }
+}
 #[derive(Clone, Serialize, Deserialize)]
 struct ClassSelection {
     class_id: String,
@@ -393,25 +401,35 @@ fn serve(m: Manager) -> Result<()> {
                     fs::remove_file(&job.lease)?;peer.write_all(b"Vendor access retired.\n")?;return Ok(());
                 }
                 peer.read_exact(&mut greeting[5..])?;
-                require(
-                    &greeting[..5] == b"LVB1\n",
-                    "registration protocol mismatch",
-                )?;
-                let r: HostBinding = m.resolve(&greeting[5..])?.into();
-                require(
-                    r.host == s.host && r.host_source_sha256 == s.source_sha256,
-                    "registered host differs from installed software revision",
-                )?;
-                let (job, path) = spec(&m, r.clone(), false, false, false)?;
+                let version2 = &greeting[..5] == b"LVB2\n";
+                require(version2 || &greeting[..5] == b"LVB1\n", "registration protocol mismatch")?;
+                let (r, performance, job, path, mut admission) = {
+                    let _admission = m.lock("registry.lock")?;
+                    let r: HostBinding = m.resolve(&greeting[5..])?.into();
+                    require(r.host == s.host && r.host_source_sha256 == s.source_sha256,
+                        "registered host differs from installed software revision")?;
+                    let performance = m.performance(&r.metadata.class_id)?;
+                    require(version2 || performance.added_frames == 512,
+                        "selected delay requires a version-2 native binding")?;
+                    let (job, path) = spec(&m, r.clone(), false, false, false)?;
+                    atomic_json(&job.lease, &job.report)?;
+                    let admission = PendingAdmission(Some(job.lease.clone()));
+                    (r, performance, job, path, admission)
+                };
                 // Deliver the private binding inside the native greeting deadline.
                 // Cold Wine startup then uses the existing bounded transport accept.
-                let reply = format!("{}\n{}", job.session, job.directory.display());
+                let reply = if version2 {
+                    format!("{}\n{}\n{}", job.session, performance.added_frames, job.directory.display())
+                } else {
+                    format!("{}\n{}", job.session, job.directory.display())
+                };
                 require(reply.len() <= 1024, "session binding size")?;
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
                 peer.write_all(&(reply.len() as u16).to_le_bytes())?;
                 peer.write_all(reply.as_bytes())?;
                 ensure_keeper(&m, &s, &r, &keepers)?;
                 let mut child = spawn(&s, &path, Some(peer))?;
+                admission.0 = None;
                 let status = child.wait()?;
                 let mut disposition=String::new();
                 if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
@@ -589,12 +607,13 @@ fn main() -> Result<()> {
   Some("install") if args.len()==4=>install(&m,&args[1],Path::new(&args[2]),&args[3]),
   Some("register") if args.len()==2=>m.register(read_json(Path::new(&args[1]))?),
   Some("unpublish") if args.len()==2=>m.unpublish(&args[1]),
+  Some("set-delay") if args.len()==3=>m.select_delay(&args[1],args[2].parse()?),
   Some("serve") if args.len()==1=>serve(m),
   Some("status") if args.len()==1=>status(&m),
   Some("reconcile") if args.len()==1=>m.reconcile(),
   Some("inspect") if args.len()==2=>inspect(&m,Path::new(&args[1])),
   Some("vendor-editor") if args.len()==2=>vendor_editor(&m,Path::new(&args[1])),
-  _=>Err("Usage: linux-vst-bridge setup PACKAGE | environment-create RUNNER.json | environment-import ENVIRONMENT.json | install ENV_ID INSTALLER SHA256 | inspect INSPECTION.json | vendor-editor INSPECTION.json | register REGISTRATION.json | status | reconcile | unpublish CLASS_ID | serve".into())
+  _=>Err("Usage: linux-vst-bridge setup PACKAGE | environment-create RUNNER.json | environment-import ENVIRONMENT.json | install ENV_ID INSTALLER SHA256 | inspect INSPECTION.json | vendor-editor INSPECTION.json | register REGISTRATION.json | status | set-delay CLASS_ID FRAMES | reconcile | unpublish CLASS_ID | serve".into())
  }
 }
 fn vendor_editor(m: &Manager, path: &Path) -> Result<()> {
@@ -615,10 +634,15 @@ fn status(m: &Manager) -> Result<()> {
     let db = m.registry()?;
     let rows: Vec<_> = db.classes.values().map(|e| {
         let refusal = e.registration.verify(&m.root).err().map(|e| e.to_string());
+        let performance = m.performance(&e.registration.key());
+        let performance_refusal = performance.as_ref().err().map(|e| e.to_string());
+        let performance = performance.ok();
         serde_json::json!({"class":e.registration.metadata,"publication":e.publication,
             "environment":e.registration.environment.id,"revision":e.registration.environment.revision,
             "compatibility":e.registration.compatibility,"artifacts_valid":refusal.is_none(),
-            "refusal":refusal,"added_frames":512})
+            "refusal":refusal,"performance":performance,
+            "performance_refusal":performance_refusal,
+            "added_frames":performance.map(|p|p.added_frames)})
     }).collect();
     println!("{}", serde_json::to_string_pretty(&rows)?);
     Ok(())

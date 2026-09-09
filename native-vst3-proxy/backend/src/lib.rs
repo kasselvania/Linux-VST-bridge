@@ -36,6 +36,7 @@ struct Session {
     mapping: Option<Mapping>,
     mailbox: Option<mailbox::Mailbox>,
     mailbox_enabled: bool,
+    capture: Option<state::Capture>,
     fault_status: Option<fault_status::Status>,
     notices: (u32, u64),
     returned: process_results::Packet,
@@ -100,6 +101,7 @@ fn binding(preview: bool) -> io::Result<preview::Binding> {
     Ok(preview::Binding {
         directory: path,
         session,
+        installed_delay: None,
         owner: None,
     })
 }
@@ -147,6 +149,7 @@ impl Session {
             mapping: Some(mapping),
             mailbox,
             mailbox_enabled: false,
+            capture: None,
             fault_status,
             notices: (0, 0),
             returned: process_results::Packet::default(),
@@ -161,7 +164,7 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12) {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -243,7 +246,7 @@ impl Session {
         )?;
         performance::validate_wire(&bytes)?;
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
-        let mailbox_version = 2 * u64::from(self.mailbox.is_some());
+        let mailbox_version = 3 * u64::from(self.mailbox.is_some());
         put(&mut bytes[16..20], mailbox_version);
         let reply = self.exchange(20, bytes)?;
         need(
@@ -251,7 +254,7 @@ impl Session {
                 && matches!(get(&reply.payload[8..12]), 1 | 3),
             "invalid setup response",
         )?;
-        self.mailbox_enabled = mailbox_version == 2;
+        self.mailbox_enabled = mailbox_version == 3;
         Ok(reply.payload)
     }
     fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
@@ -337,11 +340,11 @@ impl Session {
         context: context::Context,
     ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
         need(
-            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -430,7 +433,7 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11) {
+            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12) {
                 request
                     .payload
                     .extend_from_slice(&events::encode(events, n)?);
@@ -455,10 +458,13 @@ impl Session {
                 if let Some(s) = &mut self.fault_status {
                     s.publish(self.epoch, self.state.next, self.position, 2, 0);
                 }
-                mailbox.receive(
+                let reply = mailbox.receive_while(
                     self.minor,
                     std::time::Instant::now() + std::time::Duration::from_secs(5),
-                )?
+                    || { preview::check_owner(&mut self.owner)?; mailbox::peer_status(&self.socket, self.capture.is_some()) },
+                )?;
+                self.trace.windows = mailbox.diagnostic;
+                reply
             } else {
                 send_version(&mut self.socket, &request, 5, self.minor)?;
                 self.trace.sent = Some(std::time::Instant::now());

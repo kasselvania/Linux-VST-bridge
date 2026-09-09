@@ -4,6 +4,7 @@
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include <unordered_set>
+#include <chrono>
 namespace linux_vst_bridge::wf0 {
 // Payload v2 (flags bit 1): 16-byte ID/availability/value records. Legacy
 // 12-byte records remain readable. Unavailable records have no numeric value
@@ -30,9 +31,16 @@ inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool 
  return true;
 }
 struct ReadbackStatus {uint32_t unavailable=0,first_id=0;uint64_t first_bits=0;};
+// Opt-in owner-thread timing only. No payload or parameter values are retained.
+struct StateTiming {
+ using Clock=std::chrono::steady_clock;
+ uint64_t component_ns=0,controller_ns=0,metadata_ns=0,values_ns=0,total_ns=0;
+ static uint64_t elapsed(Clock::time_point start){return uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now()-start).count());}
+};
 inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&component,
- Steinberg::Vst::IEditController&controller,bool separate,const std::vector<uint8_t>*restore,ReadbackStatus*status=nullptr){
+ Steinberg::Vst::IEditController&controller,bool separate,const std::vector<uint8_t>*restore,ReadbackStatus*status=nullptr,StateTiming*timing=nullptr){
  using namespace Steinberg;using namespace ap1;
+ auto total_start=timing?StateTiming::Clock::now():StateTiming::Clock::time_point{};
  auto checked=[](tresult r,LVBState::Stream&s){require(r==kResultOk&&!s.failed&&s.quiescent(),"commercial state SDK call/stream");};
  if(restore){const auto&p=*restore;require(p.size()>=16,"commercial state header");auto a=get(p.data(),4),b=get(p.data()+4,4),n=get(p.data()+8,4),flags=get(p.data()+12,4);
   auto width=(flags&2)?16u:12u;
@@ -48,8 +56,11 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
  // kParamValuesChanged; Bitwig then captures state again, creating a refresh
  // loop. Owner-thread automation is already drained before this barrier.
  // Only an actual restore synchronizes the controller above.
+ auto stage_start=timing?StateTiming::Clock::now():StateTiming::Clock::time_point{};
  LVBState::Stream c;capture_result(component.getState(&c),c,1,restore!=nullptr);
+ if(timing){timing->component_ns=StateTiming::elapsed(stage_start);stage_start=StateTiming::Clock::now();}
  LVBState::Stream v;auto result=controller.getState(&v);
+ if(timing)timing->controller_ns=StateTiming::elapsed(stage_start);
  bool supported=result==kResultOk;
  require(!v.failed&&v.quiescent(),"controller state stream bounds/lifetime");
  if(!supported&&!(result==kNotImplemented&&v.bytes.empty()))capture_result(result,v,2,restore!=nullptr);
@@ -59,14 +70,18 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
  std::copy(c.bytes.begin(),c.bytes.end(),out.begin()+16);std::copy(v.bytes.begin(),v.bytes.end(),out.begin()+16+c.bytes.size());
  auto*p=out.data()+16+c.bytes.size()+v.bytes.size();
  for(int i=0;i<n;++i){
+  if(timing)stage_start=StateTiming::Clock::now();
   Steinberg::Vst::ParameterInfo info{};require(controller.getParameterInfo(i,info)==kResultOk,"state parameter metadata");
+  if(timing){timing->metadata_ns+=StateTiming::elapsed(stage_start);stage_start=StateTiming::Clock::now();}
   auto value=controller.getParamNormalized(info.id);
+  if(timing)timing->values_ns+=StateTiming::elapsed(stage_start);
   const bool available=std::isfinite(value)&&value>=0&&value<=1;
   if(!available&&status){if(status->unavailable++==0){status->first_id=info.id;std::memcpy(&status->first_bits,&value,8);}}
   put(p,info.id,4);put(p+4,available?1:0,4);
   if(available)std::memcpy(p+8,&value,8);
   p+=16;
  }
+ if(timing)timing->total_ns=StateTiming::elapsed(total_start);
  return out;
 }
 }

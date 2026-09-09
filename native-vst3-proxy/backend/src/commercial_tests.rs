@@ -140,6 +140,7 @@ fn real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization() {
             gui_revision: 0,
             mailbox: None,
             mailbox_enabled: false,
+                capture: None,
         fault_status: None,
             notices: (0, 0),
             returned: crate::process_results::Packet::default(),
@@ -279,6 +280,7 @@ fn performance_setup_and_reference_state_keep_their_protocol_roles() {
         gui_revision: 0,
         mailbox: None,
         mailbox_enabled: false,
+                capture: None,
         fault_status: None,
         notices: (0, 0),
         returned: crate::process_results::Packet::default(),
@@ -358,6 +360,7 @@ fn save_failure_is_terminal_for_restore_or_malformed_protocol() {
             gui_revision: 0,
             mailbox: None,
             mailbox_enabled: false,
+                capture: None,
         fault_status: None,
             notices: (0, 0),
             returned: Default::default(),
@@ -391,5 +394,44 @@ fn save_failure_is_terminal_for_restore_or_malformed_protocol() {
         assert_eq!(session.phase, ERROR);
         assert_eq!(session.state.next, 1);
         remote.join().unwrap();
+    }
+}
+
+#[test]
+fn asynchronous_capture_correlates_failures_without_fabricating_a_completed_save() {
+    for case in 0..5 {
+        let dir=std::env::temp_dir().join(format!("ap13-capture-failure-{:032x}",u128::from_le_bytes(mapping::random().unwrap())));
+        std::fs::create_dir(&dir).unwrap();
+        let mailbox=crate::mailbox::Mailbox::create(&dir.join("mailbox"),[13;16]).unwrap();
+        let mut counterpart=mailbox.counterpart();
+        let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let socket=TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut peer,_)=listener.accept().unwrap();
+        let remote=thread::spawn(move || {
+            let request=receive_version(&mut peer,5,12).unwrap();
+            while counterpart.take_request(12).is_none(){thread::yield_now();}
+            if case==0 {return;} // Known endpoint loss, not a live slow reply.
+            let mut reply=Frame{kind:17,session:request.session,sequence:request.sequence,payload:opaque(0.5)};
+            match case {
+                1=>reply.sequence+=1,
+                2=>reply.payload[16+3+4..].copy_from_slice(&f64::NAN.to_le_bytes()),
+                3=>{reply.kind=7;reply.payload=[1u32,16,2,1].into_iter().flat_map(u32::to_le_bytes).collect();},
+                4=>{reply.kind=7;reply.payload=[1u32,18,2,1].into_iter().flat_map(u32::to_le_bytes).collect();},
+                _=>unreachable!(),
+            }
+            send_version(&mut peer,&reply,5,12).unwrap();
+        });
+        let mut session=Session{gui:None,gui_revision:0,mapping:None,mailbox:Some(mailbox),mailbox_enabled:true,capture:None,fault_status:None,notices:(0,0),returned:Default::default(),socket,state:ClientState{session:[13;16],next:9,slot:Slot::Writable},phase:11,max:256,minor:12,epoch:1,position:0,witness:None,identity:Some(state::Identity{class:[13;16],module:[14;32]}),trace:Default::default(),sample_rate:48000,armed:false,owner:None};
+        session.begin_capture().unwrap();assert_eq!(session.state.next,10);
+        assert!(session.begin_capture().is_err());assert!(session.component_state(Some(&opaque(0.5))).is_err());
+        let started=std::time::Instant::now();
+        let error=loop {
+            if let Some(result)=session.poll_capture(){break result.unwrap_err();}
+            assert!(started.elapsed()<std::time::Duration::from_secs(2));thread::yield_now();
+        };
+        assert_eq!(state::save_refused(&error),case==3);
+        assert_eq!(session.phase==11,case==3);assert!(session.capture.is_none());
+        if case==0 {assert!(error.to_string().contains("endpoint disconnected"));}
+        remote.join().unwrap();drop(session);std::fs::remove_dir_all(dir).unwrap();
     }
 }

@@ -184,6 +184,25 @@ impl Metadata {
 pub struct Compatibility {
     pub disable_windows_accessibility: bool,
 }
+/// Installed performance preference, independently versioned from vendor state
+/// and the class registry. Missing records preserve the accepted 512-frame path.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Performance {
+    pub schema: u32,
+    pub added_frames: u32,
+}
+impl Default for Performance {
+    fn default() -> Self {
+        Self { schema: 1, added_frames: 512 }
+    }
+}
+impl Performance {
+    pub fn verify(&self) -> Result<()> {
+        require(self.schema == 1 && matches!(self.added_frames, 256 | 512),
+            "unsupported performance schema or delay (use 256 or 512 frames)")
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Registration {
@@ -287,6 +306,38 @@ impl Drop for Lock {
     }
 }
 impl Manager {
+    pub fn performance(&self, key: &str) -> Result<Performance> {
+        require(valid_hex(key, 32), "class ID syntax")?;
+        let path = self.root.join("performance").join(format!("{}.json", key.to_uppercase()));
+        let value = match fs::symlink_metadata(&path) {
+            Ok(_) => read_json(&path)?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Performance::default(),
+            Err(e) => return Err(e.into()),
+        };
+        value.verify()?;
+        Ok(value)
+    }
+    pub fn select_delay(&self, key: &str, frames: u32) -> Result<()> {
+        let value = Performance { schema: 1, added_frames: frames };
+        value.verify()?;
+        require(valid_hex(key, 32), "class ID syntax")?;
+        // Admission holds this same lock until its lease is published. No
+        // instance can race a preference change into its startup binding.
+        let _lock = self.lock("registry.lock")?;
+        let key = key.to_uppercase();
+        require(self.registry()?.classes.contains_key(&key), "class not registered")?;
+        let leases = self.root.join("runtime/leases");
+        if leases.try_exists()? {
+            for entry in fs::read_dir(leases)? {
+                let report: PathBuf = read_json(&entry?.path())?;
+                require(report.file_name().and_then(|s| s.to_str())
+                    .is_some_and(|s| s.starts_with("environment-")),
+                    "close all bridged devices before changing delay; an instance lease remains")?;
+            }
+        }
+        private_dir(&self.root.join("performance"))?;
+        atomic_json(&self.root.join("performance").join(format!("{key}.json")), &value)
+    }
     pub fn installed() -> Result<Self> {
         let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
         Ok(Self {
@@ -563,6 +614,31 @@ mod tests {
         fn drop(&mut self) {
             fs::remove_dir_all(&self.outer).unwrap();
         }
+    }
+    #[test]
+    fn installed_delay_is_inactive_versioned_and_separate_from_identity() {
+        let f = Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let key = f.r.key();
+        let before = f.m.resolve(&f.identity()).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 512);
+        f.m.select_delay(&key, 256).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
+        assert_eq!(before, f.m.resolve(&f.identity()).unwrap());
+        assert!(f.m.select_delay(&key, 128).is_err());
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        let lease = f.m.root.join("runtime/leases/active.json");
+        atomic_json(&lease, &f.m.root.join("runtime/results/windows-active.json")).unwrap();
+        assert!(f.m.select_delay(&key, 512).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
+        fs::remove_file(&lease).unwrap();
+        // The environment keeper is not a DSP instance.
+        atomic_json(&lease, &f.m.root.join("runtime/results/environment-keeper.json")).unwrap();
+        f.m.select_delay(&key, 512).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().added_frames, 512);
+        let path = f.m.root.join("performance").join(format!("{key}.json"));
+        atomic_json(&path, &Performance { schema: 2, added_frames: 256 }).unwrap();
+        assert!(f.m.performance(&key).is_err());
     }
     #[test]
     fn exact_metadata_and_roles() {

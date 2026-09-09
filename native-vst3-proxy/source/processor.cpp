@@ -13,6 +13,7 @@
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include <algorithm>
 #include <cmath>
+#include <ctime>
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
@@ -48,7 +49,9 @@ void diagnostic_report(const char *path, const char *text, size_t size) {
   struct stat st{};
   bool valid = fd >= 0 && !::fstat(fd, &st) && S_ISREG(st.st_mode) &&
                st.st_uid == ::getuid() && (st.st_mode & 077) == 0 &&
-               st.st_size >= 0 && st.st_size + static_cast<off_t>(size) <= 65536;
+               // Match the bounded Rust writer after AP13's added correlation
+               // fields; reserve the same capacity for final lifecycle counts.
+               st.st_size >= 0 && st.st_size + static_cast<off_t>(size) <= 131072;
   if (!valid || ::write(fd, text, size) != static_cast<ssize_t>(size))
     std::fputs("AP3 diagnostic persistence failed\n", stderr);
   if (fd >= 0)
@@ -659,6 +662,10 @@ tresult Processor::rejected(ProcessData &d) {
   return failure(d, maximum_);
 }
 tresult PLUGIN_API Processor::process(ProcessData &d) {
+#ifdef AP8_PREVIEW
+  timespec entered{};clock_gettime(CLOCK_MONOTONIC,&entered);
+  const uint64_t entered_ns=uint64_t(entered.tv_sec)*1000000000+uint64_t(entered.tv_nsec);
+#endif
   Guard g(busy_);
   auto reject = [&] { return rejected(d); };
   if (!g.held) return reject();
@@ -686,7 +693,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   if(d.numSamples==0){
     if(d.numInputs||d.numOutputs)return reject();
     float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};ap10_context_t context{};
-    if(ap10_process(handle_,0,events,event_count,&context,0,&dummy,&dummy,&dummy,&dummy,&flags,&delivery)||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}return kResultOk;
+    if(ap13_process(handle_,0,events,event_count,&context,0,&dummy,&dummy,&dummy,&dummy,&flags,&delivery,entered_ns)||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}return kResultOk;
   }
 #else
   bool changed = false;
@@ -772,7 +779,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #endif
   auto r =
 #ifdef AP8_PREVIEW
-      ap10_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery);
+      ap13_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery,entered_ns);
 #else
       queued_
           ? static_cast<int32_t>(ap7_process(

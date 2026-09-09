@@ -1,0 +1,1108 @@
+{
+  "schema": 1,
+  "records": {
+    "async-untraced-explicit-save": {
+      "states": [
+        {
+          "session": "445ebbee2cbb9c89871b4ad64d791374",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "152d01698b37afe8b4a8051d5df6dc34d5d4d3232f90220f7cd352d79a235208",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "f880da463005e6b1d8bad574afe807320f45c330dc4b5f9882af38fdf144648e",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "ff331b38cf2f4885c93068ecc43619d4f65f2c2bae6fbe4d3991288be782e8c0",
+              "gain": 0
+            }
+          ],
+          "gui": [
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16492708355315,
+              "focus_result": 1,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16492758370881,
+              "focus_result": 4,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 1,
+              "result": 0
+            }
+          ]
+        },
+        {
+          "session": "57e66834c062681d1f264e206f052c08",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 139092,
+              "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+              "gain": 0
+            }
+          ],
+          "gui": []
+        }
+      ],
+      "project": {
+        "sha256": "f461c9e72d598087029f5ce9fe69ef017a59d8889360a8ceb5560f40dbf6333d",
+        "mtime_ns": 1788933268455328385,
+        "bytes": 83783
+      }
+    },
+    "async-untraced-both-edited-save": {
+      "states": [
+        {
+          "session": "445ebbee2cbb9c89871b4ad64d791374",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "152d01698b37afe8b4a8051d5df6dc34d5d4d3232f90220f7cd352d79a235208",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "f880da463005e6b1d8bad574afe807320f45c330dc4b5f9882af38fdf144648e",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "ff331b38cf2f4885c93068ecc43619d4f65f2c2bae6fbe4d3991288be782e8c0",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "335a70f99453aa073f563fd8485caacdac93bdd828cc234edfaaa5c04237bdcf",
+              "gain": 0
+            }
+          ],
+          "gui": [
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16492708355315,
+              "focus_result": 1,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16492758370881,
+              "focus_result": 4,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16787408357839,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16787568365011,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            }
+          ]
+        },
+        {
+          "session": "57e66834c062681d1f264e206f052c08",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 139092,
+              "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "c7a3287130d8a05c963ac2151fe3c2093f38432d8fe42eb3d52a567d85adbec4",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            }
+          ],
+          "gui": [
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16788827710307,
+              "focus_result": 1,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 31457283,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16788917474959,
+              "focus_result": 4,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 31457283,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16831027471162,
+              "focus_result": 1,
+              "activation": 2,
+              "user_time": 16830965,
+              "requestor_x11": 18874370,
+              "target_x11": 31457283,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 16831087466613,
+              "focus_result": 3,
+              "activation": 2,
+              "user_time": 16830965,
+              "requestor_x11": 18874370,
+              "target_x11": 31457283,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 17238587461778,
+              "focus_result": 5,
+              "activation": 2,
+              "user_time": 16830965,
+              "requestor_x11": 18874370,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 0,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 17244427475367,
+              "focus_result": 5,
+              "activation": 2,
+              "user_time": 16830965,
+              "requestor_x11": 18874370,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 0,
+              "result": 0
+            }
+          ]
+        }
+      ],
+      "project": {
+        "sha256": "c92c026c7a8c4b148e7d27b1c9cba197cbccece82a5b6aeea7b844a426b9c624",
+        "mtime_ns": 1788933956701757266,
+        "bytes": 84018
+      }
+    },
+    "host256-delay512-save": {
+      "states": [
+        {
+          "session": "e9408ab6e55d290c10d6b9019a604b0b",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            }
+          ],
+          "gui": []
+        },
+        {
+          "session": "403315237a4a4b2073c2dc0af9b92d35",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "122d61ef8d6988e2a9caa7c4280e7a7c43af2deeea61940a58fb7f6ea573e58e",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "335a70f99453aa073f563fd8485caacdac93bdd828cc234edfaaa5c04237bdcf",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "99ff04aec154613a94eff6f13b2825606fbc5b414e707a1618b461dabc45e979",
+              "gain": 0
+            }
+          ],
+          "gui": [
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18023681900999,
+              "focus_result": 1,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18023732078694,
+              "focus_result": 4,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18076172061436,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18088152032555,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            }
+          ]
+        }
+      ],
+      "project": {
+        "sha256": "66b15a633b1e5c35f11fe7b512a9a5385498281ff1d0d0f1b72277244dafdcf3",
+        "mtime_ns": 1788934803187047543,
+        "bytes": 84015
+      }
+    },
+    "host256-delay256-save": {
+      "states": [
+        {
+          "session": "9461d1fb261f4eafc63dfddb4b49fc76",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            }
+          ],
+          "gui": []
+        },
+        {
+          "session": "65e29d2b32307b6d5d1d591302e07195",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "122d61ef8d6988e2a9caa7c4280e7a7c43af2deeea61940a58fb7f6ea573e58e",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "335a70f99453aa073f563fd8485caacdac93bdd828cc234edfaaa5c04237bdcf",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "ce33364f4544061208c3e81d20b2fffbbed7324dc88a3a68feee70baaa0ab6d3",
+              "gain": 0
+            }
+          ],
+          "gui": [
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18402774529589,
+              "focus_result": 1,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18402824514424,
+              "focus_result": 4,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18445834509857,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18455814508838,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            }
+          ]
+        }
+      ],
+      "project": {
+        "sha256": "727676a48ce3e7734597ed2520ef547d746fc72dd3748be717bba674a930e260",
+        "mtime_ns": 1788935170728639477,
+        "bytes": 84017
+      }
+    },
+    "host256-delay256-stopped-save": {
+      "states": [
+        {
+          "session": "9461d1fb261f4eafc63dfddb4b49fc76",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            }
+          ],
+          "gui": []
+        },
+        {
+          "session": "65e29d2b32307b6d5d1d591302e07195",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "122d61ef8d6988e2a9caa7c4280e7a7c43af2deeea61940a58fb7f6ea573e58e",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "335a70f99453aa073f563fd8485caacdac93bdd828cc234edfaaa5c04237bdcf",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "ce33364f4544061208c3e81d20b2fffbbed7324dc88a3a68feee70baaa0ab6d3",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "ce33364f4544061208c3e81d20b2fffbbed7324dc88a3a68feee70baaa0ab6d3",
+              "gain": 0
+            }
+          ],
+          "gui": [
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18402774529589,
+              "focus_result": 1,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18402824514424,
+              "focus_result": 4,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18445834509857,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18455814508838,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            }
+          ]
+        }
+      ],
+      "project": {
+        "sha256": "301a3151d5d56c893d8c0e8958da630334b121eb18099a7f828d48cd1ef00a5e",
+        "mtime_ns": 1788935328386550563,
+        "bytes": 84017
+      }
+    },
+    "final-recall-state": {
+      "states": [
+        {
+          "session": "f16fcf8e0f3602fb2c86e71da5bbbb09",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "f022ce308ee1597639d6057c064e038c954a53e885ff3264fe23fa2fd0283f2e",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "ce33364f4544061208c3e81d20b2fffbbed7324dc88a3a68feee70baaa0ab6d3",
+              "gain": 0
+            }
+          ],
+          "gui": [
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 19069555823029,
+              "focus_result": 1,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 19069615818897,
+              "focus_result": 4,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 27262979,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 19237795830099,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 19247375821942,
+              "focus_result": 5,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 6,
+              "open": 0,
+              "result": 0
+            }
+          ]
+        },
+        {
+          "session": "dbf569c35aacb297393bfbef16c131bc",
+          "states": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139110,
+              "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139110,
+              "sha256": "d6366971e960258a7ac0a908f6d44ca7930439a61f628d6589c49c8cc0edbc4b",
+              "gain": 0
+            }
+          ],
+          "gui": [
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18911588774507,
+              "focus_result": 1,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 31457283,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 18911628875319,
+              "focus_result": 4,
+              "activation": 1,
+              "user_time": 0,
+              "requestor_x11": 0,
+              "target_x11": 31457283,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 19021318761403,
+              "focus_result": 1,
+              "activation": 2,
+              "user_time": 19021248,
+              "requestor_x11": 18874368,
+              "target_x11": 31457283,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 19021378771008,
+              "focus_result": 3,
+              "activation": 2,
+              "user_time": 19021248,
+              "requestor_x11": 18874368,
+              "target_x11": 31457283,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 1,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 19057758986349,
+              "focus_result": 5,
+              "activation": 2,
+              "user_time": 19021248,
+              "requestor_x11": 18874368,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 0,
+              "result": 0
+            },
+            {
+              "event": "ap11_editor_status",
+              "monotonic_ns": 19067248773596,
+              "focus_result": 5,
+              "activation": 2,
+              "user_time": 19021248,
+              "requestor_x11": 18874368,
+              "target_x11": 0,
+              "view_epoch": 1,
+              "focus_flags": 0,
+              "open": 0,
+              "result": 0
+            }
+          ]
+        }
+      ],
+      "project": {
+        "sha256": "4c4b43844afecd3e233b270e719da9de257997fd8a01fa3b3a6f20ac3c6284c4",
+        "mtime_ns": 1788935982779349666,
+        "bytes": 84026
+      }
+    },
+    "final-restored-setup": [
+      {
+        "session": "f16fcf8e0f3602fb2c86e71da5bbbb09",
+        "rows": [
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+            "gain": 0
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+            "gain": 0
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_set",
+            "payload_bytes": 196838,
+            "sha256": "f022ce308ee1597639d6057c064e038c954a53e885ff3264fe23fa2fd0283f2e",
+            "gain": 0
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 48,
+            "total_frames": 560,
+            "vendor_precision_bits": 1
+          }
+        ]
+      },
+      {
+        "session": "dbf569c35aacb297393bfbef16c131bc",
+        "rows": [
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+            "gain": 0
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+            "gain": 0
+          },
+          {
+            "event": "ap4_native_state",
+            "operation": "opaque_set",
+            "payload_bytes": 139110,
+            "sha256": "f9a43e77824525c7ebafba7f0cb3f572e7cde957508db0f135057b066890b400",
+            "gain": 0
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          },
+          {
+            "event": "ap9_setup",
+            "host_maximum": 512,
+            "transport_maximum": 256,
+            "sample_rate": 48000,
+            "bridge_frames": 512,
+            "vendor_frames": 192,
+            "total_frames": 704,
+            "vendor_precision_bits": 1
+          }
+        ]
+      }
+    ]
+  }
+}

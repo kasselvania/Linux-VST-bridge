@@ -49,6 +49,69 @@ def descendant_identities(root_pid, records=None):
     return result
 
 
+class ProcessTracker:
+    """Follow this launch's kernel child lists, including non-main threads.
+
+    Known descendants remain roots after reparenting. Every visit checks the
+    PID/start-time pair afresh; recycled PIDs never acquire ownership. The full
+    stat census is retained at admission and for positive cleanup.
+    """
+    def __init__(self, root_pid, proc_root="/proc"):
+        self.proc_root = proc_root
+        census = process_identities(proc_root)
+        roots = [r for r in census if r['pid'] == root_pid]
+        self.owned = {(r['pid'], r['start_ticks'])
+                      for r in roots + descendant_identities(root_pid, census)}
+
+    def identity(self, pid):
+        try:
+            with open(f"{self.proc_root}/{pid}/stat", encoding="utf-8", errors="replace") as f:
+                raw = f.read()
+            actual, separator, _ = raw.partition(" (")
+            fields = raw.rsplit(")", 1)[1].split()
+            if not separator or int(actual) != pid:
+                return None
+            return int(fields[19]), int(fields[1])
+        except (OSError, ValueError, IndexError):
+            return None
+
+    def update(self):
+        pending = deque(self.owned)
+        visited = set()
+        while pending:
+            pid, start = pending.popleft()
+            if (pid, start) in visited:
+                continue
+            visited.add((pid, start))
+            before = self.identity(pid)
+            if before is None or before[0] != start:
+                continue
+            children = set()
+            try:
+                with os.scandir(f"{self.proc_root}/{pid}/task") as tasks:
+                    for task in tasks:
+                        if not task.name.isdigit():
+                            continue
+                        try:
+                            with open(task.path + "/children", encoding="ascii") as f:
+                                children.update(int(child) for child in f.read().split())
+                        except (FileNotFoundError, ProcessLookupError):
+                            continue
+            except (FileNotFoundError, ProcessLookupError):
+                continue
+            # Parent exit/reuse during the scan cannot authorize another tree.
+            after = self.identity(pid)
+            if after is None or after[0] != start:
+                continue
+            for child in children:
+                identity = self.identity(child)
+                if identity is not None and identity[1] == pid:
+                    key = (child, identity[0])
+                    self.owned.add(key)
+                    pending.append(key)
+        return self.owned
+
+
 def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]]) -> dict[str, Any]:
     # Cleanup ownership is an observed PID/start identity or this root's
     # process group/session, never a stage-shaped string in another command.
@@ -85,5 +148,4 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]])
     if remaining:
         fail(f"owned descendants survived cleanup: {remaining}")
     return {"owned_descendants_zero": True, "process_group_empty": True}
-
 

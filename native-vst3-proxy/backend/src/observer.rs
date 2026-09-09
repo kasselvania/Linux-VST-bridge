@@ -14,6 +14,9 @@ pub struct Trace {
     pub epoch: u64,
     pub position: u64,
     pub frames: u64,
+    pub windows: [u64; 15],
+    pub parent: [u64; 4],
+    pub previous_control: [u64; 4],
     pub sequence: u64,
     pub process_ns: Option<u64>,
     pub armed: bool,
@@ -32,6 +35,7 @@ pub struct Gap {
     pub position: u64,
     pub frames: u64,
     pub at: Instant,
+    pub parent: [u64; 4],
 }
 #[derive(Clone, Copy)]
 struct Job {
@@ -455,7 +459,7 @@ pub fn report_text(s: &Shared) -> String {
                 t.published,
             ]
             .map(|v| clock.at(v));
-            let _=writeln!(text,"{{\"event\":\"ap10_linux_request\",\"epoch\":{},\"sequence\":{},\"position\":{},\"frames\":{},\"monotonic_ns\":{:?}}}",t.epoch,t.sequence,t.position,t.frames,points);
+            let _=writeln!(text,"{{\"event\":\"ap10_linux_request\",\"epoch\":{},\"sequence\":{},\"position\":{},\"frames\":{},\"monotonic_ns\":{:?},\"windows_reply\":{:?},\"parent_callback\":{:?},\"previous_control\":{:?}}}",t.epoch,t.sequence,t.position,t.frames,points,t.windows,t.parent,t.previous_control);
         }
     }
     for w in &r.audio_windows {
@@ -468,8 +472,8 @@ pub fn report_text(s: &Shared) -> String {
             let points = t.map(|t| [t.queued, t.started, t.prepared, t.sent,
                 t.replied, t.validated, t.published].map(|v| clock.at(v)));
             let points = points.unwrap_or([0; 7]);
-            let _ = writeln!(text, "{{\"event\":\"ap11_gap_clock\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"gap_monotonic_ns\":{},\"request_monotonic_ns\":{:?}}}",
-                g.epoch, g.position, g.frames, clock.at(Some(g.at)), points);
+            let _ = writeln!(text, "{{\"event\":\"ap11_gap_clock\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"gap_monotonic_ns\":{},\"request_monotonic_ns\":{:?},\"consumer_callback\":{:?}}}",
+                g.epoch, g.position, g.frames, clock.at(Some(g.at)), points, g.parent);
         }
         if let Some(t) = t {
             let _ = writeln!(text, "{{\"event\":\"ap7_gap_request\",\"epoch\":{},\"gap_position\":{},\"gap_frames\":{},\"request_position\":{},\"request_frames\":{},\"sequence\":{},\"output_published\":{},\"queue_us\":{},\"prepare_us\":{},\"send_us\":{},\"reply_us\":{},\"validation_us\":{},\"publication_us\":{},\"publication_after_gap_us\":{},\"admission_to_gap_us\":{}}}",
@@ -500,6 +504,7 @@ mod tests {
         for sequence in 0..240 {
             if sequence == 80 || sequence == 180 {
                 assert!(shared.gaps.push(Gap {
+                    parent: [0; 4],
                     epoch: 1,
                     position: sequence * 128,
                     frames: 128,
@@ -529,7 +534,7 @@ mod tests {
         let report = report_text(&shared);
         assert_eq!(report.matches("ap10_linux_request").count(), 96);
         assert_eq!(report.matches("ap11_gap_clock").count(), 2);
-        assert!(report.len() < 32_768);
+        assert!(report.len() < 65_536);
     }
     #[test]
     fn eight_complete_traces_reach_the_capped_jsonl_sink() {
@@ -542,6 +547,7 @@ mod tests {
                     position: sequence * 256,
                     frames: 256,
                     at: now,
+                parent: [0; 4],
                 },
                 Some(Trace {
                     epoch: 1,
@@ -568,13 +574,13 @@ mod tests {
         let retained = std::fs::read_to_string(&path).unwrap();
         assert_eq!(retained, text);
         assert_eq!(retained.lines().count(), 9);
-        // Oversized records still fail closed and the file cap is unchanged.
+        // Oversized records still fail closed and the diagnostic file cap remains bounded.
         crate::preview::append_records(&path, &("x".repeat(2048) + "\n"));
         assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
         for _ in 0..30 {
             crate::preview::append_records(&path, &text);
         }
-        assert!(std::fs::metadata(&path).unwrap().len() <= 65536);
+        assert!(std::fs::metadata(&path).unwrap().len() <= 131072);
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[test]

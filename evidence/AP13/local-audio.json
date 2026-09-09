@@ -1,0 +1,45 @@
+{
+  "claim": "Local Deck speaker sink-monitor captures, not physical loopback, human hearing or acoustic latency measurements. Waveforms are private.",
+  "captures": {
+    "removal-512-metrics": {
+      "source": "Deck local speaker sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 868352,
+      "seconds": 18.090666666666667,
+      "peak": 0.05714888870716095,
+      "rms": 0.0178886806255808,
+      "nonzero_samples": 1735680
+    },
+    "live-512-metrics": {
+      "source": "Deck local speaker sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 868352,
+      "seconds": 18.090666666666667,
+      "peak": 0.10958361625671387,
+      "rms": 0.010359973045468755,
+      "nonzero_samples": 1735680
+    },
+    "host256-delay256-live-metrics": {
+      "source": "Deck local speaker sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 868352,
+      "seconds": 18.090666666666667,
+      "peak": 0.0717763900756836,
+      "rms": 0.005936212713069802,
+      "nonzero_samples": 1736192
+    },
+    "host256-delay512-live-metrics": {
+      "source": "Deck local speaker sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 868352,
+      "seconds": 18.090666666666667,
+      "peak": 0.07112102210521698,
+      "rms": 0.0060114308169041605,
+      "nonzero_samples": 1736192
+    }
+  }
+}

@@ -216,10 +216,11 @@ uint32_t __wrap_ap4_state(uint64_t, const uint8_t *, uint32_t, uint8_t *out,
   *n = 132;
   return 0;
 }
-uint32_t __wrap_ap10_process(uint64_t, uint32_t n, const ap8_event_t *e,
+uint32_t __wrap_ap13_process(uint64_t, uint32_t n, const ap8_event_t *e,
                              uint32_t count, const ap10_context_t *, uint64_t,
                              const float *, const float *, float *, float *,
-                             uint64_t *silence, ap7_delivery_t *delivery) {
+                             uint64_t *silence, ap7_delivery_t *delivery, uint64_t entered_ns) {
+  check(entered_ns != 0, "native callback entry is propagated");
   check(n == 0, "stopped flush is zero frames");
   for (uint32_t i = 0; i < count; ++i)
     if (e[i].kind == 2) {

@@ -39,7 +39,7 @@ pub fn append_report(path: &Path, bytes: &[u8]) {
         && meta.uid() == unsafe { getuid() }
         && meta.mode() & 0o077 == 0
         && bytes.len() <= 2048
-        && meta.len() <= 65536 - bytes.len() as u64
+        && meta.len() <= 131072 - bytes.len() as u64
     {
         let _ = file.write_all(bytes);
     }
@@ -56,6 +56,7 @@ pub fn append_records(path: &Path, jsonl: &str) {
 pub struct Binding {
     pub directory: PathBuf,
     pub session: [u8; 16],
+    pub installed_delay: Option<u32>,
     // Held through Session::close. EOF tells the owner to clean up after a crash.
     pub owner: Option<Owner>,
 }
@@ -134,6 +135,12 @@ pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
     let (id, directory) = reply
         .split_once('\n')
         .ok_or_else(|| invalid("preview startup shape"))?;
+    let (installed_delay, directory) = if greeting.starts_with(b"LVB2\n") {
+        let (delay, path) = directory.split_once('\n').ok_or_else(|| invalid("installed performance binding absent"))?;
+        let delay = delay.parse::<u32>().map_err(|_| invalid("installed delay encoding"))?;
+        need(matches!(delay, 256 | 512), "unsupported installed delay")?;
+        (Some(delay), path)
+    } else { (None, directory) };
     need(
         id.len() == 32 && id.bytes().all(|c| c.is_ascii_hexdigit()),
         "preview session syntax",
@@ -149,6 +156,7 @@ pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
     Ok(Binding {
         directory,
         session,
+        installed_delay,
         owner: Some(Owner::new(owner)),
     })
 }
@@ -166,7 +174,7 @@ pub(crate) fn performance_root(commercial: bool) -> PathBuf {
 }
 pub fn discover_performance(identity: Option<crate::state::Identity>) -> io::Result<Binding> {
     let mut greeting = if cfg!(feature = "registered") && identity.is_some() {
-        b"LVB1\n".to_vec()
+        b"LVB2\n".to_vec()
     } else {
         b"AP9\n".to_vec()
     };
@@ -249,6 +257,23 @@ mod tests {
         }
     }
     #[test]
+    fn installed_binding_transfers_a_validated_inactive_delay() {
+        for value in ["256", "512", "128", "512\nextra"] {
+            let dir=Directory::new();let listener=UnixListener::bind(dir.0.join("owner.sock")).unwrap();
+            fs::set_permissions(dir.0.join("owner.sock"),fs::Permissions::from_mode(0o600)).unwrap();
+            let path=dir.0.clone();let sent_value=value.to_string();
+            let peer=std::thread::spawn(move || {
+                let (mut stream,_) = listener.accept().unwrap();let mut hello=[0;5];stream.read_exact(&mut hello).unwrap();assert_eq!(&hello,b"LVB2\n");
+                let reply=format!("{}\n{}\n{}","aa".repeat(16),sent_value,path.display());
+                stream.write_all(&(reply.len() as u16).to_le_bytes()).unwrap();stream.write_all(reply.as_bytes()).unwrap();
+                let mut end=Vec::new();stream.read_to_end(&mut end).unwrap();
+            });
+            let result=connect_greeting(&dir.0,b"LVB2\n");
+            if matches!(value,"256"|"512") { assert_eq!(result.unwrap().installed_delay,Some(value.parse().unwrap())); } else { assert!(result.is_err()); }
+            peer.join().unwrap();
+        }
+    }
+    #[test]
     fn retirement_requires_positive_owner_disposition() {
         for reply in [b"R".as_slice(), b"".as_slice(), b"F".as_slice()] {
             let (mut peer, socket) = UnixStream::pair().unwrap();
@@ -304,6 +329,7 @@ mod tests {
         let started = Instant::now();
         assert!(crate::Session::open(
             Binding {
+                installed_delay: None,
                 directory: dir.0.clone(),
                 session: [3; 16],
                 owner: Some(Owner::new(owner))

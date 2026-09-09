@@ -41,17 +41,18 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
         (1..=256).contains(&get(&b[..4]))
             && matches!(get(&b[4..8]), 0 | 2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
-            && matches!(get(&b[16..20]), 0 | 2)
+            && matches!(get(&b[16..20]), 0 | 2 | 3)
             && get(&b[20..24]) <= 3,
         "unsupported setup",
     )
 }
+pub fn validate_delay(max: u32, delay: u32) -> io::Result<()> {
+    need((1..=1024).contains(&max) && matches!(delay, 256 | 512) && delay >= max,
+        "selected bridge delay cannot cover the negotiated host maximum")
+}
 pub fn selected_delay(max: u32) -> io::Result<u32> {
     if cfg!(feature = "registered") {
-        need(
-            (1..=512).contains(&max),
-            "registered 512-frame delay cannot cover this host block",
-        )?;
+        validate_delay(max, 512)?;
         return Ok(512);
     }
     need((1..=1024).contains(&max), "host maximum outside 1..1024")?;
@@ -103,6 +104,17 @@ fn read_delay(path: &std::path::Path, max: u32) -> io::Result<u32> {
 mod tests {
     use super::*;
     #[test]
+    fn installed_delay_covers_the_actual_host_maximum_not_the_chunk() {
+        assert!(validate_delay(512, 256).is_err());
+        assert!(validate_delay(257, 256).is_err());
+        assert!(validate_delay(256, 256).is_ok());
+        assert!(validate_delay(128, 256).is_ok());
+        assert!(validate_delay(256, 512).is_ok());
+        assert!(validate_delay(512, 512).is_ok());
+        assert!(validate_delay(513, 512).is_err());
+        assert!(validate_delay(0, 512).is_err());
+    }
+    #[test]
     fn io_contract_extent_and_fields_are_bounded() {
         let mut b = wire(128, 0, 48000.).unwrap();
         b[20..24].copy_from_slice(&1u32.to_le_bytes());
@@ -142,6 +154,19 @@ mod tests {
         std::os::unix::fs::symlink(&file, &link).unwrap();
         assert!(read_delay(&link, 64).is_err());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn process_modes_are_distinct_from_mailbox_versions() {
+        for mailbox_version in [0u32, 2, 3] {
+            let mut b = wire(256, 0, 48000.).unwrap();
+            b[16..20].copy_from_slice(&mailbox_version.to_le_bytes());
+            for process_mode in [0u32, 2] {
+                b[4..8].copy_from_slice(&process_mode.to_le_bytes());
+                assert!(validate_wire(&b).is_ok());
+            }
+            b[4..8].copy_from_slice(&3u32.to_le_bytes());
+            assert!(validate_wire(&b).is_err());
+        }
     }
     #[test]
     fn setup_bounds_and_no_precision_conversion() {

@@ -1,8 +1,9 @@
 //! Independent fault visibility, never called by the DAW audio callback.
-//! v1: 1024 bytes; immutable session header, three single-writer lanes. Each
+//! v2: 1024 bytes; immutable session header, three single-writer lanes. Each
 //! lane has an atomic publication counter and two atomic-word slots. A writer
 //! killed during publication leaves the previous slot readable. Readers retry
 //! at most three times; all words are atomic (no seqlock data races).
+//! Native words 10..16 carry sampled cumulative presentation counters.
 use ap1_native_client::{invalid, need};
 use std::{
     ffi::c_void,
@@ -23,6 +24,7 @@ pub struct Status {
     _file: File,
     counter: u64,
     pub generation: u64,
+    pub delivery: [u64; 6],
 }
 unsafe impl Send for Status {}
 impl Status {
@@ -41,10 +43,11 @@ impl Status {
             _file: file,
             counter: 0,
             generation: 1,
+            delivery: [0; 6],
         };
         let mut header = [0u8; 64];
         header[..4].copy_from_slice(b"LVFS");
-        header[4..8].copy_from_slice(&1u32.to_le_bytes());
+        header[4..8].copy_from_slice(&2u32.to_le_bytes());
         header[8..12].copy_from_slice(&(BYTES as u32).to_le_bytes());
         header[16..32].copy_from_slice(&session);
         unsafe {
@@ -77,6 +80,9 @@ impl Status {
         for (i, v) in row.iter().enumerate() {
             self.word(base + i * 8).store(*v, Ordering::SeqCst);
         }
+        for (i, v) in self.delivery.iter().enumerate() {
+            self.word(base + (10 + i) * 8).store(*v, Ordering::SeqCst);
+        }
         self.word(64).store(next, Ordering::SeqCst);
         self.counter = next;
     }
@@ -103,7 +109,7 @@ mod tests {
         let socket=TcpStream::connect(listener.local_addr().unwrap()).unwrap();
         let (_peer,_)=listener.accept().unwrap();
         let mut session=Session {
-            gui:None,gui_revision:0,mailbox:Some(mailbox::Mailbox::create(&dir.join("ap10.delivery"),id).unwrap()),mailbox_enabled:true,fault_status:Some(status),
+            gui:None,gui_revision:0,mailbox:Some(mailbox::Mailbox::create(&dir.join("ap10.delivery"),id).unwrap()),mailbox_enabled:true,capture:None,fault_status:Some(status),
             notices:(0,0),returned:Default::default(),mapping:Some(Mapping::new(&dir.join("ap1.audio")).unwrap()),socket,
             state:ClientState { session:id,next:9,slot:Slot::Writable },phase:11,max:256,minor:11,epoch:1,position:0,witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None,
         };

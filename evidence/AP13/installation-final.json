@@ -1,0 +1,138 @@
+{
+  "service_enabled": "enabled",
+  "service_active": "active",
+  "scheduling": "CPUWeight=[not set]\nNice=0\nCPUSchedulingPolicy=0\nCPUSchedulingPriority=0",
+  "heavy_trace": false,
+  "software": {
+    "manager": "bebe5686105ca454a6a222f4dad6ef260d5bd5b11772b0828b0fe0e33a948261",
+    "supervisor": "07b9e25b2e9ad10c4383d901d10c17dbad1f4806071bee87764ec20163124868",
+    "ownership": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2",
+    "host": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
+    "source_manifest": "350fe2b3a4f18fa230bd093dff1f88380ca2825b7ed566d31455eec51bc61e26"
+  },
+  "registrations": [
+    {
+      "class_id": "417274754156495350724C4650726F63",
+      "publication": "Published",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+      "host_sha256": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
+      "compatibility": {
+        "disable_windows_accessibility": true
+      },
+      "performance": {
+        "schema": 1,
+        "added_frames": 512
+      },
+      "publication_exists": true
+    },
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "publication": "Published",
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+      "host_sha256": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
+      "compatibility": {
+        "disable_windows_accessibility": true
+      },
+      "performance": {
+        "schema": 1,
+        "added_frames": 512
+      },
+      "publication_exists": true
+    }
+  ],
+  "projects": {
+    "AP12 Arturia Chain": {
+      "sha256": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+      "bytes": 83551
+    },
+    "AP13 Delivery": {
+      "sha256": "4c4b43844afecd3e233b270e719da9de257997fd8a01fa3b3a6f20ac3c6284c4",
+      "bytes": 84026
+    }
+  },
+  "active_sessions": [
+    {
+      "session": "b9cb98b568b83491994ecc5ba78fc3f8",
+      "keeper": true,
+      "class_id": "417274754156495350724C4650726F63"
+    },
+    {
+      "session": "f16fcf8e0f3602fb2c86e71da5bbbb09",
+      "keeper": false,
+      "class_id": "417274754156495350724C4650726F63"
+    },
+    {
+      "session": "dbf569c35aacb297393bfbef16c131bc",
+      "keeper": false,
+      "class_id": "41727475415649536772616E50726F63"
+    }
+  ],
+  "same_boot_as_slice_start": true,
+  "late_external_weight_change": {
+    "observed_wall_ns": 1788936089891528028,
+    "dropin_mtime_ns": 1788935775856535495,
+    "value": 10000,
+    "written_by_this_task": false,
+    "matched_intervals": {
+      "baseline2-play45": [
+        {
+          "wall_mtime_ns": 1788929573421980211,
+          "monotonic_ns": 12867172899926
+        },
+        {
+          "wall_mtime_ns": 1788929618451919786,
+          "monotonic_ns": 12912202792150
+        }
+      ],
+      "async-untraced-play45": [
+        {
+          "wall_mtime_ns": 1788932928400533009,
+          "monotonic_ns": 16222151480354
+        },
+        {
+          "wall_mtime_ns": 1788932973428184394,
+          "monotonic_ns": 16267179178199
+        }
+      ],
+      "host256-delay512-play45": [
+        {
+          "wall_mtime_ns": 1788934338367876037,
+          "monotonic_ns": 17632118730629
+        },
+        {
+          "wall_mtime_ns": 1788934383395828398,
+          "monotonic_ns": 17677146789153
+        }
+      ],
+      "host256-delay256-play45": [
+        {
+          "wall_mtime_ns": 1788935023716355182,
+          "monotonic_ns": 18317467285155
+        },
+        {
+          "wall_mtime_ns": 1788935068746534652,
+          "monotonic_ns": 18362497530507
+        }
+      ]
+    },
+    "pre_comparison_properties": "Nice=0\nCPUSchedulingPolicy=0\nCPUSchedulingPriority=0",
+    "pre_comparison_CPUWeight": "unset",
+    "operator_preference": "Operator confirms making no CPU-weight change; prior unset value restored.",
+    "source_of_change": "unknown",
+    "scheduling_before_restoration": "CPUWeight=10000\nNice=0\nCPUSchedulingPolicy=0\nCPUSchedulingPriority=0",
+    "restoration": {
+      "wall_ns": 1788936899619130311,
+      "CPUWeight": "[not set]",
+      "effective_cpu_weight": 100,
+      "service_active": "active",
+      "service_instance_unchanged": true,
+      "dropin_cpu_lines": [
+        "CPUWeight="
+      ],
+      "other_scheduling_unchanged": true,
+      "installed_software_publications_projects_sessions_unchanged": true
+    }
+  }
+}

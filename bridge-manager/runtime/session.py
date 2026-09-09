@@ -6,7 +6,7 @@ callback work. The Rust manager supplies an exact verified registration.
 """
 import ctypes,mmap
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
-from ownership import process_identities,descendant_identities,cleanup_process
+from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -85,7 +85,8 @@ class FaultStatus:
             self.map=mmap.mmap(fd,1024,access=mmap.ACCESS_WRITE)
         finally:os.close(fd)
         header=self.map[:32]
-        if header[:16]!=b'LVFS'+struct.pack('<III',1,1024,0) or header[16:]!=bytes.fromhex(sid):
+        self.version=struct.unpack_from('<I',header,4)[0]
+        if self.version not in (1,2) or header[:16]!=b'LVFS'+struct.pack('<III',self.version,1024,0) or header[16:]!=bytes.fromhex(sid):
             self.close();raise RuntimeError('fault status session/version')
         self.lib=ctypes.CDLL('libatomic.so.1')
         self.load=getattr(self.lib,'__atomic_load_8');self.load.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load.restype=ctypes.c_uint64
@@ -97,7 +98,8 @@ class FaultStatus:
             st=os.fstat(fd)
             if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=33024 or st.st_mode&0o077:raise RuntimeError('fault mailbox ownership/extent')
             self.mailbox=mmap.mmap(fd,33024,access=mmap.ACCESS_WRITE)
-            if self.mailbox[:32]!=b'LVBM'+struct.pack('<III',2,33024,0)+bytes.fromhex(sid):raise RuntimeError('fault mailbox identity/version')
+            version=struct.unpack_from('<I',self.mailbox,4)[0]
+            if version not in (2,3) or self.mailbox[:32]!=b'LVBM'+struct.pack('<III',version,33024,0)+bytes.fromhex(sid):raise RuntimeError('fault mailbox identity/version')
             self.mailbox_address=ctypes.addressof(ctypes.c_char.from_buffer(self.mailbox))
         except Exception:self.close();raise
         finally:os.close(fd)
@@ -108,14 +110,15 @@ class FaultStatus:
             counter=self.word(base)
             if not counter:return None
             slot=base+64+(counter&1)*128
-            values=[self.word(slot+8*i) for i in range(10)]
+            fields=self.fields + (('admitted_frames','missing_frames','gaps','expired_frames','delivered_frames','priming_frames') if index==0 and self.version==2 else ())
+            values=[self.word(slot+8*i) for i in range(len(fields))]
             if self.word(base)==counter:
-                self.last[index]={'publication':counter,**dict(zip(self.fields,values))}
+                self.last[index]={'publication':counter,**dict(zip(fields,values))}
                 return {**self.last[index],'current':True}
         return {**self.last[index],'current':False} if self.last[index] else {'current':False}
     def snapshot(self):
         if self.map is None:return {'available':False}
-        return {'available':True,'schema':1,'sample_monotonic_ns':time.monotonic_ns(),
+        return {'available':True,'schema':self.version,'sample_monotonic_ns':time.monotonic_ns(),
                 'clock_domains':['linux_monotonic_ns','windows_qpc','windows_qpc'],
                 **{name:self.lane(i) for i,name in enumerate(('native','delivery','owner'))},
                 'editor':self.editor_snapshot(),
@@ -238,11 +241,9 @@ def run(spec,peer=None):
             else:retain('stderr',stderr,data)
     try:
         for stream,label in [(root.stdout,'stdout'),(root.stderr,'stderr')]:os.set_blocking(stream.fileno(),False);sel.register(stream,selectors.EVENT_READ,label)
+        tracker=ProcessTracker(root.pid)
         while True:
-            census=process_identities()
-            for r in census:
-                if r['pid']==root.pid:owned.add((r['pid'],r['start_ticks']))
-            owned.update((r['pid'],r['start_ticks']) for r in descendant_identities(root.pid,census))
+            owned.update(tracker.update())
             pump(.05)
             if visibility:
                 was=visibility.suspect
@@ -348,10 +349,9 @@ def keep(spec):
     sel=selectors.DefaultSelector();owned=set();text=bytearray();ready=False;started=time.monotonic();error=None;clean=False
     for pipe in (root.stdout,root.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
     try:
+        tracker=ProcessTracker(root.pid)
         while not stop:
-            census=process_identities()
-            owned.update((r['pid'],r['start_ticks']) for r in census if r['pid']==root.pid)
-            owned.update((r['pid'],r['start_ticks']) for r in descendant_identities(root.pid,census))
+            owned.update(tracker.update())
             for key,_ in sel.select(.05):
                 data=os.read(key.fileobj.fileno(),4096)
                 if not data:sel.unregister(key.fileobj)

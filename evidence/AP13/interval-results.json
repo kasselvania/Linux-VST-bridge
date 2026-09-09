@@ -1,0 +1,2133 @@
+{
+  "schema": 1,
+  "intervals": [
+    {
+      "label": "baseline2-play45",
+      "seconds": 45.029892224,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "02a38b7051cf1bcd67ba4a6729a80458",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 2161664,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2161664,
+          "priming_frames": 0
+        },
+        {
+          "session": "d3c5baec6c16c03471a9ff789ed165e7",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 2161664,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2161664,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 3.042423
+        },
+        {
+          "pid": 14605,
+          "start": "1205722",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 14694,
+          "start": "1221529",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 14696,
+          "start": "1221529",
+          "name": "BitwigStudio",
+          "percent": 44.481563
+        },
+        {
+          "pid": 14791,
+          "start": "1222520",
+          "name": "BitwigAudioEngi",
+          "percent": 6.595619
+        },
+        {
+          "pid": 14943,
+          "start": "1228257",
+          "name": "python3",
+          "percent": 20.875022
+        },
+        {
+          "pid": 15035,
+          "start": "1228448",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 15038,
+          "start": "1228455",
+          "name": "wineserver",
+          "percent": 10.459719
+        },
+        {
+          "pid": 15045,
+          "start": "1228475",
+          "name": "winedevice.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 15061,
+          "start": "1228526",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 15068,
+          "start": "1228532",
+          "name": "winedevice.exe",
+          "percent": 18.96518
+        },
+        {
+          "pid": 15089,
+          "start": "1228651",
+          "name": "host.exe",
+          "percent": 0.333112
+        },
+        {
+          "pid": 15887,
+          "start": "1274726",
+          "name": "BitwigPluginHos",
+          "percent": 16.011586
+        },
+        {
+          "pid": 15901,
+          "start": "1274742",
+          "name": "python3",
+          "percent": 21.097097
+        },
+        {
+          "pid": 15993,
+          "start": "1274923",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 15996,
+          "start": "1274983",
+          "name": "host.exe",
+          "percent": 38.418924
+        },
+        {
+          "pid": 16027,
+          "start": "1275503",
+          "name": "python3",
+          "percent": 21.163719
+        },
+        {
+          "pid": 16123,
+          "start": "1275629",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 16126,
+          "start": "1275673",
+          "name": "host.exe",
+          "percent": 24.6725
+        },
+        {
+          "pid": 16261,
+          "start": "1286704",
+          "name": "python3",
+          "percent": 0.066622
+        }
+      ]
+    },
+    {
+      "label": "async-untraced-play45",
+      "seconds": 45.027697845,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "445ebbee2cbb9c89871b4ad64d791374",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 2161152,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2161152,
+          "priming_frames": 0
+        },
+        {
+          "session": "57e66834c062681d1f264e206f052c08",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 2161152,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2161152,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.022209
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 2.931529
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 44.750234
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 6.329438
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 5.996309
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 9.061089
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.022209
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 16.456538
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.377545
+        },
+        {
+          "pid": 21873,
+          "start": "1616999",
+          "name": "BitwigPluginHos",
+          "percent": 15.146233
+        },
+        {
+          "pid": 21887,
+          "start": "1617010",
+          "name": "python3",
+          "percent": 3.353491
+        },
+        {
+          "pid": 21982,
+          "start": "1617189",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21985,
+          "start": "1617247",
+          "name": "host.exe",
+          "percent": 36.399818
+        },
+        {
+          "pid": 22016,
+          "start": "1617799",
+          "name": "python3",
+          "percent": 2.665026
+        },
+        {
+          "pid": 22113,
+          "start": "1617927",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 22116,
+          "start": "1617970",
+          "name": "host.exe",
+          "percent": 23.585483
+        },
+        {
+          "pid": 22185,
+          "start": "1622202",
+          "name": "python3",
+          "percent": 0.066626
+        }
+      ]
+    },
+    {
+      "label": "host256-delay512-play45",
+      "seconds": 45.028058524,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "e9408ab6e55d290c10d6b9019a604b0b",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 2161408,
+          "missing_frames": 1280,
+          "gaps": 1,
+          "expired_frames": 1280,
+          "delivered_frames": 2160128,
+          "priming_frames": 0
+        },
+        {
+          "session": "403315237a4a4b2073c2dc0af9b92d35",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 2161408,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2161408,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.022208
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 3.020339
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 41.973828
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 9.904935
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 5.974053
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 10.859895
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 19.698828
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.355334
+        },
+        {
+          "pid": 23446,
+          "start": "1756578",
+          "name": "BitwigPluginHos",
+          "percent": 16.101072
+        },
+        {
+          "pid": 23460,
+          "start": "1756588",
+          "name": "python3",
+          "percent": 3.397881
+        },
+        {
+          "pid": 23552,
+          "start": "1756768",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 23555,
+          "start": "1756827",
+          "name": "host.exe",
+          "percent": 38.598155
+        },
+        {
+          "pid": 23585,
+          "start": "1757367",
+          "name": "python3",
+          "percent": 2.73163
+        },
+        {
+          "pid": 23678,
+          "start": "1757492",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 23681,
+          "start": "1757535",
+          "name": "host.exe",
+          "percent": 24.273754
+        },
+        {
+          "pid": 23800,
+          "start": "1763199",
+          "name": "python3",
+          "percent": 0.044417
+        }
+      ]
+    },
+    {
+      "label": "host256-delay256-play45",
+      "seconds": 45.030245352,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "9461d1fb261f4eafc63dfddb4b49fc76",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 2161408,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2161408,
+          "priming_frames": 0
+        },
+        {
+          "session": "65e29d2b32307b6d5d1d591302e07195",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 2161408,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2161408,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 2.997985
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 41.061291
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 9.882247
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 5.99597
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 11.103648
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.24428
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 20.11981
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.355317
+        },
+        {
+          "pid": 24266,
+          "start": "1825006",
+          "name": "BitwigPluginHos",
+          "percent": 16.277948
+        },
+        {
+          "pid": 24280,
+          "start": "1825016",
+          "name": "python3",
+          "percent": 3.419924
+        },
+        {
+          "pid": 24374,
+          "start": "1825197",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 24377,
+          "start": "1825257",
+          "name": "host.exe",
+          "percent": 38.68511
+        },
+        {
+          "pid": 24406,
+          "start": "1825803",
+          "name": "python3",
+          "percent": 2.664876
+        },
+        {
+          "pid": 24498,
+          "start": "1825927",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 24501,
+          "start": "1825969",
+          "name": "host.exe",
+          "percent": 24.516855
+        },
+        {
+          "pid": 24646,
+          "start": "1831734",
+          "name": "python3",
+          "percent": 0.066622
+        }
+      ]
+    },
+    {
+      "label": "async-untraced-live",
+      "seconds": 38.652767592,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "445ebbee2cbb9c89871b4ad64d791374",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 1855488,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 1855488,
+          "priming_frames": 0
+        },
+        {
+          "session": "57e66834c062681d1f264e206f052c08",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 1855488,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 1855488,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.025871
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.025871
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 2.897593
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 12.366514
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 5.09666
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 5.691701
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 9.054979
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.129357
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 16.091991
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.310456
+        },
+        {
+          "pid": 21873,
+          "start": "1616999",
+          "name": "BitwigPluginHos",
+          "percent": 14.203381
+        },
+        {
+          "pid": 21887,
+          "start": "1617010",
+          "name": "python3",
+          "percent": 3.20805
+        },
+        {
+          "pid": 21982,
+          "start": "1617189",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21985,
+          "start": "1617247",
+          "name": "host.exe",
+          "percent": 24.163858
+        },
+        {
+          "pid": 22016,
+          "start": "1617799",
+          "name": "python3",
+          "percent": 2.535394
+        },
+        {
+          "pid": 22113,
+          "start": "1617927",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 22116,
+          "start": "1617970",
+          "name": "host.exe",
+          "percent": 22.326991
+        }
+      ]
+    },
+    {
+      "label": "async-untraced-save",
+      "seconds": 63.338315188,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "445ebbee2cbb9c89871b4ad64d791374",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 3040256,
+          "missing_frames": 1792,
+          "gaps": 3,
+          "expired_frames": 1792,
+          "delivered_frames": 3038464,
+          "priming_frames": 0
+        },
+        {
+          "session": "57e66834c062681d1f264e206f052c08",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 3040256,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 3040256,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 3.047129
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 45.343802
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 6.631057
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 5.98374
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 11.004398
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.078941
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 19.245855
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.363129
+        },
+        {
+          "pid": 21873,
+          "start": "1616999",
+          "name": "BitwigPluginHos",
+          "percent": 16.088208
+        },
+        {
+          "pid": 21887,
+          "start": "1617010",
+          "name": "python3",
+          "percent": 4.278611
+        },
+        {
+          "pid": 21982,
+          "start": "1617189",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21985,
+          "start": "1617247",
+          "name": "host.exe",
+          "percent": 49.953965
+        },
+        {
+          "pid": 22016,
+          "start": "1617799",
+          "name": "python3",
+          "percent": 2.747152
+        },
+        {
+          "pid": 22113,
+          "start": "1617927",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 22116,
+          "start": "1617970",
+          "name": "host.exe",
+          "percent": 24.471759
+        }
+      ]
+    },
+    {
+      "label": "async-untraced-fragments",
+      "seconds": 417.469928784,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "445ebbee2cbb9c89871b4ad64d791374",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 20038144,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 20038144,
+          "priming_frames": 0
+        },
+        {
+          "session": "57e66834c062681d1f264e206f052c08",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 20038144,
+          "missing_frames": 2048,
+          "gaps": 2,
+          "expired_frames": 2048,
+          "delivered_frames": 20036096,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.007186
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.007186
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 3.063694
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 42.903689
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 6.654372
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 6.000432
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 13.572235
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.019163
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 20.693706
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.349726
+        },
+        {
+          "pid": 21873,
+          "start": "1616999",
+          "name": "BitwigPluginHos",
+          "percent": 16.726953
+        },
+        {
+          "pid": 21887,
+          "start": "1617010",
+          "name": "python3",
+          "percent": 4.129639
+        },
+        {
+          "pid": 21982,
+          "start": "1617189",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21985,
+          "start": "1617247",
+          "name": "host.exe",
+          "percent": 39.701063
+        },
+        {
+          "pid": 22016,
+          "start": "1617799",
+          "name": "python3",
+          "percent": 3.44935
+        },
+        {
+          "pid": 22113,
+          "start": "1617927",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 22116,
+          "start": "1617970",
+          "name": "host.exe",
+          "percent": 43.495348
+        }
+      ]
+    },
+    {
+      "label": "removal-retry",
+      "seconds": 54.178417756,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "67852489807cab0f04c75b6873fe4942",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 2600448,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2600448,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.036915
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.018458
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 2.84246
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 38.613162
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 5.795666
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 5.703378
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 10.077814
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.184575
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 18.328331
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.350693
+        },
+        {
+          "pid": 22864,
+          "start": "1732147",
+          "name": "BitwigPluginHos",
+          "percent": 8.785786
+        },
+        {
+          "pid": 22878,
+          "start": "1732162",
+          "name": "python3",
+          "percent": 3.248526
+        },
+        {
+          "pid": 22971,
+          "start": "1732345",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 22974,
+          "start": "1732406",
+          "name": "host.exe",
+          "percent": 34.478674
+        }
+      ]
+    },
+    {
+      "label": "host256-delay512-editor",
+      "seconds": 112.377287252,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "e9408ab6e55d290c10d6b9019a604b0b",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 5393920,
+          "missing_frames": 3840,
+          "gaps": 3,
+          "expired_frames": 3840,
+          "delivered_frames": 5390080,
+          "priming_frames": 0
+        },
+        {
+          "session": "403315237a4a4b2073c2dc0af9b92d35",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 5394176,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "expired_frames": 1536,
+          "delivered_frames": 5392640,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.008899
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 3.087813
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 42.384009
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 10.144399
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 6.033248
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 11.826233
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.026696
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 20.724828
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.355944
+        },
+        {
+          "pid": 23446,
+          "start": "1756578",
+          "name": "BitwigPluginHos",
+          "percent": 16.711562
+        },
+        {
+          "pid": 23460,
+          "start": "1756588",
+          "name": "python3",
+          "percent": 3.950976
+        },
+        {
+          "pid": 23552,
+          "start": "1756768",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 23555,
+          "start": "1756827",
+          "name": "host.exe",
+          "percent": 46.922293
+        },
+        {
+          "pid": 23585,
+          "start": "1757367",
+          "name": "python3",
+          "percent": 2.749666
+        },
+        {
+          "pid": 23678,
+          "start": "1757492",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 23681,
+          "start": "1757535",
+          "name": "host.exe",
+          "percent": 24.675805
+        }
+      ]
+    },
+    {
+      "label": "host256-delay512-live",
+      "seconds": 52.609635188,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "e9408ab6e55d290c10d6b9019a604b0b",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 2525184,
+          "missing_frames": 1280,
+          "gaps": 1,
+          "expired_frames": 1280,
+          "delivered_frames": 2523904,
+          "priming_frames": 0
+        },
+        {
+          "session": "403315237a4a4b2073c2dc0af9b92d35",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 2525184,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2525184,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.019008
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.019008
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 2.965236
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 12.18408
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 8.51555
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 5.854441
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 10.967573
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.133055
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 18.912885
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.342143
+        },
+        {
+          "pid": 23446,
+          "start": "1756578",
+          "name": "BitwigPluginHos",
+          "percent": 15.358403
+        },
+        {
+          "pid": 23460,
+          "start": "1756588",
+          "name": "python3",
+          "percent": 3.744561
+        },
+        {
+          "pid": 23552,
+          "start": "1756768",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 23555,
+          "start": "1756827",
+          "name": "host.exe",
+          "percent": 26.74415
+        },
+        {
+          "pid": 23585,
+          "start": "1757367",
+          "name": "python3",
+          "percent": 2.604086
+        },
+        {
+          "pid": 23678,
+          "start": "1757492",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 23681,
+          "start": "1757535",
+          "name": "host.exe",
+          "percent": 23.246692
+        }
+      ]
+    },
+    {
+      "label": "host256-delay256-editor",
+      "seconds": 97.427797455,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "9461d1fb261f4eafc63dfddb4b49fc76",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 4676352,
+          "missing_frames": 1536,
+          "gaps": 1,
+          "expired_frames": 1536,
+          "delivered_frames": 4674816,
+          "priming_frames": 0
+        },
+        {
+          "session": "65e29d2b32307b6d5d1d591302e07195",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 4676608,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 4676608,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.010264
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.010264
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 3.089467
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 42.862511
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 10.099787
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 6.076295
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 11.978101
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.030792
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 20.907791
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.348976
+        },
+        {
+          "pid": 24266,
+          "start": "1825006",
+          "name": "BitwigPluginHos",
+          "percent": 16.70981
+        },
+        {
+          "pid": 24280,
+          "start": "1825016",
+          "name": "python3",
+          "percent": 4.09534
+        },
+        {
+          "pid": 24374,
+          "start": "1825197",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 24377,
+          "start": "1825257",
+          "name": "host.exe",
+          "percent": 46.875739
+        },
+        {
+          "pid": 24406,
+          "start": "1825803",
+          "name": "python3",
+          "percent": 2.689171
+        },
+        {
+          "pid": 24498,
+          "start": "1825927",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 24501,
+          "start": "1825969",
+          "name": "host.exe",
+          "percent": 24.777323
+        }
+      ]
+    },
+    {
+      "label": "host256-delay256-live",
+      "seconds": 44.153324048,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "9461d1fb261f4eafc63dfddb4b49fc76",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 2119424,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2119424,
+          "priming_frames": 0
+        },
+        {
+          "session": "65e29d2b32307b6d5d1d591302e07195",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 2119424,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 2119424,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 2.966934
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20718,
+          "start": "1572273",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 20720,
+          "start": "1572273",
+          "name": "BitwigStudio",
+          "percent": 12.660428
+        },
+        {
+          "pid": 20813,
+          "start": "1573213",
+          "name": "BitwigAudioEngi",
+          "percent": 8.538428
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 5.91122
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 11.324176
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.113242
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 19.545527
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.339725
+        },
+        {
+          "pid": 24266,
+          "start": "1825006",
+          "name": "BitwigPluginHos",
+          "percent": 15.423527
+        },
+        {
+          "pid": 24280,
+          "start": "1825016",
+          "name": "python3",
+          "percent": 3.963462
+        },
+        {
+          "pid": 24374,
+          "start": "1825197",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 24377,
+          "start": "1825257",
+          "name": "host.exe",
+          "percent": 26.951538
+        },
+        {
+          "pid": 24406,
+          "start": "1825803",
+          "name": "python3",
+          "percent": 2.581912
+        },
+        {
+          "pid": 24498,
+          "start": "1825927",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 24501,
+          "start": "1825969",
+          "name": "host.exe",
+          "percent": 23.395747
+        }
+      ]
+    },
+    {
+      "label": "final-recall",
+      "seconds": 400.805774953,
+      "heavy_trace": [
+        false,
+        false
+      ],
+      "devices": [
+        {
+          "session": "f16fcf8e0f3602fb2c86e71da5bbbb09",
+          "class": "417274754156495350724C4650726F63",
+          "admitted_frames": 19238400,
+          "missing_frames": 5632,
+          "gaps": 4,
+          "expired_frames": 5632,
+          "delivered_frames": 19232768,
+          "priming_frames": 0
+        },
+        {
+          "session": "dbf569c35aacb297393bfbef16c131bc",
+          "class": "41727475415649536772616E50726F63",
+          "admitted_frames": 19238400,
+          "missing_frames": 3072,
+          "gaps": 2,
+          "expired_frames": 3072,
+          "delivered_frames": 19235328,
+          "priming_frames": 0
+        }
+      ],
+      "cpu_one_core_percent": [
+        {
+          "pid": 912,
+          "start": "647",
+          "name": "python3",
+          "percent": 0.00499
+        },
+        {
+          "pid": 925,
+          "start": "648",
+          "name": "python",
+          "percent": 0.007485
+        },
+        {
+          "pid": 934,
+          "start": "649",
+          "name": "python",
+          "percent": 0.0
+        },
+        {
+          "pid": 8237,
+          "start": "53259",
+          "name": "sunshine",
+          "percent": 3.056343
+        },
+        {
+          "pid": 20644,
+          "start": "1560128",
+          "name": "linux-vst-bridg",
+          "percent": 0.0
+        },
+        {
+          "pid": 20958,
+          "start": "1574232",
+          "name": "python3",
+          "percent": 6.050312
+        },
+        {
+          "pid": 21050,
+          "start": "1574419",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 21053,
+          "start": "1574427",
+          "name": "wineserver",
+          "percent": 12.327667
+        },
+        {
+          "pid": 21060,
+          "start": "1574444",
+          "name": "winedevice.exe",
+          "percent": 0.01996
+        },
+        {
+          "pid": 21075,
+          "start": "1574480",
+          "name": "svchost.exe",
+          "percent": 0.0
+        },
+        {
+          "pid": 21082,
+          "start": "1574484",
+          "name": "winedevice.exe",
+          "percent": 20.828043
+        },
+        {
+          "pid": 21103,
+          "start": "1574595",
+          "name": "host.exe",
+          "percent": 0.349296
+        },
+        {
+          "pid": 25273,
+          "start": "1873017",
+          "name": "bitwig-studio",
+          "percent": 0.0
+        },
+        {
+          "pid": 25275,
+          "start": "1873017",
+          "name": "BitwigStudio",
+          "percent": 43.19798
+        },
+        {
+          "pid": 25369,
+          "start": "1874022",
+          "name": "BitwigAudioEngi",
+          "percent": 6.392123
+        },
+        {
+          "pid": 25539,
+          "start": "1881707",
+          "name": "BitwigPluginHos",
+          "percent": 16.174917
+        },
+        {
+          "pid": 25553,
+          "start": "1881723",
+          "name": "python3",
+          "percent": 3.909624
+        },
+        {
+          "pid": 25648,
+          "start": "1881903",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 25651,
+          "start": "1881944",
+          "name": "host.exe",
+          "percent": 41.244416
+        },
+        {
+          "pid": 25684,
+          "start": "1882460",
+          "name": "python3",
+          "percent": 3.235981
+        },
+        {
+          "pid": 25781,
+          "start": "1882586",
+          "name": "python3",
+          "percent": 0.0
+        },
+        {
+          "pid": 25784,
+          "start": "1882628",
+          "name": "host.exe",
+          "percent": 31.074902
+        }
+      ]
+    }
+  ]
+}

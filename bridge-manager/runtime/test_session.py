@@ -19,6 +19,41 @@ import session
 
 @unittest.skipUnless(sys.platform == "linux", "PID/start tracking uses Linux procfs")
 class OwnershipTests(unittest.TestCase):
+    def test_subtree_tracking_covers_thread_children_and_reparented_descendants(self):
+        # Create a descendant from a non-main thread, then let that parent exit.
+        # The observed child remains owned after the observed parent exits.
+        program = """import subprocess,threading,sys,time,os
+p=None
+ready=threading.Event()
+release=threading.Event()
+def launch():
+ global p
+ p=subprocess.Popen([sys.executable,'-u','-c', 'import time;time.sleep(30)'])
+ ready.set();release.wait()
+t=threading.Thread(target=launch);t.start();ready.wait()
+print(p.pid,flush=True)
+sys.stdin.readline();release.set();t.join()
+"""
+        root=subprocess.Popen([sys.executable,'-u','-c',program],stdin=subprocess.PIPE,stdout=subprocess.PIPE,start_new_session=True)
+        sibling=subprocess.Popen(['/bin/sleep','30'],start_new_session=True)
+        tracker=ownership.ProcessTracker(root.pid)
+        child=int(root.stdout.readline())
+        try:
+            observed=tracker.update()
+            expected={(r['pid'],r['start_ticks']) for r in ownership.descendant_identities(root.pid)}
+            self.assertTrue(expected.issubset(observed))
+            self.assertTrue(any(pid==child for pid,start in observed))
+            self.assertFalse(any(pid==sibling.pid for pid,start in observed))
+            root.stdin.write(b'go\n');root.stdin.flush();root.wait(timeout=3)
+            # Remembered identities, even after their creator has gone away.
+            self.assertTrue(observed.issubset(tracker.update()))
+            self.assertTrue(all(ownership.cleanup_process(root,sorted(tracker.owned)).values()))
+            self.assertIsNone(sibling.poll())
+        finally:
+            ownership.cleanup_process(root,sorted(tracker.owned))
+            root.stdin.close();root.stdout.close()
+            sibling.terminate();sibling.wait(timeout=3)
+
     def test_cleanup_preserves_independent_sibling(self):
         first = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
         sibling = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
@@ -256,6 +291,45 @@ class CensusTests(unittest.TestCase):
             children = ownership.descendant_identities(100, records)
             self.assertEqual([(p['pid'], p['start_ticks']) for p in children], [(101, 124), (102, 125)])
             # No command-line/name files exist; routine tracking cannot depend on them.
+
+    def test_tracker_rejects_reused_parent_and_follows_new_reparented_children(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            def process(pid, parent, start, children=''):
+                d = root / str(pid)
+                d.mkdir(exist_ok=True)
+                fields = ['S', str(parent), '100', '100'] + ['0'] * 15 + [str(start)]
+                (d / 'stat').write_text(f'{pid} (test) ' + ' '.join(fields))
+                task = d / 'task' / str(pid)
+                task.mkdir(parents=True, exist_ok=True)
+                (task / 'children').write_text(children)
+            process(100, 1, 10, '101')
+            process(101, 100, 11)
+            tracker = ownership.ProcessTracker(100, root)
+            # A remembered child can acquire new children after reparenting.
+            process(101, 1, 11, '102')
+            process(102, 101, 12)
+            self.assertIn((102, 12), tracker.update())
+            # Reuse of the original PID cannot grant ownership of its new tree.
+            process(100, 1, 20, '103')
+            process(103, 100, 21)
+            self.assertNotIn((100, 20), tracker.update())
+            self.assertNotIn((103, 21), tracker.owned)
+            # Nor may a parent changed during traversal grant child ownership.
+            process(101, 1, 11, '104')
+            process(104, 101, 22)
+            identity = tracker.identity
+            seen = 0
+            def reused_during_scan(pid):
+                nonlocal seen
+                result = identity(pid)
+                if pid == 101:
+                    seen += 1
+                    if seen == 2:
+                        return (99, 1)
+                return result
+            with patch.object(tracker, 'identity', side_effect=reused_during_scan):
+                self.assertNotIn((104, 22), tracker.update())
 
     def test_changed_artifact_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -76,3 +76,10 @@ target_compile_definitions(ap12-fault-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_
 target_compile_options(ap12-fault-tests PRIVATE /UNDEBUG /EHsc)
 target_link_libraries(ap12-fault-tests PRIVATE sdk)
 set_target_properties(ap12-fault-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(ap13-state-delivery-tests ../tools/ap13-tests/state_delivery.cpp source/mapped_processing.cpp)
+target_include_directories(ap13-state-delivery-tests PRIVATE source include "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap13-state-delivery-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap13-state-delivery-tests PRIVATE /W4 /permissive- /EHsc)
+target_link_libraries(ap13-state-delivery-tests PRIVATE sdk sdk_hosting ws2_32 user32 ole32)
+set_target_properties(ap13-state-delivery-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

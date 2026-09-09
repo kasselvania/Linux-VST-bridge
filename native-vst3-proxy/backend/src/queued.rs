@@ -37,6 +37,7 @@ pub struct Item {
     pub gain: f64,
     pub flags: u64,
     pub queued: Option<Instant>,
+    pub parent: [u64; 4],
     pub context: crate::context::Context,
     pub event_count: u32,
     pub events: [Event; MAX_EVENTS],
@@ -53,6 +54,7 @@ impl Item {
             gain: 0.,
             flags: 0,
             queued: None,
+            parent: [0; 4],
             context: crate::context::Context::default(),
             event_count: 0,
             events: [Event::default(); MAX_EVENTS],
@@ -124,6 +126,9 @@ struct Shared {
     worker_epoch: AtomicU64,
     worker_position: AtomicU64,
     service_us_max: AtomicU64,
+    // Callback writes counters only; the transport publishes them through the
+    // existing independent status lane. No callback mapping or diagnostic I/O.
+    delivery_totals: [AtomicU64; 6],
     first_context_ready: AtomicBool,
     first_epoch: AtomicU64,
     first_worker_op: AtomicU64,
@@ -160,6 +165,7 @@ impl Shared {
             worker_epoch: AtomicU64::new(0),
             worker_position: AtomicU64::new(0),
             service_us_max: AtomicU64::new(0),
+            delivery_totals: std::array::from_fn(|_| AtomicU64::new(0)),
             first_context_ready: AtomicBool::new(false),
             first_epoch: AtomicU64::new(0),
             first_worker_op: AtomicU64::new(0),
@@ -212,6 +218,7 @@ pub struct Delivery {
     pub priming_frames: u64,
 }
 struct Callback {
+    host_call: u64,
     delay: u64,
     epoch: u64,
     position: u64,
@@ -227,7 +234,13 @@ struct Callback {
 }
 impl Callback {
     fn new() -> Self {
+        let mut audio = std::collections::VecDeque::from(vec![AudioResult::empty(); DESCRIPTORS]);
+        for item in &mut audio {
+            unsafe { std::ptr::write_volatile(&mut item.n, 0); }
+        }
+        audio.clear();
         Self {
+            host_call: 0,
             delay: DELAY,
             epoch: 0,
             position: 0,
@@ -235,7 +248,7 @@ impl Callback {
             have: false,
             offset: 0,
             current: AudioResult::empty(),
-            audio: std::collections::VecDeque::with_capacity(DESCRIPTORS),
+            audio,
             returned: crate::process_results::Pending::new(),
             next_result: 0,
             in_gap: false,
@@ -372,6 +385,7 @@ impl Callback {
                                 position: expected,
                                 frames: count as u64,
                                 at: Instant::now(),
+                                parent: request.parent,
                             }) {
                                 observer.gap_drops.fetch_add(1, Ordering::Relaxed);
                             }
@@ -423,6 +437,7 @@ struct Live {
     report: Option<std::path::PathBuf>,
     max: usize,
     recovery_blocked: bool,
+    installed_delay: Option<u32>,
     minor: u64,
     setup: Option<Vec<u8>>,
 }
@@ -445,6 +460,8 @@ impl Drop for Guard<'_> {
     }
 }
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
+    let mut previous_control = [0u64; 4];
+    let mut deferred = None;
     if let Some(status) = &mut session.fault_status {
         status.generation = s.generation;
     }
@@ -462,7 +479,13 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 if let Some(c) = mailbox.as_mut() {
                     if c.result.is_none() && s.requests.consumed() >= c.barrier {
                         s.worker_op.store(c.op as u64, Ordering::Release);
-                        let result = match c.op {
+                        if session.capture.is_none() {
+                            previous_control = [c.op as u64, crate::observer::monotonic_ns(), 0, c.barrier];
+                            if c.op == 16 && session.can_capture_during_audio() { session.begin_capture()?; }
+                        }
+                        let completed = if session.capture.is_some() {
+                            session.poll_capture().map(|r| r.and_then(|p| state::bound_envelope(session.identity, &p)))
+                        } else { Some(match c.op {
                             16 => session
                                 .component_state(None)
                                 .and_then(|p| state::bound_envelope(session.identity, &p)),
@@ -485,7 +508,9 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                 vec![]
                             }),
                             _ => Err(invalid("unknown owner operation")),
-                        };
+                        }) };
+                        if let Some(result) = completed {
+                        previous_control[2] = crate::observer::monotonic_ns();
                         let failed = result.as_ref().is_err_and(|e| !state::save_refused(e));
                         if let Ok(bytes) = &result {
                             if matches!(c.op, 16 | 18) {
@@ -496,7 +521,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                         bytes.clone(),
                                         c.op,
                                         s.generation,
-                                        s.requests.consumed(),
+                                        c.barrier,
                                     )?;
                             }
                         } else if let Err(error) = &result {
@@ -513,20 +538,35 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         if failed {
                             return Err(invalid("component state/control failed; original detail retained in response"));
                         }
+                        }
                     }
                 }
             }
             s.worker_op.store(0, Ordering::Release);
-            let Some(mut item) = s.requests.pop() else {
+            if session.mailbox.as_ref().is_some_and(|m| m.control_handoff_pending()) {
+                thread::sleep(Duration::from_micros(50));
+                continue;
+            }
+            let Some(mut item) = deferred.take().or_else(|| s.requests.pop()) else {
                 thread::sleep(Duration::from_micros(50));
                 continue;
             };
+            // Restore/lifecycle keep exclusive control-stream ownership. Only
+            // ordered audio can pass an admitted read-only capture.
+            if session.capture.is_some() && item.kind != AUDIO {
+                deferred = Some(item);
+                thread::sleep(Duration::from_micros(50));
+                continue;
+            }
             s.worker_epoch.store(item.epoch, Ordering::Relaxed);
             s.worker_position.store(item.position, Ordering::Relaxed);
             s.worker_op.store(item.kind as u64, Ordering::Release);
             match item.kind {
                 AUDIO => {
                     let started = Instant::now();
+                    if let Some(status) = &mut session.fault_status {
+                        status.delivery = std::array::from_fn(|i| s.delivery_totals[i].load(Ordering::Acquire));
+                    }
                     let n = item.n as usize;
                     let original = item.data;
                     session.gui_revision = item.gui_revision;
@@ -564,6 +604,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         return Err(invalid("completed output capacity"));
                     }
                     session.trace.queued = item.queued;
+                    session.trace.parent = item.parent;
+                    session.trace.previous_control = previous_control;
                     session.trace.published = publish.then(Instant::now);
                     // Only a bounded copy after output publication. The next request
                     // never waits for comparison, hashing or report readers.
@@ -718,6 +760,7 @@ pub(crate) unsafe fn open(
                     crate::preview::report_path(binding.session)
                 }
             });
+            let installed_delay = binding.installed_delay;
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
             let mut shared = Shared::new();
@@ -742,6 +785,7 @@ pub(crate) unsafe fn open(
                 report,
                 max: max as usize,
                 recovery_blocked: false,
+                installed_delay,
                 minor,
                 setup: None,
             })
@@ -841,6 +885,9 @@ pub unsafe extern "C" fn ap6_recover(
             } else {
                 binding(true)?
             };
+            if binding.installed_delay != l.installed_delay {
+                return Err(invalid("installed delay changed; reopen the device to renegotiate latency"));
+            }
             if binding.owner.is_none() {
                 return Err(invalid("recovery requires the private owner"));
             }
@@ -1038,7 +1085,13 @@ unsafe fn setup(
             return 1;
         }
         let result = (|| -> io::Result<()> {
-            let delay = crate::performance::selected_delay(maximum)?;
+            let installed = INSTANCES.lease(id).ok_or_else(|| invalid("setup instance absent"))?.installed_delay;
+            let delay = if let Some(delay) = installed {
+                crate::performance::validate_delay(maximum, delay)?;
+                delay
+            } else {
+                crate::performance::selected_delay(maximum)?
+            };
             let mut bytes = crate::performance::wire(maximum, mode, rate)?;
             if !io.is_empty() {
                 bytes[20..24]
@@ -1213,6 +1266,7 @@ pub unsafe extern "C" fn ap7_process(
         &[],
         crate::context::Context::default(),
         false,
+        0,
     )
 }
 // Mirrors the fixed C ABI and adds a borrowed bounded event span.
@@ -1231,6 +1285,7 @@ unsafe fn process_events(
     events: &[Event],
     context: crate::context::Context,
     detailed: bool,
+    entered_ns: u64,
 ) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
@@ -1276,7 +1331,10 @@ unsafe fn process_events(
     {
         let callback = &mut *l.callback.get();
         callback.returned.window(callback.position, n);
+        let Some(next) = callback.host_call.checked_add(1) else { return 2; };
+        callback.host_call = next;
     }
+    let entered_ns = if entered_ns == 0 { crate::observer::monotonic_ns() } else { entered_ns };
     let mut total = Delivery::default();
     let mut combined = 3;
     let mut offset = 0;
@@ -1284,6 +1342,7 @@ unsafe fn process_events(
         let count = (n - offset).min(CAP);
         let mut item = Item::control(AUDIO, 0);
         item.n = count as u32;
+        item.parent = [(*l.callback.get()).host_call, n as u64, offset as u64, entered_ns];
         item.context = context.chunk(offset).unwrap();
         item.flags = flags;
         item.gain = if offset == 0 { gain } else { f64::NAN };
@@ -1322,6 +1381,12 @@ unsafe fn process_events(
         }
     }
     *out_flags = combined;
+    for (counter, delta) in l.shared.delivery_totals.iter().zip([
+        n as u64, total.missing_frames, total.gaps, total.expired_frames,
+        total.delivered_frames, total.priming_frames,
+    ]) {
+        counter.store(counter.load(Ordering::Relaxed) + delta, Ordering::Release);
+    }
     if !delivery.is_null() {
         *delivery = total;
     }
@@ -1503,7 +1568,7 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
     open(
         256,
         handle,
-        if identity.is_some() { 11 } else { 6 },
+        if identity.is_some() { 12 } else { 6 },
         identity,
     )
 }
@@ -1558,6 +1623,7 @@ pub unsafe extern "C" fn ap8_process(
         events,
         crate::context::Context::default(),
         false,
+        0,
     )
 }
 
@@ -1575,6 +1641,24 @@ pub unsafe extern "C" fn ap10_process(
     out_right: *mut f32,
     out_flags: *mut u64,
     delivery: *mut Delivery,
+) -> u32 {
+    ap13_process(id,n,events,count,context,flags,left,right,out_left,out_right,out_flags,delivery,0)
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap13_process(
+    id: u64,
+    n: u32,
+    events: *const Event,
+    count: u32,
+    context: *const crate::context::Context,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+    entered_ns: u64,
 ) -> u32 {
     if count as usize > MAX_EVENTS || (count > 0 && events.is_null()) || context.is_null() {
         return 1;
@@ -1598,6 +1682,7 @@ pub unsafe extern "C" fn ap10_process(
         events,
         *context,
         true,
+        entered_ns,
     )
 }
 
@@ -1733,6 +1818,110 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 mod tests {
     use super::*;
     #[test]
+    fn parent_callbacks_preserve_exact_one_and_two_proxy_delay() {
+        // The consumer runs only after the complete parent host callback. A
+        // 512-frame parent must not acquire an artificial wait between chunks.
+        for (maximum, delay) in [(512, 512), (256, 512), (256, 256), (128, 256)] {
+            let mut ids = Vec::new();
+            let mut peers = Vec::new();
+            for _ in 0..2 {
+                let shared = Arc::new(Shared::new());
+                shared.state_capable.store(true, Ordering::Release);
+                let mut callback = Callback::new();
+                callback.delay = delay as u64;
+                assert_eq!(callback.transition(&shared, START), 0);
+                shared.requests.pop().unwrap();
+                ids.push(INSTANCES.insert(|| Ok::<_, ()>(Live {
+                    shared: shared.clone(), callback: UnsafeCell::new(callback),
+                    busy: AtomicBool::new(false), worker: None, report: None,
+                    max: maximum, recovery_blocked: false, installed_delay: Some(delay as u32),
+                    minor: 11, setup: None,
+                })).unwrap().unwrap());
+                peers.push(shared);
+            }
+            let mut position = 0;
+            for parent in 1..65 {
+                let n = if parent % 3 == 0 { 64 } else { maximum };
+                let input: Vec<f32> = (position..position+n).map(|i| (i+1) as f32).collect();
+                let mut previous = input;
+                for (device, id) in ids.iter().enumerate() {
+                    let mut left = vec![0.; n]; let mut right = vec![0.; n];
+                    let mut flags = 0; let mut delivery = Delivery::default();
+                    assert_eq!(unsafe { ap13_process(*id,n as u32,std::ptr::null(),0,
+                        &crate::context::Context::default(),0,previous.as_ptr(),previous.as_ptr(),
+                        left.as_mut_ptr(),right.as_mut_ptr(),&mut flags,&mut delivery,parent*1000) },0);
+                    for i in 0..n {
+                        let lag = delay*(device+1);
+                        let expected = if position+i < lag { 0. } else { (position+i-lag+1) as f32 };
+                        assert_eq!(left[i],expected); assert_eq!(right[i],expected);
+                    }
+                    assert_eq!(delivery.missing_frames,0);
+                    assert_eq!(delivery.expired_frames,0);
+                    previous = left;
+                }
+                for peer in &peers {
+                    let mut offset = 0;
+                    while let Some(item) = peer.requests.pop() {
+                        assert_eq!(item.parent,[parent,n as u64,offset as u64,parent*1000]);
+                        assert_eq!(item.position, (position+offset) as u64);
+                        offset += item.n as usize;
+                        assert!(peer.results.push(Completion::from(item)));
+                    }
+                    assert_eq!(offset,n);
+                }
+                position += n;
+            }
+            for id in ids { INSTANCES.remove(id, |_| ()).unwrap(); }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn parent_host_blocks_do_not_repeatedly_fault_in_queue_storage() {
+        // Exercise every queue slot through the real chunking callback. Query
+        // thread-local counters in this host consumer, never in process().
+        #[repr(C)] struct Usage { times: [i64; 4], counters: [i64; 14] }
+        unsafe extern "C" { fn getrusage(who: i32, out: *mut Usage) -> i32; }
+        fn faults() -> i64 {
+            let mut u = Usage { times: [0; 4], counters: [0; 14] };
+            assert_eq!(unsafe { getrusage(1, &mut u) }, 0);
+            u.counters[4]
+        }
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+            shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
+            busy: AtomicBool::new(false), worker: None, report: None,
+            max: 512, recovery_blocked: false, installed_delay: None,
+            minor: 11, setup: None,
+        })).unwrap().unwrap();
+        let input = [0f32;512]; let mut output = [[0f32;512];2];
+        assert_eq!(unsafe { ap3_transition(id, START) }, 0);
+        shared.requests.pop().unwrap();
+        let mut total=0; let mut maximum=0; let mut first=0;
+        for block in 0..1100 {
+            let mut flags=0; let mut d=Delivery::default();
+            let before=faults();
+            let rc=unsafe { ap10_process(id,512,std::ptr::null(),0,
+                &crate::context::Context::default(),3,input.as_ptr(),input.as_ptr(),
+                output[0].as_mut_ptr(),output[1].as_mut_ptr(),&mut flags,&mut d) };
+            let delta=faults()-before;
+            assert_eq!(rc,0); total+=delta; maximum=maximum.max(delta);if block==0 {first=delta;}
+            // Same parent 512-frame host block: both chunks have already been
+            // admitted before its off-thread consumer can return completions.
+            for _ in 0..2 {
+                let item=shared.requests.pop().unwrap();
+                assert!(shared.results.push(Completion::from(item)));
+            }
+        }
+        eprintln!("AP13 parent512 callback minor faults: first={first} total={total} max={maximum}");
+        INSTANCES.remove(id, |_| ()).unwrap();
+        // A host's fresh callback thread can fault in its code/stack on the
+        // first invocation (12 pages in the unoptimized CI host). It is not
+        // memory owned by this instance. The following calls still traverse
+        // every newly used queue page; the old implementation faults throughout.
+        assert_eq!(total-first, 0, "queue pages must be touched before callback use");
+    }
+    #[test]
     fn acknowledged_setup_is_retained_for_recovery() {
         let shared = Arc::new(Shared::new());
         shared.state_capable.store(true, Ordering::Release);
@@ -1746,6 +1935,7 @@ mod tests {
                     report: None,
                     max: 256,
                     recovery_blocked: false,
+                installed_delay: None,
                     minor: 6,
                     setup: None,
                 })
@@ -1814,6 +2004,7 @@ mod tests {
                     report: None,
                     max: 1024,
                     recovery_blocked: false,
+                installed_delay: None,
                     minor: 7,
                     setup: None,
                 })
@@ -2066,6 +2257,7 @@ mod tests {
             gui_revision: 0,
             mailbox: None,
             mailbox_enabled: false,
+                capture: None,
         fault_status: None,
             notices: (0, 0),
             returned: crate::process_results::Packet::default(),
@@ -2227,6 +2419,7 @@ mod tests {
                 gui_revision: 0,
                 mailbox: None,
                 mailbox_enabled: false,
+                capture: None,
         fault_status: None,
                 notices: (0, 0),
                 returned: Default::default(),
@@ -2266,6 +2459,7 @@ mod tests {
                         report: None,
                         max: CAP,
                         recovery_blocked: false,
+                installed_delay: None,
                         minor: 11,
                         setup: None,
                     })
@@ -2420,6 +2614,7 @@ mod tests {
                     report: None,
                     max: 256,
                     recovery_blocked: false,
+                installed_delay: None,
                     minor: 10,
                     setup: None,
                 })
@@ -2685,3 +2880,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "capture_tests.rs"]
+mod capture_tests;
