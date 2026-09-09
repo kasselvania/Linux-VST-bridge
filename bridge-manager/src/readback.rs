@@ -136,10 +136,14 @@ impl Manager {
                 read_json::<Environment>(&r.environment.root.join("environment.json"))
                     .is_ok_and(|current| current == r.environment);
             let runner_valid = r.environment.runner.verify().is_ok();
-            let host_valid = r.host.verify().is_ok()
-                && r.host.sha256 == installed_host.sha256
-                && r.host_source_sha256 == source
-                && installed_host.verify().is_ok();
+            let host_valid = self
+                .verify_served_host(
+                    r,
+                    installed_host,
+                    source,
+                    &crate::profiles::installed_profiles()?,
+                )
+                .is_ok();
             let pending = self.publication_pending(key)?;
             let physical_valid = match e.publication {
                 Publication::Published => {

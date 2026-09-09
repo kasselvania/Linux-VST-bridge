@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-efx-fragments",
-  "revision": 1,
+  "revision": 2,
   "claim": "review_candidate",
   "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
   "factory_vendor": "Arturia",
@@ -56,8 +56,8 @@
     },
     "environment_family": "arturia_persistent_v1",
     "environment_revision": 1,
-    "host_sha256": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
-    "host_source_sha256": "350fe2b3a4f18fa230bd093dff1f88380ca2825b7ed566d31455eec51bc61e26",
+    "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+    "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
     "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
     "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
     "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e"

@@ -99,11 +99,13 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
             r.native.path.starts_with(m.root.join("publications"))
                 && r.metadata == p.class
                 && r.module.sha256 == p.module_sha256
-                && r.host.sha256 == p.requirements.host_sha256
-                && r.host_source_sha256 == p.requirements.host_source_sha256
                 && r.compatibility == p.capabilities.compatibility(),
             "adoption_binding_mismatch",
         )?;
+        // Native adoption validates the native/module/environment identity.
+        // A candidate Windows host is verified independently by scan/matching;
+        // requiring the prior registration to already use it prevents an
+        // explicit host/profile update while the known-good target stays active.
         p.verify_environment(&r.environment, &p.requirements.environment_family)?;
         let n = NativeArtifact {
             class: r.metadata.clone(),

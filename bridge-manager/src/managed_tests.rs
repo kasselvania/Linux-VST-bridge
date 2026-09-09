@@ -4,6 +4,9 @@ fn prepared() -> (Fixture, Profile, Census, NativeArtifact) {
     let mut f = Fixture::new();
     f.r.compatibility.disable_windows_accessibility = true;
     f.r.metadata.metadata_tier = "factory_3_unicode".into();
+    let source = f.r.host.path.with_file_name("host-source-manifest.json");
+    fs::write(&source, b"fixture host source").unwrap();
+    f.r.host_source_sha256 = digest(&source).unwrap();
     f.m.register(f.r.clone()).unwrap();
     let native_path = f.m.root.join("software/native.so");
     fs::copy(&f.r.native.path, &native_path).unwrap();
@@ -113,6 +116,85 @@ fn publish(
 }
 fn reason<T>(r: Result<T>, expected: &str) {
     assert_eq!(r.err().unwrap().to_string(), expected);
+}
+
+#[test]
+fn explicit_host_update_preserves_exact_prior_host_for_rollback_only() {
+    let (f, p, c, n) = prepared();
+    let key = f.r.key();
+    let first = publish(&f, &p, &c, &n, None).unwrap();
+    let prior = f.m.load_revision(&key, &first).unwrap();
+    let mut next = c.clone();
+    let dir = f.m.root.join("software/host-update");
+    private_dir(&dir).unwrap();
+    fs::write(dir.join("host.exe"), b"updated host same protocol").unwrap();
+    fs::write(
+        dir.join("host-source-manifest.json"),
+        b"updated host source",
+    )
+    .unwrap();
+    next.host = Artifact {
+        path: dir.join("host.exe"),
+        sha256: digest(&dir.join("host.exe")).unwrap(),
+    };
+    next.host_source_sha256 = digest(&dir.join("host-source-manifest.json")).unwrap();
+    next.report.path = f.outer.join("updated-inspection.json");
+    atomic_json(&next.report.path, &inspection_report(&next)).unwrap();
+    next.report.sha256 = digest(&next.report.path).unwrap();
+    let mut updated = p.clone();
+    updated.revision += 1;
+    updated.requirements.host_sha256 = next.host.sha256.clone();
+    updated.requirements.host_source_sha256 = next.host_source_sha256.clone();
+    // Product setup may adopt the exact native while the old host/publication
+    // remains in use. The subsequent observation still binds the new host.
+    adoption(&f.m, std::slice::from_ref(&updated)).unwrap();
+    let permitted = std::slice::from_ref(&updated);
+    f.m.verify_served_host(
+        &prior.registration,
+        &next.host,
+        &next.host_source_sha256,
+        permitted,
+    )
+    .unwrap();
+    reason(
+        f.m.verify_served_host(
+            &prior.registration,
+            &next.host,
+            &next.host_source_sha256,
+            std::slice::from_ref(&p),
+        ),
+        "installed_host_mismatch",
+    );
+    let second = publish(&f, &updated, &next, &n, None).unwrap();
+    let candidate = f.m.load_revision(&key, &second).unwrap();
+    assert_eq!(candidate.external_ids, prior.external_ids);
+    assert_eq!(candidate.parent.as_ref(), Some(&first));
+    f.m.rollback(&key, &first.id, None).unwrap();
+    let identity = f.identity();
+    let restored = f.m.resolve(&identity).unwrap();
+    assert_eq!(restored, prior.registration);
+    f.m.verify_served_host(&restored, &next.host, &next.host_source_sha256, permitted)
+        .unwrap();
+    fs::write(
+        restored
+            .host
+            .path
+            .with_file_name("host-source-manifest.json"),
+        b"changed source",
+    )
+    .unwrap();
+    assert!(f
+        .m
+        .verify_served_host(&restored, &next.host, &next.host_source_sha256, permitted)
+        .is_err());
+    // No retained revision means no cross-version host admission.
+    let raw = Fixture::new();
+    raw.m.register(raw.r.clone()).unwrap();
+    reason(
+        raw.m
+            .verify_served_host(&raw.r, &next.host, &next.host_source_sha256, permitted),
+        "installed_host_mismatch",
+    );
 }
 
 #[test]

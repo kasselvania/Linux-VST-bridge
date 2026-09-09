@@ -300,6 +300,66 @@ impl Manager {
             Ok(self.target(&e.registration))
         }
     }
+    /// A rollback can retain an older exact Windows host while the environment
+    /// keeper uses current product software. Only a complete retained managed
+    /// revision with the reviewed protocol/state contract grants this route.
+    /// Raw registrations retain their installed-host equality requirement.
+    pub fn verify_served_host(
+        &self,
+        registration: &Registration,
+        installed: &Artifact,
+        source: &str,
+        current_profiles: &[Profile],
+    ) -> Result<()> {
+        installed.verify()?;
+        registration.host.verify()?;
+        if registration.host.sha256 == installed.sha256 && registration.host_source_sha256 == source
+        {
+            return Ok(());
+        }
+        validate_set(current_profiles)?;
+        require(
+            current_profiles
+                .iter()
+                .filter(|p| {
+                    p.class.class_id == registration.key()
+                        && p.claim != Claim::Withdrawn
+                        && p.capabilities.state == State::ConcurrentReadOnlyCaptureV12
+                        && p.requirements.host_sha256 == installed.sha256
+                        && p.requirements.host_source_sha256 == source
+                })
+                .count()
+                == 1,
+            "installed_host_mismatch",
+        )?;
+        let db = self.registry()?;
+        let entry = db
+            .classes
+            .get(&registration.key())
+            .ok_or("installed_host_mismatch")?;
+        let reference = entry
+            .managed_revision
+            .as_ref()
+            .ok_or("installed_host_mismatch")?;
+        let revision = self.load_revision(&registration.key(), reference)?;
+        require(
+            revision.registration == *registration
+                && revision.profile.claim != Claim::Withdrawn
+                && revision.profile.capabilities.state == State::ConcurrentReadOnlyCaptureV12
+                && revision.profile.requirements.host_sha256 == registration.host.sha256
+                && revision.profile.requirements.host_source_sha256
+                    == registration.host_source_sha256,
+            "installed_host_mismatch",
+        )?;
+        Artifact {
+            path: registration
+                .host
+                .path
+                .with_file_name("host-source-manifest.json"),
+            sha256: registration.host_source_sha256.clone(),
+        }
+        .verify()
+    }
     fn pending_path(&self, key: &str) -> PathBuf {
         self.root
             .join("transactions")

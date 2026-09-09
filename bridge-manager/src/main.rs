@@ -385,7 +385,12 @@ fn ensure_keeper(
             "environment owner exited; restart service after closing devices",
         );
     }
-    let (job, path) = spec(m, r.clone(), true, false, true)?;
+    // Shared environment infrastructure belongs to installed product software,
+    // independently of the exact per-class host retained by a rollback.
+    let mut keeper_binding = r.clone();
+    keeper_binding.host = s.host.clone();
+    keeper_binding.host_source_sha256 = s.source_sha256.clone();
+    let (job, path) = spec(m, keeper_binding, true, false, true)?;
     let child = spawn(s, &path, None)?;
     // Retain ownership even when readiness or its report fails.
     active.push((r.environment.id.clone(), child));
@@ -487,11 +492,9 @@ fn serve(m: Manager) -> Result<()> {
                 require(version2 || &greeting[..5] == b"LVB1\n", "registration protocol mismatch")?;
                 let (r, performance, job, path, mut admission) = {
                     let _admission = m.lock("registry.lock")?;
-                    let r: HostBinding = m.resolve(&greeting[5..])?.into();
-                    // Retained rollback revisions may refer to an older immutable
-                    // software directory containing the exact same verified host.
-                    require(r.host.sha256 == s.host.sha256 && r.host_source_sha256 == s.source_sha256,
-                        "registered host differs from installed software revision")?;
+                    let registration = m.resolve(&greeting[5..])?;
+                    m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
+                    let r: HostBinding = registration.into();
                     let performance = m.performance(&r.metadata.class_id)?;
                     require(version2 || performance.added_frames == 512,
                         "selected delay requires a version-2 native binding")?;
