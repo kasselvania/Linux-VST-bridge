@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "id": "arturia-efx-fragments",
-  "revision": 3,
-  "claim": "verified_exact_fixture",
-  "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+  "id": "arturia-pure-lofi",
+  "revision": 2,
+  "claim": "review_candidate",
+  "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
   "factory_vendor": "Arturia",
   "class": {
-    "class_id": "41727475415649536772616E50726F63",
-    "name": "Efx FRAGMENTS",
+    "class_id": "417274754156495350724C4650726F63",
+    "name": "Pure LoFi",
     "vendor": "Arturia",
-    "version": "1.0.0.2925",
-    "subcategories": "Fx|Tools",
+    "version": "1.0.0.6121",
+    "subcategories": "Instrument|Synth",
     "metadata_tier": "factory_3_unicode"
   },
-  "role": "effect",
+  "role": "instrument",
   "requirements": {
     "runner": {
       "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
@@ -58,9 +58,9 @@
     "environment_revision": 1,
     "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
     "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
-    "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+    "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
     "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
-    "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e"
+    "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245"
   },
   "capabilities": {
     "accessibility": "disabled_for_vendor_process",
@@ -74,16 +74,11 @@
     "unqualified256",
     "windows_accessibility_unavailable",
     "detached_focus_refusal",
-    "exact_operator_artifact_only",
-    "fragments_advanced_redraw"
+    "exact_operator_artifact_only"
   ],
   "evidence": [
     "docs/AP12.md",
     "docs/AP13.md",
-    "evidence/AP13/installation-final.json",
-    "docs/AP14.md",
-    "evidence/ap14/transactions.json",
-    "evidence/ap14/installed-identities.json",
-    "evidence/ap14/musical-smoke.json"
+    "evidence/AP13/installation-final.json"
   ]
 }

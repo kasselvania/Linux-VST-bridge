@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "id": "arturia-pure-lofi",
-  "revision": 2,
-  "claim": "review_candidate",
+  "revision": 3,
+  "claim": "verified_exact_fixture",
   "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
   "factory_vendor": "Arturia",
   "class": {
@@ -79,6 +79,10 @@
   "evidence": [
     "docs/AP12.md",
     "docs/AP13.md",
-    "evidence/AP13/installation-final.json"
+    "evidence/AP13/installation-final.json",
+    "docs/AP14.md",
+    "evidence/ap14/transactions.json",
+    "evidence/ap14/installed-identities.json",
+    "evidence/ap14/musical-smoke.json"
   ]
 }

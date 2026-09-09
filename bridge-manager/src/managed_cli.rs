@@ -180,8 +180,12 @@ fn plans(
     catalogue: &Catalogue,
     environment: EnvironmentBinding,
     profiles: &[Profile],
+    purpose: SelectionPurpose,
 ) -> Result<Vec<Plan>> {
     validate_set(profiles)?;
+    for p in profiles {
+        p.claim.require(purpose)?;
+    }
     let current = environment_record(m, &environment.environment.id)?;
     require(current == environment.environment, "environment_mismatch")?;
     for p in profiles {
@@ -211,7 +215,7 @@ fn plans(
     for module in found {
         let eligible: Vec<_> = profiles
             .iter()
-            .filter(|p| p.module_sha256 == module.sha256 && p.claim != Claim::Withdrawn)
+            .filter(|p| p.module_sha256 == module.sha256 && p.claim.permits(purpose))
             .collect();
         let classes: std::collections::BTreeSet<_> =
             eligible.iter().map(|p| p.class.class_id.clone()).collect();
@@ -268,8 +272,8 @@ fn plans(
                 atomic_json(&cache, &census)?;
                 census
             };
-            let p = select(profiles, &census)?.clone();
-            let registration = derive(&p, &census, native)?;
+            let p = select_for(profiles, &census, purpose)?.clone();
+            let registration = derive_for(&p, &census, native, purpose)?;
             result.push(Plan {
                 profile: p,
                 census,
@@ -287,9 +291,8 @@ fn status(m: &Manager) -> Result<serde_json::Value> {
         m.managed_status(&sw.host, &sw.source_sha256)?,
     )?)
 }
-pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
-    let result = (|| -> Result<serde_json::Value> {
-        match args.first().map(String::as_str){
+fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_json::Value> {
+    match args.first().map(String::as_str){
             Some("status") if args.len()==1=>status(m),
             Some("reconcile") if args.len()==1=>{m.reconcile()?;status(m)},
             Some("rollback") if args.len()==3=>{let key=product(m,&args[1])?;m.rollback(&key,&args[2],None)?;status(m)},
@@ -300,9 +303,9 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
                     serde_json::json!({"selection":i+1,"family":e.family,"id":e.environment.id,"revision":e.environment.revision,"runner":e.environment.runner.id})).collect::<Vec<_>>()}))
             },
             Some("preview"|"publish") if args.len()<=2=>{
-                let profiles=installed_profiles()?;let sw=software(m)?;let c=catalogue(m,&sw)?;
+                let sw=software(m)?;let c=catalogue(m,&sw)?;
                 let e=environment(&c,args.get(1).map(String::as_str))?;
-                let plans=plans(m,&sw,&c,e,&profiles)?;
+                let plans=plans(m,&sw,&c,e,profiles,SelectionPurpose::Activation)?;
                 let views=plans.iter().enumerate().map(|(i,p)|p.view(i+1)).collect::<Result<Vec<_>>>()?;
                 if args[0]=="publish"{
                     // Validate all selected plans before the first class changes.
@@ -316,8 +319,8 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
                 // One fixed preactivation fault for disposable candidate files.
                 // No caller can inject executable code or force an active swap.
                 let key=product(m,&args[1])?;
-                let profiles=installed_profiles()?;let sw=software(m)?;let c=catalogue(m,&sw)?;
-                let selected=plans(m,&sw,&c,environment(&c,None)?,&profiles)?.into_iter().find(|p|p.registration.key()==key).ok_or("profile_no_match")?;
+                let sw=software(m)?;let c=catalogue(m,&sw)?;
+                let selected=plans(m,&sw,&c,environment(&c,None)?,profiles,SelectionPurpose::Activation)?.into_iter().find(|p|p.registration.key()==key).ok_or("profile_no_match")?;
                 let error=m.managed_publish(&selected.profile,&selected.census,selected.registration,&sw.host,&sw.source_sha256,
                     Some(linux_vst_bridge::publication::Boundary::CandidateReady)).err().ok_or("fault_not_reached")?;
                 require(error.to_string()=="injected_CandidateReady","fault_not_reached")?;
@@ -328,12 +331,14 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
                 let mut bytes=Vec::new();f.take(PROFILE_LIMIT as u64+1).read_to_end(&mut bytes)?;
                 let profile=Profile::parse(&bytes).map_err(|e|format!("profile_invalid: {e}"))?;
                 let sw=software(m)?;let c=catalogue(m,&sw)?;let e=environment(&c,None)?;
-                let plans=plans(m,&sw,&c,e,&[profile])?;
+                let plans=plans(m,&sw,&c,e,&[profile],SelectionPurpose::Qualification)?;
                 Ok(serde_json::json!({"schema":1,"matches":plans.iter().enumerate().map(|(i,p)|p.view(i+1)).collect::<Result<Vec<_>>>()?,"activation_permitted":false}))
             },
             _=>Err("Usage: managed environments | preview [ENVIRONMENT_NUMBER] | publish [ENVIRONMENT_NUMBER] | status | reconcile | rollback PRODUCT_NUMBER REVISION | unpublish PRODUCT_NUMBER | check-candidate PROFILE | fault-check PRODUCT_NUMBER".into()),
         }
-    })();
+}
+pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
+    let result = installed_profiles().and_then(|profiles| execute(m, args, &profiles));
     match result {
         Ok(value) => {
             println!("{}", serde_json::to_string_pretty(&value)?);
@@ -348,5 +353,91 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             );
             Err(e)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_fixture::{prepared, snapshot};
+
+    #[test]
+    fn actual_candidate_command_qualifies_without_activation_or_durable_mutation() {
+        let (f, mut p, c, n) = prepared();
+        let catalogue_path = f.m.root.join("software/native-catalogue.json");
+        atomic_json(
+            &catalogue_path,
+            &Catalogue {
+                schema: 1,
+                natives: vec![n],
+                environments: vec![c.environment.clone()],
+            },
+        )
+        .unwrap();
+        let sw = Software {
+            manager: c.host.clone(),
+            supervisor: c.host.clone(),
+            ownership: c.host.clone(),
+            host: c.host.clone(),
+            source_manifest: Artifact {
+                path: c.host.path.with_file_name("host-source-manifest.json"),
+                sha256: c.host_source_sha256.clone(),
+            },
+            source_sha256: c.host_source_sha256.clone(),
+            native_catalogue: Some(Artifact {
+                sha256: digest(&catalogue_path).unwrap(),
+                path: catalogue_path,
+            }),
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        private_dir(&f.m.root.join("censuses/current")).unwrap();
+        atomic_json(
+            &f.m.root
+                .join("censuses/current")
+                .join(format!("{}.json", p.class.class_id)),
+            &c,
+        )
+        .unwrap();
+        let profile_path = f.outer.join("candidate.json");
+        p.claim = Claim::ReviewCandidate;
+        atomic_json(&profile_path, &p).unwrap();
+        let before = snapshot(&f.outer);
+        let result = execute(
+            &f.m,
+            &[
+                "check-candidate".into(),
+                profile_path.to_str().unwrap().into(),
+            ],
+            std::slice::from_ref(&p),
+        )
+        .unwrap();
+        assert_eq!(result["activation_permitted"], false);
+        assert_eq!(result["matches"][0]["profile"]["claim"], "review_candidate");
+        assert_eq!(snapshot(&f.outer), before);
+        for command in ["preview", "publish"] {
+            let error = execute(&f.m, &[command.into()], std::slice::from_ref(&p)).unwrap_err();
+            assert_eq!(
+                refusal(error.as_ref()).code,
+                linux_vst_bridge::readback::RefusalCode::ReviewCandidateNotActivatable
+            );
+            assert_eq!(snapshot(&f.outer), before);
+        }
+        assert!(f.m.resolve(&f.identity()).is_ok());
+        // Verified ordinary preview reaches the same observed facts. Candidate
+        // checking remains nonactivating even when the input is verified.
+        p.claim = Claim::VerifiedExactFixture;
+        let preview = execute(&f.m, &["preview".into()], std::slice::from_ref(&p)).unwrap();
+        assert_eq!(
+            preview["matches"][0]["profile"]["claim"],
+            "verified_exact_fixture"
+        );
+        assert_eq!(snapshot(&f.outer), before);
+        p.claim = Claim::Withdrawn;
+        let error = execute(&f.m, &["publish".into()], &[p]).unwrap_err();
+        assert_eq!(
+            refusal(error.as_ref()).code,
+            linux_vst_bridge::readback::RefusalCode::ProfileWithdrawn
+        );
+        assert_eq!(snapshot(&f.outer), before);
     }
 }

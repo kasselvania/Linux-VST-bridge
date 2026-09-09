@@ -4,6 +4,8 @@ use crate::{profiles::*, publication::RevisionRef, *};
 #[serde(rename_all = "snake_case")]
 pub enum RefusalCode {
     ProfileInvalid,
+    ReviewCandidateNotActivatable,
+    ProfileWithdrawn,
     NoMatch,
     AmbiguousMatch,
     ModuleChanged,
@@ -29,6 +31,8 @@ pub struct Refusal {
 pub fn refusal(e: &(dyn std::error::Error + Send + Sync)) -> Refusal {
     let detail = e.to_string();
     let code = match detail.as_str() {
+        "profile_review_candidate_not_activatable" => RefusalCode::ReviewCandidateNotActivatable,
+        "profile_withdrawn" => RefusalCode::ProfileWithdrawn,
         "profile_no_match" => RefusalCode::NoMatch,
         "profile_ambiguous" => RefusalCode::AmbiguousMatch,
         "module_digest_changed" => RefusalCode::ModuleChanged,
@@ -110,6 +114,14 @@ pub struct ManagedStatus {
 }
 impl Manager {
     pub fn managed_status(&self, installed_host: &Artifact, source: &str) -> Result<ManagedStatus> {
+        self.managed_status_for_policy(installed_host, source, &installed_profiles()?)
+    }
+    pub(crate) fn managed_status_for_policy(
+        &self,
+        installed_host: &Artifact,
+        source: &str,
+        profiles: &[Profile],
+    ) -> Result<ManagedStatus> {
         let _lock = self.lock("registry.lock")?;
         let db = self.registry()?;
         let mut products = Vec::new();
@@ -137,12 +149,7 @@ impl Manager {
                     .is_ok_and(|current| current == r.environment);
             let runner_valid = r.environment.runner.verify().is_ok();
             let host_valid = self
-                .verify_served_host(
-                    r,
-                    installed_host,
-                    source,
-                    &crate::profiles::installed_profiles()?,
-                )
+                .verify_served_host(r, installed_host, source, profiles)
                 .is_ok();
             let pending = self.publication_pending(key)?;
             let physical_valid = match e.publication {

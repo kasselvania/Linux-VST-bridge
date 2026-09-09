@@ -1,110 +1,5 @@
-use crate::{catalogue::*, observation::*, profiles::*, publication::*, tests::Fixture, *};
+use crate::{catalogue::*, observation::*, profiles::*, publication::*, test_fixture::*, *};
 
-fn prepared() -> (Fixture, Profile, Census, NativeArtifact) {
-    let mut f = Fixture::new();
-    f.r.compatibility.disable_windows_accessibility = true;
-    f.r.metadata.metadata_tier = "factory_3_unicode".into();
-    let source = f.r.host.path.with_file_name("host-source-manifest.json");
-    fs::write(&source, b"fixture host source").unwrap();
-    f.r.host_source_sha256 = digest(&source).unwrap();
-    f.m.register(f.r.clone()).unwrap();
-    let native_path = f.m.root.join("software/native.so");
-    fs::copy(&f.r.native.path, &native_path).unwrap();
-    let mut hashes: Vec<_> =
-        f.r.environment
-            .runner
-            .files
-            .iter()
-            .map(|a| a.sha256.clone())
-            .collect();
-    hashes.sort();
-    let p = Profile {
-        schema: 1,
-        id: "fixture.instrument".into(),
-        revision: 1,
-        claim: Claim::ReviewCandidate,
-        module_sha256: f.r.module.sha256.clone(),
-        factory_vendor: f.r.metadata.vendor.clone(),
-        class: f.r.metadata.clone(),
-        role: Role::Instrument,
-        requirements: Requirements {
-            runner: RunnerMatch {
-                id: f.r.environment.runner.id.clone(),
-                version: f.r.environment.runner.version.clone(),
-                proton_sha256: f.r.environment.runner.files[0].sha256.clone(),
-                entry_point_sha256: f.r.environment.runner.files[1].sha256.clone(),
-                file_sha256: hashes,
-            },
-            environment_family: Family::ArturiaPersistentV1,
-            environment_revision: 1,
-            host_sha256: f.r.host.sha256.clone(),
-            host_source_sha256: f.r.host_source_sha256.clone(),
-            native_sha256: f.r.native.sha256.clone(),
-            native_source_commit: "ab".repeat(20),
-            descriptor_sha256: "cd".repeat(32),
-        },
-        capabilities: Capabilities {
-            accessibility: Accessibility::DisabledForVendorProcess,
-            editor: Editor::DetachedOwnerThreadWithNativePanel,
-            state: State::ConcurrentReadOnlyCaptureV12,
-            precision: Precision::Float32Only,
-            performance: PerformancePolicy::Frames512Recommended256Unqualified,
-        },
-        limitations: vec![Limitation::ShortDeliveryGaps],
-        evidence: vec!["docs/AP13.md".into()],
-    };
-    let report = f.outer.join("inspection.json");
-    fs::write(&report, b"{}").unwrap();
-    let c = Census {
-        schema: 1,
-        id: random_id().unwrap(),
-        captured_at: now().unwrap(),
-        environment: EnvironmentBinding {
-            family: Family::ArturiaPersistentV1,
-            environment: f.r.environment.clone(),
-        },
-        module: f.r.module.clone(),
-        module_stamp: ModuleStamp::read(&f.r.module.path).unwrap(),
-        host: f.r.host.clone(),
-        host_source_sha256: f.r.host_source_sha256.clone(),
-        report: Artifact {
-            sha256: digest(&report).unwrap(),
-            path: report,
-        },
-        factory_vendor: p.factory_vendor.clone(),
-        classes: vec![f.r.key()],
-        selected: f.r.metadata.clone(),
-        parameter_count: 1,
-        float32: true,
-        float64: false,
-    };
-    atomic_json(&c.report.path, &inspection_report(&c)).unwrap();
-    let c = Census::from_report(
-        c.environment,
-        c.module,
-        c.module_stamp,
-        c.host,
-        c.host_source_sha256,
-        Artifact {
-            sha256: digest(&c.report.path).unwrap(),
-            path: c.report.path,
-        },
-        &f.r.key(),
-    )
-    .unwrap();
-    let n = NativeArtifact {
-        class: f.r.metadata.clone(),
-        module_sha256: f.r.module.sha256.clone(),
-        artifact: Artifact {
-            path: native_path,
-            sha256: f.r.native.sha256.clone(),
-        },
-        source_commit: p.requirements.native_source_commit.clone(),
-        descriptor_sha256: p.requirements.descriptor_sha256.clone(),
-        external_ids: external_ids(&f.r.key()).unwrap(),
-    };
-    (f, p, c, n)
-}
 fn publish(
     f: &Fixture,
     p: &Profile,
@@ -120,9 +15,16 @@ fn reason<T>(r: Result<T>, expected: &str) {
 
 #[test]
 fn explicit_host_update_preserves_exact_prior_host_for_rollback_only() {
-    let (f, p, c, n) = prepared();
+    let (f, mut p, c, n) = prepared();
+    p.revision = 2;
+    p.claim = Claim::ReviewCandidate;
     let key = f.r.key();
-    let first = publish(&f, &p, &c, &n, None).unwrap();
+    let first = retained_candidate_fixture(
+        &f.m,
+        &p,
+        &c,
+        derive_for(&p, &c, &n, SelectionPurpose::Qualification).unwrap(),
+    );
     let prior = f.m.load_revision(&key, &first).unwrap();
     let mut next = c.clone();
     let dir = f.m.root.join("software/host-update");
@@ -143,11 +45,25 @@ fn explicit_host_update_preserves_exact_prior_host_for_rollback_only() {
     next.report.sha256 = digest(&next.report.path).unwrap();
     let mut updated = p.clone();
     updated.revision += 1;
+    updated.claim = Claim::VerifiedExactFixture;
     updated.requirements.host_sha256 = next.host.sha256.clone();
     updated.requirements.host_source_sha256 = next.host_source_sha256.clone();
     // Product setup may adopt the exact native while the old host/publication
     // remains in use. The subsequent observation still binds the new host.
     adoption(&f.m, std::slice::from_ref(&updated)).unwrap();
+    for claim in [Claim::ReviewCandidate, Claim::Withdrawn] {
+        let mut denied = updated.clone();
+        denied.claim = claim;
+        reason(
+            f.m.verify_served_host(
+                &prior.registration,
+                &next.host,
+                &next.host_source_sha256,
+                &[denied],
+            ),
+            "installed_host_mismatch",
+        );
+    }
     let permitted = std::slice::from_ref(&updated);
     f.m.verify_served_host(
         &prior.registration,
@@ -203,7 +119,7 @@ fn shipped_profiles_are_closed_and_separate_from_local_bindings() {
     assert_eq!(p.len(), 2);
     for p in p {
         p.validate().unwrap();
-        assert_eq!(p.claim, Claim::ReviewCandidate);
+        assert_eq!(p.claim, Claim::VerifiedExactFixture);
     }
     let (_, p, _, _) = prepared();
     let bytes = serde_json::to_vec(&p).unwrap();
@@ -522,7 +438,7 @@ fn status_requires_real_target_and_provenance_and_reports_pending() {
     let (f, p, c, n) = prepared();
     let key = f.r.key();
     let read = || {
-        f.m.managed_status(&c.host, &c.host_source_sha256)
+        f.m.managed_status_for_policy(&c.host, &c.host_source_sha256, std::slice::from_ref(&p))
             .unwrap()
             .products
             .remove(0)
@@ -584,34 +500,6 @@ fn exact_native_catalogue_adopts_owned_copy_without_build_tree_dependency() {
             "d3181e9d37e75871ba5ffbcae0775861"
         ]
     );
-}
-fn inspection_report(c: &Census) -> serde_json::Value {
-    // Exact production fields from factory_census.cpp and inspect_module.cpp.
-    // Raw Windows TUID uses GUID byte order, not the portable FUID string.
-    let mut raw = (0..32)
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&c.selected.class_id[i..i + 2], 16).unwrap())
-        .collect::<Vec<_>>();
-    raw[..4].reverse();
-    raw[4..6].reverse();
-    raw[6..8].reverse();
-    let utf16 = |s: &str| {
-        hex(&s
-            .encode_utf16()
-            .flat_map(u16::to_le_bytes)
-            .collect::<Vec<_>>())
-    };
-    let sdk = serde_json::json!({"raw_tuid_hex":hex(&raw),"tier":"IPluginFactory3.PClassInfoW",
-        "name_hex":utf16(&c.selected.name),"vendor_hex":utf16(&c.selected.vendor),"version_hex":utf16(&c.selected.version),
-        "category_hex":hex(b"Audio Module Class"),"subcategories_hex":hex(c.selected.subcategories.as_bytes())});
-    serde_json::json!({"cleanup_confirmed":true,"transport_retired":true,"gated":true,"error":null,"records":[
-        {"state":"readiness_announced","module_sha256":c.module.sha256,"scanner_sha256":c.host.sha256,"implementation_source_manifest_sha256":c.host_source_sha256},
-        {"state":"ap8_factory","factory":{"vendor_hex":hex(c.factory_vendor.as_bytes())},"class_count":2,"classes":[sdk,{"raw_tuid_hex":"0123456789ABCDEF0123456789ABCDEF"}]},
-        {"state":"ap12_class","class_id":c.selected.class_id,"name":c.selected.name,"vendor":c.selected.vendor,"version":c.selected.version,"subcategories":c.selected.subcategories,"metadata_tier":"factory_3_unicode"},
-        {"state":"ap8_parameter_count","count":1},
-        {"state":"ap8_parameters","parameters":[[42,"Parameter","",0,1,0.5,null]]},
-        {"state":"ap12_capabilities","float32_result":0,"float64_result":1},
-        {"state":"ap8_inspection_closed","exit_code":0},{"state":"scanner_completed","inspection_complete":true}]})
 }
 #[test]
 fn production_inspection_consumer_requires_completed_correlated_exact_sdk_census() {
@@ -753,7 +641,7 @@ fn two_managed_classes_update_remove_and_roll_back_independently() {
     );
     assert_eq!(fs::read(state).unwrap(), b"local fixture state sentinel");
     assert_eq!(
-        f.m.managed_status(&c.host, &c.host_source_sha256)
+        f.m.managed_status_for_policy(&c.host, &c.host_source_sha256, std::slice::from_ref(&p))
             .unwrap()
             .products
             .len(),
@@ -766,7 +654,7 @@ fn pending_status_reads_the_activated_candidate_before_registry_commit() {
     let old = publish(&f, &p, &c, &n, None).unwrap();
     assert!(publish(&f, &p, &c, &n, Some(Boundary::PointerExchanged)).is_err());
     let row =
-        f.m.managed_status(&c.host, &c.host_source_sha256)
+        f.m.managed_status_for_policy(&c.host, &c.host_source_sha256, std::slice::from_ref(&p))
             .unwrap()
             .products
             .remove(0);
@@ -779,4 +667,201 @@ fn pending_status_reads_the_activated_candidate_before_registry_commit() {
             .unwrap();
     assert_eq!(row.physical_target, Some(physical.target));
     f.m.reconcile().unwrap();
+}
+
+#[test]
+fn claim_eligibility_separates_qualification_new_activation_and_current_host_policy() {
+    let (f, mut p, c, n) = prepared();
+    p.claim = Claim::ReviewCandidate;
+    let p = Profile::parse(&serde_json::to_vec(&p).unwrap()).unwrap();
+    let before = snapshot(&f.outer);
+    let qualified = select_for(
+        std::slice::from_ref(&p),
+        &c,
+        SelectionPurpose::Qualification,
+    )
+    .unwrap();
+    assert_eq!(qualified, &p);
+    let registration = derive_for(&p, &c, &n, SelectionPurpose::Qualification).unwrap();
+    for (claim, error, code) in [
+        (
+            Claim::ReviewCandidate,
+            "profile_review_candidate_not_activatable",
+            readback::RefusalCode::ReviewCandidateNotActivatable,
+        ),
+        (
+            Claim::Withdrawn,
+            "profile_withdrawn",
+            readback::RefusalCode::ProfileWithdrawn,
+        ),
+    ] {
+        let mut denied = p.clone();
+        denied.claim = claim;
+        reason(select(std::slice::from_ref(&denied), &c), error);
+        let e =
+            f.m.managed_publish(
+                &denied,
+                &c,
+                registration.clone(),
+                &c.host,
+                &c.host_source_sha256,
+                None,
+            )
+            .unwrap_err();
+        assert_eq!(readback::refusal(e.as_ref()).code, code);
+        reason(
+            f.m.verify_served_host(&registration, &c.host, &c.host_source_sha256, &[denied]),
+            "installed_host_mismatch",
+        );
+        assert_eq!(snapshot(&f.outer), before);
+    }
+    let mut verified = p.clone();
+    verified.claim = Claim::VerifiedExactFixture;
+    f.m.verify_served_host(
+        &registration,
+        &c.host,
+        &c.host_source_sha256,
+        std::slice::from_ref(&verified),
+    )
+    .unwrap();
+    let mut duplicate = verified.clone();
+    duplicate.id = "fixture.duplicate".into();
+    reason(
+        f.m.verify_served_host(
+            &registration,
+            &c.host,
+            &c.host_source_sha256,
+            &[verified.clone(), duplicate],
+        ),
+        "installed_host_mismatch",
+    );
+    publish(&f, &verified, &c, &n, None).unwrap();
+    let row =
+        f.m.managed_status_for_policy(&c.host, &c.host_source_sha256, &[verified])
+            .unwrap()
+            .products
+            .remove(0);
+    assert_eq!(
+        serde_json::to_value(row.profile).unwrap()["claim"],
+        "verified_exact_fixture"
+    );
+    assert!(row.refusal.is_none());
+    // Refusal must not reconcile an unrelated already pending transaction.
+    let mut next = p.clone();
+    next.claim = Claim::VerifiedExactFixture;
+    next.revision += 1;
+    assert!(publish(&f, &next, &c, &n, Some(Boundary::CandidateReady)).is_err());
+    let pending = snapshot(&f.outer);
+    reason(
+        f.m.managed_publish(&p, &c, registration, &c.host, &c.host_source_sha256, None),
+        "profile_review_candidate_not_activatable",
+    );
+    assert_eq!(snapshot(&f.outer), pending);
+}
+
+#[test]
+fn exact_retained_candidate_and_legacy_rollback_survive_verified_transition() {
+    let (f, mut p, c, n) = prepared();
+    p.revision = 2;
+    p.claim = Claim::ReviewCandidate;
+    let reg = derive_for(&p, &c, &n, SelectionPurpose::Qualification).unwrap();
+    let two = retained_candidate_fixture(&f.m, &p, &c, reg);
+    let old = f.m.load_revision(&f.r.key(), &two).unwrap();
+    let legacy = old.parent.clone().unwrap();
+    let old_bytes = snapshot(old.target.parent().unwrap());
+    let row =
+        f.m.managed_status_for_policy(&c.host, &c.host_source_sha256, std::slice::from_ref(&p))
+            .unwrap()
+            .products
+            .remove(0);
+    assert_eq!(
+        serde_json::to_value(row.profile).unwrap()["claim"],
+        "review_candidate"
+    );
+    assert_eq!(
+        row.refusal.unwrap().code,
+        readback::RefusalCode::HostMismatch
+    );
+    let mut verified = p.clone();
+    verified.revision = 3;
+    verified.claim = Claim::VerifiedExactFixture;
+    let three = publish(&f, &verified, &c, &n, None).unwrap();
+    assert_eq!(
+        f.m.load_revision(&f.r.key(), &three).unwrap().parent,
+        Some(two.clone())
+    );
+    f.m.rollback(&f.r.key(), &two.id, None).unwrap();
+    let restored = f.m.resolve(&f.identity()).unwrap();
+    f.m.verify_served_host(
+        &restored,
+        &c.host,
+        &c.host_source_sha256,
+        std::slice::from_ref(&verified),
+    )
+    .unwrap();
+    assert_eq!(fs::read_link(f.m.link(&f.r.key())).unwrap(), old.target);
+    assert_eq!(snapshot(old.target.parent().unwrap()), old_bytes);
+    f.m.rollback(&f.r.key(), &legacy.id, None).unwrap();
+    assert!(
+        f.m.load_revision(&f.r.key(), &legacy)
+            .unwrap()
+            .adopted_legacy
+    );
+    assert!(f.m.resolve(&f.identity()).is_ok());
+}
+
+#[test]
+fn revision_three_preserves_exact_revision_two_constraints_and_external_ids() {
+    let old = [
+        (
+            include_bytes!("../tests/fixtures/arturia-pure-lofi-revision-2.json").as_slice(),
+            "044482ca6edd1c4faa7d85869b4149d877b4bcc2b993d70b3eed14b5186408dc",
+        ),
+        (
+            include_bytes!("../tests/fixtures/arturia-efx-fragments-revision-2.json").as_slice(),
+            "11e19dde31ea185a86a340b8a8007cf672d514c2c2a055a33d4dbefa9e52dfeb",
+        ),
+    ];
+    let current = installed_profiles().unwrap();
+    for (bytes, fingerprint) in old {
+        let prior = Profile::parse(bytes).unwrap();
+        assert_eq!(prior.revision, 2);
+        assert_eq!(prior.claim, Claim::ReviewCandidate);
+        assert_eq!(prior.fingerprint().unwrap(), fingerprint);
+        let new = current.iter().find(|p| p.id == prior.id).unwrap();
+        assert_eq!(new.revision, 3);
+        assert_eq!(new.claim, Claim::VerifiedExactFixture);
+        assert_eq!(
+            external_ids(&prior.class.class_id).unwrap(),
+            external_ids(&new.class.class_id).unwrap()
+        );
+        assert!(prior.evidence.iter().all(|e| new.evidence.contains(e)));
+        for evidence in [
+            "evidence/ap14/transactions.json",
+            "evidence/ap14/installed-identities.json",
+        ] {
+            assert!(new.evidence.iter().any(|e| e == evidence));
+        }
+        let mut normalized = new.clone();
+        normalized.revision = prior.revision;
+        normalized.claim = prior.claim.clone();
+        normalized.evidence = prior.evidence.clone();
+        assert_eq!(normalized, prior);
+    }
+}
+
+#[test]
+fn canonical_claim_names_preserve_all_lifecycle_states() {
+    for (claim, name) in [
+        (Claim::ReviewCandidate, "review_candidate"),
+        (Claim::VerifiedExactFixture, "verified_exact_fixture"),
+        (Claim::Withdrawn, "withdrawn"),
+    ] {
+        let selected = readback::ProfileSelection {
+            id: "fixture.instrument".into(),
+            revision: 2,
+            claim,
+        };
+        assert_eq!(serde_json::to_value(selected).unwrap()["claim"], name);
+    }
 }

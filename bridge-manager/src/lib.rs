@@ -6,6 +6,8 @@ pub mod observation;
 pub mod profiles;
 pub mod publication;
 pub mod readback;
+#[cfg(test)]
+mod test_fixture;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -640,86 +642,7 @@ impl Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    pub(crate) struct Fixture {
-        pub(crate) m: Manager,
-        pub(crate) r: Registration,
-        pub(crate) outer: PathBuf,
-    }
-    impl Fixture {
-        pub(crate) fn new() -> Self {
-            unsafe {
-                libc::umask(0o077);
-            }
-            let outer = std::env::temp_dir()
-                .canonicalize()
-                .unwrap()
-                .join(format!("lvb-manager-{}", random_id().unwrap()));
-            private_dir(&outer).unwrap();
-            let m = Manager {
-                root: outer.join("managed"),
-                publications: outer.join("vst3"),
-            };
-            private_dir(&m.root).unwrap();
-            let env = m.root.join("environments").join("one-exact-environment");
-            private_dir(&env).unwrap();
-            private_dir(&env.join("compatdata/pfx/drive_c/Program Files/Common Files/VST3"))
-                .unwrap();
-            fn artifact(p: PathBuf, bytes: &[u8]) -> Artifact {
-                fs::write(&p, bytes).unwrap();
-                Artifact {
-                    sha256: digest(&p).unwrap(),
-                    path: p,
-                }
-            }
-            let proton = artifact(outer.join("proton"), b"runner");
-            let entry = artifact(outer.join("entry"), b"runtime");
-            private_dir(&m.root.join("software")).unwrap();
-            let r = Registration {
-                metadata: Metadata {
-                    class_id: "01".repeat(16),
-                    name: "Actual class".into(),
-                    vendor: "Vendor".into(),
-                    version: "1.0".into(),
-                    subcategories: "Instrument|Sampler".into(),
-                    metadata_tier: "factory_2".into(),
-                },
-                environment: Environment {
-                    id: "one-exact-environment".into(),
-                    root: env.clone(),
-                    revision: 1,
-                    runner: Runner {
-                        id: "exact-runner-1".into(),
-                        version: "pinned".into(),
-                        proton: proton.path.clone(),
-                        entry_point: entry.path.clone(),
-                        files: vec![proton, entry],
-                    },
-                },
-                module: artifact(
-                    env.join("compatdata/pfx/drive_c/Program Files/Common Files/VST3/a.vst3"),
-                    b"vendor module",
-                ),
-                host: artifact(m.root.join("software/host"), b"host"),
-                host_source_sha256: "ab".repeat(32),
-                native: artifact(outer.join("native"), b"native"),
-                compatibility: Compatibility::default(),
-            };
-            atomic_json(&env.join("environment.json"), &r.environment).unwrap();
-            Self { m, r, outer }
-        }
-        pub(crate) fn identity(&self) -> Vec<u8> {
-            (self.r.metadata.class_id.clone() + &self.r.module.sha256)
-                .as_bytes()
-                .chunks(2)
-                .map(|s| u8::from_str_radix(std::str::from_utf8(s).unwrap(), 16).unwrap())
-                .collect()
-        }
-    }
-    impl Drop for Fixture {
-        fn drop(&mut self) {
-            fs::remove_dir_all(&self.outer).unwrap();
-        }
-    }
+    use crate::test_fixture::Fixture;
     #[test]
     fn installed_delay_is_inactive_versioned_and_separate_from_identity() {
         let f = Fixture::new();

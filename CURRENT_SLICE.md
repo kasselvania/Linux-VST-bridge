@@ -12,9 +12,13 @@ The same management surface must reconcile interruption and return to an exact p
 
 Implementation, necessary builds, focused tests, reversible bridge-only deployment and proportionate current-status documentation are authorized under [AGENTS.md](AGENTS.md). Preserve dirty work and coordinate control of the operator's open desktop/project. Continue on the prepared branch and one implementation PR against `main`; leave it unmerged for technical review.
 
-## Why this is the next product cut
+## Current R1 repair status
 
-The difficult bridge mechanics exist. The Rust manager already owns exact environment/runner records, module and software digests, supervised inspection, immutable native bundle copying, atomic discovery links, registry reconciliation, installed service startup and independent instance admission. But the current ordinary path still exposes engineering inputs:
+[technical review 5158330660](https://github.com/kasselvania/Linux-VST-bridge/pull/85#pullrequestreview-5158330660) supports the AP14 architecture and exact fixture evidence and selects a narrow claim-lifecycle correction. Continue the same branch and PR #85. Ordinary new preview/publication and current installed-host policy require exactly one `VerifiedExactFixture` profile. Explicit candidate qualification remains nonactivating. Retained revision-2 candidate publications and older rollback targets remain immutable and usable under the existing history laws. Both shipped profiles advance to revision 3 for the exact AP14 fixture only. Preserve every technical constraint, limitation, installed binding and 512 recommendation; 256 stays unqualified. The repaired head requires focused rereview, not a new slice or final merge-acceptance claim. See [docs/AP14.md](docs/AP14.md) for results.
+
+## Starting-state gap addressed by AP14
+
+At the prepared AP14 base, the difficult bridge mechanics existed. The Rust manager already owns exact environment/runner records, module and software digests, supervised inspection, immutable native bundle copying, atomic discovery links, registry reconciliation, installed service startup and independent instance admission. But the current ordinary path still exposes engineering inputs:
 
 - `inspect INSPECTION.json` requires an environment ID, exact module path/hash, class ID and compatibility selection;
 - `register REGISTRATION.json` requires a complete externally assembled registration and generated native artifact;

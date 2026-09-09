@@ -303,7 +303,8 @@ impl Manager {
     /// A rollback can retain an older exact Windows host while the environment
     /// keeper uses current product software. Only a complete retained managed
     /// revision with the reviewed protocol/state contract grants this route.
-    /// Raw registrations retain their installed-host equality requirement.
+    /// Current policy always needs verified authority, including the same-host
+    /// path. Retained candidate history is not a new policy selection.
     pub fn verify_served_host(
         &self,
         registration: &Registration,
@@ -313,17 +314,13 @@ impl Manager {
     ) -> Result<()> {
         installed.verify()?;
         registration.host.verify()?;
-        if registration.host.sha256 == installed.sha256 && registration.host_source_sha256 == source
-        {
-            return Ok(());
-        }
         validate_set(current_profiles)?;
         require(
             current_profiles
                 .iter()
                 .filter(|p| {
                     p.class.class_id == registration.key()
-                        && p.claim != Claim::Withdrawn
+                        && p.claim.permits(SelectionPurpose::Activation)
                         && p.capabilities.state == State::ConcurrentReadOnlyCaptureV12
                         && p.requirements.host_sha256 == installed.sha256
                         && p.requirements.host_source_sha256 == source
@@ -332,6 +329,10 @@ impl Manager {
                 == 1,
             "installed_host_mismatch",
         )?;
+        if registration.host.sha256 == installed.sha256 && registration.host_source_sha256 == source
+        {
+            return Ok(());
+        }
         let db = self.registry()?;
         let entry = db
             .classes
@@ -722,6 +723,9 @@ impl Manager {
         fail: Option<Boundary>,
     ) -> Result<RevisionRef> {
         profile.validate()?;
+        // Refuse before lock/reconcile: even pending work must not be mutated
+        // as a side effect of attempting to activate an unverified profile.
+        profile.claim.require(SelectionPurpose::Activation)?;
         let _lock = self.lock("registry.lock")?;
         let key = registration.key();
         self.require_inactive(Some(&key))?;
@@ -899,4 +903,63 @@ impl Manager {
         self.activate(&intent, fail)?;
         self.finish(db, &intent, Outcome::Committed, fail)
     }
+}
+
+/// Materialize pre-R1 immutable history with the existing record/bundle writers.
+/// Test-only: no production entry point bypasses new-selection eligibility.
+#[cfg(test)]
+pub(crate) fn retained_candidate_fixture(
+    m: &Manager,
+    profile: &Profile,
+    census: &Census,
+    registration: Registration,
+) -> RevisionRef {
+    assert_eq!(profile.claim, Claim::ReviewCandidate);
+    let mut db = m.registry().unwrap();
+    let key = registration.key();
+    let transaction = random_id().unwrap();
+    m.retain_profile(profile).unwrap();
+    let prior = m
+        .adopt_prior(&db.classes[&key], profile, census, &transaction)
+        .unwrap();
+    let id = random_id().unwrap();
+    let target = m
+        .revision_dir(&key, &id)
+        .unwrap()
+        .join(format!("LVB_{key}.vst3"));
+    let source = registration.native.clone();
+    let mut registration = registration;
+    registration.native.path = target
+        .join("Contents/x86_64-linux")
+        .join(format!("LVB_{key}.so"));
+    let r = Revision {
+        schema: 1,
+        id,
+        class_id: key.clone(),
+        external_ids: external_ids(&key).unwrap(),
+        profile: profile.clone(),
+        profile_sha256: profile.fingerprint().unwrap(),
+        census: census.clone(),
+        registration,
+        performance: m.performance(&key).unwrap(),
+        target,
+        parent: Some(prior.revision.clone()),
+        transaction: transaction.clone(),
+        adopted_legacy: false,
+    };
+    let reference = Manager::revision_ref(&r).unwrap();
+    let intent = Intent {
+        schema: 1,
+        id: transaction,
+        class_id: key,
+        prior: Some(prior),
+        candidate: Some(reference.clone()),
+        candidate_target: Some(r.target.clone()),
+    };
+    m.write_intent(&intent, None).unwrap();
+    m.make_candidate(&r, &source, None).unwrap();
+    m.activate(&intent, None).unwrap();
+    m.finish(&mut db, &intent, Outcome::Committed, None)
+        .unwrap();
+    reference
 }

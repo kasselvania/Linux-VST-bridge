@@ -1,5 +1,7 @@
 use linux_vst_bridge::*;
 mod managed_cli;
+#[cfg(test)]
+mod test_fixture;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{

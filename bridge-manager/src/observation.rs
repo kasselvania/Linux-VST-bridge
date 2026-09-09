@@ -281,10 +281,17 @@ impl Census {
 }
 
 pub fn select<'a>(profiles: &'a [Profile], facts: &Census) -> Result<&'a Profile> {
+    select_for(profiles, facts, SelectionPurpose::Activation)
+}
+pub fn select_for<'a>(
+    profiles: &'a [Profile],
+    facts: &Census,
+    purpose: SelectionPurpose,
+) -> Result<&'a Profile> {
     validate_set(profiles)?;
     let eligible: Vec<_> = profiles
         .iter()
-        .filter(|p| p.class.class_id == facts.selected.class_id && p.claim != Claim::Withdrawn)
+        .filter(|p| p.class.class_id == facts.selected.class_id)
         .collect();
     require(!eligible.is_empty(), "profile_no_match")?;
     let exact: Vec<_> = eligible
@@ -297,6 +304,7 @@ pub fn select<'a>(profiles: &'a [Profile], facts: &Census) -> Result<&'a Profile
     let mut refusal = "profile_no_match".to_string();
     for p in exact {
         let result = (|| -> Result<()> {
+            p.claim.require(purpose)?;
             require(facts.classes.contains(&p.class.class_id), "class_absent")?;
             require(role(&facts.selected)? == p.role, "role_mismatch")?;
             require(
@@ -323,7 +331,15 @@ pub fn select<'a>(profiles: &'a [Profile], facts: &Census) -> Result<&'a Profile
 }
 
 pub fn derive(profile: &Profile, facts: &Census, native: &NativeArtifact) -> Result<Registration> {
-    select(std::slice::from_ref(profile), facts)?;
+    derive_for(profile, facts, native, SelectionPurpose::Activation)
+}
+pub fn derive_for(
+    profile: &Profile,
+    facts: &Census,
+    native: &NativeArtifact,
+    purpose: SelectionPurpose,
+) -> Result<Registration> {
+    select_for(std::slice::from_ref(profile), facts, purpose)?;
     native.matches(profile)?;
     native.artifact.verify()?;
     Ok(Registration {

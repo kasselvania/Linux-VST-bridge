@@ -60,9 +60,9 @@ Short gaps and 24–31 ms native preparation/publication intervals remain. Those
 
 The measured LoFi editor-removal null dereference remains addressed by the exact process-scoped `disable_windows_accessibility` selection. This disables Windows UI Automation/screen-reader integration for selected hosts, not VST automation. It is not an upstream runtime fix.
 
-## Next direction: AP14 profile-driven managed publication
+## AP14 profile-driven managed publication
 
-The next product cut is [AP14 / #83](https://github.com/kasselvania/Linux-VST-bridge/issues/83). It converts the exact Arturia registration from engineer-assembled inputs into one coherent managed workflow backed by the first versioned declarative profiles.
+The current product cut is [AP14 / #83](https://github.com/kasselvania/Linux-VST-bridge/issues/83). It converts the exact Arturia registration from engineer-assembled inputs into one coherent managed workflow backed by the first versioned declarative profiles.
 
 The manager must derive local registration from exact supervised discovery/inspection plus reviewed profile policy. The operator should not type class IDs, module hashes, compatibility booleans, generated native paths or Wine commands. Zero/ambiguous matches, changed digests, missing classes, role/runner/environment mismatches and unsupported capabilities fail before publication mutation.
 
@@ -71,6 +71,8 @@ AP14 also introduces an explicit immutable publication revision and update/recon
 The first schema stays narrow. It covers only facts and capabilities needed for the exact Pure LoFi and Efx FRAGMENTS fixtures, including the current accessibility posture, detached editor, supported 512 performance profile and relevant protocol/state capability. It is not a universal plug-in database, remote profile marketplace, general vendor updater or new compatibility claim.
 
 Completion requires deterministic parser/matcher/transaction fault tests plus one bounded Deck workflow: profile-driven republish without hand-authored identities, correct Bitwig roles and stable existing project identity/state, deliberate incompatible-candidate refusal, exact reconcile/rollback and a focused 512 playback/editor/save/recall/removal smoke check. Reuse AP13 for unchanged audio/performance claims.
+
+Following [technical review 5158330660](https://github.com/kasselvania/Linux-VST-bridge/pull/85#pullrequestreview-5158330660), exact AP14 profiles advance from retained immutable revision-2 review candidates to revision-3 `verified_exact_fixture` claims. Only verified profiles authorize ordinary managed preview/publication and current installed-host policy. Candidate qualification is explicitly nonactivating and cannot write publication transactions or discovery state. Retained-history rollback remains governed by exact immutable records, artifacts, ancestry and physical targets rather than new-selection eligibility. This transition preserves the exact fixture limits and does not assert final merge acceptance of the repaired implementation before rereview.
 
 ## Editor and other follow-through
 

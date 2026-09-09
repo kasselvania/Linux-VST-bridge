@@ -17,6 +17,27 @@ closed_enum!(Claim {
     VerifiedExactFixture,
     Withdrawn
 });
+/// New policy selection is separate from loading exact retained history.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SelectionPurpose {
+    Activation,
+    Qualification,
+}
+impl Claim {
+    pub fn permits(&self, purpose: SelectionPurpose) -> bool {
+        self.require(purpose).is_ok()
+    }
+    pub fn require(&self, purpose: SelectionPurpose) -> Result<()> {
+        match (self, purpose) {
+            (Self::VerifiedExactFixture, _)
+            | (Self::ReviewCandidate, SelectionPurpose::Qualification) => Ok(()),
+            (Self::ReviewCandidate, SelectionPurpose::Activation) => {
+                Err("profile_review_candidate_not_activatable".into())
+            }
+            (Self::Withdrawn, _) => Err("profile_withdrawn".into()),
+        }
+    }
+}
 closed_enum!(Role { Instrument, Effect });
 closed_enum!(Family {
     ArturiaPersistentV1
