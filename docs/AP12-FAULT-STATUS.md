@@ -45,13 +45,15 @@ restores its caller after a successful return; an exception retains the failing
 stage. UI/state records contain no parameter values, opaque state, audio or text.
 
 Native clocks are Linux CLOCK_MONOTONIC nanoseconds (thread ID zero is unavailable).
+The native PID is in the DAW's PID namespace, which can differ from the owner's.
 Windows clocks are QPC with their declared frequency and Windows thread/process
 IDs. Never subtract between those domains. The supervisor records its own Linux
 monotonic observation time and actual Linux PID/start identities for containment.
 
 The installed supervisor polls only the native lane in ordinary operation. A
-request observed pending for one second causes one bounded early snapshot and
-at most 128 owned thread stat/wait-channel records. This is a pending observation,
+request observed pending for one second causes one bounded early snapshot. With
+the existing heavy-trace opt-in, it also samples at most 128 owned thread
+stat/wait-channel records. This is a pending observation,
 not a terminal failure declaration. It neither interrupts the worker nor alters
 its deadline. Before any containment, the independent supervisor captures all
 lanes again and attempts an atomic `.fault.json` write outside disposable session
@@ -59,6 +61,13 @@ files. The rich outcome also retains the snapshot. Reporting errors cannot skip
 physical cleanup, native release or independent sibling ownership. Detailed
 completed histories remain opt-in; successful close exports them before the
 terminal scanner record rather than relying solely on a later destructor.
+
+Fault snapshots also retain the existing UI header's independently atomic
+open/close/failure, view teardown stage and exception code/instruction address.
+This reads no parameter, event or state payload. It distinguishes an unfinished
+editor SDK operation from an audio computation stall even if the host disappears
+without a terminal report. The UI mapping is validated independently and its
+absence is explicit. These scalars are not claimed to be one atomic transaction.
 
 Coverage: the native regression executes production Session::process_events and
 Mailbox::receive with the first silent request deliberately unconsumed. It keeps

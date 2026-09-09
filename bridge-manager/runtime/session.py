@@ -75,7 +75,7 @@ class FaultStatus:
     """
     fields=('generation','epoch','request_sequence','position','stage','detail','ticks','frequency','thread_id','process_id')
     def __init__(self,directory,sid):
-        self.map=None;self.mailbox=None;self.last=[None]*3;self.pending=None;self.suspect=None
+        self.map=None;self.mailbox=None;self.gui=None;self.directory=directory;self.sid=sid;self.last=[None]*3;self.pending=None;self.suspect=None
         try:
             fd=os.open(directory/'ap12.status',os.O_RDWR|os.O_NOFOLLOW)
         except FileNotFoundError:return # legacy diagnostic clients
@@ -118,10 +118,34 @@ class FaultStatus:
         return {'available':True,'schema':1,'sample_monotonic_ns':time.monotonic_ns(),
                 'clock_domains':['linux_monotonic_ns','windows_qpc','windows_qpc'],
                 **{name:self.lane(i) for i,name in enumerate(('native','delivery','owner'))},
+                'editor':self.editor_snapshot(),
                 'mailbox_flags':None if self.mailbox is None else {
                     'request':self.load4(self.mailbox_address+64,5),
                     'reply':self.load4(self.mailbox_address+128,5),
                     'independently_sampled':True}}
+    def editor_snapshot(self):
+        # Existing UI header only: never copy parameter/state/event payloads.
+        # Open lazily because the UI mapping may follow supervisor admission.
+        if self.gui is None:
+            try:fd=os.open(self.directory/'ap11.ui',os.O_RDWR|os.O_NOFOLLOW)
+            except FileNotFoundError:return {'available':False}
+            try:
+                st=os.fstat(fd);extent=256+2*512*584
+                if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=extent or st.st_mode&0o077:raise RuntimeError('fault GUI ownership/extent')
+                self.gui=mmap.mmap(fd,256,access=mmap.ACCESS_WRITE)
+                if self.gui[:32]!=b'LVBU'+struct.pack('<III',3,extent,584)+bytes.fromhex(self.sid) or self.gui[32:36]!=struct.pack('<I',512):raise RuntimeError('fault GUI identity/version')
+                self.gui_address=ctypes.addressof(ctypes.c_char.from_buffer(self.gui))
+            except Exception:
+                if self.gui is not None:self.gui.close();self.gui=None
+                raise
+            finally:os.close(fd)
+        # These existing scalars have individual atomic publication, not a
+        # joint transaction. Exception code is published after its metadata.
+        fields={'closed':104,'failure':108,'open':116,'view_stage':160,'open_stage':164,'exception_code':168}
+        result={'available':True,'independently_sampled':True,**{k:self.load4(self.gui_address+o,5) for k,o in fields.items()}}
+        if result['exception_code']:
+            result['exception_instruction']=self.load(self.gui_address+176,5)
+        return result
     def poll(self):
         if self.map is None or self.suspect is not None:return
         native=self.lane(0)
@@ -134,6 +158,7 @@ class FaultStatus:
             # deadline or declare that this request necessarily fails later.
             self.suspect=self.snapshot();self.suspect['observed_pending_seconds']=now-self.pending[1]
     def close(self):
+        if self.gui is not None:self.gui.close();self.gui=None
         if self.mailbox is not None:self.mailbox.close();self.mailbox=None
         if self.map is not None:self.map.close();self.map=None
 
@@ -223,7 +248,7 @@ def run(spec,peer=None):
                 was=visibility.suspect
                 visibility.poll()
                 if was is None and visibility.suspect is not None:
-                    visibility.suspect['threads']=fault_threads(owned)
+                    if env.get('LVB_AP10_TRACE')=='1':visibility.suspect['threads']=fault_threads(owned)
                     try:atomic(report.with_suffix('.fault.json'),{'session':sid,'early_pending':visibility.suspect})
                     except OSError:pass # final outcome also retains this bounded witness
             if native_stopped():

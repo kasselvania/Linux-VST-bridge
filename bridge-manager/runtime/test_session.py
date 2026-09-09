@@ -121,6 +121,27 @@ class OwnershipTests(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform == "linux", "Cross-process atomic status requires Linux libatomic")
 class FaultStatusTests(unittest.TestCase):
+    def test_editor_removal_fault_survives_transport_retirement(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='12'*16
+            data=bytearray(1024);data[:32]=b'LVFS'+session.struct.pack('<III',1,1024,0)+bytes.fromhex(sid)
+            (root/'ap12.status').write_bytes(data);(root/'ap12.status').chmod(0o600)
+            observer=session.FaultStatus(root,sid)
+            try:
+                self.assertEqual(observer.snapshot()['editor'],{'available':False})
+                extent=256+2*512*584;gui=bytearray(extent)
+                gui[:36]=b'LVBU'+session.struct.pack('<III',3,extent,584)+bytes.fromhex(sid)+session.struct.pack('<I',512)
+                session.struct.pack_into('<III',gui,160,212,100,0xc0000005)
+                session.struct.pack_into('<Q',gui,176,0x180012345)
+                (root/'ap11.ui').write_bytes(gui);(root/'ap11.ui').chmod(0o600)
+                result=observer.snapshot()['editor']
+                self.assertEqual(result['view_stage'],212)
+                self.assertEqual(result['exception_code'],0xc0000005)
+                self.assertEqual(result['exception_instruction'],0x180012345)
+                (root/'ap11.ui').unlink()
+                self.assertEqual(observer.snapshot()['editor'],result)
+            finally:observer.close()
+
     def test_pending_peer_is_retained_before_containment_without_completion(self):
         for stage in (1,2,3,4,5,6):
             with self.subTest(stage=stage), tempfile.TemporaryDirectory() as tmp:
