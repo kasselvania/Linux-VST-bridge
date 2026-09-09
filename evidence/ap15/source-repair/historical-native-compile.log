@@ -1,0 +1,33 @@
+[1/19] Building CXX object native-vst3-proxy/CMakeFiles/ap3-callback-audit.dir/tests/callback_audit.cpp.o
+[2/19] Building CXX object native-vst3-proxy/CMakeFiles/ap10-result-lifetime.dir/tests/result_lifetime/main.cpp.o
+[3/19] Building CXX object native-vst3-proxy/CMakeFiles/ap10-results-tests.dir/__/tools/ap10-tests/results.cpp.o
+[4/19] Building CXX object native-vst3-proxy/CMakeFiles/ap11-native-tests.dir/__/tools/ap11-tests/native.cpp.o
+FAILED: [code=1] native-vst3-proxy/CMakeFiles/ap11-native-tests.dir/__/tools/ap11-tests/native.cpp.o 
+/usr/bin/c++ -DAP3_PREVIEW=1 -DAP8_PREVIEW=1 -I$HOME/AP15-Work/native-tests/native-vst3-proxy/include -I$HOME/AP15-Work/native-tests/native-vst3-proxy/source -I$HOME/AP15-Work/native-tests/native-vst3-proxy/tests/result_lifetime -I$HOME/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96 -O3 -DNDEBUG -std=gnu++20 -fPIE -Wall -Wextra -Wpedantic -Werror -Wno-error=stringop-truncation -DRELEASE=1 -MD -MT native-vst3-proxy/CMakeFiles/ap11-native-tests.dir/__/tools/ap11-tests/native.cpp.o -MF native-vst3-proxy/CMakeFiles/ap11-native-tests.dir/__/tools/ap11-tests/native.cpp.o.d -o native-vst3-proxy/CMakeFiles/ap11-native-tests.dir/__/tools/ap11-tests/native.cpp.o -c $HOME/AP15-Work/native-tests/tools/ap11-tests/native.cpp
+$HOME/AP15-Work/native-tests/tools/ap11-tests/native.cpp: In function ‘int main()’:
+$HOME/AP15-Work/native-tests/tools/ap11-tests/native.cpp:474:3: error: ‘Message’ was not declared in this scope
+  474 |   Message identity;identity.setMessageID("AP11.identity");identity.getAttributes()->setInt("generation",generation);
+      |   ^~~~~~~
+$HOME/AP15-Work/native-tests/tools/ap11-tests/native.cpp:474:20: error: ‘identity’ was not declared in this scope
+  474 |   Message identity;identity.setMessageID("AP11.identity");identity.getAttributes()->setInt("generation",generation);
+      |                    ^~~~~~~~
+$HOME/AP15-Work/native-tests/tools/ap11-tests/native.cpp:474:20: note: suggested alternatives:
+In file included from /usr/include/c++/15.2.0/bits/iterator_concepts.h:40,
+                 from /usr/include/c++/15.2.0/bits/stl_iterator_base_types.h:73,
+                 from /usr/include/c++/15.2.0/bits/stl_algobase.h:65,
+                 from /usr/include/c++/15.2.0/algorithm:62,
+                 from $HOME/AP15-Work/native-tests/native-vst3-proxy/source/../../vst-state/stream.h:5,
+                 from $HOME/AP15-Work/native-tests/native-vst3-proxy/source/commercial_controller.h:2,
+                 from $HOME/AP15-Work/native-tests/tools/ap11-tests/native.cpp:4:
+/usr/include/c++/15.2.0/bits/ranges_cmp.h:47:10: note:   ‘std::identity’
+   47 |   struct identity
+      |          ^~~~~~~~
+In file included from $HOME/AP15-Work/native-tests/native-vst3-proxy/source/commercial_controller.h:5:
+$HOME/AP15-Work/native-tests/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h:14:26: note:   ‘AP8::identity’
+   14 | inline constexpr uint8_t identity[48]={};
+      |                          ^~~~~~~~
+[5/19] Building CXX object native-vst3-proxy/CMakeFiles/ap10-result-lifetime.dir/source/processor.cpp.o
+[6/19] Building CXX object native-vst3-proxy/CMakeFiles/ap11-native-tests.dir/source/processor.cpp.o
+[7/19] Building CXX object native-vst3-proxy/CMakeFiles/ap11-state-tests.dir/__/tools/ap11-tests/state.cpp.o
+ninja: build stopped: subcommand failed.
+

@@ -1,0 +1,214 @@
+{
+  "checkpoint": [
+    "AP15_SOURCE_HARDENED",
+    "WINDOWS_BUILD_BLOCKED",
+    "BITWIG_QUALIFICATION_BLOCKED",
+    "AP14_BASELINE_PRESERVED"
+  ],
+  "source_commit": "b182449c8127371cac478af6a9192aade3e99ce4",
+  "source_parent": "dd596b3e1031655e844d4ee7438d6c564f6db7e7",
+  "source_tree": "5933735988eb4d794d0ed5ce02b3ce9752b2b4ed",
+  "changed_paths": [
+    "CURRENT_SLICE.md",
+    "README.md",
+    "bridge-manager/runtime/session.py",
+    "bridge-manager/runtime/test_session.py",
+    "bridge-manager/src/managed_tests.rs",
+    "bridge-manager/src/publication.rs",
+    "bridge-manager/src/qualification.rs",
+    "bridge-manager/src/readback.rs",
+    "compatibility/README.md",
+    "docs/AP15.md",
+    "evidence/ap15/source-repair/README.md",
+    "native-vst3-proxy/backend/src/gui.rs",
+    "native-vst3-proxy/backend/src/queued.rs",
+    "native-vst3-proxy/include/ap11_gui.h",
+    "native-vst3-proxy/source/commercial_controller.h",
+    "native-vst3-proxy/source/editor_lifecycle.h",
+    "native-vst3-proxy/source/processor.cpp",
+    "native-vst3-proxy/source/ui_timer.h",
+    "native-vst3-proxy/source/vendor_panel.h",
+    "tools/ap11-tests/native.cpp",
+    "tools/ap11-tests/panel.cpp",
+    "tools/ap11-tests/windows.cpp",
+    "tools/ap13-tests/state_delivery.cpp",
+    "windows-factory-probe/source/editor_session.h",
+    "windows-factory-probe/source/gui_channel.h",
+    "windows-factory-probe/source/inspect_module.cpp",
+    "windows-factory-probe/source/mapped_processing.cpp",
+    "windows-factory-probe/source/mapped_processing.h",
+    "windows-factory-probe/source/offline_processing.h",
+    "windows-factory-probe/source/vendor_handler.h",
+    "windows-factory-probe/source/vendor_view.h"
+  ],
+  "source_sha256": {
+    "bridge-manager/runtime/session.py": "0807149d3c69e2f54562a1a59232c45b9e644cdd3eda59d8de187b72212dea5d",
+    "bridge-manager/runtime/test_session.py": "100bc7103e974054f8a4918367895bc992747e3d7eef1e4a10b6361da0417b06",
+    "bridge-manager/src/managed_tests.rs": "c73c65007bd1b9cae39b52ccfe005a77fd2ac90ff466aebb320cd088619c179c",
+    "bridge-manager/src/publication.rs": "f0089bd5549d35e1ff07901a2b7fad597b04fcf8138e948f76984fb7654dc01c",
+    "bridge-manager/src/qualification.rs": "85a52976266b3b9726f63f424f2cd97ddf0e77041075508fb27461853c8014a0",
+    "bridge-manager/src/readback.rs": "d04ada91d01294bbe228369e8a58fd505422ee7bdc9a40e0d58eba53d5a86096",
+    "native-vst3-proxy/backend/src/gui.rs": "51305cf9656c26665c89269ae9662b5ff21fe9198b89e877a770127128ae3464",
+    "native-vst3-proxy/backend/src/queued.rs": "c5d788b795bf1fdbcafc156d89c0b0f6ad2967f25a3a73fa46cb16a2c1120e5d",
+    "native-vst3-proxy/include/ap11_gui.h": "eccccba647cffa0736621396819397cc62acc5345501bc0c9b1859ee2161e7fa",
+    "native-vst3-proxy/source/commercial_controller.h": "90900fb0646a377c728922cf2fa670190cd2b4052885263616f73ab1a324287c",
+    "native-vst3-proxy/source/editor_lifecycle.h": "e432b391e0ef05986f5392527d0f87211298c522f32a56dde48f21598ffcacb5",
+    "native-vst3-proxy/source/processor.cpp": "d857ee0adff9284badee8b021306e1677ccb3065c61ab8a4782b0d4481021556",
+    "native-vst3-proxy/source/ui_timer.h": "f00c74acf8a001622f3abd268b644ed4db37a4616236d06ae42e784c38f85186",
+    "native-vst3-proxy/source/vendor_panel.h": "fd7db5ec86d1e961aaaa0d0ef4b7de35f15b1e023386f994f17bb8ef3d0a4c66",
+    "tools/ap11-tests/native.cpp": "44ee83375594c0b0366587c67981948893e7dbdaa22b8078b9cdf72802b0e21f",
+    "tools/ap11-tests/panel.cpp": "42fc3ba749df9b7961e3c1815cfd2a4cdc9f65f48efd7373df5bbd72a8083206",
+    "tools/ap11-tests/windows.cpp": "c6796658f2cd72236ab8493536fbeee2d537af7eb69a9f7b33c2102d560db147",
+    "tools/ap13-tests/state_delivery.cpp": "07590227c5ce286f2dbf3705b566ba06301b035eae3e96e748e93866834f39d4",
+    "windows-factory-probe/source/editor_session.h": "16daa7d858a36ed0997522437b8f62621bd2e9dd60bfa36cd1d8ada4f6ac9dff",
+    "windows-factory-probe/source/gui_channel.h": "4527b9f289b866f9fea8929f26bd4e9f97abe1ec748b19bdad3b87dfe6f81c38",
+    "windows-factory-probe/source/inspect_module.cpp": "ecaf24935e8c7c4952ff29f335f4c2dcc681adc1989b0b465c0a96a429dc179d",
+    "windows-factory-probe/source/mapped_processing.cpp": "4220f1a9faf65485ecb133cda16beeb68a32173c8764441da9d2325a265332df",
+    "windows-factory-probe/source/mapped_processing.h": "03be9985d6ec05f4e13474b5eea27e8df80bc0fc8f61dd6c6123eaca8281aa46",
+    "windows-factory-probe/source/offline_processing.h": "3d6bf31bfc725545809a679da97ab94adc7d250bb822982021e91f21ec65c7ae",
+    "windows-factory-probe/source/vendor_handler.h": "21f525e9b85cde49aa5e29ccdcf04e998fe87980d9691e07518937097d2003fa",
+    "windows-factory-probe/source/vendor_view.h": "0cccace9d3d3cfce7bd7aa277c7ee59421690eeb0791b7deb3fbdf3ff56914bd"
+  },
+  "commands": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "host": "macOS rustup stable 1.90",
+      "result": "57 passed",
+      "log": "backend-test.log"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "host": "macOS rustup stable 1.90",
+      "result": "31 library and 3 CLI passed",
+      "log": "manager-test.log"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed",
+      "log": "backend-clippy.log"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed",
+      "log": "manager-clippy.log"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "host": "macOS",
+      "result": "6 passed, 9 Linux-only skips",
+      "log": "runtime-macos.log"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "host": "Steam Deck Linux isolated task source",
+      "result": "15 passed, no skips",
+      "log": "runtime-linux.log"
+    },
+    {
+      "command": [
+        "cmake",
+        "-S",
+        "$HOME/AP15-Work/native-tests",
+        "-B",
+        "$HOME/AP15-Work/native-tests/build",
+        "-G",
+        "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DAP2_BUILD_ONLY=ON",
+        "-DAP10_RESULTS_TESTS=ON",
+        "-DAP11_PANEL_TESTS=ON",
+        "-DVST3_SDK_ROOT=$HOME/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "-DAP2_RUST_LIBRARY=$HOME/AP15-Work/native-tests/libap2_backend.a",
+        "-DAP8_DESCRIPTOR=$HOME/AP15-Work/native-tests/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "cmake",
+        "--build",
+        "$HOME/AP15-Work/native-tests/build",
+        "--target",
+        "ap10-result-lifetime",
+        "ap10-results-tests",
+        "ap11-native-tests",
+        "ap11-state-tests",
+        "ap11-panel-tests",
+        "ap11-activation-tests",
+        "ap3-callback-audit",
+        "CommercialInstrumentBridge",
+        "-j",
+        "4"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "$HOME/AP15-Work/native-tests/build/native-vst3-proxy",
+        "--verbose"
+      ],
+      "exit": 0
+    }
+  ],
+  "native_lane": {
+    "result": "6/6 CTest passed, callback audit included",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "flatpak_sdk": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+    "compiler": "GNU 15.2.0",
+    "source_sha256": {
+      "native-vst3-proxy/source/commercial_controller.h": "90900fb0646a377c728922cf2fa670190cd2b4052885263616f73ab1a324287c",
+      "native-vst3-proxy/source/editor_lifecycle.h": "e432b391e0ef05986f5392527d0f87211298c522f32a56dde48f21598ffcacb5",
+      "native-vst3-proxy/source/vendor_panel.h": "fd7db5ec86d1e961aaaa0d0ef4b7de35f15b1e023386f994f17bb8ef3d0a4c66",
+      "native-vst3-proxy/source/ui_timer.h": "f00c74acf8a001622f3abd268b644ed4db37a4616236d06ae42e784c38f85186",
+      "native-vst3-proxy/source/processor.cpp": "d857ee0adff9284badee8b021306e1677ccb3065c61ab8a4782b0d4481021556",
+      "native-vst3-proxy/include/ap11_gui.h": "eccccba647cffa0736621396819397cc62acc5345501bc0c9b1859ee2161e7fa",
+      "tools/ap11-tests/native.cpp": "44ee83375594c0b0366587c67981948893e7dbdaa22b8078b9cdf72802b0e21f",
+      "tools/ap11-tests/panel.cpp": "42fc3ba749df9b7961e3c1815cfd2a4cdc9f65f48efd7373df5bbd72a8083206",
+      "tools/ap11-tests/activation.cpp": "a36b13746d4fe1641c5e773c5e96dc19c374f1c7fe268affd1371bff74c68a8f",
+      "tools/ap11-tests/state.cpp": "aabcda8f12aa2c522d59722accc3236ed15a314458dd678bdb1b45e3f8fabb98"
+    },
+    "static_backend_sha256": "e3c0c8698e4c213354a413e21975177f022d4653ce9cfcc1c27d5f38792edf67",
+    "build_log_sha256": "541574ccc880b69aa3526e0061dc4a24681569ef8a08206ae887b26731caeb56",
+    "log": "native-ctest.log",
+    "scope": "Production helpers with SDK doubles and isolated Xvfb; not Bitwig qualification"
+  },
+  "failures_retained": [
+    "First manager invocation used the wrong working directory; Cargo refused before building. Subsequent commands used the AP15 worktree.",
+    "Initial Rust GUI prefix test treated newly current ABI 4 as malformed; corrected to explicitly reject prior ABI 3 and unknown ABI 5. Backend then passed 57 tests.",
+    "Initial manager tests exposed empty-roster refusal classification and native-artifact failure masked by host admission. Stable qualification refusal and native-error priority were corrected; old candidate rollback remains tested, serving is refused.",
+    "First Linux build used Message rather than SDK HostMessage in a new fixture; corrected type. See historical-native-compile.log.",
+    "Second Linux fixture retained an obsolete silent generation mutation immediately before teardown; the new truthful close refusal left its timer live. The fixture now explicitly tests AP11.identity replacement and no longer discards a failed close at teardown. See historical-native-test.log."
+  ],
+  "pending_windows": {
+    "compiled": false,
+    "tests_run": false,
+    "files": [
+      "tools/ap11-tests/windows.cpp",
+      "tools/ap13-tests/state_delivery.cpp",
+      "windows-factory-probe/source/editor_session.h",
+      "windows-factory-probe/source/gui_channel.h",
+      "windows-factory-probe/source/inspect_module.cpp",
+      "windows-factory-probe/source/mapped_processing.cpp",
+      "windows-factory-probe/source/mapped_processing.h",
+      "windows-factory-probe/source/offline_processing.h",
+      "windows-factory-probe/source/vendor_handler.h",
+      "windows-factory-probe/source/vendor_view.h"
+    ],
+    "new_cases": [
+      "DestroyWindow refusal retains HWND and owner; no replacement; successful retry clears userdata and balances counts/references",
+      "Retained editor A handler and queued origin cannot affect editor B; current B and instance handlers remain distinct",
+      "GUI ABI 4 / mapped protocol 5 admission and prior version refusal"
+    ]
+  },
+  "not_done": [
+    "Windows compilation or test execution",
+    "Actual candidate Bitwig editor/window/automation behavior",
+    "Candidate roster population, complete AP15 profile, engineering activation or installed AP15 support",
+    "New performance campaign",
+    "Manual GitHub workflow dispatch/rerun"
+  ],
+  "ci_start_evidence": "../ci-start-condition.json",
+  "all_existing_boundary_tests_retained": true
+}

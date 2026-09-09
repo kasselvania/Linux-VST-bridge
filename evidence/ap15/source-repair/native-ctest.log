@@ -1,0 +1,80 @@
+UpdateCTestConfiguration  from :$HOME/AP15-Work/native-tests/build/native-vst3-proxy/DartConfiguration.tcl
+Test project $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: ap10-result-lifetime
+
+1: Test command: /usr/bin/cmake "-E" "env" "LD_PRELOAD=$HOME/AP15-Work/native-tests/build/native-vst3-proxy/libap3-callback-audit.so" "$HOME/AP15-Work/native-tests/build/native-vst3-proxy/ap10-result-lifetime"
+1: Working Directory: $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+1: Test timeout computed to be: 10000000
+1: AP2 backend: 
+1: PASS: 9 payloads, 2 drains, 128 frames, stable after return, zero callback effects
+1: PASS: 37 payloads, 4 drains, 128 frames, stable after return, zero callback effects
+1: PASS: 512 payloads, 64 drains, 128 frames, stable after return, zero callback effects
+1: PASS: 512 payloads, 64 drains, 128 frames, stable after return, zero callback effects
+1: PASS: 512 payloads, 64 drains, 128 frames, stable after return, zero callback effects
+1: PASS: 512 payloads, 64 drains, 0 frames, stable after return, zero callback effects
+1: PASS: 513 payloads, 65 drains, 128 frames, explicit capacity failure, zero callback effects
+1: {"event":"ap10_process_results","stats_status":1,"events_delivered":2606,"points_delivered":0,"late_events":0,"late_points":0,"host_unrequested_events":0,"host_unrequested_points":0,"rejected":1,"cleanup_sent":0,"cleanup_unavailable":0,"active_notes_unreleased":0,"discarded_on_reset":0,"pending_events":0,"pending_points":0}
+1: {"event":"ap3_proxy_lifecycle","phase":7,"requested_maximum":128,"requested_rate":48000,"requested_mode":0,"frames":768,"blocks":6,"callback_rejections":2,"rejected_silent_frames":256,"discontinuities":1,"successful_silent_callbacks":0,"successful_silent_frames":0,"priming_frames":0,"underrun_frames":0,"underrun_gaps":0,"underrun_callbacks":0,"expired_output_frames":0,"delivered_frames":768,"zero_gain_blocks":0,"gain_min":1,"gain_max":1,"clean":false}
+1: Native callback payload lifetime and bounded failure PASS
+1/6 Test #1: ap10-result-lifetime .............   Passed    0.01 sec
+test 2
+    Start 2: ap10-results-tests
+
+2: Test command: $HOME/AP15-Work/native-tests/build/native-vst3-proxy/ap10-results-tests
+2: Working Directory: $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+2: Test timeout computed to be: 10000000
+2: SDK process-result variants, owned payloads, output sinks, cleanup and bounds PASS
+2/6 Test #2: ap10-results-tests ...............   Passed    0.00 sec
+test 3
+    Start 3: ap11-native-tests
+
+3: Test command: $HOME/AP15-Work/native-tests/build/native-vst3-proxy/ap11-native-tests
+3: Working Directory: $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+3: Test timeout computed to be: 10000000
+3: {"event":"ap11_editor_status","monotonic_ns":78743032991587,"focus_result":0,"activation":7,"user_time":123,"requestor_x11":456,"target_x11":0,"view_epoch":0,"native_view":5,"lifecycle":9,"processing_generation":8,"focus_flags":0,"open":0,"result":4}
+3: {"event":"ap4_native_error","operation":"get","stage":"state_response","fault":0,"first_position":18446744073709551615,"processed":0,"callback_rejections":0,"detail":""}
+3: {"event":"ap4_native_state","operation":"opaque_get","payload_bytes":28,"sha256":"0000000000000000000000000000000000000000000000000000000000000000","gain":0}
+3: {"event":"ap4_native_state","operation":"opaque_get","payload_bytes":28,"sha256":"0000000000000000000000000000000000000000000000000000000000000000","gain":0}
+3: {"event":"ap11_editor_status","monotonic_ns":78743034108371,"focus_result":0,"activation":12,"user_time":0,"requestor_x11":0,"target_x11":0,"view_epoch":1,"native_view":9,"lifecycle":2,"processing_generation":8,"focus_flags":0,"open":1,"result":0}
+3: {"event":"ap11_editor_status","monotonic_ns":78743034115231,"focus_result":0,"activation":13,"user_time":0,"requestor_x11":0,"target_x11":0,"view_epoch":1,"native_view":10,"lifecycle":2,"processing_generation":9,"focus_flags":0,"open":1,"result":0}
+3: {"event":"ap11_editor_status","monotonic_ns":78743034121211,"focus_result":0,"activation":12,"user_time":0,"requestor_x11":0,"target_x11":0,"view_epoch":1,"native_view":9,"lifecycle":2,"processing_generation":9,"focus_flags":0,"open":1,"result":0}
+3: {"event":"ap10_process_results","stats_status":1,"events_delivered":0,"points_delivered":0,"late_events":0,"late_points":0,"host_unrequested_events":0,"host_unrequested_points":0,"rejected":0,"cleanup_sent":0,"cleanup_unavailable":0,"active_notes_unreleased":0,"discarded_on_reset":0,"pending_events":0,"pending_points":0}
+3: {"event":"ap3_proxy_lifecycle","phase":6,"requested_maximum":128,"requested_rate":48000,"requested_mode":0,"frames":0,"blocks":0,"callback_rejections":0,"rejected_silent_frames":0,"discontinuities":0,"successful_silent_callbacks":0,"successful_silent_frames":0,"priming_frames":0,"underrun_frames":0,"underrun_gaps":0,"underrun_callbacks":0,"expired_output_frames":0,"delivered_frames":0,"zero_gain_blocks":0,"gain_min":1,"gain_max":0,"clean":true}
+3: AP11 production native SDK gestures, echo, refresh, zero-frame save, failure, lifetime PASS
+3/6 Test #3: ap11-native-tests ................   Passed    0.00 sec
+test 4
+    Start 4: ap11-state-tests
+
+4: Test command: $HOME/AP15-Work/native-tests/build/native-vst3-proxy/ap11-state-tests
+4: Working Directory: $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+4: Test timeout computed to be: 10000000
+4: AP11 pure state capture and exactly-once restore synchronization PASS
+4/6 Test #4: ap11-state-tests .................   Passed    0.00 sec
+test 5
+    Start 5: ap11-desktop-activation
+
+5: Test command: $HOME/AP15-Work/native-tests/xvfb-run "-a" "$HOME/AP15-Work/native-tests/build/native-vst3-proxy/ap11-activation-tests"
+5: Working Directory: $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+5: Test timeout computed to be: 10000000
+5: AP11 production desktop activation protocol/lifetime PASS
+5/6 Test #5: ap11-desktop-activation ..........   Passed    4.32 sec
+test 6
+    Start 6: ap11-panel-tests
+
+6: Test command: $HOME/AP15-Work/native-tests/xvfb-run "-a" "$HOME/AP15-Work/native-tests/build/native-vst3-proxy/ap11-panel-tests"
+6: Working Directory: $HOME/AP15-Work/native-tests/build/native-vst3-proxy
+6: Test timeout computed to be: 10000000
+6: AP15 production X11 delegate ownership and retirement PASS
+6/6 Test #6: ap11-panel-tests .................   Passed    1.07 sec
+
+100% tests passed out of 6
+
+Total Test time (real) =   5.45 sec
+

@@ -1,0 +1,20 @@
+test_accessibility_workaround_is_explicit_and_process_scoped (test_session.CensusTests.test_accessibility_workaround_is_explicit_and_process_scoped) ... ok
+test_changed_artifact_is_refused (test_session.CensusTests.test_changed_artifact_is_refused) ... ok
+test_only_coordinated_inspection_shares_the_keeper_lock (test_session.CensusTests.test_only_coordinated_inspection_shares_the_keeper_lock) ... ok
+test_registered_trace_flag_reaches_only_audio_host (test_session.CensusTests.test_registered_trace_flag_reaches_only_audio_host) ... ok
+test_stat_only_parsing_and_descendant_identity (test_session.CensusTests.test_stat_only_parsing_and_descendant_identity) ... ok
+test_tracker_rejects_reused_parent_and_follows_new_reparented_children (test_session.CensusTests.test_tracker_rejects_reused_parent_and_follows_new_reparented_children) ... ok
+test_editor_removal_fault_survives_transport_retirement (test_session.FaultStatusTests.test_editor_removal_fault_survives_transport_retirement) ... skipped 'Cross-process atomic status requires Linux libatomic'
+test_gui_diagnostic_versions_are_exact_and_preserve_retained_layout (test_session.FaultStatusTests.test_gui_diagnostic_versions_are_exact_and_preserve_retained_layout) ... skipped 'Cross-process atomic status requires Linux libatomic'
+test_pending_peer_is_retained_before_containment_without_completion (test_session.FaultStatusTests.test_pending_peer_is_retained_before_containment_without_completion) ... skipped 'Cross-process atomic status requires Linux libatomic'
+test_reader_rejects_identity_and_never_uses_unstable_slot (test_session.FaultStatusTests.test_reader_rejects_identity_and_never_uses_unstable_slot) ... skipped 'Cross-process atomic status requires Linux libatomic'
+test_cleanup_preserves_independent_sibling (test_session.OwnershipTests.test_cleanup_preserves_independent_sibling) ... skipped 'PID/start tracking uses Linux procfs'
+test_early_failure_wakes_native_and_retires_only_after_release (test_session.OwnershipTests.test_early_failure_wakes_native_and_retires_only_after_release) ... skipped 'PID/start tracking uses Linux procfs'
+test_report_failure_does_not_skip_retirement_or_kill_sibling (test_session.OwnershipTests.test_report_failure_does_not_skip_retirement_or_kill_sibling) ... skipped 'PID/start tracking uses Linux procfs'
+test_subtree_tracking_covers_thread_children_and_reparented_descendants (test_session.OwnershipTests.test_subtree_tracking_covers_thread_children_and_reparented_descendants) ... skipped 'PID/start tracking uses Linux procfs'
+test_terminal_sdk_failure_does_not_wait_for_launcher_companion (test_session.OwnershipTests.test_terminal_sdk_failure_does_not_wait_for_launcher_companion) ... skipped 'PID/start tracking uses Linux procfs'
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.016s
+
+OK (skipped=9)

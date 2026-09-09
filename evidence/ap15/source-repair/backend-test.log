@@ -1,0 +1,65 @@
+   Compiling ap2-backend v0.1.0 ($SOURCE/native-vst3-proxy/backend)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.12s
+     Running unittests src/lib.rs (native-vst3-proxy/backend/target/debug/deps/ap2_backend-e4303c50c11929a0)
+
+running 57 tests
+test commercial_tests::opaque_bound_state_refuses_bad_extent_ids_and_values ... ok
+test commercial_tests::performance_setup_and_reference_state_keep_their_protocol_roles ... ok
+test context::tests::actual_context_chunking_and_absence ... ok
+test commercial_tests::save_failure_is_terminal_for_restore_or_malformed_protocol ... ok
+test gui::tests::bidirectional_bounded_queues_and_close ... ok
+test commercial_tests::real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization ... ok
+test gui::tests::invalid_counter_never_reuses_a_live_slot ... ok
+test gui::tests::malformed_return_layout_fails_only_gui_channel ... ok
+test instances::tests::blocked_startup_and_teardown_do_not_block_sibling_leases ... ok
+test instances::tests::capacity_stale_handles_and_sibling_removal ... ok
+test gui::tests::versioned_close_mailbox_preserves_owner_and_refuses_exhaustion ... ok
+test instances::tests::close_waits_for_its_readers_and_failed_startup_releases_capacity ... ok
+test instances::tests::transport_replacement_excludes_old_readers_and_keeps_sibling_live ... ok
+test commercial_tests::asynchronous_capture_correlates_failures_without_fabricating_a_completed_save ... ok
+test observer::tests::delivery_history_keeps_first_gap_predecessors_and_a_bounded_followup ... ok
+test mailbox::tests::ownership_control_and_invalid_reply_are_bounded ... ok
+test observer::tests::paused_consumer_and_reader_drop_only_observation_coverage ... ok
+test mailbox::tests::known_endpoint_loss_interrupts_an_unfinished_request ... ok
+test performance::tests::installed_delay_covers_the_actual_host_maximum_not_the_chunk ... ok
+test performance::tests::io_contract_extent_and_fields_are_bounded ... ok
+test performance::tests::process_modes_are_distinct_from_mailbox_versions ... ok
+test performance::tests::setup_bounds_and_no_precision_conversion ... ok
+test preview::tests::absent_stale_and_public_endpoints_refuse_without_fallback ... ok
+test performance::tests::private_settings_default_floor_and_invalid_values ... ok
+test preview::tests::installed_binding_transfers_a_validated_inactive_delay ... ok
+test preview::tests::retirement_requires_positive_owner_disposition ... ok
+test preview::tests::private_discovery_fragmented_reply_and_owner_disconnect ... ok
+test process_results::tests::abi_and_boundaries ... ok
+test process_results::tests::flush_owned_payload_capacity_and_reset ... ok
+test process_results::tests::late_note_off_survives_expired_audio_and_preserves_order ... ok
+test queue::tests::capacity_wrap_and_discard ... ok
+test preview::tests::startup_owner_loss_cancels_transport_accept ... ok
+test queue::tests::two_threads_preserve_values ... ok
+test queued::tests::acknowledged_setup_is_retained_for_recovery ... ok
+test queued::capture_tests::pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snapshot ... ok
+test queued::tests::correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling ... ok
+test queued::tests::descriptor_overflow_and_wrong_position_fail ... ok
+test queued::tests::actual_transport_progresses_with_paused_observation_consumer_and_reader ... ok
+test queued::tests::first_callback_fault_survives_later_worker_failure ... ok
+test queued::tests::gui_abi_rejects_short_prefix_before_forming_full_message ... ok
+test queued::tests::invalid_ffi_handle_refuses_without_work ... ok
+test queued::tests::large_host_blocks_preserve_notes_and_parameter_offsets ... ok
+test queued::tests::late_output_expires_only_past_samples_and_preserves_ordered_inputs ... ok
+test queued::tests::production_audio_expiry_keeps_required_returned_note_off_and_zero_flush ... ok
+test queued::tests::stalled_gui_and_stale_generation_do_not_hold_audio_delivery ... ok
+test queued::tests::parent_callbacks_preserve_exact_one_and_two_proxy_delay ... ok
+test queued::tests::stop_restart_discards_old_epoch_and_resets_delay ... ok
+test recovery::tests::opaque_snapshot_isolation_identity_and_stale_selection ... ok
+test state::tests::full_reference_payload_and_identity ... ok
+test state::tests::nonfinite_and_unsupported_values_refused ... ok
+test state::tests::opaque_commercial_state_has_identity_integrity_and_no_gain_layout ... ok
+test state::tests::tagged_readback_preserves_opaque_and_legacy_envelopes ... ok
+test tests::invalid_ownership_has_no_effect ... ok
+test tests::successor_does_not_change_ap1_codec ... ok
+test queued::tests::variable_lengths_delayed_gain_and_silence_are_exact ... ok
+test observer::tests::eight_complete_traces_reach_the_capped_jsonl_sink ... ok
+test fault_status::tests::first_idle_request_remains_visible_after_real_transport_deadline ... ok
+
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.04s
+
