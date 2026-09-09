@@ -634,11 +634,15 @@ fn status(m: &Manager) -> Result<()> {
     let db = m.registry()?;
     let rows: Vec<_> = db.classes.values().map(|e| {
         let refusal = e.registration.verify(&m.root).err().map(|e| e.to_string());
+        let performance = m.performance(&e.registration.key());
+        let performance_refusal = performance.as_ref().err().map(|e| e.to_string());
+        let performance = performance.ok();
         serde_json::json!({"class":e.registration.metadata,"publication":e.publication,
             "environment":e.registration.environment.id,"revision":e.registration.environment.revision,
             "compatibility":e.registration.compatibility,"artifacts_valid":refusal.is_none(),
-            "refusal":refusal,"performance":m.performance(&e.registration.key()).ok(),
-            "added_frames":m.performance(&e.registration.key()).ok().map(|p|p.added_frames)})
+            "refusal":refusal,"performance":performance,
+            "performance_refusal":performance_refusal,
+            "added_frames":performance.map(|p|p.added_frames)})
     }).collect();
     println!("{}", serde_json::to_string_pretty(&rows)?);
     Ok(())

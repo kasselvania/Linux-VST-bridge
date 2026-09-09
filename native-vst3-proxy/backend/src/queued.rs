@@ -234,6 +234,11 @@ struct Callback {
 }
 impl Callback {
     fn new() -> Self {
+        let mut audio = std::collections::VecDeque::from(vec![AudioResult::empty(); DESCRIPTORS]);
+        for item in &mut audio {
+            unsafe { std::ptr::write_volatile(&mut item.n, 0); }
+        }
+        audio.clear();
         Self {
             host_call: 0,
             delay: DELAY,
@@ -243,7 +248,7 @@ impl Callback {
             have: false,
             offset: 0,
             current: AudioResult::empty(),
-            audio: std::collections::VecDeque::with_capacity(DESCRIPTORS),
+            audio,
             returned: crate::process_results::Pending::new(),
             next_result: 0,
             in_gap: false,
@@ -1793,11 +1798,68 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn parent_callbacks_preserve_exact_one_and_two_proxy_delay() {
+        // The consumer runs only after the complete parent host callback. A
+        // 512-frame parent must not acquire an artificial wait between chunks.
+        for (maximum, delay) in [(512, 512), (256, 512), (256, 256), (128, 256)] {
+            let mut ids = Vec::new();
+            let mut peers = Vec::new();
+            for _ in 0..2 {
+                let shared = Arc::new(Shared::new());
+                shared.state_capable.store(true, Ordering::Release);
+                let mut callback = Callback::new();
+                callback.delay = delay as u64;
+                assert_eq!(callback.transition(&shared, START), 0);
+                shared.requests.pop().unwrap();
+                ids.push(INSTANCES.insert(|| Ok::<_, ()>(Live {
+                    shared: shared.clone(), callback: UnsafeCell::new(callback),
+                    busy: AtomicBool::new(false), worker: None, report: None,
+                    max: maximum, recovery_blocked: false, installed_delay: Some(delay as u32),
+                    minor: 11, setup: None,
+                })).unwrap().unwrap());
+                peers.push(shared);
+            }
+            let mut position = 0;
+            for parent in 1..65 {
+                let n = if parent % 3 == 0 { 64 } else { maximum };
+                let input: Vec<f32> = (position..position+n).map(|i| (i+1) as f32).collect();
+                let mut previous = input;
+                for (device, id) in ids.iter().enumerate() {
+                    let mut left = vec![0.; n]; let mut right = vec![0.; n];
+                    let mut flags = 0; let mut delivery = Delivery::default();
+                    assert_eq!(unsafe { ap13_process(*id,n as u32,std::ptr::null(),0,
+                        &crate::context::Context::default(),0,previous.as_ptr(),previous.as_ptr(),
+                        left.as_mut_ptr(),right.as_mut_ptr(),&mut flags,&mut delivery,parent*1000) },0);
+                    for i in 0..n {
+                        let lag = delay*(device+1);
+                        let expected = if position+i < lag { 0. } else { (position+i-lag+1) as f32 };
+                        assert_eq!(left[i],expected); assert_eq!(right[i],expected);
+                    }
+                    assert_eq!(delivery.missing_frames,0);
+                    assert_eq!(delivery.expired_frames,0);
+                    previous = left;
+                }
+                for peer in &peers {
+                    let mut offset = 0;
+                    while let Some(item) = peer.requests.pop() {
+                        assert_eq!(item.parent,[parent,n as u64,offset as u64,parent*1000]);
+                        assert_eq!(item.position, (position+offset) as u64);
+                        offset += item.n as usize;
+                        assert!(peer.results.push(Completion::from(item)));
+                    }
+                    assert_eq!(offset,n);
+                }
+                position += n;
+            }
+            for id in ids { INSTANCES.remove(id, |_| ()).unwrap(); }
+        }
+    }
     #[cfg(target_os = "linux")]
     #[test]
-    fn parent_host_blocks_report_first_use_memory_faults() {
-        // Deliberately retained diagnostic baseline through the real chunking
-        // callback. The counter queries are in this host consumer, not process().
+    fn parent_host_blocks_do_not_fault_in_first_use_queue_storage() {
+        // Exercise every queue slot through the real chunking callback. Query
+        // thread-local counters in this host consumer, never in process().
         #[repr(C)] struct Usage { times: [i64; 4], counters: [i64; 14] }
         unsafe extern "C" { fn getrusage(who: i32, out: *mut Usage) -> i32; }
         fn faults() -> i64 {
@@ -1834,6 +1896,7 @@ mod tests {
         }
         eprintln!("AP13 parent512 callback minor faults: first={first} total={total} max={maximum}");
         INSTANCES.remove(id, |_| ()).unwrap();
+        assert_eq!(total, 0, "activation must touch storage before callback use");
     }
     #[test]
     fn acknowledged_setup_is_retained_for_recovery() {

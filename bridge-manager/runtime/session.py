@@ -6,7 +6,7 @@ callback work. The Rust manager supplies an exact verified registration.
 """
 import ctypes,mmap
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
-from ownership import process_identities,descendant_identities,cleanup_process
+from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -241,11 +241,9 @@ def run(spec,peer=None):
             else:retain('stderr',stderr,data)
     try:
         for stream,label in [(root.stdout,'stdout'),(root.stderr,'stderr')]:os.set_blocking(stream.fileno(),False);sel.register(stream,selectors.EVENT_READ,label)
+        tracker=ProcessTracker(root.pid)
         while True:
-            census=process_identities()
-            for r in census:
-                if r['pid']==root.pid:owned.add((r['pid'],r['start_ticks']))
-            owned.update((r['pid'],r['start_ticks']) for r in descendant_identities(root.pid,census))
+            owned.update(tracker.update())
             pump(.05)
             if visibility:
                 was=visibility.suspect
@@ -351,10 +349,9 @@ def keep(spec):
     sel=selectors.DefaultSelector();owned=set();text=bytearray();ready=False;started=time.monotonic();error=None;clean=False
     for pipe in (root.stdout,root.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
     try:
+        tracker=ProcessTracker(root.pid)
         while not stop:
-            census=process_identities()
-            owned.update((r['pid'],r['start_ticks']) for r in census if r['pid']==root.pid)
-            owned.update((r['pid'],r['start_ticks']) for r in descendant_identities(root.pid,census))
+            owned.update(tracker.update())
             for key,_ in sel.select(.05):
                 data=os.read(key.fileobj.fileno(),4096)
                 if not data:sel.unregister(key.fileobj)

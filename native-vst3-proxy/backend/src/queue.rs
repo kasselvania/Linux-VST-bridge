@@ -6,6 +6,20 @@ use std::{
     mem::MaybeUninit,
     sync::atomic::{AtomicU64, Ordering},
 };
+/// Reserve and touch callback storage while inactive. Allocation alone leaves
+/// anonymous pages to fault on their first callback write. Touching bytes in
+/// spare capacity never constructs a T or changes a queue's logical contents.
+pub(crate) fn preallocated<T>(capacity: usize) -> Vec<T> {
+    let mut values = Vec::<T>::with_capacity(capacity);
+    let bytes = values.capacity().checked_mul(std::mem::size_of::<T>()).unwrap();
+    if bytes != 0 {
+        let pointer = values.as_mut_ptr().cast::<u8>();
+        for offset in (0..bytes).step_by(4096).chain(std::iter::once(bytes - 1)) {
+            unsafe { std::ptr::write_volatile(pointer.add(offset), 0); }
+        }
+    }
+    values
+}
 pub struct Queue<T: Copy> {
     slots: Box<[UnsafeCell<MaybeUninit<T>>]>,
     read: AtomicU64,
@@ -17,10 +31,10 @@ unsafe impl<T: Copy + Send> Sync for Queue<T> {}
 impl<T: Copy> Queue<T> {
     pub fn new(capacity: usize) -> Self {
         assert!(capacity > 0);
+        let mut slots = preallocated(capacity);
+        slots.resize_with(capacity, || UnsafeCell::new(MaybeUninit::uninit()));
         Self {
-            slots: (0..capacity)
-                .map(|_| UnsafeCell::new(MaybeUninit::uninit()))
-                .collect(),
+            slots: slots.into_boxed_slice(),
             read: AtomicU64::new(0),
             write: AtomicU64::new(0),
             high: AtomicU64::new(0),

@@ -220,8 +220,8 @@ pub struct Pending {
 impl Pending {
     pub fn new() -> Self {
         Self {
-            events: Vec::with_capacity(PENDING_EVENTS),
-            points: Vec::with_capacity(PENDING_POINTS),
+            events: crate::queue::preallocated(PENDING_EVENTS),
+            points: crate::queue::preallocated(PENDING_POINTS),
             stats: Stats::default(),
             start: 0,
             end: 0,
