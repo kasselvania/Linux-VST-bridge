@@ -129,59 +129,116 @@ pub struct Capture {
 }
 impl Capture {
     fn new(sequence: u64) -> Self {
-        Self { sequence, bytes: vec![0; HEADER], received: 0,
-            end: std::time::Instant::now() + std::time::Duration::from_secs(10) }
+        Self {
+            sequence,
+            bytes: vec![0; HEADER],
+            received: 0,
+            end: std::time::Instant::now() + std::time::Duration::from_secs(10),
+        }
     }
     fn poll(&mut self, socket: &TcpStream, minor: u64) -> io::Result<Option<Frame>> {
         use std::os::fd::AsRawFd;
-        unsafe extern "C" { fn recv(fd: i32, p: *mut u8, n: usize, flags: i32) -> isize; }
-        #[cfg(target_os="linux")] const DONTWAIT: i32 = 0x40;
-        #[cfg(target_os="macos")] const DONTWAIT: i32 = 0x80;
-        need(std::time::Instant::now() < self.end, "state response deadline")?;
+        unsafe extern "C" {
+            fn recv(fd: i32, p: *mut u8, n: usize, flags: i32) -> isize;
+        }
+        #[cfg(target_os = "linux")]
+        const DONTWAIT: i32 = 0x40;
+        #[cfg(target_os = "macos")]
+        const DONTWAIT: i32 = 0x80;
+        need(
+            std::time::Instant::now() < self.end,
+            "state response deadline",
+        )?;
         let remaining = self.bytes.len() - self.received;
         if remaining != 0 {
-            let n = unsafe { recv(socket.as_raw_fd(), self.bytes.as_mut_ptr().add(self.received), remaining.min(16384), DONTWAIT) };
-            if n == 0 { return Err(invalid("state endpoint disconnected")); }
+            let n = unsafe {
+                recv(
+                    socket.as_raw_fd(),
+                    self.bytes.as_mut_ptr().add(self.received),
+                    remaining.min(16384),
+                    DONTWAIT,
+                )
+            };
+            if n == 0 {
+                return Err(invalid("state endpoint disconnected"));
+            }
             if n < 0 {
                 let e = io::Error::last_os_error();
-                return if matches!(e.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) { Ok(None) } else { Err(e) };
+                return if matches!(
+                    e.kind(),
+                    io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                ) {
+                    Ok(None)
+                } else {
+                    Err(e)
+                };
             }
             self.received += n as usize;
         }
-        if self.received != self.bytes.len() { return Ok(None); }
+        if self.received != self.bytes.len() {
+            return Ok(None);
+        }
         if self.bytes.len() == HEADER {
             let n = payload_length_version(&self.bytes, minor)?;
             need(n <= LIMIT, "state response cap")?;
             self.bytes.resize(HEADER + n, 0);
-            if n != 0 { return Ok(None); }
+            if n != 0 {
+                return Ok(None);
+            }
         }
         Ok(Some(Frame::decode_version(&self.bytes, minor)?))
     }
 }
 impl Session {
     fn state_reply(&mut self, request: &Frame, reply: Frame) -> io::Result<Vec<u8>> {
-        need(reply.session == request.session && reply.sequence == request.sequence,
-            "state response correlation")?;
+        need(
+            reply.session == request.session && reply.sequence == request.sequence,
+            "state response correlation",
+        )?;
         if reply.kind == 7 && self.minor >= 11 && request.kind == 16 {
-            need(reply.payload.len() == 16 && get(&reply.payload[..4]) == 1
-                && get(&reply.payload[4..8]) == 16, "save refusal extent/operation")?;
+            need(
+                reply.payload.len() == 16
+                    && get(&reply.payload[..4]) == 1
+                    && get(&reply.payload[4..8]) == 16,
+                "save refusal extent/operation",
+            )?;
             let stage = get(&reply.payload[8..12]) as u32;
             let sdk_result = i32::from_le_bytes(reply.payload[12..16].try_into().unwrap());
-            need(matches!(stage, 1 | 2) && matches!(sdk_result, 1 | -2147467263), "save refusal stage/result")?;
-            return Err(io::Error::new(io::ErrorKind::Other, SaveRefusal { operation: 16, stage, sdk_result }));
+            need(
+                matches!(stage, 1 | 2) && matches!(sdk_result, 1 | -2147467263),
+                "save refusal stage/result",
+            )?;
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                SaveRefusal {
+                    operation: 16,
+                    stage,
+                    sdk_result,
+                },
+            ));
         }
         need(reply.kind == request.kind + 1, "state response kind")?;
         need(reply.payload.len() <= LIMIT, "state response cap")?;
         if matches!(self.minor, 4 | 6) {
-            if request.kind == 18 { need(reply.payload == request.payload, "restored Windows state readback differs")?; }
+            if request.kind == 18 {
+                need(
+                    reply.payload == request.payload,
+                    "restored Windows state readback differs",
+                )?;
+            }
             reference(&reply.payload)?;
-        } else { commercial_payload(&reply.payload)?; }
-        if let Some(w) = &mut self.witness { w.state(&reply.payload, request.kind == 18); }
+        } else {
+            commercial_payload(&reply.payload)?;
+        }
+        if let Some(w) = &mut self.witness {
+            w.state(&reply.payload, request.kind == 18);
+        }
         Ok(reply.payload)
     }
     fn state_result(&mut self, result: io::Result<Vec<u8>>) -> io::Result<Vec<u8>> {
         if result.as_ref().is_err_and(|e| !save_refused(e)) {
-            self.phase = ERROR; self.state.failed();
+            self.phase = ERROR;
+            self.state.failed();
         }
         result
     }
@@ -189,10 +246,23 @@ impl Session {
         self.minor >= 12 && self.phase == 11 && self.mailbox_enabled
     }
     pub fn begin_capture(&mut self) -> io::Result<()> {
-        need(self.can_capture_during_audio() && self.capture.is_none()
-            && self.state.slot == Slot::Writable, "asynchronous capture ownership")?;
-        let next = self.state.next.checked_add(1).ok_or_else(|| invalid("sequence exhausted"))?;
-        let request = Frame { kind: 16, session: self.state.session, sequence: self.state.next, payload: vec![] };
+        need(
+            self.can_capture_during_audio()
+                && self.capture.is_none()
+                && self.state.slot == Slot::Writable,
+            "asynchronous capture ownership",
+        )?;
+        let next = self
+            .state
+            .next
+            .checked_add(1)
+            .ok_or_else(|| invalid("sequence exhausted"))?;
+        let request = Frame {
+            kind: 16,
+            session: self.state.session,
+            sequence: self.state.next,
+            payload: vec![],
+        };
         self.send_control(&request)?;
         self.capture = Some(Capture::new(request.sequence));
         // Reserve this identity; subsequent audio owns the following sequence.
@@ -204,24 +274,45 @@ impl Session {
         let sequence = pending.sequence;
         let result = match pending.poll(&self.socket, self.minor) {
             Ok(None) => return None,
-            Ok(Some(reply)) => self.state_reply(&Frame { kind: 16, session: self.state.session, sequence, payload: vec![] }, reply),
+            Ok(Some(reply)) => self.state_reply(
+                &Frame {
+                    kind: 16,
+                    session: self.state.session,
+                    sequence,
+                    payload: vec![],
+                },
+                reply,
+            ),
             Err(e) => Err(e),
         };
         self.capture = None;
         Some(self.state_result(result))
     }
     pub fn component_state(&mut self, restore: Option<&[u8]>) -> io::Result<Vec<u8>> {
-        need(self.capture.is_none() && self.minor >= 4 && self.phase != ERROR
-            && self.state.slot == Slot::Writable && (restore.is_none() || self.phase != 11),
-            "state lifecycle/ownership")?;
-        let request = Frame { kind: if restore.is_some() {18} else {16}, session: self.state.session,
-            sequence: self.state.next, payload: restore.unwrap_or(&[]).to_vec() };
+        need(
+            self.capture.is_none()
+                && self.minor >= 4
+                && self.phase != ERROR
+                && self.state.slot == Slot::Writable
+                && (restore.is_none() || self.phase != 11),
+            "state lifecycle/ownership",
+        )?;
+        let request = Frame {
+            kind: if restore.is_some() { 18 } else { 16 },
+            session: self.state.session,
+            sequence: self.state.next,
+            payload: restore.unwrap_or(&[]).to_vec(),
+        };
         let result = (|| {
             self.send_control(&request)?;
             let reply = receive_version(&mut self.socket, 10, self.minor)?;
             let result = self.state_reply(&request, reply);
             if result.is_ok() || result.as_ref().is_err_and(save_refused) {
-                self.state.next = self.state.next.checked_add(1).ok_or_else(|| invalid("sequence exhausted"))?;
+                self.state.next = self
+                    .state
+                    .next
+                    .checked_add(1)
+                    .ok_or_else(|| invalid("sequence exhausted"))?;
             }
             result
         })();

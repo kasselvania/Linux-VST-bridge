@@ -2880,3 +2880,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "capture_tests.rs"]
+mod capture_tests;

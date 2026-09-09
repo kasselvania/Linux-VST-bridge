@@ -4,6 +4,7 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include "public.sdk/source/vst/hosting/hostclasses.h"
+#include "pluginterfaces/base/ibstream.h"
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "mapped_processing.h"
@@ -37,9 +38,9 @@ struct Peer {
  Frame read(){std::vector<uint8_t>b(header_bytes);transfer(b.data(),b.size(),false);auto n=payload_length(b.data(),12);b.resize(header_bytes+n);if(n)transfer(b.data()+header_bytes,n,false);return decode(b,12);}
  ~Peer(){if(fd!=INVALID_SOCKET)closesocket(fd);}
 };
-struct Component final:AudioEffect {
+struct FixtureComponent final:AudioEffect {
  std::atomic<unsigned> processed{0},entered{0};
- unsigned captures=0;bool refused=false;
+ unsigned captures=0;std::atomic<bool> refused{false};
  tresult PLUGIN_API initialize(FUnknown* h) override {auto r=AudioEffect::initialize(h);addAudioInput(u"In",SpeakerArr::kStereo);addAudioOutput(u"Out",SpeakerArr::kStereo);return r;}
  tresult PLUGIN_API getState(IBStream* stream) override {
   auto before=processed.load();++captures;entered.store(captures);
@@ -71,7 +72,7 @@ int main(){
   SOCKET listener=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);sockaddr_in address{};address.sin_family=AF_INET;address.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
   check(bind(listener,reinterpret_cast<sockaddr*>(&address),sizeof(address))==0&&listen(listener,1)==0,"fixture listener");int len=sizeof(address);check(getsockname(listener,reinterpret_cast<sockaddr*>(&address),&len)==0,"fixture port");
   {View config(dir/L"ap1.control",52);put(config.p,ntohs(address.sin_port),2);std::memcpy(config.p+4,id.data(),16);}
-  Component component;Controller controller;HostApplication host;
+  FixtureComponent component;Controller controller;HostApplication host;
   check(component.initialize(&host)==kResultOk&&controller.initialize(&host)==kResultOk,"SDK initialization");
   std::atomic<bool> done{false};
   std::thread client([&]{
