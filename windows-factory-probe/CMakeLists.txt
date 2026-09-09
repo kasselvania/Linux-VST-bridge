@@ -83,3 +83,10 @@ target_compile_definitions(ap13-state-delivery-tests PRIVATE UNICODE _UNICODE WI
 target_compile_options(ap13-state-delivery-tests PRIVATE /W4 /permissive- /EHsc)
 target_link_libraries(ap13-state-delivery-tests PRIVATE sdk sdk_hosting ws2_32 user32 ole32)
 set_target_properties(ap13-state-delivery-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(ap14-environment-tests ../tools/ap14-tests/environment_desktop.cpp)
+target_include_directories(ap14-environment-tests PRIVATE source)
+target_compile_definitions(ap14-environment-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap14-environment-tests PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
+target_link_libraries(ap14-environment-tests PRIVATE user32)
+set_target_properties(ap14-environment-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

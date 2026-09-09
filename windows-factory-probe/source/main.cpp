@@ -54,6 +54,7 @@ int main() {
 #include "factory_census.h"
 #include "inspect_module.h"
 #include "ui_apartment.h"
+#include "environment_desktop.h"
 #include "mapped_processing.h"
 #include "win32_module.h"
 
@@ -248,8 +249,13 @@ int main(int argc, char** argv) {
             if(!is_lower_hex(session,32) || std::string(argv[3])!="--scanner-sha256" ||
                !is_lower_hex(argv[4],64) || wf0::sha256_file(executable_path())!=argv[4]) return 64;
             const auto directory=wf0::utf8_to_wide("C:\\bridge\\sessions\\"+session+"\\");
+            wf0::EnvironmentDesktop desktop;
+            if (!desktop.open() || !desktop.pump()) return 74;
             atomic_write(directory+L"environment.ready",session+"\n");
-            while(path_absent(directory+L"environment.stop")) Sleep(50);
+            while(path_absent(directory+L"environment.stop")) {
+                if (!desktop.pump()) return 74;
+                MsgWaitForMultipleObjectsEx(0, nullptr, 50, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+            }
             return 0;
         }
         const auto args = parse_args(argc, argv);
