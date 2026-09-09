@@ -1,4 +1,4 @@
-//! AP10 delivery mailbox v2. Only the non-RT transport worker touches this view.
+//! Delivery mailbox v3 (v2 audio layout plus correlated timing). Only the non-RT transport worker touches this view.
 //! The existing authenticated socket owns lifecycle/state; one request is in flight.
 use ap1_native_client::{invalid, need, Frame};
 use std::{
@@ -23,6 +23,7 @@ unsafe extern "C" {
 pub struct Mailbox {
     pointer: NonNull<u8>,
     _file: File,
+    pub diagnostic: [u64; 15],
 }
 // A view is moved into the single transport worker. No borrowed data escapes.
 unsafe impl Send for Mailbox {}
@@ -41,9 +42,10 @@ impl Mailbox {
             pointer: NonNull::new(pointer.cast())
                 .ok_or_else(|| invalid("null delivery mapping"))?,
             _file: file,
+            diagnostic: [0; 15],
         };
         view.write(0, b"LVBM");
-        view.write(4, &2u32.to_le_bytes());
+        view.write(4, &3u32.to_le_bytes());
         view.write(8, &(BYTES as u32).to_le_bytes());
         view.write(16, &session);
         view.flag(64).store(0, Ordering::Release);
@@ -102,6 +104,10 @@ impl Mailbox {
         Ok(())
     }
     pub fn receive(&mut self, minor: u64, end: Instant) -> io::Result<Frame> {
+        self.receive_while(minor, end, || Ok(()))
+    }
+    pub fn receive_while(&mut self, minor: u64, end: Instant, mut healthy: impl FnMut() -> io::Result<()>) -> io::Result<Frame> {
+        let mut next_health = Instant::now();
         loop {
             match self.flag(128).load(Ordering::Acquire) {
                 0 => {}
@@ -109,6 +115,10 @@ impl Mailbox {
                 _ => return Err(invalid("invalid delivery response flag")),
             }
             need(Instant::now() < end, "delivery response deadline")?;
+            if Instant::now() >= next_health {
+                healthy()?;
+                next_health = Instant::now() + Duration::from_millis(10);
+            }
             std::thread::sleep(Duration::from_micros(50));
         }
         let size = u32::from_le_bytes(self.read(132, 4).try_into().unwrap()) as usize;
@@ -117,8 +127,30 @@ impl Mailbox {
             "delivery response extent",
         )?;
         let result = Frame::decode_version(&self.read(REPLY, size), minor);
+        for i in 0..15 {
+            let mut bytes = [0; 8];
+            unsafe { std::ptr::copy_nonoverlapping(self.pointer.as_ptr().add(136+i*8), bytes.as_mut_ptr(), 8); }
+            self.diagnostic[i] = u64::from_le_bytes(bytes);
+        }
         self.flag(128).store(0, Ordering::Release);
         result
+    }
+}
+
+/// Non-consuming endpoint check on the transport worker. Do not turn a known
+/// dead socket into a five-second wait for an impossible mailbox response.
+pub fn peer_alive(socket: &std::net::TcpStream) -> io::Result<()> {
+    unsafe extern "C" { fn recv(fd: i32, p: *mut u8, n: usize, flags: i32) -> isize; }
+    #[cfg(target_os = "linux")] const DONTWAIT: i32 = 0x40;
+    #[cfg(target_os = "macos")] const DONTWAIT: i32 = 0x80;
+    let mut byte = 0;
+    match unsafe { recv(socket.as_raw_fd(), &mut byte, 1, DONTWAIT | 2) } {
+        0 => Err(invalid("delivery endpoint disconnected")),
+        n if n > 0 => Err(invalid("unexpected socket data during mailbox delivery")),
+        _ => {
+            let error = io::Error::last_os_error();
+            if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) { Ok(()) } else { Err(error) }
+        }
     }
 }
 impl Drop for Mailbox {
@@ -132,6 +164,24 @@ impl Drop for Mailbox {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn known_endpoint_loss_interrupts_an_unfinished_request() {
+        let path = std::env::temp_dir().join(format!("ap13-loss-{:032x}", u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        let mut mailbox = Mailbox::create(&path, [13; 16]).unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (peer, _) = listener.accept().unwrap();
+        peer_alive(&client).unwrap();
+        mailbox.send(&Frame { kind: 3, session: [13;16], sequence: 9, payload: vec![0;56] }, 7).unwrap();
+        let killer = std::thread::spawn(move || { std::thread::sleep(Duration::from_millis(20)); drop(peer); });
+        let start = Instant::now();
+        let error = mailbox.receive_while(7, start + Duration::from_secs(5), || peer_alive(&client)).unwrap_err();
+        assert!(error.to_string().contains("endpoint disconnected"));
+        assert!(start.elapsed() < Duration::from_millis(500));
+        killer.join().unwrap();
+        assert_eq!(mailbox.flag(64).load(Ordering::Acquire), 1);
+        drop(mailbox);std::fs::remove_file(path).unwrap();
+    }
     #[test]
     fn ownership_control_and_invalid_reply_are_bounded() {
         let path = std::env::temp_dir().join(format!(

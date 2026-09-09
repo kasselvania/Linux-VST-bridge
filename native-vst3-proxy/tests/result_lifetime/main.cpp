@@ -87,9 +87,10 @@ uint32_t __wrap_ap4_deactivate(uint64_t) {return 0;}
 uint32_t __wrap_ap3_transition(uint64_t,uint32_t) {return 0;}
 uint32_t __wrap_ap3_close(uint64_t) {++closes;return 0;}
 uint32_t __wrap_ap10_fail_results(uint64_t) {++failures;return 0;}
-uint32_t __wrap_ap10_process(uint64_t,uint32_t n,const ap8_event_t*,uint32_t,
+uint32_t __wrap_ap13_process(uint64_t,uint32_t n,const ap8_event_t*,uint32_t,
  const ap10_context_t*,uint64_t,const float* l,const float* r,float* ol,float* or_,
- uint64_t* silence,ap7_delivery_t* delivery) {
+ uint64_t* silence,ap7_delivery_t* delivery,uint64_t entered_ns) {
+ require(entered_ns!=0,"native callback-entry clock");
  frames=int32(n);cursor=drains=0;*silence=0;*delivery={};delivery->delivered_frames=n;
  std::copy_n(l,n,ol);std::copy_n(r,n,or_);return 0;
 }

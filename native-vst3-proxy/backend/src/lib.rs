@@ -100,6 +100,7 @@ fn binding(preview: bool) -> io::Result<preview::Binding> {
     Ok(preview::Binding {
         directory: path,
         session,
+        installed_delay: None,
         owner: None,
     })
 }
@@ -243,7 +244,7 @@ impl Session {
         )?;
         performance::validate_wire(&bytes)?;
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
-        let mailbox_version = 2 * u64::from(self.mailbox.is_some());
+        let mailbox_version = 3 * u64::from(self.mailbox.is_some());
         put(&mut bytes[16..20], mailbox_version);
         let reply = self.exchange(20, bytes)?;
         need(
@@ -251,7 +252,7 @@ impl Session {
                 && matches!(get(&reply.payload[8..12]), 1 | 3),
             "invalid setup response",
         )?;
-        self.mailbox_enabled = mailbox_version == 2;
+        self.mailbox_enabled = mailbox_version == 3;
         Ok(reply.payload)
     }
     fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
@@ -455,10 +456,13 @@ impl Session {
                 if let Some(s) = &mut self.fault_status {
                     s.publish(self.epoch, self.state.next, self.position, 2, 0);
                 }
-                mailbox.receive(
+                let reply = mailbox.receive_while(
                     self.minor,
                     std::time::Instant::now() + std::time::Duration::from_secs(5),
-                )?
+                    || { preview::check_owner(&mut self.owner)?; mailbox::peer_alive(&self.socket) },
+                )?;
+                self.trace.windows = mailbox.diagnostic;
+                reply
             } else {
                 send_version(&mut self.socket, &request, 5, self.minor)?;
                 self.trace.sent = Some(std::time::Instant::now());

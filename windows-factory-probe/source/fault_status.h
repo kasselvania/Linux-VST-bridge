@@ -5,7 +5,7 @@
 #include <exception>
 #include "ap1_protocol.h"
 namespace linux_vst_bridge::wf0 {
-// AP12 fault-status v1, independent of mailbox/protocol versions. Three lanes:
+// AP12 fault-status v1/v2, independent of mailbox/protocol versions. Three lanes:
 // native transport, Windows delivery, Windows UI owner. No C++ objects on wire.
 // Every shared word uses interlocked access. Publish the inactive slot before
 // its counter; an interrupted write leaves the last complete slot readable.
@@ -30,7 +30,7 @@ public:
    ap1::require(GetFileSizeEx(file,&n)&&n.QuadPart==bytes,"fault status extent");
    mapping=CreateFileMappingW(file,nullptr,PAGE_READWRITE,0,0,nullptr);ap1::require(mapping!=nullptr,"fault status mapping");
    view=static_cast<uint8_t*>(MapViewOfFile(mapping,FILE_MAP_READ|FILE_MAP_WRITE,0,0,bytes));ap1::require(view!=nullptr,"fault status view");
-   ap1::require(std::memcmp(view,"LVFS",4)==0&&ap1::get(view+4,4)==1&&ap1::get(view+8,4)==bytes&&ap1::get(view+12,4)==0&&std::memcmp(view+16,session.data(),16)==0,"fault status identity/version");
+   ap1::require(std::memcmp(view,"LVFS",4)==0&&(ap1::get(view+4,4)==1||ap1::get(view+4,4)==2)&&ap1::get(view+8,4)==bytes&&ap1::get(view+12,4)==0&&std::memcmp(view+16,session.data(),16)==0,"fault status identity/version");
    ap1::require(QueryPerformanceFrequency(&n)&&n.QuadPart>0,"fault status clock");frequency=uint64_t(n.QuadPart);
   }catch(...){close();throw;}
  }
@@ -47,6 +47,12 @@ public:
   for(size_t i=0;i<data.size();++i)store(slot+i*8,data[i]);store(base,next);
  }
  void stage(size_t lane,uint64_t stage,uint64_t detail=0){auto r=rows[lane];r.stage=stage;r.detail=detail;publish(lane,r);}
+ // Bounded observation of the other owner thread, never its mutable C++ row.
+ std::array<uint64_t,2> owner_activity() const {
+  if(!view)return {};
+  for(int i=0;i<3;++i){auto c=load(704);auto stage=load(768+(c&1)*128+32);if(load(704)==c)return {c,stage};}
+  return {UINT64_MAX,UINT64_MAX};
+ }
  struct Scope {
   FaultStatus* status;size_t lane;Row previous;int exceptions=std::uncaught_exceptions();
   Scope(FaultStatus* s,size_t l,uint64_t stage,uint64_t detail=0):status(s),lane(l),previous(s?s->rows[l]:Row{}){if(s)s->stage(l,stage,detail);}

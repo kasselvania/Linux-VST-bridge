@@ -37,6 +37,7 @@ pub struct Item {
     pub gain: f64,
     pub flags: u64,
     pub queued: Option<Instant>,
+    pub parent: [u64; 4],
     pub context: crate::context::Context,
     pub event_count: u32,
     pub events: [Event; MAX_EVENTS],
@@ -53,6 +54,7 @@ impl Item {
             gain: 0.,
             flags: 0,
             queued: None,
+            parent: [0; 4],
             context: crate::context::Context::default(),
             event_count: 0,
             events: [Event::default(); MAX_EVENTS],
@@ -124,6 +126,9 @@ struct Shared {
     worker_epoch: AtomicU64,
     worker_position: AtomicU64,
     service_us_max: AtomicU64,
+    // Callback writes counters only; the transport publishes them through the
+    // existing independent status lane. No callback mapping or diagnostic I/O.
+    delivery_totals: [AtomicU64; 6],
     first_context_ready: AtomicBool,
     first_epoch: AtomicU64,
     first_worker_op: AtomicU64,
@@ -160,6 +165,7 @@ impl Shared {
             worker_epoch: AtomicU64::new(0),
             worker_position: AtomicU64::new(0),
             service_us_max: AtomicU64::new(0),
+            delivery_totals: std::array::from_fn(|_| AtomicU64::new(0)),
             first_context_ready: AtomicBool::new(false),
             first_epoch: AtomicU64::new(0),
             first_worker_op: AtomicU64::new(0),
@@ -212,6 +218,7 @@ pub struct Delivery {
     pub priming_frames: u64,
 }
 struct Callback {
+    host_call: u64,
     delay: u64,
     epoch: u64,
     position: u64,
@@ -228,6 +235,7 @@ struct Callback {
 impl Callback {
     fn new() -> Self {
         Self {
+            host_call: 0,
             delay: DELAY,
             epoch: 0,
             position: 0,
@@ -372,6 +380,7 @@ impl Callback {
                                 position: expected,
                                 frames: count as u64,
                                 at: Instant::now(),
+                                parent: request.parent,
                             }) {
                                 observer.gap_drops.fetch_add(1, Ordering::Relaxed);
                             }
@@ -423,6 +432,7 @@ struct Live {
     report: Option<std::path::PathBuf>,
     max: usize,
     recovery_blocked: bool,
+    installed_delay: Option<u32>,
     minor: u64,
     setup: Option<Vec<u8>>,
 }
@@ -445,6 +455,7 @@ impl Drop for Guard<'_> {
     }
 }
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
+    let mut previous_control = [0u64; 4];
     if let Some(status) = &mut session.fault_status {
         status.generation = s.generation;
     }
@@ -462,6 +473,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                 if let Some(c) = mailbox.as_mut() {
                     if c.result.is_none() && s.requests.consumed() >= c.barrier {
                         s.worker_op.store(c.op as u64, Ordering::Release);
+                        previous_control = [c.op as u64, crate::observer::monotonic_ns(), 0, c.barrier];
                         let result = match c.op {
                             16 => session
                                 .component_state(None)
@@ -486,6 +498,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             }),
                             _ => Err(invalid("unknown owner operation")),
                         };
+                        previous_control[2] = crate::observer::monotonic_ns();
                         let failed = result.as_ref().is_err_and(|e| !state::save_refused(e));
                         if let Ok(bytes) = &result {
                             if matches!(c.op, 16 | 18) {
@@ -527,6 +540,9 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             match item.kind {
                 AUDIO => {
                     let started = Instant::now();
+                    if let Some(status) = &mut session.fault_status {
+                        status.delivery = std::array::from_fn(|i| s.delivery_totals[i].load(Ordering::Acquire));
+                    }
                     let n = item.n as usize;
                     let original = item.data;
                     session.gui_revision = item.gui_revision;
@@ -564,6 +580,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         return Err(invalid("completed output capacity"));
                     }
                     session.trace.queued = item.queued;
+                    session.trace.parent = item.parent;
+                    session.trace.previous_control = previous_control;
                     session.trace.published = publish.then(Instant::now);
                     // Only a bounded copy after output publication. The next request
                     // never waits for comparison, hashing or report readers.
@@ -718,6 +736,7 @@ pub(crate) unsafe fn open(
                     crate::preview::report_path(binding.session)
                 }
             });
+            let installed_delay = binding.installed_delay;
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
             let mut shared = Shared::new();
@@ -742,6 +761,7 @@ pub(crate) unsafe fn open(
                 report,
                 max: max as usize,
                 recovery_blocked: false,
+                installed_delay,
                 minor,
                 setup: None,
             })
@@ -841,6 +861,9 @@ pub unsafe extern "C" fn ap6_recover(
             } else {
                 binding(true)?
             };
+            if binding.installed_delay != l.installed_delay {
+                return Err(invalid("installed delay changed; reopen the device to renegotiate latency"));
+            }
             if binding.owner.is_none() {
                 return Err(invalid("recovery requires the private owner"));
             }
@@ -1038,7 +1061,13 @@ unsafe fn setup(
             return 1;
         }
         let result = (|| -> io::Result<()> {
-            let delay = crate::performance::selected_delay(maximum)?;
+            let installed = INSTANCES.lease(id).ok_or_else(|| invalid("setup instance absent"))?.installed_delay;
+            let delay = if let Some(delay) = installed {
+                crate::performance::validate_delay(maximum, delay)?;
+                delay
+            } else {
+                crate::performance::selected_delay(maximum)?
+            };
             let mut bytes = crate::performance::wire(maximum, mode, rate)?;
             if !io.is_empty() {
                 bytes[20..24]
@@ -1213,6 +1242,7 @@ pub unsafe extern "C" fn ap7_process(
         &[],
         crate::context::Context::default(),
         false,
+        0,
     )
 }
 // Mirrors the fixed C ABI and adds a borrowed bounded event span.
@@ -1231,6 +1261,7 @@ unsafe fn process_events(
     events: &[Event],
     context: crate::context::Context,
     detailed: bool,
+    entered_ns: u64,
 ) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
@@ -1276,7 +1307,10 @@ unsafe fn process_events(
     {
         let callback = &mut *l.callback.get();
         callback.returned.window(callback.position, n);
+        let Some(next) = callback.host_call.checked_add(1) else { return 2; };
+        callback.host_call = next;
     }
+    let entered_ns = if entered_ns == 0 { crate::observer::monotonic_ns() } else { entered_ns };
     let mut total = Delivery::default();
     let mut combined = 3;
     let mut offset = 0;
@@ -1284,6 +1318,7 @@ unsafe fn process_events(
         let count = (n - offset).min(CAP);
         let mut item = Item::control(AUDIO, 0);
         item.n = count as u32;
+        item.parent = [(*l.callback.get()).host_call, n as u64, offset as u64, entered_ns];
         item.context = context.chunk(offset).unwrap();
         item.flags = flags;
         item.gain = if offset == 0 { gain } else { f64::NAN };
@@ -1322,6 +1357,12 @@ unsafe fn process_events(
         }
     }
     *out_flags = combined;
+    for (counter, delta) in l.shared.delivery_totals.iter().zip([
+        n as u64, total.missing_frames, total.gaps, total.expired_frames,
+        total.delivered_frames, total.priming_frames,
+    ]) {
+        counter.store(counter.load(Ordering::Relaxed) + delta, Ordering::Release);
+    }
     if !delivery.is_null() {
         *delivery = total;
     }
@@ -1558,6 +1599,7 @@ pub unsafe extern "C" fn ap8_process(
         events,
         crate::context::Context::default(),
         false,
+        0,
     )
 }
 
@@ -1575,6 +1617,24 @@ pub unsafe extern "C" fn ap10_process(
     out_right: *mut f32,
     out_flags: *mut u64,
     delivery: *mut Delivery,
+) -> u32 {
+    ap13_process(id,n,events,count,context,flags,left,right,out_left,out_right,out_flags,delivery,0)
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap13_process(
+    id: u64,
+    n: u32,
+    events: *const Event,
+    count: u32,
+    context: *const crate::context::Context,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+    entered_ns: u64,
 ) -> u32 {
     if count as usize > MAX_EVENTS || (count > 0 && events.is_null()) || context.is_null() {
         return 1;
@@ -1598,6 +1658,7 @@ pub unsafe extern "C" fn ap10_process(
         events,
         *context,
         true,
+        entered_ns,
     )
 }
 
@@ -1732,6 +1793,48 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn parent_host_blocks_report_first_use_memory_faults() {
+        // Deliberately retained diagnostic baseline through the real chunking
+        // callback. The counter queries are in this host consumer, not process().
+        #[repr(C)] struct Usage { times: [i64; 4], counters: [i64; 14] }
+        unsafe extern "C" { fn getrusage(who: i32, out: *mut Usage) -> i32; }
+        fn faults() -> i64 {
+            let mut u = Usage { times: [0; 4], counters: [0; 14] };
+            assert_eq!(unsafe { getrusage(1, &mut u) }, 0);
+            u.counters[4]
+        }
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+            shared: shared.clone(), callback: UnsafeCell::new(Callback::new()),
+            busy: AtomicBool::new(false), worker: None, report: None,
+            max: 512, recovery_blocked: false, installed_delay: None,
+            minor: 11, setup: None,
+        })).unwrap().unwrap();
+        let input = [0f32;512]; let mut output = [[0f32;512];2];
+        assert_eq!(unsafe { ap3_transition(id, START) }, 0);
+        shared.requests.pop().unwrap();
+        let mut total=0; let mut maximum=0; let mut first=0;
+        for block in 0..1100 {
+            let mut flags=0; let mut d=Delivery::default();
+            let before=faults();
+            let rc=unsafe { ap10_process(id,512,std::ptr::null(),0,
+                &crate::context::Context::default(),3,input.as_ptr(),input.as_ptr(),
+                output[0].as_mut_ptr(),output[1].as_mut_ptr(),&mut flags,&mut d) };
+            let delta=faults()-before;
+            assert_eq!(rc,0); total+=delta; maximum=maximum.max(delta);if block==0 {first=delta;}
+            // Same parent 512-frame host block: both chunks have already been
+            // admitted before its off-thread consumer can return completions.
+            for _ in 0..2 {
+                let item=shared.requests.pop().unwrap();
+                assert!(shared.results.push(Completion::from(item)));
+            }
+        }
+        eprintln!("AP13 parent512 callback minor faults: first={first} total={total} max={maximum}");
+        INSTANCES.remove(id, |_| ()).unwrap();
+    }
     #[test]
     fn acknowledged_setup_is_retained_for_recovery() {
         let shared = Arc::new(Shared::new());
@@ -1746,6 +1849,7 @@ mod tests {
                     report: None,
                     max: 256,
                     recovery_blocked: false,
+                installed_delay: None,
                     minor: 6,
                     setup: None,
                 })
@@ -1814,6 +1918,7 @@ mod tests {
                     report: None,
                     max: 1024,
                     recovery_blocked: false,
+                installed_delay: None,
                     minor: 7,
                     setup: None,
                 })
@@ -2266,6 +2371,7 @@ mod tests {
                         report: None,
                         max: CAP,
                         recovery_blocked: false,
+                installed_delay: None,
                         minor: 11,
                         setup: None,
                     })
@@ -2420,6 +2526,7 @@ mod tests {
                     report: None,
                     max: 256,
                     recovery_blocked: false,
+                installed_delay: None,
                     minor: 10,
                     setup: None,
                 })

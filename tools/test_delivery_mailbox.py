@@ -11,7 +11,7 @@ using namespace linux_vst_bridge;
 int main(){
  auto dir=std::filesystem::current_path();auto path=dir/L"ap10.delivery";
  auto f=CreateFileW(path.c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_NEW,0,nullptr);assert(f!=INVALID_HANDLE_VALUE);
- std::vector<uint8_t> initial(33024);std::memcpy(initial.data(),"LVBM",4);ap1::put(initial.data()+4,2,4);ap1::put(initial.data()+8,initial.size(),4);initial[16]=3;
+ std::vector<uint8_t> initial(33024);std::memcpy(initial.data(),"LVBM",4);ap1::put(initial.data()+4,3,4);ap1::put(initial.data()+8,initial.size(),4);initial[16]=3;
  DWORD written=0;assert(WriteFile(f,initial.data(),DWORD(initial.size()),&written,nullptr)&&written==initial.size());
  auto mapping=CreateFileMappingW(f,nullptr,PAGE_READWRITE,0,0,nullptr);assert(mapping);
  auto* v=static_cast<uint8_t*>(MapViewOfFile(mapping,FILE_MAP_READ|FILE_MAP_WRITE,0,0,0));assert(v);
@@ -22,8 +22,9 @@ int main(){
   auto encoded=ap1::encode(request,7);std::memcpy(v+256,encoded.data(),encoded.size());ap1::put(v+68,encoded.size(),4);InterlockedExchange(reinterpret_cast<volatile LONG*>(v+64),1);
   ap1::Frame got{};assert(mailbox.receive(got,7)&&got.sequence==9&&got.session==id&&got.payload==request.payload);
   assert(InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(v+64),0,0)==0);
-  ap1::Frame reply{ap1::Done,id,9,std::vector<uint8_t>(40)};mailbox.send(reply,7);
+  ap1::Frame reply{ap1::Done,id,9,std::vector<uint8_t>(40)};std::array<uint64_t,15> trace{};trace[3]=101;trace[4]=102;trace[14]=10000000;mailbox.send(reply,7,&trace);
   assert(InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(v+128),0,0)==1);
+  assert(ap1::get(v+136+3*8,8)==101&&ap1::get(v+136+4*8,8)==102&&ap1::get(v+136+14*8,8)==10000000);
   auto n=ap1::get(v+132,4);assert(n==96);auto result=ap1::decode(std::vector<uint8_t>(v+16640,v+16640+n),7);assert(result.sequence==9&&result.session==id);
   bool refused=false;try{mailbox.send(reply,7);}catch(...){refused=true;}assert(refused);
   InterlockedExchange(reinterpret_cast<volatile LONG*>(v+128),0);
