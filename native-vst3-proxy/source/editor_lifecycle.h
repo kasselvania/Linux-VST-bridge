@@ -8,7 +8,7 @@ inline uint64_t advance(uint64_t &counter) {
 // Native UI owner only. Object addresses, DSP generations, editor epochs and
 // activation serials are deliberately not interchangeable identities.
 class EditorLifecycle {
-  uint64_t allocated_ = 0, retired_ = 0;
+  uint64_t allocated_ = 0, retired_ = 0, session_retired_ = 0;
   uint64_t retired_activation_ = 0;
   uint32_t retired_epoch_ = 0;
   uint32_t last_epoch_ = 0;
@@ -19,6 +19,7 @@ public:
   }
   uint64_t owner() const { return current_.native_view; }
   uint32_t state(uint64_t owner) const {
+    if (owner && owner <= session_retired_) return AP11::EditorFailed;
     return owner && owner == current_.native_view ? current_.lifecycle : AP11::Absent;
   }
   bool begin(uint64_t owner, uint64_t activation, AP11::ActivationContext context,
@@ -35,20 +36,32 @@ public:
     command.user_time = context.user_time;
     command.requestor_x11 = context.requestor_x11;
     command.lifecycle = current_.view_epoch ? AP11::AwaitingFocus : AP11::Opening;
-    current_ = command;
     return true;
   }
+  void opened(const ap11_gui_message_t &command) { current_ = command; }
+  bool sessionRetired(uint64_t owner) const { return owner && owner <= session_retired_; }
   bool close(uint64_t owner, ap11_gui_message_t &command) {
     if (!owner || current_.native_view != owner)
       return false;
     command = current_;
     command.kind = AP11::Close;
     command.lifecycle = AP11::Closing;
-    retired_ = owner;
+    return true;
+  }
+  void closing() { current_.lifecycle = AP11::Closing; }
+  void closed(const ap11_gui_message_t &command) {
+    retired_ = command.native_view;
     retired_activation_ = command.activation;
     retired_epoch_ = command.view_epoch;
     current_ = {};
-    return true;
+  }
+  bool accepts_callback(const ap11_gui_message_t &event) const {
+    if (!AP11::editorCallback(event.kind)) return !event.native_view && !event.view_epoch;
+    // Zero/zero explicitly denotes instance-scoped controller activity.
+    if (!event.native_view && !event.view_epoch) return true;
+    return event.native_view && event.view_epoch && event.native_view == current_.native_view &&
+      current_.lifecycle < AP11::ClosedByVendor &&
+      (!current_.view_epoch || event.view_epoch == current_.view_epoch);
   }
   bool accepts_result(const ap11_gui_message_t &m) const {
     if (m.kind == AP11::Close)
@@ -83,7 +96,7 @@ public:
   }
   void failed() { current_.lifecycle = AP11::EditorFailed; }
   void sessionRetired() {
-    retired_ = allocated_;
+    session_retired_ = retired_ = allocated_;
     last_epoch_ = 0;
     retired_activation_ = 0;
     retired_epoch_ = 0;

@@ -68,7 +68,7 @@ int main(){
   for(auto [at,v]:{std::pair{0,0x4d315041u},{4,1u},{8,capacity},{12,2u},{16,mapping_bytes},{20,input_offset},{24,output_offset},{28,stride}})put(audio.p+at,v,4);
   for(auto base:{input_offset,output_offset})for(int ch=0;ch<2;++ch){put(audio.p+base+ch*stride,guard,4);put(audio.p+base+(ch+1)*stride-4,guard,4);}
   std::memcpy(mailbox.p,"LVBM",4);put(mailbox.p+4,3,4);put(mailbox.p+8,33024,4);std::memcpy(mailbox.p+16,id.data(),16);
-  std::memcpy(gui.p,"LVBU",4);put(gui.p+4,4,4);put(gui.p+8,320+2*512*608,4);put(gui.p+12,608,4);put(gui.p+32,512,4);put(gui.p+96,1,8);std::memcpy(gui.p+16,id.data(),16);
+  std::memcpy(gui.p,"LVBU",4);put(gui.p+4,5,4);put(gui.p+8,320+2*512*608,4);put(gui.p+12,608,4);put(gui.p+32,512,4);put(gui.p+96,1,8);std::memcpy(gui.p+16,id.data(),16);
   SOCKET listener=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);sockaddr_in address{};address.sin_family=AF_INET;address.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
   check(bind(listener,reinterpret_cast<sockaddr*>(&address),sizeof(address))==0&&listen(listener,1)==0,"fixture listener");int len=sizeof(address);check(getsockname(listener,reinterpret_cast<sockaddr*>(&address),&len)==0,"fixture port");
   {View config(dir/L"ap1.control",52);put(config.p,ntohs(address.sin_port),2);std::memcpy(config.p+4,id.data(),16);}

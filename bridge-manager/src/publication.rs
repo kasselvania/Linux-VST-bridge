@@ -337,29 +337,30 @@ impl Manager {
                 == 1,
             "installed_host_mismatch",
         )?;
-        if registration.host.sha256 == installed.sha256 && registration.host_source_sha256 == source
-        {
-            return Ok(());
-        }
         let db = self.registry()?;
-        let entry = db
+        let retained = db
             .classes
             .get(&registration.key())
-            .ok_or("installed_host_mismatch")?;
-        let reference = entry
-            .managed_revision
-            .as_ref()
-            .ok_or("installed_host_mismatch")?;
-        let revision = self.load_revision(&registration.key(), reference)?;
-        require(
-            revision.registration == *registration
-                && revision.profile.claim != Claim::Withdrawn
-                && revision.profile.capabilities.state == State::ConcurrentReadOnlyCaptureV12
-                && revision.profile.requirements.host_sha256 == registration.host.sha256
-                && revision.profile.requirements.host_source_sha256
-                    == registration.host_source_sha256,
-            "installed_host_mismatch",
-        )?;
+            .and_then(|e| e.managed_revision.as_ref());
+        if let Some(reference) = retained {
+            let revision = self.load_revision(&registration.key(), reference)?;
+            require(
+                revision.registration == *registration,
+                "installed_host_mismatch",
+            )?;
+            let roster = if revision.profile.claim == Claim::ReviewCandidate {
+                crate::qualification::candidates().unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            self.verify_retained_authority(&revision, &roster)?;
+        } else {
+            require(
+                registration.host.sha256 == installed.sha256
+                    && registration.host_source_sha256 == source,
+                "installed_host_mismatch",
+            )?;
+        }
         Artifact {
             path: registration
                 .host

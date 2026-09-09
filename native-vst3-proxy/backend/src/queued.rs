@@ -1819,7 +1819,7 @@ mod tests {
     use super::*;
     #[test]
     fn gui_abi_rejects_short_prefix_before_forming_full_message() {
-        for mut prefix in [[2u32, 584u32], [3, 8], [4, 608], [0, 0]] {
+        for mut prefix in [[2u32, 584u32], [4, 8], [3, 608], [5, 608], [0, 0]] {
             let pointer = prefix.as_mut_ptr().cast::<crate::gui::Message>();
             unsafe {
                 assert_eq!(ap11_gui_command(0, 0, pointer), 4);

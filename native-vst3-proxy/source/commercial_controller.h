@@ -21,41 +21,15 @@ class Controller final : public Steinberg::Vst::EditController,
     uint64_t revision = 0;
     bool editing = false, refreshed = false, available = false;
   };
-  struct Timer final : Steinberg::Linux::ITimerHandler {
-    Controller *parent;
-    std::atomic<Steinberg::uint32> refs{1};
-    explicit Timer(Controller *p) : parent(p) {}
-    Result PLUGIN_API queryInterface(const Steinberg::TUID id,
-                                     void **out) override {
-      if (!out)
-        return Steinberg::kInvalidArgument;
-      *out = nullptr;
-      if (Steinberg::FUnknownPrivate::iidEqual(
-              id, Steinberg::Linux::ITimerHandler::iid) ||
-          Steinberg::FUnknownPrivate::iidEqual(id, Steinberg::FUnknown::iid)) {
-        *out = static_cast<Steinberg::Linux::ITimerHandler *>(this);
-        addRef();
-        return Steinberg::kResultOk;
-      }
-      return Steinberg::kNoInterface;
-    }
-    Steinberg::uint32 PLUGIN_API addRef() override { return ++refs; }
-    Steinberg::uint32 PLUGIN_API release() override {
-      auto n = --refs;
-      if (!n)
-        delete this;
-      return n;
-    }
-    void PLUGIN_API onTimer() override {
-      if (parent)
-        parent->tick();
-    }
-  };
 
 public:
-  ~Controller() override { stopTimer(); }
+  ~Controller() override {
+    if (timer_) { timer_->detach(); timer_->release(); }
+    if (loop_) loop_->release();
+    if (retirement_message_) retirement_message_->release();
+  }
   Result PLUGIN_API terminate() override {
-    panelClose(editor_.owner());
+    if (!panelClose(editor_.owner()) || !stopTimer()) return Steinberg::kResultFalse;
     finishGestures();
     capabilities(false);
     connected_ = false;
@@ -122,7 +96,7 @@ public:
   }
   Result PLUGIN_API
   disconnect(Steinberg::Vst::IConnectionPoint *peer) override {
-    panelClose(editor_.owner());
+    if (!panelClose(editor_.owner())) return Steinberg::kResultFalse;
     finishGestures();
     capabilities(false);
     connected_ = false;
@@ -186,6 +160,7 @@ public:
         return kResultFalse;
       if (generation_ && generation_ != uint64_t(generation)) {
         editor_.sessionRetired();
+        if (pending_close_.native_view) { pending_close_ = {}; release(); }
         finishGestures();
         pending_count_ = 0;
         failure_ = 0;
@@ -282,8 +257,11 @@ public:
       return;
     loop_ = loop;
     loop_->addRef();
-    timer_ = new Timer(this);
-    if (loop_->registerTimer(timer_, 10) != Steinberg::kResultOk) {
+    timer_ = new AP15::UiTimer(loop_, this, [](void *p) {
+      auto *owner = static_cast<Controller *>(p);
+      owner->addRef(); owner->tick(); owner->release();
+    });
+    if (!timer_->start()) {
       stopTimer();
       status_ = "Host UI timer unavailable";
     }
@@ -292,11 +270,14 @@ public:
   bool panelOpen(uint64_t view, AP11::ActivationContext activation = {}) override {
     if (!onOwner() || !connected_ || failure_)
       return false;
-    if (!timer_ || !componentHandler) {
+    if (!timer_ || !componentHandler || !generation_ || pending_close_.native_view) {
       status_ = "Host editor control unavailable";
       return false;
     }
-    status_ = "Opening vendor editor...";
+    // Reserve the one retirement message before accepting any editor owner.
+    // Destruction/low-memory close never depends on allocating a new IMessage.
+    if (!retirement_message_) retirement_message_ = allocateMessage();
+    if (!retirement_message_) { status_ = "Editor retirement storage unavailable"; return false; }
     ap11_gui_message_t m{};
     m.kind = AP11::Open;
     if (activation_serial_ == UINT64_MAX) {
@@ -305,23 +286,37 @@ public:
     }
     if (!editor_.begin(view, ++activation_serial_, activation, m))
       return false;
+    if (command(m) != Steinberg::kResultOk) { status_ = "Editor open request not accepted"; return false; }
+    status_ = "Opening vendor editor...";
+    editor_.opened(m);
     activation_.begin(m);
-    command(m);
     // Opening/focusing a view is not a parameter invalidation. An unsolicited
     // Refresh causes a host restart notification and, in Bitwig, a full state
     // capture on the serialized audio transport. Real vendor restart callbacks
     // still publish complete value/title refreshes through the UI queue.
     return !failure_;
   }
-  void panelClose(uint64_t view) override {
-    if (!onOwner())
-      return;
-    ap11_gui_message_t m{};
-    if (!editor_.close(view, m))
-      return;
-    activation_.cancel();
-    if (connected_)
-      command(m);
+  bool panelClose(uint64_t view) override {
+    if (!onOwner()) return false;
+    if (editor_.sessionRetired(view)) return true; // old UI mapping is already retired
+    if (!pending_close_.native_view) {
+      if (!editor_.close(view, pending_close_)) return true;
+      activation_.cancel();
+      editor_.closing();
+      status_ = "Editor retirement pending";
+      close_attempts_ = 0;
+      // A peer may refuse disconnect/termination. Retain the controller until
+      // exact retirement is accepted; a host releasing it anyway cannot erase
+      // the pending owner. One record, never an expanding queue.
+      addRef();
+    }
+    return retryClose();
+  }
+  void panelFailure(uint64_t view, uint32_t code) override {
+    if (onOwner() && editor_.owner() == view) {
+      fail(code, false);
+      panelClose(view);
+    }
   }
   uint64_t allocateEditorView() { return onOwner() ? editor_.allocate() : 0; }
   uint32_t panelState(uint64_t view) const override { return editor_.state(view); }
@@ -330,6 +325,31 @@ public:
 
 private:
   AP15::EditorLifecycle editor_;
+  Steinberg::Vst::IMessage *retirement_message_ = nullptr;
+  ap11_gui_message_t pending_close_{};
+  unsigned close_attempts_ = 0;
+  bool retryClose() {
+    if (!pending_close_.native_view) return true;
+    if (!connected_ || !generation_ || !retirement_message_) return false;
+    // Eight bounded UI attempts, then explicit GUI failure containment. If a
+    // broken host refuses even that message, ownership stays retained and the
+    // lifecycle operation remains refused; no infinite retry/allocation loop.
+    if (close_attempts_ >= 9) return false;
+    const bool contain = close_attempts_++ == 8;
+    auto *m = retirement_message_;
+    m->setMessageID(contain ? "AP11.failure" : "AP11.command");
+    auto *a = m->getAttributes();
+    if (a->setInt("generation", Steinberg::int64(generation_)) != Steinberg::kResultOk ||
+        (contain ? a->setInt("code", AP11::Removal) :
+                   a->setBinary("command", &pending_close_, sizeof(pending_close_))) != Steinberg::kResultOk ||
+        sendMessage(m) != Steinberg::kResultOk) return false;
+    if (contain) fail(AP11::Removal, false);
+    finishGestures();
+    editor_.closed(pending_close_);
+    pending_close_ = {};
+    release();
+    return true;
+  }
   bool save_unavailable_=false;
   uint64_t activation_serial_ = 0;
   AP11::DesktopActivation activation_;
@@ -377,6 +397,7 @@ private:
     if (!AP11::valid(m)) return Steinberg::kResultFalse;
     using namespace Steinberg;
     using namespace Steinberg::Vst;
+    if (m.kind != AP11::EditorStatus && !editor_.accepts_callback(m)) return kResultOk;
     auto *p = state(m.id);
     switch (m.kind) {
     case AP11::Begin:
@@ -423,8 +444,7 @@ private:
     case AP11::EditorStatus:
       if (!editor_.status(m))
         return kResultOk;
-      if (!m.count)
-        activation_.cancel();
+      if (!m.count) { activation_.cancel(); finishGestures(); }
       if (m.count && m.focus_result == AP11::FocusPending)
         activation_.target(m);
       if (m.result) {
@@ -506,6 +526,7 @@ private:
     if (!onOwner() || !connected_ || ticking_)
       return;
     ticking_ = true;
+    retryClose();
     request("AP10.poll");
     if (!generation_)
       request("AP11.bind");
@@ -578,7 +599,7 @@ private:
     m->getAttributes()->setBinary("command", &event, sizeof(event));
     auto r = sendMessage(m);
     m->release();
-    if (r != Steinberg::kResultOk)
+    if (r != Steinberg::kResultOk && event.kind != AP11::Open && event.kind != AP11::Close)
       fail(AP11::Host);
     return r;
   }
@@ -619,21 +640,16 @@ private:
     m->release();
     return r;
   }
-  void stopTimer() {
+  bool stopTimer() {
     if (timer_) {
-      timer_->parent = nullptr;
-      if (loop_)
-        loop_->unregisterTimer(timer_);
-      timer_->release();
-      timer_ = nullptr;
+      if (!timer_->stop()) return false;
+      timer_->release(); timer_ = nullptr;
     }
-    if (loop_) {
-      loop_->release();
-      loop_ = nullptr;
-    }
+    if (loop_) { loop_->release(); loop_ = nullptr; }
+    return true;
   }
   Steinberg::Linux::IRunLoop *loop_ = nullptr;
-  Timer *timer_ = nullptr;
+  AP15::UiTimer *timer_ = nullptr;
   std::thread::id owner_;
   bool connected_ = false, ticking_ = false, group_ = false,
        forwarding_ = false, refreshing_ = false;

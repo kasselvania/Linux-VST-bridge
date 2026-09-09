@@ -1,11 +1,11 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
-// UI ABI 3 / independent shared-memory protocol 4. No host/SDK pointer crosses.
+// UI ABI 4 / independent shared-memory protocol 5. No host/SDK pointer crosses.
 // Calls are native owner/UI-thread only, except the private atomic revision
 // assigned by the Rust audio admission path. No GUI queue is used by audio.
 struct ap11_gui_message_t {
-  uint32_t abi_version = 3, extent = 608;
+  uint32_t abi_version = 4, extent = 608;
   uint32_t kind = 0, id = 0;
   uint64_t revision = 0;
   double value = 0;
@@ -27,7 +27,7 @@ static_assert(offsetof(ap11_gui_message_t, native_view) == 592);
 static_assert(offsetof(ap11_gui_message_t, lifecycle) == 600);
 namespace AP11 {
 inline bool valid(const ap11_gui_message_t &m) {
-  return m.abi_version == 3 && m.extent == sizeof(m) && !m.reserved;
+  return m.abi_version == 4 && m.extent == sizeof(m) && !m.reserved;
 }
 enum Lifecycle : uint32_t {
   Absent, Opening, Opened, AwaitingFocus, Focused, FocusRefused, Closing,
@@ -52,6 +52,12 @@ enum Kind : uint32_t {
   RefreshEnd = 111,
   Restart = 112
 };
+// Only these events can carry an editor-origin token. Refresh streams and
+// host/controller invalidations remain instance scoped; no state bytes change.
+inline bool editorCallback(uint32_t kind) {
+  return kind == Begin || kind == Value || kind == End || kind == Dirty ||
+    kind == GroupBegin || kind == GroupEnd || kind == RequestOpen;
+}
 enum FocusResult : uint32_t {
   FocusNotRequested = 0,
   FocusPending = 1,

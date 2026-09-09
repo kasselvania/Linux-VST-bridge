@@ -47,7 +47,7 @@ pub struct Message {
 impl Default for Message {
     fn default() -> Self {
         Self {
-            abi_version: 3,
+            abi_version: 4,
             extent: MESSAGE as u32,
             kind: 0,
             id: 0,
@@ -77,11 +77,11 @@ impl Message {
     // older/short extent before forming a reference to the new full structure.
     pub unsafe fn valid_prefix(message: *const Self) -> bool {
         !message.is_null()
-            && message.cast::<u32>().read_unaligned() == 3
+            && message.cast::<u32>().read_unaligned() == 4
             && message.cast::<u32>().add(1).read_unaligned() == MESSAGE as u32
     }
     fn valid(&self) -> bool {
-        self.abi_version == 3 && self.extent == MESSAGE as u32 && self.reserved == 0
+        self.abi_version == 4 && self.extent == MESSAGE as u32 && self.reserved == 0
     }
 }
 const _: () = assert!(std::mem::size_of::<Message>() == MESSAGE);
@@ -122,7 +122,7 @@ impl Gui {
             std::ptr::write_bytes(out.pointer.as_ptr(), 0, BYTES);
         }
         out.write(0, b"LVBU");
-        out.write(4, &4u32.to_le_bytes());
+        out.write(4, &5u32.to_le_bytes());
         out.write(8, &(BYTES as u32).to_le_bytes());
         out.write(12, &(MESSAGE as u32).to_le_bytes());
         out.write(16, &session);
@@ -407,7 +407,7 @@ mod tests {
         close.abi_version = 2;
         assert_eq!(gui.send(&mut close), 4);
         assert_eq!(gui.word(120).load(Ordering::Acquire), 0);
-        close.abi_version = 3;
+        close.abi_version = 4;
         assert_eq!(gui.send(&mut close), 0);
         assert_eq!(gui.word(120).load(Ordering::Acquire), 2);
         assert_eq!(gui.word(256).load(Ordering::Acquire), 7);

@@ -149,7 +149,7 @@ class FaultStatus:
                 version,extent,message=struct.unpack_from('<III',self.gui,4)
                 # Exact retained AP14 and AP15 layouts. Header diagnostics have
                 # identical offsets; event payloads are never read by the owner.
-                layouts={3:(256+2*512*584,584),4:(320+2*512*608,608)}
+                layouts={3:(256+2*512*584,584),4:(320+2*512*608,608),5:(320+2*512*608,608)}
                 if self.gui[:4]!=b'LVBU' or layouts.get(version)!=(extent,message) or st.st_size!=extent or self.gui[16:32]!=bytes.fromhex(self.sid) or self.gui[32:36]!=struct.pack('<I',512):raise RuntimeError('fault GUI identity/version')
                 self.gui_address=ctypes.addressof(ctypes.c_char.from_buffer(self.gui))
             except Exception:

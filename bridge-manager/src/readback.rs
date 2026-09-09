@@ -165,9 +165,8 @@ impl Manager {
                 read_json::<Environment>(&r.environment.root.join("environment.json"))
                     .is_ok_and(|current| current == r.environment);
             let runner_valid = r.environment.runner.verify().is_ok();
-            let host_valid = self
-                .verify_served_host(r, installed_host, source, profiles)
-                .is_ok();
+            let host_result = self.verify_served_host(r, installed_host, source, profiles);
+            let host_valid = host_result.is_ok();
             let pending = self.publication_pending(key)?;
             let physical_valid = match e.publication {
                 Publication::Published => {
@@ -186,10 +185,10 @@ impl Manager {
                 Some("environment_mismatch".into())
             } else if !runner_valid {
                 Some("runner_mismatch".into())
-            } else if !host_valid {
-                Some("installed_host_mismatch".into())
             } else if !native_valid {
                 Some("native_artifact_mismatch".into())
+            } else if let Err(e) = host_result {
+                Some(e)
             } else if !physical_valid {
                 Some("foreign_or_missing_publication".into())
             } else if let Err(e) = &performance {

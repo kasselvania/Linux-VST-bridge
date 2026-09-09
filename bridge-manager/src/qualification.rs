@@ -134,6 +134,90 @@ fn package_files(p: &Profile) -> [(String, String); 3] {
     ]
 }
 impl Manager {
+    // Both normal and cross-version serving use this single retained-claim
+    // owner. A rollbackable historical record is not automatically serveable.
+    // The roster argument is supplied only by compiled product policy (or the
+    // deterministic private fixture); there is no CLI/profile input here.
+    pub(crate) fn verify_retained_authority(&self, r: &Revision, roster: &[Profile]) -> Result<()> {
+        let p = &r.profile;
+        require(
+            p.capabilities.state == State::ConcurrentReadOnlyCaptureV12
+                && p.requirements.host_sha256 == r.registration.host.sha256
+                && p.requirements.host_source_sha256 == r.registration.host_source_sha256,
+            "installed_host_mismatch",
+        )?;
+        if p.claim.permits(SelectionPurpose::Activation) {
+            return require(
+                r.qualification.is_none(),
+                "qualification_candidate_contract",
+            );
+        }
+        require(
+            p.claim == Claim::ReviewCandidate
+                && r.qualification == Some(Qualification::Ap15Editor)
+                && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
+            "qualification_candidate_contract",
+        )?;
+        require(!roster.is_empty(), "qualification_exact_candidate_required")?;
+        validate_set(roster)?;
+        require(
+            roster.iter().filter(|candidate| *candidate == p).count() == 1,
+            "qualification_exact_candidate_required",
+        )?;
+        let exact = load(self, p.clone())?;
+        require(
+            exact.host == r.registration.host
+                && exact.source_manifest.sha256 == r.registration.host_source_sha256
+                && exact.native.artifact.sha256 == r.registration.native.sha256
+                && r.external_ids == exact.native.external_ids,
+            "qualification_exact_candidate_required",
+        )?;
+        r.registration.verify(&self.root)?;
+        r.census.verify_current(
+            &self.root,
+            &exact.host,
+            &exact.source_manifest.sha256,
+            r.census.captured_at,
+        )?;
+        let mut derived = crate::observation::derive_for(
+            p,
+            &r.census,
+            &exact.native,
+            SelectionPurpose::Qualification,
+        )?;
+        derived.native.path = r.registration.native.path.clone();
+        require(
+            derived == r.registration && r.performance.added_frames == 512,
+            "qualification_exact_candidate_required",
+        )?;
+        let parent = r
+            .parent
+            .as_ref()
+            .ok_or("qualification_verified_parent_required")?;
+        let prior = self.load_revision(&r.class_id, parent)?;
+        let mut prior_db = self.registry()?;
+        let entry = prior_db
+            .classes
+            .get_mut(&r.class_id)
+            .ok_or("qualification_verified_parent_required")?;
+        require(
+            entry
+                .managed_revision
+                .as_ref()
+                .is_some_and(|reference| reference.id == r.id)
+                && entry.registration == r.registration
+                && entry.publication == Publication::Published
+                && crate::publication::physical(&self.link(&r.class_id))? == Some(r.target.clone())
+                && !self.publication_pending(&r.class_id)?,
+            "qualification_publication_changed",
+        )?;
+        // Reuse the publication parent contract, supplying the recorded parent
+        // instead of pretending the current physical pointer still names it.
+        entry.managed_revision = Some(parent.clone());
+        entry.registration = prior.registration.clone();
+        self.verify_qualification_parent_record(&prior_db, p, &r.registration, false)?;
+        Ok(())
+    }
     /// Read-only guard used by the existing supervised inspection admission.
     pub fn check_editor_qualification_parent(&self, p: &Profile, r: &Registration) -> Result<()> {
         let candidates = installed(self)?;
@@ -154,6 +238,15 @@ impl Manager {
         db: &Registry,
         p: &Profile,
         registration: &Registration,
+    ) -> Result<Revision> {
+        self.verify_qualification_parent_record(db, p, registration, true)
+    }
+    fn verify_qualification_parent_record(
+        &self,
+        db: &Registry,
+        p: &Profile,
+        registration: &Registration,
+        check_pointer: bool,
     ) -> Result<Revision> {
         p.validate()?;
         require(
@@ -198,8 +291,10 @@ impl Manager {
                 && r.compatibility == registration.compatibility
                 && e.registration == *r
                 && self.performance(&p.class.class_id)?.added_frames == 512
-                && crate::publication::physical(&self.link(&p.class.class_id))?
-                    == Some(prior.target.clone()),
+                && (!check_pointer
+                    || crate::publication::physical(&self.link(&p.class.class_id))?
+                        == Some(prior.target.clone()))
+                && prior.external_ids == external_ids(&p.class.class_id)?,
             "qualification_verified_parent_mismatch",
         )?;
         r.verify(&self.root)?;

@@ -26,6 +26,7 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
   uint64_t lastToken = 0;
   uint32 references = 1;
   bool acceptOpen = true;
+  unsigned refuseUnregister = 0, refuseRegister = 0, failures = 0, unregisterCalls = 0;
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
     if (!out)
       return kInvalidArgument;
@@ -54,11 +55,14 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
   }
   tresult PLUGIN_API registerTimer(Linux::ITimerHandler *t,
                                    Linux::TimerInterval) override {
+    if (refuseRegister) { --refuseRegister; return kResultFalse; }
     t->addRef();
     timers.push_back(t);
     return kResultOk;
   }
   tresult PLUGIN_API unregisterTimer(Linux::ITimerHandler *t) override {
+    ++unregisterCalls;
+    if (refuseUnregister) { --refuseUnregister; return kResultFalse; }
     auto i = std::find(timers.begin(), timers.end(), t);
     check(i != timers.end(), "registered panel timer");
     timers.erase(i);
@@ -72,12 +76,13 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
     lastActivation = context;
     return acceptOpen;
   }
-  void panelClose(uint64_t token) override { check(token == lastToken, "exact native view close"); ++closes; }
+  bool panelClose(uint64_t token) override { check(token == lastToken, "exact native view close"); ++closes; return true; }
+  void panelFailure(uint64_t token, uint32_t) override { check(token==lastToken,"failure owns exact native view"); ++failures; lifecycle=AP11::EditorFailed; }
   uint32_t panelState(uint64_t token) const override { return token == lastToken ? lifecycle : AP11::Absent; }
   void drain() {
     for (unsigned i = 0; i < 20; ++i) {
-      for (auto *t : timers)
-        t->onTimer();
+      const auto copy=timers;
+      for (auto *t : copy) { t->addRef(); t->onTimer(); t->release(); }
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
   }
@@ -131,9 +136,14 @@ int main() {
       ++closeMessages;
   }
   check(closeMessages == 1, "vendor close requests one normal host-owned shell retirement");
+  const auto unregisteredBefore=frame.unregisterCalls;
+  frame.refuseUnregister=1;
+  check(panel->removed()!=kResultOk && frame.timers.size()==1 && frame.closes==1,
+        "failed unregister keeps exact live registration and refuses removal completion");
   check(panel->removed() == kResultOk && panel->removed() == kResultOk && frame.timers.empty() &&
         frame.closes == 1, "native removal closes exact view once and cancels timer");
   check(XGetWindowAttributes(display, parent, &attributes), "host parent survives delegate retirement");
+  check(frame.unregisterCalls==unregisteredBefore+2,"one refusal and one accepted exact unregister");
   panel->setFrame(nullptr);
   panel->release();
   check(frame.references==1,"host frame and run loop return to baseline");
@@ -168,7 +178,51 @@ int main() {
   check(panel->attached(reinterpret_cast<void*>(parent),kPlatformTypeX11EmbedWindowID)!=kResultOk &&
         frame.timers.empty() && frame.references==1,"unavailable editor control refuses host attachment without blank shell");
   panel->release();
-  XDestroyWindow(display, parent);
+  frame.acceptOpen=true;frame.refuseRegister=1;controller=new Vst::EditController;
+  panel=new AP11::VendorPanel(controller,frame,26);controller->release();panel->setFrame(&frame);
+  const auto registrationOpens=frame.opens, unregisterBefore=frame.unregisterCalls;
+  check(panel->attached(reinterpret_cast<void*>(parent),kPlatformTypeX11EmbedWindowID)!=kResultOk &&
+        frame.opens==registrationOpens && frame.unregisterCalls==unregisterBefore && frame.timers.empty(),
+        "registration refusal never claims a timer or editor owner");panel->release();
+  // Releasing after a refused remove must detach the owner, not leave a
+  // dangling callback. The independent registration completes on the loop.
+  frame.acceptOpen=true;controller=new Vst::EditController;
+  panel=new AP11::VendorPanel(controller,frame,26);controller->release();panel->setFrame(&frame);
+  check(panel->attached(reinterpret_cast<void*>(parent),kPlatformTypeX11EmbedWindowID)==kResultOk,"abandon fixture attach");
+  frame.refuseUnregister=2;check(panel->removed()!=kResultOk,"abandon unregister refused");
+  panel->release();frame.drain();check(frame.timers.empty() && frame.references==1,"destructor leaves no dangling timer; detached receipt retires");
+  struct Fault final : AP11::ShellFaults {
+    AP11::ShellOperation operation=AP11::ShellOperation::SendClose;
+    AP11::ShellResult result=AP11::ShellResult::Transient;
+    unsigned remaining=1;
+    AP11::ShellResult before(AP11::ShellOperation op) override {
+      if(op==operation && remaining) { --remaining; return result; }
+      return AP11::ShellResult::Accepted;
+    }
+  } fault;
+  auto attach=[&](uint64_t token) {
+    controller=new Vst::EditController;panel=new AP11::VendorPanel(controller,frame,token,&fault);
+    controller->release();panel->setFrame(&frame);frame.lifecycle=AP11::Opening;
+    check(panel->attached(reinterpret_cast<void*>(parent),kPlatformTypeX11EmbedWindowID)==kResultOk,"fault fixture attach");
+  };
+  auto closeCount=[&] {unsigned n=0;while(XPending(display)){XEvent e{};XNextEvent(display,&e);if(e.type==ClientMessage)++n;}return n;};
+  closeCount();attach(27);frame.lifecycle=AP11::ClosedByVendor;frame.drain();XSync(display,False);
+  check(closeCount()==1,"transient close send refusal retries to one accepted WM_DELETE");panel->removed();panel->release();
+  fault.operation=AP11::ShellOperation::Unmap;fault.result=AP11::ShellResult::Rejected;fault.remaining=1;
+  attach(28);auto failBefore=frame.failures;XMapWindow(display,parent);XSync(display,False);frame.drain();
+  check(frame.failures==failBefore+1,"failed unmap reports editor failure instead of hidden-shell success");panel->removed();panel->release();closeCount();
+  fault.operation=AP11::ShellOperation::Flush;fault.result=AP11::ShellResult::ConnectionLost;fault.remaining=1;
+  attach(29);failBefore=frame.failures;frame.lifecycle=AP11::ClosedByVendor;frame.drain();XSync(display,False);
+  check(frame.failures==failBefore+1 && closeCount()<=1,"flush connection loss retires editor without duplicate sends");panel->removed();panel->release();
+  fault.operation=AP11::ShellOperation::SendClose;fault.result=AP11::ShellResult::ConnectionLost;fault.remaining=1;
+  attach(31);failBefore=frame.failures;frame.lifecycle=AP11::ClosedByVendor;frame.drain();XSync(display,False);
+  check(frame.failures==failBefore+1 && closeCount()==0 && panel->shellResult()==AP11::ShellResult::ConnectionLost,
+        "connection failure before host-close send cannot claim accepted retirement");panel->removed();panel->release();
+  fault.remaining=0;attach(30);failBefore=frame.failures;XDestroyWindow(display,parent);XSync(display,False);
+  frame.lifecycle=AP11::ClosedByVendor;frame.drain();
+  check(frame.failures==failBefore+1 && panel->shellResult()==AP11::ShellResult::ParentGone,
+        "parent disappearance has exact loss classification");panel->removed();panel->release();
+  check(frame.references==1 && frame.timers.empty(),"fault cycles restore all host references");
   XCloseDisplay(display);
   std::cout
       << "AP15 production X11 delegate ownership and retirement PASS\n";

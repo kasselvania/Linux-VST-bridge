@@ -379,7 +379,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   if(!std::strncmp(id,"AP11.",5)){
     int64 generation=0;if(message->getAttributes()->getInt("generation",generation)!=kResultOk||generation<=0||!handle_)return kResultFalse;
     if(!std::strcmp(id,"AP11.capabilities")){int64 caps=0;if(message->getAttributes()->getInt("caps",caps)!=kResultOk||caps<0||caps>7)return kResultFalse;if(ap11_gui_capabilities(handle_,uint64_t(generation),uint32_t(caps)))return kResultFalse;gui_consumer_=(caps&1)!=0;return kResultOk;}
-    if(!std::strcmp(id,"AP11.failure")){int64 code=0;if(message->getAttributes()->getInt("code",code)!=kResultOk||code<1||code>AP11::GenerationExhausted)return kResultFalse;ap11_gui_failure(handle_,uint64_t(generation),uint32_t(code));return kResultOk;}
+    if(!std::strcmp(id,"AP11.failure")){int64 code=0;if(message->getAttributes()->getInt("code",code)!=kResultOk||code<1||code>AP11::GenerationExhausted)return kResultFalse;return ap11_gui_failure(handle_,uint64_t(generation),uint32_t(code))==uint32_t(code)?kResultOk:kResultFalse;}
     if(!std::strcmp(id,"AP11.poll"))return guiPoll(uint64_t(generation),64);
     if(!std::strcmp(id,"AP11.command")){
       const void* bytes=nullptr;uint32 size=0;
@@ -391,6 +391,11 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
       // Other commands require the live return route before they are applied.
       if(!getPeer() && command.kind!=AP11::Close)return kResultFalse;
       command.result=ap11_gui_command(handle_,uint64_t(generation),&command);
+      // Lifecycle acceptance is the actual bounded mailbox result. A later
+      // notification allocation/refusal cannot turn an accepted Open/Close
+      // into an ambiguous send failure and cause duplicate ownership.
+      if(command.kind==AP11::Open || command.kind==AP11::Close || command.kind==AP11::Focus)
+        return command.result==0?kResultOk:kResultFalse;
       if(!getPeer())return command.result==0?kResultOk:kResultFalse;
       auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.result");m->getAttributes()->setInt("generation",generation);m->getAttributes()->setBinary("command",&command,sizeof(command));auto r=sendMessage(m);m->release();return r;
     }

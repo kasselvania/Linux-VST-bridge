@@ -121,6 +121,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
   }
 };
 struct Controller final : EditController {
+  IComponentHandler *retainedHandler() { componentHandler->addRef(); return componentHandler; }
   Stats stats;
   bool echo = true, no_view = false, invalid_readback=false;
   ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
@@ -180,7 +181,7 @@ struct Mapping {
     check(data, "native mapping");
     std::memset(data, 0, bytes);
     std::memcpy(data, "LVBU", 4);
-    put(4, 4, 4);
+    put(4, 5, 4);
     put(8, bytes, 4);
     put(12, sizeof(ap11_gui_message_t), 4);
     std::copy(id.begin(), id.end(), data + 16);
@@ -251,6 +252,13 @@ struct External final : ExternalProcessing {
   void done(const float *, const float *, uint64_t, uint64_t,
             const ap10_results_t *) override {}
 };
+unsigned destroyRefusals=0;
+HWND lastDestroyed=nullptr;
+BOOL WINAPI controlledDestroy(HWND window) {
+  if(destroyRefusals) { --destroyRefusals; SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+  lastDestroyed=window;
+  return DestroyWindow(window);
+}
 void lifecycle_faults() {
   HostApplication host;
   auto *c=new Controller;
@@ -322,6 +330,19 @@ void lifecycle_faults() {
     check(access.open(*c) && access.close_requested(),"close during attachment binds the opening epoch");
     check(access.close(),"deferred opening close retires positively");c->stats.close_during_attach=false;
     check(access.open(*c),"standalone owner can open shared mechanical view");
+    const auto retainedWindow=access.window(); const auto created=c->stats.created; const auto closesBefore=access.closes;
+    access.destruction(controlledDestroy);destroyRefusals=1;
+    check(!access.close() && access.window()==retainedWindow && IsWindow(retainedWindow) &&
+          GetWindowLongPtrW(retainedWindow,GWLP_USERDATA)!=0 && access.error()==AP11::Removal,
+          "failed DestroyWindow retains exact HWND and callback owner");
+    check(!access.open(*c) && c->stats.created==created && access.window()==retainedWindow,
+          "incomplete parent destruction refuses replacement editor");
+    check(access.close() && !access.window() && !access.window_lost() &&
+          lastDestroyed==retainedWindow && !IsWindow(retainedWindow) &&
+          GetWindowLongPtrW(retainedWindow,GWLP_USERDATA)==0 && access.closes==closesBefore+1 &&
+          access.addRef()==2 && access.release()==1,
+          "retry destroys exact HWND; intentional NCDESTROY is not WindowLost and clears userdata");
+    check(access.open(*c),"standalone owner remains reusable after completed destruction");
     SendMessageW(access.window(),WM_CLOSE,0,0);
     check(access.close_requested() && access.is_open(),"standalone user close remains deferred");
     check(access.close() && !access.is_open(),"standalone positive close receipt");
@@ -351,11 +372,11 @@ int main() {
   check(c->initialize(&host) == kResultOk, "controller initialize");
   Mapping native;
   GuiChannel channel(native.dir.wstring(), native.id);
-  EditorSession session(channel, *c);
   External external;
-  external.session = &session;
   VendorHandler handler;
   handler.external = &external;
+  EditorSession session(channel, *c, &handler);
+  external.session = &session;
   check(c->setComponentHandler(&handler) == kResultOk,
         "production SDK handler");
   check(c->stats.created == 0, "no editor on scan/restore");
@@ -530,6 +551,25 @@ int main() {
   // Restore an acknowledged even value rather than completing this fixture's
   // synthetic request, retaining the live view for the existing refusal test.
   native.word(120).store(native.word(128).load());
+  auto *oldHandler=c->retainedHandler();
+  FUnknownPtr<IComponentHandler2> oldGroup(oldHandler);
+  check(oldGroup->startGroupEdit()==kResultOk && oldHandler->beginEdit(42)==kResultOk,
+        "editor A accepts scoped activity before retirement");
+  auto queuedA=native.drain();
+  check(queuedA.size()==2 && queuedA[0].native_view==replacementOwner &&
+        queuedA[1].view_epoch==replacementEpoch,"editor-originated queued callbacks bind immutable native/epoch");
+  check(session.close(),"A retires before B opens");native.drain();
+  ++native.native_view;native.command(AP11::Open);session.service(true);native.drain();
+  const auto valuesBefore=session.values,gesturesBefore=session.gestures;
+  check(oldHandler->performEdit(42,.99)!=kResultOk && oldHandler->endEdit(42)!=kResultOk &&
+        oldGroup->finishGroupEdit()!=kResultOk && oldGroup->setDirty(true)!=kResultOk &&
+        oldHandler->restartComponent(kParamValuesChanged)!=kResultOk && native.drain().empty() &&
+        session.values==valuesBefore && session.gestures==gesturesBefore,
+        "retired A handler cannot emit or invalidate replacement B");
+  auto *newHandler=c->retainedHandler();
+  check(newHandler->beginEdit(42)==kResultOk && newHandler->performEdit(42,.5)==kResultOk &&
+        newHandler->endEdit(42)==kResultOk,"B handler remains independently usable");
+  newHandler->release();oldGroup=nullptr;oldHandler->release();native.drain();
   c->stats.refuse = true;
   check(!session.close() && session.is_open() &&
             IsWindow(session.view().window()),

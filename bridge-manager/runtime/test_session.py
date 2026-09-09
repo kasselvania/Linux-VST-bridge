@@ -178,7 +178,7 @@ class FaultStatusTests(unittest.TestCase):
             finally:observer.close()
 
     def test_gui_diagnostic_versions_are_exact_and_preserve_retained_layout(self):
-        for version,header,message in [(3,256,584),(4,320,608),(5,320,608),(4,256,584)]:
+        for version,header,message in [(3,256,584),(4,320,608),(5,320,608),(6,320,608),(4,256,584)]:
             with self.subTest(version=version,header=header), tempfile.TemporaryDirectory() as tmp:
                 root=pathlib.Path(tmp);sid='34'*16
                 data=bytearray(1024);data[:32]=b'LVFS'+session.struct.pack('<III',1,1024,0)+bytes.fromhex(sid)
@@ -189,7 +189,7 @@ class FaultStatusTests(unittest.TestCase):
                 (root/'ap11.ui').write_bytes(gui);(root/'ap11.ui').chmod(0o600)
                 observer=session.FaultStatus(root,sid)
                 try:
-                    if (version,header) in [(3,256),(4,320)]:
+                    if (version,header) in [(3,256),(4,320),(5,320)]:
                         self.assertEqual(observer.snapshot()['editor']['open'],1)
                     else:
                         with self.assertRaisesRegex(RuntimeError,'GUI identity/version'):observer.snapshot()

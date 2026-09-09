@@ -252,7 +252,7 @@ bool MappedSession::performance() const{return impl_->performance;}
 void MappedSession::bind_processor(Steinberg::Vst::IAudioProcessor* p){impl_->processor=p;}
 double MappedSession::sample_rate() const{return impl_->rate;}
 bool MappedSession::commercial() const{return impl_->commercial;}
-void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool separate){
+void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool separate,Steinberg::Vst::IComponentHandler* handler){
  auto&x=*impl_;
  FaultStatus::Scope activity(x.fault.get(),2,24,c?1:2);
  if(!c&&x.editor){
@@ -265,7 +265,7 @@ void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool sepa
  if(c){auto n=c->getParameterCount();require(n>=0&&n<=8192,"controller update parameter bound");std::vector<uint32_t> ids;
   for(int i=0;i<n;++i){Steinberg::Vst::ParameterInfo info{};require(c->getParameterInfo(i,info)==Steinberg::kResultOk,"controller update metadata");ids.push_back(info.id);}
   require(x.controller_updates.configure(ids),"duplicate controller parameter identity");
-  if(x.gui){x.editor=std::make_unique<EditorSession>(*x.gui,*c);x.editor->fault_status(x.fault.get());x.editor->name(x.editor_title);}}
+  if(x.gui){x.editor=std::make_unique<EditorSession>(*x.gui,*c,handler);x.editor->fault_status(x.fault.get());x.editor->name(x.editor_title);}}
 }
 bool MappedSession::hosted() const{return impl_->hosted;}
 bool MappedSession::sustained() const{return impl_->sustained;}

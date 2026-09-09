@@ -1,22 +1,33 @@
 #pragma once
 #include "fault_status.h"
 #include "vendor_view.h"
+#include "vendor_handler.h"
 #include <chrono>
 #include <vector>
 namespace linux_vst_bridge::wf0 {
-class EditorSession {
+class EditorSession : public VendorEditSink {
   using Clock = std::chrono::steady_clock;
   using Controller = Steinberg::Vst::IEditController;
   struct Parameter {
     uint32_t id;
     uint64_t accepted = 0;
     bool editing = false;
+    uint64_t native = 0;
+    uint32_t epoch = 0;
   };
   GuiChannel &channel_;
   Controller &controller_;
   std::vector<Parameter> parameters_;
   std::thread::id owner_ = std::this_thread::get_id();
   VendorView view_;
+  Steinberg::IPtr<Steinberg::Vst::IComponentHandler> instance_handler_;
+  VendorHandler *editor_handler_ = nullptr;
+  uint64_t callback_native_ = 0, group_native_ = 0;
+  uint32_t callback_epoch_ = 0, group_epoch_ = 0;
+  bool callback_owner(uint64_t native, uint32_t epoch) const {
+    return editor_handler_ && native == last_open_.native_view && epoch == view_.pending_epoch() &&
+      lifecycle_ < AP11::ClosedByVendor;
+  }
   FaultStatus* fault_=nullptr;
   Clock::time_point serviced_{};
   uint64_t floor_ = 0, close_cutoff_ = 0, refresh_revision_ = 0;
@@ -46,13 +57,14 @@ class EditorSession {
     m.value = value;
     m.revision = revision;
     m.flags = flags;
+    if (AP11::editorCallback(kind)) { m.native_view = callback_native_; m.view_epoch = callback_epoch_; }
     return channel_.send(m);
   }
   void status() {
     ap11_gui_message_t m{};
     m.kind = AP11::EditorStatus;
     m.count = view_.is_open() ? 1 : 0;
-    m.result = view_.error();
+    m.result = view_.error() ? view_.error() : lifecycle_ == AP11::EditorFailed ? channel_.failure() : 0;
     m.native_view = last_open_.native_view;
     m.lifecycle = lifecycle_;
     m.activation = last_open_.activation;
@@ -127,8 +139,8 @@ class EditorSession {
 public:
   uint64_t gestures = 0, values = 0, ends = 0, host_updates = 0,
            stale_updates = 0, suppressed_echoes = 0;
-  EditorSession(GuiChannel &channel, Controller &controller)
-      : channel_(channel), controller_(controller) {
+  EditorSession(GuiChannel &channel, Controller &controller, Steinberg::Vst::IComponentHandler *handler = nullptr)
+      : channel_(channel), controller_(controller), instance_handler_(handler) {
     auto n = controller.getParameterCount();
     ap1::require(n >= 0 && n <= 8192, "GUI parameter bound");
     parameters_.reserve(size_t(n));
@@ -154,6 +166,21 @@ public:
       static_cast<GuiChannel *>(p)->view_fault(e);
     });
     channel_.ready();
+  }
+  ~EditorSession() { if (!close()) std::terminate(); }
+  Steinberg::tresult scoped_edit(uint64_t native, uint32_t epoch, uint32_t kind, uint32_t id, double value) override {
+    if (owner_ != std::this_thread::get_id() || !callback_owner(native, epoch)) return Steinberg::kNotImplemented;
+    const auto prior_native = callback_native_; const auto prior_epoch = callback_epoch_;
+    callback_native_ = native; callback_epoch_ = epoch;
+    const auto result = edit(kind, id, value);
+    callback_native_ = prior_native; callback_epoch_ = prior_epoch;
+    return result;
+  }
+  Steinberg::tresult scoped_restart(uint64_t native, uint32_t epoch, int32_t flags) override {
+    if (owner_ != std::this_thread::get_id() || !callback_owner(native, epoch)) return Steinberg::kNotImplemented;
+    // A current editor may invalidate the instance, including latency/buses.
+    // Preserve the existing instance handler's full policy; only origin is gated.
+    return instance_handler_ ? instance_handler_->restartComponent(flags) : restart(flags);
   }
   void fault_status(FaultStatus* f) { fault_=f; }
   void name(const std::wstring &name) { name_ = name; }
@@ -205,12 +232,12 @@ public:
         return kResultFalse;
       if (!emit(kind, id))
         return kResultFalse;
-      p->editing = true;
+      p->editing = true; p->native = callback_native_; p->epoch = callback_epoch_;
       ++gestures;
       return kResultOk;
     }
     if (kind == AP11::Value) {
-      if (!p || !p->editing || !std::isfinite(value) || value < 0 || value > 1)
+      if (!p || !p->editing || p->native != callback_native_ || p->epoch != callback_epoch_ || !std::isfinite(value) || value < 0 || value > 1)
         return kResultFalse;
       auto revision = channel_.revision();
       if (!revision || !emit(kind, id, value, revision))
@@ -220,7 +247,7 @@ public:
       return kResultOk;
     }
     if (kind == AP11::End) {
-      if (!p || !p->editing)
+      if (!p || !p->editing || p->native != callback_native_ || p->epoch != callback_epoch_)
         return kResultFalse;
       if (!emit(kind, id))
         return kResultFalse;
@@ -233,11 +260,11 @@ public:
     if (kind == AP11::GroupBegin) {
       if (group_ || !emit(kind))
         return kResultFalse;
-      group_ = true;
+      group_ = true; group_native_ = callback_native_; group_epoch_ = callback_epoch_;
       return kResultOk;
     }
     if (kind == AP11::GroupEnd) {
-      if (!group_ || !emit(kind))
+      if (!group_ || group_native_ != callback_native_ || group_epoch_ != callback_epoch_ || !emit(kind))
         return kResultFalse;
       group_ = false;
       return kResultOk;
@@ -285,13 +312,23 @@ public:
     }
     for (auto &p : parameters_)
       if (p.editing) {
+        callback_native_ = p.native; callback_epoch_ = p.epoch;
         emit(AP11::End, p.id);
         p.editing = false;
         ++ends;
       }
     if (group_) {
+      callback_native_ = group_native_; callback_epoch_ = group_epoch_;
       emit(AP11::GroupEnd);
       group_ = false;
+    }
+    callback_native_ = 0; callback_epoch_ = 0;
+    if (editor_handler_) {
+      editor_handler_->retire(); // cached old handler references become inert
+      if (controller_.setComponentHandler(instance_handler_) != Steinberg::kResultOk) {
+        lifecycle_ = AP11::EditorFailed; return false;
+      }
+      editor_handler_->release(); editor_handler_ = nullptr;
     }
     lifecycle_ = reason;
     retired_native_view_ = std::max(retired_native_view_, last_open_.native_view);
@@ -355,7 +392,7 @@ public:
             (m.native_view == last_open_.native_view &&
              m.activation <= last_open_.activation))
           continue;
-        if (view_.is_open() && m.native_view != last_open_.native_view) {
+        if ((view_.window() || editor_handler_) && m.native_view != last_open_.native_view) {
           // Replacement requires positive retirement of the existing owner.
           auto refused = m;
           refused.kind = AP11::EditorStatus;
@@ -376,9 +413,18 @@ public:
           break;
         }
         ++view_.focus_requests;
-        if (!view_.open(controller_)) {
-          lifecycle_ = view_.is_open() ? AP11::EditorFailed : AP11::OpenRefused;
+        bool handler_ready = true;
+        if (!editor_handler_) {
+          if (view_.opens == UINT32_MAX) { channel_.fail(AP11::GenerationExhausted); break; }
+          editor_handler_ = new VendorHandler(*this, m.native_view, uint32_t(view_.opens + 1));
+          handler_ready = controller_.setComponentHandler(editor_handler_) == Steinberg::kResultOk;
+        }
+        if (!handler_ready || !view_.open(controller_)) {
+          if (!handler_ready) channel_.fail(AP11::Controller);
+          lifecycle_ = !handler_ready || view_.is_open() ? AP11::EditorFailed : AP11::OpenRefused;
           focus_result_ = AP11::FocusNotRequested;
+          const auto reason = lifecycle_;
+          if (!close(reason)) channel_.fail(AP11::Removal);
           retired_native_view_ = std::max(retired_native_view_, m.native_view);
         } else {
           lifecycle_ = AP11::AwaitingFocus;
@@ -429,7 +475,7 @@ public:
       lifecycle_ = focus_result_ == AP11::FocusConfirmed ? AP11::Focused : AP11::FocusRefused;
       status();
     }
-    if (view_.close_requested() || (view_.window() && view_.window_lost()) || was_open_ != view_.is_open()) {
+    if (view_.close_requested() || (view_.window_lost() && lifecycle_ != AP11::EditorFailed) || was_open_ != view_.is_open()) {
       const auto reason = view_.window_lost() ? AP11::EditorFailed : AP11::ClosedByVendor;
       if (!close(reason))
         channel_.fail(AP11::Removal);

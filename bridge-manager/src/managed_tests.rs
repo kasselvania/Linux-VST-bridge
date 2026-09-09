@@ -16,15 +16,9 @@ fn reason<T>(r: Result<T>, expected: &str) {
 #[test]
 fn explicit_host_update_preserves_exact_prior_host_for_rollback_only() {
     let (f, mut p, c, n) = prepared();
-    p.revision = 2;
-    p.claim = Claim::ReviewCandidate;
+    p.revision = 3;
     let key = f.r.key();
-    let first = retained_candidate_fixture(
-        &f.m,
-        &p,
-        &c,
-        derive_for(&p, &c, &n, SelectionPurpose::Qualification).unwrap(),
-    );
+    let first = publish(&f, &p, &c, &n, None).unwrap();
     let prior = f.m.load_revision(&key, &first).unwrap();
     let mut next = c.clone();
     let dir = f.m.root.join("software/host-update");
@@ -99,10 +93,10 @@ fn explicit_host_update_preserves_exact_prior_host_for_rollback_only() {
         b"changed source",
     )
     .unwrap();
-    assert!(f
-        .m
-        .verify_served_host(&restored, &next.host, &next.host_source_sha256, permitted)
-        .is_err());
+    assert!(
+        f.m.verify_served_host(&restored, &next.host, &next.host_source_sha256, permitted)
+            .is_err()
+    );
     // No retained revision means no cross-version host admission.
     let raw = Fixture::new();
     raw.m.register(raw.r.clone()).unwrap();
@@ -223,9 +217,10 @@ fn exact_matching_refuses_ambiguity_and_incompatible_observations() {
     assert_eq!(r.native, n.artifact);
     assert!(r.compatibility.disable_windows_accessibility);
     fs::write(&c.module.path, b"changed").unwrap();
-    assert!(c
-        .verify_current(&f.m.root, &c.host, &c.host_source_sha256, now().unwrap())
-        .is_err());
+    assert!(
+        c.verify_current(&f.m.root, &c.host, &c.host_source_sha256, now().unwrap())
+            .is_err()
+    );
 }
 #[test]
 fn publication_is_idempotent_and_exact_rollback_keeps_external_identity() {
@@ -792,13 +787,15 @@ fn exact_retained_candidate_and_legacy_rollback_survive_verified_transition() {
     );
     f.m.rollback(&f.r.key(), &two.id, None).unwrap();
     let restored = f.m.resolve(&f.identity()).unwrap();
-    f.m.verify_served_host(
-        &restored,
-        &c.host,
-        &c.host_source_sha256,
-        std::slice::from_ref(&verified),
-    )
-    .unwrap();
+    reason(
+        f.m.verify_served_host(
+            &restored,
+            &c.host,
+            &c.host_source_sha256,
+            std::slice::from_ref(&verified),
+        ),
+        "qualification_candidate_contract",
+    ); // retained rollback is not serving authority
     assert_eq!(fs::read_link(f.m.link(&f.r.key())).unwrap(), old.target);
     assert_eq!(snapshot(old.target.parent().unwrap()), old_bytes);
     f.m.rollback(&f.r.key(), &legacy.id, None).unwrap();
@@ -905,6 +902,19 @@ fn editor_candidate(
     p.requirements.host_source_sha256 = c.host_source_sha256.clone();
     p.requirements.native_sha256 = n.artifact.sha256.clone();
     p.requirements.native_source_commit = n.source_commit.clone();
+    let sealed =
+        f.m.root
+            .join("software/ap15-qualification")
+            .join(p.fingerprint().unwrap());
+    private_dir(&sealed).unwrap();
+    for name in ["host.exe", "host-source-manifest.json", "native.so"] {
+        fs::copy(dir.join(name), sealed.join(name)).unwrap();
+        fs::set_permissions(sealed.join(name), fs::Permissions::from_mode(0o400)).unwrap();
+    }
+    c.host.path = sealed.join("host.exe");
+    n.artifact.path = sealed.join("native.so");
+    atomic_json(&c.report.path, &inspection_report(&c)).unwrap();
+    c.report.sha256 = digest(&c.report.path).unwrap();
     (p, c, n)
 }
 fn qualify(
@@ -967,10 +977,12 @@ fn qualification_is_visible_bounded_inactive_and_preserves_ordinary_authority() 
     let key = p.class.class_id.clone();
     let prior = f.m.load_revision(&key, &parent).unwrap();
     // AP14 records encode byte-identically: absent AP15 field is not serialized.
-    assert!(serde_json::to_value(&prior)
-        .unwrap()
-        .get("qualification")
-        .is_none());
+    assert!(
+        serde_json::to_value(&prior)
+            .unwrap()
+            .get("qualification")
+            .is_none()
+    );
     let (candidate, census, native) = editor_candidate(&f, &p, &c, &n);
     let before = snapshot(&f.outer);
     reason(
@@ -1013,22 +1025,26 @@ fn qualification_is_visible_bounded_inactive_and_preserves_ordinary_authority() 
     assert_eq!(r.qualification, Some(Qualification::Ap15Editor));
     assert_eq!(r.parent, Some(parent.clone()));
     assert_eq!(r.external_ids, prior.external_ids);
-    f.m.verify_served_host(
-        &r.registration,
-        &c.host,
-        &c.host_source_sha256,
-        std::slice::from_ref(&p),
-    )
-    .unwrap();
-    assert!(f
-        .m
-        .verify_served_host(
+    f.m.verify_retained_authority(&r, std::slice::from_ref(&candidate))
+        .unwrap();
+    reason(
+        f.m.verify_served_host(
+            &r.registration,
+            &c.host,
+            &c.host_source_sha256,
+            std::slice::from_ref(&p),
+        ),
+        "qualification_exact_candidate_required",
+    );
+    assert!(
+        f.m.verify_served_host(
             &r.registration,
             &c.host,
             &c.host_source_sha256,
             std::slice::from_ref(&candidate)
         )
-        .is_err());
+        .is_err()
+    );
     let status =
         f.m.managed_status_for_policy(&c.host, &c.host_source_sha256, std::slice::from_ref(&p))
             .unwrap();
@@ -1043,7 +1059,7 @@ fn qualification_is_visible_bounded_inactive_and_preserves_ordinary_authority() 
             .unwrap()
             .activation_permitted
     );
-    assert!(status.products[0].installed_host_valid);
+    assert!(!status.products[0].installed_host_valid); // compiled candidate roster is absent
     let active = lease(&f, &key, false);
     reason(f.m.reconcile(), "active_device_lease");
     assert_eq!(fs::read_link(f.m.link(&key)).unwrap(), r.target);
@@ -1107,4 +1123,62 @@ fn ap15_capability_is_closed_and_verified_revision_three_bytes_are_immutable() {
         value["capabilities"]["editor"] = serde_json::json!("arbitrary_editor_hook");
         assert!(Profile::parse(&serde_json::to_vec(&value).unwrap()).is_err());
     }
+}
+
+#[test]
+fn retained_candidate_serving_requires_exact_qualification_marker_and_parent() {
+    let (f, mut p, c, n) = prepared();
+    p.revision = 3;
+    let parent = publish(&f, &p, &c, &n, None).unwrap();
+    let (candidate, census, native) = editor_candidate(&f, &p, &c, &n);
+    let selected = qualify(&f, &candidate, &census, &native, None).unwrap();
+    let r = f.m.load_revision(&p.class.class_id, &selected).unwrap();
+    let roster = std::slice::from_ref(&candidate);
+    f.m.verify_retained_authority(&r, roster).unwrap();
+    let mut bad = r.clone();
+    bad.qualification = None;
+    reason(
+        f.m.verify_retained_authority(&bad, roster),
+        "qualification_candidate_contract",
+    );
+    // No second/unknown marker can even enter the typed retained record.
+    let mut json = serde_json::to_value(&r).unwrap();
+    json["qualification"] = serde_json::json!("another_qualification");
+    assert!(serde_json::from_value::<Revision>(json).is_err());
+    bad = r.clone();
+    bad.profile.capabilities.editor = Editor::DetachedOwnerThreadWithNativePanel;
+    reason(
+        f.m.verify_retained_authority(&bad, roster),
+        "qualification_candidate_contract",
+    );
+    bad = r.clone();
+    bad.parent = None;
+    reason(
+        f.m.verify_retained_authority(&bad, roster),
+        "qualification_verified_parent_required",
+    );
+    bad = r.clone();
+    bad.parent = Some(selected.clone());
+    assert!(f.m.verify_retained_authority(&bad, roster).is_err());
+    bad = r.clone();
+    bad.external_ids.swap(0, 1);
+    reason(
+        f.m.verify_retained_authority(&bad, roster),
+        "qualification_exact_candidate_required",
+    );
+    bad = r.clone();
+    bad.profile.claim = Claim::Withdrawn;
+    reason(
+        f.m.verify_retained_authority(&bad, roster),
+        "qualification_candidate_contract",
+    );
+    reason(
+        f.m.verify_retained_authority(&r, &[]),
+        "qualification_exact_candidate_required",
+    );
+    assert!(qualification::candidates().is_err());
+    f.m.rollback(&p.class.class_id, &parent.id, None).unwrap();
+    let restored = f.m.load_revision(&p.class.class_id, &parent).unwrap();
+    f.m.verify_served_host(&restored.registration, &c.host, &c.host_source_sha256, &[p])
+        .unwrap();
 }

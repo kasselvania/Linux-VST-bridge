@@ -1,5 +1,6 @@
 #pragma once
 #include "ap11_gui.h"
+#include "ui_timer.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "public.sdk/source/common/pluginview.h"
 #include <xcb/xcb.h>
@@ -10,7 +11,8 @@ namespace AP11 {
 struct PanelOwner {
   virtual void panelLoop(Steinberg::Linux::IRunLoop *) = 0;
   virtual bool panelOpen(uint64_t, ActivationContext = {}) = 0;
-  virtual void panelClose(uint64_t) = 0;
+  virtual bool panelClose(uint64_t) = 0;
+  virtual void panelFailure(uint64_t, uint32_t) = 0;
   virtual uint32_t panelState(uint64_t) const = 0;
   virtual ~PanelOwner() = default;
 };
@@ -19,8 +21,13 @@ struct PanelOwner {
 // host retirement; this code never destroys the host-owned parent. Only a
 // supplied parent advertising that protocol is admitted by this bounded
 // detached-shell adapter. Actual Bitwig acceptance is required separately.
-class VendorPanel final : public Steinberg::CPluginView,
-                          public Steinberg::Linux::ITimerHandler {
+enum class ShellOperation { SendClose, Unmap, Flush };
+enum class ShellResult { Accepted, Transient, ParentGone, ConnectionLost, Rejected };
+struct ShellFaults {
+  virtual ShellResult before(ShellOperation) { return ShellResult::Accepted; }
+  virtual ~ShellFaults() = default;
+};
+class VendorPanel final : public Steinberg::CPluginView {
   Steinberg::IPtr<Steinberg::Vst::IEditController> controller_;
   PanelOwner &owner_;
   const uint64_t token_;
@@ -29,7 +36,29 @@ class VendorPanel final : public Steinberg::CPluginView,
   xcb_connection_t *connection_ = nullptr;
   xcb_window_t parent_ = 0, root_ = 0;
   xcb_atom_t protocols_ = 0, delete_ = 0, active_ = 0, time_ = 0;
-  bool registered_ = false, opened_ = false, close_requested_ = false;
+  AP15::UiTimer *timer_ = nullptr;
+  ShellFaults *faults_;
+  ShellResult shell_result_ = ShellResult::Accepted;
+  bool opened_ = false, close_requested_ = false, removing_ = false, failed_ = false;
+  bool needs_unmap_ = false, parent_gone_ = false;
+  unsigned close_attempts_ = 0, unmap_attempts_ = 0, close_wait_ = 0;
+  ShellResult before(ShellOperation op) {
+    if (xcb_connection_has_error(connection_)) return ShellResult::ConnectionLost;
+    return faults_ ? faults_->before(op) : ShellResult::Accepted;
+  }
+  ShellResult flush() {
+    const auto result = before(ShellOperation::Flush);
+    return result != ShellResult::Accepted ? result :
+      xcb_flush(connection_) > 0 ? ShellResult::Accepted : ShellResult::ConnectionLost;
+  }
+  void failure(ShellResult result) {
+    shell_result_ = result;
+    parent_gone_ |= result == ShellResult::ParentGone;
+    if (!failed_) {
+      failed_ = true;
+      owner_.panelFailure(token_, parent_gone_ ? WindowLost : Host);
+    }
+  }
   xcb_atom_t atom(const char *name) {
     auto *reply = xcb_intern_atom_reply(connection_, xcb_intern_atom(connection_, false,
                                      uint16_t(std::strlen(name)), name), nullptr);
@@ -37,12 +66,15 @@ class VendorPanel final : public Steinberg::CPluginView,
     std::free(reply);
     return result;
   }
-  bool checked(xcb_void_cookie_t cookie) {
+  ShellResult checkedResult(xcb_void_cookie_t cookie) {
     auto *error = xcb_request_check(connection_, cookie);
-    bool ok = !error && !xcb_connection_has_error(connection_);
+    auto ok = xcb_connection_has_error(connection_) ? ShellResult::ConnectionLost :
+      !error ? ShellResult::Accepted : error->error_code == XCB_WINDOW ?
+      ShellResult::ParentGone : error->error_code == XCB_ALLOC ? ShellResult::Transient : ShellResult::Rejected;
     std::free(error);
     return ok;
   }
+  bool checked(xcb_void_cookie_t cookie) { return checkedResult(cookie) == ShellResult::Accepted; }
   uint32_t property(xcb_window_t window, xcb_atom_t name, xcb_atom_t type) {
     xcb_generic_error_t *error = nullptr;
     auto *reply = xcb_get_property_reply(connection_,
@@ -60,37 +92,45 @@ class VendorPanel final : public Steinberg::CPluginView,
     return {time, active};
   }
   void closeHost() {
-    if (!parent_ || close_requested_) return;
-    close_requested_ = true;
-    xcb_client_message_event_t event{};
-    event.response_type = XCB_CLIENT_MESSAGE;
-    event.format = 32;
-    event.window = parent_;
-    event.type = protocols_;
-    event.data.data32[0] = delete_;
-    event.data.data32[1] = XCB_CURRENT_TIME;
-    checked(xcb_send_event_checked(connection_, false, parent_, XCB_EVENT_MASK_NO_EVENT,
-                                  reinterpret_cast<const char *>(&event)));
-    xcb_flush(connection_);
+    if (!parent_ || parent_gone_ || close_requested_ || close_attempts_ >= 3 ||
+        shell_result_ == ShellResult::ConnectionLost || shell_result_ == ShellResult::Rejected) return;
+    ++close_attempts_;
+    auto result = before(ShellOperation::SendClose);
+    if (result == ShellResult::Accepted) {
+      xcb_client_message_event_t event{};
+      event.response_type = XCB_CLIENT_MESSAGE; event.format = 32;
+      event.window = parent_; event.type = protocols_;
+      event.data.data32[0] = delete_; event.data.data32[1] = XCB_CURRENT_TIME;
+      result = checkedResult(xcb_send_event_checked(connection_, false, parent_,
+          XCB_EVENT_MASK_NO_EVENT, reinterpret_cast<const char *>(&event)));
+      if (result == ShellResult::Accepted) {
+        // A checked send is accepted by the server, not acknowledged by the
+        // host application. Never resend it after an ambiguous flush failure.
+        result = flush();
+        if (result != ShellResult::Accepted) {
+          close_attempts_ = 3; failure(ShellResult::ConnectionLost); return;
+        }
+        close_requested_ = true;
+      }
+    }
+    shell_result_ = result;
+    if (result != ShellResult::Accepted && (result != ShellResult::Transient || close_attempts_ == 3))
+      failure(result);
   }
+
 public:
-  VendorPanel(Steinberg::Vst::IEditController *controller, PanelOwner &owner, uint64_t token)
-      : controller_(controller), owner_(owner), token_(token) {
+  VendorPanel(Steinberg::Vst::IEditController *controller, PanelOwner &owner, uint64_t token, ShellFaults *faults = nullptr)
+      : controller_(controller), owner_(owner), token_(token), faults_(faults) {
     // Nonzero SDK geometry is retained. No child, painting, button, input
     // selection or bridge-control surface is created by the delegate.
     setRect({0, 0, 1, 1});
   }
-  ~VendorPanel() override { removed(); }
-  Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID id, void **out) override {
-    if (!out) return Steinberg::kInvalidArgument;
-    if (Steinberg::FUnknownPrivate::iidEqual(id, Steinberg::Linux::ITimerHandler::iid)) {
-      *out = static_cast<Steinberg::Linux::ITimerHandler *>(this);
-      addRef(); return Steinberg::kResultOk;
-    }
-    return CPluginView::queryInterface(id, out);
+  ~VendorPanel() override {
+    removed();
+    if (timer_) { timer_->detach(); timer_->release(); timer_ = nullptr; }
+    if (connection_) xcb_disconnect(connection_);
   }
-  Steinberg::uint32 PLUGIN_API addRef() override { return CPluginView::addRef(); }
-  Steinberg::uint32 PLUGIN_API release() override { return CPluginView::release(); }
+  ShellResult shellResult() const { return shell_result_; }
   Steinberg::tresult PLUGIN_API setFrame(Steinberg::IPlugFrame *frame) override {
     return thread_ == std::this_thread::get_id() ? CPluginView::setFrame(frame) : Steinberg::kResultFalse;
   }
@@ -138,10 +178,14 @@ public:
     std::free(protocols); std::free(error);
     const uint32_t mask = XCB_EVENT_MASK_STRUCTURE_NOTIFY;
     if (!accepted || !checked(xcb_change_window_attributes_checked(connection_, parent_,
-                  XCB_CW_EVENT_MASK, &mask)) || loop_->registerTimer(this, 10) != kResultOk) {
+                  XCB_CW_EVENT_MASK, &mask)) ) {
       removed(); return kResultFalse;
     }
-    registered_ = true;
+    timer_ = new AP15::UiTimer(loop_, this, [](void *p) { static_cast<VendorPanel *>(p)->onTimer(); });
+    if (!timer_->start()) { removed(); return kResultFalse; }
+    removing_ = close_requested_ = failed_ = parent_gone_ = false;
+    close_attempts_ = unmap_attempts_ = close_wait_ = 0;
+    shell_result_ = ShellResult::Accepted;
     systemWindow = parent;
     owner_.panelLoop(loop_);
     const auto context = activation();
@@ -157,8 +201,15 @@ public:
   }
   Steinberg::tresult PLUGIN_API removed() override {
     if (thread_ != std::this_thread::get_id()) return Steinberg::kResultFalse;
-    if (registered_) { registered_ = false; loop_->unregisterTimer(this); }
-    if (opened_) { opened_ = false; owner_.panelClose(token_); }
+    removing_ = true;
+    if (opened_) {
+      if (!owner_.panelClose(token_)) return Steinberg::kResultFalse;
+      opened_ = false;
+    }
+    if (timer_) {
+      if (!timer_->stop()) return Steinberg::kResultFalse;
+      timer_->release(); timer_ = nullptr;
+    }
     if (connection_) { xcb_disconnect(connection_); connection_ = nullptr; }
     parent_ = 0;
     loop_ = nullptr;
@@ -166,20 +217,36 @@ public:
     plugFrame = nullptr;
     return Steinberg::kResultOk;
   }
-  void PLUGIN_API onTimer() override {
-    if (!connection_ || thread_ != std::this_thread::get_id()) return;
+  void onTimer() {
+    if (thread_ != std::this_thread::get_id()) return;
+    if (removing_) { removed(); return; }
+    if (!connection_) return;
+    if (xcb_connection_has_error(connection_)) failure(ShellResult::ConnectionLost);
     for (unsigned i = 0; i < 32; ++i) {
       auto *event = xcb_poll_for_event(connection_);
       if (!event) break;
-      if ((event->response_type & 127) == XCB_MAP_NOTIFY &&
-          reinterpret_cast<xcb_map_notify_event_t *>(event)->window == parent_)
-        checked(xcb_unmap_window_checked(connection_, parent_));
+      const auto type = event->response_type & 127;
+      if (type == XCB_MAP_NOTIFY && reinterpret_cast<xcb_map_notify_event_t *>(event)->window == parent_)
+        needs_unmap_ = true;
+      if (type == XCB_DESTROY_NOTIFY && reinterpret_cast<xcb_destroy_notify_event_t *>(event)->window == parent_)
+        failure(ShellResult::ParentGone);
       std::free(event);
     }
+    if (needs_unmap_ && !parent_gone_ && unmap_attempts_ < 3) {
+      ++unmap_attempts_;
+      auto result = before(ShellOperation::Unmap);
+      if (result == ShellResult::Accepted) result = checkedResult(xcb_unmap_window_checked(connection_, parent_));
+      if (result == ShellResult::Accepted) result = flush();
+      shell_result_ = result;
+      if (result == ShellResult::Accepted) { needs_unmap_ = false; unmap_attempts_ = 0; }
+      else if (result != ShellResult::Transient || unmap_attempts_ == 3) failure(result);
+    }
     const auto state = owner_.panelState(token_);
-    if (state == ClosedByVendor || state == OpenRefused || state == EditorFailed)
-      closeHost();
-    xcb_flush(connection_);
+    if (failed_ || state == ClosedByVendor || state == OpenRefused || state == EditorFailed) closeHost();
+    // XCB cannot acknowledge host action. One accepted request is never
+    // repeated; an unretired shell after 100 UI ticks is a truthful refusal.
+    if (close_requested_ && close_wait_ < 100 && ++close_wait_ == 100) failure(ShellResult::Rejected);
+    if (flush() != ShellResult::Accepted) failure(ShellResult::ConnectionLost);
   }
 };
 } // namespace AP11
