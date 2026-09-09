@@ -1,0 +1,1298 @@
+{
+  "schema": 1,
+  "claim": "Allowlisted numeric timing, state hashes and lifecycle records; commercial audio is not an exact waveform oracle.",
+  "sessions": [
+    {
+      "session": "130c039299325800732b3d00e7d1c714",
+      "native_source_sha256": "dc8eee206ebc56ab17a99902e862ed1a32ead6c6bfb37d0d2e44eb2f0dc93730",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 196838,
+          "sha256": "152d01698b37afe8b4a8051d5df6dc34d5d4d3232f90220f7cd352d79a235208",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "c4bc91fb660d400d844a7d7d37087da2da0f5cd278862ae7ae75cabcb6ea10e7",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 55790,
+          "request_high": 6,
+          "result_high": 7,
+          "position": 14282240,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 28564480,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 28564480,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 42426,
+          "mean_ns": 744923,
+          "p50_upper_ns": 704000,
+          "p95_upper_ns": 2304000,
+          "p99_upper_ns": 2816000,
+          "max_ns": 31332754
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 42426,
+          "mean_ns": 10124,
+          "p50_upper_ns": 10000,
+          "p95_upper_ns": 14000,
+          "p99_upper_ns": 20000,
+          "max_ns": 395279
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 42426,
+          "mean_ns": 1834,
+          "p50_upper_ns": 1875,
+          "p95_upper_ns": 3000,
+          "p99_upper_ns": 3500,
+          "max_ns": 434151
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 42426,
+          "mean_ns": 1205269,
+          "p50_upper_ns": 1024000,
+          "p95_upper_ns": 2304000,
+          "p99_upper_ns": 2816000,
+          "max_ns": 4050564
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 42426,
+          "mean_ns": 9354,
+          "p50_upper_ns": 10000,
+          "p95_upper_ns": 12000,
+          "p99_upper_ns": 18000,
+          "max_ns": 306845
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 42425,
+          "mean_ns": 5486,
+          "p50_upper_ns": 5500,
+          "p95_upper_ns": 7500,
+          "p99_upper_ns": 10000,
+          "max_ns": 240634
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 42425,
+          "mean_ns": 1976979,
+          "p50_upper_ns": 1792000,
+          "p95_upper_ns": 4096000,
+          "p99_upper_ns": 5120000,
+          "max_ns": 32323988
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 42426,
+          "mean_ns": 1060688,
+          "p50_upper_ns": 896000,
+          "p95_upper_ns": 2304000,
+          "p99_upper_ns": 2560000,
+          "max_ns": 3938200
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 42425,
+          "mean_ns": 916290,
+          "p50_upper_ns": 896000,
+          "p95_upper_ns": 2560000,
+          "p99_upper_ns": 3072000,
+          "max_ns": 31510688
+        },
+        {
+          "event": "ap9_clock_resolution",
+          "negative_correlated_residuals": 0
+        },
+        {
+          "event": "ap9_unpublished",
+          "requests": 1
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55782,
+          "position": 14278912,
+          "service_ns": 32323988,
+          "windows_process_ns": 813300
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55781,
+          "position": 14278656,
+          "service_ns": 31332793,
+          "windows_process_ns": 687100
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55784,
+          "position": 14279424,
+          "service_ns": 23277127,
+          "windows_process_ns": 541300
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55783,
+          "position": 14279168,
+          "service_ns": 22543219,
+          "windows_process_ns": 667400
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55786,
+          "position": 14279936,
+          "service_ns": 14391880,
+          "windows_process_ns": 712400
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55785,
+          "position": 14279680,
+          "service_ns": 13459008,
+          "windows_process_ns": 592800
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 19107,
+          "position": 4890368,
+          "service_ns": 6667462,
+          "windows_process_ns": 3245900
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 19713,
+          "position": 5045504,
+          "service_ns": 6619931,
+          "windows_process_ns": 3186000
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14278656,
+          "gap_frames": 256,
+          "request_position": 14278656,
+          "request_frames": 256,
+          "sequence": 55781,
+          "output_published": true,
+          "queue_us": 30481,
+          "prepare_us": 7,
+          "send_us": 2,
+          "reply_us": 822,
+          "validation_us": 12,
+          "publication_us": 6,
+          "publication_after_gap_us": 20714,
+          "admission_to_gap_us": 10618
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14278912,
+          "gap_frames": 256,
+          "request_position": 14278912,
+          "request_frames": 256,
+          "sequence": 55782,
+          "output_published": true,
+          "queue_us": 31332,
+          "prepare_us": 9,
+          "send_us": 1,
+          "reply_us": 963,
+          "validation_us": 11,
+          "publication_us": 6,
+          "publication_after_gap_us": 21714,
+          "admission_to_gap_us": 10609
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14279168,
+          "gap_frames": 256,
+          "request_position": 14279168,
+          "request_frames": 256,
+          "sequence": 55783,
+          "output_published": true,
+          "queue_us": 21729,
+          "prepare_us": 8,
+          "send_us": 0,
+          "reply_us": 789,
+          "validation_us": 9,
+          "publication_us": 5,
+          "publication_after_gap_us": 11866,
+          "admission_to_gap_us": 10676
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14279424,
+          "gap_frames": 256,
+          "request_position": 14279424,
+          "request_frames": 256,
+          "sequence": 55784,
+          "output_published": true,
+          "queue_us": 22550,
+          "prepare_us": 6,
+          "send_us": 0,
+          "reply_us": 702,
+          "validation_us": 10,
+          "publication_us": 6,
+          "publication_after_gap_us": 12600,
+          "admission_to_gap_us": 10676
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14279680,
+          "gap_frames": 256,
+          "request_position": 14279680,
+          "request_frames": 256,
+          "sequence": 55785,
+          "output_published": true,
+          "queue_us": 12615,
+          "prepare_us": 7,
+          "send_us": 1,
+          "reply_us": 817,
+          "validation_us": 10,
+          "publication_us": 6,
+          "publication_after_gap_us": 2708,
+          "admission_to_gap_us": 10750
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14279936,
+          "gap_frames": 256,
+          "request_position": 14279936,
+          "request_frames": 256,
+          "sequence": 55786,
+          "output_published": true,
+          "queue_us": 13466,
+          "prepare_us": 8,
+          "send_us": 1,
+          "reply_us": 891,
+          "validation_us": 16,
+          "publication_us": 6,
+          "publication_after_gap_us": 3640,
+          "admission_to_gap_us": 10751
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 14282240,
+          "blocks": 27895,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 1536,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 3,
+          "expired_output_frames": 1536,
+          "delivered_frames": 14280192,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows_source_sha256": "856b311ea229eecd7f3a76ae14ef6f7ce31c1d18fc70f38461d507741f3a3e72",
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 167,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 168,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 169,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 171,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 172,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 175,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 178,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 179,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 180,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 182,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 183,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 184,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 188,
+          "state": "ap0_processing_thread_started",
+          "distinct_from_owner": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 193,
+          "state": "ap12_readback",
+          "unavailable_count": 1,
+          "first_unavailable_id": 1066,
+          "first_unavailable_bits": 13830554455654793216
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 194,
+          "state": "ap10_controller_sync",
+          "applied": 106,
+          "state_request_sequence": 55780
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 195,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 196838
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 200,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 55790,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 204,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 151,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ],
+      "cleanup": {
+        "error": null,
+        "fault_reporting_error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "exit_before_cleanup": null,
+        "raw_exit": -15
+      },
+      "fault_status": {
+        "session": "130c039299325800732b3d00e7d1c714",
+        "early_pending": null,
+        "before_containment": {
+          "available": true,
+          "schema": 1,
+          "sample_monotonic_ns": 10272991748570,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "native": {
+            "publication": 167370,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 55794,
+            "position": 14281984,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 10272785907398,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 361,
+            "current": true
+          },
+          "delivery": {
+            "publication": 334748,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 55795,
+            "position": 14282240,
+            "stage": 0,
+            "detail": 0,
+            "ticks": 102724936738,
+            "frequency": 10000000,
+            "thread_id": 1152,
+            "process_id": 1056,
+            "current": true
+          },
+          "owner": {
+            "publication": 276705,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 0,
+            "detail": 0,
+            "ticks": 102725175636,
+            "frequency": 10000000,
+            "thread_id": 1060,
+            "process_id": 1056,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 1,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 217,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          }
+        }
+      }
+    },
+    {
+      "session": "d76463ad254be0324cc3484b5b84ecb2",
+      "native_source_sha256": "23d097bd0192f16f6b9c38f100222158b3bba75cf8291d297200a3de8110e7e3",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "0470622696fca61957f06a4369b78ec3ab84ba2a56184a4bbd8990f74414f5d1",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 55066,
+          "request_high": 4,
+          "result_high": 4,
+          "position": 14096896,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 28193792,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 28193792,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 42424,
+          "mean_ns": 565114,
+          "p50_upper_ns": 704000,
+          "p95_upper_ns": 1408000,
+          "p99_upper_ns": 1536000,
+          "max_ns": 15615143
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 42424,
+          "mean_ns": 10478,
+          "p50_upper_ns": 10000,
+          "p95_upper_ns": 14000,
+          "p99_upper_ns": 22000,
+          "max_ns": 14797173
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 42424,
+          "mean_ns": 2089,
+          "p50_upper_ns": 1875,
+          "p95_upper_ns": 3250,
+          "p99_upper_ns": 3750,
+          "max_ns": 287817
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 42424,
+          "mean_ns": 908021,
+          "p50_upper_ns": 896000,
+          "p95_upper_ns": 1280000,
+          "p99_upper_ns": 1536000,
+          "max_ns": 3204029
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 42424,
+          "mean_ns": 9439,
+          "p50_upper_ns": 10000,
+          "p95_upper_ns": 13000,
+          "p99_upper_ns": 20000,
+          "max_ns": 449738
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 42422,
+          "mean_ns": 5601,
+          "p50_upper_ns": 5500,
+          "p95_upper_ns": 7500,
+          "p99_upper_ns": 10000,
+          "max_ns": 416737
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 42422,
+          "mean_ns": 1500707,
+          "p50_upper_ns": 1536000,
+          "p95_upper_ns": 2560000,
+          "p99_upper_ns": 2816000,
+          "max_ns": 16259748
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 42424,
+          "mean_ns": 763247,
+          "p50_upper_ns": 768000,
+          "p95_upper_ns": 1152000,
+          "p99_upper_ns": 1280000,
+          "max_ns": 3018800
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 42422,
+          "mean_ns": 737474,
+          "p50_upper_ns": 896000,
+          "p95_upper_ns": 1536000,
+          "p99_upper_ns": 1792000,
+          "max_ns": 15736248
+        },
+        {
+          "event": "ap9_clock_resolution",
+          "negative_correlated_residuals": 0
+        },
+        {
+          "event": "ap9_unpublished",
+          "requests": 2
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 51911,
+          "position": 13288192,
+          "service_ns": 16259748,
+          "windows_process_ns": 523500
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 51910,
+          "position": 13287936,
+          "service_ns": 15615553,
+          "windows_process_ns": 635200
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55064,
+          "position": 14095104,
+          "service_ns": 14064432,
+          "windows_process_ns": 780000
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55063,
+          "position": 14094848,
+          "service_ns": 13056387,
+          "windows_process_ns": 1188600
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 51913,
+          "position": 13288704,
+          "service_ns": 7057173,
+          "windows_process_ns": 548900
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 51912,
+          "position": 13288448,
+          "service_ns": 6384577,
+          "windows_process_ns": 636100
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55066,
+          "position": 14095616,
+          "service_ns": 5454533,
+          "windows_process_ns": 1003100
+        },
+        {
+          "event": "ap9_slow_request",
+          "epoch": 1,
+          "sequence": 55065,
+          "position": 14095360,
+          "service_ns": 4212512,
+          "windows_process_ns": 625600
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 13287936,
+          "gap_frames": 256,
+          "request_position": 13287936,
+          "request_frames": 256,
+          "sequence": 51910,
+          "output_published": true,
+          "queue_us": 40,
+          "prepare_us": 14797,
+          "send_us": 12,
+          "reply_us": 752,
+          "validation_us": 7,
+          "publication_us": 4,
+          "publication_after_gap_us": 4942,
+          "admission_to_gap_us": 10672
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 13288192,
+          "gap_frames": 256,
+          "request_position": 13288192,
+          "request_frames": 256,
+          "sequence": 51911,
+          "output_published": true,
+          "queue_us": 15615,
+          "prepare_us": 4,
+          "send_us": 0,
+          "reply_us": 629,
+          "validation_us": 6,
+          "publication_us": 3,
+          "publication_after_gap_us": 5592,
+          "admission_to_gap_us": 10667
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14094848,
+          "gap_frames": 256,
+          "request_position": 14094848,
+          "request_frames": 256,
+          "sequence": 55063,
+          "output_published": true,
+          "queue_us": 11720,
+          "prepare_us": 9,
+          "send_us": 3,
+          "reply_us": 1300,
+          "validation_us": 11,
+          "publication_us": 11,
+          "publication_after_gap_us": 2405,
+          "admission_to_gap_us": 10650
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14095104,
+          "gap_frames": 256,
+          "request_position": 14095104,
+          "request_frames": 256,
+          "sequence": 55064,
+          "output_published": true,
+          "queue_us": 13065,
+          "prepare_us": 8,
+          "send_us": 1,
+          "reply_us": 957,
+          "validation_us": 12,
+          "publication_us": 18,
+          "publication_after_gap_us": 3420,
+          "admission_to_gap_us": 10644
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 14096128,
+          "gap_frames": 256,
+          "request_position": 14096128,
+          "request_frames": 256,
+          "sequence": 55068,
+          "output_published": true,
+          "queue_us": 1135,
+          "prepare_us": 7,
+          "send_us": 0,
+          "reply_us": 1492,
+          "validation_us": 11,
+          "publication_us": 6,
+          "publication_after_gap_us": 364,
+          "admission_to_gap_us": 2290
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 14096896,
+          "blocks": 27533,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 1280,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 3,
+          "expired_output_frames": 1024,
+          "delivered_frames": 14095104,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows_source_sha256": "dc350db8a9201c3eb9de6e9d15bfdf9387e459e0b871b8812a842ac39fa3bfbe",
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 148,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 149,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 1
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 150,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 139092
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 152,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 153,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 155,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 156,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 157,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 139092
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 159,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 160,
+          "state": "ap10_controller_sync",
+          "applied": 0,
+          "state_request_sequence": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 161,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 139092
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 163,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 164,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 2
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 165,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 169,
+          "state": "ap0_processing_thread_started",
+          "distinct_from_owner": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 174,
+          "state": "ap12_readback",
+          "unavailable_count": 0,
+          "first_unavailable_id": 0,
+          "first_unavailable_bits": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 175,
+          "state": "ap10_controller_sync",
+          "applied": 104,
+          "state_request_sequence": 55062
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 176,
+          "state": "ap4_state_result",
+          "operation": "opaque",
+          "result": 0,
+          "bytes": 139092
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 55066,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 185,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 148,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ],
+      "cleanup": {
+        "error": null,
+        "fault_reporting_error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "exit_before_cleanup": null,
+        "raw_exit": -15
+      },
+      "fault_status": {
+        "session": "d76463ad254be0324cc3484b5b84ecb2",
+        "early_pending": null,
+        "before_containment": {
+          "available": true,
+          "schema": 1,
+          "sample_monotonic_ns": 10273628464344,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "native": {
+            "publication": 165198,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 55070,
+            "position": 14096640,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 10272786350989,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 361,
+            "current": true
+          },
+          "delivery": {
+            "publication": 330404,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 55071,
+            "position": 14096896,
+            "stage": 0,
+            "detail": 0,
+            "ticks": 102724943040,
+            "frequency": 10000000,
+            "thread_id": 1248,
+            "process_id": 1176,
+            "current": true
+          },
+          "owner": {
+            "publication": 273233,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 0,
+            "detail": 0,
+            "ticks": 102728502024,
+            "frequency": 10000000,
+            "thread_id": 1180,
+            "process_id": 1176,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 1,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 217,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          }
+        }
+      }
+    }
+  ]
+}

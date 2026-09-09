@@ -1,0 +1,61 @@
+{
+  "active_refused": [
+    {
+      "class": "417274754156495350724C4650726F63",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "Error: \"close all bridged devices before changing delay; an instance lease remains\"\n"
+    },
+    {
+      "class": "41727475415649536772616E50726F63",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "Error: \"close all bridged devices before changing delay; an instance lease remains\"\n"
+    }
+  ],
+  "inactive_256": [
+    {
+      "class": "417274754156495350724C4650726F63",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "class": "41727475415649536772616E50726F63",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "restored_512": [
+    {
+      "class": "417274754156495350724C4650726F63",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "class": "41727475415649536772616E50726F63",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "deployment": {
+    "windows_host_sha256": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
+    "manager_sha256": "bebe5686105ca454a6a222f4dad6ef260d5bd5b11772b0828b0fe0e33a948261",
+    "supervisor_sha256": "07b9e25b2e9ad10c4383d901d10c17dbad1f4806071bee87764ec20163124868",
+    "natives": {
+      "417274754156495350724C4650726F63": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+      "41727475415649536772616E50726F63": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374"
+    },
+    "source_manifest_sha256": "350fe2b3a4f18fa230bd093dff1f88380ca2825b7ed566d31455eec51bc61e26",
+    "artifacts_valid": true,
+    "rollback_retained": true,
+    "deployment": "explicit reversible development replacement of bridge software only; native binaries updated; vendor files and class identity unchanged"
+  },
+  "comparison_project": {
+    "comparison_sha256": "c92c026c7a8c4b148e7d27b1c9cba197cbccece82a5b6aeea7b844a426b9c624",
+    "previous_saved_sha256": "66b15a633b1e5c35f11fe7b512a9a5385498281ff1d0d0f1b72277244dafdcf3"
+  }
+}
