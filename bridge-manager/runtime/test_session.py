@@ -249,6 +249,15 @@ time.sleep(30)
 
 
 class CensusTests(unittest.TestCase):
+    def test_only_coordinated_inspection_shares_the_keeper_lock(self):
+        import fcntl
+        self.assertEqual(session.operation_lock_mode({'inspect': True}), fcntl.LOCK_EX)
+        self.assertEqual(session.operation_lock_mode({'inspect': False}), fcntl.LOCK_SH)
+        self.assertEqual(session.operation_lock_mode({'inspect': True, 'shared_inspection': True}), fcntl.LOCK_SH)
+        for flags in ({'inspect': False}, {'inspect': True, 'keeper': True}, {'inspect': True, 'vendor_access': True}):
+            with self.assertRaises(RuntimeError):
+                session.operation_lock_mode(dict(flags, shared_inspection=True))
+
     def test_accessibility_workaround_is_explicit_and_process_scoped(self):
         # The measured UIA removal fault is selected on an exact registration,
         # not inferred from a product name and not written to the environment.

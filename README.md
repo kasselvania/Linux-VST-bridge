@@ -30,7 +30,7 @@ Float32 and bounded stereo/main-bus/event paths are implemented. Arbitrary multi
 
 ## Next direction: AP14 managed compatibility publication
 
-[AP14 / #83](https://github.com/kasselvania/Linux-VST-bridge/issues/83) is prepared on `codex/ap14-profile-publication`. It introduces the first closed declarative compatibility profiles and one coherent manager workflow that derives exact registrations and immutable publications from supervised local observations. The normal user should not type class IDs, module hashes, compatibility flags, native build paths or Wine commands.
+[AP14 / #83](https://github.com/kasselvania/Linux-VST-bridge/issues/83) is being implemented on `codex/ap14-profile-publication`. It introduces the first closed declarative compatibility profiles and one coherent manager workflow that derives exact registrations and immutable publications from supervised local observations. The normal user should not type class IDs, module hashes, compatibility flags, native build paths or Wine commands.
 
 AP14 also adds an explicit revisioned publication update/reconcile/rollback transaction. A failed or incompatible candidate must leave the prior known-good publication active; rollback must select an exact retained revision without reinstalling or modifying vendor software. Read [CURRENT_SLICE.md](CURRENT_SLICE.md) on the prepared branch for the active contract.
 
@@ -47,3 +47,4 @@ Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), the relevant 
 `native-vst3-proxy/` is the Linux SDK proxy and Rust backend; `native-audio-client/` contains transport; `windows-factory-probe/` is the Windows SDK host; `bridge-manager/` owns environments, registration/publication and installed supervision. Rust is primary, with C++ at SDK/platform edges. Proprietary binaries, presets, license data and credentials stay out of version control.
 
 The independent bridge remains selected. Maintained Wine/Proton work may provide a suitable runtime underneath it; it is not a yabridge pivot. Full manager UI, general vendor updates, broad profile distribution/trust, final product naming and repository-wide licensing/distribution remain later decisions.
+The [AP14 implementation and managed commands](docs/AP14.md) are under verification in draft PR #85. The two exact compatibility profiles remain review candidates.

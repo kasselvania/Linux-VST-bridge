@@ -1,4 +1,5 @@
 use linux_vst_bridge::*;
+mod managed_cli;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{
@@ -18,6 +19,7 @@ use std::{
     time::{Duration, Instant},
 };
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Software {
     manager: Artifact,
     supervisor: Artifact,
@@ -25,6 +27,8 @@ struct Software {
     host: Artifact,
     source_manifest: Artifact,
     source_sha256: String,
+    #[serde(default)]
+    native_catalogue: Option<Artifact>,
 }
 #[derive(Serialize, Deserialize)]
 struct SessionSpec {
@@ -39,13 +43,17 @@ struct SessionSpec {
     binding_sent: bool,
     #[serde(default)]
     vendor_access: bool,
+    #[serde(default)]
+    shared_inspection: bool,
 }
 // Before spawn, admission owns only a reservation. Binding/keeper failures must
 // release it; after spawn the existing supervisor owns positive retirement.
 struct PendingAdmission(Option<PathBuf>);
 impl Drop for PendingAdmission {
     fn drop(&mut self) {
-        if let Some(path) = &self.0 { let _ = fs::remove_file(path); }
+        if let Some(path) = &self.0 {
+            let _ = fs::remove_file(path);
+        }
     }
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -98,6 +106,9 @@ fn software(m: &Manager) -> Result<Software> {
         s.source_manifest.sha256 == s.source_sha256,
         "host source manifest differs",
     )?;
+    if let Some(a) = &s.native_catalogue {
+        a.verify()?;
+    }
     Ok(s)
 }
 fn systemd(s: &str) -> String {
@@ -110,6 +121,14 @@ fn systemd(s: &str) -> String {
 }
 fn setup(m: &Manager, package: &Path) -> Result<()> {
     let _lock = m.lock("setup.lock")?;
+    let _registry = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    let profiles = profiles::installed_profiles()?;
+    let catalogue = if m.registry()?.classes.is_empty() {
+        None
+    } else {
+        Some(catalogue::adoption(m, &profiles)?)
+    };
     let me = std::env::current_exe()?;
     let files = [
         ("linux-vst-bridge", me),
@@ -124,6 +143,9 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
     let mut identity = String::new();
     for (_, p) in &files {
         identity.push_str(&digest(p)?);
+    }
+    if let Some(c) = &catalogue {
+        identity.push_str(&hex(&sha2::Sha256::digest(serde_json::to_vec(c)?)));
     }
     let id = hex(&sha2::Sha256::digest(identity.as_bytes()));
     let dest = m.root.join("software").join(&id);
@@ -145,7 +167,26 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
             )?;
             fs::File::open(to)?.sync_all()?;
         }
+        if let Some(mut c) = catalogue.clone() {
+            private_dir(&stage.join("proxies"))?;
+            for n in &mut c.natives {
+                let name = format!("{}.so", n.artifact.sha256);
+                let copy = stage.join("proxies").join(&name);
+                fs::copy(&n.artifact.path, &copy)?;
+                require(
+                    digest(&copy)? == n.artifact.sha256,
+                    "native_package_copy_changed",
+                )?;
+                fs::set_permissions(&copy, fs::Permissions::from_mode(0o500))?;
+                fs::File::open(&copy)?.sync_all()?;
+                n.artifact.path = dest.join("proxies").join(name);
+            }
+            atomic_json(&stage.join("native-catalogue.json"), &c)?;
+            fs::File::open(stage.join("proxies"))?.sync_all()?;
+        }
+        fs::File::open(&stage)?.sync_all()?;
         fs::rename(&stage, &dest)?;
+        fs::File::open(dest.parent().unwrap())?.sync_all()?;
     }
     let a = |n: &str| -> Result<Artifact> {
         let path = dest.join(n);
@@ -163,6 +204,11 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
         host: a("host.exe")?,
         source_manifest: a("host-source-manifest.json")?,
         source_sha256: source,
+        native_catalogue: if catalogue.is_some() {
+            Some(a("native-catalogue.json")?)
+        } else {
+            None
+        },
     };
     require(
         installed.source_manifest.sha256 == installed.source_sha256,
@@ -179,8 +225,14 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
             )?;
         }
     }
-    atomic_json(&m.root.join("software.json"), &installed)?;
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    let previous = read_json::<Software>(&m.root.join("software.json")).ok();
+    publication::install_command(
+        &home.join(".local/bin/linux-vst-bridge"),
+        &installed.manager.path,
+        previous.as_ref().map(|s| s.manager.path.as_path()),
+    )?;
+    atomic_json(&m.root.join("software.json"), &installed)?;
     let units = home.join(".config/systemd/user");
     fs::create_dir_all(&units)?;
     let service=format!("[Unit]\nDescription=Linux VST Bridge registered host\nAfter=graphical-session.target\n\n[Service]\nType=simple\nExecStart={} serve\nUMask=0077\nRestart=on-failure\nRestartSec=2\nKillMode=control-group\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n",systemd(installed.manager.path.to_str().ok_or("executable path encoding")?));
@@ -246,6 +298,7 @@ fn spec(
         keeper,
         binding_sent: !inspect,
         vendor_access: false,
+        shared_inspection: false,
     };
     let path = directory.join("owner.json");
     atomic_json(&path, &s)?;
@@ -385,6 +438,28 @@ fn serve(m: Manager) -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 53];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5] == b"LVI1\n" {
+                    let mut size=[0;4];peer.read_exact(&mut size)?;
+                    let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
+                    let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
+                    let _admission=m.lock("registry.lock")?;
+                    m.require_inactive(None)?;
+                    let r=inspection_binding(&m,serde_json::from_slice(&bytes)?)?;
+                    ensure_keeper(&m,&s,&r,&keepers)?;
+                    let (mut job,path)=spec(&m,r,true,false,false)?;
+                    let mut pending=PendingAdmission(Some(job.lease.clone()));
+                    job.shared_inspection=true;atomic_json(&path,&job)?;
+                    let mut child=spawn(&s,&path,None)?;
+                    pending.0=None;
+                    let status=child.wait()?;
+                    let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
+                    if !status.success()||disposition!=format!("LVO1 {} retired\n",job.session){blocked.store(true,Ordering::Release);return Err("inspection_cleanup_unconfirmed".into());}
+                    fs::remove_file(&job.lease)?;
+                    let reply=serde_json::to_vec(&job.report)?;
+                    require(reply.len()<=4096,"inspection_reply_bound")?;
+                    peer.write_all(&(reply.len() as u32).to_le_bytes())?;peer.write_all(&reply)?;
+                    return Ok(());
+                }
                 if &greeting[..5]==b"LVA1\n" {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"vendor access request bound")?;
@@ -406,7 +481,9 @@ fn serve(m: Manager) -> Result<()> {
                 let (r, performance, job, path, mut admission) = {
                     let _admission = m.lock("registry.lock")?;
                     let r: HostBinding = m.resolve(&greeting[5..])?.into();
-                    require(r.host == s.host && r.host_source_sha256 == s.source_sha256,
+                    // Retained rollback revisions may refer to an older immutable
+                    // software directory containing the exact same verified host.
+                    require(r.host.sha256 == s.host.sha256 && r.host_source_sha256 == s.source_sha256,
                         "registered host differs from installed software revision")?;
                     let performance = m.performance(&r.metadata.class_id)?;
                     require(version2 || performance.added_frames == 512,
@@ -602,6 +679,7 @@ fn main() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str){
   Some("setup") if args.len()==2=>setup(&m,Path::new(&args[1])),
+  Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
   Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),
   Some("install") if args.len()==4=>install(&m,&args[1],Path::new(&args[2]),&args[3]),

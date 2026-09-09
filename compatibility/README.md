@@ -44,3 +44,6 @@ proposed
 A profile claim does not generalize across a changed module digest, runner, environment, host/proxy revision, DAW or capability matrix. Withdrawal must prevent new selection without deleting the exact prior local publication needed for safe rollback.
 
 See [CURRENT_SLICE.md](../CURRENT_SLICE.md), the [design dossier](../docs/DESIGN_DOSSIER.md), [architecture profile boundary](../docs/ARCHITECTURE.md#9-compatibility-profiles) and issue #83. The implementation should create only the smallest profile layout needed by the accepted AP14 contract; do not prebuild an empty marketplace hierarchy.
+## AP14 candidate files
+
+The two JSON files in this directory implement schema 1 with closed capabilities and exact local-fixture constraints. Both remain `review_candidate`; neither is a universal Arturia support claim. The manager embeds this reviewed candidate set; arbitrary diagnostic profile input cannot activate a publication. See [implementation and verification](../docs/AP14.md).
