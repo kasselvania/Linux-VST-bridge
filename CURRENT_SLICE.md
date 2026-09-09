@@ -22,9 +22,9 @@ Implementation, focused deterministic tests, necessary builds, reversible qualif
 
 ## Current implementation boundary
 
-`native-vst3-proxy/source/vendor_panel.h` currently supplies the Linux VST3 `IPlugView` Bitwig attaches. It creates a mapped 560×150 X11 child, draws the two bridge buttons, forwards open/focus/close requests through `PanelChannel`, and closes the vendor editor from `removed()`.
+`native-vst3-proxy/source/vendor_panel.h` currently supplies the Linux VST3 `IPlugView` Bitwig attaches. It creates a mapped 560×150 X11 child, draws the two bridge buttons, invokes `PanelOwner::panelOpen` / `panelClose`, forwards focus through the owner, and closes the vendor editor from `removed()`.
 
-`native-vst3-proxy/source/commercial_controller.h` creates that view. `native-vst3-proxy/source/AP11Gui.h` owns `PanelCommand`, editor status/generation and the panel/backend channel. The Windows side owns the detached editor, its Win32 owner thread, view attachment, resize, focus, popup and cleanup behavior. AP14’s persistent hidden environment-desktop owner must remain intact.
+`native-vst3-proxy/source/commercial_controller.h` creates that view and owns the native editor request/status bridge. `native-vst3-proxy/include/ap11_gui.h` defines the fixed UI ABI (`Open`, `Close`, `Focus`, `EditorStatus`, activation context and view epoch), while `native-vst3-proxy/backend/src/gui.rs` and `queued.rs` own the mapped native session/channel. On Windows, `windows-factory-probe/source/gui_channel.h`, `editor_session.h` and `vendor_view.h` own the mapped channel, generation-aware service loop and detached Win32 vendor view. AP14’s persistent hidden `environment_desktop.h` owner must remain intact.
 
 Deleting the panel or returning no view is not an accepted design. Bitwig still owns a VST3 view lifecycle, and the bridge needs a host-correct adapter. A zero-sized, unmapped, transparent or otherwise minimal native delegate is a hypothesis to test, not an assumption.
 
