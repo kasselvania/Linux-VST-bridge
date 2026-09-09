@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'bridge-manager/**'
+      - 'compatibility/**'
       - '.github/workflows/ap12-manager.yml'
       - 'tools/ap8_descriptor.py'
       - 'tools/test_ap10_descriptor.py'

@@ -1,0 +1,37 @@
+{
+  "build": "PATH=$LOCAL_HOME/.cargo/bin:$PATH CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=/private/tmp/ap12-work/zig-cc.sh cargo build --manifest-path bridge-manager/Cargo.toml --locked --release --target x86_64-unknown-linux-gnu",
+  "ci_receipt": "All four final-head workflow run IDs/results are recorded in PR #85 body, avoiding a self-referential evidence commit. Linux process tests run in the registered-owner lane.",
+  "implementation_head": "f4aecf855ca1c23fda7fddf68cd76ec3b3b1e3f6",
+  "implementation_tree": "caaaee33b66c61ee2de0eb939307c9058ce2eca1",
+  "local_commands": [
+    "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+    "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked -- -D warnings",
+    "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+    "python3 -m unittest discover -s bridge-manager/runtime -v"
+  ],
+  "manager_sha256": "1cd35705c4c0d8e0d56316b63f7aec1d75da7d425074c98cc83b5c8cdc0029c5",
+  "preserved_tests": "All sixteen publication boundaries, rollback/unpublish interruptions, corruption, foreign entries, active leases, siblings, scanner/state/editor production helpers retained. Shared existing fixture moved to test_fixture.rs for CLI use; synthetic environment ID made valid for the real environment-record reader. Test-only retained-history construction uses existing private record/bundle/transaction writers; no production eligibility bypass.",
+  "results": {
+    "clippy": "passed; warnings denied, including all targets",
+    "python_macos": "6 pass, 8 Linux-only skips",
+    "rust": "27 library tests + 2 binary tests passed"
+  },
+  "reused_artifacts": {
+    "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+    "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+    "native": "Both exact AP13 native artifacts reused; no native/Windows production changes."
+  },
+  "review": 5158330660,
+  "reviewed_base": "50a985c4bce4ca9f9fb29c0bd196151adebd41ae",
+  "schema": 1,
+  "tests_added": [
+    "candidate parse and exact nonactivating qualification",
+    "ordinary candidate preview/publish refusal and withdrawn refusal",
+    "complete filesystem snapshot unchanged after candidate check/refusal",
+    "pending transaction untouched by candidate publication refusal",
+    "same-host/cross-version current policy requires exactly one verified profile",
+    "verified new publication and retained candidate/legacy rollback",
+    "exact revision-2 fingerprint and all constraints/IDs unchanged at revision 3",
+    "canonical candidate/verified/withdrawn claim and refusal output"
+  ]
+}

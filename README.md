@@ -4,40 +4,47 @@ A managed bridge for using supported Windows audio plug-ins in native Linux DAWs
 
 Experimental engineering preview, not a consumer-ready release. Working repository name; not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records or another vendor.
 
-## Accepted baseline: AP12 installed musical workflow
+## Accepted baseline: AP13 installed Arturia workflow and delivery repair
 
-AP8–AP11 established the independent Linux VST3 proxy, actual Windows processing under a selected runner, state/recall, audio and note input, bounded returned events/parameter feedback, transient-gap continuation and same-instance detached editors. AP12 [#79](https://github.com/kasselvania/Linux-VST-bridge/pull/79), reviewed at `66430ac40d5a398ea2a0943b330b1056dc7ecb03`, adds persistent managed publication and automatic startup for the installed Arturia pair:
+AP8–AP11 established the independent Linux VST3 proxy, actual Windows processing under a selected runner, opaque state/recall, audio and note input, bounded returned events/parameter feedback, transient-gap continuation and same-instance detached editors. AP12 [#79](https://github.com/kasselvania/Linux-VST-bridge/pull/79) added persistent managed publication and automatic startup for the installed pair:
 
 ```text
 Bitwig notes → Arturia Pure LoFi → Arturia Efx FRAGMENTS → output
 ```
 
-The recorded workflow covers browser-selected instrument/effect roles, both real editors, recorded and replayed automation, edited-state saving, actual Deck reboot and recall without setup tooling, and effect removal while the instrument continues. It is accepted by [review 5149097123](https://github.com/kasselvania/Linux-VST-bridge/pull/79#pullrequestreview-5149097123) for the exact installed candidates, not all Arturia versions or original-installer authorization.
+AP13 [#82](https://github.com/kasselvania/Linux-VST-bridge/pull/82), reviewed at `5620c56660651c0624deb3935c91c91eb0653aa6` and integrated by `ca0e2f7d5c85515c8ec22b67d434c6288ca611f7`, repairs a demonstrated active-save delivery barrier. Protocol minor 12 lets ordered mailbox audio continue while the Windows UI owner performs a bounded read-only state capture; restore and lifecycle operations remain exclusive. Deterministic Windows/native regressions prove later real processing can progress while state capture is unfinished, including refusal and prior-snapshot behavior.
 
-State capture now preserves genuine vendor bytes when supplemental parameter readback is unavailable. Completed ordinary save refusal stays distinct from process death. Fresh vendor-editor access can precede persistence availability. Reporting failure cannot prevent cleanup/transport retirement. Minimal independent fault status preserves an unfinished request before containment; detailed profiling remains optional.
+Routine supervisor ownership tracking now follows validated PID/start-time identities without repeatedly scanning every system process. In matched 45-second host512/bridge512 runs, the combined owner-process CPU fell from 63.136% to 12.014% of one core—about 81%—while both baseline and repaired intervals already had zero gaps. This is a supervisor-cost result, not an 81% DSP or dropout improvement.
 
-A reproduced LoFi editor-removal crash was located in the pinned runner's Windows UI Automation implementation. The selected per-process accessibility override prevents that measured crash without changing the vendor binary, delay or timeout. It is a scoped workaround with an accessibility limitation, not a general runtime repair.
+The installed inactive-only delay selector is real and preserves `delay >= negotiated host maximum`. **512 added frames per proxy remains installed, supported and recommended.** At an actual 256-frame host setup, the opt-in 256 setting reported the correct 15.7 ms serial-chain latency and passed bounded musical/live-note intervals, but startup and later FRAGMENTS gaps prevent qualification or recommendation.
 
-See [AP12 results](docs/AP12.md), [musical pair/reboot/removal](evidence/AP12/musical-pair-reboot-removal.json), [cause and workaround](evidence/AP12/delivery-cause-and-repair.json), and [fault-status contract](docs/AP12-FAULT-STATUS.md). Earlier [AP11](docs/AP11.md), [AP10](docs/AP10.md), [AP9](docs/AP9.md) and [AP8](docs/AP8_RESULT.md) evidence remains unchanged.
+The AP12 workflow evidence still covers both real editors, recorded/replayed automation, edited-state saving, actual Deck reboot and recall without setup tooling, and independent effect removal. See [AP13 results](docs/AP13.md), [AP13 evidence](evidence/AP13/README.md), [AP12 results](docs/AP12.md) and the [current design dossier](docs/DESIGN_DOSSIER.md). Earlier evidence remains unchanged.
 
-## Operating limits
+## Current operating limits
 
-Retain **512 added bridge frames per proxy**. At the recorded 48 kHz setup, LoFi adds 48 vendor frames and FRAGMENTS 192: the serial total is **1,264 frames / 26.333 ms**, matching Bitwig's 26.3 ms display. Bridge-added delay is 1,024 frames / 21.333 ms; device/DAW latency is additional. Mean service time and reported latency are not physical round trip or worst-case guarantees.
+At the supported 48 kHz setting, Pure LoFi reports 512 bridge + 48 vendor frames and Efx FRAGMENTS reports 512 + 192. The serial chain is **1,264 frames / 26.333 ms**, including 1,024 bridge frames / 21.333 ms. Device/DAW latency is additional; sink-monitor captures are not physical loopback.
 
-Short audio gaps remain even at 512. The reproduced removal crash does not explain the older untraced timeout or every scheduling outlier. Both selected Arturia processes disable Windows UI Automation/screen-reader integration; musical VST automation works. Historical resource-integrity warnings keep their original artifact/environment scope.
+Short gaps and 24–31 ms native preparation/publication outliers remain. Their elapsed time is not yet classified as CPU execution, allocator blocking or scheduler delay. The old AP12 untraced timeout is not retrospectively explained. The selected Arturia hosts disable Windows UI Automation/screen-reader integration through an exact process-scoped compatibility choice; musical VST automation remains active. This is not an upstream Wine repair.
 
-Float32 and documented bounded stereo/bus/event paths are implemented. Arbitrary multichannel/dynamic routing, every SDK interface, float64, native Wayland editor hosting and general customer-hardware reliability are not claimed. Operator-supplied modules, original installer outputs and authorization posture remain separate.
+Float32 and bounded stereo/main-bus/event paths are implemented. Arbitrary multichannel/dynamic routing, sidechains, every SDK interface, float64, broad MIDI/MPE, native Wayland editor hosting and general customer-hardware reliability are not claimed. Operator-supplied modules, original installer outputs, entitlement and authorization posture remain separate.
 
-## Next direction
+## AP14 managed compatibility publication
 
-The next selected direction is AP13: improve delivery consistency on this real chain and validate a lower bridge-delay option. [#72](https://github.com/kasselvania/Linux-VST-bridge/issues/72) supplies the performance backlog. Lower latency must come from demonstrated delivery improvements and honest host-block timing, not a changed label, concealed gaps or larger hidden buffers. Read [CURRENT_SLICE.md](CURRENT_SLICE.md) on the prepared implementation branch for active authority.
+[AP14 / #83](https://github.com/kasselvania/Linux-VST-bridge/issues/83) is implemented for the exact installed Arturia fixture on `codex/ap14-profile-publication`, under focused R1 rereview in PR #85. It provides the first closed declarative compatibility profiles and one coherent manager workflow that derives exact registrations and immutable publications from supervised local observations. The normal operation does not require class IDs, module hashes, compatibility flags, native build paths or Wine commands.
 
-[#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80) tracks Advanced-panel expansion/redraw; [#74](https://github.com/kasselvania/Linux-VST-bridge/issues/74) tracks known-endpoint-loss notification; #73 retains the historical native-close crash and #77 Serum's lawful vendor-access/editor qualification. These do not require replaying all old campaigns.
+AP14 also adds an explicit revisioned publication update/reconcile/rollback transaction. A failed or incompatible candidate leaves the prior known-good publication active; rollback selects an exact retained revision without reinstalling or modifying vendor software. Read [CURRENT_SLICE.md](CURRENT_SLICE.md) on the prepared branch for the active contract.
+
+This remains a narrow Arturia productization cut. It does not add another vendor, promote 256 frames, redesign the editor, migrate runtimes or build a consumer GUI.
+
+## Follow-through
+
+[#72](https://github.com/kasselvania/Linux-VST-bridge/issues/72) retains remaining delivery/performance classification. [#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80) retains FRAGMENTS Advanced-panel expansion and redraw. [#84](https://github.com/kasselvania/Linux-VST-bridge/issues/84) records the later direct editor lifecycle: opening the DAW editor should show/focus the vendor window without the visible native open/close panel, and closing the vendor window should retire only the editor session. Serum vendor-access qualification is #77 and the historical native engine-close issue is #73.
 
 ## Start here
 
-Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), relevant production code and the [design dossier](docs/DESIGN_DOSSIER.md). Use ordinary implementation, proportionate testing and one reviewed PR. Reuse [SSH/Moonlight](docs/DECK_REMOTE_DESKTOP.md); launch Bitwig from Applications. Remote control is development tooling, not a playback dependency. Preserve dirty work and the operator's live project. Keep intended installations available and clean only temporary experiments.
+Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), the relevant production code and the [design dossier](docs/DESIGN_DOSSIER.md). Continue on the prepared AP14 branch and implementation PR. Use ordinary focused engineering and one reviewed PR; preserve the operator's project, installed environment, vendor files, credentials and useful failed evidence.
 
-`native-vst3-proxy/` is the Linux SDK proxy and Rust backend; `native-audio-client/` contains transport; `windows-factory-probe/` is the Windows SDK host; `bridge-manager/` owns registration/publication and installed supervision. Rust is primary, with C++ at SDK/platform edges. Proprietary binaries, presets, license data and credentials stay out of version control.
+`native-vst3-proxy/` is the Linux SDK proxy and Rust backend; `native-audio-client/` contains transport; `windows-factory-probe/` is the Windows SDK host; `bridge-manager/` owns environments, registration/publication and installed supervision. Rust is primary, with C++ at SDK/platform edges. Proprietary binaries, presets, license data and credentials stay out of version control.
 
-The independent bridge remains selected. Maintained Wine/Proton work, including the inspected `giang17/wine` fork, may supply a suitable runtime underneath it; it is not a yabridge pivot. Identify a matching defect before a coherent reversible runtime comparison. Full manager polish, general vendor updates/rollback, final product name and repository-wide licensing/distribution remain future decisions.
+The independent bridge remains selected. Maintained Wine/Proton work may provide a suitable runtime underneath it; it is not a yabridge pivot. Full manager UI, general vendor updates, broad profile distribution/trust, final product naming and repository-wide licensing/distribution remain later decisions.
+The [AP14 implementation and managed commands](docs/AP14.md) retain the completed exact Deck workflow. Following [technical review 5158330660](https://github.com/kasselvania/Linux-VST-bridge/pull/85#pullrequestreview-5158330660), both profiles advance to immutable revision 3, `verified_exact_fixture`, for those exact conditions only. Ordinary activation and current-host policy require verified profiles. Review candidates can only qualify through the nonactivating `check-candidate` route. Exact revision-2 candidate publications remain immutable rollback history. PR #85 remains open for focused rereview; no final merge acceptance is claimed.

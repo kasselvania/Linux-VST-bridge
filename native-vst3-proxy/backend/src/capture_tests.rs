@@ -255,8 +255,10 @@ fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snaps
             previous = input;
             parents += 1;
             // External host driver waits only after the entire 512-frame callback.
+            // Processing precedes queue publication in the production worker;
+            // that statistic cannot synchronize a deterministic next callback.
             until(|| {
-                shared.processed.load(Ordering::Acquire) >= parents * 2
+                shared.results.published() >= parents * 2
                     || shared.fault.load(Ordering::Acquire) != 0
             });
             assert_eq!(

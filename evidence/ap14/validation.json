@@ -1,0 +1,89 @@
+{
+  "ci": [
+    {
+      "result": "success",
+      "run": 34383978530,
+      "workflow": "AP12 registered owner"
+    },
+    {
+      "result": "success",
+      "run": 34383978536,
+      "workflow": "AP10 native result lifetime"
+    },
+    {
+      "result": "success",
+      "run": 34383978535,
+      "workflow": "AP8 Windows host"
+    },
+    {
+      "result": "success",
+      "run": 34383978529,
+      "workflow": "PX2 proof policy"
+    }
+  ],
+  "deployment": {
+    "manager_source": "1236e377ab3f8035f5e918ae193465d6e7ff82a1",
+    "native_source": "16efd270ee7f00cbd365974d167bfe8448355acb",
+    "note": "Original AP13 native artifacts reused exactly, not relabeled as later AP13 validation-head binaries. Windows host changes are environment-owner-only; retained per-instance AP13 protocol/state behavior.",
+    "windows_source": {
+      "ci_run": 34383224230,
+      "commit": "83c5cd34b04267451c259839c567a0006a25ddac",
+      "pr_head": "f867159b6f29a7cc481103ef4cf7a8790f151297",
+      "schema": "linux-vst-bridge-ap14-host-source/v1",
+      "sdk_lock": "cmake/HP0Vst3SdkLock.cmake",
+      "sdk_lock_sha256": "2f112e1e1393af7f89733abf32c4e4b318640b9e45c20b66f0568e167666ecd4",
+      "tree": "b3efb0af0fb0a3461c7fe43bb5ccd3991185acfc"
+    }
+  },
+  "injection_boundaries": [
+    "ProfileRetained",
+    "PriorRetained",
+    "IntentArchived",
+    "Intent",
+    "CandidateCreated",
+    "NativeCopied",
+    "BundleProvenanceWritten",
+    "RevisionWritten",
+    "ProvenanceWritten",
+    "CandidateReady",
+    "PointerStaged",
+    "PointerExchanged",
+    "PointerSynced",
+    "RegistryCommitted",
+    "ResultWritten",
+    "Cleanup"
+  ],
+  "local_commands": [
+    "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+    "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked -- -D warnings",
+    "python3 -m unittest discover -s bridge-manager/runtime -v"
+  ],
+  "manager_result": "23 library tests + 1 binary test pass",
+  "preserved_failures": [
+    {
+      "repair": "Restrict lane apt update to signed Ubuntu source list; no signature/hash bypass",
+      "result": "native lane twice failed during apt update before compilation, Google Chrome repository hash mismatch",
+      "run": 34383224254
+    },
+    {
+      "repair": "Wait for existing Release/Acquire published-result counter in test harness; production callback unchanged",
+      "result": "AP13 capture test compared before result queue publication",
+      "run": 34383224137
+    },
+    {
+      "repair": "Drop setup lock before starting service",
+      "result": "Registry lock held while systemctl waited for service admission",
+      "stage": "first setup service start"
+    },
+    {
+      "repair": "Set temporary package executable mode, rerun setup successfully; installed registry/vendor unchanged",
+      "result": "Uploaded manager lacked execute permission; first script stopped after service stop",
+      "stage": "desktop package transfer"
+    }
+  ],
+  "python_deck_command": "python3 -m unittest discover -s $TASK -p test_session.py -v",
+  "python_deck_result": "14 pass; runtime sources unchanged after this run",
+  "python_macos_result": "14 tests: 6 pass, 8 Linux-only skips",
+  "schema": 1,
+  "tested_head": "1236e377ab3f8035f5e918ae193465d6e7ff82a1"
+}

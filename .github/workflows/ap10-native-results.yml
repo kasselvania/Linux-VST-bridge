@@ -23,7 +23,11 @@ jobs:
           persist-credentials: false
       - name: Install native build dependency
         run: |
-          sudo apt-get update
+          # These dependencies come from Ubuntu. An unrelated preinstalled
+          # Chrome repository returned inconsistent signed index/package hashes.
+          # Keep signature/hash verification and update only Ubuntu's sources.
+          test -f /etc/apt/sources.list.d/ubuntu.sources
+          sudo apt-get update -o Dir::Etc::sourcelist=sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0
           sudo apt-get install -y libx11-dev libxcb1-dev libxtst-dev xvfb
       - name: Acquire existing pinned official SDK
         run: python3 tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/ap10-sdk"

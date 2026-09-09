@@ -64,6 +64,16 @@ def delivery_trace(spec,env):
     except OSError:enabled=False
     if enabled:env['LVB_AP10_TRACE']='1'
 
+def operation_lock_mode(spec):
+    # Shared inspection is admitted by the existing Rust service only after it
+    # owns the environment keeper and excludes all DSP admissions for the scan.
+    # Standalone/internal inspect remains exclusive.
+    if spec.get('shared_inspection'):
+        if not spec['inspect'] or spec.get('keeper') or spec.get('vendor_access'):
+            raise RuntimeError('invalid shared inspection ownership')
+        return fcntl.LOCK_SH
+    return fcntl.LOCK_EX if spec['inspect'] and not spec.get('keeper') else fcntl.LOCK_SH
+
 class FaultStatus:
     """Atomic, bounded read of AP12 status; independent of either Windows thread.
 
@@ -405,7 +415,7 @@ if __name__=='__main__':
     operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
     # Standalone setup inspection is exclusive: it may start Wine services and
     # must never become their transient owner underneath a live audio instance.
-    mode=fcntl.LOCK_EX if spec['inspect'] and not spec.get('keeper') else fcntl.LOCK_SH
+    mode=operation_lock_mode(spec)
     fcntl.flock(operation,mode|fcntl.LOCK_NB)
     try:
         outcome=keep(spec) if spec.get('keeper') else run(spec,peer)

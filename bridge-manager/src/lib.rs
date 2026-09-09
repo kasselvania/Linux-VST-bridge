@@ -1,4 +1,13 @@
 //! Canonical, inactive-only registration and atomic publication. No SDK or DSP here.
+pub mod catalogue;
+#[cfg(test)]
+mod managed_tests;
+pub mod observation;
+pub mod profiles;
+pub mod publication;
+pub mod readback;
+#[cfg(test)]
+mod test_fixture;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -194,13 +203,18 @@ pub struct Performance {
 }
 impl Default for Performance {
     fn default() -> Self {
-        Self { schema: 1, added_frames: 512 }
+        Self {
+            schema: 1,
+            added_frames: 512,
+        }
     }
 }
 impl Performance {
     pub fn verify(&self) -> Result<()> {
-        require(self.schema == 1 && matches!(self.added_frames, 256 | 512),
-            "unsupported performance schema or delay (use 256 or 512 frames)")
+        require(
+            self.schema == 1 && matches!(self.added_frames, 256 | 512),
+            "unsupported performance schema or delay (use 256 or 512 frames)",
+        )
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -272,10 +286,12 @@ pub enum Publication {
     Published,
     Removed,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Entry {
     pub registration: Registration,
     pub publication: Publication,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed_revision: Option<publication::RevisionRef>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -306,9 +322,69 @@ impl Drop for Lock {
     }
 }
 impl Manager {
+    /// Must be called while holding registry.lock, the same lock as admission.
+    pub fn require_inactive(&self, class: Option<&str>) -> Result<()> {
+        let leases = self.root.join("runtime/leases");
+        if !leases.try_exists()? {
+            return Ok(());
+        }
+        for entry in fs::read_dir(leases)? {
+            let path = entry?.path();
+            let report: PathBuf = read_json(&path)?;
+            require(
+                report.parent() == Some(self.root.join("runtime/results").as_path()),
+                "lease_identity",
+            )?;
+            let sid = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .ok_or("lease_identity")?;
+            require(valid_hex(sid, 32), "active_lease_unresolved")?;
+            let mut owner = None;
+            for env in fs::read_dir(self.root.join("environments"))? {
+                let spec = env?
+                    .path()
+                    .join("compatdata/pfx/drive_c/bridge/sessions")
+                    .join(sid)
+                    .join("owner.json");
+                if spec.try_exists()? {
+                    require(owner.is_none(), "duplicate_lease_identity")?;
+                    owner = Some(read_json::<serde_json::Value>(&spec)?);
+                }
+            }
+            let owner = owner.ok_or("active_lease_unresolved")?;
+            require(
+                owner["session"].as_str() == Some(sid)
+                    && owner["report"].as_str() == report.to_str(),
+                "lease_identity",
+            )?;
+            if owner["keeper"] == true {
+                require(
+                    report
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .is_some_and(|s| s.starts_with("environment-")),
+                    "lease_identity",
+                )?;
+                continue;
+            }
+            let active = owner["registration"]["metadata"]["class_id"]
+                .as_str()
+                .ok_or("active_lease_unresolved")?;
+            require(valid_hex(active, 32), "active_lease_unresolved")?;
+            require(
+                class.is_some_and(|c| !c.eq_ignore_ascii_case(active)),
+                "active_device_lease",
+            )?;
+        }
+        Ok(())
+    }
     pub fn performance(&self, key: &str) -> Result<Performance> {
         require(valid_hex(key, 32), "class ID syntax")?;
-        let path = self.root.join("performance").join(format!("{}.json", key.to_uppercase()));
+        let path = self
+            .root
+            .join("performance")
+            .join(format!("{}.json", key.to_uppercase()));
         let value = match fs::symlink_metadata(&path) {
             Ok(_) => read_json(&path)?,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Performance::default(),
@@ -318,25 +394,38 @@ impl Manager {
         Ok(value)
     }
     pub fn select_delay(&self, key: &str, frames: u32) -> Result<()> {
-        let value = Performance { schema: 1, added_frames: frames };
+        let value = Performance {
+            schema: 1,
+            added_frames: frames,
+        };
         value.verify()?;
         require(valid_hex(key, 32), "class ID syntax")?;
         // Admission holds this same lock until its lease is published. No
         // instance can race a preference change into its startup binding.
         let _lock = self.lock("registry.lock")?;
         let key = key.to_uppercase();
-        require(self.registry()?.classes.contains_key(&key), "class not registered")?;
+        require(
+            self.registry()?.classes.contains_key(&key),
+            "class not registered",
+        )?;
         let leases = self.root.join("runtime/leases");
         if leases.try_exists()? {
             for entry in fs::read_dir(leases)? {
                 let report: PathBuf = read_json(&entry?.path())?;
-                require(report.file_name().and_then(|s| s.to_str())
-                    .is_some_and(|s| s.starts_with("environment-")),
-                    "close all bridged devices before changing delay; an instance lease remains")?;
+                require(
+                    report
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .is_some_and(|s| s.starts_with("environment-")),
+                    "close all bridged devices before changing delay; an instance lease remains",
+                )?;
             }
         }
         private_dir(&self.root.join("performance"))?;
-        atomic_json(&self.root.join("performance").join(format!("{key}.json")), &value)
+        atomic_json(
+            &self.root.join("performance").join(format!("{key}.json")),
+            &value,
+        )
     }
     pub fn installed() -> Result<Self> {
         let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
@@ -406,6 +495,10 @@ impl Manager {
         let mut installed = r.clone();
         installed.native.path = self.native_path(&r);
         if let Some(old) = db.classes.get(&key) {
+            require(
+                old.managed_revision.is_none(),
+                "managed binding requires explicit publication transaction",
+            )?;
             let mut previous = old.registration.clone();
             previous.native.path = self.native_path(&previous);
             require(
@@ -418,6 +511,7 @@ impl Manager {
             Entry {
                 registration: r,
                 publication: Publication::Pending,
+                managed_revision: None,
             },
         );
         self.save(&mut db)?;
@@ -478,6 +572,7 @@ impl Manager {
     pub fn reconcile(&self) -> Result<()> {
         let _lock = self.lock("registry.lock")?;
         let mut db = self.registry()?;
+        self.reconcile_revisions(&mut db)?;
         let mut changed = false;
         for e in db.classes.values_mut() {
             if e.publication == Publication::Pending {
@@ -501,7 +596,15 @@ impl Manager {
         require(valid_hex(key, 32), "class ID syntax")?;
         let key = key.to_uppercase();
         let _lock = self.lock("registry.lock")?;
+        self.require_inactive(Some(&key))?;
         let mut db = self.registry()?;
+        if db
+            .classes
+            .get(&key)
+            .is_some_and(|e| e.managed_revision.is_some())
+        {
+            return self.remove_revision(&mut db, &key, None);
+        }
         let entry = db.classes.get_mut(&key).ok_or("registration absent")?;
         let link = self.link(&key);
         let target = self.target(&entry.registration);
@@ -519,13 +622,17 @@ impl Manager {
         let db = self.registry()?;
         let e = db.classes.get(&key).ok_or("class not registered")?;
         require(
+            !self.publication_pending(&key)?,
+            "publication_recovery_pending",
+        )?;
+        require(
             e.publication == Publication::Published
                 && e.registration.module.sha256 == hex(&identity[16..]),
             "mapping inactive or module binding differs",
         )?;
         e.registration.verify(&self.root)?;
         require(
-            fs::read_link(self.link(&key))? == self.target(&e.registration),
+            fs::read_link(self.link(&key))? == self.entry_target(e)?,
             "publication unavailable",
         )?;
         Ok(e.registration.clone())
@@ -535,86 +642,7 @@ impl Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    struct Fixture {
-        m: Manager,
-        r: Registration,
-        outer: PathBuf,
-    }
-    impl Fixture {
-        fn new() -> Self {
-            unsafe {
-                libc::umask(0o077);
-            }
-            let outer = std::env::temp_dir()
-                .canonicalize()
-                .unwrap()
-                .join(format!("lvb-manager-{}", random_id().unwrap()));
-            private_dir(&outer).unwrap();
-            let m = Manager {
-                root: outer.join("managed"),
-                publications: outer.join("vst3"),
-            };
-            private_dir(&m.root).unwrap();
-            let env = m.root.join("environments").join("one-exact-environment");
-            private_dir(&env).unwrap();
-            private_dir(&env.join("compatdata/pfx/drive_c/Program Files/Common Files/VST3"))
-                .unwrap();
-            fn artifact(p: PathBuf, bytes: &[u8]) -> Artifact {
-                fs::write(&p, bytes).unwrap();
-                Artifact {
-                    sha256: digest(&p).unwrap(),
-                    path: p,
-                }
-            }
-            let proton = artifact(outer.join("proton"), b"runner");
-            let entry = artifact(outer.join("entry"), b"runtime");
-            private_dir(&m.root.join("software")).unwrap();
-            let r = Registration {
-                metadata: Metadata {
-                    class_id: "01".repeat(16),
-                    name: "Actual class".into(),
-                    vendor: "Vendor".into(),
-                    version: "1.0".into(),
-                    subcategories: "Instrument|Sampler".into(),
-                    metadata_tier: "factory_2".into(),
-                },
-                environment: Environment {
-                    id: "one-exact-environment".into(),
-                    root: env.clone(),
-                    revision: 1,
-                    runner: Runner {
-                        id: "exact-runner-1".into(),
-                        version: "pinned".into(),
-                        proton: proton.path.clone(),
-                        entry_point: entry.path.clone(),
-                        files: vec![proton, entry],
-                    },
-                },
-                module: artifact(
-                    env.join("compatdata/pfx/drive_c/Program Files/Common Files/VST3/a.vst3"),
-                    b"vendor module",
-                ),
-                host: artifact(m.root.join("software/host"), b"host"),
-                host_source_sha256: "ab".repeat(32),
-                native: artifact(outer.join("native"), b"native"),
-                compatibility: Compatibility::default(),
-            };
-            atomic_json(&env.join("environment.json"), &r.environment).unwrap();
-            Self { m, r, outer }
-        }
-        fn identity(&self) -> Vec<u8> {
-            (self.r.metadata.class_id.clone() + &self.r.module.sha256)
-                .as_bytes()
-                .chunks(2)
-                .map(|s| u8::from_str_radix(std::str::from_utf8(s).unwrap(), 16).unwrap())
-                .collect()
-        }
-    }
-    impl Drop for Fixture {
-        fn drop(&mut self) {
-            fs::remove_dir_all(&self.outer).unwrap();
-        }
-    }
+    use crate::test_fixture::Fixture;
     #[test]
     fn installed_delay_is_inactive_versioned_and_separate_from_identity() {
         let f = Fixture::new();
@@ -628,16 +656,31 @@ mod tests {
         assert!(f.m.select_delay(&key, 128).is_err());
         private_dir(&f.m.root.join("runtime/leases")).unwrap();
         let lease = f.m.root.join("runtime/leases/active.json");
-        atomic_json(&lease, &f.m.root.join("runtime/results/windows-active.json")).unwrap();
+        atomic_json(
+            &lease,
+            &f.m.root.join("runtime/results/windows-active.json"),
+        )
+        .unwrap();
         assert!(f.m.select_delay(&key, 512).is_err());
         assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
         fs::remove_file(&lease).unwrap();
         // The environment keeper is not a DSP instance.
-        atomic_json(&lease, &f.m.root.join("runtime/results/environment-keeper.json")).unwrap();
+        atomic_json(
+            &lease,
+            &f.m.root.join("runtime/results/environment-keeper.json"),
+        )
+        .unwrap();
         f.m.select_delay(&key, 512).unwrap();
         assert_eq!(f.m.performance(&key).unwrap().added_frames, 512);
         let path = f.m.root.join("performance").join(format!("{key}.json"));
-        atomic_json(&path, &Performance { schema: 2, added_frames: 256 }).unwrap();
+        atomic_json(
+            &path,
+            &Performance {
+                schema: 2,
+                added_frames: 256,
+            },
+        )
+        .unwrap();
         assert!(f.m.performance(&key).is_err());
     }
     #[test]
@@ -696,6 +739,7 @@ mod tests {
             Entry {
                 registration: f.r.clone(),
                 publication: Publication::Pending,
+                managed_revision: None,
             },
         );
         f.m.save(&mut db).unwrap();
