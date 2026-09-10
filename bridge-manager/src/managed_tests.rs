@@ -1330,8 +1330,8 @@ fn accepted_profiles_preserve_all_historical_bytes_and_exact_technical_constrain
     ] {
         assert_eq!(
             digest(
-                &Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../compatibility")
+                &std::env::var_os("LVB_TEST_COMPATIBILITY_ROOT").map(PathBuf::from)
+                    .unwrap_or_else(||PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../compatibility"))
                     .join(path)
             )
             .unwrap(),
