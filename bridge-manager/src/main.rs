@@ -16,7 +16,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
     },
     time::{Duration, Instant},
@@ -55,16 +55,54 @@ struct SessionSpec {
 }
 // Unexposed admission owns only a reservation. Once the native binding is
 // exposed, only positive supervisor retirement can release that ownership.
-struct PendingAdmission(Option<PathBuf>, Option<Arc<AtomicBool>>);
+struct PendingAdmission {
+    lease: Option<PathBuf>,
+    blocked: Arc<AtomicBool>,
+    exposed: bool,
+}
+impl PendingAdmission {
+    fn new(lease: PathBuf, blocked: Arc<AtomicBool>) -> Self {
+        Self {
+            lease: Some(lease),
+            blocked,
+            exposed: false,
+        }
+    }
+    fn expose(&mut self) {
+        self.exposed = true;
+    }
+    fn complete(
+        &mut self,
+        session: &str,
+        success: bool,
+        receipt: &str,
+        transport: Option<&Path>,
+    ) -> Result<()> {
+        require(self.exposed, "admission retirement before exposure")?;
+        require(
+            success && receipt == format!("LVO1 {session} retired\n"),
+            "instance owner did not confirm cleanup; new admissions blocked",
+        )?;
+        if let Some(directory) = transport {
+            require(!directory.try_exists()?, "transport retirement unconfirmed")?;
+        }
+        if let Some(lease) = &self.lease {
+            fs::remove_file(lease)?;
+            self.lease = None;
+        }
+        Ok(())
+    }
+}
 impl Drop for PendingAdmission {
     fn drop(&mut self) {
-        if let Some(path) = &self.0 {
-            if let Some(blocked) = &self.1 {
-                // Native binding was exposed. Without a supervisor receipt its
-                // lifetime is unresolved; keep the lease and refuse admission.
-                blocked.store(true, Ordering::Release);
-            } else {
-                let _ = fs::remove_file(path);
+        if let Some(path) = &self.lease {
+            if self.exposed {
+                self.blocked.store(true, Ordering::Release);
+            } else if let Err(e) = fs::remove_file(path) {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    // Failed unexposed cleanup cannot silently return a unit.
+                    self.blocked.store(true, Ordering::Release);
+                }
             }
         }
     }
@@ -510,6 +548,38 @@ fn ensure_keeper(
     require(status["ready"] == true, "environment not ready")?;
     Ok(())
 }
+// Worker admission and DSP ownership are separate. Full musical capacity still
+// leaves bounded classifier capacity for truthful refusals and status.
+struct WorkerCount(Arc<AtomicUsize>);
+impl Drop for WorkerCount {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+fn startup_reply(peer: &mut UnixStream, bytes: &[u8]) -> Result<()> {
+    require(
+        bytes.len() <= ap1_native_client::admission::MAX_REPLY,
+        "session binding size",
+    )?;
+    peer.write_all(&(bytes.len() as u16).to_le_bytes())?;
+    peer.write_all(bytes)?;
+    Ok(())
+}
+fn capacity_read(m: &Manager) -> Result<()> {
+    let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
+    peer.set_read_timeout(Some(Duration::from_secs(5)))?;
+    peer.set_write_timeout(Some(Duration::from_secs(1)))?;
+    peer.write_all(b"LVC1\n")?;
+    let mut length = [0; 4];
+    peer.read_exact(&mut length)?;
+    let size = u32::from_le_bytes(length) as usize;
+    require(size <= 65536, "capacity_readback_extent")?;
+    let mut bytes = vec![0; size];
+    peer.read_exact(&mut bytes)?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes)?;
+    println!("{}", serde_json::to_string_pretty(&value)?);
+    require(value["ok"] == true, "capacity_readback_unavailable")
+}
 fn serve(m: Manager) -> Result<()> {
     let _lock = m.lock("service.lock")?;
     m.reconcile()?;
@@ -534,40 +604,73 @@ fn serve(m: Manager) -> Result<()> {
     // Clean reports retire their leases; uncertain ones remain inspectable.
     let blocked = Arc::new(AtomicBool::new(reconcile_leases(&manager)?));
     let keepers = Arc::new(Mutex::new(Vec::new()));
+    let limits = capacity::fixture_limits();
+    let workers = Arc::new(AtomicUsize::new(0));
     let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
     for peer in listener.incoming() {
         let mut peer = peer?;
         threads.retain(|t| !t.is_finished());
-        if threads.len() >= 8 || blocked.load(Ordering::Acquire) {
+        if threads.len() >= limits.service_workers {
+            // Classification itself is unavailable. This bounded zero-token
+            // refusal cannot convey a session or acknowledge a stale request.
+            if peer
+                .set_write_timeout(Some(Duration::from_millis(100)))
+                .is_ok()
+            {
+                let _ = startup_reply(
+                    &mut peer,
+                    &ap1_native_client::admission::refused([0; 16], capacity::Refusal::ServiceBusy),
+                );
+            }
             continue;
         }
         let m = manager.clone();
         let s = s.clone();
         let blocked = blocked.clone();
         let keepers = keepers.clone();
+        let limits = limits.clone();
+        let workers = workers.clone();
+        workers.fetch_add(1, Ordering::AcqRel);
+        let worker_count = WorkerCount(workers.clone());
         threads.push(std::thread::spawn(move || {
+            let _worker_count=worker_count;
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 53];
                 peer.read_exact(&mut greeting[..5])?;
-                if &greeting[..5] == b"LVI1\n" || &greeting[..5] == b"LVQ1\n" {
+                if &greeting[..5]==b"LVC1\n" {
+                    let value=match capacity::status(&m,limits.clone(),workers.load(Ordering::Acquire),blocked.load(Ordering::Acquire)) {
+                        Ok(status)=>serde_json::json!({"ok":true,"capacity":status}),
+                        Err(e)=>serde_json::json!({"ok":false,"refusal":readback::refusal(e.as_ref())}),
+                    };
+                    let bytes=serde_json::to_vec(&value)?;
+                    require(bytes.len()<=65536,"capacity_readback_extent")?;
+                    peer.set_write_timeout(Some(Duration::from_secs(1)))?;
+                    peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
+                    peer.write_all(&bytes)?;return Ok(());
+                }
+                if matches!(&greeting[..5],b"LVI1\n"|b"LVQ1\n"|b"LVQ2\n") {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
-                    let _admission=m.lock("registry.lock")?;
+                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
                     m.require_inactive(None)?;
                     let request=serde_json::from_slice(&bytes)?;
-                    let r=if &greeting[..5]==b"LVQ1\n" {qualification_binding(&m,request)?} else {inspection_binding(&m,request)?};
+                    let r=match &greeting[..5] {
+                        b"LVQ1\n"=>qualification_binding(&m,request,publication::Qualification::Ap15Editor)?,
+                        b"LVQ2\n"=>qualification_binding(&m,request,publication::Qualification::Ap17Capacity)?,
+                        _=>inspection_binding(&m,request)?,
+                    };
                     ensure_keeper(&m,&s,&r,&keepers)?;
                     let (mut job,path)=spec(&m,r,true,false,false)?;
-                    let mut pending=PendingAdmission(Some(job.lease.clone()), None);
+                    let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     job.shared_inspection=true;atomic_json(&path,&job)?;
                     let mut child=spawn(&s,&path,None)?;
-                    pending.0=None;
+                    pending.expose();
+                    drop(_admission);
                     let status=child.wait()?;
                     let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
-                    if !status.success()||disposition!=format!("LVO1 {} retired\n",job.session){blocked.store(true,Ordering::Release);return Err("inspection_cleanup_unconfirmed".into());}
-                    fs::remove_file(&job.lease)?;
+                    pending.complete(&job.session,status.success(),&disposition,None)?;
                     let reply=serde_json::to_vec(&job.report)?;
                     require(reply.len()<=4096,"inspection_reply_bound")?;
                     peer.write_all(&(reply.len() as u32).to_le_bytes())?;peer.write_all(&reply)?;
@@ -577,22 +680,32 @@ fn serve(m: Manager) -> Result<()> {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"vendor access request bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
+                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
+                    m.require_inactive(None)?;
                     let r=inspection_binding(&m,serde_json::from_slice(&bytes)?)?;
                     ensure_keeper(&m,&s,&r,&keepers)?;
                     let (mut job,path)=spec(&m,r,false,false,false)?;
                     job.vendor_access=true;atomic_json(&path,&job)?;
+                    let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     let mut child=spawn(&s,&path,None)?;
+                    pending.expose();
+                    drop(_admission);
                     let _=peer.write_all(format!("Vendor access {}: editor only; no DAW audio or project recall. Close its window to finish.\n",job.session).as_bytes());
                     let status=child.wait()?;
                     let mut disposition=String::new();if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
-                    if !status.success()||disposition!=format!("LVO1 {} retired\n",job.session){blocked.store(true,Ordering::Release);return Err("vendor access cleanup unconfirmed".into());}
-                    fs::remove_file(&job.lease)?;peer.write_all(b"Vendor access retired.\n")?;return Ok(());
+                    pending.complete(&job.session,status.success(),&disposition,None)?;
+                    peer.write_all(b"Vendor access retired.\n")?;return Ok(());
                 }
                 peer.read_exact(&mut greeting[5..])?;
-                let version2 = &greeting[..5] == b"LVB2\n";
+                let version3 = &greeting[..5] == ap1_native_client::admission::GREETING;
+                let version2 = version3 || &greeting[..5] == b"LVB2\n";
                 require(version2 || &greeting[..5] == b"LVB1\n", "registration protocol mismatch")?;
-                let (r, performance, job, path, mut admission, mut storage) = {
-                    let _admission = m.lock("registry.lock")?;
+                let mut request=[0u8;16];
+                if version3 {peer.read_exact(&mut request)?;require(request!=[0;16],"admission request identity")?;}
+                peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+                let prepared=(|| -> Result<_> {
+                    let class=hex(&greeting[5..21]).to_uppercase();
+                    let _reservation=capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire))?;
                     let registration = m.resolve(&greeting[5..])?;
                     m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
                     let r: HostBinding = registration.into();
@@ -609,36 +722,45 @@ fn serve(m: Manager) -> Result<()> {
                     job.transport = Some(storage.identity.clone());
                     job.shared_runtime = true;
                     atomic_json(&path, &job)?;
+                    let admission = PendingAdmission::new(job.lease.clone(),blocked.clone());
                     atomic_json(&job.lease, &job.report)?;
-                    let admission = PendingAdmission(Some(job.lease.clone()), None);
-                    (r, performance, job, path, admission, storage)
+                    Ok((r, performance, job, path, admission, storage))
+                })();
+                let (r,performance,job,path,mut admission,mut storage)=match prepared {
+                    Ok(value)=>value,
+                    Err(e)=>{
+                        if version3 {
+                            let reason=e.downcast_ref::<capacity::Refusal>().copied()
+                                .unwrap_or(capacity::Refusal::BindingInvalid);
+                            startup_reply(&mut peer,&ap1_native_client::admission::refused(request,reason))?;
+                        }
+                        return Err(e);
+                    }
                 };
                 // Deliver the private binding inside the native greeting deadline.
                 // Cold Wine startup then uses the existing bounded transport accept.
-                let reply = if version2 {
-                    format!("{}\n{}\n{}", job.session, performance.added_frames, job.directory.display())
+                let reply = if version3 {
+                    let session=std::array::from_fn(|i|u8::from_str_radix(&job.session[i*2..i*2+2],16).unwrap());
+                    ap1_native_client::admission::accepted(request,&ap1_native_client::admission::Binding {
+                        session,added_frames:performance.added_frames,
+                        directory:job.directory.to_str().ok_or("session directory encoding")?.into(),
+                    })?
+                } else if version2 {
+                    format!("{}\n{}\n{}", job.session, performance.added_frames, job.directory.display()).into_bytes()
                 } else {
-                    format!("{}\n{}", job.session, job.directory.display())
+                    format!("{}\n{}", job.session, job.directory.display()).into_bytes()
                 };
                 require(reply.len() <= 1024, "session binding size")?;
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
-                admission.1 = Some(blocked.clone());
+                admission.expose();
                 storage.expose();
-                peer.write_all(&(reply.len() as u16).to_le_bytes())?;
-                peer.write_all(reply.as_bytes())?;
+                startup_reply(&mut peer,&reply)?;
                 ensure_keeper(&m, &s, &r, &keepers)?;
                 let mut child = spawn(&s, &path, Some(peer))?;
-                admission.0 = None;
                 let status = child.wait()?;
                 let mut disposition=String::new();
                 if let Some(stdout)=child.stdout.take(){stdout.take(128).read_to_string(&mut disposition)?;}
-                if !status.success() || disposition!=format!("LVO1 {} retired\n",job.session) {
-                    blocked.store(true, Ordering::Release);
-                    return Err(
-                        "instance owner did not confirm cleanup; new admissions blocked".into(),
-                    );
-                }
-                fs::remove_file(&job.lease)?;
+                admission.complete(&job.session,status.success(),&disposition,Some(&job.directory))?;
                 Ok(())
             })();
             if let Err(e) = outcome {
@@ -749,8 +871,12 @@ fn inspection_binding(m: &Manager, request: InspectionRequest) -> Result<HostBin
 }
 // Engineering inspection has a distinct admission selector. Its host can only
 // come from the sealed installed candidate roster, never from request data.
-fn qualification_binding(m: &Manager, request: InspectionRequest) -> Result<HostBinding> {
-    let candidates = qualification::installed(m)?;
+fn qualification_binding(
+    m: &Manager,
+    request: InspectionRequest,
+    purpose: publication::Qualification,
+) -> Result<HostBinding> {
+    let candidates = qualification::installed_for(m, purpose)?;
     let r = inspection_binding(m, request)?;
     let matching: Vec<_> = candidates
         .iter()
@@ -773,7 +899,7 @@ fn qualification_binding(m: &Manager, request: InspectionRequest) -> Result<Host
     registration.host = c.host.clone();
     registration.native = c.native.artifact.clone();
     registration.host_source_sha256 = c.source_manifest.sha256.clone();
-    m.check_editor_qualification_parent(&c.profile, &registration)?;
+    m.check_qualification_parent_for(&c.profile, &registration, purpose)?;
     Ok(registration.into())
 }
 fn inspect(m: &Manager, path: &Path) -> Result<()> {
@@ -833,6 +959,7 @@ fn main() -> Result<()> {
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
+  Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
   Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),
   Some("install") if args.len()==4=>install(&m,&args[1],Path::new(&args[2]),&args[3]),
@@ -841,6 +968,7 @@ fn main() -> Result<()> {
   Some("set-delay") if args.len()==3=>m.select_delay(&args[1],args[2].parse()?),
   Some("serve") if args.len()==1=>serve(m),
   Some("status") if args.len()==1=>status(&m),
+  Some("capacity") if args.len()==1=>capacity_read(&m),
   Some("reconcile") if args.len()==1=>m.reconcile(),
   Some("inspect") if args.len()==2=>inspect(&m,Path::new(&args[1])),
   Some("vendor-editor") if args.len()==2=>vendor_editor(&m,Path::new(&args[1])),
@@ -887,16 +1015,97 @@ mod tests {
         let f = test_fixture::Fixture::new();
         let lease = f.outer.join("lease.json");
         fs::write(&lease, b"reservation").unwrap();
-        drop(PendingAdmission(Some(lease.clone()), None));
+        let blocked = Arc::new(AtomicBool::new(false));
+        drop(PendingAdmission::new(lease.clone(), blocked.clone()));
         assert!(!lease.exists());
         fs::write(&lease, b"bound native owner").unwrap();
         let blocked = Arc::new(AtomicBool::new(false));
-        drop(PendingAdmission(Some(lease.clone()), Some(blocked.clone())));
+        let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
+        pending.expose();
+        drop(pending);
         assert!(lease.exists());
         assert!(blocked.load(Ordering::Acquire));
         let blocked = Arc::new(AtomicBool::new(false));
-        drop(PendingAdmission(None, Some(blocked.clone())));
+        let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
+        pending.expose();
+        pending
+            .complete("exact", true, "LVO1 exact retired\n", None)
+            .unwrap();
+        pending
+            .complete("exact", true, "LVO1 exact retired\n", None)
+            .unwrap();
+        drop(pending);
+        assert!(!lease.exists());
         assert!(!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn only_exact_positive_retirement_releases_one_exposed_owner() {
+        let f = test_fixture::Fixture::new();
+        let lease = f.outer.join("lease.json");
+        let sibling = f.outer.join("sibling.json");
+        let transport = f.outer.join("transport");
+        fs::write(&lease, b"owner").unwrap();
+        fs::write(&sibling, b"sibling").unwrap();
+        fs::create_dir(&transport).unwrap();
+        let blocked = Arc::new(AtomicBool::new(false));
+        let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
+        assert!(pending
+            .complete("a", true, "LVO1 a retired\n", None)
+            .is_err());
+        pending.expose();
+        for (success, receipt) in [
+            (false, "LVO1 a retired\n"),
+            (true, "LVO1 b retired\n"),
+            (true, ""),
+        ] {
+            assert!(pending
+                .complete("a", success, receipt, Some(&transport))
+                .is_err());
+            assert!(lease.exists() && sibling.exists());
+        }
+        assert!(pending
+            .complete("a", true, "LVO1 a retired\n", Some(&transport))
+            .is_err());
+        fs::remove_dir(&transport).unwrap();
+        pending
+            .complete("a", true, "LVO1 a retired\n", Some(&transport))
+            .unwrap();
+        // A duplicate completion cannot unlink a replacement or sibling.
+        fs::write(&lease, b"replacement").unwrap();
+        pending
+            .complete("a", true, "LVO1 a retired\n", Some(&transport))
+            .unwrap();
+        drop(pending);
+        assert_eq!(fs::read(&lease).unwrap(), b"replacement");
+        assert_eq!(fs::read(&sibling).unwrap(), b"sibling");
+        assert!(!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn failed_unlink_or_post_spawn_error_keeps_admission_blocked() {
+        let f = test_fixture::Fixture::new();
+        let lease = f.outer.join("lease.json");
+        fs::create_dir(&lease).unwrap(); // deterministic remove_file failure
+        let blocked = Arc::new(AtomicBool::new(false));
+        drop(PendingAdmission::new(lease.clone(), blocked.clone()));
+        assert!(blocked.load(Ordering::Acquire) && lease.exists());
+        blocked.store(false, Ordering::Release);
+        let mut pending = PendingAdmission::new(lease.clone(), blocked.clone());
+        pending.expose();
+        assert!(pending
+            .complete("a", true, "LVO1 a retired\n", None)
+            .is_err());
+        drop(pending);
+        assert!(blocked.load(Ordering::Acquire) && lease.exists());
+        fs::remove_dir(&lease).unwrap();
+        fs::write(&lease, b"owner").unwrap();
+        blocked.store(false, Ordering::Release);
+        fn after_spawn(lease: PathBuf, blocked: Arc<AtomicBool>) -> Result<()> {
+            let mut pending = PendingAdmission::new(lease, blocked);
+            pending.expose();
+            Err("post-spawn wait/read failure".into())
+        }
+        let failure = after_spawn(lease.clone(), blocked.clone());
+        assert!(failure.is_err() && blocked.load(Ordering::Acquire) && lease.exists());
     }
     #[test]
     fn restart_requires_positive_prior_cleanup() {

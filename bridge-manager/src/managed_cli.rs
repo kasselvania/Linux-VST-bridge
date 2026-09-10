@@ -153,6 +153,7 @@ fn modules(environment: &Environment) -> Result<Vec<Artifact>> {
 enum InspectionRoute {
     Current,
     Ap15Editor,
+    Ap17Capacity,
 }
 fn inspect_through_owner(
     m: &Manager,
@@ -167,6 +168,7 @@ fn inspect_through_owner(
     peer.write_all(match route {
         InspectionRoute::Current => b"LVI1\n",
         InspectionRoute::Ap15Editor => b"LVQ1\n",
+        InspectionRoute::Ap17Capacity => b"LVQ2\n",
     })?;
     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
     peer.write_all(&bytes)?;
@@ -375,9 +377,16 @@ fn render(result: Result<serde_json::Value>) -> Result<()> {
 // This separate command is intentionally absent from ordinary managed
 // preview/publish. Profile and artifact inputs are fixed by the compiled roster.
 fn execute_qualification(m: &Manager, args: &[String]) -> Result<serde_json::Value> {
+    execute_qualification_for(m, args, publication::Qualification::Ap15Editor)
+}
+fn execute_qualification_for(
+    m: &Manager,
+    args: &[String],
+    purpose: publication::Qualification,
+) -> Result<serde_json::Value> {
     match args.first().map(String::as_str) {
         Some("stage") if args.len() == 2 => {
-            qualification::stage(m, Path::new(&args[1]))?;
+            qualification::stage_for(m, Path::new(&args[1]), purpose)?;
             status(m)
         }
         Some("restore") if args.len() == 1 => {
@@ -385,7 +394,7 @@ fn execute_qualification(m: &Manager, args: &[String]) -> Result<serde_json::Val
             status(m)
         }
         Some("publish") if args.len() == 1 => {
-            let candidates = qualification::installed(m)?;
+            let candidates = qualification::installed_for(m, purpose)?;
             let mut sw = software(m)?;
             let mut c = catalogue(m, &sw)?;
             c.natives = candidates.iter().map(|c| c.native.clone()).collect();
@@ -401,18 +410,21 @@ fn execute_qualification(m: &Manager, args: &[String]) -> Result<serde_json::Val
                     environment(&c, None)?,
                     std::slice::from_ref(&candidate.profile),
                     SelectionPurpose::Qualification,
-                    InspectionRoute::Ap15Editor,
+                    match purpose {
+                        publication::Qualification::Ap15Editor => InspectionRoute::Ap15Editor,
+                        publication::Qualification::Ap17Capacity => InspectionRoute::Ap17Capacity,
+                    },
                 )?);
             }
             {
                 let _lock = m.lock("registry.lock")?;
                 m.require_inactive(None)?;
                 for p in &planned {
-                    m.check_editor_qualification_parent(&p.profile, &p.registration)?;
+                    m.check_qualification_parent_for(&p.profile, &p.registration, purpose)?;
                 }
             }
             for p in &planned {
-                m.qualify_editor(&p.census, None)?;
+                m.qualify_for(&p.census, None, purpose)?;
             }
             status(m)
         }
@@ -421,6 +433,14 @@ fn execute_qualification(m: &Manager, args: &[String]) -> Result<serde_json::Val
 }
 pub(super) fn run_qualification(m: &Manager, args: &[String]) -> Result<()> {
     render(execute_qualification(m, args))
+}
+
+pub(super) fn run_capacity_qualification(m: &Manager, args: &[String]) -> Result<()> {
+    render(execute_qualification_for(
+        m,
+        args,
+        publication::Qualification::Ap17Capacity,
+    ))
 }
 
 pub(super) fn run_acceptance(m: &Manager) -> Result<()> {

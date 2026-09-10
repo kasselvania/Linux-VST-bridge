@@ -1602,3 +1602,186 @@ fn accepted_publication_preserves_three_at_all_existing_boundaries() {
         assert!(!t.f.m.publication_pending(key).unwrap());
     }
 }
+
+fn capacity_candidate(
+    f: &Fixture,
+    p: &Profile,
+    c: &Census,
+    n: &NativeArtifact,
+) -> (Profile, Census, NativeArtifact) {
+    let mut candidate = p.clone();
+    candidate.revision = 8;
+    candidate.claim = Claim::ReviewCandidate;
+    candidate
+        .limitations
+        .push(Limitation::CapacityUnderQualification);
+    let mut native = n.clone();
+    let file = f.outer.join("capacity-native.so");
+    fs::write(&file, b"native LVB3 exact capacity startup").unwrap();
+    native.artifact = Artifact {
+        path: file,
+        sha256: String::new(),
+    };
+    native.artifact.sha256 = digest(&native.artifact.path).unwrap();
+    native.source_commit = "17".repeat(20);
+    candidate.requirements.native_sha256 = native.artifact.sha256.clone();
+    candidate.requirements.native_source_commit = native.source_commit.clone();
+    let package = f.outer.join("capacity-package");
+    private_dir(&package).unwrap();
+    fs::copy(&c.host.path, package.join("host.exe")).unwrap();
+    fs::copy(
+        c.host.path.with_file_name("host-source-manifest.json"),
+        package.join("host-source-manifest.json"),
+    )
+    .unwrap();
+    fs::copy(
+        &native.artifact.path,
+        package.join(format!("{}.so", p.class.class_id)),
+    )
+    .unwrap();
+    qualification::stage_selected_for(
+        &f.m,
+        &package,
+        std::slice::from_ref(&candidate),
+        Qualification::Ap17Capacity,
+    )
+    .unwrap();
+    let installed =
+        qualification::load_for(&f.m, candidate.clone(), Qualification::Ap17Capacity).unwrap();
+    let mut census = c.clone();
+    census.host = installed.host;
+    census.report.path = f.outer.join("capacity-inspection.json");
+    atomic_json(&census.report.path, &inspection_report(&census)).unwrap();
+    census.report.sha256 = digest(&census.report.path).unwrap();
+    (candidate, census, installed.native)
+}
+fn qualify_capacity(
+    f: &Fixture,
+    p: &Profile,
+    c: &Census,
+    n: &NativeArtifact,
+    fail: Option<Boundary>,
+) -> Result<RevisionRef> {
+    f.m.publish_selected(
+        p,
+        c,
+        derive_for(p, c, n, SelectionPurpose::Qualification)?,
+        (&c.host, &c.host_source_sha256),
+        Some(Qualification::Ap17Capacity),
+        fail,
+    )
+}
+#[test]
+fn capacity_qualification_all_boundaries_restore_exact_seven() {
+    for point in BOUNDARIES {
+        let (f, mut p, c, n) = prepared();
+        p.revision = 7;
+        p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+        let parent = publish(&f, &p, &c, &n, None).unwrap();
+        let prior = f.m.load_revision(&p.class.class_id, &parent).unwrap();
+        let before = snapshot(prior.target.parent().unwrap());
+        let vendor = snapshot(&f.r.environment.root);
+        let (candidate, census, native) = capacity_candidate(&f, &p, &c, &n);
+        reason(
+            qualify_capacity(&f, &candidate, &census, &native, Some(point)),
+            &format!("injected_{point:?}"),
+        );
+        f.m.reconcile().unwrap();
+        f.m.reconcile().unwrap();
+        assert_eq!(
+            fs::read_link(f.m.link(&p.class.class_id)).unwrap(),
+            prior.target,
+            "{point:?}"
+        );
+        assert_eq!(
+            f.m.registry().unwrap().classes[&p.class.class_id].managed_revision,
+            Some(parent)
+        );
+        assert_eq!(snapshot(prior.target.parent().unwrap()), before);
+        assert_eq!(snapshot(&f.r.environment.root), vendor);
+        assert!(!f.m.publication_pending(&p.class.class_id).unwrap());
+    }
+}
+#[test]
+fn capacity_qualification_is_exact_separate_and_never_ordinary_authority() {
+    let (f, mut p, c, n) = prepared();
+    p.revision = 7;
+    p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+    let parent = publish(&f, &p, &c, &n, None).unwrap();
+    let prior = f.m.load_revision(&p.class.class_id, &parent).unwrap();
+    let (candidate, census, native) = capacity_candidate(&f, &p, &c, &n);
+    reason(
+        derive(&candidate, &census, &native),
+        "profile_review_candidate_not_activatable",
+    );
+    for mutation in 0..8 {
+        let mut bad = candidate.clone();
+        match mutation {
+            0 => bad.revision = 9,
+            1 => bad.requirements.host_sha256 = "ef".repeat(32),
+            2 => bad.requirements.host_source_sha256 = "fe".repeat(32),
+            3 => bad.requirements.runner.version.push_str("different"),
+            4 => bad.requirements.environment_revision += 1,
+            5 => bad.module_sha256 = "ba".repeat(32),
+            6 => bad.requirements.descriptor_sha256 = "be".repeat(32),
+            _ => bad.requirements.native_sha256 = p.requirements.native_sha256.clone(),
+        }
+        let before = snapshot(&f.outer);
+        assert!(qualify_capacity(&f, &bad, &census, &native, None).is_err());
+        assert_eq!(snapshot(&f.outer), before);
+    }
+    let mut registration = derive_for(
+        &candidate,
+        &census,
+        &native,
+        SelectionPurpose::Qualification,
+    )
+    .unwrap();
+    assert!(f
+        .m
+        .verify_qualification_parent_for(
+            &f.m.registry().unwrap(),
+            &candidate,
+            &registration,
+            Qualification::Ap15Editor
+        )
+        .is_err());
+    let next = qualify_capacity(&f, &candidate, &census, &native, None).unwrap();
+    let active = f.m.load_revision(&p.class.class_id, &next).unwrap();
+    assert_eq!(active.qualification, Some(Qualification::Ap17Capacity));
+    assert_eq!(active.parent, Some(parent.clone()));
+    assert_eq!(active.external_ids, prior.external_ids);
+    assert_eq!(active.performance.added_frames, 512);
+    registration.native.path = active.registration.native.path.clone();
+    assert_eq!(registration, active.registration);
+    f.m.verify_retained_authority(&active, std::slice::from_ref(&candidate))
+        .unwrap();
+    let mut wrong = active.clone();
+    wrong.qualification = Some(Qualification::Ap15Editor);
+    assert!(f
+        .m
+        .verify_retained_authority(&wrong, std::slice::from_ref(&candidate))
+        .is_err());
+    wrong.qualification = None;
+    assert!(f
+        .m
+        .verify_retained_authority(&wrong, std::slice::from_ref(&candidate))
+        .is_err());
+    // Ordinary verified profiles, not the engineering history, own host policy.
+    assert!(f
+        .m
+        .verify_served_host(
+            &active.registration,
+            &c.host,
+            &c.host_source_sha256,
+            std::slice::from_ref(&candidate)
+        )
+        .is_err());
+    f.m.restore_editor_qualifications().unwrap();
+    assert_eq!(
+        fs::read_link(f.m.link(&p.class.class_id)).unwrap(),
+        prior.target
+    );
+    f.m.verify_served_host(&prior.registration, &c.host, &c.host_source_sha256, &[p])
+        .unwrap();
+}

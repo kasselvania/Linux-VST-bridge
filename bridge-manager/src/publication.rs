@@ -29,10 +29,11 @@ pub struct Revision {
     pub qualification: Option<Qualification>,
 }
 /// A bounded engineering publication is retained history, not ordinary policy.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Qualification {
     Ap15Editor,
+    Ap17Capacity,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -373,7 +374,11 @@ impl Manager {
                 "installed_host_mismatch",
             )?;
             let roster = if revision.profile.claim == Claim::ReviewCandidate {
-                crate::qualification::candidates().unwrap_or_default()
+                revision
+                    .qualification
+                    .map(crate::qualification::candidates_for)
+                    .transpose()?
+                    .unwrap_or_default()
             } else {
                 Vec::new()
             };
@@ -809,8 +814,8 @@ impl Manager {
                 "qualification_active_restore_first",
             )?;
         }
-        if qualification.is_some() {
-            self.verify_qualification_parent(&db, profile, &registration)?;
+        if let Some(purpose) = qualification {
+            self.verify_qualification_parent_for(&db, profile, &registration, purpose)?;
         }
         registration.verify(&self.root)?;
         require(

@@ -1,4 +1,5 @@
 pub mod endpoint;
+pub mod admission;
 pub mod events;
 pub mod mapping;
 // AP1 bounded wire codec and Linux-owned slot state. No external dependencies.

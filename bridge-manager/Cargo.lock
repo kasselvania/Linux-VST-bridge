@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "ap1-native-client"
+version = "0.1.0"
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -72,6 +76,7 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 name = "linux-vst-bridge"
 version = "0.12.0"
 dependencies = [
+ "ap1-native-client",
  "libc",
  "serde",
  "serde_json",

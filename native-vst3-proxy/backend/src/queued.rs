@@ -795,7 +795,9 @@ pub(crate) unsafe fn open(
                 0
             }
             Ok(Err(e)) => retain(&e),
-            Err(code) => code as i32,
+            Err(_) => retain(&io::Error::other(
+                ap1_native_client::admission::Refusal::NativeImageCapacity,
+            )),
         }
     }) as u32
 }

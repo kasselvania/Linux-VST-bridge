@@ -63,6 +63,7 @@ closed_enum!(Limitation {
     DetachedFocusRefusal,
     FragmentsAdvancedRedraw,
     ExactOperatorArtifactOnly,
+    CapacityUnderQualification,
     DirectEditorUnderQualification
 });
 

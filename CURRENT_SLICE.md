@@ -292,3 +292,7 @@ The implementation PR must retain:
 Update one AP17 implementation PR with exact final head, parent and tree; topology; capacity model; changed owners; tests; project matrix; resource measurements; refusal behavior; failure/recovery evidence; exact installed state; residual limits; and the private unopened ASC-installer handoff status if the operator supplies it separately.
 
 Leave the PR open and unmerged for independent technical review.
+
+## Current implementation checkpoint
+
+Characterization selected a conservative six-instance engineering envelope; eight produced repeated active-playback misses. Typed non-RT admission and durable-lease capacity accounting are implemented locally. Qualification/profile artifacts, exact deployment, maximum-project recall/refusal/recovery and final validation remain incomplete. See `docs/AP17.md` and `evidence/ap17/`. PR #92 remains draft; no AP17 candidate is installed at this checkpoint.

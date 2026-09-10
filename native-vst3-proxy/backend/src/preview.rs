@@ -104,14 +104,56 @@ pub fn connect(root: &Path) -> io::Result<Binding> {
     connect_greeting(root, b"AP4\n")
 }
 pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
+    if !greeting.starts_with(ap1_native_client::admission::GREETING) {
+        return connect_once(root, greeting, None);
+    }
+    // Concurrent project loads can briefly contend on registry.lock. Only a
+    // typed refusal that grants no ownership may be retried. EOF, a partial
+    // binding, protocol failure or an actual capacity refusal is never retried.
+    // This runs on non-RT instance startup, with one deadline and a finite count.
+    let end = Instant::now() + Duration::from_secs(10);
+    for attempt in 0..64 {
+        match connect_once(root, greeting, Some(end)) {
+            Err(e)
+                if e.get_ref()
+                    .and_then(|e| e.downcast_ref::<ap1_native_client::admission::Refusal>())
+                    == Some(&ap1_native_client::admission::Refusal::ServiceBusy)
+                    && attempt < 63
+                    && end.saturating_duration_since(Instant::now())
+                        > Duration::from_millis(20) =>
+            {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            result => return result,
+        }
+    }
+    unreachable!("last attempt always returns")
+}
+fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::Result<Binding> {
     private(root, true)?;
     let address = root.join("owner.sock");
     private(&address, false)?;
     let mut owner = UnixStream::connect(address)?;
-    owner.set_write_timeout(Some(Duration::from_secs(5)))?;
+    owner.set_write_timeout(Some(match deadline {
+        Some(end) => end
+            .checked_duration_since(Instant::now())
+            .ok_or_else(|| invalid("preview startup timeout"))?
+            .min(Duration::from_secs(5)),
+        None => Duration::from_secs(5),
+    }))?;
+    let version3 = greeting.starts_with(ap1_native_client::admission::GREETING);
+    let mut request = [0u8; 16];
+    if version3 {
+        need(greeting.len() == 53, "admission greeting extent")?;
+        std::fs::File::open("/dev/urandom")?.read_exact(&mut request)?;
+        need(request != [0; 16], "admission request identity")?;
+    }
     owner.write_all(greeting)?;
+    if version3 {
+        owner.write_all(&request)?;
+    }
     // One absolute startup-message deadline, including fragmented replies.
-    let end = Instant::now() + Duration::from_secs(10);
+    let end = deadline.unwrap_or_else(|| Instant::now() + Duration::from_secs(10));
     let mut read = |bytes: &mut [u8]| -> io::Result<()> {
         let mut offset = 0;
         while offset < bytes.len() {
@@ -128,19 +170,43 @@ pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
     let mut length = [0; 2];
     read(&mut length)?;
     let n = u16::from_le_bytes(length) as usize;
-    need((34..=1024).contains(&n), "preview startup length")?;
+    let minimum = if version3 {
+        ap1_native_client::admission::HEADER
+    } else {
+        34
+    };
+    need((minimum..=1024).contains(&n), "preview startup length")?;
     let mut bytes = vec![0; n];
     read(&mut bytes)?;
+    if version3 {
+        let binding =
+            ap1_native_client::admission::decode(&bytes, request)?.map_err(io::Error::other)?;
+        let directory = PathBuf::from(binding.directory);
+        private(&directory, true)?;
+        owner.set_nonblocking(true)?;
+        return Ok(Binding {
+            directory,
+            session: binding.session,
+            installed_delay: Some(binding.added_frames),
+            owner: Some(Owner::new(owner)),
+        });
+    }
     let reply = std::str::from_utf8(&bytes).map_err(|_| invalid("preview startup encoding"))?;
     let (id, directory) = reply
         .split_once('\n')
         .ok_or_else(|| invalid("preview startup shape"))?;
     let (installed_delay, directory) = if greeting.starts_with(b"LVB2\n") {
-        let (delay, path) = directory.split_once('\n').ok_or_else(|| invalid("installed performance binding absent"))?;
-        let delay = delay.parse::<u32>().map_err(|_| invalid("installed delay encoding"))?;
+        let (delay, path) = directory
+            .split_once('\n')
+            .ok_or_else(|| invalid("installed performance binding absent"))?;
+        let delay = delay
+            .parse::<u32>()
+            .map_err(|_| invalid("installed delay encoding"))?;
         need(matches!(delay, 256 | 512), "unsupported installed delay")?;
         (Some(delay), path)
-    } else { (None, directory) };
+    } else {
+        (None, directory)
+    };
     need(
         id.len() == 32 && id.bytes().all(|c| c.is_ascii_hexdigit()),
         "preview session syntax",
@@ -174,7 +240,7 @@ pub(crate) fn performance_root(commercial: bool) -> PathBuf {
 }
 pub fn discover_performance(identity: Option<crate::state::Identity>) -> io::Result<Binding> {
     let mut greeting = if cfg!(feature = "registered") && identity.is_some() {
-        b"LVB2\n".to_vec()
+        ap1_native_client::admission::GREETING.to_vec()
     } else {
         b"AP9\n".to_vec()
     };
@@ -257,19 +323,181 @@ mod tests {
         }
     }
     #[test]
+    fn registered_v3_refusal_is_correlated_and_never_creates_a_binding() {
+        use ap1_native_client::admission::{self, Refusal};
+        for stale in [false, true] {
+            for reason in [
+                Refusal::ServiceBusy,
+                Refusal::GlobalCapacity,
+                Refusal::ClassCapacity,
+                Refusal::CleanupUnconfirmed,
+            ] {
+                let dir = Directory::new();
+                let socket = dir.0.join("owner.sock");
+                let listener = UnixListener::bind(&socket).unwrap();
+                fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
+                let peer = std::thread::spawn(move || {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    let mut hello = [0; 69];
+                    stream.read_exact(&mut hello).unwrap();
+                    assert_eq!(&hello[..5], admission::GREETING);
+                    let mut request: [u8; 16] = hello[53..].try_into().unwrap();
+                    assert_ne!(request, [0; 16]);
+                    if stale {
+                        request[0] ^= 1;
+                    }
+                    let reply = admission::refused(request, reason);
+                    stream
+                        .write_all(&(reply.len() as u16).to_le_bytes())
+                        .unwrap();
+                    // Fragmentation remains inside the single startup deadline.
+                    for byte in reply {
+                        stream.write_all(&[byte]).unwrap();
+                    }
+                    let mut end = Vec::new();
+                    stream.read_to_end(&mut end).unwrap();
+                    assert!(end.is_empty());
+                });
+                let mut greeting = admission::GREETING.to_vec();
+                greeting.extend([7; 48]);
+                let error = connect_once(&dir.0, &greeting, None)
+                    .err()
+                    .unwrap()
+                    .to_string();
+                assert_eq!(
+                    error,
+                    if stale {
+                        "admission stale reply"
+                    } else {
+                        reason.code()
+                    }
+                );
+                peer.join().unwrap();
+                assert_eq!(fs::read_dir(&dir.0).unwrap().count(), 1);
+            }
+        }
+    }
+    #[test]
+    fn only_unowned_busy_can_retry_and_retry_count_is_bounded() {
+        use ap1_native_client::admission::{self, Refusal};
+        for succeeds in [true, false] {
+            let dir = Directory::new();
+            let socket = dir.0.join("owner.sock");
+            let listener = UnixListener::bind(&socket).unwrap();
+            fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
+            let path = dir.0.clone();
+            let peer = std::thread::spawn(move || {
+                let count = if succeeds { 2 } else { 64 };
+                let mut identities = std::collections::BTreeSet::new();
+                for i in 0..count {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    let mut hello = [0; 69];
+                    stream.read_exact(&mut hello).unwrap();
+                    let request = hello[53..].try_into().unwrap();
+                    assert!(identities.insert(request));
+                    let bytes = if succeeds && i == 1 {
+                        admission::accepted(
+                            request,
+                            &admission::Binding {
+                                session: [9; 16],
+                                added_frames: 512,
+                                directory: path.to_str().unwrap().into(),
+                            },
+                        )
+                        .unwrap()
+                    } else {
+                        admission::refused(request, Refusal::ServiceBusy)
+                    };
+                    stream
+                        .write_all(&(bytes.len() as u16).to_le_bytes())
+                        .unwrap();
+                    stream.write_all(&bytes).unwrap();
+                    assert_eq!(stream.read(&mut [0]).unwrap(), 0);
+                }
+                count
+            });
+            let mut greeting = admission::GREETING.to_vec();
+            greeting.extend([7; 48]);
+            let result = connect_greeting(&dir.0, &greeting);
+            if succeeds {
+                assert_eq!(result.unwrap().session, [9; 16]);
+            } else {
+                assert_eq!(
+                    result.err().unwrap().to_string(),
+                    Refusal::ServiceBusy.code()
+                );
+            }
+            assert_eq!(peer.join().unwrap(), if succeeds { 2 } else { 64 });
+            assert_eq!(fs::read_dir(&dir.0).unwrap().count(), 1);
+        }
+    }
+    #[test]
+    fn registered_v3_success_and_legacy_success_keep_distinct_encodings() {
+        use ap1_native_client::admission;
+        let dir = Directory::new();
+        let socket = dir.0.join("owner.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
+        let path = dir.0.clone();
+        let peer = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut hello = [0; 69];
+            stream.read_exact(&mut hello).unwrap();
+            let reply = admission::accepted(
+                hello[53..].try_into().unwrap(),
+                &admission::Binding {
+                    session: [9; 16],
+                    added_frames: 512,
+                    directory: path.to_str().unwrap().into(),
+                },
+            )
+            .unwrap();
+            stream
+                .write_all(&(reply.len() as u16).to_le_bytes())
+                .unwrap();
+            stream.write_all(&reply).unwrap();
+            let mut end = Vec::new();
+            stream.read_to_end(&mut end).unwrap();
+        });
+        let mut greeting = admission::GREETING.to_vec();
+        greeting.extend([7; 48]);
+        let b = connect_greeting(&dir.0, &greeting).unwrap();
+        assert_eq!(b.session, [9; 16]);
+        assert_eq!(b.installed_delay, Some(512));
+        drop(b);
+        peer.join().unwrap();
+    }
+    #[test]
     fn installed_binding_transfers_a_validated_inactive_delay() {
         for value in ["256", "512", "128", "512\nextra"] {
-            let dir=Directory::new();let listener=UnixListener::bind(dir.0.join("owner.sock")).unwrap();
-            fs::set_permissions(dir.0.join("owner.sock"),fs::Permissions::from_mode(0o600)).unwrap();
-            let path=dir.0.clone();let sent_value=value.to_string();
-            let peer=std::thread::spawn(move || {
-                let (mut stream,_) = listener.accept().unwrap();let mut hello=[0;5];stream.read_exact(&mut hello).unwrap();assert_eq!(&hello,b"LVB2\n");
-                let reply=format!("{}\n{}\n{}","aa".repeat(16),sent_value,path.display());
-                stream.write_all(&(reply.len() as u16).to_le_bytes()).unwrap();stream.write_all(reply.as_bytes()).unwrap();
-                let mut end=Vec::new();stream.read_to_end(&mut end).unwrap();
+            let dir = Directory::new();
+            let listener = UnixListener::bind(dir.0.join("owner.sock")).unwrap();
+            fs::set_permissions(dir.0.join("owner.sock"), fs::Permissions::from_mode(0o600))
+                .unwrap();
+            let path = dir.0.clone();
+            let sent_value = value.to_string();
+            let peer = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut hello = [0; 5];
+                stream.read_exact(&mut hello).unwrap();
+                assert_eq!(&hello, b"LVB2\n");
+                let reply = format!("{}\n{}\n{}", "aa".repeat(16), sent_value, path.display());
+                stream
+                    .write_all(&(reply.len() as u16).to_le_bytes())
+                    .unwrap();
+                stream.write_all(reply.as_bytes()).unwrap();
+                let mut end = Vec::new();
+                stream.read_to_end(&mut end).unwrap();
             });
-            let result=connect_greeting(&dir.0,b"LVB2\n");
-            if matches!(value,"256"|"512") { assert_eq!(result.unwrap().installed_delay,Some(value.parse().unwrap())); } else { assert!(result.is_err()); }
+            let result = connect_greeting(&dir.0, b"LVB2\n");
+            if matches!(value, "256" | "512") {
+                assert_eq!(
+                    result.unwrap().installed_delay,
+                    Some(value.parse().unwrap())
+                );
+            } else {
+                assert!(result.is_err());
+            }
             peer.join().unwrap();
         }
     }

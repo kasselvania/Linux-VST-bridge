@@ -27,16 +27,15 @@ The registered proxy requests an exact class/module binding from the service out
 
 A bounded environment owner starts Wine’s shared infrastructure before DSP instances and loads no plug-in. Each admitted DSP instance has its own supervised Windows process, transport, controller, state owner, and editor.
 
-### Capacity status before AP17
+### AP17 capacity candidate
 
-Two current constants have different meanings:
+`capacity` asks the running owner for canonical version-1 status. It reports live DSP leases, each class, the separate keeper/maintenance owners, current request workers, the native hard ceiling, the enforced admission limits, and the engineering envelope. The current candidate admits six DSP instances globally, at most three of the exact LoFi class and four of the exact FRAGMENTS class. The native hard ceiling stays four per loaded image/process. Six is a conservative engineering selection; project recall and recovery qualification remain in progress.
 
-- `bridge-manager/src/main.rs` retains at most eight live service client threads. That is a mechanical connection/owner-thread bound and currently includes DSP, inspection, qualification, and vendor-access requests.
-- `native-vst3-proxy/backend/src/instances.rs` has four generation-checked slots in each loaded Rust backend image.
+Six long-lived DSP owners are separate from the 16-worker mechanical service ceiling. One inspection or standalone vendor-access job requires inactive DSP; the environment keeper loads no plug-in and consumes no DSP slot. An exclusive existing registry lock reserves startup before binding/session/lease exposure. Durable owner leases, not an in-memory permit count, retain capacity until exact positive retirement. Unresolved retirement blocks new admission and survives service restart.
 
-The practical scope of the four native slots depends on Bitwig’s plug-in host process/module topology. The number eight is **not yet a qualified eight-instance musical-project claim**.
+The non-RT registered startup uses `LVB3` and receives a bounded correlated `LVR3` success or typed refusal. Global, per-class, native-image, maintenance, cleanup and service-worker limits are distinct. Only an unowned service-busy refusal may retry: at most 64 attempts with 20 ms backoff inside one ten-second startup deadline. Actual capacity refusal, malformed/stale replies, partial bindings and EOF do not retry. The audio protocol and callbacks are unchanged. Old `LVB1/2` binaries retain their historical startup encoding; they do not acquire typed-refusal support from a manager update alone.
 
-AP17 issue #91 owns the transition from these implementation bounds to explicit service-worker, global DSP, per-class, native-hard, parallel, serial, editor, and exact-fixture support limits. Until AP17 is accepted, do not present eight simultaneous plug-in instances as supported merely because the service thread vector is bounded at eight.
+`qualify-capacity stage PACKAGE`, `qualify-capacity publish`, and `qualify-capacity restore` reuse the immutable publication transaction for the finite AP17 native candidates. The compiled candidate roster is currently absent pending exact builds. Ordinary managed activation stays verified-only. An AP17 candidate must preserve the exact verified revision-7 parent, Windows host, descriptor, runner, module, class, editor/state/precision/performance constraints and external IDs. Startup/reconcile restores engineering publications to their retained verified parents when inactive. AP15 qualification remains distinct.
 
 ## Volatile transport and durable recovery
 
