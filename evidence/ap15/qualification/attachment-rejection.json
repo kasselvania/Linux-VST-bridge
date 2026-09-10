@@ -1,0 +1,457 @@
+{
+  "schema": 1,
+  "candidate_revision": 4,
+  "candidate_source": "c5155af3be01437eaaca70b473d30a7857b91ecc",
+  "platform": "SteamOS 3.8.16 / Bitwig 6.1 / XWayland",
+  "launch": "Applications > Multimedia > Bitwig Studio",
+  "project": "AP15 Lifecycle protected copy",
+  "transport": "stopped",
+  "result": "BITWIG_ATTACHMENT_REJECTED",
+  "mechanism": "1x1 SDK geometry and absent child",
+  "host_errors": [
+    "IPlugView::getSize returned invalid size: 1, 1",
+    "Could not get initial size of plugin before opening window",
+    "Plugin did not create it's window inside the plugin window",
+    "IPlugView::getSize returned invalid size: 1, 1",
+    "Could not get initial size of plugin before opening window",
+    "Plugin did not create it's window inside the plugin window",
+    "IPlugView::getSize returned invalid size: 1, 1",
+    "Could not get initial size of plugin before opening window",
+    "Plugin did not create it's window inside the plugin window"
+  ],
+  "ui_sessions": [
+    {
+      "session": "5c4a787b05ba5c63f03790754b17878a",
+      "time": 1789000250.4314668,
+      "header": {
+        "64": 3,
+        "72": 3,
+        "80": 3059,
+        "88": 3059,
+        "96": 3,
+        "120": 4,
+        "128": 4,
+        "144": 97931,
+        "152": 3,
+        "256": 2
+      },
+      "flags": {
+        "104": 0,
+        "108": 0,
+        "112": 1,
+        "116": 0,
+        "136": 7,
+        "160": 217,
+        "164": 100,
+        "168": 0,
+        "264": 0
+      },
+      "messages": [
+        {
+          "queue": "commands",
+          "index": 1,
+          "kind": 1,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 0,
+          "result": 0,
+          "activation": 1,
+          "target": 0,
+          "epoch": 0,
+          "focus": 0,
+          "native": 1,
+          "lifecycle": 1
+        },
+        {
+          "queue": "commands",
+          "index": 2,
+          "kind": 1,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 0,
+          "result": 0,
+          "activation": 2,
+          "target": 0,
+          "epoch": 0,
+          "focus": 0,
+          "native": 2,
+          "lifecycle": 1
+        },
+        {
+          "queue": "events",
+          "index": 3055,
+          "kind": 108,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 1,
+          "result": 0,
+          "activation": 1,
+          "target": 50331651,
+          "epoch": 1,
+          "focus": 1,
+          "native": 1,
+          "lifecycle": 3
+        },
+        {
+          "queue": "events",
+          "index": 3056,
+          "kind": 108,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 0,
+          "result": 0,
+          "activation": 1,
+          "target": 0,
+          "epoch": 1,
+          "focus": 5,
+          "native": 1,
+          "lifecycle": 8
+        },
+        {
+          "queue": "events",
+          "index": 3057,
+          "kind": 108,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 1,
+          "result": 0,
+          "activation": 2,
+          "target": 50331653,
+          "epoch": 2,
+          "focus": 1,
+          "native": 2,
+          "lifecycle": 3
+        },
+        {
+          "queue": "events",
+          "index": 3058,
+          "kind": 108,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 0,
+          "result": 0,
+          "activation": 2,
+          "target": 0,
+          "epoch": 2,
+          "focus": 5,
+          "native": 2,
+          "lifecycle": 8
+        }
+      ]
+    },
+    {
+      "session": "b7ad1ca978f7a0cf98bc110273192ba4",
+      "time": 1789000250.4339104,
+      "header": {
+        "64": 2,
+        "72": 2,
+        "80": 2352,
+        "88": 2352,
+        "96": 3,
+        "120": 2,
+        "128": 2,
+        "144": 97453,
+        "152": 2,
+        "256": 1
+      },
+      "flags": {
+        "104": 0,
+        "108": 0,
+        "112": 1,
+        "116": 0,
+        "136": 7,
+        "160": 217,
+        "164": 100,
+        "168": 0,
+        "264": 0
+      },
+      "messages": [
+        {
+          "queue": "commands",
+          "index": 1,
+          "kind": 1,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 0,
+          "result": 0,
+          "activation": 1,
+          "target": 0,
+          "epoch": 0,
+          "focus": 0,
+          "native": 1,
+          "lifecycle": 1
+        },
+        {
+          "queue": "events",
+          "index": 2350,
+          "kind": 108,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 1,
+          "result": 0,
+          "activation": 1,
+          "target": 54525955,
+          "epoch": 1,
+          "focus": 1,
+          "native": 1,
+          "lifecycle": 3
+        },
+        {
+          "queue": "events",
+          "index": 2351,
+          "kind": 108,
+          "id": 0,
+          "revision": 0,
+          "value": 0.0,
+          "count": 0,
+          "result": 0,
+          "activation": 1,
+          "target": 0,
+          "epoch": 1,
+          "focus": 5,
+          "native": 1,
+          "lifecycle": 8
+        }
+      ]
+    }
+  ],
+  "host_sequence": [
+    {
+      "n": 1,
+      "ns": 83517109344634,
+      "name": "non-virtual thunk to AP8::Controller::createView(char const*)",
+      "thread": 63054,
+      "this": 139894266212416,
+      "arg": 94188071405797
+    },
+    {
+      "n": 2,
+      "ns": 83517111354013,
+      "name": "Steinberg::CPluginView::CPluginView(Steinberg::ViewRect const*)",
+      "thread": 63054,
+      "this": 94188296979872,
+      "arg": 0
+    },
+    {
+      "n": 3,
+      "ns": 83517111517357,
+      "name": "Steinberg::CPluginView::CPluginView(Steinberg::ViewRect const*)",
+      "thread": 63054,
+      "this": 94188296979872,
+      "arg": 0
+    },
+    {
+      "return": "non-virtual thunk to AP8::Controller::createView(char const*)",
+      "rax": 94188296979888,
+      "ns": 83517112236381
+    },
+    {
+      "n": 4,
+      "ns": 83517112541947,
+      "name": "non-virtual thunk to AP11::VendorPanel::setFrame(Steinberg::IPlugFrame*)",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 94188289484024
+    },
+    {
+      "n": 5,
+      "ns": 83517112942785,
+      "name": "non-virtual thunk to Steinberg::CPluginView::queryInterface(char const*, void**)",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 94188072739576
+    },
+    {
+      "n": 6,
+      "ns": 83517113509116,
+      "name": "non-virtual thunk to Steinberg::CPluginView::queryInterface(char const*, void**)",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 94188072739552
+    },
+    {
+      "n": 7,
+      "ns": 83517114144308,
+      "name": "non-virtual thunk to Steinberg::CPluginView::canResize()",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 94188072739552
+    },
+    {
+      "n": 8,
+      "ns": 83517114829642,
+      "name": "non-virtual thunk to AP11::VendorPanel::getSize(Steinberg::ViewRect*)",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 140725841454800
+    },
+    {
+      "n": 9,
+      "ns": 83517115400353,
+      "name": "Steinberg::CPluginView::getSize(Steinberg::ViewRect*)",
+      "thread": 63054,
+      "this": 94188296979872,
+      "arg": 140725841454800
+    },
+    {
+      "n": 10,
+      "ns": 83517116265460,
+      "name": "non-virtual thunk to Steinberg::CPluginView::canResize()",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 0
+    },
+    {
+      "n": 11,
+      "ns": 83517117162427,
+      "name": "non-virtual thunk to AP11::VendorPanel::attached(void*, char const*)",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 46137348
+    },
+    {
+      "n": 12,
+      "ns": 83517117882361,
+      "name": "AP11::VendorPanel::attached(void*, char const*)",
+      "thread": 63054,
+      "this": 94188296979872,
+      "arg": 46137348
+    },
+    {
+      "n": 13,
+      "ns": 83517119204857,
+      "name": "AP11::VendorPanel::activation()",
+      "thread": 63054,
+      "this": 94188296979872,
+      "arg": 94188289484048
+    },
+    {
+      "return": "non-virtual thunk to AP11::VendorPanel::attached(void*, char const*)",
+      "rax": 0,
+      "ns": 83517120048104
+    },
+    {
+      "return": "AP11::VendorPanel::attached(void*, char const*)",
+      "rax": 0,
+      "ns": 83517120160556
+    },
+    {
+      "n": 14,
+      "ns": 83518123307250,
+      "name": "non-virtual thunk to AP11::VendorPanel::removed()",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 0
+    },
+    {
+      "n": 15,
+      "ns": 83518123783349,
+      "name": "non-virtual thunk to Steinberg::CPluginView::release()",
+      "thread": 63054,
+      "this": 94188296979888,
+      "arg": 80
+    },
+    {
+      "n": 16,
+      "ns": 83518124123276,
+      "name": "AP11::VendorPanel::~VendorPanel()",
+      "thread": 63054,
+      "this": 94188296979872,
+      "arg": 4294967295
+    },
+    {
+      "n": 17,
+      "ns": 83518124396611,
+      "name": "Steinberg::CPluginView::~CPluginView()",
+      "thread": 63054,
+      "this": 94188296979872,
+      "arg": 4294967295
+    },
+    {
+      "n": 18,
+      "ns": 83518124445422,
+      "name": "Steinberg::CPluginView::~CPluginView()",
+      "thread": 63054,
+      "this": 94188296979872,
+      "arg": 4294967295
+    }
+  ],
+  "observation_scope": "Bounded debugger breakpoints; no musical, CPU, gap or latency claim. No state values exported. No vendor authorization change.",
+  "rollback": {
+    "operation": "qualify-editor restore",
+    "exit": 0,
+    "profiles": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "active_revision": {
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+        },
+        "profile": {
+          "activation_permitted": true,
+          "claim": "verified_exact_fixture",
+          "id": "arturia-pure-lofi",
+          "revision": 3
+        },
+        "physical_target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "performance": {
+          "added_frames": 512,
+          "schema": 1
+        }
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "active_revision": {
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+        },
+        "profile": {
+          "activation_permitted": true,
+          "claim": "verified_exact_fixture",
+          "id": "arturia-efx-fragments",
+          "revision": 3
+        },
+        "physical_target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "performance": {
+          "added_frames": 512,
+          "schema": 1
+        }
+      }
+    ],
+    "service": "NRestarts=0\nCPUWeight=10000\nActiveState=active\nSubState=running\n",
+    "leases": [
+      "64759f5b53ca22cc91d278a82b8350a1"
+    ],
+    "original_project_hashes": [
+      {
+        "name": "AP12 Arturia Chain",
+        "sha256": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+        "size": 83551
+      },
+      {
+        "name": "AP13 Delivery",
+        "sha256": "4c4b43844afecd3e233b270e719da9de257997fd8a01fa3b3a6f20ac3c6284c4",
+        "size": 84026
+      },
+      {
+        "name": "AP14 Publication",
+        "sha256": "abb3b4fc74f811ad381305b7d42aad363991a61b135b5b1234010c03aded9995",
+        "size": 84027
+      },
+      {
+        "name": "AP14 Removal",
+        "sha256": "89b2932d3078b4bcbb40a374008f5516f4822a691f1717b0f7deefdf11de6b64",
+        "size": 65010
+      }
+    ]
+  },
+  "next_hypothesis": "A valid 64x64 attachment extent and an unmapped child with zero event selection satisfy Bitwig child discovery; requires actual host recheck."
+}

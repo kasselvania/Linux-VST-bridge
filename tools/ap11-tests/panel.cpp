@@ -115,13 +115,18 @@ int main() {
   check(panel->attached(reinterpret_cast<void *>(parent), kPlatformTypeX11EmbedWindowID) != kResultOk &&
         frame.opens == 1, "duplicate attach creates no second editor request");
   ViewRect size{};
-  check(panel->getSize(&size) == kResultOk && size.getWidth() > 0 && size.getHeight() > 0 &&
+  check(panel->getSize(&size) == kResultOk && size.getWidth() == 64 && size.getHeight() == 64 &&
         panel->onSize(&size) == kResultOk, "nonzero SDK geometry lifecycle");
   Window root, actualParent, *children = nullptr;
   unsigned count = 0;
-  check(XQueryTree(display, parent, &root, &actualParent, &children, &count) && count == 0,
-        "no bridge control windows or button hit regions");
-  if (children) XFree(children);
+  check(XQueryTree(display, parent, &root, &actualParent, &children, &count) && count == 1,
+        "one exact child satisfies the observed Bitwig attachment contract");
+  XWindowAttributes childAttributes{};
+  check(XGetWindowAttributes(display, children[0], &childAttributes) &&
+        childAttributes.map_state == IsUnmapped && childAttributes.all_event_masks == 0 &&
+        childAttributes.width == 64 && childAttributes.height == 64,
+        "attachment child is unmapped with no input, paint selection or controls");
+  XFree(children); children = nullptr;
   XMapWindow(display, parent); XSync(display, False); frame.drain();
   XWindowAttributes attributes{};
   check(XGetWindowAttributes(display, parent, &attributes) && attributes.map_state == IsUnmapped,
@@ -143,6 +148,9 @@ int main() {
   check(panel->removed() == kResultOk && panel->removed() == kResultOk && frame.timers.empty() &&
         frame.closes == 1, "native removal closes exact view once and cancels timer");
   check(XGetWindowAttributes(display, parent, &attributes), "host parent survives delegate retirement");
+  check(XQueryTree(display,parent,&root,&actualParent,&children,&count) && count == 0,
+        "private connection retirement destroys only its owned attachment child");
+  if(children) XFree(children);
   check(frame.unregisterCalls==unregisteredBefore+2,"one refusal and one accepted exact unregister");
   panel->setFrame(nullptr);
   panel->release();

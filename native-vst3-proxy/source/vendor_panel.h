@@ -20,7 +20,9 @@ struct PanelOwner {
 // The host retains its parent and IPlugView. WM_DELETE_WINDOW requests normal
 // host retirement; this code never destroys the host-owned parent. Only a
 // supplied parent advertising that protocol is admitted by this bounded
-// detached-shell adapter. Actual Bitwig acceptance is required separately.
+// detached-shell adapter. Bitwig requires a valid-size child at attachment;
+// the child stays unmapped with no event selection, background or controls.
+// Actual Bitwig acceptance is required separately.
 enum class ShellOperation { SendClose, Unmap, Flush };
 enum class ShellResult { Accepted, Transient, ParentGone, ConnectionLost, Rejected };
 struct ShellFaults {
@@ -123,9 +125,9 @@ class VendorPanel final : public Steinberg::CPluginView {
 public:
   VendorPanel(Steinberg::Vst::IEditController *controller, PanelOwner &owner, uint64_t token, ShellFaults *faults = nullptr)
       : controller_(controller), owner_(owner), token_(token), faults_(faults) {
-    // Nonzero SDK geometry is retained. No child, painting, button, input
-    // selection or bridge-control surface is created by the delegate.
-    setRect({0, 0, 1, 1});
+    // Bitwig rejects 1x1 geometry before waiting for the attached child.
+    // This is attachment geometry only: no mapped or interactive surface.
+    setRect({0, 0, 64, 64});
   }
   ~VendorPanel() override {
     removed();
@@ -144,7 +146,7 @@ public:
   }
   Steinberg::tresult PLUGIN_API checkSizeConstraint(Steinberg::ViewRect *size) override {
     if (thread_ != std::this_thread::get_id() || !size) return Steinberg::kResultFalse;
-    *size = {0, 0, 1, 1};
+    *size = {0, 0, 64, 64};
     return Steinberg::kResultOk;
   }
   Steinberg::tresult PLUGIN_API isPlatformTypeSupported(Steinberg::FIDString type) override {
@@ -181,6 +183,15 @@ public:
     const uint32_t mask = XCB_EVENT_MASK_STRUCTURE_NOTIFY;
     if (!accepted || !checked(xcb_change_window_attributes_checked(connection_, parent_,
                   XCB_CW_EVENT_MASK, &mask)) ) {
+      removed(); return kResultFalse;
+    }
+    // Bitwig checks for a child after attached(), even for a detached editor.
+    // Own this XID through this private connection: disconnect retires it only
+    // after the timer is stopped. Never map it, select input, or paint it.
+    const auto child = xcb_generate_id(connection_);
+    if (!checked(xcb_create_window_checked(connection_, XCB_COPY_FROM_PARENT, child,
+        parent_, 0, 0, 64, 64, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+        XCB_COPY_FROM_PARENT, 0, nullptr))) {
       removed(); return kResultFalse;
     }
     timer_ = new AP15::UiTimer(loop_, this, [](void *p) { static_cast<VendorPanel *>(p)->onTimer(); });
