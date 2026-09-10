@@ -1,4 +1,6 @@
-# AP15 evidence in progress
+# AP15 evidence
+
+Current exact qualification is indexed in [qualification/README.md](qualification/README.md). Revision-6 candidates were exercised and exact verified revision 3 restored. Earlier files below describe historical observation/source checkpoints and remain immutable evidence. Independent review is still required.
 
 `baseline.json` records the installed verified revision-3 state before any AP15 mutation. `host-sequence.json` records a bounded stopped-transport observation of the existing production native image in normally Applications-launched Bitwig 6.1. The debugger used symbols recovered from retained exact build objects; stripping the relinked image reproduced the installed SHA-256. No candidate image was published for that observation.
 
