@@ -21,7 +21,7 @@ struct PanelOwner {
 // host retirement; this code never destroys the host-owned parent. Only a
 // supplied parent advertising that protocol is admitted by this bounded
 // detached-shell adapter. Bitwig requires a valid-size child at attachment;
-// the child stays unmapped with no event selection, background or controls.
+// the delegate never maps the child or selects input, background or controls.
 // Actual Bitwig acceptance is required separately.
 enum class ShellOperation { SendClose, Unmap, Flush };
 enum class ShellResult { Accepted, Transient, ParentGone, ConnectionLost, Rejected };

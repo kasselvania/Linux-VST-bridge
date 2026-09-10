@@ -100,13 +100,16 @@ public:
       return;
     request_.target_x11 = reply.target_x11;
     request_.view_epoch = reply.view_epoch;
-    if (!request_.user_time || !request_.requestor_x11 || !reply.target_x11 ||
+    if (!request_.requestor_x11 || !reply.target_x11 ||
         !reply.view_epoch || !connect()) {
       finish(FocusUnsupported);
       return;
     }
-    // Nothing is remapped or raised here. The real click's timestamp and
-    // requestor are transferred to the WM with the session-owned target XID.
+    // Transfer the observed timestamp unchanged, including CurrentTime (zero)
+    // when the DAW supplies none. The request is still application-sourced,
+    // bounded, and conditional on the exact requestor remaining foreground.
+    // The WM may refuse; only active-window AND keyboard readback confirms it.
+    // No fabricated timestamp, pager request, direct raise or synthetic input.
     deadline_ = Clock::now() + std::chrono::milliseconds(750);
     if (active_)
       active(Stage::Source);
