@@ -60,7 +60,7 @@ def assemble(windows_zip, natives, output):
     for name in PROFILE_FILES:
         p = json.loads((ROOT/'compatibility/ap15'/name).read_text())
         r = p['requirements']
-        assert p['revision'] == 5 and p['claim'] == 'review_candidate'
+        assert p['revision'] == 6 and p['claim'] == 'review_candidate'
         assert r['host_sha256'] == sha(host) and r['host_source_sha256'] == sha(source)
         filename = p['class']['class_id']+'.so'
         files[filename] = (natives/filename).read_bytes()
