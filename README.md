@@ -4,6 +4,8 @@ A managed bridge for using supported Windows audio plug-ins in native Linux DAWs
 
 Experimental engineering preview, not a consumer-ready release. Working repository name; not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records or another vendor.
 
+> **Ownership:** This repository is publicly readable but proprietary. Copyright © 2026 Peter Kassel. All rights reserved. It is not open-source software, and no software license is granted beyond applicable law and the limited rights provided through GitHub's Terms of Service. See [COPYRIGHT.md](COPYRIGHT.md).
+
 ## Accepted baseline: AP14 managed Arturia workflow
 
 AP8–AP11 established the independent native Linux VST3 proxy, supervised Windows VST3 processing under the selected Proton/Wine environment, bounded audio/events, opaque state and project recall, automation, independent instances and detached vendor editors. AP12 installed the exact Pure LoFi → Efx FRAGMENTS chain with automatic service startup. AP13 repaired a demonstrated state-capture delivery barrier, reduced supervisor overhead and added the installed delay selector.
