@@ -17,6 +17,10 @@ AP15 is complete. Its revision-7 direct-editor profiles, exact artifacts, stable
 
 The repository is publicly readable but proprietary. Preserve [COPYRIGHT.md](COPYRIGHT.md) and [CONTRIBUTING.md](CONTRIBUTING.md); AP16 grants no licensing, contribution, publication or redistribution authority.
 
+## Current implementation checkpoint
+
+The first selected active-phase miss is causally assigned to a journal wait while the native worker writes its ext4-backed audio mapping. The manager/supervisor memory-storage repair and focused ownership tests are in progress. No installed bytes, publication, profile, delay or scheduler setting has changed. A single scoped Flatpak runtime-directory grant is awaiting operator confirmation before deployment. Matched before/after evidence remains required; AP16 is not complete. See [docs/AP16.md](docs/AP16.md) and [the exact causal record](evidence/ap16/causal-baseline.json).
+
 ## Product outcome
 
 Under ordinary revision-7 Pure LoFi → Efx FRAGMENTS operation at 48 kHz and 512 added frames per proxy:

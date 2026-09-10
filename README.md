@@ -1,5 +1,7 @@
 # Linux Audio Compatibility Bridge
 
+AP16 is in progress in draft PR #89. One exact residual delivery miss has been traced to the disk-backed session mapping's journal path; a memory-storage repair is under test and has not been installed or performance-qualified. The ordinary revision-7 installation and 512-frame recommendation remain unchanged. [Current evidence and limits](docs/AP16.md).
+
 A managed bridge for using supported Windows audio plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxy synchronization commands, or changing runtime versions by hand.
 
 **Experimental engineering preview, not a consumer-ready release.** The project is not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records, or another plug-in vendor.

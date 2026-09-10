@@ -1,0 +1,1030 @@
+{
+  "schema": 1,
+  "scope": "Completed baseline sessions; lengths/phases differ. These are honest retained totals, not a matched-rate comparison. See causal-baseline.json for the selected class.",
+  "sessions": [
+    {
+      "session": "01900ec8916256c5782eab74453f4a9d",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 37,
+        "state": "ap11_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 1373184,
+        "blocks": 2682,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 1372672,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 5364,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 1373184,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "01900ec8916256c5782eab74453f4a9d",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "13f9e46352a11700b1ba02f84c90c7bc",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 37,
+        "state": "ap11_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 22053888,
+        "blocks": 43074,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 4352,
+        "underrun_gaps": 4,
+        "underrun_callbacks": 9,
+        "expired_output_frames": 4352,
+        "delivered_frames": 22049024,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 86148,
+          "request_high": 6,
+          "result_high": 7,
+          "position": 22053888,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "13f9e46352a11700b1ba02f84c90c7bc",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "279f6de7940e7283212dd3e4abe962cc",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 40,
+        "state": "ap11_class",
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 1241600,
+        "blocks": 2425,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 768,
+        "underrun_gaps": 3,
+        "underrun_callbacks": 3,
+        "expired_output_frames": 768,
+        "delivered_frames": 1240320,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 4850,
+          "request_high": 2,
+          "result_high": 3,
+          "position": 1241600,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "279f6de7940e7283212dd3e4abe962cc",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "29ee33c0d539c1b79cc737e6a20ea8e6",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 40,
+        "state": "ap11_class",
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 1556992,
+        "blocks": 3041,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 1556480,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 6082,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 1556992,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "29ee33c0d539c1b79cc737e6a20ea8e6",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "38d058ccc5058e0e4bea920460da4e2c",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 37,
+        "state": "ap11_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 632832,
+        "blocks": 1236,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 632320,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 2472,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 632832,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "38d058ccc5058e0e4bea920460da4e2c",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "3eefcc3d574e6a53847387ddcb31d955",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 37,
+        "state": "ap11_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 1175040,
+        "blocks": 2295,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 1174528,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 4590,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 1175040,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "3eefcc3d574e6a53847387ddcb31d955",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "4b59159eaa7d47da781ec9e92ee2e71c",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 37,
+        "state": "ap11_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 1053696,
+        "blocks": 2058,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 1053184,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 4116,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 1053696,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "4b59159eaa7d47da781ec9e92ee2e71c",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "559eec31915ff67f77d0fee4c76fb883",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 40,
+        "state": "ap11_class",
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 22239744,
+        "blocks": 43437,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 1536,
+        "underrun_gaps": 1,
+        "underrun_callbacks": 3,
+        "expired_output_frames": 1536,
+        "delivered_frames": 22237696,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 86874,
+          "request_high": 5,
+          "result_high": 4,
+          "position": 22239744,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "559eec31915ff67f77d0fee4c76fb883",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "6e2e51b10ca41b0941dcfb87e84515cc",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 40,
+        "state": "ap11_class",
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 819712,
+        "blocks": 1601,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 819200,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 3202,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 819712,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "6e2e51b10ca41b0941dcfb87e84515cc",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "7cd8b47b52acff65fa95534c2b867e50",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 40,
+        "state": "ap11_class",
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 8326144,
+        "blocks": 16262,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 8325632,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 32524,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 8326144,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "7cd8b47b52acff65fa95534c2b867e50",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "a8c5261c30977520f960d6367d7f0a1d",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 37,
+        "state": "ap11_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 8132608,
+        "blocks": 15884,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 2304,
+        "underrun_gaps": 2,
+        "underrun_callbacks": 5,
+        "expired_output_frames": 2304,
+        "delivered_frames": 8129792,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 31768,
+          "request_high": 6,
+          "result_high": 7,
+          "position": 8132608,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "a8c5261c30977520f960d6367d7f0a1d",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "c3aa354095c219f953e3e995a852584a",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 40,
+        "state": "ap11_class",
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 1357824,
+        "blocks": 2652,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 1792,
+        "underrun_gaps": 2,
+        "underrun_callbacks": 4,
+        "expired_output_frames": 1792,
+        "delivered_frames": 1355520,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 5304,
+          "request_high": 6,
+          "result_high": 7,
+          "position": 1357824,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "c3aa354095c219f953e3e995a852584a",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "c7f8cc9f412e40c8d446bd24ec64633f",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 37,
+        "state": "ap11_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 53896192,
+        "blocks": 105266,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 1536,
+        "underrun_gaps": 1,
+        "underrun_callbacks": 3,
+        "expired_output_frames": 1536,
+        "delivered_frames": 53894144,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 210532,
+          "request_high": 6,
+          "result_high": 7,
+          "position": 53896192,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "c7f8cc9f412e40c8d446bd24ec64633f",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "c9e3b5a0831359c3c989ee3e0b640c95",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 37,
+        "state": "ap11_class",
+        "class_id": "41727475415649536772616E50726F63",
+        "name": "Efx FRAGMENTS"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 7782912,
+        "blocks": 15201,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 1536,
+        "underrun_gaps": 1,
+        "underrun_callbacks": 3,
+        "expired_output_frames": 1536,
+        "delivered_frames": 7780864,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 30402,
+          "request_high": 5,
+          "result_high": 4,
+          "position": 7782912,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "c9e3b5a0831359c3c989ee3e0b640c95",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "ec8cbdc18366cfcec71d66c430447100",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 40,
+        "state": "ap11_class",
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 54085632,
+        "blocks": 105636,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 2816,
+        "underrun_gaps": 3,
+        "underrun_callbacks": 6,
+        "expired_output_frames": 2816,
+        "delivered_frames": 54082304,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 211272,
+          "request_high": 7,
+          "result_high": 6,
+          "position": 54085632,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "ec8cbdc18366cfcec71d66c430447100",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "f008ccc05de6f67b6250f9cca1c91045",
+      "class": {
+        "event": "lifecycle",
+        "sequence": 40,
+        "state": "ap11_class",
+        "class_id": "417274754156495350724C4650726F63",
+        "name": "Pure LoFi"
+      },
+      "setup": [
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        }
+      ],
+      "counters": {
+        "event": "ap3_proxy_lifecycle",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 7970304,
+        "blocks": 15567,
+        "callback_rejections": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 1024,
+        "underrun_gaps": 2,
+        "underrun_callbacks": 3,
+        "expired_output_frames": 1024,
+        "delivered_frames": 7968768,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      "fault": [
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 31134,
+          "request_high": 3,
+          "result_high": 4,
+          "position": 7970304,
+          "epoch": 1
+        }
+      ],
+      "cleanup": {
+        "session": "f008ccc05de6f67b6250f9cca1c91045",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    }
+  ]
+}
