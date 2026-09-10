@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "software": {
+    "manager": {
+      "path": "/home/deck/.local/share/linux-vst-bridge/managed/software/ef72af5b9fb34118c692fdea0f2280a9bece4865b85cdf53a232c7b1a722faa2/linux-vst-bridge",
+      "sha256": "b96a5bdd76cc5557201c2e8e775ef9a3afaa00e03ead7e5ac920ef73adfbcec5"
+    },
+    "supervisor": {
+      "path": "/home/deck/.local/share/linux-vst-bridge/managed/software/ef72af5b9fb34118c692fdea0f2280a9bece4865b85cdf53a232c7b1a722faa2/session.py",
+      "sha256": "0807149d3c69e2f54562a1a59232c45b9e644cdd3eda59d8de187b72212dea5d"
+    },
+    "ownership": {
+      "path": "/home/deck/.local/share/linux-vst-bridge/managed/software/ef72af5b9fb34118c692fdea0f2280a9bece4865b85cdf53a232c7b1a722faa2/ownership.py",
+      "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+    },
+    "host": {
+      "path": "/home/deck/.local/share/linux-vst-bridge/managed/software/ef72af5b9fb34118c692fdea0f2280a9bece4865b85cdf53a232c7b1a722faa2/host.exe",
+      "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939"
+    },
+    "source_manifest": {
+      "path": "/home/deck/.local/share/linux-vst-bridge/managed/software/ef72af5b9fb34118c692fdea0f2280a9bece4865b85cdf53a232c7b1a722faa2/host-source-manifest.json",
+      "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+    },
+    "source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": {
+      "path": "/home/deck/.local/share/linux-vst-bridge/managed/software/ef72af5b9fb34118c692fdea0f2280a9bece4865b85cdf53a232c7b1a722faa2/native-catalogue.json",
+      "sha256": "3b5a6d4e2a0b99a2967a9dfd139a652df3923e431c28319fe6a5a5d609dc28af"
+    }
+  },
+  "software_record_sha256": "f4424a247f472e48a86428ecb692b24ac1ccc30dc89473c795cc292cea29afd2",
+  "registry_sha256": "b20e0bdcec25f73e462131f7ebce9055dd8ef39c2d8b308313e8f8b3bf865b86",
+  "products": [
+    {
+      "class_id": "417274754156495350724C4650726F63",
+      "profile_id": "arturia-pure-lofi",
+      "profile_revision": 7,
+      "claim": "verified_exact_fixture",
+      "profile_sha256": "2e32a4a8a1b15353203bff32281516f3ff17f4a5acd364a822fe367e4cf2b94f",
+      "editor": "detached_direct_vendor_lifecycle",
+      "qualification": null,
+      "external_ids": [
+        "ac7f2418f2915958b5b67620593b9a2d",
+        "0c80f2acc39f5975a38d177102555683"
+      ],
+      "publication": {
+        "id": "90e23e3e71322c27e3f9e4ce1021b9d8",
+        "sha256": "01abb8019e422c5f8b25a176c27ceb0d0e4018c9f99228928cbaaf582185cba2"
+      },
+      "physical_target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/90e23e3e71322c27e3f9e4ce1021b9d8/LVB_417274754156495350724C4650726F63.vst3",
+      "parent": {
+        "id": "2452b7ebaeb57a847ba957637e3369a7",
+        "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+      },
+      "parent_target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+      "retained_prior_ancestry": {
+        "id": "c6766455f13f73c3756db665b1bf92be",
+        "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+      },
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_sha256": "98793ee5169992924cdc5b21f38de8a70b507e28682fdb74bec95a22eb234ff6",
+      "native_source_commit": "a3cb624f126afc5270519012d7af39485fd6fbb6",
+      "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+      "environment_id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+      "environment_revision": 1,
+      "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "performance": {
+        "schema": 1,
+        "added_frames": 512
+      },
+      "transaction": "79890920a06384046ab0ed85d6d6355b",
+      "all_canonical_validity_fields": {
+        "environment_valid": true,
+        "installed_host_valid": true,
+        "module_valid": true,
+        "native_artifact_valid": true,
+        "publication_valid": true,
+        "runner_valid": true
+      },
+      "prior_rollback": {
+        "revision": {
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+        },
+        "target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "valid": true
+      }
+    },
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "profile_id": "arturia-efx-fragments",
+      "profile_revision": 7,
+      "claim": "verified_exact_fixture",
+      "profile_sha256": "999a01f3c547b0b6299c2b5bae3a736f15adc6850d5a7d712967e64103172c7c",
+      "editor": "detached_direct_vendor_lifecycle",
+      "qualification": null,
+      "external_ids": [
+        "96bd361810b3568a9671700732903d6e",
+        "d3181e9d37e75871ba5ffbcae0775861"
+      ],
+      "publication": {
+        "id": "d7c50af638553b3387f89a1064546aca",
+        "sha256": "e62c353565d4271f648c6831755ef6c95a764bec3a4141cf21bc6a5013fa2b4a"
+      },
+      "physical_target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/d7c50af638553b3387f89a1064546aca/LVB_41727475415649536772616E50726F63.vst3",
+      "parent": {
+        "id": "213f36d41e964bcbdccd30093a6cded0",
+        "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+      },
+      "parent_target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+      "retained_prior_ancestry": {
+        "id": "d2fb889b4a3797a2b90c0a57152b0296",
+        "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+      },
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_sha256": "4ee950c4096a33a3635fde6e9732be50a4875238c237a84e828d9cd1b94ed8f4",
+      "native_source_commit": "a3cb624f126afc5270519012d7af39485fd6fbb6",
+      "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+      "environment_id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+      "environment_revision": 1,
+      "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "performance": {
+        "schema": 1,
+        "added_frames": 512
+      },
+      "transaction": "fb3cac049199d307484b4c59db1942ea",
+      "all_canonical_validity_fields": {
+        "environment_valid": true,
+        "installed_host_valid": true,
+        "module_valid": true,
+        "native_artifact_valid": true,
+        "publication_valid": true,
+        "runner_valid": true
+      },
+      "prior_rollback": {
+        "revision": {
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+        },
+        "target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "valid": true
+      }
+    }
+  ],
+  "all_prior_profile_publication_transaction_records_byte_identical": true,
+  "prior_record_count": 100,
+  "original_projects": [
+    {
+      "name": "AP12 Arturia Chain",
+      "sha256": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+      "size": 83551
+    },
+    {
+      "name": "AP13 Delivery",
+      "sha256": "4c4b43844afecd3e233b270e719da9de257997fd8a01fa3b3a6f20ac3c6284c4",
+      "size": 84026
+    },
+    {
+      "name": "AP14 Publication",
+      "sha256": "abb3b4fc74f811ad381305b7d42aad363991a61b135b5b1234010c03aded9995",
+      "size": 84027
+    },
+    {
+      "name": "AP14 Removal",
+      "sha256": "89b2932d3078b4bcbb40a374008f5516f4822a691f1717b0f7deefdf11de6b64",
+      "size": 65010
+    }
+  ],
+  "saved_project": {
+    "name": "AP15 Lifecycle",
+    "sha256": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c",
+    "bytes": 84205
+  },
+  "service": "NRestarts=0\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+  "keeper": {
+    "environment_owner_processes": [
+      {
+        "pid": 74996,
+        "start_ticks": 9169315,
+        "comm": "srt-bwrap",
+        "role": "environment_owner",
+        "session": "470454e4f33028d89beb3d639c394014"
+      },
+      {
+        "pid": 75063,
+        "start_ticks": 9169474,
+        "comm": "pv-adverb",
+        "role": "environment_owner",
+        "session": "470454e4f33028d89beb3d639c394014"
+      },
+      {
+        "pid": 75086,
+        "start_ticks": 9169486,
+        "comm": "python3",
+        "role": "environment_owner",
+        "session": "470454e4f33028d89beb3d639c394014"
+      },
+      {
+        "pid": 75087,
+        "start_ticks": 9169492,
+        "comm": "start.exe",
+        "role": "environment_owner",
+        "session": "470454e4f33028d89beb3d639c394014"
+      },
+      {
+        "pid": 75139,
+        "start_ticks": 9169693,
+        "comm": "host.exe",
+        "role": "environment_owner",
+        "session": "470454e4f33028d89beb3d639c394014"
+      }
+    ],
+    "service": "MainPID=74961\nNRestarts=0\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+    "cpu_weight": "100"
+  },
+  "dsp_leases": [],
+  "remaining_keeper_lease": [
+    "470454e4f33028d89beb3d639c394014"
+  ],
+  "pending_transactions": [],
+  "heavy_tracing": false,
+  "debuggers_and_temporary_units_absent": true,
+  "cpu_weight_effective": 100,
+  "performance": {
+    "selected": 512,
+    "supported_recommended": 512,
+    "available_unqualified": 256
+  },
+  "revision_seven_left_active": true
+}
