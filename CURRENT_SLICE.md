@@ -170,6 +170,12 @@ Update the single implementation PR with:
 Leave the PR open and unmerged for independent technical review.
 ## Implementation checkpoint (not acceptance)
 
+### Current qualification authorization
+
+Technical review `5161191208` and the current operator work order supersede the historical capacity restriction below. All four hosted lanes at `0d82c75` passed. Windows artifact run `34418620336` records synthetic merge commit `46c7b85fce2370644cccec6197a6f1a06c188be1` with the identical reviewed tree. The finite revision-4 ReviewCandidate roster may now be staged and exercised through `qualify-editor`, preserving ordinary verified-only activation and exact revision-3 rollback. Restore revision 3 after the bounded actual Bitwig qualification. Keep PR #86 draft until that campaign completes; never relabel a candidate verified in place.
+
+### Historical source-only checkpoints
+
 Local AP15 lifecycle/GUI-ownership changes and a sealed engineering qualification route are in progress on the existing PR #86. The exact Windows artifact is unavailable because GitHub jobs cannot start under the account's current billing/spending allowance. The operator authorized continuing locally and deferring Windows issues. The candidate roster remains closed with `qualification_artifacts_pending`; no candidate profile is verified or ordinarily activatable. The unmapped noninteractive delegate has SDK/Xvfb fixture evidence but still needs actual Bitwig acceptance. Keep this PR draft. See `docs/AP15.md` and `evidence/ap15/` for performed checks and untouched installed revision-3 state; the acceptance criteria above remain outstanding where no exact evidence exists.
 
 The current repair pass is limited to source ownership hardening and available local validation, as requested against `dd596b3e`. Windows capacity remains exhausted. Do not populate the qualification roster, deploy native AP15 builds, change revision-3 publications, or mark PR #86 ready. UI ABI 4 / mapped UI 5 adds explicit callback origins; the repair and available results are recorded separately in `docs/AP15.md` and `evidence/ap15/source-repair/`. Required Windows builds/tests and actual Bitwig qualification remain outstanding.

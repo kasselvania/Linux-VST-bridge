@@ -4,9 +4,15 @@
 use crate::{catalogue::NativeArtifact, observation::Census, profiles::*, publication::*, *};
 
 pub fn candidates() -> Result<Vec<Profile>> {
-    // Exact immutable candidates are added after production host/native builds.
-    // Until those identities exist this route has no activation authority.
-    Err("ap15_candidate_artifacts_pending".into())
+    let result = [
+        include_bytes!("../../compatibility/ap15/arturia-pure-lofi.json").as_slice(),
+        include_bytes!("../../compatibility/ap15/arturia-efx-fragments.json").as_slice(),
+    ]
+    .into_iter()
+    .map(Profile::parse)
+    .collect::<Result<Vec<_>>>()?;
+    validate_set(&result)?;
+    Ok(result)
 }
 #[derive(Clone)]
 pub struct InstalledCandidate {
@@ -63,12 +69,16 @@ pub fn installed(m: &Manager) -> Result<Vec<InstalledCandidate>> {
 /// finite file roster are fixed by the compiled candidate profiles.
 pub fn stage(m: &Manager, package: &Path) -> Result<()> {
     let policies = candidates()?;
-    validate_set(&policies)?;
+    stage_selected(m, package, &policies)
+}
+// Private production helper; tests supply synthetic sealed bytes, never CLI policy.
+pub(crate) fn stage_selected(m: &Manager, package: &Path, policies: &[Profile]) -> Result<()> {
+    validate_set(policies)?;
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let db = m.registry()?;
     // Validate the complete candidate set and all source files before copying.
-    for p in &policies {
+    for p in policies {
         let e = db
             .classes
             .get(&p.class.class_id)
@@ -86,7 +96,7 @@ pub fn stage(m: &Manager, package: &Path) -> Result<()> {
             .verify()?;
         }
     }
-    for p in policies {
+    for p in policies.iter().cloned() {
         let dest = directory(m, &p)?;
         if fs::symlink_metadata(&dest).is_ok() {
             load(m, p)?;
@@ -267,6 +277,8 @@ impl Manager {
         let r = &prior.registration;
         let mut capabilities = p.capabilities.clone();
         capabilities.editor = Editor::DetachedOwnerThreadWithNativePanel;
+        let mut limitations = prior.profile.limitations.clone();
+        limitations.push(Limitation::DirectEditorUnderQualification);
         require(
             e.publication == Publication::Published
                 && prior.qualification.is_none()
@@ -284,7 +296,7 @@ impl Manager {
                 && prior.profile.requirements.environment_revision
                     == p.requirements.environment_revision
                 && prior.profile.requirements.descriptor_sha256 == p.requirements.descriptor_sha256
-                && prior.profile.limitations == p.limitations
+                && limitations == p.limitations
                 && r.metadata == registration.metadata
                 && r.module == registration.module
                 && r.environment == registration.environment

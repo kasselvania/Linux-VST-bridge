@@ -428,7 +428,7 @@ mod tests {
     use super::*;
     use crate::test_fixture::{prepared, snapshot};
     #[test]
-    fn unavailable_sealed_candidate_route_cannot_mutate_installed_state() {
+    fn missing_exact_sealed_package_cannot_mutate_installed_state() {
         let (f, _, _, _) = prepared();
         let before = snapshot(&f.outer);
         for command in [
@@ -436,9 +436,9 @@ mod tests {
             vec!["stage".into(), f.outer.to_str().unwrap().into()],
         ] {
             let error = execute_qualification(&f.m, &command).unwrap_err();
-            assert_eq!(
+            assert_ne!(
                 refusal(error.as_ref()).code,
-                linux_vst_bridge::readback::RefusalCode::QualificationArtifactsPending
+                linux_vst_bridge::readback::RefusalCode::ReviewCandidateNotActivatable
             );
             assert_eq!(snapshot(&f.outer), before);
         }

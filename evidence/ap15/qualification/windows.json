@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "review": 5161191208,
+  "reviewed_head": "0d82c75250f62b585a21081d3fc052d04c1f514e",
+  "build_commit": "46c7b85fce2370644cccec6197a6f1a06c188be1",
+  "common_tree": "9d9ea7de6111a32e8359187c88802deff8f005fb",
+  "runs": [
+    {
+      "run": 34418620336,
+      "conclusion": "success",
+      "event": "pull_request",
+      "headSha": "0d82c75250f62b585a21081d3fc052d04c1f514e",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34418620336",
+      "workflowName": "AP8 Windows host"
+    },
+    {
+      "run": 34418620339,
+      "conclusion": "success",
+      "event": "pull_request",
+      "headSha": "0d82c75250f62b585a21081d3fc052d04c1f514e",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34418620339",
+      "workflowName": "AP10 native result lifetime"
+    },
+    {
+      "run": 34418620358,
+      "conclusion": "success",
+      "event": "pull_request",
+      "headSha": "0d82c75250f62b585a21081d3fc052d04c1f514e",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34418620358",
+      "workflowName": "AP12 registered owner"
+    },
+    {
+      "run": 34418620355,
+      "conclusion": "success",
+      "event": "pull_request",
+      "headSha": "0d82c75250f62b585a21081d3fc052d04c1f514e",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34418620355",
+      "workflowName": "PX2 proof policy"
+    }
+  ],
+  "artifact_id": 10130485567,
+  "zip_sha256": "66724d36be9dd19bdb15210409c6e9deb5edd63485a0755e9fe0f1caecc5c07d",
+  "source_commit_txt_unmodified": true,
+  "host_source_manifest": "compatibility/ap15/host-source-manifest.json",
+  "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+  "executables": {
+    "ap12-path-tests.exe": "97c225c51343ef08454c686aa755af836bbd80742d69b608242f7ae020fdaa01",
+    "wf0-factory-probe.exe": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "ap13-state-delivery-tests.exe": "f566c916bd24fe140f0684aa2e8b63cfcac2e39723d310a9c7656dddb2f3e59e",
+    "ap14-environment-tests.exe": "0bb8d6295017c0c422e50ceb9b082b30a75356104a5edf1fe3b81b8fd377cd08",
+    "wf0-loader-adapter-tests.exe": "0c375aa6621a85f9f874a1acf078bee63b86fc7d7c54bf101a30d8532051a7a6",
+    "ap11-state-tests.exe": "32ff5a0712299185a1f8b20695701ab04d6eb6f72bb3eda98a48935edf0a58f5",
+    "ap10-results-tests.exe": "48a5c2fb579b599b320d72a9273172b84b51ce63f5b31ca20b37a2cc39e3c3d2",
+    "ap11-editor-tests.exe": "0fc35cc60af93080bca0b7aecc6a4e25c4072acef487d4031a1fd8dc8521e11d",
+    "ap12-fault-tests.exe": "61f402705a3888632564fb97790dfebdca5a3853eb1e9da7eca365978426e54f"
+  },
+  "windows_tests": "MSVC host/editor/state/path/fault/delivery/environment and socket lanes passed in the recorded workflow",
+  "native_reuse": "Both exact c5155af Linux images, archives and descriptors verified on Deck before packaging; no native source changes in roster preparation",
+  "scope": "Hosted Windows compilation/tests clear; actual Bitwig candidate qualification remains separate"
+}

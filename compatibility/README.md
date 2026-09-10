@@ -46,6 +46,12 @@ A candidate build may be deployed only through an explicit bounded, reversible e
 A profile claim never generalizes across a changed module digest, runner, environment, host/proxy revision, DAW, machine or capability matrix. Repository profile data is not permission to copy or redistribute a matched commercial module.
 ### AP15 implementation checkpoint
 
+The hosted gate was cleared in technical review `5161191208`. The exact revision-4 profiles in `ap15/` now populate the finite sealed roster as `review_candidate`; the additional closed limitation `direct_editor_under_qualification` describes their current claim. Revision 3 above remains byte-identical and the only ordinary activation authority. Every earlier limitation is retained, including FRAGMENTS redraw. The qualified parent comparison permits only this exact appended engineering limitation, not removal or replacement of existing limits.
+
+`tools/ap15_package.py` assembles the existing `qualify-editor stage` directory layout from the verified GitHub ZIP and exact retained native bytes. Its host-source manifest records the real build commit separately from the reviewed head and common tree; `SOURCE_COMMIT.txt` is never rewritten. Package paths supply bytes only; compiled profile hashes remain the authority. `qualify-editor publish` and `restore` use the existing transactions/physical parents. This is engineering qualification, not ordinary support or acceptance.
+
+Historical source-only checkpoint (retained below):
+
 `detached_direct_vendor_lifecycle` is now a closed editor capability. The ordinary installed profiles remain the byte-identical verified revision 3 above. There is currently **no complete AP15 candidate profile**: its exact Windows/native artifact roster awaits the Windows build. The separate engineering `qualify-editor` command therefore returns `qualification_artifacts_pending` before publication work.
 
 When the finite compiled roster is complete, this engineering route can activate only an exact review candidate descended from the installed verified revision-3 parent. The immutable revision is explicitly marked `ap15_editor` qualification, never ordinary support. Reconcile/service startup restores its exact verified parent through retained-history rollback, subject to inactive DSP and physical ownership checks. Normal `managed preview/publish` eligibility and nonactivating `managed check-candidate` are unchanged. A later independent review must select a new immutable verified revision; neither candidate nor revision 3 is relabeled.

@@ -62,7 +62,8 @@ closed_enum!(Limitation {
     WindowsAccessibilityUnavailable,
     DetachedFocusRefusal,
     FragmentsAdvancedRedraw,
-    ExactOperatorArtifactOnly
+    ExactOperatorArtifactOnly,
+    DirectEditorUnderQualification
 });
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
