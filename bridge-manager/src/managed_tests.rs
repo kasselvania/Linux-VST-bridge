@@ -1186,7 +1186,7 @@ fn sealed_ap15_roster_preserves_exact_verified_constraints_and_refuses_ordinary_
     let manifest = include_bytes!("../../compatibility/ap15/host-source-manifest.json");
     for (prior, candidate) in verified.iter().zip(&candidates) {
         assert_eq!(candidate.id, prior.id);
-        assert_eq!(candidate.revision, 4);
+        assert_eq!(candidate.revision, 5);
         assert_eq!(candidate.claim, Claim::ReviewCandidate);
         assert!(!candidate.claim.permits(SelectionPurpose::Activation));
         assert!(candidate.claim.permits(SelectionPurpose::Qualification));
