@@ -44,14 +44,103 @@ def environment(reg):
 def command(spec):
     reg=spec['registration'];root=pathlib.Path(reg['environment']['root']);prefix=root/'compatdata/pfx';runner=reg['environment']['runner'];sid=spec['session'];mode='ap12-vendor-access' if spec.get('vendor_access') else 'ap8-module-inspection' if spec['inspect'] else 'ap9-commercial'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
+    handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),
            ('module',windows(reg['module']['path'],prefix)),('module-sha256',reg['module']['sha256']),('bundle-manifest-sha256',reg['module']['sha256']),
-           ('ready',f'C:\\bridge\\sessions\\{sid}\\{sid}.ready'),('gate',f'C:\\bridge\\sessions\\{sid}\\{sid}.gate'),
+           ('ready',windows(handshake_directory/(sid+'.ready'),prefix)),('gate',windows(handshake_directory/(sid+'.gate'),prefix)),
            ('max-classes','256'),('stdout-cap','1048576'),('mode',mode),('component-case',case)]
     cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],prefix)]
     for k,v in pairs:cmd+=['--'+k,v]
     binding=('schema=linux-vst-bridge-wf0-handshake/v1\n'+''.join(k.replace('-','_')+'='+v+'\n' for k,v in [pairs[0],pairs[1],pairs[4],pairs[5],pairs[2],pairs[10],pairs[11]])+'run_ordinal=1\n').encode()
     return cmd,binding
+
+
+# AP16: the hot mappings share memory, while owner.json and retirement receipts
+# retain their existing durable locations. Only setup/admission/retirement use
+# these filesystem checks; no sampler or storage work is added to a callback.
+STORAGE_MARKER=b'linux-vst-bridge volatile transport v1\n'
+def transport_root():return pathlib.Path('/run/user')/str(os.getuid())/'linux-vst-bridge'
+def private_directory(path):
+    m=path.lstat()
+    if not stat.S_ISDIR(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077 or path.resolve()!=path:
+        raise RuntimeError('transport directory ownership/alias')
+    return m
+
+def memory_directory(path):
+    m=private_directory(path)
+    fd=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    try:
+        opened=os.fstat(fd)
+        if (m.st_dev,m.st_ino)!=(opened.st_dev,opened.st_ino):raise RuntimeError('transport directory replaced')
+        # Linux statfs begins with a signed long f_type. The bounded buffer is
+        # larger than statfs on the supported x86_64 Linux runtime. No shell.
+        lib=ctypes.CDLL(None,use_errno=True);buf=ctypes.create_string_buffer(256)
+        lib.fstatfs.argtypes=[ctypes.c_int,ctypes.c_void_p];lib.fstatfs.restype=ctypes.c_int
+        if lib.fstatfs(fd,ctypes.byref(buf))!=0:raise OSError(ctypes.get_errno(),'transport statfs')
+        if ctypes.c_long.from_buffer(buf).value!=0x01021994:raise RuntimeError('transport requires tmpfs')
+    finally:os.close(fd)
+    return m
+
+def validate_runtime():
+    root=transport_root();memory_directory(root)
+    marker=root/'storage-v1';m=marker.lstat()
+    if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077 or m.st_size!=len(STORAGE_MARKER):
+        raise RuntimeError('transport root foreign')
+    with os.fdopen(os.open(marker,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+        if f.read(len(STORAGE_MARKER)+1)!=STORAGE_MARKER:raise RuntimeError('transport root foreign')
+    return root
+
+def session_directories(spec):
+    sid=spec['session'];directory=pathlib.Path(spec['directory'])
+    durable=pathlib.Path(spec['registration']['environment']['root'])/'compatdata/pfx/drive_c/bridge/sessions'/sid
+    if len(sid)!=32 or any(c not in '0123456789abcdef' for c in sid):raise RuntimeError('session binding differs')
+    private_directory(durable)
+    transport=spec.get('transport')
+    if transport is None:
+        if directory!=durable:raise RuntimeError('session binding differs')
+    else:
+        if not isinstance(transport,dict) or set(transport)!={'schema','device','inode'} or any(type(v) is not int for v in transport.values()) or transport['schema']!=1 or spec.get('shared_runtime') is not True or spec['inspect'] or spec.get('keeper') or spec.get('vendor_access'):
+            raise RuntimeError('transport ownership/version')
+        root=validate_runtime()
+        if directory!=root/sid:raise RuntimeError('transport session binding differs')
+        m=memory_directory(directory)
+        if (m.st_dev,m.st_ino)!=(transport['device'],transport['inode']):raise RuntimeError('transport directory replaced')
+    return directory,durable
+
+def transport_environment(spec,env):
+    if spec.get('shared_runtime'):
+        # The keeper and every audio child see only our same private root.
+        # This is not a prefix, home or arbitrary caller-selected mount grant.
+        env['PRESSURE_VESSEL_FILESYSTEMS_RW']=str(validate_runtime())
+
+def windows_transport_views(spec):
+    """Keep the pinned host's closed C: handshake contract. Only these native-
+    created files alias the exact RAM session. Publish before the Windows gate,
+    never during processing; owner.json/handshake/receipts remain durable.
+    """
+    directory,durable=session_directories(spec)
+    if directory==durable:return
+    sources=[]
+    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery'):
+        source=directory/name;target=durable/name
+        try:m=source.lstat()
+        except FileNotFoundError:
+            if name=='ap10.delivery':continue # existing explicit socket diagnostic mode
+            raise
+        if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077:
+            raise RuntimeError('transport file ownership/type')
+        if os.path.lexists(target):raise RuntimeError('Windows transport view already exists')
+        sources.append((source,target,m))
+    for source,target,m in sources:
+        target.symlink_to(source)
+        visible=target.stat()
+        if (visible.st_dev,visible.st_ino)!=(m.st_dev,m.st_ino):
+            raise RuntimeError('Windows transport view replaced')
+
+def retire_directories(spec):
+    directory,durable=session_directories(spec)
+    shutil.rmtree(directory)
+    if directory!=durable:shutil.rmtree(durable)
 
 def delivery_trace(spec,env):
     # Match the registered native observer's opt-in flag. The supervisor's
@@ -198,11 +287,9 @@ def fault_threads(owned):
     return result
 
 def run(spec,peer=None):
-    os.umask(0o077);reg=spec['registration'];directory=pathlib.Path(spec['directory']);sid=spec['session'];report=pathlib.Path(spec['report']);expected_dir=pathlib.Path(reg['environment']['root'])/'compatdata/pfx/drive_c/bridge/sessions'/sid
-    if directory!=expected_dir or len(sid)!=32 or any(c not in '0123456789abcdef' for c in sid):raise RuntimeError('session binding differs')
-    if directory.is_symlink() or not directory.is_dir() or directory.stat().st_mode&0o077:raise RuntimeError('session directory is not private')
+    os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg);delivery_trace(spec,env);stop=False
+    cmd,binding=command(spec);env=environment(reg);transport_environment(spec,env);delivery_trace(spec,env);stop=False
     def stopped(*_):
         nonlocal stop
         stop=True
@@ -273,10 +360,11 @@ def run(spec,peer=None):
                     while time.monotonic()<end and not any(r.get('state')=='scanner_completed' for r in records):pump(.05)
                 break
             if not gated and any(r.get('state')=='readiness_announced' for r in records):
-                ready=directory/(sid+'.ready');m=ready.lstat()
+                ready=durable/(sid+'.ready');m=ready.lstat()
                 if not stat.S_ISREG(m.st_mode) or m.st_size>1024 or ready.read_bytes()!=binding:raise RuntimeError('Windows readiness binding differs')
                 for item in [reg['host'],reg['module']]:verify(item)
-                gate=directory/(sid+'.gate');temp=directory/(sid+'.gate.tmp')
+                windows_transport_views(spec)
+                gate=durable/(sid+'.gate');temp=durable/(sid+'.gate.tmp')
                 with temp.open('xb') as f:f.write(binding);f.flush();os.fsync(f.fileno())
                 temp.replace(gate);gated=True
             now=time.monotonic()
@@ -312,7 +400,7 @@ def run(spec,peer=None):
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        outcome={'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
@@ -332,8 +420,11 @@ def run(spec,peer=None):
         if retired:
             # Only this random, private session is removed. Reports live outside
             # it; no environment, vendor, publication or sibling path is touched.
-            shutil.rmtree(directory)
-            if peer is not None:
+            try:retire_directories(spec)
+            except (OSError,RuntimeError) as e:
+                outcome['transport_retired']=False
+                outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
+            if outcome['transport_retired'] and peer is not None:
                 try:peer.settimeout(5);peer.sendall(b'R')
                 except OSError:pass
         try:atomic(report,outcome)
@@ -359,7 +450,8 @@ def keep(spec):
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
     directory=pathlib.Path(spec['directory']);verify(reg['host'])
     cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
-    root=subprocess.Popen(cmd,env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}}),stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+    env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}});transport_environment(spec,env)
+    root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     sel=selectors.DefaultSelector();owned=set();text=bytearray();ready=False;started=time.monotonic();error=None;clean=False
     for pipe in (root.stdout,root.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
     try:

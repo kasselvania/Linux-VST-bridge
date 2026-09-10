@@ -1,0 +1,211 @@
+{
+  "schema": 1,
+  "source_build_commit": "878c0f2786e271f7697cb335f9710481db52f216",
+  "source_tree": "825ca20baa8966380638f900d7056e4d983e2b1d",
+  "source_files_sha256": {
+    "bridge-manager/src/main.rs": "8c70ca986ba2f681667b06ddbe9546b4ad2f74d5cbf83ada9a1e131df5d95e4b",
+    "bridge-manager/src/transport_storage.rs": "c2a42f61127b92e9df58f7fc9597142580211bfbf2771a6290ec6e9951ac2060",
+    "bridge-manager/runtime/session.py": "60d1cbd3bf7c8a3a2ee4252cf83d10cc80ca24e840b9b13469cc8dcb0c2cdb12",
+    "bridge-manager/runtime/test_session.py": "11abcc0c95d351773350ec7348443e8bca54bf901628f8d0adee5c07cfcc24b6"
+  },
+  "local_commands": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "platform": "macOS aarch64",
+      "exit": 0,
+      "passed": 57,
+      "log_sha256": "759acb9626e4a164b2a18a424341432d65730fb3c00060c43dd76fd4b3f8630c"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "platform": "macOS aarch64",
+      "exit": 0,
+      "library_passed": 37,
+      "binary_passed": 6,
+      "log_sha256": "6bdb3b93a99cb5d7a824001dad1e43fa68cf5e5ac35fc4753b055c5c3a041066"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "platform": "macOS aarch64",
+      "exit": 0,
+      "log_sha256": "59639588a6f1826f129cbcd121edc07279dab94786f5fa5bde6b3439b2e845cc"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "platform": "macOS aarch64",
+      "exit": 0,
+      "log_sha256": "f46ae257655702837bac46b6636e98d188cc741d51eeca91cb6224e498f00cdd"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "platform": "macOS aarch64",
+      "exit": 0,
+      "passed": 6,
+      "skipped_linux_only": 16,
+      "log_sha256": "e8f66b25d248b228c39ce3d6ffcb67777de26e090e38baf5ff186394d3679c5c"
+    },
+    {
+      "command": "python3 -m unittest discover -s OWNED_EXACT_RUNTIME_SOURCE_COPY -v",
+      "platform": "SteamOS Linux",
+      "exit": 0,
+      "passed": 22,
+      "seconds": 23.404901583999163,
+      "receipt_sha256": "a28b20cfac24246dcf807854fcbcb44533b58647c258d7aa71c57f6456af341b"
+    }
+  ],
+  "linux_native_reused_unchanged": {
+    "commands": [
+      {
+        "command": [
+          "cmake",
+          "-S",
+          "<deck-home>/AP16-Work/native-tests-1",
+          "-B",
+          "<deck-home>/AP16-Work/native-tests-1/build",
+          "-G",
+          "Ninja",
+          "-DCMAKE_BUILD_TYPE=Release",
+          "-DAP2_BUILD_ONLY=ON",
+          "-DAP10_RESULTS_TESTS=ON",
+          "-DAP11_PANEL_TESTS=ON",
+          "-DVST3_SDK_ROOT=<deck-home>/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+          "-DAP2_RUST_LIBRARY=<deck-home>/AP16-Work/native-tests-1/libap2_backend.a",
+          "-DAP8_DESCRIPTOR=<deck-home>/AP16-Work/native-tests-1/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
+        ],
+        "exit": 0
+      },
+      {
+        "command": [
+          "cmake",
+          "--build",
+          "<deck-home>/AP16-Work/native-tests-1/build",
+          "--target",
+          "ap10-result-lifetime",
+          "ap10-results-tests",
+          "ap11-native-tests",
+          "ap11-state-tests",
+          "ap11-panel-tests",
+          "ap11-activation-tests",
+          "ap3-callback-audit",
+          "CommercialInstrumentBridge",
+          "-j",
+          "4"
+        ],
+        "exit": 0
+      },
+      {
+        "command": [
+          "ctest",
+          "--test-dir",
+          "<deck-home>/AP16-Work/native-tests-1/build/native-vst3-proxy",
+          "--verbose"
+        ],
+        "exit": 0
+      }
+    ],
+    "tests_passed": 6,
+    "callback_audit": "ap10-result-lifetime runs with production audit LD_PRELOAD; zero callback effects",
+    "input_archives_sha256": [
+      "05392fdd4f5829cf8b4ff425886ae31cd99cbaa1033cc1f2fd4fe797166b5d6f",
+      "b07e06db65b66316b080284a95b0d5650d3515b60809136907afbe014d361fbb"
+    ],
+    "backend_static_sha256": "19cdca2aef720b0c984e8fc120f8f6b1c7b4586f5839ece98b464eca2c3eae4c",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "compiler": "GCC 15.2.0 in existing Freedesktop SDK 25.08; existing Xvfb tooling reused",
+    "log_sha256": "4bfca95682408f8dc960a61a8bfc6268eb133883850a3e7dfb6599f37296dbb7"
+  },
+  "px2_local_reused_unchanged": {
+    "command": "PX2 workflow deterministic policy/transaction unittest list",
+    "platform": "macOS",
+    "exit": 0,
+    "passed": 122,
+    "log_sha256": "31d6fe8765beda8235784229a6d24ef05f5b1d255248921f514d92171fb307db"
+  },
+  "failing_before": [
+    {
+      "test": "MemoryTransportTests.test_production_run_admits_memory_transport_and_retires_exact_session",
+      "baseline_source": "e3a790acefa481a800d046b748573451b42fe751:bridge-manager/runtime/session.py",
+      "exit": 1,
+      "failure": "RuntimeError: session binding differs",
+      "meaning": "Baseline production owner refuses the memory-backed DSP binding; repaired production owner accepts and positively retires it. This is a deterministic storage/ownership law test, not a synthetic claim to reproduce kernel journal latency."
+    },
+    {
+      "source": "68a96e75b83431641f05e829d2098c6cee65bed0",
+      "test": "MemoryTransportTests.test_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory",
+      "exit": 1,
+      "failure": "Z: RAM readiness path differs from pinned C: handshake contract",
+      "passing_after": "878c0f2, all 22 runtime tests; actual installed admissions and positive retirement"
+    }
+  ],
+  "new_mechanism_tests": [
+    "tmpfs required; disk fallback refused",
+    "private root marker, uid/mode, inode and peer-namespace validation",
+    "exact session key and SO_PEERCRED identity",
+    "unexposed rollback versus exposed lease retention",
+    "retirement waits for native and Windows owners",
+    "physical cleanup refusal cannot become a success receipt",
+    "healthy sibling and durable record preservation",
+    "pinned C: handshake with exact RAM-backed hot-file aliases",
+    "foreign alias and replaced/symlink source refusal",
+    "production ready -> publish exact file views -> gate -> child read -> positive retirement"
+  ],
+  "hosted_source_head": [
+    {
+      "name": "AP12 registered owner",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34509671032",
+      "headSha": "878c0f2786e271f7697cb335f9710481db52f216",
+      "conclusion": "success"
+    },
+    {
+      "name": "PX2 proof policy",
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34509671031",
+      "headSha": "878c0f2786e271f7697cb335f9710481db52f216",
+      "conclusion": "success"
+    }
+  ],
+  "final_documentation_head": "Applicable final-head workflow results are recorded in PR #89; source/test bytes above remain exact.",
+  "unaffected_lanes": "Windows host, SDK/editor/state tests and shared ABI/build inputs are byte-identical to accepted AP15. Native callback/delivery/editor sources and shipped artifacts are unchanged. No new Windows artifact/build claim or profile revision. Applicable manager and PX2 workflows cover the changed paths.",
+  "release_build": {
+    "command": "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=EXISTING_ZIG_CC cargo build --manifest-path bridge-manager/Cargo.toml --locked --release --target x86_64-unknown-linux-gnu",
+    "exit": 0,
+    "log_sha256": "b333235d895a49485008f52e096efee29f8393335ee9ff253f4e82fa47c65a98",
+    "manager_sha256": "4ee391466f8c69146477cb32963f72981760552700544b2552d09be2c7f56bfa"
+  },
+  "retained_harness_failures": [
+    {
+      "case": "first native archive omitted shared headers",
+      "result": "CMake configured; build failed on vst-state/stream.h and windows-factory-probe/source/bus_layout.h. Added unchanged source inputs; all six tests then passed."
+    },
+    {
+      "case": "copied cross-compiled Linux library test binary",
+      "result": "36 passed, one historical-profile filesystem test failed because its compiled absolute source path was absent. The same source fixture passes in the local checkout. Full Linux source-tree execution remains for normal CI; no test was removed or relaxed."
+    },
+    {
+      "case": "initial Linux cross build used Homebrew Cargo without its Linux standard library",
+      "result": "Toolchain selection corrected to the already-installed rustup cross target; no dependency/runtime change."
+    }
+  ],
+  "actual_product": "matched-comparison.json, preservation.json, installed-transport.json, installed-final.json",
+  "cleanup": [
+    {
+      "path": "<deck-home>/AP16-Work/native-faults.data",
+      "bytes": 115404,
+      "sha256": "f5fb157bb04714b096eeea88c5b6a48dea15b461ca684b6897089f210d17e140",
+      "removed_owned_diagnostic": true
+    },
+    {
+      "path": "/dev/shm/ap16-native-faults.data",
+      "bytes": 116132,
+      "sha256": "3e6c91fde43d45e06b87f5920bf443680eeabb406bff5cf3f05d25ce665bc03d",
+      "removed_owned_diagnostic": true
+    },
+    {
+      "path": "<deck-home>/AP16-Work/ext4-test.audio",
+      "absent": true
+    },
+    {
+      "path": "/dev/shm/ap16-1000-map-test.audio",
+      "absent": true
+    }
+  ]
+}

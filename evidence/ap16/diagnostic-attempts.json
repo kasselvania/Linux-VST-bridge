@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "scope": "Measurement attempts, not product results. No target/artifact/priority changes. Large diagnostic CPU costs exclude early samplers from performance comparison.",
+  "attempts": [
+    {
+      "input": "external-run1.private.json",
+      "schema": 1,
+      "clock": "Linux CLOCK_MONOTONIC ns",
+      "thread_counters": "/proc/TID/schedstat runtime_ns runnable_delay_ns timeslices; /proc/TID/stat faults; wchan sampled",
+      "cadence_requested_ns": 2000000,
+      "start_ns": 134714276441892,
+      "end_ns": 134754277102811,
+      "observer_cpu_ns": 12600825190,
+      "max_read_bracket_ns": 41704213,
+      "samples": 13186,
+      "unretained_samples": 13186,
+      "discovery_passes": 776,
+      "trigger": null,
+      "trace_enabled": false
+    },
+    {
+      "input": "worker-run1.private.json",
+      "schema": 1,
+      "clock": "Linux CLOCK_MONOTONIC ns",
+      "source": "bounded external /proc reads and existing atomic native fault lane; no target mutation",
+      "requested_sleep_ns": 2000000,
+      "start_ns": 135032693443426,
+      "end_ns": 135092693994973,
+      "observer_cpu_ns": 6021629530,
+      "max_read_bracket_ns": 1268256,
+      "samples": 26208,
+      "trigger": null,
+      "trace_enabled": true
+    },
+    {
+      "input": "worker-run2.private.json",
+      "schema": 1,
+      "clock": "Linux CLOCK_MONOTONIC ns",
+      "source": "bounded external /proc reads and existing atomic native fault lane; no target mutation",
+      "requested_sleep_ns": 2000000,
+      "start_ns": 135349854271604,
+      "end_ns": 135409856170857,
+      "observer_cpu_ns": 5993539297,
+      "max_read_bracket_ns": 2252596,
+      "samples": 26228,
+      "trigger": null,
+      "trace_enabled": true
+    },
+    {
+      "input": "worker-light-run1.private.json",
+      "schema": 1,
+      "clock": "Linux CLOCK_MONOTONIC ns",
+      "source": "bounded external /proc reads and existing atomic native fault lane; no target mutation",
+      "requested_sleep_ns": 5000000,
+      "status_every_samples": 4,
+      "start_ns": 135543729025892,
+      "end_ns": 135663729828369,
+      "observer_cpu_ns": 4042667529,
+      "max_read_bracket_ns": 1206035,
+      "samples": 22927,
+      "trigger": null,
+      "trace_enabled": true
+    },
+    {
+      "input": "thread-run1.private.json",
+      "clock": "CLOCK_MONOTONIC ns",
+      "cpu_clock": "CLOCK_PROCESS_CPUTIME_ID ns",
+      "start_ns": 135814262299250,
+      "end_ns": 135927494370009,
+      "cpu_ns": 2965591826,
+      "samples": 53655,
+      "trigger": 53592,
+      "max_bracket_ns": 497140,
+      "requested_sleep_ns": 2000000,
+      "capacity": 192
+    },
+    {
+      "input": "thread-v2-run1.private.json",
+      "clock": "CLOCK_MONOTONIC ns",
+      "cpu_clock": "CLOCK_PROCESS_CPUTIME_ID ns",
+      "start_ns": 136033704278639,
+      "end_ns": 136153704373641,
+      "cpu_ns": 1359914710,
+      "samples": 23471,
+      "trigger": 0,
+      "max_bracket_ns": 527831,
+      "requested_sleep_ns": 5000000,
+      "capacity": 192
+    },
+    {
+      "input": "map-probe-run.private.json",
+      "start_ns": 136926099944347,
+      "end_ns": 137046100042848,
+      "samples_per_mapping": 22500,
+      "slow_dropped": 0
+    }
+  ],
+  "isolated_mapping_probe": {
+    "start_ns": 136926099944347,
+    "end_ns": 137046100042848,
+    "samples_per_mapping": 22500,
+    "max_wall_cpu_ns": [
+      [
+        139262,
+        62440
+      ],
+      [
+        49291,
+        18060
+      ]
+    ],
+    "sum_wall_cpu_ns": [
+      [
+        115176840,
+        80019673
+      ],
+      [
+        64734918,
+        44037464
+      ]
+    ],
+    "slow_dropped": 0,
+    "slow": [],
+    "axes": {
+      "mapping_order": [
+        "ext4 session directory",
+        "tmpfs /dev/shm"
+      ],
+      "max_wall_cpu_ns": "per mapping [maximum elapsed wall ns, maximum calling-thread CPU ns]",
+      "sum_wall_cpu_ns": "per mapping [sum elapsed wall ns, sum calling-thread CPU ns]"
+    }
+  },
+  "successful_capture": "causal-baseline.json",
+  "limitations": [
+    "Early Python samplers consumed materially more CPU and failed to capture the selected interval.",
+    "The first Rust trigger selected an incidental syscall symbol rather than a missed request. V2 used the actual missing-frame counter, with no trigger in its retained interval.",
+    "The isolated production mapping probe did not reproduce the long journal wait. It is a negative diagnostic result.",
+    "The first perf attempt did not explicitly select CLOCK_MONOTONIC and cannot be directly subtracted from native timestamps. The successful joint capture explicitly selected it."
+  ]
+}

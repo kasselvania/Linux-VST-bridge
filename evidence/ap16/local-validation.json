@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "scope": "Pre-deployment source checkpoint. No product installation or repaired Bitwig/performance result.",
+  "source_files_sha256": {
+    "bridge-manager/src/main.rs": "8c70ca986ba2f681667b06ddbe9546b4ad2f74d5cbf83ada9a1e131df5d95e4b",
+    "bridge-manager/src/transport_storage.rs": "c2a42f61127b92e9df58f7fc9597142580211bfbf2771a6290ec6e9951ac2060",
+    "bridge-manager/runtime/session.py": "7f7ab317dfbcb82557e9d08f71f070c66425ee056be65f86287bfc7d743c7351",
+    "bridge-manager/runtime/test_session.py": "46b5e826ff4eb05d26aef9bb79af424bdf5843bbc5db0efcd95d88b5b31bdc76"
+  },
+  "local_commands": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "platform": "macOS aarch64",
+      "exit": 0,
+      "passed": 57,
+      "log_sha256": "8670335670ee5f0b1ed1188db5a7d66a70429d9d385eb0979cd2892ee5c3ba71"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "platform": "macOS aarch64",
+      "exit": 0,
+      "library_passed": 37,
+      "binary_passed": 6,
+      "log_sha256": "2ce2dcd50ebea61793975495da922236a05830afe52a2a3255afcd1e19e2f6a1"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "exit": 0,
+      "log_sha256": "458225c3e7b869059c53fe6b95133ca576799ead3e710af002ef2b6933ca1c62"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "exit": 0,
+      "log_sha256": "131623f8ba0975ff4be04f2bfacf696b6eee177beae8b30dcdb99727406d4625"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets --target x86_64-unknown-linux-gnu -- -D warnings",
+      "exit": 0,
+      "log_sha256": "5e76046962e95d9cd57f1edba3ee489a6666e2f8fa6c881040c40b851e8c1924"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "platform": "macOS",
+      "exit": 0,
+      "passed": 6,
+      "skipped_linux_only": 14,
+      "log_sha256": "81a7b4ee5b0cb5188cdee9cee6dffacb0abb0bd75d8f4c1e889a1cadd1327ad3"
+    },
+    {
+      "command": "python3 -m unittest discover -s OWNED_TEST_COPY -v",
+      "platform": "SteamOS Linux; source files exactly equal runtime directory",
+      "exit": 0,
+      "passed": 20,
+      "seconds": 23.25163582401001,
+      "input_zip_sha256": "9ca7f88e81961ebba729b5cbcde9b999ecf1794c877b9a0b7e9d626d05b06edf"
+    },
+    {
+      "command": "cross-compiled Linux manager binary fixture",
+      "platform": "SteamOS Linux",
+      "exit": 0,
+      "passed": 9,
+      "seconds": 0.04998312800307758,
+      "binary_sha256": "8db12fe03539bc5c8b6a977ee250209608a64d9be23d898163b95f37678c7955"
+    },
+    {
+      "command": "PX2 workflow deterministic policy/transaction unittest list",
+      "platform": "macOS",
+      "exit": 0,
+      "passed": 122,
+      "log_sha256": "31d6fe8765beda8235784229a6d24ef05f5b1d255248921f514d92171fb307db"
+    }
+  ],
+  "failing_before": {
+    "test": "MemoryTransportTests.test_production_run_admits_memory_transport_and_retires_exact_session",
+    "baseline_source": "e3a790acefa481a800d046b748573451b42fe751:bridge-manager/runtime/session.py",
+    "exit": 1,
+    "failure": "RuntimeError: session binding differs",
+    "meaning": "Baseline production owner refuses the memory-backed DSP binding; repaired production owner accepts and positively retires it. This is a deterministic storage/ownership law test, not a synthetic claim to reproduce kernel journal latency."
+  },
+  "linux_native": {
+    "commands": [
+      {
+        "command": [
+          "cmake",
+          "-S",
+          "<deck-home>/AP16-Work/native-tests-1",
+          "-B",
+          "<deck-home>/AP16-Work/native-tests-1/build",
+          "-G",
+          "Ninja",
+          "-DCMAKE_BUILD_TYPE=Release",
+          "-DAP2_BUILD_ONLY=ON",
+          "-DAP10_RESULTS_TESTS=ON",
+          "-DAP11_PANEL_TESTS=ON",
+          "-DVST3_SDK_ROOT=<deck-home>/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+          "-DAP2_RUST_LIBRARY=<deck-home>/AP16-Work/native-tests-1/libap2_backend.a",
+          "-DAP8_DESCRIPTOR=<deck-home>/AP16-Work/native-tests-1/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
+        ],
+        "exit": 0
+      },
+      {
+        "command": [
+          "cmake",
+          "--build",
+          "<deck-home>/AP16-Work/native-tests-1/build",
+          "--target",
+          "ap10-result-lifetime",
+          "ap10-results-tests",
+          "ap11-native-tests",
+          "ap11-state-tests",
+          "ap11-panel-tests",
+          "ap11-activation-tests",
+          "ap3-callback-audit",
+          "CommercialInstrumentBridge",
+          "-j",
+          "4"
+        ],
+        "exit": 0
+      },
+      {
+        "command": [
+          "ctest",
+          "--test-dir",
+          "<deck-home>/AP16-Work/native-tests-1/build/native-vst3-proxy",
+          "--verbose"
+        ],
+        "exit": 0
+      }
+    ],
+    "tests_passed": 6,
+    "callback_audit": "ap10-result-lifetime runs with production audit LD_PRELOAD; zero callback effects",
+    "input_archives_sha256": [
+      "05392fdd4f5829cf8b4ff425886ae31cd99cbaa1033cc1f2fd4fe797166b5d6f",
+      "b07e06db65b66316b080284a95b0d5650d3515b60809136907afbe014d361fbb"
+    ],
+    "backend_static_sha256": "19cdca2aef720b0c984e8fc120f8f6b1c7b4586f5839ece98b464eca2c3eae4c",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "compiler": "GCC 15.2.0 in existing Freedesktop SDK 25.08; existing Xvfb tooling reused",
+    "log_sha256": "4bfca95682408f8dc960a61a8bfc6268eb133883850a3e7dfb6599f37296dbb7"
+  },
+  "harness_failures_preserved": [
+    {
+      "case": "first native archive omitted shared headers",
+      "result": "CMake configured; build failed on vst-state/stream.h and windows-factory-probe/source/bus_layout.h. Added unchanged source inputs; all six tests then passed."
+    },
+    {
+      "case": "copied cross-compiled Linux library test binary",
+      "result": "36 passed, one historical-profile filesystem test failed because its compiled absolute source path was absent. The same source fixture passes in the local checkout. Full Linux source-tree execution remains for normal CI; no test was removed or relaxed."
+    },
+    {
+      "case": "initial Linux cross build used Homebrew Cargo without its Linux standard library",
+      "result": "Toolchain selection corrected to the already-installed rustup cross target; no dependency/runtime change."
+    }
+  ],
+  "windows": "No Windows-owned source, tests, ABI or build input changed; exact accepted host is reused. No new Windows build claimed.",
+  "hosted": "Pending normal PR jobs for this source checkpoint; final campaign and final-head workflow disposition remain incomplete.",
+  "installed": "installed-checkpoint.json; no mutation; permission for scoped Flatpak runtime directory pending",
+  "completion": false
+}

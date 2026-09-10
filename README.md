@@ -1,46 +1,65 @@
 # Linux Audio Compatibility Bridge
 
-A managed bridge for using supported Windows audio plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxies or runtime versions.
+AP16 has repaired one measured delivery-stall class for independent review in PR #89: hot shared mappings now use private RAM storage, removing the demonstrated disk-journal wait. Matched playback and two trace-off confirmation intervals had zero new gaps after the repair; startup and editor/removal gaps remain. Ordinary revision-7 profiles and the 512-frame recommendation are unchanged. [Exact results and limits](docs/AP16.md).
 
-Experimental engineering preview, not a consumer-ready release. Working repository name; not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records or another vendor.
+A managed bridge for using supported Windows audio plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxy synchronization commands, or changing runtime versions by hand.
 
-> **Ownership:** This repository is publicly readable but proprietary. Copyright © 2026 Peter Kassel. All rights reserved. It is not open-source software, and no software license is granted beyond applicable law and the limited rights provided through GitHub's Terms of Service. See [COPYRIGHT.md](COPYRIGHT.md).
+**Experimental engineering preview, not a consumer-ready release.** The project is not affiliated with Bitwig, Valve, Steinberg, Arturia, Xfer Records, or another plug-in vendor.
 
-## Accepted baseline: AP14 managed Arturia workflow
+> **Ownership:** This repository is publicly readable but proprietary. Copyright © 2026 Peter Kassel. All rights reserved. Public visibility does not grant an open-source or redistribution license. See [COPYRIGHT.md](COPYRIGHT.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
-AP8–AP11 established the independent native Linux VST3 proxy, supervised Windows VST3 processing under the selected Proton/Wine environment, bounded audio/events, opaque state and project recall, automation, independent instances and detached vendor editors. AP12 installed the exact Pure LoFi → Efx FRAGMENTS chain with automatic service startup. AP13 repaired a demonstrated state-capture delivery barrier, reduced supervisor overhead and added the installed delay selector.
+## Accepted baseline: AP15 direct managed Arturia workflow
 
-AP14 [#85](https://github.com/kasselvania/Linux-VST-bridge/pull/85), integrated as `84abd6a9755ab10b015c3744549b1e46ab1b85cb`, adds the first profile-driven managed publication and exact rollback workflow. The manager discovers and supervises the exact module/class census, selects a closed verified profile, derives registration, obtains the product-owned native artifact, and atomically publishes the Linux VST3 bundle. The ordinary operator supplies no class IDs, module hashes, compatibility flags, registration JSON, native build paths or Proton commands.
+AP8–AP11 established the independent native Linux VST3 proxy, supervised Windows VST3 processing under a pinned Proton/Wine environment, bounded audio/events, opaque state and project recall, automation, independent instances, and detached vendor editors.
 
-AP14 established immutable revision-3 `verified_exact_fixture` profiles for Pure LoFi and Efx FRAGMENTS on the exact Steam Deck / SteamOS 3.8.16 / Bitwig 6.1 / pinned Proton-SLR fixture. Revision-2 candidate and older publication history remain exact rollback targets. These are narrow exact-artifact claims, not universal Arturia or Linux support.
+AP12 installed the exact Pure LoFi → Efx FRAGMENTS chain with automatic service startup. AP13 removed a demonstrated state-capture delivery barrier, reduced supervisor overhead, and added the installed 256/512 delay selector. AP14 added closed compatibility profiles, manager-derived registration, immutable publication revisions, recovery, and exact rollback.
+
+AP15, integrated as `d4076e9cc02028bf268089ca0bb86aeac36ef947`, makes the direct detached vendor editor the ordinary behavior for the exact accepted fixture. Opening the plug-in editor in Bitwig directly presents or focuses the vendor editor. Vendor close retires only that editor generation; one normal action reopens a greater editor epoch for the same DSP instance. Normal managed publication now selects immutable revision-7 `verified_exact_fixture` profiles, while exact revision-3 publications remain retained rollback targets.
+
+The accepted matrix is deliberately narrow:
+
+- Steam Deck / SteamOS 3.8.16;
+- Bitwig Studio 6.1 Flatpak;
+- exact pinned Proton-SLR runner and environment;
+- Pure LoFi 1.0.0.6121;
+- Efx FRAGMENTS 1.0.0.2925;
+- float32, bounded main stereo/event behavior;
+- exact reviewed Windows host and Linux native artifacts.
+
+This is not a claim of broad Arturia, Linux, DAW, VST3, hardware, or customer-installation support.
 
 ## Current operating limits
 
-At 48 kHz, Pure LoFi reports 512 bridge + 48 vendor frames and Efx FRAGMENTS reports 512 + 192. The serial chain reports 1,264 frames / 26.333 ms, excluding DAW/device latency. **512 added frames per proxy remains installed, supported and recommended.** The opt-in 256 setting remains available but unqualified because startup and later FRAGMENTS gaps persist.
+At 48 kHz, Pure LoFi reports 512 bridge + 48 vendor frames and Efx FRAGMENTS reports 512 + 192. The serial chain therefore reports 1,264 frames / 26.333 ms, excluding DAW, device, and acoustic latency.
 
-Short gaps and 24–31 ms preparation/publication outliers remain unclassified. Float32 and bounded stereo/main-bus/event paths are implemented. Arbitrary multichannel routing, sidechains, float64, broad MIDI/MPE, native Wayland views, every VST3 interface and general customer-hardware reliability are not claimed. The selected Arturia processes disable Windows UI Automation through an exact process-scoped compatibility choice; VST automation remains active.
+**512 added frames per proxy is selected, supported, and recommended.** The opt-in 256 setting remains available but unqualified because startup and later FRAGMENTS deadline misses remain.
 
-## Active slice: AP15 direct detached editor lifecycle
+AP16 assigns and repairs one historical preparation-tail class through the mapping backing store. Residual startup, queue/reply and editor/removal gaps remain; this is not a gap-free or hard real-time guarantee. Float64, arbitrary multichannel routing, sidechains, broad MIDI/MPE, every VST3 interface, native Wayland views, and general customer-hardware reliability are not yet supported claims. The accepted Arturia processes disable Windows UI Automation through an exact process-scoped compatibility choice; VST parameter automation remains active.
 
-AP15 activates [#84](https://github.com/kasselvania/Linux-VST-bridge/issues/84). Opening a plug-in editor in Bitwig should directly present or focus the exact vendor editor. Closing the vendor window should retire only that editor generation while DSP, automation, state and project identity remain alive. Reopening should produce exactly one fresh editor for the same instance. The visible native **Open / focus vendor editor** / **Close vendor editor** intermediary must disappear without abandoning the host-correct VST3 `IPlugView` lifecycle.
+## Active slice: AP16 causal 512-frame delivery reliability
 
-AP15 starts from integrated AP14 on `codex/ap15-direct-editor-lifecycle`. Read [CURRENT_SLICE.md](CURRENT_SLICE.md) for the active contract and [docs/AP15.md](docs/AP15.md) for the prepared implementation boundary.
+AP16 activates [issue #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72) from integrated main at `510d88bd89adbf8b101140907f27dc9885af9f25`.
+
+The goal is not an open-ended performance campaign. Under the ordinary revision-7 Pure LoFi → FRAGMENTS workload at 512 frames, AP16 must reproduce one residual missed-delivery class, assign elapsed time to a real owner, repair its demonstrated project-owned cause or provide a truthful bounded external mitigation, and show matched before/after evidence without hiding gaps or changing musical timing.
+
+Read [CURRENT_SLICE.md](CURRENT_SLICE.md) for active authority and [docs/AP16.md](docs/AP16.md) for the source-grounded investigation boundary.
 
 ## Follow-through
 
-[#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80) retains FRAGMENTS Advanced-panel expansion/redraw. [#72](https://github.com/kasselvania/Linux-VST-bridge/issues/72) retains residual delivery/performance classification. [#77](https://github.com/kasselvania/Linux-VST-bridge/issues/77) retains lawful Serum 2 authorization/editor qualification. These are not silently absorbed into AP15.
+- [#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80) retains FRAGMENTS Advanced-panel expansion and redraw smoothness.
+- [#77](https://github.com/kasselvania/Linux-VST-bridge/issues/77) retains lawful Serum 2 authorization and exact editor/product qualification.
+- Multi-instance capacity and recovery qualification remains the recommended slice after AP16.
+
+These are not silently absorbed into the active delivery slice.
 
 ## Repository map
 
-Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), the relevant result documents and [docs/DESIGN_DOSSIER.md](docs/DESIGN_DOSSIER.md). `native-vst3-proxy/` is the Linux SDK proxy and Rust backend; `native-audio-client/` owns transport; `windows-factory-probe/` is the Windows SDK host; `bridge-manager/` owns environments, profiles, publication/rollback and installed supervision. Rust is primary, with C++ at SDK/platform edges. Proprietary binaries, presets, license data and credentials stay out of version control.
+- `native-vst3-proxy/`: native Linux VST3 SDK proxy and Rust callback/transport backend;
+- `native-audio-client/`: mapped transport and callback-facing primitives;
+- `windows-factory-probe/`: supervised Windows VST3 SDK host, processing, state, and editor owners;
+- `bridge-manager/`: environments, installation, profiles, publication/rollback, service admission, and supervision;
+- `compatibility/`: immutable exact-fixture profile history;
+- `docs/`: architecture, decisions, slice contracts, and reviewed results;
+- `evidence/`: bounded retained identities and results, never proprietary plug-in binaries or license payloads.
 
-The independent bridge remains selected. Maintained Wine/Proton work may provide a runner beneath it; it is not a yabridge pivot. Preserve user projects, installed environments, historical evidence, credentials and unrelated dirty work.
-AP15 revision-6 engineering qualification completed on the exact SteamOS 3.8.16 / Bitwig 6.1 Arturia fixture. Both real editors opened directly, closed and reopened in the same DSP sessions; edits, existing automation, explicit save/relaunch recall and independent FRAGMENTS removal were exercised. The 1×1/absent-child candidate and the later timestamp-refusal candidate remain recorded failures. See [actual results and limitations](docs/AP15.md#revision-6-exact-fixture-qualification).
-
-Independent review [5161767138](https://github.com/kasselvania/Linux-VST-bridge/pull/86#pullrequestreview-5161767138) selected the exact revision-6 technical/artifact result. New immutable ordinary revision-7 `verified_exact_fixture` profiles carry that direct lifecycle. Revision 6 remains a successful ReviewCandidate; revisions 4 and 5 remain failed candidate history. Revision 3 remains the exact rollback target.
-
-The sealed `linux-vst-bridge accept-editor` setup transition consumes only the retained reviewed qualification artifacts and exact active revision-3 parents. It takes no profile, binary or command arguments. After inactive setup, normal `managed preview` / `managed publish` selects revision 7, without an engineering qualification marker. Candidate activation remains refused. This transition is limited to the existing exact installation; it is not a general installer or promotion service. See [transition and actual installed result](docs/AP15.md#ordinary-revision-7-transition).
-
-512 remains supported/recommended; 256 remains unqualified. Short delivery gaps remain #72 and FRAGMENTS redraw remains #80. PR #86 remains open and unmerged for focused rereview.
-
-Both ordinary revision-7 publications are now active on the exact fixture. The focused Applications-launched saved-chain/editor/reopen/quit smoke passed. Revision 3 remains physically retained for exact rollback; service/keeper remain active with no DSP lease or pending transaction. [Final installed readback](evidence/ap15/acceptance/installed-final.json) and [focused smoke](evidence/ap15/acceptance/ordinary-smoke.json) preserve the exact identities and limits.
+Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), and [docs/DESIGN_DOSSIER.md](docs/DESIGN_DOSSIER.md) before implementation. Rust is primary, with C++ at SDK and platform edges. The bridge remains independent: suitable Wine/Proton work is a runner beneath project-owned proxy, host, transport, state, and management boundaries—not a yabridge pivot.

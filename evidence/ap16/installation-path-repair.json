@@ -1,0 +1,58 @@
+{
+  "schema": "linux-vst-bridge-ap16-installation-path-repair/v1",
+  "initial_source": "68a96e75b83431641f05e829d2098c6cee65bed0",
+  "initial_software": "bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f",
+  "scoped_flatpak_grant": "xdg-run/linux-vst-bridge",
+  "grant": "explicitly approved by operator and applied before normal Applications launch",
+  "initial_failures": [
+    {
+      "session": "2e616e4318c2a52ed7296e3fe4fb9388",
+      "raw_exit": 82,
+      "records": 0,
+      "gated": false,
+      "vendor_started": false,
+      "cleanup_confirmed": true,
+      "transport_retired": true
+    },
+    {
+      "session": "a51d4e160f5d8c5c5384122a2d0a8cb0",
+      "raw_exit": 82,
+      "records": 0,
+      "gated": false,
+      "vendor_started": false,
+      "cleanup_confirmed": true,
+      "transport_retired": true
+    }
+  ],
+  "cause": "main.cpp parse_args accepts only exact C:\\bridge\\sessions\\SESSION readiness/gate paths; the first supervisor supplied Z: RAM paths, refused before EventWriter creation",
+  "repair": "Retain C: handshake; supervisor validates the fixed native transport files and publishes exact RAM symlinks before the Windows gate. Durable owner and handshake remain outside hot mappings. Refusal contains Windows and positively retires native ownership.",
+  "unchanged": [
+    "Windows host and source manifest",
+    "native artifacts and profiles",
+    "revision-7 physical publications",
+    "revision-3 rollback",
+    "project originals",
+    "512 added frames",
+    "callback/transport/state/editor protocols"
+  ],
+  "tests": {
+    "failed_before": {
+      "source": "68a96e75b83431641f05e829d2098c6cee65bed0",
+      "test": "MemoryTransportTests.test_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory",
+      "exit": 1,
+      "assertion": "Z: path differs from pinned C: path"
+    },
+    "linux_python_suite": {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "tests": 22,
+      "exit": 0,
+      "seconds": 23.404901583999163,
+      "context": "exact current Python sources copied to disposable Deck test directory; no active DSP"
+    },
+    "rust_backend": 57,
+    "rust_manager_library": 37,
+    "rust_manager_macos_binary": 6,
+    "clippy": "both crates, locked all-targets -D warnings passed"
+  },
+  "remaining": "Corrected installed candidate and matched comparison are not yet established."
+}

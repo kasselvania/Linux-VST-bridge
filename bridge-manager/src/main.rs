@@ -2,6 +2,7 @@ use linux_vst_bridge::*;
 mod managed_cli;
 #[cfg(test)]
 mod test_fixture;
+mod transport_storage;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{
@@ -47,14 +48,24 @@ struct SessionSpec {
     vendor_access: bool,
     #[serde(default)]
     shared_inspection: bool,
+    #[serde(default)]
+    shared_runtime: bool,
+    #[serde(default)]
+    transport: Option<transport_storage::MemoryTransport>,
 }
-// Before spawn, admission owns only a reservation. Binding/keeper failures must
-// release it; after spawn the existing supervisor owns positive retirement.
-struct PendingAdmission(Option<PathBuf>);
+// Unexposed admission owns only a reservation. Once the native binding is
+// exposed, only positive supervisor retirement can release that ownership.
+struct PendingAdmission(Option<PathBuf>, Option<Arc<AtomicBool>>);
 impl Drop for PendingAdmission {
     fn drop(&mut self) {
         if let Some(path) = &self.0 {
-            let _ = fs::remove_file(path);
+            if let Some(blocked) = &self.1 {
+                // Native binding was exposed. Without a supervisor receipt its
+                // lifetime is unresolved; keep the lease and refuse admission.
+                blocked.store(true, Ordering::Release);
+            } else {
+                let _ = fs::remove_file(path);
+            }
         }
     }
 }
@@ -389,6 +400,8 @@ fn spec(
         binding_sent: !inspect,
         vendor_access: false,
         shared_inspection: false,
+        shared_runtime: false,
+        transport: None,
     };
     let path = directory.join("owner.json");
     atomic_json(&path, &s)?;
@@ -397,6 +410,7 @@ fn spec(
 fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
     s.supervisor.verify()?;
     s.ownership.verify()?;
+    let bound_peer = peer.is_some();
     let stdin = if let Some(p) = peer {
         unsafe { Stdio::from_raw_fd(p.into_raw_fd()) }
     } else {
@@ -411,7 +425,7 @@ fn spawn(s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn();
-    if child.is_err() {
+    if child.is_err() && !bound_peer {
         fs::remove_file(&job.lease)?;
     }
     Ok(child?)
@@ -473,7 +487,9 @@ fn ensure_keeper(
     let mut keeper_binding = r.clone();
     keeper_binding.host = s.host.clone();
     keeper_binding.host_source_sha256 = s.source_sha256.clone();
-    let (job, path) = spec(m, keeper_binding, true, false, true)?;
+    let (mut job, path) = spec(m, keeper_binding, true, false, true)?;
+    job.shared_runtime = true;
+    atomic_json(&path, &job)?;
     let child = spawn(s, &path, None)?;
     // Retain ownership even when readiness or its report fails.
     active.push((r.environment.id.clone(), child));
@@ -498,6 +514,7 @@ fn serve(m: Manager) -> Result<()> {
     let _lock = m.lock("service.lock")?;
     m.reconcile()?;
     let s = software(&m)?;
+    transport_storage::initialize()?;
     let runtime = m.root.join("runtime");
     private_dir(&runtime)?;
     private_dir(&runtime.join("results"))?;
@@ -543,7 +560,7 @@ fn serve(m: Manager) -> Result<()> {
                     let r=if &greeting[..5]==b"LVQ1\n" {qualification_binding(&m,request)?} else {inspection_binding(&m,request)?};
                     ensure_keeper(&m,&s,&r,&keepers)?;
                     let (mut job,path)=spec(&m,r,true,false,false)?;
-                    let mut pending=PendingAdmission(Some(job.lease.clone()));
+                    let mut pending=PendingAdmission(Some(job.lease.clone()), None);
                     job.shared_inspection=true;atomic_json(&path,&job)?;
                     let mut child=spawn(&s,&path,None)?;
                     pending.0=None;
@@ -574,7 +591,7 @@ fn serve(m: Manager) -> Result<()> {
                 peer.read_exact(&mut greeting[5..])?;
                 let version2 = &greeting[..5] == b"LVB2\n";
                 require(version2 || &greeting[..5] == b"LVB1\n", "registration protocol mismatch")?;
-                let (r, performance, job, path, mut admission) = {
+                let (r, performance, job, path, mut admission, mut storage) = {
                     let _admission = m.lock("registry.lock")?;
                     let registration = m.resolve(&greeting[5..])?;
                     m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
@@ -582,10 +599,19 @@ fn serve(m: Manager) -> Result<()> {
                     let performance = m.performance(&r.metadata.class_id)?;
                     require(version2 || performance.added_frames == 512,
                         "selected delay requires a version-2 native binding")?;
-                    let (job, path) = spec(&m, r.clone(), false, false, false)?;
+                    // Validate the DAW's view of the fixed memory root before
+                    // creating or exposing a session. A Flatpak's /dev/shm is
+                    // not assumed to be the host's shared memory mount.
+                    transport_storage::visible_to_peer(&peer, &transport_storage::root())?;
+                    let (mut job, path) = spec(&m, r.clone(), false, false, false)?;
+                    let storage = transport_storage::PendingTransport::new(&job.session)?;
+                    job.directory = storage.directory.clone();
+                    job.transport = Some(storage.identity.clone());
+                    job.shared_runtime = true;
+                    atomic_json(&path, &job)?;
                     atomic_json(&job.lease, &job.report)?;
-                    let admission = PendingAdmission(Some(job.lease.clone()));
-                    (r, performance, job, path, admission)
+                    let admission = PendingAdmission(Some(job.lease.clone()), None);
+                    (r, performance, job, path, admission, storage)
                 };
                 // Deliver the private binding inside the native greeting deadline.
                 // Cold Wine startup then uses the existing bounded transport accept.
@@ -596,6 +622,8 @@ fn serve(m: Manager) -> Result<()> {
                 };
                 require(reply.len() <= 1024, "session binding size")?;
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
+                admission.1 = Some(blocked.clone());
+                storage.expose();
                 peer.write_all(&(reply.len() as u16).to_le_bytes())?;
                 peer.write_all(reply.as_bytes())?;
                 ensure_keeper(&m, &s, &r, &keepers)?;
@@ -854,6 +882,22 @@ fn status(m: &Manager) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn exposed_binding_cannot_erase_an_unresolved_retirement() {
+        let f = test_fixture::Fixture::new();
+        let lease = f.outer.join("lease.json");
+        fs::write(&lease, b"reservation").unwrap();
+        drop(PendingAdmission(Some(lease.clone()), None));
+        assert!(!lease.exists());
+        fs::write(&lease, b"bound native owner").unwrap();
+        let blocked = Arc::new(AtomicBool::new(false));
+        drop(PendingAdmission(Some(lease.clone()), Some(blocked.clone())));
+        assert!(lease.exists());
+        assert!(blocked.load(Ordering::Acquire));
+        let blocked = Arc::new(AtomicBool::new(false));
+        drop(PendingAdmission(None, Some(blocked.clone())));
+        assert!(!blocked.load(Ordering::Acquire));
+    }
     #[test]
     fn restart_requires_positive_prior_cleanup() {
         unsafe {

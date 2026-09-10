@@ -366,5 +366,176 @@ class CensusTests(unittest.TestCase):
                 session.verify({'path': str(p), 'sha256': '0' * 64})
 
 
+
+@unittest.skipUnless(sys.platform == 'linux', 'Memory transport requires Linux tmpfs')
+class MemoryTransportTests(unittest.TestCase):
+    def fixture(self, disk, memory):
+        durable=pathlib.Path(disk)/'compatdata/pfx/drive_c/bridge/sessions'/('ab'*16)
+        durable.mkdir(parents=True,mode=0o700)
+        root=pathlib.Path(memory);(root/'storage-v1').write_bytes(b'linux-vst-bridge volatile transport v1\n');(root/'storage-v1').chmod(0o600)
+        directory=root/('ab'*16);directory.mkdir(mode=0o700);m=directory.stat()
+        host=pathlib.Path(disk)/'host';host.write_bytes(b'exact-image')
+        artifact={'path':str(host),'sha256':hashlib.sha256(host.read_bytes()).hexdigest()}
+        reg={'host':artifact,'module':artifact,'host_source_sha256':'a'*64,'metadata':{'class_id':'01'*16},
+             'environment':{'root':disk,'runner':{'files':[],'entry_point':'/exact/entry','proton':'/exact/proton'}}}
+        spec={'registration':reg,'session':'ab'*16,'directory':str(directory),'report':str(pathlib.Path(disk)/'report.json'),
+              'inspect':False,'binding_sent':True,'shared_runtime':True,'transport':{'schema':1,'device':m.st_dev,'inode':m.st_ino}}
+        return spec,durable,directory
+
+    def test_production_run_admits_memory_transport_and_retires_exact_session(self):
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            # create=True lets this exact test exercise the baseline run owner,
+            # which rejected a memory-backed session before launching anything.
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory),create=True), \
+                 patch.object(session,'command',return_value=([sys.executable,'-c','raise SystemExit(90)'],b'')), \
+                 patch.object(session,'environment',return_value=os.environ.copy()):
+                outcome=session.run(spec)
+            self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+            self.assertFalse(directory.exists() or durable.exists())
+
+    def test_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory(self):
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
+                self.assertEqual(session.session_directories(spec),(directory,durable))
+                env={};session.transport_environment(spec,env)
+                self.assertEqual(env,{'PRESSURE_VESSEL_FILESYSTEMS_RW':memory})
+                cmd,_=session.command(spec)
+                for field in ['ready','gate']:
+                    self.assertEqual(cmd[cmd.index('--'+field)+1],
+                                     'C:\\bridge\\sessions\\'+spec['session']+'\\'+spec['session']+'.'+field)
+                env={};session.transport_environment(dict(spec,shared_runtime=False),env);self.assertEqual(env,{})
+
+    def test_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources(self):
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            names=('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery')
+            for name in names:(directory/name).write_bytes(name.encode());(directory/name).chmod(0o600)
+            (durable/'owner.json').write_text('retained durable owner')
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
+                (durable/'ap12.status').symlink_to('/does/not/exist')
+                with self.assertRaisesRegex(RuntimeError,'already exists'):session.windows_transport_views(spec)
+                self.assertFalse((durable/'ap1.audio').exists())
+                (durable/'ap12.status').unlink()
+                (directory/'ap11.ui').unlink();(directory/'ap11.ui').symlink_to(directory/'ap1.audio')
+                with self.assertRaisesRegex(RuntimeError,'ownership/type'):session.windows_transport_views(spec)
+                self.assertFalse((durable/'ap1.audio').exists())
+                (directory/'ap11.ui').unlink();(directory/'ap11.ui').write_bytes(b'ui');(directory/'ap11.ui').chmod(0o600)
+                session.windows_transport_views(spec)
+                for name in names:
+                    self.assertTrue((durable/name).is_symlink())
+                    self.assertTrue((durable/name).samefile(directory/name))
+                    self.assertEqual((durable/name).read_bytes(),(directory/name).read_bytes())
+                self.assertFalse((durable/'owner.json').is_symlink())
+                with self.assertRaisesRegex(RuntimeError,'already exists'):session.windows_transport_views(spec)
+                session.retire_directories(spec)
+                self.assertFalse(directory.exists() or durable.exists())
+
+    def test_production_gate_waits_for_exact_windows_views_and_closes_both_owners(self):
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
+                (directory/name).write_bytes(b'exact-'+name.encode());(directory/name).chmod(0o600)
+            # Use the production command's binding and exact C: paths. The fake
+            # peer models the pinned Windows gate, then opens those physical
+            # views. No vendor processing/Windows compilation claim.
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
+                cmd,binding=session.command(spec)
+            (durable/(spec['session']+'.ready')).write_bytes(binding)
+            program="""import pathlib,sys,time
+d=pathlib.Path(sys.argv[1]);sid=sys.argv[2]
+print('{"event":"lifecycle","state":"readiness_announced"}',flush=True)
+end=time.monotonic()+4
+while not (d/(sid+'.gate')).exists():
+ if time.monotonic()>end:raise SystemExit(82)
+ time.sleep(.01)
+assert (d/(sid+'.gate')).read_bytes()==(d/(sid+'.ready')).read_bytes()
+for n in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
+ assert (d/n).is_symlink() and (d/n).read_bytes()==b'exact-'+n.encode()
+print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
+"""
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \
+                 patch.object(session,'command',return_value=([sys.executable,'-c',program,str(durable),spec['session']],binding)), \
+                 patch.object(session,'environment',return_value=os.environ.copy()), \
+                 patch.object(session,'FaultStatus',return_value=None):
+                outcome=session.run(spec)
+            self.assertTrue(outcome['gated'])
+            self.assertIsNone(outcome['error'])
+            self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+            self.assertFalse(directory.exists() or durable.exists())
+
+    def test_replaced_disk_foreign_and_malformed_storage_are_refused(self):
+        import copy
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
+                for key,value in [('schema',2),('schema',True),('inode',0),('inode',False),('device',0),('extra',True)]:
+                    bad=copy.deepcopy(spec);bad['transport'][key]=value
+                    with self.assertRaises(RuntimeError):session.session_directories(bad)
+                for key in ['inspect','keeper','vendor_access']:
+                    with self.assertRaises(RuntimeError):session.session_directories(dict(spec,**{key:True}))
+                with self.assertRaises(RuntimeError):session.session_directories(dict(spec,directory=str(durable)))
+                old=directory.with_name('retained');directory.rename(old);directory.mkdir(mode=0o700)
+                with self.assertRaisesRegex(RuntimeError,'replaced'):session.retire_directories(spec)
+                self.assertTrue(old.exists() and directory.exists() and durable.exists())
+                (pathlib.Path(memory)/'storage-v1').write_bytes(b'foreign')
+                with self.assertRaisesRegex(RuntimeError,'foreign'):session.transport_environment(spec,{})
+            # The selected mechanism excludes the old disk-backed placement.
+            # No timing threshold or sleeping fake worker can turn it into RAM.
+            with self.assertRaisesRegex(RuntimeError,'tmpfs'):session.memory_directory(durable)
+
+    def test_retirement_waits_for_both_owners_and_preserves_sibling_and_record(self):
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            (directory/'ap1.control').touch();(durable/'owner.json').write_text('durable ownership')
+            sibling=pathlib.Path(memory)/('cd'*16);sibling.mkdir(mode=0o700);(sibling/'live').write_bytes(b'sibling')
+            native,owner=socket.socketpair();observations=[]
+            def consume():
+                native.settimeout(5);observations.append(native.recv(1))
+                observations.append((directory.exists(),durable.exists()))
+                native.shutdown(socket.SHUT_WR);observations.append(native.recv(1))
+                observations.append((directory.exists(),durable.exists()))
+            thread=threading.Thread(target=consume);thread.start()
+            try:
+                with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \
+                     patch.object(session,'command',return_value=([sys.executable,'-c','raise SystemExit(90)'],b'')), \
+                     patch.object(session,'environment',return_value=os.environ.copy()):
+                    outcome=session.run(spec,owner)
+                thread.join(timeout=6);self.assertFalse(thread.is_alive())
+                self.assertEqual(observations,[b'F',(True,True),b'R',(False,False)])
+                self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+                self.assertEqual(outcome['transport_storage'],spec['transport'])
+                self.assertEqual((sibling/'live').read_bytes(),b'sibling')
+                receipt=json.loads(pathlib.Path(spec['report']).with_suffix('.ownership.json').read_text())
+                self.assertTrue(receipt['transport_retired'])
+            finally:native.close();owner.close()
+
+    def test_failed_memory_retirement_never_sends_a_false_receipt(self):
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            (directory/'ap1.control').touch()
+            native,owner=socket.socketpair();observations=[]
+            def consume():
+                native.settimeout(5);observations.append(native.recv(1));native.shutdown(socket.SHUT_WR)
+                native.settimeout(.5)
+                try:observations.append(native.recv(1))
+                except TimeoutError:observations.append('no retirement acknowledgement')
+            thread=threading.Thread(target=consume);thread.start()
+            try:
+                with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \
+                     patch.object(session,'command',return_value=([sys.executable,'-c','raise SystemExit(90)'],b'')), \
+                     patch.object(session,'environment',return_value=os.environ.copy()), \
+                     patch.object(session,'retire_directories',side_effect=OSError('injected unlink refusal')):
+                    outcome=session.run(spec,owner)
+                thread.join(timeout=6);self.assertFalse(thread.is_alive())
+                self.assertEqual(observations,[b'F','no retirement acknowledgement'])
+                self.assertTrue(outcome['cleanup_confirmed']);self.assertFalse(outcome['transport_retired'])
+                self.assertTrue(directory.exists() and durable.exists())
+                receipt=json.loads(pathlib.Path(spec['report']).with_suffix('.ownership.json').read_text())
+                self.assertFalse(receipt['transport_retired'])
+            finally:native.close();owner.close()
+
+
 if __name__ == '__main__':
     unittest.main()
