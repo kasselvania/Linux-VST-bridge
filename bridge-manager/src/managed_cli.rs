@@ -424,13 +424,44 @@ pub(super) fn run_qualification(m: &Manager, args: &[String]) -> Result<()> {
 }
 
 pub(super) fn run_acceptance(m: &Manager) -> Result<()> {
-    render(setup(m, None).and_then(|()| status(m)))
+    // Setup starts the owner, which may immediately hold registry.lock while
+    // reconciling/creating its keeper. Do not turn a completed installation
+    // into a false failure by racing that lock for optional status readback.
+    render(setup(m, None).and_then(|()| acceptance_receipt(m)))
+}
+fn acceptance_receipt(m: &Manager) -> Result<serde_json::Value> {
+    Ok(serde_json::json!({"schema": 1, "software_installed": true,
+        "software": software(m)?, "publication_command": "managed publish",
+        "readback_command": "managed status"}))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_fixture::{prepared, snapshot};
+    #[test]
+    fn completed_setup_receipt_does_not_race_service_startup_registry_lock() {
+        let (f, _, c, _) = prepared();
+        let sw = Software {
+            manager: c.host.clone(),
+            supervisor: c.host.clone(),
+            ownership: c.host.clone(),
+            host: c.host.clone(),
+            source_manifest: Artifact {
+                path: c.host.path.with_file_name("host-source-manifest.json"),
+                sha256: c.host_source_sha256.clone(),
+            },
+            source_sha256: c.host_source_sha256,
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let _startup = f.m.lock("registry.lock").unwrap();
+        let before = snapshot(&f.outer);
+        let receipt = acceptance_receipt(&f.m).unwrap();
+        assert_eq!(receipt["software_installed"], true);
+        assert_eq!(receipt["software"]["host"]["sha256"], sw.host.sha256);
+        assert_eq!(snapshot(&f.outer), before);
+    }
     #[test]
     fn missing_exact_sealed_package_cannot_mutate_installed_state() {
         let (f, _, _, _) = prepared();
