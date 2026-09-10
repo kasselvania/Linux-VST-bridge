@@ -17,9 +17,13 @@ AP15 is complete. Its revision-7 direct-editor profiles, exact artifacts, stable
 
 The repository is publicly readable but proprietary. Preserve [COPYRIGHT.md](COPYRIGHT.md) and [CONTRIBUTING.md](CONTRIBUTING.md); AP16 grants no licensing, contribution, publication or redistribution authority.
 
-## Current implementation checkpoint
+## Current implementation result
 
-The selected active-phase miss is causally assigned to a journal wait while the native worker writes its ext4-backed audio mapping. The scoped runtime-directory grant was explicitly approved and applied. The first immutable manager installation exposed the pinned Windows host's closed C: handshake-path requirement; both failed admissions were positively retired without loading vendor state. The supervisor now preserves that handshake and publishes exact RAM-file views before the gate. Focused regressions pass, but the corrected installation and matched comparison remain pending. AP16 is incomplete; PR #89 remains draft. See [docs/AP16.md](docs/AP16.md) and [the retained admission failure](evidence/ap16/installation-path-repair.json).
+The selected active-phase miss is causally assigned to an ext4/JBD2 journal wait while the native worker writes its shared audio mapping. The installed manager/supervisor now give native and Windows owners the same private tmpfs-backed hot files, preserving the pinned host's durable C: readiness/gate handshake. No native/Windows artifact, protocol, profile, buffer, delay or scheduling policy changed.
+
+Matched 90-second trace-enabled playback went from FRAGMENTS losing 1,536 frames behind a 28.502 ms preparation stall to zero missed frames on either device. Two separate 90-second trace-off confirmation intervals also had zero new gaps; the matched trace-off baseline lost 2,304 FRAGMENTS frames. Full-session startup, editor/removal and closing gaps remain counted and unresolved. Direct editors, local output, explicit protected-project save/reopen and independent FRAGMENTS removal were checked. Both devices retired positively; service and keeper remain active, with zero DSP leases, no pending transaction, tracing off and bridge CPUWeight unset/effective 100.
+
+The corrected immutable software is installed for independent review. Ordinary revision-7 publications and exact revision-3 rollback targets remain unchanged. The scoped Flatpak runtime-directory grant was explicitly approved. The first installation's exit-82 handshake failure and the repair are retained. See [docs/AP16.md](docs/AP16.md), [matched results](evidence/ap16/matched-comparison.json), [preservation](evidence/ap16/preservation.json), and [final physical readback](evidence/ap16/installed-final.json). PR #89 remains open and unmerged; review determines acceptance. 512 remains selected/supported/recommended; 256 remains unqualified.
 
 ## Product outcome
 

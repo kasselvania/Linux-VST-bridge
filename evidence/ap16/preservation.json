@@ -1,0 +1,1683 @@
+{
+  "schema": 1,
+  "scope": "Bounded preservation after the matched intervals. Reuses accepted AP15 gesture/automation/lifecycle campaign for unchanged source. No full editor or latency campaign.",
+  "launch": "Existing Bitwig 6.1 was launched through KDE Applications > Multimedia > Bitwig Studio; saved AP16 Delivery copy opened through Bitwig Recent Projects.",
+  "input_route": "After operator forbade local input capture, all further input used direct Deck X11 targeted events over SSH. No Mac/Moonlight focus, mouse or keyboard input. X11 screenshots are on-device client observations, not remote-stream rendering or latency evidence.",
+  "remote_control_limits": [
+    "Initial control attempts using uinput/XTest had stale or ignored input; no persistent input device or setting was retained. No musical interval includes those actions.",
+    "The first editor-icon attempt hit the wrong device control; actual editor controls at the bottom of the device were then observed and used.",
+    "The first Delete was ignored while the vendor window owned Deck focus. After normal Deck EWMH activation of Bitwig, Delete removed FRAGMENTS. The initial nonzero audio capture still included both devices; only the second capture below is LoFi-only."
+  ],
+  "editor_open": [
+    {
+      "session": "eefc1609bdd289409d19ecccfcee702f",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 146542150765171,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3057,
+      "publication_after": 3057,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 263,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 265,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 54525955,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3055,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 54525955,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3056,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 54525955,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        }
+      ]
+    },
+    {
+      "session": "9e94c8d44c25b9432d66dae2cfef8c03",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 146542152585816,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2352,
+      "publication_after": 2352,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 276,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 278,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 58720259,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2350,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 58720259,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2351,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 58720259,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        }
+      ]
+    }
+  ],
+  "editor_close": [
+    {
+      "session": "eefc1609bdd289409d19ecccfcee702f",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 146571813399571,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 2,
+        "close_ack": 2
+      },
+      "publication_before": 3058,
+      "publication_after": 3058,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 263,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 265,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 54525955,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3055,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 54525955,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3056,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 54525955,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3057,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 1,
+          "focus_result": 5,
+          "native_view": 1,
+          "lifecycle": 8
+        }
+      ]
+    },
+    {
+      "session": "9e94c8d44c25b9432d66dae2cfef8c03",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 146571815270606,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 2,
+        "close_ack": 2
+      },
+      "publication_before": 2353,
+      "publication_after": 2353,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 276,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 278,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 58720259,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2350,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 58720259,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2351,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 58720259,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2352,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 1,
+          "focus_result": 5,
+          "native_view": 1,
+          "lifecycle": 8
+        }
+      ]
+    }
+  ],
+  "editor_display_observation": {
+    "Pure LoFi": {
+      "real_editor": true,
+      "client_size": [
+        1120,
+        724
+      ],
+      "native_token": 1,
+      "vendor_epoch": 1,
+      "focus_result": 2
+    },
+    "Efx FRAGMENTS": {
+      "real_editor": true,
+      "client_size": [
+        960,
+        333
+      ],
+      "native_token": 1,
+      "vendor_epoch": 1,
+      "focus_result": 2
+    },
+    "bridge_controls_visible": false,
+    "persistent_blank_surface": false,
+    "windows_sources": "on-device X11 tree, client captures and existing protocol-5 UI messages; no screenshot/vendor image committed"
+  },
+  "automation": {
+    "existing_note_and_parameter_clips_played": true,
+    "host_Grain_Mix_readback_observed": [
+      0.644,
+      0.556
+    ],
+    "vendor_editor_host_updates": {
+      "Pure LoFi": 684,
+      "Efx FRAGMENTS": 682
+    },
+    "interpretation": "Existing automation reaches the processing controller and real editor. No new recorded gesture is claimed; accepted AP15 gesture ordering/recording evidence and unchanged binaries are reused."
+  },
+  "local_output_both": {
+    "source": "Deck local output sink monitor",
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 98304,
+    "seconds": 2.048,
+    "peak": 0.0693986788392067,
+    "rms": 0.015071910000123482,
+    "nonzero_samples": 195584,
+    "raw_audio_retained": false,
+    "timing": "outside matched measurement interval"
+  },
+  "save_reopen": {
+    "explicit_action": "Bitwig Ctrl+S, stopped transport, both editor windows closed; modified indicator cleared; closed saved project and reopened from Recent Projects",
+    "original_project_sha256": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c",
+    "saved_AP16_sha256": "bf65f4f4236ddc655fc938694fb27f3311bc39078b823a732850522ecb11df46",
+    "saved_bytes": 84092,
+    "devices_loaded": true,
+    "visible_controls_preserved": {
+      "Pure LoFi Macro2": 0.1538,
+      "Pure LoFi Macro3": 0.404,
+      "Pure LoFi Master Volume": 0.5679,
+      "FRAGMENTS Grain Mix": 0.644,
+      "FRAGMENTS Grain Volume": 0.852
+    },
+    "FRAGMENTS_saved_and_restored_opaque_sha256": "056157efc7870475401fc3127377b82eacd70f732d4b91a782a3dac9106b1b30",
+    "LoFi_restored_prior_opaque_sha256": "41fa84afc3e7ce1a80b8c3e644c7e13eb8c485b11fa94ba3e39afbc4229c3d06",
+    "limitation": "No new LoFi vendor gesture was authored; its existing saved controls were recalled. The later close-time getState hash is not falsely presented as the state selected by Bitwig for recall."
+  },
+  "independent_removal": {
+    "before": {
+      "monotonic_ns": 146734535165669,
+      "rows": [
+        {
+          "session": "92847dccbbbb458782f508f1fea446f8",
+          "status": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 146734532928317,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 26574,
+              "generation": 1,
+              "epoch": 1,
+              "request_sequence": 8861,
+              "position": 2267392,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 146734527809710,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 382,
+              "admitted_frames": 2267648,
+              "missing_frames": 256,
+              "gaps": 1,
+              "expired_frames": 256,
+              "delivered_frames": 2266880,
+              "priming_frames": 512,
+              "current": true
+            },
+            "delivery": {
+              "publication": 53151,
+              "generation": 1,
+              "epoch": 1,
+              "request_sequence": 8861,
+              "position": 2267392,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 1467316922269,
+              "frequency": 10000000,
+              "thread_id": 1340,
+              "process_id": 1244,
+              "current": true
+            },
+            "owner": {
+              "publication": 44133,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 1467316952319,
+              "frequency": 10000000,
+              "thread_id": 1248,
+              "process_id": 1244,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 0,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        },
+        {
+          "session": "e6fbf2ffbb9fb4ae1ee27e2b3f29be13",
+          "status": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 146734534790622,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 24392,
+              "generation": 1,
+              "epoch": 1,
+              "request_sequence": 8134,
+              "position": 2081280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 146734534139300,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 382,
+              "admitted_frames": 2081792,
+              "missing_frames": 0,
+              "gaps": 0,
+              "expired_frames": 0,
+              "delivered_frames": 2081280,
+              "priming_frames": 512,
+              "current": true
+            },
+            "delivery": {
+              "publication": 48785,
+              "generation": 1,
+              "epoch": 1,
+              "request_sequence": 8134,
+              "position": 2081280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 1467316986919,
+              "frequency": 10000000,
+              "thread_id": 1476,
+              "process_id": 1364,
+              "current": true
+            },
+            "owner": {
+              "publication": 39197,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 25,
+              "detail": 0,
+              "ticks": 1467316982997,
+              "frequency": 10000000,
+              "thread_id": 1368,
+              "process_id": 1364,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 0,
+              "failure": 0,
+              "open": 1,
+              "view_stage": 100,
+              "open_stage": 100,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      ],
+      "trace_enabled": false
+    },
+    "after": {
+      "monotonic_ns": 146808434386376,
+      "rows": [
+        {
+          "session": "92847dccbbbb458782f508f1fea446f8",
+          "status": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 146808433550731,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 68142,
+              "generation": 1,
+              "epoch": 1,
+              "request_sequence": 22717,
+              "position": 5814528,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 146808426134940,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 382,
+              "admitted_frames": 5814784,
+              "missing_frames": 1024,
+              "gaps": 4,
+              "expired_frames": 1024,
+              "delivered_frames": 5813248,
+              "priming_frames": 512,
+              "current": true
+            },
+            "delivery": {
+              "publication": 136287,
+              "generation": 1,
+              "epoch": 1,
+              "request_sequence": 22717,
+              "position": 5814528,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 1468055892139,
+              "frequency": 10000000,
+              "thread_id": 1340,
+              "process_id": 1244,
+              "current": true
+            },
+            "owner": {
+              "publication": 112485,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 1468055937408,
+              "frequency": 10000000,
+              "thread_id": 1248,
+              "process_id": 1244,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 0,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      ],
+      "trace_enabled": false
+    },
+    "FRAGMENTS_session": "e6fbf2ffbb9fb4ae1ee27e2b3f29be13",
+    "LoFi_same_session": "92847dccbbbb458782f508f1fea446f8",
+    "LoFi_processing_generation": 1,
+    "FRAGMENTS_editor_was_open": true,
+    "local_LoFi_only_output": {
+      "source": "Deck local output sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 98304,
+      "seconds": 2.048,
+      "peak": 0.0500960610806942,
+      "rms": 0.016807053392268997,
+      "nonzero_samples": 195584,
+      "raw_audio_retained": false,
+      "timing": "outside matched measurement interval"
+    },
+    "saved_chain_preserved": "Quit Bitwig normally with Ctrl+Q and chose No for unsaved removal/playback changes. No disk overwrite of the saved two-device chain."
+  },
+  "all_completed_sessions": [
+    {
+      "session": "92847dccbbbb458782f508f1fea446f8",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 196838,
+          "sha256": "41fa84afc3e7ce1a80b8c3e644c7e13eb8c485b11fa94ba3e39afbc4229c3d06",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "111ba225f43246d73b4bd499b27abf02a60ec32b9011c641dd9e6f4325d28159",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 33252,
+          "request_high": 2,
+          "result_high": 3,
+          "position": 8512512,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 17025024,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 17025024,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_unpublished",
+          "requests": 1
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2816,
+          "gap_frames": 256,
+          "request_position": 2816,
+          "request_frames": 256,
+          "sequence": 15,
+          "output_published": true,
+          "queue_us": 7061,
+          "prepare_us": 13,
+          "send_us": 1,
+          "reply_us": 5002,
+          "validation_us": 13,
+          "publication_us": 10,
+          "publication_after_gap_us": 1452,
+          "admission_to_gap_us": 10648
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4833536,
+          "gap_frames": 256,
+          "request_position": 4833536,
+          "request_frames": 256,
+          "sequence": 18885,
+          "output_published": true,
+          "queue_us": 5442,
+          "prepare_us": 11,
+          "send_us": 1,
+          "reply_us": 5149,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 1240,
+          "admission_to_gap_us": 9381
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4834048,
+          "gap_frames": 256,
+          "request_position": 4834048,
+          "request_frames": 256,
+          "sequence": 18887,
+          "output_published": true,
+          "queue_us": 5068,
+          "prepare_us": 10,
+          "send_us": 1,
+          "reply_us": 7059,
+          "validation_us": 12,
+          "publication_us": 7,
+          "publication_after_gap_us": 1536,
+          "admission_to_gap_us": 10623
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4870400,
+          "gap_frames": 256,
+          "request_position": 4870400,
+          "request_frames": 256,
+          "sequence": 19029,
+          "output_published": true,
+          "queue_us": 3760,
+          "prepare_us": 9,
+          "send_us": 1,
+          "reply_us": 5275,
+          "validation_us": 12,
+          "publication_us": 6,
+          "publication_after_gap_us": 446,
+          "admission_to_gap_us": 8619
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 8512512,
+          "blocks": 16626,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 1024,
+          "underrun_gaps": 4,
+          "underrun_callbacks": 4,
+          "expired_output_frames": 1024,
+          "delivered_frames": 8510976,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 40,
+          "state": "ap11_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 170,
+          "state": "ap10_wait_resolution",
+          "samples_per_method": 32,
+          "sleep50_mean_ns": 1064206,
+          "ntdelay50_mean_ns": 107578
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 171,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 172,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 182,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 183,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 184,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 200,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 33252,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 204,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 161,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 222,
+          "state": "ap1_endpoint_closed",
+          "mapping_unmapped": true,
+          "instance_count": 1
+        }
+      ],
+      "ownership": {
+        "session": "92847dccbbbb458782f508f1fea446f8",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "9e94c8d44c25b9432d66dae2cfef8c03",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 139090,
+          "sha256": "6bedbd0da9e8b9f5008185584e9c6c542c5ee69955933c5fe0847690aef71af8",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139090,
+          "sha256": "056157efc7870475401fc3127377b82eacd70f732d4b91a782a3dac9106b1b30",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 154640,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 39587840,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 79175680,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 79175680,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_unpublished",
+          "requests": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 39587840,
+          "blocks": 77320,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 39587328,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 37,
+          "state": "ap11_class",
+          "class_id": "41727475415649536772616E50726F63",
+          "name": "Efx FRAGMENTS"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 151,
+          "state": "ap10_wait_resolution",
+          "samples_per_method": 32,
+          "sleep50_mean_ns": 1063618,
+          "ntdelay50_mean_ns": 110293
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 152,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 153,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 163,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 164,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 165,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 154640,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 185,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 12,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 682,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 203,
+          "state": "ap1_endpoint_closed",
+          "mapping_unmapped": true,
+          "instance_count": 1
+        }
+      ],
+      "ownership": {
+        "session": "9e94c8d44c25b9432d66dae2cfef8c03",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "e6fbf2ffbb9fb4ae1ee27e2b3f29be13",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139092,
+          "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 139090,
+          "sha256": "056157efc7870475401fc3127377b82eacd70f732d4b91a782a3dac9106b1b30",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 192,
+          "total_frames": 704,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 139090,
+          "sha256": "056157efc7870475401fc3127377b82eacd70f732d4b91a782a3dac9106b1b30",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 18310,
+          "request_high": 2,
+          "result_high": 3,
+          "position": 4687360,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 9374720,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 9374720,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_unpublished",
+          "requests": 0
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 4644096,
+          "gap_frames": 256,
+          "request_position": 4644096,
+          "request_frames": 256,
+          "sequence": 18145,
+          "output_published": true,
+          "queue_us": 2346,
+          "prepare_us": 9,
+          "send_us": 1,
+          "reply_us": 8658,
+          "validation_us": 11,
+          "publication_us": 7,
+          "publication_after_gap_us": 740,
+          "admission_to_gap_us": 10293
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 4687360,
+          "blocks": 9155,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 256,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 256,
+          "delivered_frames": 4686592,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 37,
+          "state": "ap11_class",
+          "class_id": "41727475415649536772616E50726F63",
+          "name": "Efx FRAGMENTS"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 151,
+          "state": "ap10_wait_resolution",
+          "samples_per_method": 32,
+          "sleep50_mean_ns": 1061637,
+          "ntdelay50_mean_ns": 103675
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 152,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 153,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 162,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 163,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 164,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 165,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 192,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 18310,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 185,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 5,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 128,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 203,
+          "state": "ap1_endpoint_closed",
+          "mapping_unmapped": true,
+          "instance_count": 1
+        }
+      ],
+      "ownership": {
+        "session": "e6fbf2ffbb9fb4ae1ee27e2b3f29be13",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    },
+    {
+      "session": "eefc1609bdd289409d19ecccfcee702f",
+      "native": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 196838,
+          "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 196838,
+          "sha256": "41fa84afc3e7ce1a80b8c3e644c7e13eb8c485b11fa94ba3e39afbc4229c3d06",
+          "gain": 0
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap9_setup",
+          "host_maximum": 512,
+          "transport_maximum": 256,
+          "sample_rate": 48000,
+          "bridge_frames": 512,
+          "vendor_frames": 48,
+          "total_frames": 560,
+          "vendor_precision_bits": 1
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 197102,
+          "sha256": "77c223c9e110f083172fb7b754a67c6695d759057afeceda032ec44da9bd5229",
+          "gain": 0
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 155362,
+          "request_high": 2,
+          "result_high": 3,
+          "position": 39772672,
+          "epoch": 1
+        },
+        {
+          "event": "ap7_observation",
+          "offered_samples": 79545344,
+          "verified_returned_samples": 0,
+          "unchecked_samples": 79545344,
+          "dropped_jobs": 0,
+          "dropped_samples": 0,
+          "reader_skips": 0,
+          "unretained_gap_traces": 0,
+          "maximum_error": 0,
+          "before_edit_samples": 0,
+          "edits": 0
+        },
+        {
+          "event": "ap9_unpublished",
+          "requests": 1
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 2816,
+          "gap_frames": 256,
+          "request_position": 2816,
+          "request_frames": 256,
+          "sequence": 15,
+          "output_published": true,
+          "queue_us": 1104,
+          "prepare_us": 30,
+          "send_us": 0,
+          "reply_us": 9746,
+          "validation_us": 18,
+          "publication_us": 20,
+          "publication_after_gap_us": 220,
+          "admission_to_gap_us": 10699
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 1,
+          "gap_position": 32200960,
+          "gap_frames": 256,
+          "request_position": 32200960,
+          "request_frames": 256,
+          "sequence": 125789,
+          "output_published": true,
+          "queue_us": 3344,
+          "prepare_us": 12,
+          "send_us": 2,
+          "reply_us": 2591,
+          "validation_us": 13,
+          "publication_us": 8,
+          "publication_after_gap_us": 392,
+          "admission_to_gap_us": 5580
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 39772672,
+          "blocks": 77681,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 2,
+          "underrun_callbacks": 2,
+          "expired_output_frames": 512,
+          "delivered_frames": 39771648,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows": [
+        {
+          "event": "lifecycle",
+          "sequence": 40,
+          "state": "ap11_class",
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 170,
+          "state": "ap10_wait_resolution",
+          "samples_per_method": 32,
+          "sleep50_mean_ns": 1067946,
+          "ntdelay50_mean_ns": 115046
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 171,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 172,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 182,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 183,
+          "state": "ap10_delivery_setup",
+          "mailbox_version": 3
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 184,
+          "state": "ap9_processing_setup",
+          "sample_rate": 48000.0,
+          "maximum": 256,
+          "precision": "float32",
+          "vendor_float64": false,
+          "latency_samples": 48,
+          "tail_samples": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 200,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 155362,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 204,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 12,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 684,
+          "stale_updates": 1,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 222,
+          "state": "ap1_endpoint_closed",
+          "mapping_unmapped": true,
+          "instance_count": 1
+        }
+      ],
+      "ownership": {
+        "session": "eefc1609bdd289409d19ecccfcee702f",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    }
+  ],
+  "remaining_gaps": "All session gaps are retained below. Startup and editor/removal intervals still include queue/reply/budget misses with 9\u201330 us preparation, distinct from the removed 27\u201330 ms preparation class. Their upstream owner remains unresolved; no gap-free lifecycle or hard real-time claim."
+}

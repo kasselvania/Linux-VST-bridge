@@ -1,0 +1,293 @@
+{
+  "schema": 1,
+  "package": {
+    "source": "878c0f2786e271f7697cb335f9710481db52f216",
+    "zip_sha256": "1d698bc8fc7ad2d0c39cf3ea4d4ca3c4b35330f9cc33477ea554d2eaf3215967",
+    "files": {
+      "linux-vst-bridge": "4ee391466f8c69146477cb32963f72981760552700544b2552d09be2c7f56bfa",
+      "session.py": "60d1cbd3bf7c8a3a2ee4252cf83d10cc80ca24e840b9b13469cc8dcb0c2cdb12",
+      "ownership.py": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+    },
+    "transfer": {
+      "uploaded": "software-878c0f2.zip",
+      "sha256": "1d698bc8fc7ad2d0c39cf3ea4d4ca3c4b35330f9cc33477ea554d2eaf3215967"
+    }
+  },
+  "installation": {
+    "commands": [
+      {
+        "command": [
+          "systemctl",
+          "--user",
+          "stop",
+          "linux-vst-bridge"
+        ],
+        "exit": 0,
+        "elapsed": 2.1764588759979233,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "command": [
+          "<deck-home>/AP16-Work/memory-software-878c0f2/linux-vst-bridge",
+          "setup",
+          "<deck-home>/AP16-Work/memory-software-878c0f2"
+        ],
+        "exit": 0,
+        "elapsed": 1.0693913880095351,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "prior": {
+      "software": {
+        "manager": {
+          "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/linux-vst-bridge",
+          "sha256": "d9b2e95e5aa472aee1323308cafb0b646788cb9ce0307e0e8beefb08ca871562"
+        },
+        "supervisor": {
+          "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/session.py",
+          "sha256": "7f7ab317dfbcb82557e9d08f71f070c66425ee056be65f86287bfc7d743c7351"
+        },
+        "ownership": {
+          "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/ownership.py",
+          "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+        },
+        "host": {
+          "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/host.exe",
+          "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939"
+        },
+        "source_manifest": {
+          "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/host-source-manifest.json",
+          "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+        },
+        "source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+        "native_catalogue": {
+          "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/native-catalogue.json",
+          "sha256": "5aea171f816c3df02f8507b96e3d6cef5fc2553801023e8ee93436634608d1df"
+        }
+      },
+      "software_json": "{\"manager\":{\"path\":\"<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/linux-vst-bridge\",\"sha256\":\"d9b2e95e5aa472aee1323308cafb0b646788cb9ce0307e0e8beefb08ca871562\"},\"supervisor\":{\"path\":\"<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/session.py\",\"sha256\":\"7f7ab317dfbcb82557e9d08f71f070c66425ee056be65f86287bfc7d743c7351\"},\"ownership\":{\"path\":\"<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/ownership.py\",\"sha256\":\"c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2\"},\"host\":{\"path\":\"<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/host.exe\",\"sha256\":\"3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939\"},\"source_manifest\":{\"path\":\"<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/host-source-manifest.json\",\"sha256\":\"6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5\"},\"source_sha256\":\"6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5\",\"native_catalogue\":{\"path\":\"<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/native-catalogue.json\",\"sha256\":\"5aea171f816c3df02f8507b96e3d6cef5fc2553801023e8ee93436634608d1df\"}}\n",
+      "unit": "[Unit]\nDescription=Linux VST Bridge registered host\nAfter=graphical-session.target\n\n[Service]\nType=simple\nExecStart=\"<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/linux-vst-bridge\" serve\nUMask=0077\nRestart=on-failure\nRestartSec=2\nKillMode=control-group\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n",
+      "command_target": "<deck-home>/.local/share/linux-vst-bridge/managed/software/bc454e8ada83360200d5bbc0423f167270c551a4a24ee56a7e4108998814ae1f/linux-vst-bridge",
+      "registry_sha256": "b20e0bdcec25f73e462131f7ebce9055dd8ef39c2d8b308313e8f8b3bf865b86",
+      "links": {
+        "LVB_417274754156495350724C4650726F63.vst3": "<deck-home>/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/90e23e3e71322c27e3f9e4ce1021b9d8/LVB_417274754156495350724C4650726F63.vst3",
+        "LVB_41727475415649536772616E50726F63.vst3": "<deck-home>/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/d7c50af638553b3387f89a1064546aca/LVB_41727475415649536772616E50726F63.vst3"
+      },
+      "source_commit": "878c0f2786e271f7697cb335f9710481db52f216"
+    },
+    "installed": {
+      "manager": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/linux-vst-bridge",
+        "sha256": "4ee391466f8c69146477cb32963f72981760552700544b2552d09be2c7f56bfa"
+      },
+      "supervisor": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/session.py",
+        "sha256": "60d1cbd3bf7c8a3a2ee4252cf83d10cc80ca24e840b9b13469cc8dcb0c2cdb12"
+      },
+      "ownership": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "host": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/host.exe",
+        "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939"
+      },
+      "source_manifest": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/host-source-manifest.json",
+        "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+      },
+      "source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/native-catalogue.json",
+        "sha256": "2c92c7d98f5abe7fc13b121ac25b18379cb0b197ca6b3848e7113086d8d806d5"
+      }
+    },
+    "publications_unchanged": true,
+    "service": "MainPID=98333\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n"
+  },
+  "physical_live_maps": {
+    "sessions": [
+      {
+        "session": "7a4f85c15a00afa556f0b0a85470c23d",
+        "class_id": "41727475415649536772616E50726F63",
+        "transport": {
+          "schema": 1,
+          "device": 68,
+          "inode": 4609
+        },
+        "files": [
+          {
+            "name": "ap1.control",
+            "device": 68,
+            "inode": 4614,
+            "bytes": 52,
+            "mode": "0o600",
+            "windows_view_exact": true
+          },
+          {
+            "name": "ap1.audio",
+            "device": 68,
+            "inode": 4613,
+            "bytes": 4192,
+            "mode": "0o600",
+            "windows_view_exact": true
+          },
+          {
+            "name": "ap11.ui",
+            "device": 68,
+            "inode": 4610,
+            "bytes": 622912,
+            "mode": "0o600",
+            "windows_view_exact": true
+          },
+          {
+            "name": "ap12.status",
+            "device": 68,
+            "inode": 4612,
+            "bytes": 1024,
+            "mode": "0o600",
+            "windows_view_exact": true
+          },
+          {
+            "name": "ap10.delivery",
+            "device": 68,
+            "inode": 4611,
+            "bytes": 33024,
+            "mode": "0o600",
+            "windows_view_exact": true
+          }
+        ]
+      },
+      {
+        "session": "4f89736cbe1bf4fff4545aa05caa1f7e",
+        "class_id": "417274754156495350724C4650726F63",
+        "transport": {
+          "schema": 1,
+          "device": 68,
+          "inode": 4603
+        },
+        "files": [
+          {
+            "name": "ap1.control",
+            "device": 68,
+            "inode": 4608,
+            "bytes": 52,
+            "mode": "0o600",
+            "windows_view_exact": true
+          },
+          {
+            "name": "ap1.audio",
+            "device": 68,
+            "inode": 4607,
+            "bytes": 4192,
+            "mode": "0o600",
+            "windows_view_exact": true
+          },
+          {
+            "name": "ap11.ui",
+            "device": 68,
+            "inode": 4604,
+            "bytes": 622912,
+            "mode": "0o600",
+            "windows_view_exact": true
+          },
+          {
+            "name": "ap12.status",
+            "device": 68,
+            "inode": 4606,
+            "bytes": 1024,
+            "mode": "0o600",
+            "windows_view_exact": true
+          },
+          {
+            "name": "ap10.delivery",
+            "device": 68,
+            "inode": 4605,
+            "bytes": 33024,
+            "mode": "0o600",
+            "windows_view_exact": true
+          }
+        ]
+      }
+    ],
+    "mapping_owners": [
+      {
+        "pid": 98431,
+        "comm": "BitwigPluginHos",
+        "maps": [
+          "7f9c0c02c000-7f9c0c02e000 rw-s 00000000 00:44 4613                       <user-runtime>/linux-vst-bridge/7a4f85c15a00afa556f0b0a85470c23d/ap1.audio",
+          "7f9c0c02e000-7f9c0c037000 rw-s 00000000 00:44 4611                       <user-runtime>/linux-vst-bridge/7a4f85c15a00afa556f0b0a85470c23d/ap10.delivery",
+          "7f9c0c037000-7f9c0c0d0000 rw-s 00000000 00:44 4610                       <user-runtime>/linux-vst-bridge/7a4f85c15a00afa556f0b0a85470c23d/ap11.ui",
+          "7f9c0c362000-7f9c0c3fb000 rw-s 00000000 00:44 4604                       <user-runtime>/linux-vst-bridge/4f89736cbe1bf4fff4545aa05caa1f7e/ap11.ui",
+          "7f9c0f8ab000-7f9c0f8ac000 rw-s 00000000 00:44 4612                       <user-runtime>/linux-vst-bridge/7a4f85c15a00afa556f0b0a85470c23d/ap12.status",
+          "7f9c0f8ad000-7f9c0f8af000 rw-s 00000000 00:44 4607                       <user-runtime>/linux-vst-bridge/4f89736cbe1bf4fff4545aa05caa1f7e/ap1.audio",
+          "7f9c0fc8b000-7f9c0fc8c000 rw-s 00000000 00:44 4606                       <user-runtime>/linux-vst-bridge/4f89736cbe1bf4fff4545aa05caa1f7e/ap12.status",
+          "7f9c0fc8c000-7f9c0fc95000 rw-s 00000000 00:44 4605                       <user-runtime>/linux-vst-bridge/4f89736cbe1bf4fff4545aa05caa1f7e/ap10.delivery"
+        ]
+      },
+      {
+        "pid": 98753,
+        "comm": "host.exe",
+        "maps": [
+          "01260000-01261000 rw-s 00000000 00:44 4606                               <user-runtime>/linux-vst-bridge/4f89736cbe1bf4fff4545aa05caa1f7e/ap12.status",
+          "01270000-01272000 rw-s 00000000 00:44 4607                               <user-runtime>/linux-vst-bridge/4f89736cbe1bf4fff4545aa05caa1f7e/ap1.audio",
+          "01280000-01319000 rw-s 00000000 00:44 4604                               <user-runtime>/linux-vst-bridge/4f89736cbe1bf4fff4545aa05caa1f7e/ap11.ui",
+          "08ae0000-08ae9000 rw-s 00000000 00:44 4605                               <user-runtime>/linux-vst-bridge/4f89736cbe1bf4fff4545aa05caa1f7e/ap10.delivery"
+        ]
+      },
+      {
+        "pid": 98884,
+        "comm": "host.exe",
+        "maps": [
+          "01260000-01261000 rw-s 00000000 00:44 4612                               <user-runtime>/linux-vst-bridge/7a4f85c15a00afa556f0b0a85470c23d/ap12.status",
+          "01270000-01272000 rw-s 00000000 00:44 4613                               <user-runtime>/linux-vst-bridge/7a4f85c15a00afa556f0b0a85470c23d/ap1.audio",
+          "01280000-01319000 rw-s 00000000 00:44 4610                               <user-runtime>/linux-vst-bridge/7a4f85c15a00afa556f0b0a85470c23d/ap11.ui",
+          "05fa0000-05fa9000 rw-s 00000000 00:44 4611                               <user-runtime>/linux-vst-bridge/7a4f85c15a00afa556f0b0a85470c23d/ap10.delivery"
+        ]
+      }
+    ],
+    "projects": {
+      "Bitwig Studio/Projects/AP15 Lifecycle/AP15 Lifecycle.bwproject": {
+        "bytes": 84205,
+        "sha256": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c"
+      },
+      "Bitwig Studio/Projects/AP16 Delivery/AP16 Delivery.bwproject": {
+        "bytes": 84205,
+        "sha256": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c"
+      }
+    },
+    "software": {
+      "manager": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/linux-vst-bridge",
+        "sha256": "4ee391466f8c69146477cb32963f72981760552700544b2552d09be2c7f56bfa"
+      },
+      "supervisor": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/session.py",
+        "sha256": "60d1cbd3bf7c8a3a2ee4252cf83d10cc80ca24e840b9b13469cc8dcb0c2cdb12"
+      },
+      "ownership": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "host": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/host.exe",
+        "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939"
+      },
+      "source_manifest": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/host-source-manifest.json",
+        "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+      },
+      "source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": {
+        "path": "<deck-home>/.local/share/linux-vst-bridge/managed/software/f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b/native-catalogue.json",
+        "sha256": "2c92c7d98f5abe7fc13b121ac25b18379cb0b197ca6b3848e7113086d8d806d5"
+      }
+    },
+    "service": "CPUWeight=[not set]\nActiveState=active\n",
+    "pending": []
+  },
+  "meaning": "Each Windows C: hot-file view and the native RAM path resolve to the same device/inode. Native and Windows processes map tmpfs-backed files. Durable ready/gate handshakes remain outside the hot path. 661204 bytes per session, five files.",
+  "no_audio_protocol_or_profile_change": true
+}

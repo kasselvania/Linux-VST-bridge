@@ -1,6 +1,6 @@
 # Linux Audio Compatibility Bridge
 
-AP16 is in progress in draft PR #89. One exact residual delivery miss has been traced to the disk-backed session mapping's journal path; a memory-storage repair is under test and has not been installed or performance-qualified. The ordinary revision-7 installation and 512-frame recommendation remain unchanged. [Current evidence and limits](docs/AP16.md).
+AP16 has repaired one measured delivery-stall class for independent review in PR #89: hot shared mappings now use private RAM storage, removing the demonstrated disk-journal wait. Matched playback and two trace-off confirmation intervals had zero new gaps after the repair; startup and editor/removal gaps remain. Ordinary revision-7 profiles and the 512-frame recommendation are unchanged. [Exact results and limits](docs/AP16.md).
 
 A managed bridge for using supported Windows audio plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxy synchronization commands, or changing runtime versions by hand.
 
@@ -34,7 +34,7 @@ At 48 kHz, Pure LoFi reports 512 bridge + 48 vendor frames and Efx FRAGMENTS rep
 
 **512 added frames per proxy is selected, supported, and recommended.** The opt-in 256 setting remains available but unqualified because startup and later FRAGMENTS deadline misses remain.
 
-Residual short gaps and historical 24–31 ms timing outliers are not fully classified. Float64, arbitrary multichannel routing, sidechains, broad MIDI/MPE, every VST3 interface, native Wayland views, and general customer-hardware reliability are not yet supported claims. The accepted Arturia processes disable Windows UI Automation through an exact process-scoped compatibility choice; VST parameter automation remains active.
+AP16 assigns and repairs one historical preparation-tail class through the mapping backing store. Residual startup, queue/reply and editor/removal gaps remain; this is not a gap-free or hard real-time guarantee. Float64, arbitrary multichannel routing, sidechains, broad MIDI/MPE, every VST3 interface, native Wayland views, and general customer-hardware reliability are not yet supported claims. The accepted Arturia processes disable Windows UI Automation through an exact process-scoped compatibility choice; VST parameter automation remains active.
 
 ## Active slice: AP16 causal 512-frame delivery reliability
 
