@@ -818,7 +818,7 @@ fn revision_three_preserves_exact_revision_two_constraints_and_external_ids() {
             "11e19dde31ea185a86a340b8a8007cf672d514c2c2a055a33d4dbefa9e52dfeb",
         ),
     ];
-    let current = installed_profiles().unwrap();
+    let current = profiles::ap14_profiles().unwrap();
     for (bytes, fingerprint) in old {
         let prior = Profile::parse(bytes).unwrap();
         assert_eq!(prior.revision, 2);
@@ -870,7 +870,7 @@ fn editor_candidate(
     native: &NativeArtifact,
 ) -> (Profile, Census, NativeArtifact) {
     let mut p = prior.clone();
-    p.revision = 4;
+    p.revision = 6;
     p.claim = Claim::ReviewCandidate;
     p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
     p.limitations
@@ -1083,11 +1083,12 @@ fn ap15_capability_is_closed_and_verified_revision_three_bytes_are_immutable() {
     use sha2::Digest;
     for (bytes, expected) in [
         (
-            include_bytes!("../../compatibility/arturia-pure-lofi.json").as_slice(),
+            include_bytes!("../../compatibility/ap14/revision-3/arturia-pure-lofi.json").as_slice(),
             "52c66718ce8aaa0c4bbfb9f395d515636e5628e779e69aac403635349133653e",
         ),
         (
-            include_bytes!("../../compatibility/arturia-efx-fragments.json").as_slice(),
+            include_bytes!("../../compatibility/ap14/revision-3/arturia-efx-fragments.json")
+                .as_slice(),
             "c0d6daf0f3c30c995429ec75afded4e5c70323a0a8858ec8a10c667f3ee3c350",
         ),
     ] {
@@ -1180,7 +1181,7 @@ fn retained_candidate_serving_requires_exact_qualification_marker_and_parent() {
 
 #[test]
 fn sealed_ap15_roster_preserves_exact_verified_constraints_and_refuses_ordinary_activation() {
-    let verified = installed_profiles().unwrap();
+    let verified = profiles::ap14_profiles().unwrap();
     let candidates = qualification::candidates().unwrap();
     assert_eq!(candidates.len(), 2);
     let manifest = include_bytes!("../../compatibility/ap15/host-source-manifest.json");
@@ -1289,4 +1290,315 @@ fn sealed_stage_checks_all_bytes_and_exact_parent_before_mutation() {
         f.m.registry().unwrap().classes[&p.class.class_id].managed_revision,
         Some(parent)
     );
+}
+
+#[test]
+fn accepted_profiles_preserve_all_historical_bytes_and_exact_technical_constraints() {
+    for (path, hash) in [
+        (
+            "ap14/revision-3/arturia-pure-lofi.json",
+            "52c66718ce8aaa0c4bbfb9f395d515636e5628e779e69aac403635349133653e",
+        ),
+        (
+            "ap14/revision-3/arturia-efx-fragments.json",
+            "c0d6daf0f3c30c995429ec75afded4e5c70323a0a8858ec8a10c667f3ee3c350",
+        ),
+        (
+            "ap15/revision-4/arturia-pure-lofi.json",
+            "edc4c58bcef3439a3b4741bbc723c1f3a03bd897c905ac1fac13927337e6af7a",
+        ),
+        (
+            "ap15/revision-4/arturia-efx-fragments.json",
+            "24833328c65d682b75ba9ac687ac1ed3fe40b859d1af9356ed02fcbab04e7d47",
+        ),
+        (
+            "ap15/revision-5/arturia-pure-lofi.json",
+            "dec68fbea3a4b7bc5070919102322f88418118a47543384eedecb144bc72fb22",
+        ),
+        (
+            "ap15/revision-5/arturia-efx-fragments.json",
+            "585b4d63fdc4fd2768388cd0e61079b9cf1c35f1d6f0971fa17f32b4bfcc9c87",
+        ),
+        (
+            "ap15/arturia-pure-lofi.json",
+            "b0454728d871233aefadb2c77ac67381d51fbef721d0f2e00c6982023c1e5f1b",
+        ),
+        (
+            "ap15/arturia-efx-fragments.json",
+            "8e336ccbc113f04f82a584c9e62825b6dd463bd76dc3a3eafce4e050fed8bf82",
+        ),
+    ] {
+        assert_eq!(
+            digest(
+                &Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../compatibility")
+                    .join(path)
+            )
+            .unwrap(),
+            hash
+        );
+    }
+    let profiles = installed_profiles().unwrap();
+    let candidates = qualification::candidates().unwrap();
+    assert_eq!(profiles.len(), 2);
+    for (p, c) in profiles.iter().zip(&candidates) {
+        assert_eq!(p.revision, 7);
+        assert_eq!(p.claim, Claim::VerifiedExactFixture);
+        assert_eq!(c.revision, 6);
+        assert_eq!(c.claim, Claim::ReviewCandidate);
+        assert!(p.claim.permits(SelectionPurpose::Activation));
+        assert!(!c.claim.permits(SelectionPurpose::Activation));
+        let mut normalized = p.clone();
+        normalized.revision = 6;
+        normalized.claim = c.claim.clone();
+        normalized.evidence = c.evidence.clone();
+        normalized
+            .limitations
+            .push(Limitation::DirectEditorUnderQualification);
+        assert_eq!(&normalized, c);
+        assert!(c.evidence.iter().all(|e| p.evidence.contains(e)));
+        assert_eq!(p.evidence.len(), 16);
+        assert_eq!(
+            external_ids(&p.class.class_id).unwrap(),
+            external_ids(&c.class.class_id).unwrap()
+        );
+    }
+}
+
+struct AcceptanceFixture {
+    f: Fixture,
+    prior: Profile,
+    candidate: Profile,
+    verified: Profile,
+    census: Census,
+    native: NativeArtifact,
+    review: acceptance::Review,
+}
+impl AcceptanceFixture {
+    fn new() -> Self {
+        let (f, mut prior, c, n) = prepared();
+        prior.revision = 3;
+        let parent = publish(&f, &prior, &c, &n, None).unwrap();
+        let (candidate, census, native) = editor_candidate(&f, &prior, &c, &n);
+        let reference = qualify(&f, &candidate, &census, &native, None).unwrap();
+        f.m.restore_editor_qualifications().unwrap();
+        let mut verified = candidate.clone();
+        verified.revision = 7;
+        verified.claim = Claim::VerifiedExactFixture;
+        verified
+            .limitations
+            .retain(|l| *l != Limitation::DirectEditorUnderQualification);
+        let mut review: acceptance::Review = serde_json::from_slice(acceptance::REVIEW).unwrap();
+        review.products = vec![acceptance::AcceptedProduct {
+            class_id: candidate.class.class_id.clone(),
+            candidate_profile_sha256: candidate.fingerprint().unwrap(),
+            candidate: reference,
+            parent,
+        }];
+        Self {
+            f,
+            prior,
+            candidate,
+            verified,
+            census,
+            native,
+            review,
+        }
+    }
+    fn prepare(&self) -> Result<acceptance::AcceptedSoftware> {
+        acceptance::prepare_selected(
+            &self.f.m,
+            &self.review,
+            std::slice::from_ref(&self.verified),
+            std::slice::from_ref(&self.candidate),
+            std::slice::from_ref(&self.prior),
+        )
+    }
+}
+
+#[test]
+fn acceptance_rejects_wrong_review_artifacts_profiles_and_physical_state_before_mutation() {
+    let mut t = AcceptanceFixture::new();
+    let before = snapshot(&t.f.outer);
+    let prepared = t.prepare().unwrap();
+    assert_eq!(prepared.catalogue.natives, vec![t.native.clone()]);
+    assert_eq!(prepared.host, t.census.host);
+    assert_eq!(snapshot(&t.f.outer), before);
+    // Synthetic bytes can exercise the private helper, never the public seal.
+    assert!(acceptance::prepare(&t.f.m).is_err());
+    assert_eq!(snapshot(&t.f.outer), before);
+    for mutate in 0..13 {
+        let original = t.verified.clone();
+        let review = t.review.clone();
+        let candidate = t.candidate.clone();
+        match mutate {
+            0 => t.review.review += 1,
+            1 => t.review.head = "ab".repeat(20),
+            2 => t.review.products[0].parent.id = "ab".repeat(16),
+            3 => t.review.products[0].candidate_profile_sha256 = "ab".repeat(32),
+            4 => t.verified.requirements.host_sha256 = "ab".repeat(32),
+            5 => t.verified.requirements.host_source_sha256 = "ab".repeat(32),
+            6 => t.verified.requirements.native_sha256 = "ab".repeat(32),
+            7 => t.verified.requirements.descriptor_sha256 = "ab".repeat(32),
+            8 => t.verified.class.class_id = "FE".repeat(16),
+            9 => t.verified.requirements.environment_revision += 1,
+            10 => t.verified.requirements.runner.version.push('x'),
+            11 => t.candidate.evidence.push("docs/forged.md".into()),
+            _ => t.verified.module_sha256 = "ab".repeat(32),
+        }
+        assert!(t.prepare().is_err(), "mutation {mutate}");
+        assert_eq!(snapshot(&t.f.outer), before);
+        t.verified = original;
+        t.review = review;
+        t.candidate = candidate;
+    }
+    for artifact in [
+        t.census.host.path.clone(),
+        t.census
+            .host
+            .path
+            .with_file_name("host-source-manifest.json"),
+        t.native.artifact.path.clone(),
+        t.census.module.path.clone(),
+        t.census.environment.environment.runner.proton.clone(),
+    ] {
+        let bytes = fs::read(&artifact).unwrap();
+        let mode = fs::metadata(&artifact).unwrap().permissions().mode();
+        fs::set_permissions(&artifact, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&artifact, b"wrong bytes").unwrap();
+        let before = snapshot(&t.f.outer);
+        assert!(t.prepare().is_err());
+        assert_eq!(snapshot(&t.f.outer), before);
+        fs::write(&artifact, bytes).unwrap();
+        fs::set_permissions(&artifact, fs::Permissions::from_mode(mode)).unwrap();
+    }
+    // The final module rewrite is detected as stale even if its digest returns.
+    // A fresh fixture tests lease/pending/foreign without relaxing that law.
+    let t = AcceptanceFixture::new();
+    let key = &t.prior.class.class_id;
+    let active = lease(&t.f, key, false);
+    let before = snapshot(&t.f.outer);
+    assert!(t.prepare().is_err());
+    assert_eq!(snapshot(&t.f.outer), before);
+    fs::remove_file(active).unwrap();
+    let pending = t.f.m.root.join("transactions/foreign.pending.json");
+    fs::write(&pending, b"unresolved").unwrap();
+    let before = snapshot(&t.f.outer);
+    assert!(t.prepare().is_err());
+    assert_eq!(snapshot(&t.f.outer), before);
+    fs::remove_file(pending).unwrap();
+    let original = fs::read_link(t.f.m.link(key)).unwrap();
+    fs::remove_file(t.f.m.link(key)).unwrap();
+    symlink(&t.f.outer, t.f.m.link(key)).unwrap();
+    let before = snapshot(&t.f.outer);
+    assert!(t.prepare().is_err());
+    assert_eq!(snapshot(&t.f.outer), before);
+    fs::remove_file(t.f.m.link(key)).unwrap();
+    symlink(original, t.f.m.link(key)).unwrap();
+    t.prepare().unwrap();
+}
+
+#[test]
+fn ordinary_seven_publishes_idempotently_and_retains_exact_three_rollback() {
+    let t = AcceptanceFixture::new();
+    let assets = t.prepare().unwrap();
+    assert_eq!(
+        select(std::slice::from_ref(&t.verified), &t.census).unwrap(),
+        &t.verified
+    );
+    assert!(select(std::slice::from_ref(&t.candidate), &t.census).is_err());
+    let parent = &t.review.products[0].parent;
+    let prior =
+        t.f.m
+            .load_revision(&t.prior.class.class_id, parent)
+            .unwrap();
+    let untouched = snapshot(prior.target.parent().unwrap());
+    let vendor = snapshot(&t.f.r.environment.root);
+    let published = publish(
+        &t.f,
+        &t.verified,
+        &t.census,
+        &assets.catalogue.natives[0],
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        published,
+        publish(
+            &t.f,
+            &t.verified,
+            &t.census,
+            &assets.catalogue.natives[0],
+            None
+        )
+        .unwrap()
+    );
+    let r =
+        t.f.m
+            .load_revision(&t.prior.class.class_id, &published)
+            .unwrap();
+    assert_eq!(r.qualification, None);
+    assert_eq!(r.parent.as_ref(), Some(parent));
+    assert_eq!(r.external_ids, prior.external_ids);
+    assert_eq!(r.performance.added_frames, 512);
+    assert_eq!(
+        r.profile.capabilities.editor,
+        Editor::DetachedDirectVendorLifecycle
+    );
+    t.f.m
+        .verify_served_host(
+            &r.registration,
+            &assets.host,
+            &assets.source_manifest.sha256,
+            std::slice::from_ref(&t.verified),
+        )
+        .unwrap();
+    let installed = snapshot(r.target.parent().unwrap());
+    t.f.m.rollback(&r.class_id, &parent.id, None).unwrap();
+    assert_eq!(
+        fs::read_link(t.f.m.link(&r.class_id)).unwrap(),
+        prior.target
+    );
+    t.f.m
+        .verify_served_host(
+            &prior.registration,
+            &assets.host,
+            &assets.source_manifest.sha256,
+            std::slice::from_ref(&t.verified),
+        )
+        .unwrap();
+    assert_eq!(snapshot(prior.target.parent().unwrap()), untouched);
+    assert_eq!(snapshot(r.target.parent().unwrap()), installed);
+    assert_eq!(snapshot(&t.f.r.environment.root), vendor);
+}
+
+#[test]
+fn accepted_publication_preserves_three_at_all_existing_boundaries() {
+    for boundary in BOUNDARIES {
+        let t = AcceptanceFixture::new();
+        t.prepare().unwrap();
+        let key = &t.prior.class.class_id;
+        let parent = &t.review.products[0].parent;
+        let prior = t.f.m.load_revision(key, parent).unwrap();
+        let untouched = snapshot(prior.target.parent().unwrap());
+        reason(
+            publish(&t.f, &t.verified, &t.census, &t.native, Some(boundary)),
+            &format!("injected_{boundary:?}"),
+        );
+        t.f.m.reconcile().unwrap();
+        t.f.m.reconcile().unwrap();
+        let current = t.f.m.registry().unwrap().classes[key]
+            .managed_revision
+            .clone()
+            .unwrap();
+        let r = t.f.m.load_revision(key, &current).unwrap();
+        assert!(r.profile == t.prior || r.profile == t.verified);
+        assert!(r.qualification.is_none());
+        if r.profile == t.verified {
+            t.f.m.rollback(key, &parent.id, None).unwrap();
+        }
+        assert_eq!(fs::read_link(t.f.m.link(key)).unwrap(), prior.target);
+        assert_eq!(snapshot(prior.target.parent().unwrap()), untouched);
+        assert!(!t.f.m.publication_pending(key).unwrap());
+    }
 }

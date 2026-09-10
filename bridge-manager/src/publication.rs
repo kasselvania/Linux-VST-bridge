@@ -218,6 +218,30 @@ pub fn install_command(link: &Path, candidate: &Path, prior: Option<&Path>) -> R
 }
 
 impl Manager {
+    /// A retained qualification must be a completed exact transaction, not a
+    /// candidate directory abandoned before activation.
+    pub(crate) fn verify_completed_publication(
+        &self,
+        r: &Revision,
+        reference: &RevisionRef,
+    ) -> Result<()> {
+        let dir = self.root.join("transactions");
+        let intent: Intent = read_json(&dir.join(format!("{}.json", r.transaction)))?;
+        let result: Completion = read_json(&dir.join(format!("{}.result.json", r.transaction)))?;
+        require(
+            intent.schema == 1
+                && intent.id == r.transaction
+                && intent.class_id == r.class_id
+                && intent.candidate.as_ref() == Some(reference)
+                && intent.candidate_target.as_ref() == Some(&r.target)
+                && intent.prior.as_ref().map(|p| &p.revision) == r.parent.as_ref()
+                && result.schema == 1
+                && result.transaction == r.transaction
+                && result.class_id == r.class_id
+                && result.outcome == Outcome::Committed,
+            "acceptance_publication_incomplete",
+        )
+    }
     fn durable_dir(&self, path: &Path) -> Result<()> {
         require(path.starts_with(&self.root), "managed_directory_binding")?;
         private_dir(path)?;

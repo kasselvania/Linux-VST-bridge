@@ -1,4 +1,5 @@
 //! Canonical, inactive-only registration and atomic publication. No SDK or DSP here.
+pub mod acceptance;
 pub mod catalogue;
 #[cfg(test)]
 mod managed_tests;

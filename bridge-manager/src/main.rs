@@ -121,31 +121,79 @@ fn systemd(s: &str) -> String {
             .replace('%', "%%")
     )
 }
-fn setup(m: &Manager, package: &Path) -> Result<()> {
+fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
     let _lock = m.lock("setup.lock")?;
     let _registry = m.lock("registry.lock")?;
     // A stopped prior service may leave a positively retired keeper lease.
     // Use the existing ownership receipt rule before the inactivity check;
     // never erase an unresolved lease merely to make setup succeed.
-    let _unresolved = reconcile_leases(m)?;
+    if package.is_some() {
+        let _unresolved = reconcile_leases(m)?;
+    }
     m.require_inactive(None)?;
-    let profiles = profiles::installed_profiles()?;
-    let catalogue = if m.registry()?.classes.is_empty() {
-        None
-    } else {
-        Some(catalogue::adoption(m, &profiles)?)
-    };
     let me = std::env::current_exe()?;
-    let files = [
-        ("linux-vst-bridge", me),
-        ("session.py", package.join("session.py")),
-        ("ownership.py", package.join("ownership.py")),
-        ("host.exe", package.join("host.exe")),
+    let (catalogue, files, source) = if let Some(package) = package {
+        let profiles = profiles::installed_profiles()?;
+        let catalogue = if m.registry()?.classes.is_empty() {
+            None
+        } else {
+            Some(catalogue::adoption(m, &profiles)?)
+        };
         (
-            "host-source-manifest.json",
-            package.join("host-source-manifest.json"),
-        ),
-    ];
+            catalogue,
+            [
+                ("linux-vst-bridge", me),
+                ("session.py", package.join("session.py")),
+                ("ownership.py", package.join("ownership.py")),
+                ("host.exe", package.join("host.exe")),
+                (
+                    "host-source-manifest.json",
+                    package.join("host-source-manifest.json"),
+                ),
+            ],
+            read_json::<String>(&package.join("host-source.json"))?,
+        )
+    } else {
+        let accepted = acceptance::prepare(m)?;
+        let old = software(m)?;
+        for artifact in [&old.supervisor, &old.ownership] {
+            require(
+                artifact.path.parent() == old.manager.path.parent()
+                    && artifact.path.starts_with(m.root.join("software"))
+                    && artifact.path.canonicalize()? == artifact.path
+                    && file(&artifact.path)?.metadata()?.permissions().mode() & 0o222 == 0,
+                "acceptance_runtime_identity",
+            )?;
+        }
+        // This transition reuses retained immutable runtime helpers only when
+        // they exactly equal this manager's compiled source. No runtime input.
+        require(
+            old.supervisor.sha256
+                == hex(&sha2::Sha256::digest(include_bytes!(
+                    "../runtime/session.py"
+                )))
+                && old.ownership.sha256
+                    == hex(&sha2::Sha256::digest(include_bytes!(
+                        "../runtime/ownership.py"
+                    ))),
+            "acceptance_runtime_identity",
+        )?;
+        (
+            Some(accepted.catalogue),
+            [
+                ("linux-vst-bridge", me),
+                ("session.py", old.supervisor.path),
+                ("ownership.py", old.ownership.path),
+                ("host.exe", accepted.host.path),
+                ("host-source-manifest.json", accepted.source_manifest.path),
+            ],
+            accepted.source_manifest.sha256,
+        )
+    };
+    require(
+        valid_hex(&source, 64) && digest(&files[4].1)? == source,
+        "host source manifest hash differs",
+    )?;
     let mut identity = String::new();
     for (_, p) in &files {
         identity.push_str(&digest(p)?);
@@ -153,8 +201,22 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
     if let Some(c) = &catalogue {
         identity.push_str(&hex(&sha2::Sha256::digest(serde_json::to_vec(c)?)));
     }
+    if package.is_none() {
+        identity.push_str(&hex(&sha2::Sha256::digest(acceptance::REVIEW)));
+    }
     let id = hex(&sha2::Sha256::digest(identity.as_bytes()));
     let dest = m.root.join("software").join(&id);
+    if let Ok(old) = read_json::<Software>(&m.root.join("software.json")) {
+        if old.manager.path != dest.join("linux-vst-bridge") {
+            let running = Command::new("systemctl")
+                .args(["--user", "is-active", "--quiet", "linux-vst-bridge.service"])
+                .status()?;
+            require(
+                !running.success(),
+                "close devices and stop the bridge service before replacing installed software",
+            )?;
+        }
+    }
     if !dest.try_exists()? {
         private_dir(dest.parent().unwrap())?;
         let stage = dest.with_file_name(format!("stage-{}", random_id()?));
@@ -188,7 +250,17 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
                 n.artifact.path = dest.join("proxies").join(name);
             }
             atomic_json(&stage.join("native-catalogue.json"), &c)?;
+            fs::set_permissions(
+                stage.join("native-catalogue.json"),
+                fs::Permissions::from_mode(0o400),
+            )?;
             fs::File::open(stage.join("proxies"))?.sync_all()?;
+        }
+        if package.is_none() {
+            let path = stage.join("acceptance-review.json");
+            fs::write(&path, acceptance::REVIEW)?;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400))?;
+            fs::File::open(path)?.sync_all()?;
         }
         fs::File::open(&stage)?.sync_all()?;
         fs::rename(&stage, &dest)?;
@@ -201,8 +273,28 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
             path,
         })
     };
-    let source: String = read_json(&package.join("host-source.json"))?;
-    require(valid_hex(&source, 64), "host source hash syntax")?;
+    for (name, input) in &files {
+        require(
+            digest(&dest.join(name))? == digest(input)?,
+            "software copy differs",
+        )?;
+    }
+    if package.is_none() {
+        require(
+            fs::read(dest.join("acceptance-review.json"))? == acceptance::REVIEW,
+            "acceptance_review_identity",
+        )?;
+    }
+    if let Some(mut expected) = catalogue.clone() {
+        for n in &mut expected.natives {
+            n.artifact.path = dest
+                .join("proxies")
+                .join(format!("{}.so", n.artifact.sha256));
+        }
+        let actual: catalogue::Catalogue = read_json(&dest.join("native-catalogue.json"))?;
+        require(actual == expected, "native_artifact_mismatch")?;
+        actual.validate(&m.root)?;
+    }
     let installed = Software {
         manager: a("linux-vst-bridge")?,
         supervisor: a("session.py")?,
@@ -220,17 +312,6 @@ fn setup(m: &Manager, package: &Path) -> Result<()> {
         installed.source_manifest.sha256 == installed.source_sha256,
         "host source manifest hash differs",
     )?;
-    if let Ok(old) = read_json::<Software>(&m.root.join("software.json")) {
-        if old.manager.path != installed.manager.path {
-            let running = Command::new("systemctl")
-                .args(["--user", "is-active", "--quiet", "linux-vst-bridge.service"])
-                .status()?;
-            require(
-                !running.success(),
-                "close devices and stop the bridge service before replacing installed software",
-            )?;
-        }
-    }
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
     let previous = read_json::<Software>(&m.root.join("software.json")).ok();
     publication::install_command(
@@ -720,7 +801,8 @@ fn main() -> Result<()> {
     let m = Manager::installed()?;
     let args: Vec<_> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str){
-  Some("setup") if args.len()==2=>setup(&m,Path::new(&args[1])),
+  Some("setup") if args.len()==2=>setup(&m,Some(Path::new(&args[1]))),
+  Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),

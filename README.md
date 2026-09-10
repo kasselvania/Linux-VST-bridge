@@ -10,7 +10,7 @@ AP8–AP11 established the independent native Linux VST3 proxy, supervised Windo
 
 AP14 [#85](https://github.com/kasselvania/Linux-VST-bridge/pull/85), integrated as `84abd6a9755ab10b015c3744549b1e46ab1b85cb`, adds the first profile-driven managed publication and exact rollback workflow. The manager discovers and supervises the exact module/class census, selects a closed verified profile, derives registration, obtains the product-owned native artifact, and atomically publishes the Linux VST3 bundle. The ordinary operator supplies no class IDs, module hashes, compatibility flags, registration JSON, native build paths or Proton commands.
 
-Pure LoFi and Efx FRAGMENTS use immutable revision-3 `verified_exact_fixture` profiles for the exact Steam Deck / SteamOS 3.8.16 / Bitwig 6.1 / pinned Proton-SLR fixture. Revision-2 candidate and older publication history remain exact rollback targets. These are narrow exact-artifact claims, not universal Arturia or Linux support.
+AP14 established immutable revision-3 `verified_exact_fixture` profiles for Pure LoFi and Efx FRAGMENTS on the exact Steam Deck / SteamOS 3.8.16 / Bitwig 6.1 / pinned Proton-SLR fixture. Revision-2 candidate and older publication history remain exact rollback targets. These are narrow exact-artifact claims, not universal Arturia or Linux support.
 
 ## Current operating limits
 
@@ -35,4 +35,8 @@ Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), the relevant 
 The independent bridge remains selected. Maintained Wine/Proton work may provide a runner beneath it; it is not a yabridge pivot. Preserve user projects, installed environments, historical evidence, credentials and unrelated dirty work.
 AP15 revision-6 engineering qualification completed on the exact SteamOS 3.8.16 / Bitwig 6.1 Arturia fixture. Both real editors opened directly, closed and reopened in the same DSP sessions; edits, existing automation, explicit save/relaunch recall and independent FRAGMENTS removal were exercised. The 1×1/absent-child candidate and the later timestamp-refusal candidate remain recorded failures. See [actual results and limitations](docs/AP15.md#revision-6-exact-fixture-qualification).
 
-Both exact verified revision-3 publications are restored. Revision 6 remains `review_candidate`, available only through the finite engineering route, and is not ordinary support or independent acceptance. 512 remains selected/supported/recommended; 256 is unqualified. Short delivery gaps remain, with exact counts in the evidence. PR #86 is for independent review and remains unmerged.
+Independent review [5161767138](https://github.com/kasselvania/Linux-VST-bridge/pull/86#pullrequestreview-5161767138) selected the exact revision-6 technical/artifact result. New immutable ordinary revision-7 `verified_exact_fixture` profiles carry that direct lifecycle. Revision 6 remains a successful ReviewCandidate; revisions 4 and 5 remain failed candidate history. Revision 3 remains the exact rollback target.
+
+The sealed `linux-vst-bridge accept-editor` setup transition consumes only the retained reviewed qualification artifacts and exact active revision-3 parents. It takes no profile, binary or command arguments. After inactive setup, normal `managed preview` / `managed publish` selects revision 7, without an engineering qualification marker. Candidate activation remains refused. This transition is limited to the existing exact installation; it is not a general installer or promotion service. See [transition and actual installed result](docs/AP15.md#ordinary-revision-7-transition).
+
+512 remains supported/recommended; 256 remains unqualified. Short delivery gaps remain #72 and FRAGMENTS redraw remains #80. PR #86 remains open and unmerged for focused rereview.

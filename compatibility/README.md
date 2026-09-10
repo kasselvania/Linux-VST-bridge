@@ -19,7 +19,7 @@ review_candidate
 
 ## Accepted AP14 profiles
 
-The two JSON files in this directory are immutable schema-1 revision-3 `verified_exact_fixture` profiles for the exact installed Pure LoFi and Efx FRAGMENTS Steam Deck/Bitwig fixture. They retain the exact module/class/vendor/build/role, runner/environment/host/native/descriptor constraints, process-scoped accessibility choice, AP13 state behavior, float32-only scope, 512 recommendation, 256 nonqualification and known limitations.
+The two retained JSON files under `ap14/revision-3/` are immutable schema-1 revision-3 `verified_exact_fixture` profiles for the exact installed Pure LoFi and Efx FRAGMENTS Steam Deck/Bitwig fixture. They retain the exact module/class/vendor/build/role, runner/environment/host/native/descriptor constraints, process-scoped accessibility choice, AP13 state behavior, float32-only scope, 512 recommendation, 256 nonqualification and known limitations.
 
 Revision-2 `review_candidate` profiles remain byte-for-byte in regression fixtures and installed publication history. They were not relabeled or overwritten.
 
@@ -46,7 +46,7 @@ A candidate build may be deployed only through an explicit bounded, reversible e
 A profile claim never generalizes across a changed module digest, runner, environment, host/proxy revision, DAW, machine or capability matrix. Repository profile data is not permission to copy or redistribute a matched commercial module.
 ### AP15 exact engineering qualification
 
-Technical review `5161191208` cleared the hosted build gate. The finite sealed roster now contains exactly two revision-6 `review_candidate` profiles in `ap15/`, with the closed capability `detached_direct_vendor_lifecycle` and limitation `direct_editor_under_qualification`. Revision 3 remains byte-identical and the only ordinary activation authority. All previous exact module/class/runner/environment, AP13 state, precision, accessibility and performance constraints remain, including FRAGMENTS redraw limitations.
+Technical review `5161191208` cleared the hosted build gate. The finite sealed roster now contains exactly two revision-6 `review_candidate` profiles in `ap15/`, with the closed capability `detached_direct_vendor_lifecycle` and limitation `direct_editor_under_qualification`. Revision 3 remains byte-identical historical authority; the acceptance transition below installs ordinary revision 7. All previous exact module/class/runner/environment, AP13 state, precision, accessibility and performance constraints remain, including FRAGMENTS redraw limitations.
 
 `tools/ap15_package.py` assembles the existing `qualify-editor stage` layout from the verified GitHub ZIP and exact native bytes. Its host-source manifest preserves the actual synthetic build commit, reviewed head and common tree; `SOURCE_COMMIT.txt` is never rewritten. Paths supply bytes only. The compiled profile hashes own admission; arbitrary profiles, binaries, commands and mutable build paths cannot grant authority.
 
@@ -55,3 +55,13 @@ Technical review `5161191208` cleared the hosted build gate. The finite sealed r
 Revision 4 is retained under `ap15/revision-4/`; Bitwig rejected its 1×1/absent-child attachment. Revision 5 is retained under `ap15/revision-5/`; attachment worked but reopened editor focus failed. Revision 6 binds the native-only attachment and unknown-timestamp activation repairs. The [exact campaign](../evidence/ap15/qualification/campaign.json) exercised both editors, same-session close/reopen, gestures, automation, state recall and independent effect removal. [Physical readback](../evidence/ap15/qualification/installed-final.json) proves exact revision-3 restoration afterward.
 
 Passing this engineering campaign does not relabel a profile verified. Independent review must select a later immutable verified revision. Candidate and verified history remain separate. The historical build-capacity block and failed candidates remain evidence; no universal Arturia, Linux, DAW or performance claim follows. 512 remains recommended and selected; 256 remains unqualified.
+
+## Independently selected ordinary revision 7
+
+Review 5161767138 selected revision 6's exact technical/artifact content. The root `arturia-pure-lofi.json` and `arturia-efx-fragments.json` now contain new immutable revision-7 `verified_exact_fixture` profiles with `detached_direct_vendor_lifecycle`. Only revision, claim, evidence additions and removal of `direct_editor_under_qualification` differ from revision 6. All other constraints and limitations remain, including the possibility of a refused application focus request. Evidence references do not independently authorize execution.
+
+Ordinary Activation, managed preview/publication and current-host policy select revision 7. AP15 paths retain byte-identical revision 6 as ReviewCandidate, and `ap15/revision-4/` / `revision-5/` retain failed mechanisms. `ReviewCandidate + Activation` is still refused. Revision-3 bytes live under `ap14/revision-3/` and remain exact physical rollback history; retained history never supplies new ordinary selection authority.
+
+The argument-free `accept-editor` operation validates the compiled two-product review receipt, exact retained completed revision-6 publications, immutable artifacts and active verified revision-3 parents before using existing software setup. It creates a new product software revision with the accepted host/manifest/natives and current manager/ownership helpers; normal managed publication then creates revision 7 without `qualification: ap15_editor`. No arbitrary profile, artifact path, hash, command or remote source is accepted. The historical qualification roster is separate and cannot shadow revision 7.
+
+These verified claims cover only the reviewed SteamOS 3.8.16 / Bitwig 6.1 / pinned Proton-SLR / exact Arturia artifacts and environment. Float32-only, 512 recommended and 256 unqualified remain. Final transition readback and focused smoke are retained separately from the immutable qualification evidence.

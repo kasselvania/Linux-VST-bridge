@@ -26,7 +26,7 @@ fn directory(m: &Manager, p: &Profile) -> Result<PathBuf> {
         .join("software/ap15-qualification")
         .join(p.fingerprint()?))
 }
-fn load(m: &Manager, p: Profile) -> Result<InstalledCandidate> {
+pub(crate) fn load(m: &Manager, p: Profile) -> Result<InstalledCandidate> {
     let dir = directory(m, &p)?;
     let host = Artifact {
         path: dir.join("host.exe"),

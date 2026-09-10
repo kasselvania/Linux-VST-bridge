@@ -25,6 +25,7 @@ pub enum RefusalCode {
     QualificationParentRequired,
     QualificationMismatch,
     QualificationActive,
+    AcceptanceMismatch,
     LocalRecordOrIoFailure,
 }
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -35,6 +36,7 @@ pub struct Refusal {
 pub fn refusal(e: &(dyn std::error::Error + Send + Sync)) -> Refusal {
     let detail = e.to_string();
     let code = match detail.as_str() {
+        s if s.starts_with("acceptance_") => RefusalCode::AcceptanceMismatch,
         "ap15_candidate_artifacts_pending" => RefusalCode::QualificationArtifactsPending,
         "qualification_verified_parent_required" | "qualification_parent_absent" => {
             RefusalCode::QualificationParentRequired

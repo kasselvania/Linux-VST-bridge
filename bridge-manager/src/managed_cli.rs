@@ -423,6 +423,10 @@ pub(super) fn run_qualification(m: &Manager, args: &[String]) -> Result<()> {
     render(execute_qualification(m, args))
 }
 
+pub(super) fn run_acceptance(m: &Manager) -> Result<()> {
+    render(setup(m, None).and_then(|()| status(m)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

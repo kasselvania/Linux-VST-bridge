@@ -267,6 +267,17 @@ pub fn installed_profiles() -> Result<Vec<Profile>> {
     Ok(result)
 }
 
+/// Immutable AP14 history, never current ordinary selection authority.
+pub fn ap14_profiles() -> Result<Vec<Profile>> {
+    [
+        include_bytes!("../../compatibility/ap14/revision-3/arturia-pure-lofi.json").as_slice(),
+        include_bytes!("../../compatibility/ap14/revision-3/arturia-efx-fragments.json").as_slice(),
+    ]
+    .into_iter()
+    .map(Profile::parse)
+    .collect()
+}
+
 /// UUIDv5 law retained from tools/ap8_descriptor.py, independent of revisions.
 pub fn external_ids(class_id: &str) -> Result<[String; 2]> {
     require(valid_hex(class_id, 32), "class_identity")?;
