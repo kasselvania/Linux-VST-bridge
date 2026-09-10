@@ -1,6 +1,6 @@
 # Linux Audio Compatibility Bridge
 
-AP16 has repaired one measured delivery-stall class for independent review in PR #89: hot shared mappings now use private RAM storage, removing the demonstrated disk-journal wait. Matched playback and two trace-off confirmation intervals had zero new gaps after the repair; startup and editor/removal gaps remain. Ordinary revision-7 profiles and the 512-frame recommendation are unchanged. [Exact results and limits](docs/AP16.md).
+AP16 is accepted and integrated at `bee44977a9db6b512f5a67076ceedabec5c656b4`. Hot per-session transport mappings now use private tmpfs rather than journaled environment storage, removing one demonstrated 27–29 ms preparation-stall class while preserving the existing Windows host, native proxies, profiles, timing semantics, and rollback. Residual startup, queue/reply, and lifecycle misses remain tracked in [#90](https://github.com/kasselvania/Linux-VST-bridge/issues/90).
 
 A managed bridge for using supported Windows audio plug-ins in native Linux DAWs without making musicians administer Wine prefixes, proxy synchronization commands, or changing runtime versions by hand.
 
@@ -8,13 +8,15 @@ A managed bridge for using supported Windows audio plug-ins in native Linux DAWs
 
 > **Ownership:** This repository is publicly readable but proprietary. Copyright © 2026 Peter Kassel. All rights reserved. Public visibility does not grant an open-source or redistribution license. See [COPYRIGHT.md](COPYRIGHT.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Accepted baseline: AP15 direct managed Arturia workflow
+## Accepted baseline: AP16 direct managed Arturia workflow
 
 AP8–AP11 established the independent native Linux VST3 proxy, supervised Windows VST3 processing under a pinned Proton/Wine environment, bounded audio/events, opaque state and project recall, automation, independent instances, and detached vendor editors.
 
 AP12 installed the exact Pure LoFi → Efx FRAGMENTS chain with automatic service startup. AP13 removed a demonstrated state-capture delivery barrier, reduced supervisor overhead, and added the installed 256/512 delay selector. AP14 added closed compatibility profiles, manager-derived registration, immutable publication revisions, recovery, and exact rollback.
 
-AP15, integrated as `d4076e9cc02028bf268089ca0bb86aeac36ef947`, makes the direct detached vendor editor the ordinary behavior for the exact accepted fixture. Opening the plug-in editor in Bitwig directly presents or focuses the vendor editor. Vendor close retires only that editor generation; one normal action reopens a greater editor epoch for the same DSP instance. Normal managed publication now selects immutable revision-7 `verified_exact_fixture` profiles, while exact revision-3 publications remain retained rollback targets.
+AP15, integrated as `d4076e9cc02028bf268089ca0bb86aeac36ef947`, makes the direct detached vendor editor the ordinary behavior for the exact accepted fixture. Opening the plug-in editor in Bitwig directly presents or focuses the vendor editor. Vendor close retires only that editor generation; one normal action reopens a greater editor epoch for the same DSP instance. Normal managed publication selects immutable revision-7 `verified_exact_fixture` profiles, while exact revision-3 publications remain retained rollback targets.
+
+AP16 moves only ephemeral high-frequency transport mappings into an identity-checked private runtime tmpfs. Durable environment, ownership, readiness, report, profile, publication, state, and project data remain persistent. A measured FRAGMENTS musical interval with 1,536 missed frames behind a 28.502 ms native preparation stall became zero missed frames in the matched corrected interval; two independent trace-off confirmations also had zero new gaps. This is a causal repair for one class, not a gap-free or hard real-time claim.
 
 The accepted matrix is deliberately narrow:
 
@@ -32,25 +34,46 @@ This is not a claim of broad Arturia, Linux, DAW, VST3, hardware, or customer-in
 
 At 48 kHz, Pure LoFi reports 512 bridge + 48 vendor frames and Efx FRAGMENTS reports 512 + 192. The serial chain therefore reports 1,264 frames / 26.333 ms, excluding DAW, device, and acoustic latency.
 
-**512 added frames per proxy is selected, supported, and recommended.** The opt-in 256 setting remains available but unqualified because startup and later FRAGMENTS deadline misses remain.
+**512 added frames per proxy is selected, supported, and recommended.** The opt-in 256 setting remains available but unqualified.
 
-AP16 assigns and repairs one historical preparation-tail class through the mapping backing store. Residual startup, queue/reply and editor/removal gaps remain; this is not a gap-free or hard real-time guarantee. Float64, arbitrary multichannel routing, sidechains, broad MIDI/MPE, every VST3 interface, native Wayland views, and general customer-hardware reliability are not yet supported claims. The accepted Arturia processes disable Windows UI Automation through an exact process-scoped compatibility choice; VST parameter automation remains active.
+Residual startup, queue/reply, editor/removal, and shutdown-window misses remain explicit in [#90](https://github.com/kasselvania/Linux-VST-bridge/issues/90). Float64, arbitrary multichannel routing, sidechains, broad MIDI/MPE, every VST3 interface, native Wayland views, and general customer-hardware reliability are not yet supported claims. The accepted Arturia processes disable Windows UI Automation through an exact process-scoped compatibility choice; VST parameter automation remains active.
 
-## Active slice: AP16 causal 512-frame delivery reliability
+FRAGMENTS’ Advanced panel is now accessible and rendering response has improved materially. Further “buttery smooth” graphical optimization is polish rather than a current functional blocker.
 
-AP16 activates [issue #72](https://github.com/kasselvania/Linux-VST-bridge/issues/72) from integrated main at `510d88bd89adbf8b101140907f27dc9885af9f25`.
+## Active slice: AP17 real-project capacity and recovery
 
-The goal is not an open-ended performance campaign. Under the ordinary revision-7 Pure LoFi → FRAGMENTS workload at 512 frames, AP16 must reproduce one residual missed-delivery class, assign elapsed time to a real owner, repair its demonstrated project-owned cause or provide a truthful bounded external mitigation, and show matched before/after evidence without hiding gaps or changing musical timing.
+AP17 activates [issue #91](https://github.com/kasselvania/Linux-VST-bridge/issues/91) from integrated AP16 main at `bee44977a9db6b512f5a67076ceedabec5c656b4`.
 
-Read [CURRENT_SLICE.md](CURRENT_SLICE.md) for active authority and [docs/AP16.md](docs/AP16.md) for the source-grounded investigation boundary.
+The source currently has an eight-live-thread service mechanic and a four-slot native backend registry whose real scope depends on Bitwig’s process/module topology. AP17 will observe that topology, distinguish mechanical and product limits, incrementally exercise same-class, mixed, parallel, and serial projects, enforce clean over-limit refusal, and qualify save/reopen, sibling isolation, service restart, and reboot recovery at the selected supported maximum.
+
+AP17 does not assume that eight instances work, and it does not increase a limit merely to make the numbers match.
+
+Read [CURRENT_SLICE.md](CURRENT_SLICE.md) for active authority and [docs/AP17.md](docs/AP17.md) for the source-grounded investigation boundary.
+
+## Planned vendor pathway
+
+After AP17, the intended next vertical is the official Arturia Software Center → Pigments pathway:
+
+```text
+official vendor application
+→ user-owned sign-in and activation
+→ product download and installation
+→ exact module/resources discovery
+→ managed candidate profile and publication
+→ Pigments qualification in Bitwig
+```
+
+The ASC installer may be downloaded privately in preparation, but it is not executed, committed, or mixed into AP17.
+
+Serum 2 remains the planned second-vendor generalization after the Arturia acquisition/install vertical.
 
 ## Follow-through
 
-- [#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80) retains FRAGMENTS Advanced-panel expansion and redraw smoothness.
+- [#90](https://github.com/kasselvania/Linux-VST-bridge/issues/90) retains residual delivery classes after AP16.
 - [#77](https://github.com/kasselvania/Linux-VST-bridge/issues/77) retains lawful Serum 2 authorization and exact editor/product qualification.
-- Multi-instance capacity and recovery qualification remains the recommended slice after AP16.
+- Further editor rendering/frame-pacing optimization remains later polish rather than the retired FRAGMENTS access defect.
 
-These are not silently absorbed into the active delivery slice.
+These are not silently absorbed into AP17.
 
 ## Repository map
 
