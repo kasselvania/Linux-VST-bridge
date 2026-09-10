@@ -295,4 +295,4 @@ Leave the PR open and unmerged for independent technical review.
 
 ## Current implementation checkpoint
 
-Characterization selected a conservative six-instance engineering envelope; eight produced repeated active-playback misses. Typed non-RT admission and durable-lease capacity accounting are implemented locally. Qualification/profile artifacts, exact deployment, maximum-project recall/refusal/recovery and final validation remain incomplete. See `docs/AP17.md` and `evidence/ap17/`. PR #92 remains draft; no AP17 candidate is installed at this checkpoint.
+Characterization selected a conservative six-instance engineering envelope; eight produced repeated active-playback misses. Typed non-RT admission and durable-lease capacity accounting are implemented locally. Both Linux native artifacts and the sealed revision-8 candidate profiles now exist. Exact deployment, maximum-project recall/refusal/recovery and final validation remain incomplete. See `docs/AP17.md` and `evidence/ap17/`. PR #92 remains draft; no AP17 candidate is installed at this checkpoint.

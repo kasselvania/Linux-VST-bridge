@@ -16,7 +16,12 @@ pub fn candidates() -> Result<Vec<Profile>> {
 }
 // A missing finite roster is a hard refusal, never arbitrary profile input.
 fn capacity_candidates() -> Result<Vec<Profile>> {
-    Err("ap17_candidate_artifacts_pending".into())
+    let result = [
+        include_bytes!("../../compatibility/ap17/arturia-pure-lofi.json").as_slice(),
+        include_bytes!("../../compatibility/ap17/arturia-efx-fragments.json").as_slice(),
+    ].into_iter().map(Profile::parse).collect::<Result<Vec<_>>>()?;
+    validate_set(&result)?;
+    Ok(result)
 }
 pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
     match purpose {

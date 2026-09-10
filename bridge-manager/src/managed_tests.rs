@@ -1785,3 +1785,27 @@ fn capacity_qualification_is_exact_separate_and_never_ordinary_authority() {
     f.m.verify_served_host(&prior.registration, &c.host, &c.host_source_sha256, &[p])
         .unwrap();
 }
+
+#[test]
+fn sealed_ap17_roster_changes_only_native_startup_and_never_activation() {
+    let priors=installed_profiles().unwrap();
+    let candidates=qualification::candidates_for(Qualification::Ap17Capacity).unwrap();
+    assert_eq!(candidates.len(),2);
+    for (prior,candidate) in priors.iter().zip(&candidates) {
+        assert_eq!(prior.revision,7);assert_eq!(candidate.revision,8);
+        assert_eq!(candidate.claim,Claim::ReviewCandidate);
+        assert!(!candidate.claim.permits(SelectionPurpose::Activation));
+        assert!(candidate.claim.permits(SelectionPurpose::Qualification));
+        assert_ne!(candidate.requirements.native_sha256,prior.requirements.native_sha256);
+        assert_ne!(candidate.requirements.native_source_commit,prior.requirements.native_source_commit);
+        let mut normalized=candidate.clone();normalized.revision=prior.revision;
+        normalized.claim=prior.claim.clone();normalized.evidence=prior.evidence.clone();
+        assert_eq!(normalized.limitations.pop(),Some(Limitation::CapacityUnderQualification));
+        normalized.requirements.native_sha256=prior.requirements.native_sha256.clone();
+        normalized.requirements.native_source_commit=prior.requirements.native_source_commit.clone();
+        assert_eq!(&normalized,prior);
+        assert_eq!(external_ids(&candidate.class.class_id).unwrap(),external_ids(&prior.class.class_id).unwrap());
+    }
+    assert_ne!(candidates,qualification::candidates_for(Qualification::Ap15Editor).unwrap());
+    assert!(serde_json::from_str::<Qualification>("\"generic_candidate\"").is_err());
+}
