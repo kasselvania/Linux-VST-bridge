@@ -1,0 +1,385 @@
+{
+  "schema": 1,
+  "status": "partial_candidate_qualification",
+  "manager_source_commit": "b422f75d1ba3f7eacb60f63c4343566438d77d3e",
+  "manager_sha256": "11fa07899779c306ee01c21898837139aaed0e1003668a645ee46c97cf629d7d",
+  "software_revision": "c0eb8366245f867460eb2be6b9699d1abc3fd3f30fc76399bfed6247eb0d3351",
+  "prior_software_revision": "f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b",
+  "route": [
+    "qualify-capacity stage exact retained package",
+    "qualify-capacity publish"
+  ],
+  "windows_host_reused_unchanged": true,
+  "products": [
+    {
+      "class_id": "417274754156495350724C4650726F63",
+      "active_revision": {
+        "id": "05ba64fa7d9ce5de88a7d18b53a7f6cb",
+        "sha256": "338a1f8f21b575c5b650dc7c15144483380f36ee6bef1c16b061e5d6a2294fd7"
+      },
+      "profile_sha256": "14fc8a0b17c9ffd787b387ba7397931e03adb56360d3f41ffad2cf299d1d5972",
+      "external_ids": [
+        "ac7f2418f2915958b5b67620593b9a2d",
+        "0c80f2acc39f5975a38d177102555683"
+      ],
+      "target": "$DECK_HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/05ba64fa7d9ce5de88a7d18b53a7f6cb/LVB_417274754156495350724C4650726F63.vst3",
+      "physical_link": "$DECK_HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/05ba64fa7d9ce5de88a7d18b53a7f6cb/LVB_417274754156495350724C4650726F63.vst3",
+      "parent": {
+        "id": "90e23e3e71322c27e3f9e4ce1021b9d8",
+        "sha256": "01abb8019e422c5f8b25a176c27ceb0d0e4018c9f99228928cbaaf582185cba2"
+      },
+      "parent_target": "$DECK_HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/90e23e3e71322c27e3f9e4ce1021b9d8/LVB_417274754156495350724C4650726F63.vst3",
+      "parent_profile_sha256": "2e32a4a8a1b15353203bff32281516f3ff17f4a5acd364a822fe367e4cf2b94f",
+      "performance": {
+        "schema": 1,
+        "added_frames": 512
+      }
+    },
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "active_revision": {
+        "id": "f154e019838eec6872090dbfc9cdb755",
+        "sha256": "b7ba1171bc3711046dd7a5a038400b60ac8dbc37b6ac5d08f773483ef2b9ebf7"
+      },
+      "profile_sha256": "f4e0e209bbfecea4f4bc2a255b66de6b5366bcc7a2f6564b727452d352f82e01",
+      "external_ids": [
+        "96bd361810b3568a9671700732903d6e",
+        "d3181e9d37e75871ba5ffbcae0775861"
+      ],
+      "target": "$DECK_HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/f154e019838eec6872090dbfc9cdb755/LVB_41727475415649536772616E50726F63.vst3",
+      "physical_link": "$DECK_HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/f154e019838eec6872090dbfc9cdb755/LVB_41727475415649536772616E50726F63.vst3",
+      "parent": {
+        "id": "d7c50af638553b3387f89a1064546aca",
+        "sha256": "e62c353565d4271f648c6831755ef6c95a764bec3a4141cf21bc6a5013fa2b4a"
+      },
+      "parent_target": "$DECK_HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/d7c50af638553b3387f89a1064546aca/LVB_41727475415649536772616E50726F63.vst3",
+      "parent_profile_sha256": "999a01f3c547b0b6299c2b5bae3a736f15adc6850d5a7d712967e64103172c7c",
+      "performance": {
+        "schema": 1,
+        "added_frames": 512
+      }
+    }
+  ],
+  "initial_discovery_failure": {
+    "first_reopen": "Three FRAGMENTS admitted; all three LoFi showed Plug-in missing with no LoFi DSP admission.",
+    "checks": "Exact physical links, native hashes, stable IDs and manager binding checks passed. Bitwig metadata/index retained the expected LoFi class; no managed-proxy scan error appeared. Visible scanner errors were unrelated prior yabridge entries.",
+    "recovery": "With project copies verified, the failed view was closed without saving. Requested rescan of existing VST3 location; reopened project initially still showed LoFi missing. Selecting its browser entry coincided with a metadata-host query at 15:59:20.261 Deck local wall time; the three existing LoFi placeholders then loaded automatically in 18.265 seconds.",
+    "scope": "Discovery/index refresh required; precise Bitwig cache mechanism unresolved. No native, vendor or publication bytes changed to obtain the load. This is not a capacity or audio repair claim."
+  },
+  "first_six_admission": {
+    "capacity": {
+      "available_dsp": 0,
+      "cleanup_unconfirmed": false,
+      "current_workers": 7,
+      "dsp": 6,
+      "envelope": {
+        "claim": "engineering_candidate",
+        "evidence": "docs/AP17.md",
+        "parallel_tracks": 3,
+        "serial_bridged_depth": 3,
+        "simultaneous_editors": 2
+      },
+      "keepers": 1,
+      "limits": {
+        "classes": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "dsp": 3
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "dsp": 4
+          }
+        ],
+        "global_dsp": 6,
+        "maintenance": 1,
+        "native_image_hard": 4,
+        "service_workers": 16
+      },
+      "maintenance": 0,
+      "maintenance_admissible": false,
+      "owners": [
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "139399efefcaf7b0b7a36efcf8cd7145"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "keeper",
+          "session": "16829538f4e00deba51d494775de8eb0"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "16e5d6ed950d40972c5af4edee19c85c"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "5291d724cdbf2809dab469fb1ce6a0be"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "8a11c219bf00c0aa78418978b536a9ca"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "a3655e004def12288bf7ba148900c299"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38"
+        }
+      ],
+      "per_class": {
+        "417274754156495350724C4650726F63": 3,
+        "41727475415649536772616E50726F63": 3
+      },
+      "schema": 1
+    },
+    "ok": true
+  },
+  "typed_global_refusal": {
+    "clock": "Linux CLOCK_MONOTONIC elapsed per startup request",
+    "before": {
+      "capacity": {
+        "available_dsp": 0,
+        "cleanup_unconfirmed": false,
+        "current_workers": 7,
+        "dsp": 6,
+        "envelope": {
+          "claim": "engineering_candidate",
+          "evidence": "docs/AP17.md",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": false,
+        "owners": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "139399efefcaf7b0b7a36efcf8cd7145"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "keeper",
+            "session": "16829538f4e00deba51d494775de8eb0"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "16e5d6ed950d40972c5af4edee19c85c"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "5291d724cdbf2809dab469fb1ce6a0be"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "8a11c219bf00c0aa78418978b536a9ca"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "a3655e004def12288bf7ba148900c299"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 3,
+          "41727475415649536772616E50726F63": 3
+        },
+        "schema": 1
+      },
+      "ok": true
+    },
+    "refusals": [
+      {
+        "class": "417274754156495350724C4650726F63",
+        "attempt": 0,
+        "request": "a8103b2d6dae9d03ca699aa2fe01a70d",
+        "refusal": "admission_global_capacity",
+        "wire_status": 2,
+        "reply_bytes": 24,
+        "elapsed_ns": 37078773
+      },
+      {
+        "class": "417274754156495350724C4650726F63",
+        "attempt": 1,
+        "request": "9a6d53fc28b8e0cd0d983bf09d310670",
+        "refusal": "admission_global_capacity",
+        "wire_status": 2,
+        "reply_bytes": 24,
+        "elapsed_ns": 37389199
+      },
+      {
+        "class": "417274754156495350724C4650726F63",
+        "attempt": 2,
+        "request": "cd387f5b1af1f99a8e6d1d6d3f310943",
+        "refusal": "admission_global_capacity",
+        "wire_status": 2,
+        "reply_bytes": 24,
+        "elapsed_ns": 36673605
+      },
+      {
+        "class": "41727475415649536772616E50726F63",
+        "attempt": 0,
+        "request": "acff0707ae741036a53739f29e491e71",
+        "refusal": "admission_global_capacity",
+        "wire_status": 2,
+        "reply_bytes": 24,
+        "elapsed_ns": 36257277
+      },
+      {
+        "class": "41727475415649536772616E50726F63",
+        "attempt": 1,
+        "request": "f55bdeee4b8883524d71bb86b353837c",
+        "refusal": "admission_global_capacity",
+        "wire_status": 2,
+        "reply_bytes": 24,
+        "elapsed_ns": 35537304
+      },
+      {
+        "class": "41727475415649536772616E50726F63",
+        "attempt": 2,
+        "request": "9e386fbb6630b09f0dce937b29895bf6",
+        "refusal": "admission_global_capacity",
+        "wire_status": 2,
+        "reply_bytes": 24,
+        "elapsed_ns": 38431758
+      }
+    ],
+    "after": {
+      "capacity": {
+        "available_dsp": 0,
+        "cleanup_unconfirmed": false,
+        "current_workers": 7,
+        "dsp": 6,
+        "envelope": {
+          "claim": "engineering_candidate",
+          "evidence": "docs/AP17.md",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": false,
+        "owners": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "139399efefcaf7b0b7a36efcf8cd7145"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "keeper",
+            "session": "16829538f4e00deba51d494775de8eb0"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "16e5d6ed950d40972c5af4edee19c85c"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "5291d724cdbf2809dab469fb1ce6a0be"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "8a11c219bf00c0aa78418978b536a9ca"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "a3655e004def12288bf7ba148900c299"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 3,
+          "41727475415649536772616E50726F63": 3
+        },
+        "schema": 1
+      },
+      "ok": true
+    },
+    "leases_unchanged": true,
+    "scope": "Direct production service codec probes; actual Bitwig seventh-device refusal subsequently retained in candidate-removal-replacement.json."
+  },
+  "local_audio": {
+    "source": "Deck local output sink monitor",
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 98304,
+    "seconds": 2.048,
+    "peak": 0.30720826983451843,
+    "rms": 0.02495040203843337,
+    "nonzero_samples": 195584,
+    "raw_audio_retained": false,
+    "timing": "outside matched measurement interval"
+  },
+  "project": {
+    "name": "AP17 Mixed",
+    "sha256": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db",
+    "independent_backup_same_sha256": true
+  },
+  "pending": [
+    "two-LoFi/four-FRAGMENTS corner",
+    "instance failure and recovery",
+    "service loss/restart and normal reboot",
+    "final exact revision-seven restoration"
+  ],
+  "completed_followup": "candidate-removal-replacement.json"
+}
