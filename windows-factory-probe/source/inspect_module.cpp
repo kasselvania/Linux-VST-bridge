@@ -170,7 +170,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             events.lifecycle("ap12_vendor_access_closed");
         }
         if(external){
-            external->bind_controller(controller,controller_initialized);
+            external->bind_controller(controller,controller_initialized,&handler);
             HostCallbackSink calls(&events,GetCurrentThreadId());
             auto result=run_offline_processing(*component,*audio,calls,events,external);
             if(!result.quiescent)ExitProcess(92); // outer owner contains; no release of live processing objects

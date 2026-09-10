@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "id": "arturia-pure-lofi",
+  "revision": 3,
+  "claim": "verified_exact_fixture",
+  "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+  "factory_vendor": "Arturia",
+  "class": {
+    "class_id": "417274754156495350724C4650726F63",
+    "name": "Pure LoFi",
+    "vendor": "Arturia",
+    "version": "1.0.0.6121",
+    "subcategories": "Instrument|Synth",
+    "metadata_tier": "factory_3_unicode"
+  },
+  "role": "instrument",
+  "requirements": {
+    "runner": {
+      "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+      "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+      "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+      "file_sha256": [
+        "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+        "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+        "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+        "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+        "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+        "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+        "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+        "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+        "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+        "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+        "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+        "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+        "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+        "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+        "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+        "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+        "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+        "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+        "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+        "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+        "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+        "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+        "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+        "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+        "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+        "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+        "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+        "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+        "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+      ]
+    },
+    "environment_family": "arturia_persistent_v1",
+    "environment_revision": 1,
+    "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+    "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+    "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+    "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+    "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245"
+  },
+  "capabilities": {
+    "accessibility": "disabled_for_vendor_process",
+    "editor": "detached_owner_thread_with_native_panel",
+    "state": "concurrent_read_only_capture_v12",
+    "precision": "float32_only",
+    "performance": "frames512_recommended256_unqualified"
+  },
+  "limitations": [
+    "short_delivery_gaps",
+    "unqualified256",
+    "windows_accessibility_unavailable",
+    "detached_focus_refusal",
+    "exact_operator_artifact_only"
+  ],
+  "evidence": [
+    "docs/AP12.md",
+    "docs/AP13.md",
+    "evidence/AP13/installation-final.json",
+    "docs/AP14.md",
+    "evidence/ap14/transactions.json",
+    "evidence/ap14/installed-identities.json",
+    "evidence/ap14/musical-smoke.json"
+  ]
+}

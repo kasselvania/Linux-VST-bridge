@@ -46,7 +46,8 @@ closed_enum!(Accessibility {
     DisabledForVendorProcess
 });
 closed_enum!(Editor {
-    DetachedOwnerThreadWithNativePanel
+    DetachedOwnerThreadWithNativePanel,
+    DetachedDirectVendorLifecycle
 });
 closed_enum!(State {
     ConcurrentReadOnlyCaptureV12
@@ -61,7 +62,8 @@ closed_enum!(Limitation {
     WindowsAccessibilityUnavailable,
     DetachedFocusRefusal,
     FragmentsAdvancedRedraw,
-    ExactOperatorArtifactOnly
+    ExactOperatorArtifactOnly,
+    DirectEditorUnderQualification
 });
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -263,6 +265,17 @@ pub fn installed_profiles() -> Result<Vec<Profile>> {
     .collect::<Result<Vec<_>>>()?;
     validate_set(&result)?;
     Ok(result)
+}
+
+/// Immutable AP14 history, never current ordinary selection authority.
+pub fn ap14_profiles() -> Result<Vec<Profile>> {
+    [
+        include_bytes!("../../compatibility/ap14/revision-3/arturia-pure-lofi.json").as_slice(),
+        include_bytes!("../../compatibility/ap14/revision-3/arturia-efx-fragments.json").as_slice(),
+    ]
+    .into_iter()
+    .map(Profile::parse)
+    .collect()
 }
 
 /// UUIDv5 law retained from tools/ap8_descriptor.py, independent of revisions.

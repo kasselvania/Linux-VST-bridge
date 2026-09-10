@@ -37,6 +37,7 @@ int main() {
   };
   AP11::DesktopActivation activation;
   ap11_gui_message_t request{};
+  request.native_view = 3;
   request.activation = 12;
   request.user_time = 123456;
   request.requestor_x11 = uint32_t(source);
@@ -59,7 +60,7 @@ int main() {
                   e.xclient.data.l[0] == 1 &&
                   e.xclient.data.l[1] == request.user_time &&
                   e.xclient.data.l[2] == long(source),
-              "application source, real click context and owned target");
+              "application source, unchanged timestamp context and owned target");
         if (action) {
           XMapWindow(d, target);
           activate(target, action == 1 ? child : source);
@@ -105,6 +106,14 @@ int main() {
   activate(source, source);
   activation.begin(request);
   auto stale = reply;
+  ++stale.native_view;
+  activation.target(stale);
+  check(!activation.poll(result), "old native view cannot select a replacement target");
+  stale = reply;
+  stale.abi_version = 2;
+  activation.target(stale);
+  check(!activation.poll(result), "old UI ABI cannot select a target");
+  stale = reply;
   ++stale.activation;
   activation.target(stale);
   check(!activation.poll(result), "stale activation does not select a target");
@@ -116,12 +125,25 @@ int main() {
   activation.cancel();
   check(!activation.poll(result), "cancel discards pending replies");
   auto absent = request;
-  absent.user_time = 0;
+  absent.requestor_x11 = 0;
   activation.begin(absent);
   activation.target(reply);
   result = run(1);
   check(result.focus_result == AP11::FocusUnsupported && messages == 5,
-        "missing user context does not forge activation");
+        "absent requestor cannot forge host activation authority");
+  request.user_time = reply.user_time = 0;
+  begin();
+  result = run(1);
+  check(result.focus_result == AP11::FocusConfirmed && !result.user_time && messages == 6,
+        "host without a user timestamp submits CurrentTime unchanged and verifies focus");
+  activate(other, other);
+  activation.begin(request); activation.target(reply);
+  result = run(1);
+  check(result.focus_result == AP11::FocusDenied && messages == 6,
+        "unknown timestamp never bypasses changed-foreground refusal");
+  begin(); result = run(0);
+  check(result.focus_result == AP11::FocusDenied && messages == 7,
+        "WM rejection remains negative with an unknown timestamp");
   activation.begin(request);
   result = run(0); // no target reply: the production two-second deadline
   check(result.focus_result == AP11::FocusDenied && !result.target_x11,
@@ -130,7 +152,7 @@ int main() {
   result = run(0);
   check(result.focus_result == AP11::FocusDenied &&
             result.target_x11 == reply.target_x11 && result.view_epoch == 7 &&
-            messages == 5,
+            messages == 7,
         "late attachment receives bound denial without stale activation");
   activation.target(reply);
   check(!activation.poll(result), "late target denial delivered once");

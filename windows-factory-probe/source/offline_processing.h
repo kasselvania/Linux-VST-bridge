@@ -24,7 +24,7 @@ public:
     virtual void bind_processor(Steinberg::Vst::IAudioProcessor*) {}
     virtual double sample_rate() const {return 48000.;}
     virtual bool commercial() const {return false;}
-    virtual void bind_controller(Steinberg::Vst::IEditController*,bool) {}
+    virtual void bind_controller(Steinberg::Vst::IEditController*,bool,Steinberg::Vst::IComponentHandler* = nullptr) {}
     virtual bool hosted() const { return false; }
     virtual bool sustained() const { return false; }
     virtual bool stateful() const { return false; }

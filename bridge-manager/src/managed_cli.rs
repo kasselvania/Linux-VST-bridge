@@ -149,13 +149,25 @@ fn modules(environment: &Environment) -> Result<Vec<Artifact>> {
     result.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(result)
 }
-fn inspect_through_owner(m: &Manager, r: &InspectionRequest) -> Result<Artifact> {
+#[derive(Clone, Copy)]
+enum InspectionRoute {
+    Current,
+    Ap15Editor,
+}
+fn inspect_through_owner(
+    m: &Manager,
+    r: &InspectionRequest,
+    route: InspectionRoute,
+) -> Result<Artifact> {
     let bytes = serde_json::to_vec(r)?;
     require(bytes.len() <= 65536, "inspection_request_bound")?;
     let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
     peer.set_read_timeout(Some(Duration::from_secs(240)))?;
     peer.set_write_timeout(Some(Duration::from_secs(5)))?;
-    peer.write_all(b"LVI1\n")?;
+    peer.write_all(match route {
+        InspectionRoute::Current => b"LVI1\n",
+        InspectionRoute::Ap15Editor => b"LVQ1\n",
+    })?;
     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
     peer.write_all(&bytes)?;
     let mut size = [0; 4];
@@ -181,6 +193,7 @@ fn plans(
     environment: EnvironmentBinding,
     profiles: &[Profile],
     purpose: SelectionPurpose,
+    route: InspectionRoute,
 ) -> Result<Vec<Plan>> {
     validate_set(profiles)?;
     for p in profiles {
@@ -253,7 +266,7 @@ fn plans(
                     class_id: class.clone(),
                     compatibility: policy.capabilities.compatibility(),
                 };
-                let report = inspect_through_owner(m, &request)?;
+                let report = inspect_through_owner(m, &request, route)?;
                 let census = Census::from_report(
                     environment.clone(),
                     module.clone(),
@@ -305,7 +318,7 @@ fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_j
             Some("preview"|"publish") if args.len()<=2=>{
                 let sw=software(m)?;let c=catalogue(m,&sw)?;
                 let e=environment(&c,args.get(1).map(String::as_str))?;
-                let plans=plans(m,&sw,&c,e,profiles,SelectionPurpose::Activation)?;
+                let plans=plans(m,&sw,&c,e,profiles,SelectionPurpose::Activation,InspectionRoute::Current)?;
                 let views=plans.iter().enumerate().map(|(i,p)|p.view(i+1)).collect::<Result<Vec<_>>>()?;
                 if args[0]=="publish"{
                     // Validate all selected plans before the first class changes.
@@ -320,7 +333,7 @@ fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_j
                 // No caller can inject executable code or force an active swap.
                 let key=product(m,&args[1])?;
                 let sw=software(m)?;let c=catalogue(m,&sw)?;
-                let selected=plans(m,&sw,&c,environment(&c,None)?,profiles,SelectionPurpose::Activation)?.into_iter().find(|p|p.registration.key()==key).ok_or("profile_no_match")?;
+                let selected=plans(m,&sw,&c,environment(&c,None)?,profiles,SelectionPurpose::Activation,InspectionRoute::Current)?.into_iter().find(|p|p.registration.key()==key).ok_or("profile_no_match")?;
                 let error=m.managed_publish(&selected.profile,&selected.census,selected.registration,&sw.host,&sw.source_sha256,
                     Some(linux_vst_bridge::publication::Boundary::CandidateReady)).err().ok_or("fault_not_reached")?;
                 require(error.to_string()=="injected_CandidateReady","fault_not_reached")?;
@@ -331,7 +344,7 @@ fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_j
                 let mut bytes=Vec::new();f.take(PROFILE_LIMIT as u64+1).read_to_end(&mut bytes)?;
                 let profile=Profile::parse(&bytes).map_err(|e|format!("profile_invalid: {e}"))?;
                 let sw=software(m)?;let c=catalogue(m,&sw)?;let e=environment(&c,None)?;
-                let plans=plans(m,&sw,&c,e,&[profile],SelectionPurpose::Qualification)?;
+                let plans=plans(m,&sw,&c,e,&[profile],SelectionPurpose::Qualification,InspectionRoute::Current)?;
                 Ok(serde_json::json!({"schema":1,"matches":plans.iter().enumerate().map(|(i,p)|p.view(i+1)).collect::<Result<Vec<_>>>()?,"activation_permitted":false}))
             },
             _=>Err("Usage: managed environments | preview [ENVIRONMENT_NUMBER] | publish [ENVIRONMENT_NUMBER] | status | reconcile | rollback PRODUCT_NUMBER REVISION | unpublish PRODUCT_NUMBER | check-candidate PROFILE | fault-check PRODUCT_NUMBER".into()),
@@ -339,6 +352,9 @@ fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_j
 }
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     let result = installed_profiles().and_then(|profiles| execute(m, args, &profiles));
+    render(result)
+}
+fn render(result: Result<serde_json::Value>) -> Result<()> {
     match result {
         Ok(value) => {
             println!("{}", serde_json::to_string_pretty(&value)?);
@@ -356,10 +372,112 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     }
 }
 
+// This separate command is intentionally absent from ordinary managed
+// preview/publish. Profile and artifact inputs are fixed by the compiled roster.
+fn execute_qualification(m: &Manager, args: &[String]) -> Result<serde_json::Value> {
+    match args.first().map(String::as_str) {
+        Some("stage") if args.len() == 2 => {
+            qualification::stage(m, Path::new(&args[1]))?;
+            status(m)
+        }
+        Some("restore") if args.len() == 1 => {
+            m.reconcile()?;
+            status(m)
+        }
+        Some("publish") if args.len() == 1 => {
+            let candidates = qualification::installed(m)?;
+            let mut sw = software(m)?;
+            let mut c = catalogue(m, &sw)?;
+            c.natives = candidates.iter().map(|c| c.native.clone()).collect();
+            let mut planned = Vec::new();
+            for candidate in &candidates {
+                sw.host = candidate.host.clone();
+                sw.source_manifest = candidate.source_manifest.clone();
+                sw.source_sha256 = candidate.source_manifest.sha256.clone();
+                planned.extend(plans(
+                    m,
+                    &sw,
+                    &c,
+                    environment(&c, None)?,
+                    std::slice::from_ref(&candidate.profile),
+                    SelectionPurpose::Qualification,
+                    InspectionRoute::Ap15Editor,
+                )?);
+            }
+            {
+                let _lock = m.lock("registry.lock")?;
+                m.require_inactive(None)?;
+                for p in &planned {
+                    m.check_editor_qualification_parent(&p.profile, &p.registration)?;
+                }
+            }
+            for p in &planned {
+                m.qualify_editor(&p.census, None)?;
+            }
+            status(m)
+        }
+        _ => Err("Usage: qualify-editor stage EXACT_PRODUCT_PACKAGE | publish | restore".into()),
+    }
+}
+pub(super) fn run_qualification(m: &Manager, args: &[String]) -> Result<()> {
+    render(execute_qualification(m, args))
+}
+
+pub(super) fn run_acceptance(m: &Manager) -> Result<()> {
+    // Setup starts the owner, which may immediately hold registry.lock while
+    // reconciling/creating its keeper. Do not turn a completed installation
+    // into a false failure by racing that lock for optional status readback.
+    render(setup(m, None).and_then(|()| acceptance_receipt(m)))
+}
+fn acceptance_receipt(m: &Manager) -> Result<serde_json::Value> {
+    Ok(serde_json::json!({"schema": 1, "software_installed": true,
+        "software": software(m)?, "publication_command": "managed publish",
+        "readback_command": "managed status"}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_fixture::{prepared, snapshot};
+    #[test]
+    fn completed_setup_receipt_does_not_race_service_startup_registry_lock() {
+        let (f, _, c, _) = prepared();
+        let sw = Software {
+            manager: c.host.clone(),
+            supervisor: c.host.clone(),
+            ownership: c.host.clone(),
+            host: c.host.clone(),
+            source_manifest: Artifact {
+                path: c.host.path.with_file_name("host-source-manifest.json"),
+                sha256: c.host_source_sha256.clone(),
+            },
+            source_sha256: c.host_source_sha256,
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let _startup = f.m.lock("registry.lock").unwrap();
+        let before = snapshot(&f.outer);
+        let receipt = acceptance_receipt(&f.m).unwrap();
+        assert_eq!(receipt["software_installed"], true);
+        assert_eq!(receipt["software"]["host"]["sha256"], sw.host.sha256);
+        assert_eq!(snapshot(&f.outer), before);
+    }
+    #[test]
+    fn missing_exact_sealed_package_cannot_mutate_installed_state() {
+        let (f, _, _, _) = prepared();
+        let before = snapshot(&f.outer);
+        for command in [
+            vec!["publish".into()],
+            vec!["stage".into(), f.outer.to_str().unwrap().into()],
+        ] {
+            let error = execute_qualification(&f.m, &command).unwrap_err();
+            assert_ne!(
+                refusal(error.as_ref()).code,
+                linux_vst_bridge::readback::RefusalCode::ReviewCandidateNotActivatable
+            );
+            assert_eq!(snapshot(&f.outer), before);
+        }
+    }
 
     #[test]
     fn actual_candidate_command_qualifies_without_activation_or_durable_mutation() {

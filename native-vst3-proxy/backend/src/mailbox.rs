@@ -172,6 +172,31 @@ impl Drop for Mailbox {
 }
 
 #[cfg(test)]
+impl Mailbox {
+    pub(crate) fn counterpart(&self) -> Self {
+        let file=self._file.try_clone().unwrap();
+        let p=unsafe {mmap(std::ptr::null_mut(),BYTES,3,1,file.as_raw_fd(),0)};
+        assert_ne!(p as isize,-1);
+        Self {pointer:NonNull::new(p.cast()).unwrap(),_file:file,diagnostic:[0;15]}
+    }
+    pub(crate) fn take_request(&mut self, minor:u64) -> Option<Frame> {
+        match self.flag(64).load(Ordering::Acquire) {
+            0=>None,
+            2=>{self.flag(64).store(0,Ordering::Release);Some(Frame{kind:0,session:[0;16],sequence:0,payload:vec![]})},
+            1=>{let n=u32::from_le_bytes(self.read(68,4).try_into().unwrap()) as usize;
+                let f=Frame::decode_version(&self.read(REQUEST,n),minor).unwrap();
+                self.flag(64).store(0,Ordering::Release);Some(f)},
+            _=>panic!("invalid test request flag"),
+        }
+    }
+    pub(crate) fn respond(&mut self, frame:Frame, minor:u64) {
+        assert_eq!(self.flag(128).load(Ordering::Acquire),0);
+        let bytes=frame.encode_version(minor).unwrap();self.write(REPLY,&bytes);
+        self.write(132,&(bytes.len() as u32).to_le_bytes());self.flag(128).store(1,Ordering::Release);
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -239,30 +264,5 @@ mod tests {
         assert!(m.receive(7, Instant::now()).is_err());
         drop(m);
         std::fs::remove_file(path).unwrap();
-    }
-}
-
-#[cfg(test)]
-impl Mailbox {
-    pub(crate) fn counterpart(&self) -> Self {
-        let file=self._file.try_clone().unwrap();
-        let p=unsafe {mmap(std::ptr::null_mut(),BYTES,3,1,file.as_raw_fd(),0)};
-        assert_ne!(p as isize,-1);
-        Self {pointer:NonNull::new(p.cast()).unwrap(),_file:file,diagnostic:[0;15]}
-    }
-    pub(crate) fn take_request(&mut self, minor:u64) -> Option<Frame> {
-        match self.flag(64).load(Ordering::Acquire) {
-            0=>None,
-            2=>{self.flag(64).store(0,Ordering::Release);Some(Frame{kind:0,session:[0;16],sequence:0,payload:vec![]})},
-            1=>{let n=u32::from_le_bytes(self.read(68,4).try_into().unwrap()) as usize;
-                let f=Frame::decode_version(&self.read(REQUEST,n),minor).unwrap();
-                self.flag(64).store(0,Ordering::Release);Some(f)},
-            _=>panic!("invalid test request flag"),
-        }
-    }
-    pub(crate) fn respond(&mut self, frame:Frame, minor:u64) {
-        assert_eq!(self.flag(128).load(Ordering::Acquire),0);
-        let bytes=frame.encode_version(minor).unwrap();self.write(REPLY,&bytes);
-        self.write(132,&(bytes.len() as u32).to_le_bytes());self.flag(128).store(1,Ordering::Release);
     }
 }

@@ -24,7 +24,8 @@ std::thread::id owner = std::this_thread::get_id();
 struct Stats {
   uint32_t created = 0, attached = 0, removed = 0, destroyed = 0, focus = 0,
            keys = 0, sizes = 0;
-  bool refuse = false;
+  bool refuse = false, refuse_attach = false, refuse_size = false, lost_parent = false,
+       close_during_attach = false;
 };
 struct View final : CPluginView, IPlugViewContentScaleSupport {
   Stats &stats;
@@ -68,12 +69,14 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
               plugFrame,
           "attached local parent and frame on owner");
     check(isPlatformTypeSupported(type) == kResultOk, "HWND negotiation");
+    if (stats.refuse_attach) return kResultFalse;
     systemWindow = parent;
     ++stats.attached;
+    if (stats.close_during_attach) SendMessageW(HWND(parent),WM_CLOSE,0,0);
     return kResultOk;
   }
   tresult PLUGIN_API removed() override {
-    check(std::this_thread::get_id() == owner && IsWindow(HWND(systemWindow)),
+    check(std::this_thread::get_id() == owner && (stats.lost_parent || IsWindow(HWND(systemWindow))),
           "remove before destroying parent");
     if (stats.refuse)
       return kResultFalse;
@@ -92,6 +95,9 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     check(systemWindow, "no platform sizing before attached");
     ++stats.sizes;
     return CPluginView::onSize(r);
+  }
+  tresult PLUGIN_API getSize(ViewRect *r) override {
+    return stats.refuse_size ? kResultFalse : CPluginView::getSize(r);
   }
   tresult PLUGIN_API onFocus(TBool) override {
     ++stats.focus;
@@ -115,6 +121,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
   }
 };
 struct Controller final : EditController {
+  IComponentHandler *retainedHandler() { componentHandler->addRef(); return componentHandler; }
   Stats stats;
   bool echo = true, no_view = false, invalid_readback=false;
   ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
@@ -148,7 +155,7 @@ struct Controller final : EditController {
   }
 };
 struct Mapping {
-  static constexpr size_t bytes = 256 + 2 * 512 * sizeof(ap11_gui_message_t);
+  static constexpr size_t bytes = 320 + 2 * 512 * sizeof(ap11_gui_message_t);
   std::filesystem::path dir;
   HANDLE file = INVALID_HANDLE_VALUE, map = nullptr;
   uint8_t *data = nullptr;
@@ -174,7 +181,7 @@ struct Mapping {
     check(data, "native mapping");
     std::memset(data, 0, bytes);
     std::memcpy(data, "LVBU", 4);
-    put(4, 3, 4);
+    put(4, 5, 4);
     put(8, bytes, 4);
     put(12, sizeof(ap11_gui_message_t), 4);
     std::copy(id.begin(), id.end(), data + 16);
@@ -195,18 +202,21 @@ struct Mapping {
   auto word(size_t off) {
     return std::atomic_ref<uint64_t>(*reinterpret_cast<uint64_t *>(data + off));
   }
+  uint64_t native_view = 1, activation = 0;
   void command(uint32_t kind, double value = 0, uint64_t revision = 0) {
     ap11_gui_message_t m{};
     m.kind = kind;
+    if (kind == AP11::Open) { m.native_view = native_view; m.activation = ++activation; }
     m.id = 42;
     m.value = value;
     m.revision = revision;
     command(m);
   }
-  void command(const ap11_gui_message_t &m) {
+  void command(ap11_gui_message_t m) {
+    if (m.kind == AP11::Open && !m.native_view) { m.native_view = native_view; if (!m.activation) m.activation = ++activation; }
     auto p = word(64).load(), c = word(72).load();
     check(p - c < 512, "command bound");
-    std::memcpy(data + 256 + p % 512 * sizeof(m), &m, sizeof(m));
+    std::memcpy(data + 320 + p % 512 * sizeof(m), &m, sizeof(m));
     word(64).store(p + 1, std::memory_order_release);
   }
   std::vector<ap11_gui_message_t> drain() {
@@ -214,7 +224,7 @@ struct Mapping {
     auto p = word(80).load(std::memory_order_acquire), c = word(88).load();
     while (c < p) {
       ap11_gui_message_t m{};
-      std::memcpy(&m, data + 256 + (512 + c % 512) * sizeof(m), sizeof(m));
+      std::memcpy(&m, data + 320 + (512 + c % 512) * sizeof(m), sizeof(m));
       result.push_back(m);
       ++c;
     }
@@ -222,6 +232,9 @@ struct Mapping {
     return result;
   }
   void close() {
+    word(120).fetch_add(1);
+    word(256).store(native_view);
+    put(264,0,4);
     word(152).store(word(64).load(), std::memory_order_release);
     word(120).fetch_add(1, std::memory_order_acq_rel);
   }
@@ -239,6 +252,112 @@ struct External final : ExternalProcessing {
   void done(const float *, const float *, uint64_t, uint64_t,
             const ap10_results_t *) override {}
 };
+unsigned destroyRefusals=0;
+HWND lastDestroyed=nullptr;
+BOOL WINAPI controlledDestroy(HWND window) {
+  if(destroyRefusals) { --destroyRefusals; SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+  lastDestroyed=window;
+  return DestroyWindow(window);
+}
+void lifecycle_faults() {
+  HostApplication host;
+  auto *c=new Controller;
+  check(c->initialize(&host)==kResultOk,"lifecycle fixture controller");
+  {
+    Mapping native;GuiChannel channel(native.dir.wstring(),native.id);EditorSession session(channel,*c);
+    for (auto reason:{AP11::Attach,AP11::Size}) {
+      c->stats.refuse_attach=reason==AP11::Attach;c->stats.refuse_size=reason==AP11::Size;
+      native.command(AP11::Open);session.service(true);
+      auto results=native.drain();
+      check(!session.is_open() && !channel.failure() && results.size()==1 &&
+            results[0].kind==AP11::EditorStatus && results[0].lifecycle==AP11::OpenRefused &&
+            results[0].native_view==native.native_view && results[0].result==reason,
+            "attachment/size refusal is bound, truthful and editor-only");
+      check(session.host_value(42,.6,channel.revision()) && c->getParamNormalized(42)==.6,
+            "controller remains usable after editor refusal");
+      ++native.native_view;
+    }
+    c->stats.refuse_attach=c->stats.refuse_size=false;
+    // Close while opening cancels only that native lifetime, even when the
+    // next generation is already in the same command batch.
+    const auto created=c->stats.created;
+    native.command(AP11::Open);native.close();++native.native_view;native.command(AP11::Open);
+    session.service(true);auto results=native.drain();
+    check(session.is_open() && c->stats.created==created+1 && results.size()==1 &&
+          results[0].native_view==native.native_view,"pending close does not cancel later native open");
+    auto active=results[0];
+    for(unsigned cycle=0;cycle<8;++cycle) {
+      const auto epoch=session.view().opens;const auto views=c->stats.created;
+      native.command(AP11::Open);native.command(AP11::Open);session.service(true);native.drain();
+      check(session.view().opens==epoch && c->stats.created==views,"duplicate opens only focus active generation");
+      if(cycle%2) native.close();
+      else {SendMessageW(session.view().window(),WM_CLOSE,0,0);SendMessageW(session.view().window(),WM_CLOSE,0,0);}
+      session.service(true);results=native.drain();
+      check(results.size()==1 && !results[0].count && results[0].view_epoch==epoch &&
+            results[0].native_view==native.native_view &&
+            results[0].lifecycle==(cycle%2?AP11::ClosedByDaw:AP11::ClosedByVendor),
+            "one close acknowledgment carries the exact retired epoch and cause");
+      session.service(true);check(native.drain().empty(),"duplicate close acknowledgment is absent");
+      ++native.native_view;native.command(AP11::Open);session.service(true);results=native.drain();
+      check(session.is_open() && session.view().opens==epoch+1 && results.size()==1 &&
+            c->getParamNormalized(42)==.6,"reopen advances editor only and preserves controller value");
+      auto stale=active;stale.kind=AP11::Focus;stale.focus_result=AP11::FocusConfirmed;
+      native.command(stale);session.service(true);
+      check(native.drain().empty(),"late focus cannot confirm replacement editor");
+      active=results[0];
+    }
+    c->stats.lost_parent=true;
+    DestroyWindow(session.view().window());
+    session.service(true);results=native.drain();
+    check(!session.is_open() && !channel.failure() && results.size()==1 &&
+          results[0].lifecycle==AP11::EditorFailed && results[0].result==AP11::WindowLost,
+          "unexpected window loss differs from normal close and whole host failure");
+    c->stats.lost_parent=false;
+    ++native.native_view;native.command(AP11::Open);session.service(true);native.drain();
+    channel.fail(AP11::Backlog);native.close();session.service(true);
+    check(!session.is_open() && channel.failure()==AP11::Backlog &&
+          channel.close_acknowledged()==channel.close_requested() &&
+          session.host_value(42,.7,channel.revision()),"GUI failure retires view and acknowledges close without losing controller");
+    const auto views=c->stats.created;
+    ++native.native_view;native.command(AP11::Open);session.service(true);
+    check(!session.is_open() && c->stats.created==views,"irrecoverable GUI channel refuses reopening");
+  }
+  // The shared view helper is also used directly by standalone vendor access.
+  // It owns no GuiChannel, DAW view token, DSP instance or project snapshot.
+  {
+    VendorView access;
+    c->stats.close_during_attach=true;
+    check(access.open(*c) && access.close_requested(),"close during attachment binds the opening epoch");
+    check(access.close(),"deferred opening close retires positively");c->stats.close_during_attach=false;
+    check(access.open(*c),"standalone owner can open shared mechanical view");
+    const auto retainedWindow=access.window(); const auto created=c->stats.created; const auto closesBefore=access.closes;
+    access.destruction(controlledDestroy);destroyRefusals=1;
+    check(!access.close() && access.window()==retainedWindow && IsWindow(retainedWindow) &&
+          GetWindowLongPtrW(retainedWindow,GWLP_USERDATA)!=0 && access.error()==AP11::Removal,
+          "failed DestroyWindow retains exact HWND and callback owner");
+    check(!access.open(*c) && c->stats.created==created && access.window()==retainedWindow,
+          "incomplete parent destruction refuses replacement editor");
+    check(access.close() && !access.window() && !access.window_lost() &&
+          lastDestroyed==retainedWindow && !IsWindow(retainedWindow) &&
+          GetWindowLongPtrW(retainedWindow,GWLP_USERDATA)==0 && access.closes==closesBefore+1 &&
+          access.addRef()==2 && access.release()==1,
+          "retry destroys exact HWND; intentional NCDESTROY is not WindowLost and clears userdata");
+    check(access.open(*c),"standalone owner remains reusable after completed destruction");
+    SendMessageW(access.window(),WM_CLOSE,0,0);
+    check(access.close_requested() && access.is_open(),"standalone user close remains deferred");
+    check(access.close() && !access.is_open(),"standalone positive close receipt");
+    const auto count=c->stats.created;access.opens=UINT32_MAX;
+    check(!access.open(*c) && access.error()==AP11::GenerationExhausted &&
+          c->stats.created==count,"vendor epoch exhaustion refuses before SDK creation");
+  }
+  check(c->stats.created==c->stats.destroyed && c->stats.attached==c->stats.removed,
+        "all successful and refused views return SDK ownership to baseline");
+  c->terminate();c->release();
+  Mapping invalid;invalid.put(4,3,4);
+  bool refused=false;
+  try {GuiChannel bad(invalid.dir.wstring(),invalid.id);} catch(...) {refused=true;}
+  check(refused,"old mapped UI protocol refused before consuming payloads");
+}
 } // namespace
 int main() {
   UiApartment apartment;
@@ -247,16 +366,17 @@ int main() {
   check(CoGetApartmentType(&type, &qualifier) == S_OK &&
             (type == APTTYPE_STA || type == APTTYPE_MAINSTA),
         "controller and view own a Windows STA apartment");
+  lifecycle_faults();
   HostApplication host;
   auto *c = new Controller;
   check(c->initialize(&host) == kResultOk, "controller initialize");
   Mapping native;
   GuiChannel channel(native.dir.wstring(), native.id);
-  EditorSession session(channel, *c);
   External external;
-  external.session = &session;
   VendorHandler handler;
   handler.external = &external;
+  EditorSession session(channel, *c, &handler);
+  external.session = &session;
   check(c->setComponentHandler(&handler) == kResultOk,
         "production SDK handler");
   check(c->stats.created == 0, "no editor on scan/restore");
@@ -272,6 +392,7 @@ int main() {
                         }),
         "ordinary open failure explicit without poisoning session");
   c->no_view = false;
+  ++native.native_view;
   native.command(AP11::Open);
   session.service(true);
   check(session.is_open() && c->stats.created == 1 && c->stats.attached == 1,
@@ -376,6 +497,7 @@ int main() {
   session.service(true);
   check(c->stats.created == 1, "queued open before close cutoff cancelled");
   native.drain();
+  ++native.native_view;
   native.command(AP11::Open);
   session.service(true);
   check(c->stats.created == 2 && c->getParamNormalized(42) == .4,
@@ -391,11 +513,63 @@ int main() {
   check(!session.is_open() && c->stats.removed == 2 && c->stats.destroyed == 2,
         "queued repeated window close removes exactly once");
   native.drain();
+  ++native.native_view;
   native.command(AP11::Open);
   session.service(true);
   check(c->stats.created == 3 && c->getParamNormalized(42) == .4,
         "window close and reopen retains controller sound");
   native.drain();
+  const auto replacementOwner=native.native_view;
+  const auto replacementEpoch=session.view().opens;
+  const auto replacementWindow=session.view().window();
+  const auto createdBefore=c->stats.created;
+  // The production close fast path is a stable seqlock snapshot. A late A
+  // close whose cutoff includes B's queued focus must not retire or cancel B.
+  native.command(AP11::Open);
+  native.word(120).fetch_add(1);
+  native.word(256).store(replacementOwner-1);
+  native.put(264,replacementEpoch-1,4);
+  native.word(152).store(native.word(64).load());
+  native.word(120).fetch_add(1);
+  session.service(true);
+  check(session.view().window()==replacementWindow && c->stats.created==createdBefore &&
+        session.is_open(),"late close from native A cannot affect replacement B");
+  native.drain();
+  native.word(120).fetch_add(1);
+  native.word(256).store(replacementOwner);
+  native.put(264,replacementEpoch+1,4);
+  native.word(120).fetch_add(1);
+  session.service(true);
+  check(session.is_open() && native.drain().empty(),"wrong editor epoch close has no result or teardown");
+  // A writer interrupted mid-close leaves an odd sequence. Owner never spins
+  // and cannot observe a partially replaced token/epoch pair.
+  native.word(120).fetch_add(1);
+  native.word(256).store(replacementOwner);
+  native.put(264,replacementEpoch,4);
+  session.service(true);
+  check(session.is_open(),"unfinished close publication is deferred without touching editor");
+  // Restore an acknowledged even value rather than completing this fixture's
+  // synthetic request, retaining the live view for the existing refusal test.
+  native.word(120).store(native.word(128).load());
+  auto *oldHandler=c->retainedHandler();
+  FUnknownPtr<IComponentHandler2> oldGroup(oldHandler);
+  check(oldGroup->startGroupEdit()==kResultOk && oldHandler->beginEdit(42)==kResultOk,
+        "editor A accepts scoped activity before retirement");
+  auto queuedA=native.drain();
+  check(queuedA.size()==2 && queuedA[0].native_view==replacementOwner &&
+        queuedA[1].view_epoch==replacementEpoch,"editor-originated queued callbacks bind immutable native/epoch");
+  check(session.close(),"A retires before B opens");native.drain();
+  ++native.native_view;native.command(AP11::Open);session.service(true);native.drain();
+  const auto valuesBefore=session.values,gesturesBefore=session.gestures;
+  check(oldHandler->performEdit(42,.99)!=kResultOk && oldHandler->endEdit(42)!=kResultOk &&
+        oldGroup->finishGroupEdit()!=kResultOk && oldGroup->setDirty(true)!=kResultOk &&
+        oldHandler->restartComponent(kParamValuesChanged)!=kResultOk && native.drain().empty() &&
+        session.values==valuesBefore && session.gestures==gesturesBefore,
+        "retired A handler cannot emit or invalidate replacement B");
+  auto *newHandler=c->retainedHandler();
+  check(newHandler->beginEdit(42)==kResultOk && newHandler->performEdit(42,.5)==kResultOk &&
+        newHandler->endEdit(42)==kResultOk,"B handler remains independently usable");
+  newHandler->release();oldGroup=nullptr;oldHandler->release();native.drain();
   c->stats.refuse = true;
   check(!session.close() && session.is_open() &&
             IsWindow(session.view().window()),

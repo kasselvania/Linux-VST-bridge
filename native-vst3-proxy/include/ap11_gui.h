@@ -1,9 +1,11 @@
 #pragma once
 #include <cstdint>
-// UI ABI 2 / independent shared-memory protocol 3. No host/SDK pointer crosses.
+#include <cstddef>
+// UI ABI 4 / independent shared-memory protocol 5. No host/SDK pointer crosses.
 // Calls are native owner/UI-thread only, except the private atomic revision
 // assigned by the Rust audio admission path. No GUI queue is used by audio.
 struct ap11_gui_message_t {
+  uint32_t abi_version = 4, extent = 608;
   uint32_t kind = 0, id = 0;
   uint64_t revision = 0;
   double value = 0;
@@ -15,9 +17,22 @@ struct ap11_gui_message_t {
   uint64_t activation = 0;
   uint32_t user_time = 0, requestor_x11 = 0, target_x11 = 0, view_epoch = 0;
   uint32_t focus_result = 0, focus_flags = 0;
+  uint64_t native_view = 0;
+  uint32_t lifecycle = 0, reserved = 0;
 };
-static_assert(sizeof(ap11_gui_message_t) == 584);
+static_assert(sizeof(ap11_gui_message_t) == 608);
+static_assert(offsetof(ap11_gui_message_t, extent) == 4);
+static_assert(offsetof(ap11_gui_message_t, activation) == 560);
+static_assert(offsetof(ap11_gui_message_t, native_view) == 592);
+static_assert(offsetof(ap11_gui_message_t, lifecycle) == 600);
 namespace AP11 {
+inline bool valid(const ap11_gui_message_t &m) {
+  return m.abi_version == 4 && m.extent == sizeof(m) && !m.reserved;
+}
+enum Lifecycle : uint32_t {
+  Absent, Opening, Opened, AwaitingFocus, Focused, FocusRefused, Closing,
+  ClosedByVendor, ClosedByDaw, OpenRefused, EditorFailed
+};
 enum Kind : uint32_t {
   Open = 1,
   Close = 2,
@@ -37,6 +52,12 @@ enum Kind : uint32_t {
   RefreshEnd = 111,
   Restart = 112
 };
+// Only these events can carry an editor-origin token. Refresh streams and
+// host/controller invalidations remain instance scoped; no state bytes change.
+inline bool editorCallback(uint32_t kind) {
+  return kind == Begin || kind == Value || kind == End || kind == Dirty ||
+    kind == GroupBegin || kind == GroupEnd || kind == RequestOpen;
+}
 enum FocusResult : uint32_t {
   FocusNotRequested = 0,
   FocusPending = 1,
@@ -60,7 +81,10 @@ enum Error : uint32_t {
   Removal = 8,
   Controller = 9,
   Host = 10,
-  Closed = 11
+  Closed = 11,
+  WindowLost = 12,
+  GuiLoopLost = 13,
+  GenerationExhausted = 14
 };
 } // namespace AP11
 extern "C" {

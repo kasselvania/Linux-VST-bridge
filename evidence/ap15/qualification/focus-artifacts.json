@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "purpose": "revision-6 native focus repair; Windows artifact unchanged",
+  "builds": [
+    {
+      "returncode": 0,
+      "bundle": "/home/deck/.cache/linux-vst-bridge/ap9-builds/838ce6d17960680be9430315c12084edf2257d6a95cb59492d084fb23760026b/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "98793ee5169992924cdc5b21f38de8a70b507e28682fdb74bec95a22eb234ff6",
+      "source_commit": "a3cb624f126afc5270519012d7af39485fd6fbb6",
+      "input_archive_sha256": "838ce6d17960680be9430315c12084edf2257d6a95cb59492d084fb23760026b",
+      "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    {
+      "returncode": 0,
+      "bundle": "/home/deck/.cache/linux-vst-bridge/ap9-builds/385bd37082cf5c45751a6c15d3030a3fca647947452c7a9d863a28e574d83a04/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "4ee950c4096a33a3635fde6e9732be50a4875238c237a84e828d9cd1b94ed8f4",
+      "source_commit": "a3cb624f126afc5270519012d7af39485fd6fbb6",
+      "input_archive_sha256": "385bd37082cf5c45751a6c15d3030a3fca647947452c7a9d863a28e574d83a04",
+      "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    }
+  ],
+  "installed_at_build": false
+}

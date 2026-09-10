@@ -30,7 +30,7 @@ pub struct EnvironmentBinding {
     pub family: Family,
     pub environment: Environment,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Catalogue {
     pub schema: u32,
@@ -88,7 +88,8 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
     let db = m.registry()?;
     let mut natives = Vec::new();
     let mut environments: Vec<EnvironmentBinding> = Vec::new();
-    for p in profiles.iter().filter(|p| p.claim != Claim::Withdrawn) {
+    for p in profiles {
+        p.claim.require(SelectionPurpose::Activation)?;
         let e = db
             .classes
             .get(&p.class.class_id)

@@ -1,0 +1,36 @@
+{
+  "builds": [
+    {
+      "returncode": 0,
+      "bundle": "$HOME/.cache/linux-vst-bridge/ap9-builds/b46258ee0b7e13666e351dd1a5145cae72a7c74b89075836fafed8afa839ad7f/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "175155f652b40cdb51612ef778a08a3cd78e9f5e824f2fb4511009f330fe50d3",
+      "source_commit": "c5155af3be01437eaaca70b473d30a7857b91ecc",
+      "input_archive_sha256": "b46258ee0b7e13666e351dd1a5145cae72a7c74b89075836fafed8afa839ad7f",
+      "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+      "product": "Pure LoFi",
+      "installed": false,
+      "published": false,
+      "command": "python3 tools/ap8_build_native.py --descriptor $WORK/pure-descriptor.h --output $WORK/r2-pure-native --performance --registered"
+    },
+    {
+      "returncode": 0,
+      "bundle": "$HOME/.cache/linux-vst-bridge/ap9-builds/0f44182b080eea29453abe5e8f725dab3080546ef83296d4b5fdb14cacdbd875/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "28ecd4d34d0af039c1a8cc5c62ab97b72945020904d4d94692e1f1ecd00a04bf",
+      "source_commit": "c5155af3be01437eaaca70b473d30a7857b91ecc",
+      "input_archive_sha256": "0f44182b080eea29453abe5e8f725dab3080546ef83296d4b5fdb14cacdbd875",
+      "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+      "product": "Efx FRAGMENTS",
+      "installed": false,
+      "published": false,
+      "command": "python3 tools/ap8_build_native.py --descriptor $WORK/fragments-descriptor.h --output $WORK/r2-fragments-native --performance --registered"
+    }
+  ],
+  "windows_artifact": null,
+  "complete_candidate_profile": null,
+  "compiled_candidate_roster": "absent",
+  "publication": "unchanged verified revision 3"
+}

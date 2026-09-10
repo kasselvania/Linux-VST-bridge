@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "manager_source_build": "f52513c0fd8568022cda353f9bfe21ee0763f2de",
+  "commands": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "result": "57 passed",
+      "log_sha256": "3a6e960b306324d43cc25d070c4790869eb2990b4dea0aeee35ab40319b70e83"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "37 library + 4 CLI passed",
+      "log_sha256": "ec903dd84dd106414ea7749ee208fdf181e0af00a08c791d7c8d39352eccf315"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed",
+      "log_sha256": "8c233a54790c4800d3dd585436af679aa838da259bfdb129412e2d51cdb75cdc"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed",
+      "log_sha256": "8c233a54790c4800d3dd585436af679aa838da259bfdb129412e2d51cdb75cdc"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "6 passed, 9 Linux-only skipped on macOS; normal hosted Linux lane covers all 15",
+      "log_sha256": "8a97cae2aafab40ee8633619d1ab048847d78d914c34885e720e75a244521816"
+    },
+    {
+      "command": "existing pinned Flatpak SDK CMake build and native CTest lane",
+      "result": "all 6 passed; accepted native source unchanged",
+      "log_sha256": "b98cdfab45dacb35d982a30f6c2e08df8d325523aaca21f5cf9a88d0314cd09b"
+    }
+  ],
+  "manager_linux_sha256": "b96a5bdd76cc5557201c2e8e775ef9a3afaa00e03ead7e5ac920ef73adfbcec5",
+  "linux_build_command": "PATH=/Users/peterkassel/.cargo/bin:$PATH CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=/private/tmp/ap12-work/zig-cc.sh cargo build --manifest-path bridge-manager/Cargo.toml --locked --release --target x86_64-unknown-linux-gnu",
+  "linux_toolchain": "rustc 1.90.0, Zig x86_64-linux-gnu.2.35 linker",
+  "build_note": "The initial Homebrew Rust invocation lacked the Linux target; the existing rustup cross-build toolchain completed. No source change was needed.",
+  "windows_native_reuse": "No Windows-owned source/test/shared UI ABI/build-input/manifest or native lifecycle source changed. Accepted revision-6 Windows and Linux bytes were verified and reused from immutable managed storage.",
+  "production_regressions": [
+    "byte-identical revisions 3, 4, 5, 6; exact normalized revision-7 equality",
+    "ordinary verified-only activation; qualification remains nonactivating",
+    "sealed review/artifact/profile/census/parent validation before mutation",
+    "active DSP, pending transaction and foreign link refusals",
+    "ordinary revision-7 publication, no qualification marker, idempotence, stable IDs and 512",
+    "exact rollback to revision 3 and bounded retained-host serving",
+    "all 16 publication interruptions and deterministic reconciliation",
+    "completed software receipt while service holds startup registry lock"
+  ],
+  "hosted_validation": "Final-head normal workflows reported in PR #86; no Windows artifact provenance is reassigned to later runs."
+}

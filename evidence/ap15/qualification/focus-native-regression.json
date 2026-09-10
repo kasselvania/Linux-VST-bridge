@@ -1,0 +1,70 @@
+{
+  "runs": [
+    {
+      "label": "before",
+      "header_sha256": "89bbd913c13ddae6e9de76321760d98bb7f15708a0ad7fb6b1ec6aad80227443",
+      "test_sha256": "6127fd904a7d3a6ccd3740fdb40cf0c414c7591649bd88713877d7ce0ee34ae5",
+      "commands": [
+        {
+          "command": [
+            "cmake",
+            "--build",
+            "/home/deck/AP15-Work/native-tests/build",
+            "--target",
+            "ap11-activation-tests",
+            "-j",
+            "4"
+          ],
+          "exit": 0
+        },
+        {
+          "command": [
+            "ctest",
+            "--test-dir",
+            "/home/deck/AP15-Work/native-tests/build/native-vst3-proxy",
+            "--verbose",
+            "-R",
+            "^ap11-desktop-activation$"
+          ],
+          "exit": 8
+        }
+      ]
+    },
+    {
+      "label": "after",
+      "header_sha256": "b2084a4e3eac7c2bd12181d5e7f5f61e57f435a3164d7e211c644d1beceba8db",
+      "test_sha256": "6127fd904a7d3a6ccd3740fdb40cf0c414c7591649bd88713877d7ce0ee34ae5",
+      "commands": [
+        {
+          "command": [
+            "cmake",
+            "--build",
+            "/home/deck/AP15-Work/native-tests/build",
+            "--target",
+            "ap11-activation-tests",
+            "-j",
+            "4"
+          ],
+          "exit": 0
+        },
+        {
+          "command": [
+            "ctest",
+            "--test-dir",
+            "/home/deck/AP15-Work/native-tests/build/native-vst3-proxy",
+            "--verbose",
+            "-R",
+            "^ap11-desktop-activation$"
+          ],
+          "exit": 0
+        }
+      ]
+    }
+  ],
+  "logs": {
+    "focus-exact-after-0.log": "[1/2] Building CXX object native-vst3-proxy/CMakeFiles/ap11-activation-tests.dir/__/tools/ap11-tests/activation.cpp.o\n[2/2] Linking CXX executable native-vst3-proxy/ap11-activation-tests\n\n",
+    "focus-exact-after-1.log": "UpdateCTestConfiguration  from :/home/deck/AP15-Work/native-tests/build/native-vst3-proxy/DartConfiguration.tcl\nTest project /home/deck/AP15-Work/native-tests/build/native-vst3-proxy\nConstructing a list of tests\nDone constructing a list of tests\nUpdating test list for fixtures\nAdded 0 tests to meet fixture requirements\nChecking test dependency graph...\nChecking test dependency graph end\ntest 5\n    Start 5: ap11-desktop-activation\n\n5: Test command: /home/deck/AP15-Work/native-tests/xvfb-run \"-a\" \"/home/deck/AP15-Work/native-tests/build/native-vst3-proxy/ap11-activation-tests\"\n5: Working Directory: /home/deck/AP15-Work/native-tests/build/native-vst3-proxy\n5: Test timeout computed to be: 10000000\n5: AP11 production desktop activation protocol/lifetime PASS\n1/1 Test #5: ap11-desktop-activation ..........   Passed    5.08 sec\n\nThe following tests passed:\n\tap11-desktop-activation\n\n100% tests passed out of 1\n\nTotal Test time (real) =   5.09 sec\n\n",
+    "focus-exact-before-0.log": "[1/2] Building CXX object native-vst3-proxy/CMakeFiles/ap11-activation-tests.dir/__/tools/ap11-tests/activation.cpp.o\n[2/2] Linking CXX executable native-vst3-proxy/ap11-activation-tests\n\n",
+    "focus-exact-before-1.log": "UpdateCTestConfiguration  from :/home/deck/AP15-Work/native-tests/build/native-vst3-proxy/DartConfiguration.tcl\nTest project /home/deck/AP15-Work/native-tests/build/native-vst3-proxy\nConstructing a list of tests\nDone constructing a list of tests\nUpdating test list for fixtures\nAdded 0 tests to meet fixture requirements\nChecking test dependency graph...\nChecking test dependency graph end\ntest 5\n    Start 5: ap11-desktop-activation\n\n5: Test command: /home/deck/AP15-Work/native-tests/xvfb-run \"-a\" \"/home/deck/AP15-Work/native-tests/build/native-vst3-proxy/ap11-activation-tests\"\n5: Working Directory: /home/deck/AP15-Work/native-tests/build/native-vst3-proxy\n5: Test timeout computed to be: 10000000\n5: FAIL: host without a user timestamp submits CurrentTime unchanged and verifies focus\n1/1 Test #5: ap11-desktop-activation ..........***Failed    1.58 sec\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   1.58 sec\n\nThe following tests FAILED:\n\t  5 - ap11-desktop-activation (Failed)\n\nErrors while running CTest\nOutput from these tests are in: /home/deck/AP15-Work/native-tests/build/native-vst3-proxy/Testing/Temporary/LastTest.log\nUse \"--rerun-failed --output-on-failure\" to re-run the failed cases verbosely.\n"
+  }
+}

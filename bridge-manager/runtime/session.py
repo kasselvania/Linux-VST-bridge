@@ -143,10 +143,14 @@ class FaultStatus:
             try:fd=os.open(self.directory/'ap11.ui',os.O_RDWR|os.O_NOFOLLOW)
             except FileNotFoundError:return {'available':False}
             try:
-                st=os.fstat(fd);extent=256+2*512*584
-                if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=extent or st.st_mode&0o077:raise RuntimeError('fault GUI ownership/extent')
+                st=os.fstat(fd)
+                if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size<256 or st.st_mode&0o077:raise RuntimeError('fault GUI ownership/extent')
                 self.gui=mmap.mmap(fd,256,access=mmap.ACCESS_WRITE)
-                if self.gui[:32]!=b'LVBU'+struct.pack('<III',3,extent,584)+bytes.fromhex(self.sid) or self.gui[32:36]!=struct.pack('<I',512):raise RuntimeError('fault GUI identity/version')
+                version,extent,message=struct.unpack_from('<III',self.gui,4)
+                # Exact retained AP14 and AP15 layouts. Header diagnostics have
+                # identical offsets; event payloads are never read by the owner.
+                layouts={3:(256+2*512*584,584),4:(320+2*512*608,608),5:(320+2*512*608,608)}
+                if self.gui[:4]!=b'LVBU' or layouts.get(version)!=(extent,message) or st.st_size!=extent or self.gui[16:32]!=bytes.fromhex(self.sid) or self.gui[32:36]!=struct.pack('<I',512):raise RuntimeError('fault GUI identity/version')
                 self.gui_address=ctypes.addressof(ctypes.c_char.from_buffer(self.gui))
             except Exception:
                 if self.gui is not None:self.gui.close();self.gui=None

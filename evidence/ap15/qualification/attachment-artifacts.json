@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "linux": {
+    "pure": {
+      "returncode": 0,
+      "sha256": "c2be53251aa92eb6606ebedcb5225095a9d15c8ec01b892c51e4a3255f870313",
+      "source_commit": "223eb90efd3d6d51a262ecc259950fdcdecfa260",
+      "input_archive_sha256": "a8dc809f0cc3a641d5ffc0e67e81f9978cd59cc959075c52733ec7647310a9a0",
+      "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    "fragments": {
+      "returncode": 0,
+      "sha256": "eee312c78d8c03745d4110da077cb746fbb9b865f3ad177e131cfc864b0392e9",
+      "source_commit": "223eb90efd3d6d51a262ecc259950fdcdecfa260",
+      "input_archive_sha256": "f28c9af40db38939b0c6cd008a5cb419316375343fae445ea09db2d482e4fced",
+      "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    }
+  },
+  "windows_reused": "windows.json",
+  "windows_source_unchanged": true,
+  "installed": false,
+  "candidate_revision": 5
+}

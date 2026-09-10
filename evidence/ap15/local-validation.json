@@ -1,0 +1,145 @@
+{
+  "scope": "Local Linux and macOS implementation checkpoint; Windows and actual candidate Bitwig qualification pending",
+  "source_parent": "6fff6a52874ac503f9c6e61e0d71d01a4c4c7706",
+  "source_files_sha256": {
+    "bridge-manager/runtime/session.py": "b47013bcf0ccef9312fd97d5adfafae12b0766f04a6dbaecf0a1e37109ce0213",
+    "bridge-manager/runtime/test_session.py": "57298373c76acf577928a5802df4232a9b8dd6983083f25ce4c4f36d9eace184",
+    "bridge-manager/src/lib.rs": "4161a73ee70e5e3aae5a6f2ab231b143dc07674b4b883f82a909c693e3782b61",
+    "bridge-manager/src/main.rs": "5062287bd1149979ed8c1914efb6aa5dc225744647534f18b22a0a0615304dea",
+    "bridge-manager/src/managed_cli.rs": "ae8a1f82285dc5cdf820993fa3c7cf09c2c46fdcb910cf5f5741a7e2309505fa",
+    "bridge-manager/src/managed_tests.rs": "58d8283832b2f4e11b25c8685de4f56f2886c46117580e48627ffbf94f6045fc",
+    "bridge-manager/src/profiles.rs": "3f43f687cbe1a04e4bd03d760862298af82b45a57c3b61e58c9f796937d151e9",
+    "bridge-manager/src/publication.rs": "ec6cd729ad35643b769668b48797982b6fc9910a886b9970204353a7a397aaf3",
+    "bridge-manager/src/qualification.rs": "82f00ba33cb94c83cc660b28d5669d60a622edc4a83ead483300c3cf5dab8171",
+    "bridge-manager/src/readback.rs": "35921057f1e5e3bcb3330d7011e9b771103700a3458f54971da4a3e12a81e766",
+    "native-vst3-proxy/CMakeLists.txt": "951886e3791e2335ba89dc995628eac34167f9067648ace643cedbf817b8da36",
+    "native-vst3-proxy/backend/src/gui.rs": "a6fc37e8c4e97023e8a33b0488257fa10f8b98d1f1125e6f528d8439f2544fca",
+    "native-vst3-proxy/backend/src/mailbox.rs": "1639284f3eb011c6a27ce9eb92ff4401811e16ed2112212efd12816ed9aa7b72",
+    "native-vst3-proxy/backend/src/queued.rs": "4a29d44b47de1a6c7cd7b37d488c4aeb268ee0aa07fabaa3570a26b5b8d6da16",
+    "native-vst3-proxy/backend/src/state.rs": "b0306df482e37ed45df071a67d9c6345bfa56d3803d722be492a6475061a6d84",
+    "native-vst3-proxy/include/ap11_gui.h": "6e1ecbb5e9d3cf1ff5b9bf4840c6e3bfbfc8fb2de8887d131ca594f13635aa15",
+    "native-vst3-proxy/source/commercial_controller.h": "6239addff0dfabb2dbd99a4c4fad263309e8c7d2d710cc64416e116b8178c574",
+    "native-vst3-proxy/source/desktop_activation.h": "89bbd913c13ddae6e9de76321760d98bb7f15708a0ad7fb6b1ec6aad80227443",
+    "native-vst3-proxy/source/editor_lifecycle.h": "deeea9fd1a5e064c24013652dcdfdfdfc901b7ef4a592d292a13aa38d23fb4f4",
+    "native-vst3-proxy/source/processor.cpp": "a8bbddc0fdaea929907a7c8473e956294afab661ad01db5ea8d413cc5ea3d66a",
+    "native-vst3-proxy/source/vendor_panel.h": "895d6a6495551a6257b2c875a76fce019d62179c22bb4471eae591e285d4c9f6",
+    "tools/ap11-tests/activation.cpp": "a36b13746d4fe1641c5e773c5e96dc19c374f1c7fe268affd1371bff74c68a8f",
+    "tools/ap11-tests/native.cpp": "bb0315efb571f9356cc99b47a59ba86d0ef9a9822709c5ffee65229bbcd2cdb1",
+    "tools/ap11-tests/panel.cpp": "121ad182a561114e1ab78061eb51877c54fd18bbe034f48fec57bfda94bd3bb3",
+    "tools/ap11-tests/windows.cpp": "c762163040f2700f14e10521aed870271271820dbfbb849cd1674494e9847c61",
+    "tools/ap13-tests/state_delivery.cpp": "fd7b67457e74d29999eb6f63e13498557db6c3caa95a5ef99a2b707f1d5fe888",
+    "windows-factory-probe/source/editor_session.h": "e0d0580247b59fdfaca947df5af8d193a3eba6bc569208b8af490c25703dd552",
+    "windows-factory-probe/source/gui_channel.h": "e1c2e8d4a404c2433ef486ba143126a28acd9702f04722701c46a04382ffb405",
+    "windows-factory-probe/source/vendor_view.h": "7230792421940ab86b8bc7d3656051b265a71e7ca9063e27443c454907ea2eb5"
+  },
+  "commands": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "host": "macOS / rustup stable 1.90",
+      "result": "57 passed"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "host": "macOS / rustup stable 1.90",
+      "result": "30 library and 3 CLI tests passed"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "host": "macOS",
+      "result": "6 passed, 9 Linux-only skipped"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "host": "Steam Deck Linux, copied test source only",
+      "result": "15 passed; no skipped tests"
+    },
+    {
+      "command": [
+        "cmake",
+        "-S",
+        "$HOME/AP15-Work/native-tests",
+        "-B",
+        "$HOME/AP15-Work/native-tests/build",
+        "-G",
+        "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DAP2_BUILD_ONLY=ON",
+        "-DAP10_RESULTS_TESTS=ON",
+        "-DAP11_PANEL_TESTS=ON",
+        "-DVST3_SDK_ROOT=$HOME/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "-DAP2_RUST_LIBRARY=$HOME/AP15-Work/native-tests/libap2_backend.a",
+        "-DAP8_DESCRIPTOR=$HOME/AP15-Work/native-tests/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "cmake",
+        "--build",
+        "$HOME/AP15-Work/native-tests/build",
+        "--target",
+        "ap10-result-lifetime",
+        "ap10-results-tests",
+        "ap11-native-tests",
+        "ap11-state-tests",
+        "ap11-panel-tests",
+        "ap11-activation-tests",
+        "ap3-callback-audit",
+        "CommercialInstrumentBridge",
+        "-j",
+        "4"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "$HOME/AP15-Work/native-tests/build/native-vst3-proxy",
+        "--verbose"
+      ],
+      "exit": 0
+    }
+  ],
+  "linux_lane": {
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "flatpak_sdk": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+    "compiler": "GNU 15.2.0",
+    "result": "6 CTest tests passed",
+    "xvfb": "Debian 13 Xvfb 2:21.1.16-1.3+deb13u3 extracted from a disposable task container; isolated X display inside the retained SDK; not the operator display",
+    "tools_sha256": {
+      "Xvfb": "14e8ec7d8209bbaf105f9ade27a80b65f01709346690d18fbadb6116ada34912",
+      "xvfb-run": "97e86a102eee7212bfa3bf87d452b27dd4f16ef6e68658eeae20bca63db2ceee",
+      "xauth": "39e89b8530af1402b6b6f845309fc5a578c9ef9105412fa7198927ce92e7199d",
+      "xkbcomp": "3bdef741c74039c0b6245b3c4e853fd046c493a97643078f5afca11cfb13f90a",
+      "libXfont2.so.2": "fb8aa45d7fa28b83981d2c68a9d7e875f3a0ac5e79274ea4c57bdca9db65e85c"
+    },
+    "build_log_sha256": "383b849b8a063247efd6abc9a3b154efbde76e941928fac455b1d5a16f9d3966"
+  },
+  "qualification_tests": {
+    "boundaries": 16,
+    "result": "Each injected boundary reconciles twice to exact verified revision-3 parent; unchanged prior target/vendor files; pending empty. Candidate ordinary activation refusal, missing sealed roster refusal before mutation, active lease/foreign entry refusal, current verified host policy and stable external IDs tested.",
+    "scope": "Existing synthetic manager/publication fixture, not installed candidate activation"
+  },
+  "historical_local_failures": [
+    "First backend default-parallel run exceeded the existing 16-slot shared test registry (52 passed, 2 failed); explicit four test threads passed without changing production capacity.",
+    "Initial native fixture archive omitted Windows collector headers; corrected build input roster.",
+    "Retained SDK lacked Xvfb. Disposable Debian container obtained signed distro build dependencies; its rootless restart failed, so extracted Xvfb and needed libraries were used only inside the existing SDK test sandbox. The owned container/storage were removed.",
+    "Existing processor-first retirement test had no active editor after its earlier disconnect; it now opens a fresh owned view before checking the opposite disconnect order.",
+    "A duplicate local fixture identifier prevented one compile; renamed and the full six-test suite passed."
+  ],
+  "not_run": [
+    "Windows SDK host/editor/standalone owner lanes",
+    "Commercial candidate deployment and direct Bitwig lifecycle/music/save/reopen checks",
+    "Performance campaign"
+  ],
+  "ci_start_condition": "GitHub reported recent account payment failure or spending-limit exhaustion; jobs had runner_id 0 and no steps. Operator confirmed allowance exhaustion and requested local continuation, deferring Windows."
+}

@@ -21,6 +21,11 @@ pub enum RefusalCode {
     ForeignPublication,
     RecoveryPending,
     SelectionRequired,
+    QualificationArtifactsPending,
+    QualificationParentRequired,
+    QualificationMismatch,
+    QualificationActive,
+    AcceptanceMismatch,
     LocalRecordOrIoFailure,
 }
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -31,6 +36,18 @@ pub struct Refusal {
 pub fn refusal(e: &(dyn std::error::Error + Send + Sync)) -> Refusal {
     let detail = e.to_string();
     let code = match detail.as_str() {
+        s if s.starts_with("acceptance_") => RefusalCode::AcceptanceMismatch,
+        "ap15_candidate_artifacts_pending" => RefusalCode::QualificationArtifactsPending,
+        "qualification_verified_parent_required" | "qualification_parent_absent" => {
+            RefusalCode::QualificationParentRequired
+        }
+        "qualification_verified_parent_mismatch"
+        | "qualification_exact_candidate_required"
+        | "qualification_artifact_location_or_mutability"
+        | "qualification_candidate_contract" => RefusalCode::QualificationMismatch,
+        "qualification_active_restore_first" | "qualification_publication_changed" => {
+            RefusalCode::QualificationActive
+        }
         "profile_review_candidate_not_activatable" => RefusalCode::ReviewCandidateNotActivatable,
         "profile_withdrawn" => RefusalCode::ProfileWithdrawn,
         "profile_no_match" => RefusalCode::NoMatch,
@@ -66,6 +83,7 @@ pub struct ProfileSelection {
     pub id: String,
     pub revision: u32,
     pub claim: Claim,
+    pub activation_permitted: bool,
 }
 #[derive(Debug, Serialize)]
 pub struct RollbackTarget {
@@ -104,6 +122,7 @@ pub struct ProductStatus {
     pub compatibility: Compatibility,
     pub capabilities: Option<Capabilities>,
     pub limitations: Option<Vec<Limitation>>,
+    pub qualification: Option<crate::publication::Qualification>,
     pub recovery_pending: bool,
     pub refusal: Option<Refusal>,
 }
@@ -148,9 +167,8 @@ impl Manager {
                 read_json::<Environment>(&r.environment.root.join("environment.json"))
                     .is_ok_and(|current| current == r.environment);
             let runner_valid = r.environment.runner.verify().is_ok();
-            let host_valid = self
-                .verify_served_host(r, installed_host, source, profiles)
-                .is_ok();
+            let host_result = self.verify_served_host(r, installed_host, source, profiles);
+            let host_valid = host_result.is_ok();
             let pending = self.publication_pending(key)?;
             let physical_valid = match e.publication {
                 Publication::Published => {
@@ -169,10 +187,10 @@ impl Manager {
                 Some("environment_mismatch".into())
             } else if !runner_valid {
                 Some("runner_mismatch".into())
-            } else if !host_valid {
-                Some("installed_host_mismatch".into())
             } else if !native_valid {
                 Some("native_artifact_mismatch".into())
+            } else if let Err(e) = host_result {
+                Some(e)
             } else if !physical_valid {
                 Some("foreign_or_missing_publication".into())
             } else if let Err(e) = &performance {
@@ -221,6 +239,7 @@ impl Manager {
                     id: r.profile.id.clone(),
                     revision: r.profile.revision,
                     claim: r.profile.claim.clone(),
+                    activation_permitted: r.profile.claim.permits(SelectionPurpose::Activation),
                 }),
                 module_sha256: r.module.sha256.clone(),
                 build: r.metadata.version.clone(),
@@ -245,6 +264,7 @@ impl Manager {
                 compatibility: r.compatibility.clone(),
                 capabilities: revision.as_ref().map(|r| r.profile.capabilities.clone()),
                 limitations: revision.as_ref().map(|r| r.profile.limitations.clone()),
+                qualification: revision.as_ref().and_then(|r| r.qualification.clone()),
                 recovery_pending: pending,
                 refusal: error.as_ref().map(|e| refusal(e.as_ref())),
             });

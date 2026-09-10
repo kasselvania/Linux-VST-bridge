@@ -1,0 +1,2373 @@
+{
+  "before": {
+    "software": {
+      "manager": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/linux-vst-bridge",
+        "sha256": "1cd35705c4c0d8e0d56316b63f7aec1d75da7d425074c98cc83b5c8cdc0029c5"
+      },
+      "supervisor": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/session.py",
+        "sha256": "1ec8c609a4584ee98b45aa7b89f4d56e7b45c0f88f2aa2371afcf7d8ac23f3d7"
+      },
+      "ownership": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "host": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+        "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+      },
+      "source_manifest": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host-source-manifest.json",
+        "sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d"
+      },
+      "source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+      "native_catalogue": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/native-catalogue.json",
+        "sha256": "45ddb62565391d3fdc3b08c9b54e8428f0d50bb3ddb440dff5877c80f79c6c2e"
+      }
+    },
+    "products": [
+      {
+        "active_revision": {
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+        },
+        "build": "1.0.0.6121",
+        "capabilities": {
+          "accessibility": "disabled_for_vendor_process",
+          "editor": "detached_owner_thread_with_native_panel",
+          "performance": "frames512_recommended256_unqualified",
+          "precision": "float32_only",
+          "state": "concurrent_read_only_capture_v12"
+        },
+        "class_id": "417274754156495350724C4650726F63",
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "environment_revision": 1,
+        "environment_valid": true,
+        "expected_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "external_ids": [
+          "ac7f2418f2915958b5b67620593b9a2d",
+          "0c80f2acc39f5975a38d177102555683"
+        ],
+        "installed_host_valid": true,
+        "limitations": [
+          "short_delivery_gaps",
+          "unqualified256",
+          "windows_accessibility_unavailable",
+          "detached_focus_refusal",
+          "exact_operator_artifact_only"
+        ],
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "module_valid": true,
+        "name": "Pure LoFi",
+        "native_artifact_valid": true,
+        "performance": {
+          "added_frames": 512,
+          "schema": 1
+        },
+        "performance_policy": "frames512_recommended256_unqualified",
+        "physical_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "prior_rollback": {
+          "revision": {
+            "id": "c6766455f13f73c3756db665b1bf92be",
+            "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+          },
+          "target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3",
+          "valid": true
+        },
+        "profile": {
+          "claim": "verified_exact_fixture",
+          "id": "arturia-pure-lofi",
+          "revision": 3
+        },
+        "publication": "Published",
+        "publication_valid": true,
+        "recommended_frames": 512,
+        "recorded_revision": {
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+        },
+        "recovery_pending": false,
+        "refusal": null,
+        "role": "instrument",
+        "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+        "runner_valid": true,
+        "selection": 1
+      },
+      {
+        "active_revision": {
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+        },
+        "build": "1.0.0.2925",
+        "capabilities": {
+          "accessibility": "disabled_for_vendor_process",
+          "editor": "detached_owner_thread_with_native_panel",
+          "performance": "frames512_recommended256_unqualified",
+          "precision": "float32_only",
+          "state": "concurrent_read_only_capture_v12"
+        },
+        "class_id": "41727475415649536772616E50726F63",
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "environment_revision": 1,
+        "environment_valid": true,
+        "expected_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "external_ids": [
+          "96bd361810b3568a9671700732903d6e",
+          "d3181e9d37e75871ba5ffbcae0775861"
+        ],
+        "installed_host_valid": true,
+        "limitations": [
+          "short_delivery_gaps",
+          "unqualified256",
+          "windows_accessibility_unavailable",
+          "detached_focus_refusal",
+          "exact_operator_artifact_only",
+          "fragments_advanced_redraw"
+        ],
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "module_valid": true,
+        "name": "Efx FRAGMENTS",
+        "native_artifact_valid": true,
+        "performance": {
+          "added_frames": 512,
+          "schema": 1
+        },
+        "performance_policy": "frames512_recommended256_unqualified",
+        "physical_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "prior_rollback": {
+          "revision": {
+            "id": "d2fb889b4a3797a2b90c0a57152b0296",
+            "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+          },
+          "target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3",
+          "valid": true
+        },
+        "profile": {
+          "claim": "verified_exact_fixture",
+          "id": "arturia-efx-fragments",
+          "revision": 3
+        },
+        "publication": "Published",
+        "publication_valid": true,
+        "recommended_frames": 512,
+        "recorded_revision": {
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+        },
+        "recovery_pending": false,
+        "refusal": null,
+        "role": "effect",
+        "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+        "runner_valid": true,
+        "selection": 2
+      }
+    ],
+    "physical": [
+      {
+        "class": "417274754156495350724C4650726F63",
+        "link_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "target_exists": true,
+        "revision_sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+        "provenance_sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+        "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "revision": {
+          "schema": 1,
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "class_id": "417274754156495350724C4650726F63",
+          "external_ids": [
+            "ac7f2418f2915958b5b67620593b9a2d",
+            "0c80f2acc39f5975a38d177102555683"
+          ],
+          "profile": {
+            "schema": 1,
+            "id": "arturia-pure-lofi",
+            "revision": 3,
+            "claim": "verified_exact_fixture",
+            "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+            "factory_vendor": "Arturia",
+            "class": {
+              "class_id": "417274754156495350724C4650726F63",
+              "name": "Pure LoFi",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121",
+              "subcategories": "Instrument|Synth",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "role": "instrument",
+            "requirements": {
+              "runner": {
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                "file_sha256": [
+                  "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+                  "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+                  "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+                  "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+                  "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+                  "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+                  "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+                  "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                  "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+                  "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+                  "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+                  "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+                  "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+                  "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+                  "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+                  "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+                  "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+                  "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+                  "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+                  "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+                  "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+                  "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                  "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+                  "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+                  "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+                  "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+                  "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+                  "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+                  "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                ]
+              },
+              "environment_family": "arturia_persistent_v1",
+              "environment_revision": 1,
+              "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+              "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+              "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+              "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+              "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245"
+            },
+            "capabilities": {
+              "accessibility": "disabled_for_vendor_process",
+              "editor": "detached_owner_thread_with_native_panel",
+              "state": "concurrent_read_only_capture_v12",
+              "precision": "float32_only",
+              "performance": "frames512_recommended256_unqualified"
+            },
+            "limitations": [
+              "short_delivery_gaps",
+              "unqualified256",
+              "windows_accessibility_unavailable",
+              "detached_focus_refusal",
+              "exact_operator_artifact_only"
+            ],
+            "evidence": [
+              "docs/AP12.md",
+              "docs/AP13.md",
+              "evidence/AP13/installation-final.json",
+              "docs/AP14.md",
+              "evidence/ap14/transactions.json",
+              "evidence/ap14/installed-identities.json",
+              "evidence/ap14/musical-smoke.json"
+            ]
+          },
+          "profile_sha256": "13b02bb8a4643772039df81b30b681f66d58c2b9d4976e39c4daabe087a18766",
+          "census": {
+            "schema": 1,
+            "id": "8399895f62a8c4469346650b8636a418",
+            "captured_at": 1788979754,
+            "environment": {
+              "family": "arturia_persistent_v1",
+              "environment": {
+                "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "root": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "runner": {
+                  "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                  "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                  "proton": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                  "entry_point": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                  "files": [
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/version",
+                      "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/toolmanifest.vdf",
+                      "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                      "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.json",
+                      "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.py",
+                      "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/filelock.py",
+                      "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/dist.lock",
+                      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/steampipe_fixups_mtime",
+                      "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wine",
+                      "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wineserver",
+                      "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine",
+                      "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine-preloader",
+                      "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-windows/cmd.exe",
+                      "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/system.reg",
+                      "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/user.reg",
+                      "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/userdef.reg",
+                      "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE",
+                      "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE.OFL",
+                      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/PATENTS.AV1",
+                      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/VERSIONS.txt",
+                      "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/toolmanifest.vdf",
+                      "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                      "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/run",
+                      "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/metadata",
+                      "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-unruntime",
+                      "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+                      "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-supervisor",
+                      "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                      "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",
+                      "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                      "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                      "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                    }
+                  ]
+                },
+                "revision": 1
+              }
+            },
+            "module": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pure LoFi.vst3",
+              "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+            },
+            "module_stamp": {
+              "device": 66312,
+              "inode": 6259069,
+              "bytes": 26519616,
+              "modified": 1745507199,
+              "modified_ns": 626894200
+            },
+            "host": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "report": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/runtime/results/windows-f510d5b8fa90dd48bf9419927454394b.json",
+              "sha256": "d1154eb3a5c9c16d77bd9619dca7636a16b0e7c7de89e7f2593800a9eb46136d"
+            },
+            "factory_vendor": "Arturia",
+            "classes": [
+              "417274754156495350724C4650726F63",
+              "4AFD4B6A35D7C240A5C31414FB7D15E6"
+            ],
+            "selected": {
+              "class_id": "417274754156495350724C4650726F63",
+              "name": "Pure LoFi",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121",
+              "subcategories": "Instrument|Synth",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "parameter_count": 3053,
+            "float32": true,
+            "float64": false
+          },
+          "registration": {
+            "metadata": {
+              "class_id": "417274754156495350724C4650726F63",
+              "name": "Pure LoFi",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121",
+              "subcategories": "Instrument|Synth",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "environment": {
+              "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "root": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "runner": {
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                "proton": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                "entry_point": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                "files": [
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/version",
+                    "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/toolmanifest.vdf",
+                    "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                    "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.json",
+                    "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.py",
+                    "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/filelock.py",
+                    "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/dist.lock",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/steampipe_fixups_mtime",
+                    "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wine",
+                    "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wineserver",
+                    "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine",
+                    "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine-preloader",
+                    "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-windows/cmd.exe",
+                    "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/system.reg",
+                    "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/user.reg",
+                    "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/userdef.reg",
+                    "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE",
+                    "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE.OFL",
+                    "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/PATENTS.AV1",
+                    "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/VERSIONS.txt",
+                    "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/toolmanifest.vdf",
+                    "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                    "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/run",
+                    "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/metadata",
+                    "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-unruntime",
+                    "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+                    "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-supervisor",
+                    "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                    "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",
+                    "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                    "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                    "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                  }
+                ]
+              },
+              "revision": 1
+            },
+            "module": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pure LoFi.vst3",
+              "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+            },
+            "host": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "native": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+              "sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a"
+            },
+            "compatibility": {
+              "disable_windows_accessibility": true
+            }
+          },
+          "performance": {
+            "schema": 1,
+            "added_frames": 512
+          },
+          "target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+          "parent": {
+            "id": "c6766455f13f73c3756db665b1bf92be",
+            "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+          },
+          "transaction": "20186a9abbb84f4fc0b90e34fc0a65be",
+          "adopted_legacy": false
+        }
+      },
+      {
+        "class": "41727475415649536772616E50726F63",
+        "link_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "target_exists": true,
+        "revision_sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+        "provenance_sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+        "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "revision": {
+          "schema": 1,
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "class_id": "41727475415649536772616E50726F63",
+          "external_ids": [
+            "96bd361810b3568a9671700732903d6e",
+            "d3181e9d37e75871ba5ffbcae0775861"
+          ],
+          "profile": {
+            "schema": 1,
+            "id": "arturia-efx-fragments",
+            "revision": 3,
+            "claim": "verified_exact_fixture",
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "factory_vendor": "Arturia",
+            "class": {
+              "class_id": "41727475415649536772616E50726F63",
+              "name": "Efx FRAGMENTS",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925",
+              "subcategories": "Fx|Tools",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "role": "effect",
+            "requirements": {
+              "runner": {
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                "file_sha256": [
+                  "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+                  "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+                  "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+                  "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+                  "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+                  "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+                  "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+                  "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                  "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+                  "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+                  "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+                  "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+                  "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+                  "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+                  "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+                  "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+                  "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+                  "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+                  "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+                  "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+                  "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+                  "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                  "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+                  "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+                  "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+                  "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+                  "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+                  "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+                  "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                ]
+              },
+              "environment_family": "arturia_persistent_v1",
+              "environment_revision": 1,
+              "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+              "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+              "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+              "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+              "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e"
+            },
+            "capabilities": {
+              "accessibility": "disabled_for_vendor_process",
+              "editor": "detached_owner_thread_with_native_panel",
+              "state": "concurrent_read_only_capture_v12",
+              "precision": "float32_only",
+              "performance": "frames512_recommended256_unqualified"
+            },
+            "limitations": [
+              "short_delivery_gaps",
+              "unqualified256",
+              "windows_accessibility_unavailable",
+              "detached_focus_refusal",
+              "exact_operator_artifact_only",
+              "fragments_advanced_redraw"
+            ],
+            "evidence": [
+              "docs/AP12.md",
+              "docs/AP13.md",
+              "evidence/AP13/installation-final.json",
+              "docs/AP14.md",
+              "evidence/ap14/transactions.json",
+              "evidence/ap14/installed-identities.json",
+              "evidence/ap14/musical-smoke.json"
+            ]
+          },
+          "profile_sha256": "f9819ff473e0670eb44c52f4479a00f6addc8c4020e8ffbbee380fa8e22b4abc",
+          "census": {
+            "schema": 1,
+            "id": "9566606fe3d117f84b5922205d8587d8",
+            "captured_at": 1788979748,
+            "environment": {
+              "family": "arturia_persistent_v1",
+              "environment": {
+                "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "root": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "runner": {
+                  "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                  "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                  "proton": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                  "entry_point": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                  "files": [
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/version",
+                      "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/toolmanifest.vdf",
+                      "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                      "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.json",
+                      "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.py",
+                      "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/filelock.py",
+                      "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/dist.lock",
+                      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/steampipe_fixups_mtime",
+                      "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wine",
+                      "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wineserver",
+                      "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine",
+                      "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine-preloader",
+                      "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-windows/cmd.exe",
+                      "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/system.reg",
+                      "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/user.reg",
+                      "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/userdef.reg",
+                      "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE",
+                      "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE.OFL",
+                      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/PATENTS.AV1",
+                      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/VERSIONS.txt",
+                      "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/toolmanifest.vdf",
+                      "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                      "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/run",
+                      "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/metadata",
+                      "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-unruntime",
+                      "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+                      "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-supervisor",
+                      "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                      "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",
+                      "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                      "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                      "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                    }
+                  ]
+                },
+                "revision": 1
+              }
+            },
+            "module": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+              "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+            },
+            "module_stamp": {
+              "device": 66312,
+              "inode": 6263228,
+              "bytes": 20673024,
+              "modified": 946717200,
+              "modified_ns": 0
+            },
+            "host": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "report": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/runtime/results/windows-ff49dc82067f846c9012f1e9e72bf27b.json",
+              "sha256": "b4e3f4054e776735fd691919e4076929e41f44da1b100fd730706a1c690c9c05"
+            },
+            "factory_vendor": "Arturia",
+            "classes": [
+              "41727475415649536772616E50726F63"
+            ],
+            "selected": {
+              "class_id": "41727475415649536772616E50726F63",
+              "name": "Efx FRAGMENTS",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925",
+              "subcategories": "Fx|Tools",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "parameter_count": 2348,
+            "float32": true,
+            "float64": false
+          },
+          "registration": {
+            "metadata": {
+              "class_id": "41727475415649536772616E50726F63",
+              "name": "Efx FRAGMENTS",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925",
+              "subcategories": "Fx|Tools",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "environment": {
+              "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "root": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "runner": {
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                "proton": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                "entry_point": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                "files": [
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/version",
+                    "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/toolmanifest.vdf",
+                    "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                    "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.json",
+                    "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.py",
+                    "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/filelock.py",
+                    "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/dist.lock",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/steampipe_fixups_mtime",
+                    "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wine",
+                    "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wineserver",
+                    "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine",
+                    "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine-preloader",
+                    "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-windows/cmd.exe",
+                    "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/system.reg",
+                    "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/user.reg",
+                    "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/userdef.reg",
+                    "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE",
+                    "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE.OFL",
+                    "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/PATENTS.AV1",
+                    "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/VERSIONS.txt",
+                    "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/toolmanifest.vdf",
+                    "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                    "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/run",
+                    "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/metadata",
+                    "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-unruntime",
+                    "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+                    "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-supervisor",
+                    "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                    "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",
+                    "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                    "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                    "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                  }
+                ]
+              },
+              "revision": 1
+            },
+            "module": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+              "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+            },
+            "host": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "native": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so",
+              "sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374"
+            },
+            "compatibility": {
+              "disable_windows_accessibility": true
+            }
+          },
+          "performance": {
+            "schema": 1,
+            "added_frames": 512
+          },
+          "target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+          "parent": {
+            "id": "d2fb889b4a3797a2b90c0a57152b0296",
+            "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+          },
+          "transaction": "3cc89a955f938bbbff7b2b1d5eeb0a84",
+          "adopted_legacy": false
+        }
+      }
+    ],
+    "projects": [
+      {
+        "name": "AP12 Arturia Chain",
+        "sha256": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+        "size": 83551
+      },
+      {
+        "name": "AP13 Delivery",
+        "sha256": "4c4b43844afecd3e233b270e719da9de257997fd8a01fa3b3a6f20ac3c6284c4",
+        "size": 84026
+      },
+      {
+        "name": "AP14 Publication",
+        "sha256": "abb3b4fc74f811ad381305b7d42aad363991a61b135b5b1234010c03aded9995",
+        "size": 84027
+      },
+      {
+        "name": "AP14 Removal",
+        "sha256": "89b2932d3078b4bcbb40a374008f5516f4822a691f1717b0f7deefdf11de6b64",
+        "size": 65010
+      },
+      {
+        "name": "AP15 Lifecycle",
+        "sha256": "abb3b4fc74f811ad381305b7d42aad363991a61b135b5b1234010c03aded9995",
+        "bytes": 84027
+      }
+    ],
+    "service": "NRestarts=0\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+    "leases": [
+      "6bbb8a503fbe5f836403e32f2d6ddb5d"
+    ],
+    "cpu_weight": "100",
+    "heavy_trace": false
+  },
+  "after": {
+    "software": {
+      "manager": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/linux-vst-bridge",
+        "sha256": "1cd35705c4c0d8e0d56316b63f7aec1d75da7d425074c98cc83b5c8cdc0029c5"
+      },
+      "supervisor": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/session.py",
+        "sha256": "1ec8c609a4584ee98b45aa7b89f4d56e7b45c0f88f2aa2371afcf7d8ac23f3d7"
+      },
+      "ownership": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "host": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+        "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+      },
+      "source_manifest": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host-source-manifest.json",
+        "sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d"
+      },
+      "source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+      "native_catalogue": {
+        "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/native-catalogue.json",
+        "sha256": "45ddb62565391d3fdc3b08c9b54e8428f0d50bb3ddb440dff5877c80f79c6c2e"
+      }
+    },
+    "products": [
+      {
+        "active_revision": {
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+        },
+        "build": "1.0.0.6121",
+        "capabilities": {
+          "accessibility": "disabled_for_vendor_process",
+          "editor": "detached_owner_thread_with_native_panel",
+          "performance": "frames512_recommended256_unqualified",
+          "precision": "float32_only",
+          "state": "concurrent_read_only_capture_v12"
+        },
+        "class_id": "417274754156495350724C4650726F63",
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "environment_revision": 1,
+        "environment_valid": true,
+        "expected_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "external_ids": [
+          "ac7f2418f2915958b5b67620593b9a2d",
+          "0c80f2acc39f5975a38d177102555683"
+        ],
+        "installed_host_valid": true,
+        "limitations": [
+          "short_delivery_gaps",
+          "unqualified256",
+          "windows_accessibility_unavailable",
+          "detached_focus_refusal",
+          "exact_operator_artifact_only"
+        ],
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "module_valid": true,
+        "name": "Pure LoFi",
+        "native_artifact_valid": true,
+        "performance": {
+          "added_frames": 512,
+          "schema": 1
+        },
+        "performance_policy": "frames512_recommended256_unqualified",
+        "physical_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "prior_rollback": {
+          "revision": {
+            "id": "c6766455f13f73c3756db665b1bf92be",
+            "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+          },
+          "target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3",
+          "valid": true
+        },
+        "profile": {
+          "claim": "verified_exact_fixture",
+          "id": "arturia-pure-lofi",
+          "revision": 3
+        },
+        "publication": "Published",
+        "publication_valid": true,
+        "recommended_frames": 512,
+        "recorded_revision": {
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+        },
+        "recovery_pending": false,
+        "refusal": null,
+        "role": "instrument",
+        "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+        "runner_valid": true,
+        "selection": 1
+      },
+      {
+        "active_revision": {
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+        },
+        "build": "1.0.0.2925",
+        "capabilities": {
+          "accessibility": "disabled_for_vendor_process",
+          "editor": "detached_owner_thread_with_native_panel",
+          "performance": "frames512_recommended256_unqualified",
+          "precision": "float32_only",
+          "state": "concurrent_read_only_capture_v12"
+        },
+        "class_id": "41727475415649536772616E50726F63",
+        "compatibility": {
+          "disable_windows_accessibility": true
+        },
+        "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+        "environment_revision": 1,
+        "environment_valid": true,
+        "expected_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "external_ids": [
+          "96bd361810b3568a9671700732903d6e",
+          "d3181e9d37e75871ba5ffbcae0775861"
+        ],
+        "installed_host_valid": true,
+        "limitations": [
+          "short_delivery_gaps",
+          "unqualified256",
+          "windows_accessibility_unavailable",
+          "detached_focus_refusal",
+          "exact_operator_artifact_only",
+          "fragments_advanced_redraw"
+        ],
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "module_valid": true,
+        "name": "Efx FRAGMENTS",
+        "native_artifact_valid": true,
+        "performance": {
+          "added_frames": 512,
+          "schema": 1
+        },
+        "performance_policy": "frames512_recommended256_unqualified",
+        "physical_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "prior_rollback": {
+          "revision": {
+            "id": "d2fb889b4a3797a2b90c0a57152b0296",
+            "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+          },
+          "target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3",
+          "valid": true
+        },
+        "profile": {
+          "claim": "verified_exact_fixture",
+          "id": "arturia-efx-fragments",
+          "revision": 3
+        },
+        "publication": "Published",
+        "publication_valid": true,
+        "recommended_frames": 512,
+        "recorded_revision": {
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+        },
+        "recovery_pending": false,
+        "refusal": null,
+        "role": "effect",
+        "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+        "runner_valid": true,
+        "selection": 2
+      }
+    ],
+    "physical": [
+      {
+        "class": "417274754156495350724C4650726F63",
+        "link_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+        "target_exists": true,
+        "revision_sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+        "provenance_sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+        "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "revision": {
+          "schema": 1,
+          "id": "2452b7ebaeb57a847ba957637e3369a7",
+          "class_id": "417274754156495350724C4650726F63",
+          "external_ids": [
+            "ac7f2418f2915958b5b67620593b9a2d",
+            "0c80f2acc39f5975a38d177102555683"
+          ],
+          "profile": {
+            "schema": 1,
+            "id": "arturia-pure-lofi",
+            "revision": 3,
+            "claim": "verified_exact_fixture",
+            "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+            "factory_vendor": "Arturia",
+            "class": {
+              "class_id": "417274754156495350724C4650726F63",
+              "name": "Pure LoFi",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121",
+              "subcategories": "Instrument|Synth",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "role": "instrument",
+            "requirements": {
+              "runner": {
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                "file_sha256": [
+                  "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+                  "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+                  "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+                  "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+                  "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+                  "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+                  "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+                  "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                  "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+                  "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+                  "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+                  "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+                  "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+                  "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+                  "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+                  "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+                  "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+                  "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+                  "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+                  "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+                  "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+                  "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                  "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+                  "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+                  "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+                  "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+                  "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+                  "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+                  "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                ]
+              },
+              "environment_family": "arturia_persistent_v1",
+              "environment_revision": 1,
+              "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+              "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+              "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+              "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+              "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245"
+            },
+            "capabilities": {
+              "accessibility": "disabled_for_vendor_process",
+              "editor": "detached_owner_thread_with_native_panel",
+              "state": "concurrent_read_only_capture_v12",
+              "precision": "float32_only",
+              "performance": "frames512_recommended256_unqualified"
+            },
+            "limitations": [
+              "short_delivery_gaps",
+              "unqualified256",
+              "windows_accessibility_unavailable",
+              "detached_focus_refusal",
+              "exact_operator_artifact_only"
+            ],
+            "evidence": [
+              "docs/AP12.md",
+              "docs/AP13.md",
+              "evidence/AP13/installation-final.json",
+              "docs/AP14.md",
+              "evidence/ap14/transactions.json",
+              "evidence/ap14/installed-identities.json",
+              "evidence/ap14/musical-smoke.json"
+            ]
+          },
+          "profile_sha256": "13b02bb8a4643772039df81b30b681f66d58c2b9d4976e39c4daabe087a18766",
+          "census": {
+            "schema": 1,
+            "id": "8399895f62a8c4469346650b8636a418",
+            "captured_at": 1788979754,
+            "environment": {
+              "family": "arturia_persistent_v1",
+              "environment": {
+                "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "root": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "runner": {
+                  "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                  "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                  "proton": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                  "entry_point": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                  "files": [
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/version",
+                      "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/toolmanifest.vdf",
+                      "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                      "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.json",
+                      "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.py",
+                      "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/filelock.py",
+                      "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/dist.lock",
+                      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/steampipe_fixups_mtime",
+                      "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wine",
+                      "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wineserver",
+                      "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine",
+                      "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine-preloader",
+                      "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-windows/cmd.exe",
+                      "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/system.reg",
+                      "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/user.reg",
+                      "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/userdef.reg",
+                      "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE",
+                      "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE.OFL",
+                      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/PATENTS.AV1",
+                      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/VERSIONS.txt",
+                      "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/toolmanifest.vdf",
+                      "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                      "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/run",
+                      "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/metadata",
+                      "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-unruntime",
+                      "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+                      "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-supervisor",
+                      "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                      "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",
+                      "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                      "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                      "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                    }
+                  ]
+                },
+                "revision": 1
+              }
+            },
+            "module": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pure LoFi.vst3",
+              "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+            },
+            "module_stamp": {
+              "device": 66312,
+              "inode": 6259069,
+              "bytes": 26519616,
+              "modified": 1745507199,
+              "modified_ns": 626894200
+            },
+            "host": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "report": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/runtime/results/windows-f510d5b8fa90dd48bf9419927454394b.json",
+              "sha256": "d1154eb3a5c9c16d77bd9619dca7636a16b0e7c7de89e7f2593800a9eb46136d"
+            },
+            "factory_vendor": "Arturia",
+            "classes": [
+              "417274754156495350724C4650726F63",
+              "4AFD4B6A35D7C240A5C31414FB7D15E6"
+            ],
+            "selected": {
+              "class_id": "417274754156495350724C4650726F63",
+              "name": "Pure LoFi",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121",
+              "subcategories": "Instrument|Synth",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "parameter_count": 3053,
+            "float32": true,
+            "float64": false
+          },
+          "registration": {
+            "metadata": {
+              "class_id": "417274754156495350724C4650726F63",
+              "name": "Pure LoFi",
+              "vendor": "Arturia",
+              "version": "1.0.0.6121",
+              "subcategories": "Instrument|Synth",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "environment": {
+              "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "root": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "runner": {
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                "proton": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                "entry_point": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                "files": [
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/version",
+                    "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/toolmanifest.vdf",
+                    "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                    "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.json",
+                    "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.py",
+                    "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/filelock.py",
+                    "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/dist.lock",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/steampipe_fixups_mtime",
+                    "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wine",
+                    "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wineserver",
+                    "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine",
+                    "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine-preloader",
+                    "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-windows/cmd.exe",
+                    "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/system.reg",
+                    "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/user.reg",
+                    "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/userdef.reg",
+                    "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE",
+                    "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE.OFL",
+                    "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/PATENTS.AV1",
+                    "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/VERSIONS.txt",
+                    "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/toolmanifest.vdf",
+                    "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                    "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/run",
+                    "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/metadata",
+                    "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-unruntime",
+                    "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+                    "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-supervisor",
+                    "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                    "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",
+                    "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                    "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                    "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                  }
+                ]
+              },
+              "revision": 1
+            },
+            "module": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pure LoFi.vst3",
+              "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+            },
+            "host": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "native": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+              "sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a"
+            },
+            "compatibility": {
+              "disable_windows_accessibility": true
+            }
+          },
+          "performance": {
+            "schema": 1,
+            "added_frames": 512
+          },
+          "target": "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+          "parent": {
+            "id": "c6766455f13f73c3756db665b1bf92be",
+            "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+          },
+          "transaction": "20186a9abbb84f4fc0b90e34fc0a65be",
+          "adopted_legacy": false
+        }
+      },
+      {
+        "class": "41727475415649536772616E50726F63",
+        "link_target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+        "target_exists": true,
+        "revision_sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+        "provenance_sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+        "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "revision": {
+          "schema": 1,
+          "id": "213f36d41e964bcbdccd30093a6cded0",
+          "class_id": "41727475415649536772616E50726F63",
+          "external_ids": [
+            "96bd361810b3568a9671700732903d6e",
+            "d3181e9d37e75871ba5ffbcae0775861"
+          ],
+          "profile": {
+            "schema": 1,
+            "id": "arturia-efx-fragments",
+            "revision": 3,
+            "claim": "verified_exact_fixture",
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "factory_vendor": "Arturia",
+            "class": {
+              "class_id": "41727475415649536772616E50726F63",
+              "name": "Efx FRAGMENTS",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925",
+              "subcategories": "Fx|Tools",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "role": "effect",
+            "requirements": {
+              "runner": {
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                "file_sha256": [
+                  "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+                  "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+                  "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+                  "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+                  "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+                  "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+                  "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+                  "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+                  "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+                  "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+                  "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+                  "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+                  "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+                  "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+                  "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+                  "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+                  "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+                  "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+                  "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+                  "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+                  "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+                  "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+                  "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+                  "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+                  "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+                  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+                  "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+                  "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+                  "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+                  "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                ]
+              },
+              "environment_family": "arturia_persistent_v1",
+              "environment_revision": 1,
+              "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+              "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+              "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+              "native_source_commit": "16efd270ee7f00cbd365974d167bfe8448355acb",
+              "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e"
+            },
+            "capabilities": {
+              "accessibility": "disabled_for_vendor_process",
+              "editor": "detached_owner_thread_with_native_panel",
+              "state": "concurrent_read_only_capture_v12",
+              "precision": "float32_only",
+              "performance": "frames512_recommended256_unqualified"
+            },
+            "limitations": [
+              "short_delivery_gaps",
+              "unqualified256",
+              "windows_accessibility_unavailable",
+              "detached_focus_refusal",
+              "exact_operator_artifact_only",
+              "fragments_advanced_redraw"
+            ],
+            "evidence": [
+              "docs/AP12.md",
+              "docs/AP13.md",
+              "evidence/AP13/installation-final.json",
+              "docs/AP14.md",
+              "evidence/ap14/transactions.json",
+              "evidence/ap14/installed-identities.json",
+              "evidence/ap14/musical-smoke.json"
+            ]
+          },
+          "profile_sha256": "f9819ff473e0670eb44c52f4479a00f6addc8c4020e8ffbbee380fa8e22b4abc",
+          "census": {
+            "schema": 1,
+            "id": "9566606fe3d117f84b5922205d8587d8",
+            "captured_at": 1788979748,
+            "environment": {
+              "family": "arturia_persistent_v1",
+              "environment": {
+                "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "root": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+                "runner": {
+                  "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                  "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                  "proton": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                  "entry_point": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                  "files": [
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/version",
+                      "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/toolmanifest.vdf",
+                      "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                      "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.json",
+                      "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.py",
+                      "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/filelock.py",
+                      "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/dist.lock",
+                      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/steampipe_fixups_mtime",
+                      "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wine",
+                      "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wineserver",
+                      "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine",
+                      "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine-preloader",
+                      "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-windows/cmd.exe",
+                      "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/system.reg",
+                      "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/user.reg",
+                      "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/userdef.reg",
+                      "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE",
+                      "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE.OFL",
+                      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/PATENTS.AV1",
+                      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/VERSIONS.txt",
+                      "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/toolmanifest.vdf",
+                      "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                      "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/run",
+                      "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/metadata",
+                      "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-unruntime",
+                      "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+                      "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-supervisor",
+                      "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                      "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",
+                      "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                      "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                    },
+                    {
+                      "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                      "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                    }
+                  ]
+                },
+                "revision": 1
+              }
+            },
+            "module": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+              "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+            },
+            "module_stamp": {
+              "device": 66312,
+              "inode": 6263228,
+              "bytes": 20673024,
+              "modified": 946717200,
+              "modified_ns": 0
+            },
+            "host": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "report": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/runtime/results/windows-ff49dc82067f846c9012f1e9e72bf27b.json",
+              "sha256": "b4e3f4054e776735fd691919e4076929e41f44da1b100fd730706a1c690c9c05"
+            },
+            "factory_vendor": "Arturia",
+            "classes": [
+              "41727475415649536772616E50726F63"
+            ],
+            "selected": {
+              "class_id": "41727475415649536772616E50726F63",
+              "name": "Efx FRAGMENTS",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925",
+              "subcategories": "Fx|Tools",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "parameter_count": 2348,
+            "float32": true,
+            "float64": false
+          },
+          "registration": {
+            "metadata": {
+              "class_id": "41727475415649536772616E50726F63",
+              "name": "Efx FRAGMENTS",
+              "vendor": "Arturia",
+              "version": "1.0.0.2925",
+              "subcategories": "Fx|Tools",
+              "metadata_tier": "factory_3_unicode"
+            },
+            "environment": {
+              "id": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "root": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609",
+              "runner": {
+                "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+                "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+                "proton": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                "entry_point": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                "files": [
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/version",
+                    "sha256": "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/toolmanifest.vdf",
+                    "sha256": "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/proton",
+                    "sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.json",
+                    "sha256": "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/steampipe_fixups.py",
+                    "sha256": "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/filelock.py",
+                    "sha256": "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/dist.lock",
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/steampipe_fixups_mtime",
+                    "sha256": "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wine",
+                    "sha256": "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/bin/wineserver",
+                    "sha256": "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine",
+                    "sha256": "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-unix/wine-preloader",
+                    "sha256": "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/lib/wine/x86_64-windows/cmd.exe",
+                    "sha256": "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/system.reg",
+                    "sha256": "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/user.reg",
+                    "sha256": "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/files/share/default_pfx/userdef.reg",
+                    "sha256": "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE",
+                    "sha256": "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/LICENSE.OFL",
+                    "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/Proton 11.0/PATENTS.AV1",
+                    "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/VERSIONS.txt",
+                    "sha256": "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/toolmanifest.vdf",
+                    "sha256": "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point",
+                    "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/run",
+                    "sha256": "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/steamrt4_platform_4.0.20260805.254769/metadata",
+                    "sha256": "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-unruntime",
+                    "sha256": "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+                    "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-supervisor",
+                    "sha256": "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launcher-interface-0",
+                    "sha256": "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",
+                    "sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/pv-adverb",
+                    "sha256": "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501"
+                  },
+                  {
+                    "path": "$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap",
+                    "sha256": "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a"
+                  }
+                ]
+              },
+              "revision": 1
+            },
+            "module": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/environments/1de8d28b-d98b-4a41-8462-c07cca8e1609/compatdata/pfx/drive_c/Program Files/Common Files/VST3/Efx FRAGMENTS.vst3",
+              "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+            },
+            "host": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/software/a54c2f142833880264b87df18356429d3fda1f68009fe6d43d5833c56b2185c1/host.exe",
+              "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+            },
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "native": {
+              "path": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so",
+              "sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374"
+            },
+            "compatibility": {
+              "disable_windows_accessibility": true
+            }
+          },
+          "performance": {
+            "schema": 1,
+            "added_frames": 512
+          },
+          "target": "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+          "parent": {
+            "id": "d2fb889b4a3797a2b90c0a57152b0296",
+            "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+          },
+          "transaction": "3cc89a955f938bbbff7b2b1d5eeb0a84",
+          "adopted_legacy": false
+        }
+      }
+    ],
+    "projects": [
+      {
+        "name": "AP12 Arturia Chain",
+        "sha256": "e44d326d9682e84201e0aec6845a6347c06bbfe8f25c53fa1e50f74525951c4d",
+        "size": 83551
+      },
+      {
+        "name": "AP13 Delivery",
+        "sha256": "4c4b43844afecd3e233b270e719da9de257997fd8a01fa3b3a6f20ac3c6284c4",
+        "size": 84026
+      },
+      {
+        "name": "AP14 Publication",
+        "sha256": "abb3b4fc74f811ad381305b7d42aad363991a61b135b5b1234010c03aded9995",
+        "size": 84027
+      },
+      {
+        "name": "AP14 Removal",
+        "sha256": "89b2932d3078b4bcbb40a374008f5516f4822a691f1717b0f7deefdf11de6b64",
+        "size": 65010
+      },
+      {
+        "name": "AP15 Lifecycle",
+        "sha256": "abb3b4fc74f811ad381305b7d42aad363991a61b135b5b1234010c03aded9995",
+        "bytes": 84027
+      }
+    ],
+    "service": "NRestarts=0\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+    "leases": [
+      "6bbb8a503fbe5f836403e32f2d6ddb5d"
+    ],
+    "cpu_weight": "100",
+    "heavy_trace": false
+  },
+  "retained_record_hashes_before_and_after": {
+    "profiles/arturia-efx-fragments/1.json": "a4ff47bf30a4dd30e161ac5552dacd3e28ace69567f2735bde1a002a0a611872",
+    "profiles/arturia-efx-fragments/2.json": "50ef07bb3685c2392517c6a899cbf0441aca600866bd555822218a73ff6f6bd1",
+    "profiles/arturia-efx-fragments/3.json": "ba3be9b970ebf515094b3de736c4bbba5af457384210436020ef3ebf56077917",
+    "profiles/arturia-pure-lofi/1.json": "59a796a580c53f27218a678b94d395d8f7d0e8396ef08cfa9015e12563573605",
+    "profiles/arturia-pure-lofi/2.json": "48bd810b68639f07b5af472058826bcbfd3e64638dfe8ee391476cfd5e6e95d2",
+    "profiles/arturia-pure-lofi/3.json": "36b50fa578426082a57b1404b2d90e2f1ccfe083f8bfa23d9dca8842978d74c2",
+    "publications/417274754156495350724C4650726F63/1bea58cb409ffdfee51abeaa8d2822f18c73c933099d6fee9967078367de8869/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "84597943784d58b7d866f92bb96423d366c38e7a92ffa14d42c20d5c828f5ba9",
+    "publications/417274754156495350724C4650726F63/2444a9c1030a9c099e10da2387483751d24b143b177bf51da7865a8042131105/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "0aaabbfcda7657cf1ae088403fe75ae71fc9a75f62e34932f038e27d9ccc51da",
+    "publications/417274754156495350724C4650726F63/95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "5a60a614f137d35d6041249e979c650e80feec7b3f12ea273f46068284dbecec",
+    "publications/417274754156495350724C4650726F63/cab22dc72432c64f188782aad25b1cd1628117c44c7f3fd02511205ec52e20ea/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "fab26efb5890ca73d9779ecc193e7db8ad07c9aba330dc303f01f09ad109186d",
+    "publications/417274754156495350724C4650726F63/e7d290c0a5b7c181bbaeeaaf65fede8751b89cc2041e49a3907b2297e0404c69/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "31b3ce11fc20754a1294d93d45a80d05edd6fa9a0984873936c2164a9003bdeb",
+    "publications/417274754156495350724C4650726F63/revisions/18f3da27dda66a44ed19677d4921af8c/revision.json": "63d76ba0c39bb56cfdf045672778cb87370b009de2cbf51313a0e4429fe9ffca",
+    "publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+    "publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/revision.json": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+    "publications/417274754156495350724C4650726F63/revisions/287b436d71da6b5673900ae66681aeaa/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "ddd3108ca925e7b77824176ec4b2fc78fc5666d548f24444dab44c0f43a8d884",
+    "publications/417274754156495350724C4650726F63/revisions/287b436d71da6b5673900ae66681aeaa/revision.json": "ddd3108ca925e7b77824176ec4b2fc78fc5666d548f24444dab44c0f43a8d884",
+    "publications/417274754156495350724C4650726F63/revisions/b6105118333f4f6302a2fda78fb9b8f3/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "8354cac86c6ac4812a558b1668002ee5623737c89165c601f364f02d52dbe0bd",
+    "publications/417274754156495350724C4650726F63/revisions/b6105118333f4f6302a2fda78fb9b8f3/revision.json": "8354cac86c6ac4812a558b1668002ee5623737c89165c601f364f02d52dbe0bd",
+    "publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4",
+    "publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/revision.json": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4",
+    "publications/417274754156495350724C4650726F63/revisions/da68d6cd3bd9230016a318df69b3531c/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "5657190b5ef67b08ef4d8856b3c56eddd558b0aa026dc7fd90c8bbf7090b54f7",
+    "publications/417274754156495350724C4650726F63/revisions/da68d6cd3bd9230016a318df69b3531c/revision.json": "5657190b5ef67b08ef4d8856b3c56eddd558b0aa026dc7fd90c8bbf7090b54f7",
+    "publications/417274754156495350724C4650726F63/revisions/e72ada10e73a6fa4c2c428429ca73fc6/LVB_417274754156495350724C4650726F63.vst3/bridge-provenance.json": "a6865dd24cb726af4679b1cbdde9265d1c92076a8f13f5ddc7336f067c49c840",
+    "publications/417274754156495350724C4650726F63/revisions/e72ada10e73a6fa4c2c428429ca73fc6/revision.json": "a6865dd24cb726af4679b1cbdde9265d1c92076a8f13f5ddc7336f067c49c840",
+    "publications/41727475415649536772616E50726F63/07aa3ba4c58dccd97f63be3855ec0a84b89bb5090f8b0f5c18ee6c848d383ecd/LVB_41727475415649536772616E50726F63.vst3/bridge-provenance.json": "9af04bab19ff4eb91d11f1989f74c371bbca8aefcef0eb2171fea71ac953b7c1",
+    "publications/41727475415649536772616E50726F63/4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374/LVB_41727475415649536772616E50726F63.vst3/bridge-provenance.json": "0e8326e0b86e02d71e02e3c88ec0f6117bf0349a42ba698f7f3e9a832b335d9f",
+    "publications/41727475415649536772616E50726F63/55ee20652d142884fc8da8f4ee4672bf195b3d21b7358dff74c3579883e5503f/LVB_41727475415649536772616E50726F63.vst3/bridge-provenance.json": "c86a21c4d01697796961b0131de110e5e29473eef7cb23c5fe39e596047ca0d0",
+    "publications/41727475415649536772616E50726F63/579fcafa9fb9e4de79fbcce13c216a9756d9729f35caf1d41fd4c21bb54ecc3d/LVB_41727475415649536772616E50726F63.vst3/bridge-provenance.json": "8fefbb3b4d32503fae2cb1b5dc3ba1b12753008ef6aacdc78839bcfdc30dd755",
+    "publications/41727475415649536772616E50726F63/ac3ac7a9b91a6383285d45cbee518da99d0ea9954772349c747ea4d8f995cd1e/LVB_41727475415649536772616E50726F63.vst3/bridge-provenance.json": "29f6d976ce1c3c8a5bad2f65fce3b8d39ebb55d3c06e267dd71dd1796eb19cef",
+    "publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3/bridge-provenance.json": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+    "publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/revision.json": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+    "publications/41727475415649536772616E50726F63/revisions/44e2f4e8541500ef39eeafe93d84f670/revision.json": "d0600e933025b0f4b1603af584fef2be96ce65fef26a4ea377f2fc6e1a46055b",
+    "publications/41727475415649536772616E50726F63/revisions/9b8970282584cc344c4f2dbd9339fd71/LVB_41727475415649536772616E50726F63.vst3/bridge-provenance.json": "de339aadd05610d43d9b75ee2d6e6fc48dca686f70f16466db02a36a490e2e78",
+    "publications/41727475415649536772616E50726F63/revisions/9b8970282584cc344c4f2dbd9339fd71/revision.json": "de339aadd05610d43d9b75ee2d6e6fc48dca686f70f16466db02a36a490e2e78",
+    "publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3/bridge-provenance.json": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882",
+    "publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/revision.json": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882",
+    "transactions/13e4106dc76189fb5679d223d03077ec.json": "359ede43f4d9cb418988ae7738984865dfc4222d52271f5aba4d6befc56913a5",
+    "transactions/13e4106dc76189fb5679d223d03077ec.result.json": "0202413b3a635d5486d272a6358f4f8187cacedd2592d31ed1af0e29c9113c99",
+    "transactions/20186a9abbb84f4fc0b90e34fc0a65be.json": "215720a5ad3b1b4a0c526cf0d97b150e5eef38c1491e68540c24015e2752ab43",
+    "transactions/20186a9abbb84f4fc0b90e34fc0a65be.result.json": "d06375732aca29a9151347a61bf3538deb710492d14c2ffa5fb37f0986ca0e2a",
+    "transactions/21f7aa1ca2752aa9042703313ed8539b.json": "0a702ebf5bb973b0f49c439fab8d394a010d884b6ddcad01132bb0a85cad5872",
+    "transactions/21f7aa1ca2752aa9042703313ed8539b.result.json": "3bfec6cf4d1f365d2196e46b19d96ef8195858fd363da3e3ba36215269fa518c",
+    "transactions/399f114ef448706cdb8ed1c448b5a09e.json": "0aa006f69d6cb5eb8d9ee5b3b716560176cd8273b15da6f7c949250f128113fd",
+    "transactions/399f114ef448706cdb8ed1c448b5a09e.result.json": "f168beb9dd6b3f44619949d0b7ff902d9b144404e3c3db4c7ce7875d070cd276",
+    "transactions/3cc89a955f938bbbff7b2b1d5eeb0a84.json": "2bc1493964fd94a39644808921c929c0c749d1042fae2a29c60406be634bfc4b",
+    "transactions/3cc89a955f938bbbff7b2b1d5eeb0a84.result.json": "3dd184c94094ddb50f72c9d3aed7b22378cd7874310540974170818c85b2ccbe",
+    "transactions/645b5ca055e0ac96df5d5272e46c1c9b.json": "0e3323849a15fe1c3c3a5cb43adf0e458b0ceb79f073d833355952f7a48077df",
+    "transactions/645b5ca055e0ac96df5d5272e46c1c9b.result.json": "211d55d2e6263448cb4a9738c101e00f5d2c75de61cefd63d8abfe6ccae80822",
+    "transactions/7506f3fdf06192689cc0fbb042d513e2.json": "7127112f875b0db1ae6ac59ccc7d2fcb56305096ef06d53393022d31b7cab04e",
+    "transactions/7506f3fdf06192689cc0fbb042d513e2.result.json": "29d902b5fa8853830f88970ce637ae82591883023a18cc4f8a5d8d9c60c174df",
+    "transactions/908e14ee61069d067e560ecc92f01704.json": "7412322c0440da0e70f4e0ba75fdd589c1df4c1be4ca99d1bd90e75d626223ec",
+    "transactions/908e14ee61069d067e560ecc92f01704.result.json": "482e477aba2fa0ff12b403420417e7f4d613aeced7c6b358bf2f17f2ff761a43",
+    "transactions/bf22880b3c9670d67af92c914a444aba.json": "c2387b8192d60bf629b4b0b868aa620aed5056519008cfffec2827e320eaac7d",
+    "transactions/bf22880b3c9670d67af92c914a444aba.result.json": "a3c42fd65b8880dc0a38f16fc35138dead8550a4dc30a94373bdf0308b33e763",
+    "transactions/d8aa62baf785d2ba0b7f79d88695f309.json": "e730d74aba7f88a2dbe0246bcb7c0f8034a0e26a6ddcca0e1ce6a0694a8edbc4",
+    "transactions/d8aa62baf785d2ba0b7f79d88695f309.result.json": "04e19d7b2fe05c4fdefaf6a6ea7d7d21c7723f0435a0110b41f0c16d3222976a",
+    "transactions/fab4f4414badcb0d61e7de7d72216104.json": "ed9d9e3ddacd43fb4a26cae3b8bce5e938eae1182023729ce39641a40336ab63",
+    "transactions/fab4f4414badcb0d61e7de7d72216104.result.json": "dc3f4721ddad18a731898d15d085d6017a9965b1d1ea43c25953a5f3a6be7497"
+  },
+  "registry_sha256_before_and_after": "248ebe4845cca1dc5dc1c7d395df2c1037d9f381495da712f42301755c74e009",
+  "software_record_sha256_before_and_after": "1348c0b5a6260e3b9b7f6fdd60e776babac71410b0b44db9d7cbbd399ba903db",
+  "equality_verified": true,
+  "keeper_process_readback_after": {
+    "environment_owner_processes": [
+      {
+        "pid": 42556,
+        "start_ticks": 6303111,
+        "comm": "srt-bwrap",
+        "role": "environment_owner",
+        "session": "6bbb8a503fbe5f836403e32f2d6ddb5d"
+      },
+      {
+        "pid": 42623,
+        "start_ticks": 6303270,
+        "comm": "pv-adverb",
+        "role": "environment_owner",
+        "session": "6bbb8a503fbe5f836403e32f2d6ddb5d"
+      },
+      {
+        "pid": 42646,
+        "start_ticks": 6303281,
+        "comm": "python3",
+        "role": "environment_owner",
+        "session": "6bbb8a503fbe5f836403e32f2d6ddb5d"
+      },
+      {
+        "pid": 42647,
+        "start_ticks": 6303288,
+        "comm": "start.exe",
+        "role": "environment_owner",
+        "session": "6bbb8a503fbe5f836403e32f2d6ddb5d"
+      },
+      {
+        "pid": 42700,
+        "start_ticks": 6303483,
+        "comm": "host.exe",
+        "role": "environment_owner",
+        "session": "6bbb8a503fbe5f836403e32f2d6ddb5d"
+      }
+    ],
+    "service": "MainPID=42516\nNRestarts=0\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+    "cpu_weight": "100"
+  },
+  "dsp_leases_before_and_after": 0,
+  "pending_transactions_before_and_after": false,
+  "ap15_installed": false,
+  "recommended_and_selected_frames": 512,
+  "frames256": "unqualified"
+}

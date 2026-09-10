@@ -1,0 +1,46 @@
+{
+  "native_builds": [
+    {
+      "returncode": 0,
+      "bundle": "$HOME/.cache/linux-vst-bridge/ap9-builds/635b8e7eb6a68d8d893b8b666bddcb0466f4481e5d4cd50e93bc4e3fb5a733c0/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "2f3df7d757279d0087600d1821ede966f2dc5fa6603cdb8548c1eaebe57004a1",
+      "source_commit": "6fff6a52874ac503f9c6e61e0d71d01a4c4c7706",
+      "input_archive_sha256": "635b8e7eb6a68d8d893b8b666bddcb0466f4481e5d4cd50e93bc4e3fb5a733c0",
+      "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+      "purpose": "initial unqualified native experiment",
+      "deployed": false
+    },
+    {
+      "returncode": 0,
+      "bundle": "$HOME/.cache/linux-vst-bridge/ap9-builds/043cc148407f85fa2c9613e94a6eabe9eb7dcb7a5bc5dfc6a9c64a0b3cd7a365/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "fb10462d4432590fa7fc24cbb9d9b272325f3e8bd949dcdbcd377e3f9427b852",
+      "source_commit": "48e52a84ed21657c5138bb89c5268a38e09a8d6c",
+      "input_archive_sha256": "043cc148407f85fa2c9613e94a6eabe9eb7dcb7a5bc5dfc6a9c64a0b3cd7a365",
+      "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+      "purpose": "Pure LoFi checkpoint native",
+      "deployed": false
+    },
+    {
+      "returncode": 0,
+      "bundle": "$HOME/.cache/linux-vst-bridge/ap9-builds/1149bbd55251c1f1dd4b19d54fd43386f34a462f0d42c436476ce656fb490153/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "115a1ed2b2c8216337c9dffea303366d76e6d9a02566db654ee5ba01c552b82c",
+      "source_commit": "48e52a84ed21657c5138bb89c5268a38e09a8d6c",
+      "input_archive_sha256": "1149bbd55251c1f1dd4b19d54fd43386f34a462f0d42c436476ce656fb490153",
+      "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+      "purpose": "FRAGMENTS checkpoint native",
+      "deployed": false
+    }
+  ],
+  "qualification_profile": "absent: exact Windows host build and later actual-host qualification pending",
+  "installed_profiles": "unchanged verified revision 3",
+  "production_build_commands": [
+    "python3 tools/ap8_build_native.py --descriptor $WORK/pure-descriptor.h --output $WORK/checkpoint-pure-native --performance --registered",
+    "python3 tools/ap8_build_native.py --descriptor $WORK/fragments-descriptor.h --output $WORK/checkpoint-fragments-native --performance --registered"
+  ]
+}

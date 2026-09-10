@@ -1,0 +1,237 @@
+{
+  "disposition": [
+    "AP15_SOURCE_CLEAR_WINDOWS_BLOCKED",
+    "BITWIG_QUALIFICATION_BLOCKED",
+    "AP14_BASELINE_PRESERVED"
+  ],
+  "review": "https://github.com/kasselvania/Linux-VST-bridge/pull/86#pullrequestreview-5160946354",
+  "reviewed_head": "f359240cd4df4a359b85ea5fc2632bbe8640add0",
+  "source_commit": "c5155af3be01437eaaca70b473d30a7857b91ecc",
+  "source_parent": "f359240cd4df4a359b85ea5fc2632bbe8640add0",
+  "source_tree": "965409b66ead76c95cca5a6ddd0e20a4b0afec16",
+  "changed_paths": [
+    "CURRENT_SLICE.md",
+    "docs/AP15.md",
+    "native-vst3-proxy/source/vendor_panel.h",
+    "tools/ap11-tests/panel.cpp"
+  ],
+  "source_sha256": {
+    "native-vst3-proxy/source/vendor_panel.h": "178a0a2579f3dacacb5d73dca3be5f92cdd87a76753af684310b20a17030b3e6",
+    "tools/ap11-tests/panel.cpp": "40b59430236b4605f8c49759e3b051230565a4542daebef1ba79fb42aedd4264"
+  },
+  "regression": {
+    "same_final_test_before_and_after": true,
+    "runs": [
+      {
+        "label": "before",
+        "header_sha256": "fd7db5ec86d1e961aaaa0d0ef4b7de35f15b1e023386f994f17bb8ef3d0a4c66",
+        "test_sha256": "40b59430236b4605f8c49759e3b051230565a4542daebef1ba79fb42aedd4264",
+        "commands": [
+          {
+            "command": [
+              "cmake",
+              "--build",
+              "$HOME/AP15-Work/native-tests/build",
+              "--target",
+              "ap11-panel-tests",
+              "-j",
+              "4"
+            ],
+            "exit": 0
+          },
+          {
+            "command": [
+              "ctest",
+              "--test-dir",
+              "$HOME/AP15-Work/native-tests/build/native-vst3-proxy",
+              "--verbose",
+              "-R",
+              "^ap11-panel-tests$"
+            ],
+            "exit": 8
+          }
+        ]
+      },
+      {
+        "label": "after",
+        "header_sha256": "178a0a2579f3dacacb5d73dca3be5f92cdd87a76753af684310b20a17030b3e6",
+        "test_sha256": "40b59430236b4605f8c49759e3b051230565a4542daebef1ba79fb42aedd4264",
+        "commands": [
+          {
+            "command": [
+              "cmake",
+              "--build",
+              "$HOME/AP15-Work/native-tests/build",
+              "--target",
+              "ap11-panel-tests",
+              "-j",
+              "4"
+            ],
+            "exit": 0
+          },
+          {
+            "command": [
+              "ctest",
+              "--test-dir",
+              "$HOME/AP15-Work/native-tests/build/native-vst3-proxy",
+              "--verbose",
+              "-R",
+              "^ap11-panel-tests$"
+            ],
+            "exit": 0
+          }
+        ]
+      }
+    ],
+    "baseline_header_matches_reviewed_source": true,
+    "before_failure": "FAIL: rejected unmap still delivers one accepted host retirement",
+    "after": "AP15 production X11 delegate ownership and retirement PASS",
+    "scope": "SDK/Xvfb mechanics only, not Bitwig qualification"
+  },
+  "commands": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "result": "57 passed",
+      "host": "macOS rustup stable 1.90",
+      "exit": 0,
+      "log": "backend-test.log"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "31 library + 3 CLI passed",
+      "host": "macOS rustup stable 1.90",
+      "exit": 0,
+      "log": "manager-test.log"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed",
+      "host": "macOS rustup stable 1.90",
+      "exit": 0,
+      "log": "backend-clippy.log"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed",
+      "host": "macOS rustup stable 1.90",
+      "exit": 0,
+      "log": "manager-clippy.log"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "6 passed / 9 Linux-only skips",
+      "host": "macOS",
+      "exit": 0,
+      "log": "runtime-macos.log"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "15 passed, no skips",
+      "host": "Steam Deck isolated task source",
+      "exit": 0,
+      "log": "runtime-linux.log"
+    },
+    {
+      "command": [
+        "cmake",
+        "-S",
+        "$HOME/AP15-Work/native-tests",
+        "-B",
+        "$HOME/AP15-Work/native-tests/build",
+        "-G",
+        "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DAP2_BUILD_ONLY=ON",
+        "-DAP10_RESULTS_TESTS=ON",
+        "-DAP11_PANEL_TESTS=ON",
+        "-DVST3_SDK_ROOT=$HOME/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "-DAP2_RUST_LIBRARY=$HOME/AP15-Work/native-tests/libap2_backend.a",
+        "-DAP8_DESCRIPTOR=$HOME/AP15-Work/native-tests/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "cmake",
+        "--build",
+        "$HOME/AP15-Work/native-tests/build",
+        "--target",
+        "ap10-result-lifetime",
+        "ap10-results-tests",
+        "ap11-native-tests",
+        "ap11-state-tests",
+        "ap11-panel-tests",
+        "ap11-activation-tests",
+        "ap3-callback-audit",
+        "CommercialInstrumentBridge",
+        "-j",
+        "4"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "$HOME/AP15-Work/native-tests/build/native-vst3-proxy",
+        "--verbose"
+      ],
+      "exit": 0
+    }
+  ],
+  "native_lane": {
+    "result": "6/6 CTest passed, callback audit included",
+    "log": "native-ctest.log",
+    "source_sha256": {
+      "native-vst3-proxy/source/commercial_controller.h": "90900fb0646a377c728922cf2fa670190cd2b4052885263616f73ab1a324287c",
+      "native-vst3-proxy/source/editor_lifecycle.h": "e432b391e0ef05986f5392527d0f87211298c522f32a56dde48f21598ffcacb5",
+      "native-vst3-proxy/source/vendor_panel.h": "178a0a2579f3dacacb5d73dca3be5f92cdd87a76753af684310b20a17030b3e6",
+      "native-vst3-proxy/source/ui_timer.h": "f00c74acf8a001622f3abd268b644ed4db37a4616236d06ae42e784c38f85186",
+      "native-vst3-proxy/source/processor.cpp": "d857ee0adff9284badee8b021306e1677ccb3065c61ab8a4782b0d4481021556",
+      "native-vst3-proxy/include/ap11_gui.h": "eccccba647cffa0736621396819397cc62acc5345501bc0c9b1859ee2161e7fa",
+      "tools/ap11-tests/native.cpp": "44ee83375594c0b0366587c67981948893e7dbdaa22b8078b9cdf72802b0e21f",
+      "tools/ap11-tests/panel.cpp": "40b59430236b4605f8c49759e3b051230565a4542daebef1ba79fb42aedd4264",
+      "tools/ap11-tests/activation.cpp": "a36b13746d4fe1641c5e773c5e96dc19c374f1c7fe268affd1371bff74c68a8f",
+      "tools/ap11-tests/state.cpp": "aabcda8f12aa2c522d59722accc3236ed15a314458dd678bdb1b45e3f8fabb98"
+    },
+    "static_backend_sha256": "e3c0c8698e4c213354a413e21975177f022d4653ce9cfcc1c27d5f38792edf67",
+    "static_backend_reused": "unchanged from b182449 source repair",
+    "build_log_sha256": "541574ccc880b69aa3526e0061dc4a24681569ef8a08206ae887b26731caeb56",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "flatpak_sdk": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "fixture_development": [
+    {
+      "log": "r2-red-2.log",
+      "result": "6/6 pass but one-shot unmap fault was insufficient: later successful unmap overwrote shared state; not failing-before evidence"
+    },
+    {
+      "log": "r2-red2-2.log",
+      "result": "persistent unmap rejection fails expected host-retirement assertion against original header; supplemental counters/cases then added and exact final test repeated before/after"
+    }
+  ],
+  "unchanged_owners": [
+    "controller command delivery",
+    "UI timer",
+    "editor lifecycle generations",
+    "Windows source and tests",
+    "qualification roster/admission",
+    "callback identity",
+    "transport",
+    "state",
+    "publication",
+    "performance"
+  ],
+  "not_done": [
+    "Windows compilation",
+    "Windows tests",
+    "Bitwig candidate qualification",
+    "complete candidate profile",
+    "candidate roster population",
+    "AP15 installation or publication",
+    "GitHub workflow retry",
+    "performance campaign"
+  ],
+  "ci_start_evidence": "../ci-start-condition.json",
+  "pr_state": "draft open unmerged"
+}

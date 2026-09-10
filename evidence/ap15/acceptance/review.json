@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "review": 5161767138,
+  "head": "a84761133f15897a9526269f2eeb35a268419c15",
+  "tree": "d99e259837bec91eb5be6ef302644a3b72595dee",
+  "products": [
+    {
+      "class_id": "417274754156495350724C4650726F63",
+      "candidate_profile_sha256": "2b2cf187f31a0d9a27cbfdf8e1e2933d1d558cc58c0dca125740c2080fc5248f",
+      "candidate": {
+        "id": "fc461308fd8bf88519ac559c4af58cf5",
+        "sha256": "f03467eb694613055476dd75cdca39a32062d36c2dc37a1c58001ceec174e637"
+      },
+      "parent": {
+        "id": "2452b7ebaeb57a847ba957637e3369a7",
+        "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+      }
+    },
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "candidate_profile_sha256": "798e146b6984741c81bd20e2d75fe06f5a9900a759857a23fa77b91884af6070",
+      "candidate": {
+        "id": "633eee109e2610047d9ff1050972bd22",
+        "sha256": "651ae4b445294f786217777a518c4b3123b24f5c2e9a64a2465c68b178e11022"
+      },
+      "parent": {
+        "id": "213f36d41e964bcbdccd30093a6cded0",
+        "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+      }
+    }
+  ]
+}

@@ -15,12 +15,14 @@ use std::{
 };
 
 pub const CAPACITY: u64 = 512;
-const HEADER: usize = 256;
-const MESSAGE: usize = 584;
+const HEADER: usize = 320;
+const MESSAGE: usize = 608;
 const BYTES: usize = HEADER + 2 * CAPACITY as usize * MESSAGE;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Message {
+    pub abi_version: u32,
+    pub extent: u32,
     pub kind: u32,
     pub id: u32,
     pub revision: u64,
@@ -38,10 +40,15 @@ pub struct Message {
     pub view_epoch: u32,
     pub focus_result: u32,
     pub focus_flags: u32,
+    pub native_view: u64,
+    pub lifecycle: u32,
+    pub reserved: u32,
 }
 impl Default for Message {
     fn default() -> Self {
         Self {
+            abi_version: 4,
+            extent: MESSAGE as u32,
             kind: 0,
             id: 0,
             revision: 0,
@@ -59,10 +66,29 @@ impl Default for Message {
             view_epoch: 0,
             focus_result: 0,
             focus_flags: 0,
+            native_view: 0,
+            lifecycle: 0,
+            reserved: 0,
         }
     }
 }
+impl Message {
+    // The caller must supply at least this fixed eight-byte prefix. Reject an
+    // older/short extent before forming a reference to the new full structure.
+    pub unsafe fn valid_prefix(message: *const Self) -> bool {
+        !message.is_null()
+            && message.cast::<u32>().read_unaligned() == 4
+            && message.cast::<u32>().add(1).read_unaligned() == MESSAGE as u32
+    }
+    fn valid(&self) -> bool {
+        self.abi_version == 4 && self.extent == MESSAGE as u32 && self.reserved == 0
+    }
+}
 const _: () = assert!(std::mem::size_of::<Message>() == MESSAGE);
+const _: () = assert!(std::mem::offset_of!(Message, extent) == 4);
+const _: () = assert!(std::mem::offset_of!(Message, activation) == 560);
+const _: () = assert!(std::mem::offset_of!(Message, native_view) == 592);
+const _: () = assert!(std::mem::offset_of!(Message, lifecycle) == 600);
 unsafe extern "C" {
     fn mmap(a: *mut c_void, n: usize, p: i32, f: i32, fd: i32, o: i64) -> *mut c_void;
     fn munmap(a: *mut c_void, n: usize) -> i32;
@@ -96,7 +122,7 @@ impl Gui {
             std::ptr::write_bytes(out.pointer.as_ptr(), 0, BYTES);
         }
         out.write(0, b"LVBU");
-        out.write(4, &3u32.to_le_bytes());
+        out.write(4, &5u32.to_le_bytes());
         out.write(8, &(BYTES as u32).to_le_bytes());
         out.write(12, &(MESSAGE as u32).to_le_bytes());
         out.write(16, &session);
@@ -155,12 +181,30 @@ impl Gui {
         if self.flag(104).load(Ordering::Acquire) != 0 {
             return 1;
         }
-        // Closing cannot be trapped behind a full queue. The Windows UI owner
-        // acknowledges the close epoch after removal, without touching DSP.
+        if !message.valid() {
+            return 4;
+        }
+        // A separate bounded close mailbox survives command backlog. Its
+        // seqlock snapshot binds the exact native view and expected vendor
+        // epoch; epoch zero cancels an opening owned by that native view only.
         if message.kind == 2 {
+            if message.native_view == 0 {
+                return 4;
+            }
+            if message.native_view < self.word(256).load(Ordering::Acquire) {
+                return 0; // a retired native view cannot supersede a newer close
+            }
+            let sequence = self.word(120).load(Ordering::Acquire);
+            if sequence > u64::MAX - 2 || sequence & 1 != 0 {
+                self.fail(2);
+                return 2;
+            }
+            self.word(120).store(sequence + 1, Ordering::SeqCst);
+            self.word(256).store(message.native_view, Ordering::SeqCst);
+            self.flag(264).store(message.view_epoch, Ordering::SeqCst);
             self.word(152)
-                .store(self.word(64).load(Ordering::Acquire), Ordering::Release);
-            self.word(120).fetch_add(1, Ordering::AcqRel);
+                .store(self.word(64).load(Ordering::Acquire), Ordering::SeqCst);
+            self.word(120).store(sequence + 2, Ordering::SeqCst);
             return 0;
         }
         if self.fail(0) != 0 {
@@ -223,6 +267,10 @@ impl Gui {
             );
         }
         self.word(consumed).store(c + 1, Ordering::Release);
+        if !message.valid() {
+            self.fail(2);
+            return 2;
+        }
         0
     }
     pub fn take(&self, message: &mut Message) -> u32 {
@@ -313,11 +361,12 @@ mod tests {
         assert_eq!(
             gui.send(&mut Message {
                 kind: 2,
+                native_view: 1,
                 ..Message::default()
             }),
             0
         );
-        assert_eq!(gui.word(120).load(Ordering::Acquire), 1);
+        assert_eq!(gui.word(120).load(Ordering::Acquire), 2);
         // Backlog affects this UI channel, not revision admission/audio queues.
         assert!(gui.revision() > 0);
         gui.shutdown();
@@ -343,6 +392,54 @@ mod tests {
             2
         );
         assert_eq!(gui.word(64).load(Ordering::Acquire), 0);
+        drop(gui);
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn versioned_close_mailbox_preserves_owner_and_refuses_exhaustion() {
+        let (gui, path) = fixture();
+        let mut close = Message {
+            kind: 2,
+            native_view: 7,
+            view_epoch: 3,
+            ..Message::default()
+        };
+        close.abi_version = 2;
+        assert_eq!(gui.send(&mut close), 4);
+        assert_eq!(gui.word(120).load(Ordering::Acquire), 0);
+        close.abi_version = 4;
+        assert_eq!(gui.send(&mut close), 0);
+        assert_eq!(gui.word(120).load(Ordering::Acquire), 2);
+        assert_eq!(gui.word(256).load(Ordering::Acquire), 7);
+        assert_eq!(gui.flag(264).load(Ordering::Acquire), 3);
+        close.native_view = 6;
+        close.view_epoch = 2;
+        assert_eq!(gui.send(&mut close), 0);
+        assert_eq!(gui.word(120).load(Ordering::Acquire), 2);
+        assert_eq!(gui.word(256).load(Ordering::Acquire), 7);
+        assert_eq!(gui.flag(264).load(Ordering::Acquire), 3);
+        gui.word(120).store(u64::MAX - 1, Ordering::Release);
+        close.native_view = 8;
+        assert_eq!(gui.send(&mut close), 2);
+        assert_eq!(gui.word(120).load(Ordering::Acquire), u64::MAX - 1);
+        assert_eq!(gui.word(256).load(Ordering::Acquire), 7);
+        drop(gui);
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn malformed_return_layout_fails_only_gui_channel() {
+        let (gui, path) = fixture();
+        let m = Message {
+            abi_version: 2,
+            kind: 108,
+            ..Message::default()
+        };
+        assert_eq!(
+            gui.push(80, 88, HEADER + CAPACITY as usize * MESSAGE, &m),
+            0
+        );
+        assert_eq!(gui.take(&mut Message::default()), 2);
+        assert_eq!(gui.fail(0), 2);
         drop(gui);
         std::fs::remove_file(path).unwrap();
     }

@@ -19,6 +19,11 @@ class VendorView final : public Steinberg::IPlugFrame {
   View *view_ = nullptr;
   HWND window_ = nullptr;
   bool attached_ = false, closing_ = false, close_requested_ = false;
+  bool window_lost_ = false;
+  // Private Win32 edge seam; production always calls DestroyWindow. Fault
+  // injection cannot change lifecycle ownership or bypass WM_NCDESTROY.
+  BOOL (WINAPI *destroy_window_)(HWND) = DestroyWindow;
+  uint64_t close_epoch_ = 0, opening_epoch_ = 0;
   void (*trace_)(void *, uint32_t) = nullptr;
   void *trace_context_ = nullptr;
   void (*fault_trace_)(void *, EXCEPTION_POINTERS *) = nullptr;
@@ -125,8 +130,25 @@ class VendorView final : public Steinberg::IPlugFrame {
       if (msg == WM_CLOSE) {
         // Keep vendor teardown outside a Win32 callback. The owner service
         // removes the view after DispatchMessage has returned.
-        self->close_requested_ = true;
+        if (!self->closing_ && window == self->window_) {
+          self->close_requested_ = true;
+          self->close_epoch_ = self->opening_epoch_;
+        }
         return 0;
+      }
+      if (msg == WM_NCDESTROY) {
+        // Clear userdata even during intentional teardown, before the owner
+        // can release its last reference. Never classify our own destroy as
+        // an unexpected loss, and never clear a different/replacement HWND.
+        SetWindowLongPtrW(window, GWLP_USERDATA, 0);
+        if (window == self->window_) {
+          self->window_ = nullptr;
+          if (!self->closing_) {
+            self->window_lost_ = true;
+            self->error_ = AP11::WindowLost;
+          }
+        }
+        return DefWindowProcW(window, msg, wp, lp);
       }
       // removed() can destroy/focus child windows synchronously. Never call
       // back into the vendor view while its teardown is already on the stack.
@@ -222,6 +244,7 @@ class VendorView final : public Steinberg::IPlugFrame {
   }
 
 public:
+  void destruction(BOOL (WINAPI *call)(HWND)) { destroy_window_ = call ? call : DestroyWindow; }
   void diagnostic(void (*trace)(void *, uint32_t), void *context) {
     trace_ = trace;
     trace_context_ = context;
@@ -288,9 +311,20 @@ public:
       error_ = AP11::WrongThread;
       return false;
     }
-    if (window_ && view_)
-      return true; // activation is a separate WM transaction
+    if (window_ || view_) {
+      if (window_ && view_ && attached_ && !closing_ && !window_lost_ && error_ != AP11::Removal)
+        return true; // activation is a separate WM transaction
+      error_ = AP11::Removal;
+      return false; // incomplete destruction still owns the old parent
+    }
+    if (opens == UINT32_MAX) {
+      error_ = AP11::GenerationExhausted;
+      return false;
+    }
     error_ = 0;
+    window_lost_ = false;
+    close_epoch_ = 0;
+    opening_epoch_ = opens + 1;
     try {
       stage(1);
       view_ = controller.createView(Vst::ViewType::kEditor);
@@ -438,10 +472,18 @@ public:
       }
       if (window_) {
         auto w = window_;
-        window_ = nullptr;
         stage(216);
-        DestroyWindow(w);
+        if (!destroy_window_(w)) {
+          // WM_NCDESTROY is authoritative if a hook caused destruction but
+          // returned failure; otherwise retain exact ownership for retry.
+          if (window_) { error_ = AP11::Removal; closing_ = false; return false; }
+        } else if (window_ == w) {
+          // Successful Win32 destruction is positive even on an implementation
+          // which delivered no callback. The HWND is no longer externally live.
+          window_ = nullptr;
+        }
       }
+      if (error_ == AP11::Removal) error_ = 0;
       closing_ = false;
       stage(217);
       return true;
@@ -465,8 +507,10 @@ public:
       ++focuses;
     return accepted;
   }
-  bool close_requested() const { return close_requested_; }
-  bool is_open() const { return attached_; }
+  uint32_t pending_epoch() const { return uint32_t(opening_epoch_); }
+  bool close_requested() const { return close_requested_ && close_epoch_ == opens; }
+  bool window_lost() const { return window_lost_ || (window_ && !IsWindow(window_)); }
+  bool is_open() const { return attached_ && !window_lost(); }
   uint32_t error() const { return error_; }
   HWND window() const { return window_; }
   static bool pump() {

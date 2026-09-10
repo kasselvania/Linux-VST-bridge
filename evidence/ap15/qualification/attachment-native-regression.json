@@ -1,0 +1,70 @@
+{
+  "runs": [
+    {
+      "label": "before",
+      "header_sha256": "178a0a2579f3dacacb5d73dca3be5f92cdd87a76753af684310b20a17030b3e6",
+      "test_sha256": "f6f7572c8dd5314359fff5efe9c19632dd4bdddbc53dd244395c58ad0914e38b",
+      "commands": [
+        {
+          "command": [
+            "cmake",
+            "--build",
+            "/home/deck/AP15-Work/native-tests/build",
+            "--target",
+            "ap11-panel-tests",
+            "-j",
+            "4"
+          ],
+          "exit": 0
+        },
+        {
+          "command": [
+            "ctest",
+            "--test-dir",
+            "/home/deck/AP15-Work/native-tests/build/native-vst3-proxy",
+            "--verbose",
+            "-R",
+            "^ap11-panel-tests$"
+          ],
+          "exit": 8
+        }
+      ]
+    },
+    {
+      "label": "after",
+      "header_sha256": "cd8a620c7379fcca9610656f54ae3093669d9d70fb9434663a3e301c626189b1",
+      "test_sha256": "f6f7572c8dd5314359fff5efe9c19632dd4bdddbc53dd244395c58ad0914e38b",
+      "commands": [
+        {
+          "command": [
+            "cmake",
+            "--build",
+            "/home/deck/AP15-Work/native-tests/build",
+            "--target",
+            "ap11-panel-tests",
+            "-j",
+            "4"
+          ],
+          "exit": 0
+        },
+        {
+          "command": [
+            "ctest",
+            "--test-dir",
+            "/home/deck/AP15-Work/native-tests/build/native-vst3-proxy",
+            "--verbose",
+            "-R",
+            "^ap11-panel-tests$"
+          ],
+          "exit": 0
+        }
+      ]
+    }
+  ],
+  "logs": {
+    "attach-exact-after-1.log": "UpdateCTestConfiguration  from :/home/deck/AP15-Work/native-tests/build/native-vst3-proxy/DartConfiguration.tcl\nTest project /home/deck/AP15-Work/native-tests/build/native-vst3-proxy\nConstructing a list of tests\nDone constructing a list of tests\nUpdating test list for fixtures\nAdded 0 tests to meet fixture requirements\nChecking test dependency graph...\nChecking test dependency graph end\ntest 6\n    Start 6: ap11-panel-tests\n\n6: Test command: /home/deck/AP15-Work/native-tests/xvfb-run \"-a\" \"/home/deck/AP15-Work/native-tests/build/native-vst3-proxy/ap11-panel-tests\"\n6: Working Directory: /home/deck/AP15-Work/native-tests/build/native-vst3-proxy\n6: Test timeout computed to be: 10000000\n6: AP15 production X11 delegate ownership and retirement PASS\n1/1 Test #6: ap11-panel-tests .................   Passed    1.18 sec\n\nThe following tests passed:\n\tap11-panel-tests\n\n100% tests passed out of 1\n\nTotal Test time (real) =   1.19 sec\n\n",
+    "attach-exact-before-1.log": "UpdateCTestConfiguration  from :/home/deck/AP15-Work/native-tests/build/native-vst3-proxy/DartConfiguration.tcl\nTest project /home/deck/AP15-Work/native-tests/build/native-vst3-proxy\nConstructing a list of tests\nDone constructing a list of tests\nUpdating test list for fixtures\nAdded 0 tests to meet fixture requirements\nChecking test dependency graph...\nChecking test dependency graph end\ntest 6\n    Start 6: ap11-panel-tests\n\n6: Test command: /home/deck/AP15-Work/native-tests/xvfb-run \"-a\" \"/home/deck/AP15-Work/native-tests/build/native-vst3-proxy/ap11-panel-tests\"\n6: Working Directory: /home/deck/AP15-Work/native-tests/build/native-vst3-proxy\n6: Test timeout computed to be: 10000000\n6: FAIL: nonzero SDK geometry lifecycle\n1/1 Test #6: ap11-panel-tests .................***Failed    0.06 sec\n\n0% tests passed, 1 tests failed out of 1\n\nTotal Test time (real) =   0.06 sec\n\nThe following tests FAILED:\n\t  6 - ap11-panel-tests (Failed)\n\nErrors while running CTest\nOutput from these tests are in: /home/deck/AP15-Work/native-tests/build/native-vst3-proxy/Testing/Temporary/LastTest.log\nUse \"--rerun-failed --output-on-failure\" to re-run the failed cases verbosely.\n",
+    "attach-exact-before-0.log": "[1/2] Building CXX object native-vst3-proxy/CMakeFiles/ap11-panel-tests.dir/__/tools/ap11-tests/panel.cpp.o\n[2/2] Linking CXX executable native-vst3-proxy/ap11-panel-tests\n\n",
+    "attach-exact-after-0.log": "[1/2] Building CXX object native-vst3-proxy/CMakeFiles/ap11-panel-tests.dir/__/tools/ap11-tests/panel.cpp.o\n[2/2] Linking CXX executable native-vst3-proxy/ap11-panel-tests\n\n"
+  }
+}

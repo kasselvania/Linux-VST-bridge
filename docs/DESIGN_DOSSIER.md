@@ -72,7 +72,7 @@ The first schema stays narrow. It covers only facts and capabilities needed for 
 
 Completion requires deterministic parser/matcher/transaction fault tests plus one bounded Deck workflow: profile-driven republish without hand-authored identities, correct Bitwig roles and stable existing project identity/state, deliberate incompatible-candidate refusal, exact reconcile/rollback and a focused 512 playback/editor/save/recall/removal smoke check. Reuse AP13 for unchanged audio/performance claims.
 
-Following [technical review 5158330660](https://github.com/kasselvania/Linux-VST-bridge/pull/85#pullrequestreview-5158330660), exact AP14 profiles advance from retained immutable revision-2 review candidates to revision-3 `verified_exact_fixture` claims. Only verified profiles authorize ordinary managed preview/publication and current installed-host policy. Candidate qualification is explicitly nonactivating and cannot write publication transactions or discovery state. Retained-history rollback remains governed by exact immutable records, artifacts, ancestry and physical targets rather than new-selection eligibility. This transition preserves the exact fixture limits and does not assert final merge acceptance of the repaired implementation before rereview.
+Following [technical review 5158330660](https://github.com/kasselvania/Linux-VST-bridge/pull/85#pullrequestreview-5158330660), exact AP14 profiles advance from retained immutable revision-2 review candidates to revision-3 `verified_exact_fixture` claims. Only verified profiles authorize ordinary managed preview/publication and current installed-host policy. AP14 `managed check-candidate` is explicitly nonactivating and cannot write publication transactions or discovery state. Retained-history rollback remains governed by exact immutable records, artifacts, ancestry and physical targets rather than new-selection eligibility. This transition preserves the exact fixture limits and does not assert final merge acceptance of the repaired implementation before rereview.
 
 ## Editor and other follow-through
 
@@ -83,3 +83,10 @@ Following [technical review 5158330660](https://github.com/kasselvania/Linux-VST
 ## Working standard
 
 One selected outcome, ordinary implementation/debugging, focused tests and one reviewed PR. Preserve user projects, installed environments, historical evidence, credentials and dirty work. Leave the product installed and usable. Reuse unaffected proof; do not replace progress with repeated information-only campaigns. Current operator instruction and [AGENTS.md](../AGENTS.md) govern over retired procedural ceremony.
+### AP15 exact-fixture qualification
+
+The direct editor implementation separates processing generation, native view token, vendor editor epoch and activation identity. The selected Bitwig/X11 delegate supplies 64×64 attachment geometry and an initially unmapped child without input, paint or controls. It unmaps the host shell and requests host-owned retirement through that parent's advertised WM_DELETE protocol. This is a bounded Bitwig adapter, not universal VST3 host behavior.
+
+The exact revision-6 engineering campaign exercised both installed Arturia editors, same-session vendor/DAW close and one-action reopen, real parameter gestures, existing automation, explicit save/relaunch recall and independent FRAGMENTS removal. Earlier attachment and focus failures are preserved. Both exact verified revision-3 publications are restored; candidate profiles remain immutable ReviewCandidates and ordinary activation eligibility is unchanged. Hosted Windows/native/manager/PX2 checks passed on the source head. Independent review remains separate from fixture evidence. See [AP15 results](AP15.md#revision-6-exact-fixture-qualification).
+
+Short delivery gaps, FRAGMENTS Advanced redraw and broader host/runtime qualification remain outside this result. 512 stays supported/recommended; 256 remains unqualified.

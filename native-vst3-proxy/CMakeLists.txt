@@ -89,7 +89,7 @@ if(AP10_RESULTS_TESTS)
   target_include_directories(ap11-panel-tests PRIVATE source include)
   target_compile_features(ap11-panel-tests PRIVATE cxx_std_20)
   target_compile_options(ap11-panel-tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
-  target_link_libraries(ap11-panel-tests PRIVATE X11::X11 "${AP11_XTEST}" sdk)
+  target_link_libraries(ap11-panel-tests PRIVATE "${AP11_XCB}" X11::X11 "${AP11_XTEST}" sdk)
   add_test(NAME ap11-panel-tests COMMAND "${AP11_XVFB_RUN}" -a $<TARGET_FILE:ap11-panel-tests>)
  endif()
 

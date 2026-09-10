@@ -1740,7 +1740,7 @@ pub unsafe extern "C" fn ap11_gui_command(
     generation: u64,
     m: *mut crate::gui::Message,
 ) -> u32 {
-    if m.is_null() {
+    if !crate::gui::Message::valid_prefix(m) {
         return 4;
     }
     gui_call(id, generation, |gui| gui.send(&mut *m))
@@ -1751,7 +1751,7 @@ pub unsafe extern "C" fn ap11_gui_take(
     generation: u64,
     m: *mut crate::gui::Message,
 ) -> u32 {
-    if m.is_null() {
+    if !crate::gui::Message::valid_prefix(m) {
         return 4;
     }
     gui_call(id, generation, |gui| gui.take(&mut *m))
@@ -1817,6 +1817,20 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn gui_abi_rejects_short_prefix_before_forming_full_message() {
+        for mut prefix in [[2u32, 584u32], [4, 8], [3, 608], [5, 608], [0, 0]] {
+            let pointer = prefix.as_mut_ptr().cast::<crate::gui::Message>();
+            unsafe {
+                assert_eq!(ap11_gui_command(0, 0, pointer), 4);
+                assert_eq!(ap11_gui_take(0, 0, pointer), 4);
+            }
+        }
+        unsafe {
+            assert_eq!(ap11_gui_command(0, 0, std::ptr::null_mut()), 4);
+            assert_eq!(ap11_gui_take(0, 0, std::ptr::null_mut()), 4);
+        }
+    }
     #[test]
     fn parent_callbacks_preserve_exact_one_and_two_proxy_delay() {
         // The consumer runs only after the complete parent host callback. A
@@ -2343,11 +2357,7 @@ mod tests {
             let peer = thread::spawn(move || {
                 let mut saves = 0;
                 let mut next = 1;
-                loop {
-                    let f = match receive_version(&mut remote, 5, 11) {
-                        Ok(f) => f,
-                        Err(_) => break,
-                    };
+                while let Ok(f) = receive_version(&mut remote, 5, 11) {
                     assert_eq!(f.sequence, next);
                     let mut kind = f.kind + 1;
                     let payload = match f.kind {
@@ -2661,6 +2671,7 @@ mod tests {
         }
         assert_eq!(shared.fault.load(Ordering::Acquire), 0);
         message.kind = 2;
+        message.native_view = 1;
         assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 0);
         INSTANCES.remove(id, |_| ()).unwrap();
         assert_eq!(unsafe { ap11_gui_command(id, 8, &mut message) }, 1);

@@ -379,17 +379,23 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   if(!std::strncmp(id,"AP11.",5)){
     int64 generation=0;if(message->getAttributes()->getInt("generation",generation)!=kResultOk||generation<=0||!handle_)return kResultFalse;
     if(!std::strcmp(id,"AP11.capabilities")){int64 caps=0;if(message->getAttributes()->getInt("caps",caps)!=kResultOk||caps<0||caps>7)return kResultFalse;if(ap11_gui_capabilities(handle_,uint64_t(generation),uint32_t(caps)))return kResultFalse;gui_consumer_=(caps&1)!=0;return kResultOk;}
-    if(!std::strcmp(id,"AP11.failure")){int64 code=0;if(message->getAttributes()->getInt("code",code)!=kResultOk||code<1||code>11)return kResultFalse;ap11_gui_failure(handle_,uint64_t(generation),uint32_t(code));return kResultOk;}
+    if(!std::strcmp(id,"AP11.failure")){int64 code=0;if(message->getAttributes()->getInt("code",code)!=kResultOk||code<1||code>AP11::GenerationExhausted)return kResultFalse;return ap11_gui_failure(handle_,uint64_t(generation),uint32_t(code))==uint32_t(code)?kResultOk:kResultFalse;}
     if(!std::strcmp(id,"AP11.poll"))return guiPoll(uint64_t(generation),64);
     if(!std::strcmp(id,"AP11.command")){
       const void* bytes=nullptr;uint32 size=0;
       if(message->getAttributes()->getBinary("command",bytes,size)!=kResultOk||size!=sizeof(ap11_gui_message_t))return kResultFalse;
       ap11_gui_message_t command{};std::memcpy(&command,bytes,sizeof(command));
+      if(!AP11::valid(command))return kResultFalse;
       // Hosts may disconnect this side before the controller retires. A close
       // still reaches the owned view, but no reply can reach the departed UI.
       // Other commands require the live return route before they are applied.
       if(!getPeer() && command.kind!=AP11::Close)return kResultFalse;
       command.result=ap11_gui_command(handle_,uint64_t(generation),&command);
+      // Lifecycle acceptance is the actual bounded mailbox result. A later
+      // notification allocation/refusal cannot turn an accepted Open/Close
+      // into an ambiguous send failure and cause duplicate ownership.
+      if(command.kind==AP11::Open || command.kind==AP11::Close || command.kind==AP11::Focus)
+        return command.result==0?kResultOk:kResultFalse;
       if(!getPeer())return command.result==0?kResultOk:kResultFalse;
       auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.result");m->getAttributes()->setInt("generation",generation);m->getAttributes()->setBinary("command",&command,sizeof(command));auto r=sendMessage(m);m->release();return r;
     }
@@ -964,10 +970,10 @@ Steinberg::tresult AP2::Processor::guiPoll(uint64_t generation,unsigned limit){
  if(gui_polling_ || !gui_consumer_ || !getPeer())return kResultOk;
  struct PollGuard{bool&flag;explicit PollGuard(bool&f):flag(f){flag=true;}~PollGuard(){flag=false;}}guard(gui_polling_);
  for(unsigned i=0;i<limit;++i){
-  ap11_gui_message_t event{};if(ap11_gui_take(handle_,generation,&event))return kResultFalse;if(!event.kind)break;
+  ap11_gui_message_t event{};if(ap11_gui_take(handle_,generation,&event)||!AP11::valid(event))return kResultFalse;if(!event.kind)break;
   if(event.kind==AP11::EditorStatus){
    const auto observed=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-   char text[512];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"ap11_editor_status\",\"monotonic_ns\":%llu,\"focus_result\":%u,\"activation\":%llu,\"user_time\":%u,\"requestor_x11\":%u,\"target_x11\":%u,\"view_epoch\":%u,\"focus_flags\":%u,\"open\":%u,\"result\":%u}\n",(unsigned long long)observed,event.focus_result,(unsigned long long)event.activation,event.user_time,event.requestor_x11,event.target_x11,event.view_epoch,event.focus_flags,event.count,event.result);
+   char text[512];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"ap11_editor_status\",\"monotonic_ns\":%llu,\"focus_result\":%u,\"activation\":%llu,\"user_time\":%u,\"requestor_x11\":%u,\"target_x11\":%u,\"view_epoch\":%u,\"native_view\":%llu,\"lifecycle\":%u,\"processing_generation\":%llu,\"focus_flags\":%u,\"open\":%u,\"result\":%u}\n",(unsigned long long)observed,event.focus_result,(unsigned long long)event.activation,event.user_time,event.requestor_x11,event.target_x11,event.view_epoch,(unsigned long long)event.native_view,event.lifecycle,(unsigned long long)generation,event.focus_flags,event.count,event.result);
    if(n>0&&static_cast<size_t>(n)<sizeof(text))diagnostic_report(report_path_,text,static_cast<size_t>(n));
   }
   auto*m=allocateMessage();if(!m){ap11_gui_failure(handle_,generation,AP11::Host);return kResultFalse;}

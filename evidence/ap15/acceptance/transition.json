@@ -1,0 +1,135 @@
+{
+  "schema": 1,
+  "review": 5161767138,
+  "manager_source_commit": "f52513c0fd8568022cda353f9bfe21ee0763f2de",
+  "before_software": {
+    "manager": {
+      "sha256": "3c88249044d44ea84184381be4d816e54bc6f13da15c9b4a68b4941000775dba"
+    },
+    "supervisor": {
+      "sha256": "0807149d3c69e2f54562a1a59232c45b9e644cdd3eda59d8de187b72212dea5d"
+    },
+    "ownership": {
+      "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+    },
+    "host": {
+      "sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290"
+    },
+    "source_manifest": {
+      "sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d"
+    },
+    "source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+    "native_catalogue": {
+      "sha256": "4903dde3e0869a7dd39471ae3090bd82591a7373c40f383d9726168cb412e70a"
+    }
+  },
+  "before_products": [
+    {
+      "class_id": "417274754156495350724C4650726F63",
+      "profile_sha256": "13b02bb8a4643772039df81b30b681f66d58c2b9d4976e39c4daabe087a18766",
+      "publication": "2452b7ebaeb57a847ba957637e3369a7",
+      "revision_sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+      "target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+      "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+      "parent": {
+        "id": "c6766455f13f73c3756db665b1bf92be",
+        "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+      }
+    },
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "profile_sha256": "f9819ff473e0670eb44c52f4479a00f6addc8c4020e8ffbbee380fa8e22b4abc",
+      "publication": "213f36d41e964bcbdccd30093a6cded0",
+      "revision_sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+      "target": "/home/deck/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+      "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+      "parent": {
+        "id": "d2fb889b4a3797a2b90c0a57152b0296",
+        "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+      }
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "systemctl",
+        "--user",
+        "stop",
+        "linux-vst-bridge"
+      ],
+      "exit": 0,
+      "seconds": 0.012291484003071673
+    },
+    {
+      "command": [
+        "/home/deck/AP15-Work/accept-manager-f52513c",
+        "accept-editor"
+      ],
+      "exit": 0,
+      "seconds": 1.4735672030074056
+    },
+    {
+      "command": "linux-vst-bridge managed preview",
+      "exit": 0,
+      "seconds": 17.762685519992374
+    },
+    {
+      "command": "linux-vst-bridge managed publish",
+      "exit": 0,
+      "seconds": 1.3699728770006914
+    }
+  ],
+  "setup_preserved_publication_links_and_registry": true,
+  "source_artifacts": "exact immutable managed/software/ap15-qualification revision-6 bytes; no Windows/native download or rebuild",
+  "catalogue": {
+    "sha256": "3b5a6d4e2a0b99a2967a9dfd139a652df3923e431c28319fe6a5a5d609dc28af",
+    "natives": [
+      {
+        "class": {
+          "class_id": "417274754156495350724C4650726F63",
+          "name": "Pure LoFi",
+          "vendor": "Arturia",
+          "version": "1.0.0.6121",
+          "subcategories": "Instrument|Synth",
+          "metadata_tier": "factory_3_unicode"
+        },
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "native_sha256": "98793ee5169992924cdc5b21f38de8a70b507e28682fdb74bec95a22eb234ff6",
+        "source_commit": "a3cb624f126afc5270519012d7af39485fd6fbb6",
+        "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+        "external_ids": [
+          "ac7f2418f2915958b5b67620593b9a2d",
+          "0c80f2acc39f5975a38d177102555683"
+        ]
+      },
+      {
+        "class": {
+          "class_id": "41727475415649536772616E50726F63",
+          "name": "Efx FRAGMENTS",
+          "vendor": "Arturia",
+          "version": "1.0.0.2925",
+          "subcategories": "Fx|Tools",
+          "metadata_tier": "factory_3_unicode"
+        },
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "native_sha256": "4ee950c4096a33a3635fde6e9732be50a4875238c237a84e828d9cd1b94ed8f4",
+        "source_commit": "a3cb624f126afc5270519012d7af39485fd6fbb6",
+        "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+        "external_ids": [
+          "96bd361810b3568a9671700732903d6e",
+          "d3181e9d37e75871ba5ffbcae0775861"
+        ]
+      }
+    ]
+  },
+  "first_attempt": {
+    "source": "9525a7855fcc792a2652db1159cfad333182a5e2",
+    "software_install_completed": true,
+    "discovery_publications_unchanged": true,
+    "post_install_readback_error": "operation already running",
+    "cause": "optional managed status raced startup registry lock after setup started the service",
+    "repair": "return exact software receipt without taking registry lock; canonical publication status is a separate command",
+    "regression": "completed_setup_receipt_does_not_race_service_startup_registry_lock",
+    "final_command_exit": 0
+  }
+}

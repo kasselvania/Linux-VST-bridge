@@ -1,236 +1,193 @@
-# AP14 — Profile-driven managed publication and rollback
+# AP15 — Direct detached vendor-editor lifecycle
 
 ## Outcome and authority
 
-Turn the installed **Pure LoFi → Efx FRAGMENTS** engineering vertical into the first profile-driven managed publication workflow.
-
-From the existing bridge-owned Arturia environment, one ordinary manager operation must discover or consume a current exact module/class census, select one unambiguous reviewed declarative compatibility profile for each supported class, derive the registration from product-owned observations and installed artifacts, and atomically publish the native Linux VST3 bundles. The operator must not have to author class IDs, module hashes, registration JSON, native build-tree paths, Wine/Proton commands, or per-product compatibility flags.
-
-The same management surface must reconcile interruption and return to an exact prior known-good publication revision without reinstalling vendor software, changing vendor state, changing stable Linux-facing processor/controller identity, or damaging an existing Bitwig project.
-
-[Issue #83](https://github.com/kasselvania/Linux-VST-bridge/issues/83), branch `codex/ap14-profile-publication`, starts from integrated AP13 `main` at `ca0e2f7d5c85515c8ec22b67d434c6288ca611f7`. AP13 [PR #82](https://github.com/kasselvania/Linux-VST-bridge/pull/82) was reviewed at exact implementation head `5620c56660651c0624deb3935c91c91eb0653aa6` and merged. Preserve its protocol-12 state-capture delivery repair, fault/refusal semantics, installed service, exact Arturia environment, stable projects and **512-frame supported/recommended setting**. The 256-frame option remains tested but unqualified.
-
-Implementation, necessary builds, focused tests, reversible bridge-only deployment and proportionate current-status documentation are authorized under [AGENTS.md](AGENTS.md). Preserve dirty work and coordinate control of the operator's open desktop/project. Continue on the prepared branch and one implementation PR against `main`; leave it unmerged for technical review.
-
-## Current R1 repair status
-
-[technical review 5158330660](https://github.com/kasselvania/Linux-VST-bridge/pull/85#pullrequestreview-5158330660) supports the AP14 architecture and exact fixture evidence and selects a narrow claim-lifecycle correction. Continue the same branch and PR #85. Ordinary new preview/publication and current installed-host policy require exactly one `VerifiedExactFixture` profile. Explicit candidate qualification remains nonactivating. Retained revision-2 candidate publications and older rollback targets remain immutable and usable under the existing history laws. Both shipped profiles advance to revision 3 for the exact AP14 fixture only. Preserve every technical constraint, limitation, installed binding and 512 recommendation; 256 stays unqualified. The repaired head requires focused rereview, not a new slice or final merge-acceptance claim. See [docs/AP14.md](docs/AP14.md) for results.
-
-## Starting-state gap addressed by AP14
-
-At the prepared AP14 base, the difficult bridge mechanics existed. The Rust manager already owns exact environment/runner records, module and software digests, supervised inspection, immutable native bundle copying, atomic discovery links, registry reconciliation, installed service startup and independent instance admission. But the current ordinary path still exposes engineering inputs:
-
-- `inspect INSPECTION.json` requires an environment ID, exact module path/hash, class ID and compatibility selection;
-- `register REGISTRATION.json` requires a complete externally assembled registration and generated native artifact;
-- `Compatibility` currently carries only a directly supplied `disable_windows_accessibility` boolean;
-- `Manager::register` correctly refuses a changed binding because an explicit update transaction does not yet exist;
-- `compatibility/` contains no accepted or verified profile.
-
-AP14 connects these exact primitives into a product workflow. It is not another installation campaign, transport proof, performance matrix or vendor expansion.
-
-## Product boundary and ownership
-
-The Rust management plane owns:
-
-- the profile schema and parser;
-- profile identity, revision and lifecycle/claim state;
-- exact matching and ambiguity refusal;
-- scanner/inspection orchestration;
-- derivation of a local registration from observed facts plus reviewed profile capabilities;
-- selection or generation of the exact installed native proxy artifact;
-- durable publication/update/rollback transactions;
-- canonical status/readback and refusal categories.
-
-Profiles supply reviewed declarative compatibility facts. They do not execute work. The Windows host remains the VST3/vendor-object boundary; the native proxy remains the DAW/VST3 boundary; the transport remains typed mechanism. No product or profile name may dispatch DSP, SDK methods, process code or arbitrary commands.
-
-Machine-local environment IDs, absolute paths, publication locations, process IDs, credentials and license state remain local state. They are not portable profile identity. Friendly names are presentation; exact module digest, class identity, observed SDK metadata, runner/environment revision and profile revision govern selection.
-
-## Closed profile contract
-
-Implement the smallest explicitly versioned, bounded, `deny_unknown_fields`-style schema needed for the two exact Arturia fixtures. Private Rust types and file organization belong to the engineer. The accepted meaning must distinguish at least:
-
-- stable profile ID and immutable profile revision;
-- schema version and profile lifecycle/claim state appropriate to this cut;
-- exact vendor/product/build/module match conditions;
-- exact VST3 class ID and required observed SDK metadata/role conditions;
-- compatible runner, environment-family/revision constraints and installed host/proxy requirements;
-- reviewed capability selections, including the existing process-scoped Windows-accessibility choice, detached-editor posture, supported performance setting and any AP13 protocol/state behavior that must not be assumed for an unknown plug-in;
-- known limitations and non-authoritative evidence references.
-
-Use a closed enum or equivalent for every capability. Unsupported values fail. Avoid generic key/value capability bags, templated commands, expression languages, hooks or an `extra` escape hatch.
-
-Profiles must not contain or trigger:
-
-- shell, PowerShell, Python, JavaScript or another arbitrary executable command;
-- credentials, tokens, cookies, serials or license data;
-- proprietary binaries, presets, opaque vendor state or patches;
-- DRM/authorization bypasses;
-- unreviewed remote download URLs;
-- machine-local mutable paths as portable identity;
-- destructive repair actions or silent vendor/environment mutation.
-
-Bound file size, string size, collection count and nesting sufficiently to make hostile or corrupted local profile data fail before expensive work. Unknown fields, duplicate profile identities/revisions, unsupported schema versions, malformed hashes/IDs and unsupported capabilities fail closed. Repository profile files are data, not permission to redistribute a matched vendor module.
-
-## Discovery, inspection and exact matching
-
-Use existing bridge-owned environment and scanner/inspection results as authority. Do not trust filenames, directories or display strings alone. The normal operation must:
-
-1. verify the installed manager/host/native software and selected environment/runner revision;
-2. discover or consume a current exact module/factory/class census through supervised product code;
-3. normalize only the observed facts needed for matching and registration;
-4. compare every eligible profile deterministically;
-5. yield exactly one match per selected class or refuse without mutation;
-6. run any deeper class inspection needed to produce the current registration metadata;
-7. derive compatibility and supported performance from the profile rather than a user-authored request;
-8. bind the result to a durable local receipt.
-
-Explicitly test and categorize zero match, multiple matches, changed module digest, absent class, wrong class role, conflicting SDK metadata, runner/environment/installed-host mismatch, stale census and unsupported capability. A profile matching one class in a multi-class module does not silently publish another class. Discovery facts and profile claims remain distinguishable.
-
-The ordinary operator may choose an environment or a supported product when real ambiguity exists, but must not type identities or duplicated technical facts. A dry-run/preview is useful if it reads from the same planning result that the commit operation validates; it must not become a separate source of truth.
-
-## Product-owned native artifact
-
-The current registration accepts a generated native artifact from an external path. AP14 must close that ordinary-user gap. Determine the smallest product-owned route consistent with the existing build and installation:
-
-- install a verified generic or generated proxy artifact with the immutable software package;
-- invoke an existing deterministic product-owned generation/build step outside the DAW and audio path;
-- or select another bounded route that produces an exact retained artifact and provenance.
-
-The ordinary user must not supply a source-checkout/build-directory path. Stable processor/controller IDs and the native request identity must remain derived by the established law, not regenerated from a profile filename, display name or publication revision. Do not compile, copy, hash or perform filesystem work in a DAW audio callback.
-
-## Publication revision and transaction law
-
-Do not relax the existing changed-binding refusal or overwrite the current registration in place. Add an explicit revisioned update/rollback transaction around the existing immutable bundle and atomic link posture.
-
-A completed publication revision must durably bind:
-
-- class and stable Linux-facing identities;
-- profile ID/revision and claim state;
-- exact local module/class observation or census identity;
-- environment/runner revision;
-- installed Windows host/source identity;
-- native proxy artifact identity;
-- compatibility and supported performance selection;
-- publication target and parent/prior revision;
-- transaction/result identity.
-
-The engineer may choose the exact state representation, but every externally visible intermediate state belongs to recovery. The following physical laws are mandatory:
-
-- the prior known-good publication remains active until the complete candidate is validated and commit-ready;
-- candidate files and provenance are immutable and exact before pointer activation;
-- the active discovery pointer changes atomically;
-- durable records identify both prior and candidate targets before an operation can make either externally relevant;
-- `reconcile` determines truth from durable records plus physical target/link readback, never an in-memory boolean or guessed intent;
-- interruption before activation leaves the prior revision active and may clean or retain an exact candidate safely;
-- interruption during/after pointer activation deterministically completes the candidate or restores the recorded prior revision;
-- a failed candidate never erases, rewrites or reconstructs the prior target from mutable current files;
-- rollback activates an exact retained known-good revision, not a newly derived approximation;
-- active DSP instance leases block unsafe publication change or rollback; the environment keeper alone is not a DSP lease;
-- foreign files/links are refused and preserved;
-- one class can update, unpublish or roll back without changing its healthy sibling;
-- vendor modules, environment state, account/license state and user projects are never deleted or rewritten by this transaction.
-
-Use fallible-stage tests around durable writes, candidate publication, pointer exchange, registry commit and cleanup. Merely testing a happy atomic rename is insufficient.
-
-This is bridge profile/registration/native-publication rollback. It is not a general vendor installer/update/backup system.
-
-## Ordinary management surface and readback
-
-Provide one coherent typed CLI workflow suitable for a later UI. Exact command names and private subcommands are implementation choices. The normal operator path may be conceptually:
+Make the ordinary bridged editor behave like an invisible compatibility layer:
 
 ```text
-scan/select supported environment
-preview exact supported matches
-publish or update selected supported products
-status
-rollback exact publication revision
+Bitwig opens the plug-in editor
+-> the exact vendor editor appears or receives focus directly
+-> closing the vendor window retires only that editor generation
+-> DSP, automation, state and project identity remain alive
+-> reopening presents exactly one fresh vendor editor for the same DSP instance
 ```
 
-It must not require the operator to chain internal inspection, hand-edit JSON, locate a native build, then call raw registration.
+There must be no visible bridge-owned **Open / focus vendor editor** / **Close vendor editor** intermediary and no second user action.
 
-Canonical `status` or an adjacent readback command must expose, per class:
+This slice activates [issue #84](https://github.com/kasselvania/Linux-VST-bridge/issues/84) from integrated AP14 `main` at `84abd6a9755ab10b015c3744549b1e46ab1b85cb` on branch `codex/ap15-direct-editor-lifecycle`. Continue in one implementation PR against `main`, leave it unmerged for independent technical review, and preserve the installed exact Arturia fixture.
 
-- friendly name and exact instrument/effect role;
-- selected profile ID/revision and lifecycle/claim state;
-- local module/build and runner/environment validity;
-- active publication revision, physical target and prior rollback target when available;
-- supported/recommended and currently selected performance posture;
-- editor/accessibility posture and known limitations;
-- pending/recovery state and a stable refusal category when action is unsafe.
+AP14 is accepted and integrated. Its exact Pure LoFi and Efx FRAGMENTS profile revision-3 claims remain `verified_exact_fixture`; their native-panel editor posture, artifact bindings and retained rollback history are immutable. **512 added frames per proxy remains supported and recommended. 256 remains available but unqualified.**
 
-Structured output is canonical. Human-readable output may summarize it. A future GUI must be able to call the same Rust-owned operation/readback rather than reproduce policy.
+Implementation, focused deterministic tests, necessary builds, reversible qualification deployment and proportionate Steam Deck evidence are authorized under [AGENTS.md](AGENTS.md). Preserve vendor files, authorization, saved projects, prior publications, useful failures and unrelated dirty work.
 
-## Verification and completion
+## Current implementation boundary
 
-### Deterministic tests
+`native-vst3-proxy/source/vendor_panel.h` currently supplies the Linux VST3 `IPlugView` Bitwig attaches. It creates a mapped 560×150 X11 child, draws the two bridge buttons, invokes `PanelOwner::panelOpen` / `panelClose`, forwards focus through the owner, and closes the vendor editor from `removed()`.
 
-Cover at least:
+`native-vst3-proxy/source/commercial_controller.h` creates that view and owns the native editor request/status bridge. `native-vst3-proxy/include/ap11_gui.h` defines the fixed UI ABI (`Open`, `Close`, `Focus`, `EditorStatus`, activation context and view epoch), while `native-vst3-proxy/backend/src/gui.rs` and `queued.rs` own the mapped native session/channel. On Windows, `windows-factory-probe/source/gui_channel.h`, `editor_session.h` and `vendor_view.h` own the mapped channel, generation-aware service loop and detached Win32 vendor view. AP14’s persistent hidden `environment_desktop.h` owner must remain intact.
 
-- strict profile parsing, schema/version/count/size bounds and unknown/prohibited shapes;
-- exact one-match selection and zero/ambiguous matches;
-- changed digest, missing/wrong class, role/metadata mismatch, stale census, wrong runner/environment/host and unsupported capability;
-- registration derivation without operator-authored class ID, digest, compatibility or native build path;
-- stable external identities across profile/publication revision;
-- idempotent repeated managed publication;
-- prior publication preservation when candidate validation or generation fails;
-- injected interruption/failure at every durable transaction boundary followed by deterministic `reconcile`;
-- exact rollback and rollback refusal while an instance lease is active;
-- foreign publication ownership refusal;
-- independent LoFi and FRAGMENTS update/unpublish/rollback;
-- vendor files/state untouched;
-- status/readback matching the physical link/target and exact durable records.
+Deleting the panel or returning no view is not an accepted design. Bitwig still owns a VST3 view lifecycle, and the bridge needs a host-correct adapter. A zero-sized, unmapped, transparent or otherwise minimal native delegate is a hypothesis to test, not an assumption.
 
-Reuse current publication and manager fixtures rather than inventing a second registry implementation. Add focused scanner/native-generation tests only where the managed route actually changes those components.
+## Product laws
 
-### Exact Steam Deck check
+### Direct presentation
 
-Use the existing lawful AP13 Arturia environment and a protected copy of the existing Bitwig project.
+- One successful DAW attach/open produces one open-or-focus request for the exact processing instance.
+- Repeated attach, focus or show activity must focus the existing vendor editor rather than create a duplicate.
+- The bridge-owned native delegate must not appear as an ordinary visible editor surface.
+- Editor availability must never become a prerequisite for DSP admission or audio processing.
 
-1. Record current installed software, environment, runner, module/class, registration, profile, performance and publication identities.
-2. Close bridged devices before publication mutation. Preserve the environment keeper, vendor files, account/license state and original project.
-3. Remove or deactivate only bridge-owned discovery publications as required by the test.
-4. Run the new normal managed workflow without hand-authored class/hash/registration/build-path inputs.
-5. Confirm Bitwig discovers Pure LoFi as an instrument and Efx FRAGMENTS as an effect with the same stable Linux-facing identities.
-6. Reopen the saved chain and confirm its edited state/automation and same-instance vendor controls remain available.
-7. Present a deliberately incompatible profile/module/runner candidate and prove it cannot replace the working publication.
-8. Exercise interruption/reconcile or an equivalent safe injected transaction fault on disposable bridge-owned publication state.
-9. Demonstrate exact rollback to the recorded known-good revision.
-10. Finish with a bounded 512-frame playback, editor, explicit save/recall and independent FRAGMENTS-removal smoke check.
+### Bidirectional close
 
-Reuse AP13 for unchanged audio/state/performance claims. Do not replay its latency matrix or claim the AP14 smoke check is new universal reliability evidence. A user-service restart and normal Bitwig relaunch are proportionate. Perform a full Deck reboot only if startup/persistence code changes or physical readback leaves a genuine unresolved persistence question.
+- User close of the vendor window must produce an exact editor-closed result for the current generation.
+- DAW view removal/close must request retirement exactly once.
+- Plug-in/device removal retires the editor before instance and transport retirement under the existing ownership law.
+- Closing an editor must not remove the device, terminate healthy DSP, discard opaque state, invalidate automation or change stable processor/controller identity.
 
-Retain exact commands, source/artifact/profile/transaction identities, failures and claim limits. Do not retain proprietary binaries, opaque state, presets, credentials, license material or sensitive environment exports.
+### Reopen and generation safety
 
-## Scope and non-goals
+- Reopen after either close route creates exactly one fresh editor generation for the same DSP instance.
+- Late resize, focus, status or close messages from a retired generation are refused or ignored without affecting the current generation.
+- A stale native view or vendor handle cannot close or focus a newer editor.
+- Repeated open/focus/close cycles must not leak X11 windows, Win32 windows, timers, callbacks, controller references, processes, leases or transport ownership.
 
-AP14 does not include:
+### Failure isolation and truth
 
-- another commercial vendor or plug-in build;
-- Serum authorization or vendor reinstall;
-- speculative Wine/Proton migration;
-- promotion or further qualification of the 256-frame option;
-- a universal compatibility schema for every VST3 feature;
-- a GUI toolkit, consumer installer or general remote profile service;
-- general vendor software download/update/repair;
-- sidechains, arbitrary buses, float64, broad MIDI/MPE, CLAP, Wayland embedding or another DAW;
-- a transport/protocol rewrite or another performance campaign;
-- elimination of every remaining startup/preparation/publication timing outlier;
-- FRAGMENTS Advanced-panel/redraw work in [#80](https://github.com/kasselvania/Linux-VST-bridge/issues/80);
-- removal of the visible native editor open/close intermediary in [#84](https://github.com/kasselvania/Linux-VST-bridge/issues/84).
+- Vendor editor refusal, window loss or editor-path crash remains distinct from DSP/process failure.
+- Healthy processing continues when the established architecture permits it.
+- Native and Windows status must distinguish opening, open, focused, closing, closed, refused and failed outcomes without fabricating success.
+- No editor request, wait, logging, allocation, X11/Win32 operation or filesystem work enters the audio callback.
 
-Issue #84 records the desired later UX: opening a plug-in editor should directly show/focus the vendor window, and closing that vendor window should retire only the editor session without a separate bridge-owned open/close panel. Preserve current editor behavior during AP14 unless a strictly mechanical compatibility-field move is required.
+## Host and platform correctness
+
+Respect:
+
+- VST3 `IPlugView` attach/remove, frame, sizing and thread requirements;
+- Bitwig/X11 run-loop registration and removal;
+- Win32 owner-thread and message-pump requirements;
+- activation and focus without fake parameter invalidation or state capture;
+- plug-in-requested resize, scale/DPI, child windows, popups and menus;
+- process-scoped Windows accessibility selection;
+- AP14 environment-desktop lifetime and service ownership;
+- exact instance, controller and editor-generation identity.
+
+The independent detached-editor architecture remains selected. This slice does not authorize embedding or reparenting the Windows editor into Bitwig, switching runners, adopting yabridge, or redesigning transport/state.
+
+The standalone `vendor-editor INSPECTION.json` route remains a separate editor-only/no-DAW-audio/no-project-recall surface. Do not change it implicitly. Any shared mechanical improvement must preserve its distinct admission and cleanup contract.
+
+## Profile and publication transition
+
+AP14 revision 3 is immutable and accurately means:
+
+```text
+editor = detached_owner_thread_with_native_panel
+```
+
+A native/editor behavior change requires a new exact artifact identity and a new profile revision/capability. Add the smallest closed editor capability needed for direct detached lifecycle. Do not mutate or relabel revision 3.
+
+A new `review_candidate` must not become ordinary activation authority before independent review. Qualification on the Deck may use an existing bounded development surface or a narrowly scoped reversible qualification route, but it must:
+
+- preserve the revision-3 publication as the exact known-good rollback target;
+- remain explicit and non-default;
+- avoid weakening `SelectionPurpose::Activation` or `Manager::managed_publish` claim checks;
+- avoid creating a general arbitrary-profile execution bypass;
+- leave exact physical/provenance/rollback evidence.
+
+The final verified profile revision is selected only after implementation evidence and independent review. Retained candidate and verified revisions remain immutable.
+
+## Deterministic verification
+
+Add or extend deterministic fixtures to cover at least:
+
+1. DAW attach requests one editor generation without a user button action.
+2. Repeated attach/focus requests do not duplicate the editor.
+3. Vendor-window close produces an exact closed notification and leaves DSP ownership alive.
+4. DAW view removal closes the current editor exactly once.
+5. Reopen after either route creates one new generation for the same instance.
+6. Late messages from a retired generation cannot affect the replacement.
+7. Editor refusal/failure is isolated from processing and reported truthfully.
+8. Device removal orders editor retirement before instance/transport retirement.
+9. Repeated cycles leave no native/Windows handles, timers, callbacks, references or leases.
+10. Existing resize, popup, parameter gesture, state and automation behavior remains intact where touched.
+11. The native delegate satisfies Bitwig/VST3 lifecycle expectations without presenting the bridge controls.
+12. Existing AP11–AP14 editor, failure, state, ownership and callback tests remain meaningful.
+
+Use production helpers rather than a parallel editor implementation. Preserve exact failure cases; do not turn a failed close into a successful status merely to simplify the state machine.
+
+## Exact Steam Deck validation
+
+Use the installed SteamOS 3.8.16 / Bitwig 6.1 / pinned Proton-SLR Arturia fixture and protected project copies.
+
+Before mutation:
+
+- record integrated source, installed software/profile/publication identities and current physical links;
+- ensure no active DSP lease before publication/native changes;
+- preserve revision-3 targets, vendor state, authorization, original projects and environment keeper;
+- keep 512 selected.
+
+Then demonstrate for both Pure LoFi and Efx FRAGMENTS:
+
+1. One ordinary Bitwig editor action directly presents the real vendor window with no visible bridge panel or second click.
+2. Repeated open/focus activity keeps exactly one vendor editor.
+3. Closing the vendor window leaves audio/DSP and the same project instance alive.
+4. Reopening creates one fresh editor generation for that same instance.
+5. Closing Bitwig’s editor view closes the vendor editor exactly once.
+6. Multiple cycles retire cleanly without stale windows, processes, leases or callbacks.
+7. Editor failure/refusal remains isolated and visible without damaging the project.
+8. A bounded save/reopen and parameter/automation check confirms no touched behavior regressed.
+9. A healthy sibling remains independent during editor close/reopen or failure.
+
+Use local on-device observation for window behavior; remote-control transport is not frame-rate or physical-latency evidence. A service restart and ordinary Bitwig relaunch are proportionate. A full reboot is required only if startup/persistence code changes or readback leaves a real uncertainty.
+
+## Explicit non-goals
+
+AP15 does not include:
+
+- FRAGMENTS Advanced expansion/redraw issue #80 unless the same demonstrated lifecycle mechanism owns the defect;
+- residual delivery/performance issue #72 or promotion of 256;
+- Serum authorization/qualification issue #77;
+- a Wine/Proton/runtime migration;
+- embedded Windows editors, Wayland hosting or a GUI toolkit;
+- general profile distribution, consumer installer or remote marketplace;
+- sidechains, arbitrary buses, float64, broad MIDI/MPE, CLAP or another DAW;
+- a transport, state or publication rewrite.
 
 ## Completion report
 
 Update the single implementation PR with:
 
-- exact source head and parent;
-- implemented profile and transaction contracts;
-- changed paths and why;
-- focused local/CI/Deck checks actually run;
-- retained profile/publication/recovery evidence;
-- exact installed state left behind;
-- failed attempts and remaining limits;
-- explicit statement that 512 remains supported/recommended and 256 remains unqualified.
+- exact final head, parent and tree;
+- the selected native `IPlugView`/editor lifecycle mechanism and rejected alternatives;
+- changed source ownership and generation/state laws;
+- profile candidate/revision and exact native/host artifact identities;
+- deterministic tests and all relevant CI results;
+- exact Deck open/focus/vendor-close/DAW-close/reopen/failure evidence;
+- physical publication/rollback and installed state left behind;
+- preserved projects, vendor state and authorization;
+- known limitations and nonclaims;
+- explicit confirmation that 512 remains supported/recommended and 256 unqualified.
 
-Leave the PR open, non-draft only when implementation and evidence are ready, and unmerged for independent technical review.
+Leave the PR open and unmerged for independent technical review.
+## Implementation checkpoint (not acceptance)
+
+### Current qualification authorization
+
+Technical review `5161191208` and the current operator work order supersede the historical capacity restriction below. All four hosted lanes at `0d82c75` passed. Windows artifact run `34418620336` records synthetic merge commit `46c7b85fce2370644cccec6197a6f1a06c188be1` with the identical reviewed tree. The finite exact ReviewCandidate roster may now be staged and exercised through `qualify-editor`, preserving ordinary verified-only activation and exact revision-3 rollback. Restore revision 3 after the bounded actual Bitwig qualification. Keep PR #86 draft until that campaign completes; never relabel a candidate verified in place.
+
+### Historical source-only checkpoints
+
+Local AP15 lifecycle/GUI-ownership changes and a sealed engineering qualification route are in progress on the existing PR #86. The exact Windows artifact is unavailable because GitHub jobs cannot start under the account's current billing/spending allowance. The operator authorized continuing locally and deferring Windows issues. The candidate roster remains closed with `qualification_artifacts_pending`; no candidate profile is verified or ordinarily activatable. The unmapped noninteractive delegate has SDK/Xvfb fixture evidence but still needs actual Bitwig acceptance. Keep this PR draft. See `docs/AP15.md` and `evidence/ap15/` for performed checks and untouched installed revision-3 state; the acceptance criteria above remain outstanding where no exact evidence exists.
+
+The current repair pass is limited to source ownership hardening and available local validation, as requested against `dd596b3e`. Windows capacity remains exhausted. Do not populate the qualification roster, deploy native AP15 builds, change revision-3 publications, or mark PR #86 ready. UI ABI 4 / mapped UI 5 adds explicit callback origins; the repair and available results are recorded separately in `docs/AP15.md` and `evidence/ap15/source-repair/`. Required Windows builds/tests and actual Bitwig qualification remain outstanding.
+
+Focused R2 from technical review `5160946354` separates XCB unmap, host-close send and flush outcomes. A rejected/exhausted unmap must still request the live host parent's retirement. The exact failing-before/passing-after Linux fixture and refreshed validation are recorded under `evidence/ap15/r2/`. This remains a source-only checkpoint: `AP15_SOURCE_CLEAR_WINDOWS_BLOCKED`, `BITWIG_QUALIFICATION_BLOCKED`, `AP14_BASELINE_PRESERVED`. Keep PR #86 draft and unmerged; no AP15 installation/publication or qualification roster is authorized in this pass.
+
+### Current qualification result (independent review pending)
+
+Revision-4 attachment and revision-5 focus failures were reproduced and narrowly repaired on Linux. Revision-6 sealed candidates were exercised through the engineering route in normally Applications-launched Bitwig: both direct editors, same-session vendor/DAW close and reopen, gestures, existing automation, explicit save/relaunch recall and independent FRAGMENTS removal. Both exact verified revision-3 targets were then physically restored. Candidate claims remain `review_candidate`; no ordinary activation eligibility changed. See `evidence/ap15/qualification/` and `docs/AP15.md` for exact artifacts, sessions, gaps, rollback and limitations. This current result supersedes the historical blocked checkpoints above, without rewriting them as passes. Independent review and merge remain outstanding.
+
+### Final independent-review transition
+
+Review 5161767138 accepts the direct-editor implementation and exact revision-6 fixture result at `a84761133f15897a9526269f2eeb35a268419c15`. The remaining authorized work is the narrow ordinary installation transition: preserve revisions 3/4/5/6, add immutable verified revision 7 with identical accepted technical constraints, consume only the exact retained reviewed artifacts through existing software setup, and use normal managed publication with exact revision-3 parents. Candidate activation remains refused. Leave revision 7 installed after the bounded Applications-launched ordinary smoke, with revision 3 retained for rollback. Reuse the accepted Windows/native artifacts and full qualification evidence; no lifecycle, performance or vendor campaign is authorized by this transition. Keep PR #86 open and unmerged for focused rereview.
+
+Final ordinary transition result: `AP15_ACCEPTED_AND_ORDINARY_PROFILE_READY`. Both revision-7 verified products are active through normal managed publication; the exact revision-3 physical parents remain retained. The focused normal Applications launch, direct editors, same-session LoFi close/one-action reopen and normal quit/cleanup passed. No DSP leases or pending transactions remain, service/keeper are active, tracing is off, CPUWeight is unset/effective 100, and project hashes are unchanged. See `evidence/ap15/acceptance/` for source/software/profile/publication identities, tests and honest gap counts. Leave PR #86 open and unmerged for focused rereview.
