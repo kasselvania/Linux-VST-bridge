@@ -19,7 +19,7 @@ The repository is publicly readable but proprietary. Preserve [COPYRIGHT.md](COP
 
 ## Current implementation checkpoint
 
-The first selected active-phase miss is causally assigned to a journal wait while the native worker writes its ext4-backed audio mapping. The manager/supervisor memory-storage repair and focused ownership tests are in progress. No installed bytes, publication, profile, delay or scheduler setting has changed. A single scoped Flatpak runtime-directory grant is awaiting operator confirmation before deployment. Matched before/after evidence remains required; AP16 is not complete. See [docs/AP16.md](docs/AP16.md) and [the exact causal record](evidence/ap16/causal-baseline.json).
+The selected active-phase miss is causally assigned to a journal wait while the native worker writes its ext4-backed audio mapping. The scoped runtime-directory grant was explicitly approved and applied. The first immutable manager installation exposed the pinned Windows host's closed C: handshake-path requirement; both failed admissions were positively retired without loading vendor state. The supervisor now preserves that handshake and publishes exact RAM-file views before the gate. Focused regressions pass, but the corrected installation and matched comparison remain pending. AP16 is incomplete; PR #89 remains draft. See [docs/AP16.md](docs/AP16.md) and [the retained admission failure](evidence/ap16/installation-path-repair.json).
 
 ## Product outcome
 

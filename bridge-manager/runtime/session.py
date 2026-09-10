@@ -44,9 +44,10 @@ def environment(reg):
 def command(spec):
     reg=spec['registration'];root=pathlib.Path(reg['environment']['root']);prefix=root/'compatdata/pfx';runner=reg['environment']['runner'];sid=spec['session'];mode='ap12-vendor-access' if spec.get('vendor_access') else 'ap8-module-inspection' if spec['inspect'] else 'ap9-commercial'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
+    handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),
            ('module',windows(reg['module']['path'],prefix)),('module-sha256',reg['module']['sha256']),('bundle-manifest-sha256',reg['module']['sha256']),
-           ('ready',windows(pathlib.Path(spec['directory'])/(sid+'.ready'),prefix)),('gate',windows(pathlib.Path(spec['directory'])/(sid+'.gate'),prefix)),
+           ('ready',windows(handshake_directory/(sid+'.ready'),prefix)),('gate',windows(handshake_directory/(sid+'.gate'),prefix)),
            ('max-classes','256'),('stdout-cap','1048576'),('mode',mode),('component-case',case)]
     cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],prefix)]
     for k,v in pairs:cmd+=['--'+k,v]
@@ -111,6 +112,30 @@ def transport_environment(spec,env):
         # The keeper and every audio child see only our same private root.
         # This is not a prefix, home or arbitrary caller-selected mount grant.
         env['PRESSURE_VESSEL_FILESYSTEMS_RW']=str(validate_runtime())
+
+def windows_transport_views(spec):
+    """Keep the pinned host's closed C: handshake contract. Only these native-
+    created files alias the exact RAM session. Publish before the Windows gate,
+    never during processing; owner.json/handshake/receipts remain durable.
+    """
+    directory,durable=session_directories(spec)
+    if directory==durable:return
+    sources=[]
+    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery'):
+        source=directory/name;target=durable/name
+        try:m=source.lstat()
+        except FileNotFoundError:
+            if name=='ap10.delivery':continue # existing explicit socket diagnostic mode
+            raise
+        if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077:
+            raise RuntimeError('transport file ownership/type')
+        if os.path.lexists(target):raise RuntimeError('Windows transport view already exists')
+        sources.append((source,target,m))
+    for source,target,m in sources:
+        target.symlink_to(source)
+        visible=target.stat()
+        if (visible.st_dev,visible.st_ino)!=(m.st_dev,m.st_ino):
+            raise RuntimeError('Windows transport view replaced')
 
 def retire_directories(spec):
     directory,durable=session_directories(spec)
@@ -262,7 +287,7 @@ def fault_threads(owned):
     return result
 
 def run(spec,peer=None):
-    os.umask(0o077);reg=spec['registration'];directory,_=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
+    os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg);transport_environment(spec,env);delivery_trace(spec,env);stop=False
     def stopped(*_):
@@ -335,10 +360,11 @@ def run(spec,peer=None):
                     while time.monotonic()<end and not any(r.get('state')=='scanner_completed' for r in records):pump(.05)
                 break
             if not gated and any(r.get('state')=='readiness_announced' for r in records):
-                ready=directory/(sid+'.ready');m=ready.lstat()
+                ready=durable/(sid+'.ready');m=ready.lstat()
                 if not stat.S_ISREG(m.st_mode) or m.st_size>1024 or ready.read_bytes()!=binding:raise RuntimeError('Windows readiness binding differs')
                 for item in [reg['host'],reg['module']]:verify(item)
-                gate=directory/(sid+'.gate');temp=directory/(sid+'.gate.tmp')
+                windows_transport_views(spec)
+                gate=durable/(sid+'.gate');temp=durable/(sid+'.gate.tmp')
                 with temp.open('xb') as f:f.write(binding);f.flush();os.fsync(f.fileno())
                 temp.replace(gate);gated=True
             now=time.monotonic()

@@ -394,7 +394,7 @@ class MemoryTransportTests(unittest.TestCase):
             self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
             self.assertFalse(directory.exists() or durable.exists())
 
-    def test_ready_gate_and_runner_share_only_the_exact_memory_root(self):
+    def test_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory(self):
         with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
             spec,durable,directory=self.fixture(disk,memory)
             with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
@@ -403,8 +403,67 @@ class MemoryTransportTests(unittest.TestCase):
                 self.assertEqual(env,{'PRESSURE_VESSEL_FILESYSTEMS_RW':memory})
                 cmd,_=session.command(spec)
                 for field in ['ready','gate']:
-                    self.assertEqual(cmd[cmd.index('--'+field)+1],session.windows(directory/(spec['session']+'.'+field),pathlib.Path(disk)/'compatdata/pfx'))
+                    self.assertEqual(cmd[cmd.index('--'+field)+1],
+                                     'C:\\bridge\\sessions\\'+spec['session']+'\\'+spec['session']+'.'+field)
                 env={};session.transport_environment(dict(spec,shared_runtime=False),env);self.assertEqual(env,{})
+
+    def test_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources(self):
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            names=('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery')
+            for name in names:(directory/name).write_bytes(name.encode());(directory/name).chmod(0o600)
+            (durable/'owner.json').write_text('retained durable owner')
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
+                (durable/'ap12.status').symlink_to('/does/not/exist')
+                with self.assertRaisesRegex(RuntimeError,'already exists'):session.windows_transport_views(spec)
+                self.assertFalse((durable/'ap1.audio').exists())
+                (durable/'ap12.status').unlink()
+                (directory/'ap11.ui').unlink();(directory/'ap11.ui').symlink_to(directory/'ap1.audio')
+                with self.assertRaisesRegex(RuntimeError,'ownership/type'):session.windows_transport_views(spec)
+                self.assertFalse((durable/'ap1.audio').exists())
+                (directory/'ap11.ui').unlink();(directory/'ap11.ui').write_bytes(b'ui');(directory/'ap11.ui').chmod(0o600)
+                session.windows_transport_views(spec)
+                for name in names:
+                    self.assertTrue((durable/name).is_symlink())
+                    self.assertTrue((durable/name).samefile(directory/name))
+                    self.assertEqual((durable/name).read_bytes(),(directory/name).read_bytes())
+                self.assertFalse((durable/'owner.json').is_symlink())
+                with self.assertRaisesRegex(RuntimeError,'already exists'):session.windows_transport_views(spec)
+                session.retire_directories(spec)
+                self.assertFalse(directory.exists() or durable.exists())
+
+    def test_production_gate_waits_for_exact_windows_views_and_closes_both_owners(self):
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=self.fixture(disk,memory)
+            for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
+                (directory/name).write_bytes(b'exact-'+name.encode());(directory/name).chmod(0o600)
+            # Use the production command's binding and exact C: paths. The fake
+            # peer models the pinned Windows gate, then opens those physical
+            # views. No vendor processing/Windows compilation claim.
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
+                cmd,binding=session.command(spec)
+            (durable/(spec['session']+'.ready')).write_bytes(binding)
+            program="""import pathlib,sys,time
+d=pathlib.Path(sys.argv[1]);sid=sys.argv[2]
+print('{"event":"lifecycle","state":"readiness_announced"}',flush=True)
+end=time.monotonic()+4
+while not (d/(sid+'.gate')).exists():
+ if time.monotonic()>end:raise SystemExit(82)
+ time.sleep(.01)
+assert (d/(sid+'.gate')).read_bytes()==(d/(sid+'.ready')).read_bytes()
+for n in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
+ assert (d/n).is_symlink() and (d/n).read_bytes()==b'exact-'+n.encode()
+print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
+"""
+            with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \
+                 patch.object(session,'command',return_value=([sys.executable,'-c',program,str(durable),spec['session']],binding)), \
+                 patch.object(session,'environment',return_value=os.environ.copy()), \
+                 patch.object(session,'FaultStatus',return_value=None):
+                outcome=session.run(spec)
+            self.assertTrue(outcome['gated'])
+            self.assertIsNone(outcome['error'])
+            self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+            self.assertFalse(directory.exists() or durable.exists())
 
     def test_replaced_disk_foreign_and_malformed_storage_are_refused(self):
         import copy
