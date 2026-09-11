@@ -8,6 +8,24 @@ use std::{
 };
 
 pub const CAPACITY: usize = 4;
+/// Non-RT insertion outcomes. A held owner cannot establish permanent fullness.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InsertError {
+    Full,
+    Busy,
+    GenerationExhausted,
+}
+impl std::fmt::Display for InsertError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Full => ap1_native_client::admission::Refusal::NativeImageCapacity.code(),
+            Self::Busy => "admission_native_image_busy",
+            Self::GenerationExhausted => "admission_native_generation_exhausted",
+        })
+    }
+}
+impl std::error::Error for InsertError {}
+
 const CLOSED: u64 = 1 << 63;
 struct Entry<T> {
     id: u64,
@@ -55,9 +73,14 @@ impl<T> Registry<T> {
         }
     }
     /// Startup can block only this reserved slot, never a sibling callback.
-    pub fn insert<E>(&self, create: impl FnOnce() -> Result<T, E>) -> Result<Result<u64, E>, u32> {
+    pub fn insert<E>(
+        &self,
+        create: impl FnOnce() -> Result<T, E>,
+    ) -> Result<Result<u64, E>, InsertError> {
+        let mut contended = false;
         for (index, slot) in self.slots.iter().enumerate() {
             let Some(_owner) = Owner::acquire(&slot.owner) else {
+                contended = true;
                 continue;
             };
             if !slot.entry.load(Ordering::Acquire).is_null() {
@@ -66,9 +89,9 @@ impl<T> Registry<T> {
             let serial = self
                 .next
                 .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
-                    (n < u64::MAX / CAPACITY as u64 - 1).then_some(n + 1)
+                    (n < u64::MAX / CAPACITY as u64 - 1).then(|| n + 1)
                 })
-                .map_err(|_| 3u32)?;
+                .map_err(|_| InsertError::GenerationExhausted)?;
             let id = serial * CAPACITY as u64 + index as u64 + 1;
             return Ok(create().map(|value| {
                 slot.entry.store(
@@ -80,7 +103,11 @@ impl<T> Registry<T> {
                 id
             }));
         }
-        Err(3)
+        Err(if contended {
+            InsertError::Busy
+        } else {
+            InsertError::Full
+        })
     }
     /// Exactly one increment/decrement: no allocation, waiting or CAS retry loop.
     pub fn lease(&self, id: u64) -> Option<Lease<'_, T>> {
@@ -163,6 +190,65 @@ impl<T> Drop for Lease<'_, T> {
 mod tests {
     use super::*;
     #[test]
+    fn reusable_slot_owner_contention_is_temporary_and_preserves_stale_handles() {
+        let r = Registry::new();
+        let ids: Vec<_> = (0..CAPACITY)
+            .map(|i| r.insert(|| Ok::<_, ()>(i)).unwrap().unwrap())
+            .collect();
+        let retired = ids[CAPACITY - 1];
+        r.remove(retired, |_| ()).unwrap();
+        let barrier = std::sync::Barrier::new(2);
+        thread::scope(|scope| {
+            let t = scope.spawn(|| {
+                let _owner = Owner::acquire(&r.slots[CAPACITY - 1].owner).unwrap();
+                barrier.wait();
+                barrier.wait();
+            });
+            barrier.wait();
+            let result = r.insert(|| -> Result<usize, ()> {
+                panic!("contended insertion must not start or acquire external ownership")
+            });
+            // Release before assertions so a failing regression cannot strand the thread.
+            barrier.wait();
+            t.join().unwrap();
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "admission_native_image_busy"
+            );
+        });
+        let fresh = r.insert(|| Ok::<_, ()>(99)).unwrap().unwrap();
+        assert_ne!(fresh, retired);
+        assert!(r.lease(retired).is_none());
+        assert!(r.lease(0).is_none());
+        assert!(r.insert(|| Ok::<_, ()>(100)).is_err());
+        for (i, id) in ids.into_iter().enumerate().take(CAPACITY - 1) {
+            assert_eq!(*r.lease(id).unwrap(), i);
+            r.remove(id, |_| ()).unwrap();
+            assert!(r.lease(id).is_none());
+        }
+        assert_eq!(r.remove(fresh, |v| *v), Ok(99));
+        assert!(r.lease(fresh).is_none());
+    }
+
+    #[test]
+    fn generation_exhaustion_is_terminal_without_creating_or_reusing_handles() {
+        let r = Registry::new();
+        let old = r.insert(|| Ok::<_, ()>(1)).unwrap().unwrap();
+        r.remove(old, |_| ()).unwrap();
+        r.next
+            .store(u64::MAX / CAPACITY as u64 - 1, Ordering::Relaxed);
+        for _ in 0..2 {
+            let e = r.insert(|| -> Result<usize, ()> { panic!("no exhausted startup") });
+            assert_eq!(e, Err(InsertError::GenerationExhausted));
+            assert_eq!(
+                e.unwrap_err().to_string(),
+                "admission_native_generation_exhausted"
+            );
+            assert!(r.lease(old).is_none());
+        }
+    }
+
+    #[test]
     fn transport_replacement_excludes_old_readers_and_keeps_sibling_live() {
         let r = Registry::new();
         let a = r.insert(|| Ok::<_, ()>(vec![1])).unwrap().unwrap();
@@ -184,7 +270,11 @@ mod tests {
         let ids: Vec<_> = (0..CAPACITY)
             .map(|i| r.insert(|| Ok::<_, ()>(i)).unwrap().unwrap())
             .collect();
-        assert_eq!(r.insert(|| Ok::<_, ()>(99)), Err(3));
+        assert_eq!(r.insert(|| Ok::<_, ()>(99)), Err(InsertError::Full));
+        assert_eq!(
+            InsertError::Full.to_string(),
+            "admission_native_image_capacity"
+        );
         assert!(r.lease(0).is_none());
         assert!(r.lease(ids[0] + CAPACITY as u64).is_none());
         assert_eq!(r.remove(ids[0], |v| *v), Ok(0));
