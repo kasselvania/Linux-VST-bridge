@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 5,
+  "revision": 4,
   "claim": "review_candidate",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
@@ -56,8 +56,8 @@
     },
     "environment_family": "arturia_persistent_v1",
     "environment_revision": 1,
-    "host_sha256": "0dd32d2e3db161fa7042b40c574c96b730e8b45495e8faa0d105cf7766efc291",
-    "host_source_sha256": "e15a18af18ec39a49634b6d4576e007dc8ce3bc9abb27264a12b3ff3d509a902",
+    "host_sha256": "18b94eb327e3383a096f51ff634602418554eb9bf1367d4b0095de093574d0d3",
+    "host_source_sha256": "53fbcb387df15f8d6d4624fffdcc59e02aefae592f898df12fc72d1bb6fdc483",
     "native_sha256": "f29f52f9d96649b1effbc5c1dd8c405074304ec2527d215c3794575e01ad122b",
     "native_source_commit": "36c02af2425e0bebeb940d7372cf3e10ab1da6ad",
     "descriptor_sha256": "07fb5e0b77bbc88b068a87e42eed43317b28d89d550842499eb888a5b2e1c305"

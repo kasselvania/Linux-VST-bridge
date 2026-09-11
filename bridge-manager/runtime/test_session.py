@@ -776,3 +776,31 @@ class ResultCustodyTests(unittest.TestCase):
             p.chmod(0o600)
             with p.open('r+b') as f:f.seek(4);f.write(session.struct.pack('<I',2))
             with self.assertRaisesRegex(RuntimeError,'identity/version'):session.ResultStatus(root,sid)
+    def test_supervisor_retains_rejection_before_abnormal_child_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='18'*16
+            directory=root/'compatdata/pfx/drive_c/bridge/sessions'/sid;directory.mkdir(parents=True,mode=0o700)
+            artifact=root/'host';artifact.write_bytes(b'fixture')
+            binding={'path':str(artifact),'sha256':hashlib.sha256(b'fixture').hexdigest()}
+            spec={'registration':{'host':binding,'module':binding,'environment':{'root':str(root),'runner':{'files':[]}}},'session':sid,'directory':str(directory),'report':str(root/'report.json'),'inspect':False}
+            program="""
+import os,sys,mmap,ctypes
+f=open(sys.argv[1],'r+b');m=mmap.mmap(f.fileno(),1024);a=ctypes.addressof(ctypes.c_char.from_buffer(m))
+l=ctypes.CDLL('libatomic.so.1');s=getattr(l,'__atomic_store_8');s.argtypes=[ctypes.c_void_p,ctypes.c_uint64,ctypes.c_int]
+row=[17,3,91,1440,1,0,0,21,256,0,0,1,0,0xffffffff,0xffffffff,0,0xffffffff,0xffffffff,0xffffffff,0,0,0,0,42,0,0x4000000000000000,0,0,0,1,0]
+for i,v in enumerate(row):s(a+512+i*8,v,5)
+s(a+64,1,5)
+os._exit(86)
+"""
+            cleanup=session.cleanup_process
+            def before_cleanup(child,owned):
+                saved=json.loads((root/'report.fault.json').read_text())
+                self.assertEqual(saved['before_containment']['result_status']['rejection']['request_sequence'],91)
+                self.assertTrue((directory/'ap18.results').exists())
+                return cleanup(child,owned)
+            with patch.object(session,'command',return_value=([sys.executable,'-c',program,str(directory/'ap18.results')],b'')),patch.object(session,'environment',return_value=os.environ.copy()),patch.object(session,'cleanup_process',side_effect=before_cleanup):
+                result=session.run(spec)
+            self.assertEqual(result['raw_exit'],86)
+            self.assertEqual(result['fault_status']['before_containment']['result_status']['rejection']['reason'],'ValueAboveOne')
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertFalse(directory.exists())

@@ -5,10 +5,10 @@ compiled finite profile/artifact roster. Never reads vendor state or licenses.
 """
 import argparse, hashlib, json, pathlib, subprocess, zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SOURCE = 'be00b6ff0ff9dd00660dacd89fbde53914f9fb1b'
-BUILD = 'e1397a92e1e0f90ae5e503e0c2e795de47f4b68b'
-TREE = '1d4dbf1d564376176fe36a77573b275ff5eea451'
-ZIP = 'c1863dabff31046daa1844d71ce7953ed68ff9c026d766e6ab64db7a4cf3f02d'
+SOURCE = '9f5b8db975badd3151ddab418169e676f5a3eaaf'
+BUILD = '722e0ac10b09e1d465b3f06052facf607c6d8563'
+TREE = '561d0f247e0946bf23d99bd8e1ac2bdbd579176c'
+ZIP = '19f8d7e6e094f506998e743bc39191eeaeb1690bb4a52ecbbcc90dbc01448c84'
 def sha(b): return hashlib.sha256(b).hexdigest()
 def git(*a): return subprocess.check_output(['git',*a],cwd=ROOT,text=True).strip()
 def generate(census, native, archive, output):
@@ -21,14 +21,14 @@ def generate(census, native, archive, output):
     paths=['CMakeLists.txt','cmake','windows-factory-probe','vst-state','windows-fixtures/ap10',
            'native-vst3-proxy/include','native-vst3-proxy/source/output_results.h',
            '.github/workflows/ap8-windows.yml','tools/wf0-factory-census','tools/ap10-tests',
-           'tools/ap11-tests','tools/ap12-tests','tools/ap13-tests','tools/ap14-tests',
+           'tools/ap11-tests','tools/ap12-tests','tools/ap13-tests','tools/ap14-tests','tools/ap18-tests',
            'tools/test_delivery_trace.py','tools/test_delivery_mailbox.py','tools/test_ap4_socket.py']
     inputs=[]
     for row in git('ls-tree','-r',BUILD,'--',*paths).splitlines():
         mode,kind,blob,path=row.split(None,3);assert kind=='blob'
         inputs.append(dict(path=path,git_mode=mode,git_blob=blob))
     manifest=dict(schema='linux-vst-bridge-ap18-host-source/v1',source_head=SOURCE,commit=BUILD,tree=TREE,
-        ci_run=34647573139,artifact_id=10282956423,artifact_zip_sha256=ZIP,binaries=binaries,
+        ci_run=34650773229,artifact_id=10283872121,artifact_zip_sha256=ZIP,binaries=binaries,
         sdk_commit='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',sdk_lock='cmake/HP0Vst3SdkLock.cmake',
         toolchain=dict(generator='Visual Studio 17 2022',architecture='x64',toolset='v143',windows_sdk='10.0.19041.0',observed_msvc='19.44.35228.0'),inputs=inputs)
     source=(json.dumps(manifest,sort_keys=True,separators=(',',':'))+'\n').encode()
@@ -37,7 +37,7 @@ def generate(census, native, archive, output):
     assert m['name']=='Pigments' and m['vendor']==c['factory_vendor']=='Arturia' and 'Instrument' in m['subcategories'].split('|')
     assert c['float32'] and not c['float64'] and native['returncode']==0 and len(native['source_commit'])==40
     filehash=lambda path: next(a['sha256'] for a in runner['files'] if a['path']==path)
-    p=dict(schema=1,id='arturia-pigments',revision=4,claim='review_candidate',module_sha256=c['module']['sha256'],factory_vendor=c['factory_vendor'],
+    p=dict(schema=1,id='arturia-pigments',revision=5,claim='review_candidate',module_sha256=c['module']['sha256'],factory_vendor=c['factory_vendor'],
         **{'class':m},role='instrument',requirements=dict(runner=dict(id=runner['id'],version=runner['version'],
         proton_sha256=filehash(runner['proton']),entry_point_sha256=filehash(runner['entry_point']),file_sha256=sorted(a['sha256'] for a in runner['files'])),
         environment_family=c['environment']['family'],environment_revision=env['revision'],host_sha256=sha(host),host_source_sha256=sha(source),

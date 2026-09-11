@@ -13,10 +13,12 @@ pub(crate) fn replacement_prior(prior: &Profile, next: &Profile) -> Result<bool>
     let first = Profile::parse(include_bytes!("../../compatibility/ap18/revision-1/arturia-pigments.json"))?;
     let second = Profile::parse(include_bytes!("../../compatibility/ap18/revision-2/arturia-pigments.json"))?;
     let third = Profile::parse(include_bytes!("../../compatibility/ap18/revision-3/arturia-pigments.json"))?;
-    let fourth = candidate()?;
+    let fourth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-4/arturia-pigments.json"))?;
+    let fifth = candidate()?;
     Ok((*prior == first && *next == second)
         || (*prior == second && *next == third)
-        || (*prior == third && *next == fourth && fourth.revision == 4))
+        || (*prior == third && *next == fourth)
+        || (*prior == fourth && *next == fifth && fifth.revision == 5))
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -43,7 +45,7 @@ fn current_baseline(
 ) -> Result<(Baseline, Environment)> {
     require(
         p.claim == Claim::ReviewCandidate
-            && p.revision == 4
+            && p.revision == 5
             && p.id == "arturia-pigments"
             && p.role == Role::Instrument
             && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
@@ -396,7 +398,7 @@ mod tests {
             policies.push(policy);
         }
         p.id = "arturia-pigments".into();
-        p.revision = 4;
+        p.revision = 5;
         p.claim = Claim::ReviewCandidate;
         p.class.class_id = "03".repeat(16);
         p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
@@ -534,7 +536,19 @@ mod tests {
         let third_bytes = include_bytes!("../../compatibility/ap18/revision-3/arturia-pigments.json");
         assert_eq!(crate::hex(&sha2::Sha256::digest(third_bytes)), "ad1e73d42d0049d52b02a44b9b0737c50f57749e5cec530f5f387a580647f675");
         let third = Profile::parse(third_bytes).unwrap();
-        let fourth = candidate().unwrap();
+        let fourth_bytes = include_bytes!("../../compatibility/ap18/revision-4/arturia-pigments.json");
+        assert_eq!(crate::hex(&sha2::Sha256::digest(fourth_bytes)), "64e9773239ec910dcefd8ddfc0a15d36d8bca1689b9998c07ffc74da5583b00b");
+        let fourth = Profile::parse(fourth_bytes).unwrap();
+        let fifth = candidate().unwrap();
+        assert!(replacement_prior(&fourth, &fifth).unwrap());
+        assert!(!replacement_prior(&third, &fifth).unwrap());
+        assert!(!replacement_prior(&fifth, &fourth).unwrap());
+        let mut custody_normalized=fifth.clone();
+        custody_normalized.revision=fourth.revision;
+        custody_normalized.requirements.host_sha256=fourth.requirements.host_sha256.clone();
+        custody_normalized.requirements.host_source_sha256=fourth.requirements.host_source_sha256.clone();
+        custody_normalized.evidence=fourth.evidence.clone();
+        assert_eq!(custody_normalized,fourth);
         assert!(replacement_prior(&third, &fourth).unwrap());
         assert!(!replacement_prior(&second, &fourth).unwrap());
         assert!(!replacement_prior(&first, &fourth).unwrap());
@@ -552,7 +566,7 @@ mod tests {
         assert!(!replacement_prior(&first, &third).unwrap());
         assert!(!replacement_prior(&third, &second).unwrap());
         assert!(!replacement_prior(&second, &first).unwrap());
-        for p in [&first,&second,&third,&fourth] {
+        for p in [&first,&second,&third,&fourth,&fifth] {
             assert!(p.claim.require(SelectionPurpose::Activation).is_err());
             assert_eq!(external_ids(&p.class.class_id).unwrap(),external_ids(&first.class.class_id).unwrap());
         }
@@ -576,7 +590,7 @@ mod tests {
     #[test]
     fn compiled_candidate_is_new_identity_not_ordinary_or_ap17_policy() {
         let p = candidate().unwrap();
-        assert_eq!(p.revision, 4);
+        assert_eq!(p.revision, 5);
         assert_eq!(p.class.name, "Pigments");
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());
