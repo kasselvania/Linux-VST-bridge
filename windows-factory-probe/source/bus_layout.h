@@ -1,22 +1,25 @@
 #pragma once
 #include "ap1_protocol.h"
+#include "../../native-vst3-proxy/include/ap18_bus_support.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/vstspeaker.h"
 namespace linux_vst_bridge::wf0 {
 // SDK census kept intact. The bounded implementation carries main stereo audio,
-// one optional note input, and represents auxiliary buses without activating them.
+// one optional note input, and the sole stereo auxiliary input when no main
+// input exists. Additional auxiliary inputs remain inactive.
 struct BusLayout {
  struct Bus {Steinberg::Vst::BusInfo info{};Steinberg::Vst::SpeakerArrangement arrangement=0;bool supported=false,active=false;};
- std::array<Bus,32> buses{};size_t size=0;std::array<int,4> counts{};
+ std::array<Bus,32> buses{};size_t size=0;std::array<int,4> counts{};int transported_input=-1;
  void read(Steinberg::Vst::IComponent& c,Steinberg::Vst::IAudioProcessor& p){
-  using namespace Steinberg;using namespace Steinberg::Vst;using ap1::require;size=0;
+  using namespace Steinberg;using namespace Steinberg::Vst;using ap1::require;size=0;transported_input=-1;
   for(int media=0;media<2;++media)for(int dir=0;dir<2;++dir){auto n=c.getBusCount(media,dir);require(n>=0&&n<=8,"bus count bound");counts[media*2+dir]=n;
    for(int i=0;i<n;++i){auto& b=buses[size++];require(c.getBusInfo(media,dir,i,b.info)==kResultOk,"bus metadata query");
     require(b.info.mediaType==media&&b.info.direction==dir&&(b.info.busType==kMain||b.info.busType==kAux),"bus metadata tuple");
     if(media==kAudio){require(p.getBusArrangement(dir,i,b.arrangement)==kResultOk&&b.arrangement==SpeakerArr::kStereo&&b.info.channelCount==2,"only declared stereo audio supported");require(b.info.busType!=kMain||i==0,"main audio bus index");require(dir!=kOutput||b.info.busType==kMain,"main audio output required");}
     else require(b.info.channelCount>=0&&b.info.channelCount<=16,"event channel bound");
-    b.supported=b.info.busType==kMain;b.active=b.supported&&(b.info.flags&BusInfo::kDefaultActive);
+    b.supported=AP18Buses::supported(media,dir,i,b.info.busType,counts[0],b.info.channelCount,b.arrangement);b.active=b.supported&&(b.info.flags&BusInfo::kDefaultActive);
+    if(media==kAudio&&dir==kInput&&b.supported)transported_input=i;
    }
   }
   require(counts[1]==1&&counts[2]<=1,"one output and optional event input required");
@@ -27,6 +30,18 @@ struct BusLayout {
   for(size_t i=0;i<size;++i){const auto*r=p.data()+28+32*i;auto&b=buses[i];auto m=b.info.mediaType,d=b.info.direction;
    require(get(r,4)==uint32_t(m)&&get(r+4,4)==uint32_t(d)&&get(r+8,4)==uint32_t(index[m*2+d]++)&&get(r+12,4)==uint32_t(b.info.channelCount)&&get(r+16,4)==uint32_t(b.info.busType)&&get(r+24,8)==b.arrangement,"native/Windows SDK buses differ");
    auto enabled=get(r+20,4);require(enabled<=1&&(!enabled||b.supported),"unsupported auxiliary activation");b.active=enabled!=0;
+  }
+ }
+ // Called with fixed owner-prepared storage. The setup contract, not product
+ // role, determines which SDK bus receives the single transported stereo pair.
+ void map_inputs(std::array<Steinberg::Vst::AudioBusBuffers,8>& inputs,
+                 float** transported,float** zeros,uint64_t silence)const {
+  int index=0;
+  for(size_t i=0;i<size;++i){const auto& b=buses[i];
+   if(b.info.mediaType!=Steinberg::Vst::kAudio||b.info.direction!=Steinberg::Vst::kInput)continue;
+   const bool selected=index==transported_input&&b.supported&&b.active;
+   auto& input=inputs[size_t(index++)];input.numChannels=b.info.channelCount;
+   input.channelBuffers32=selected?transported:zeros;input.silenceFlags=selected?silence:3;
   }
  }
  void negotiate(Steinberg::Vst::IAudioProcessor& p){

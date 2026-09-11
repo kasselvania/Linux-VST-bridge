@@ -3,8 +3,8 @@ import argparse,hashlib,json,pathlib,uuid,math
 
 def generate(records,class_id,module_sha256):
     buses=[r for r in records if r.get('state')=='ap8_bus']
-    # Preserve SDK indices and arrangements. Only stereo main audio is active;
-    # auxiliary audio and event outputs remain represented but inactive.
+    # Preserve SDK indices and arrangements. One stereo main or sole auxiliary input may be active;
+    # additional auxiliary audio remains represented but inactive.
     for media in (0,1):
         for direction in (0,1):
             group=[r for r in buses if r['media']==media and r['direction']==direction]

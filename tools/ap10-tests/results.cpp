@@ -5,17 +5,37 @@
 #include <iostream>
 using namespace AP10Results;
 // Production BusLayout reads the SDK object's real bus declarations. No
-// Pigments name dispatch: auxiliary-only input is represented, never enabled.
+// Pigments name dispatch: a sole auxiliary input uses the one explicitly selected stereo lane.
 struct AuxiliaryInstrument final : Steinberg::Vst::AudioEffect {
- AuxiliaryInstrument(){using namespace Steinberg::Vst;addAudioInput(STR16("Sidechain"),SpeakerArr::kStereo,kAux);addAudioOutput(STR16("Stereo Out"),SpeakerArr::kStereo);addEventInput(STR16("Notes"),16);}
+ bool silent=true;
+ AuxiliaryInstrument(bool main=false,bool auxiliary=true){using namespace Steinberg::Vst;if(main)addAudioInput(STR16("Track"),SpeakerArr::kStereo,kMain);if(auxiliary)addAudioInput(STR16("Sidechain"),SpeakerArr::kStereo,kAux);addAudioOutput(STR16("Stereo Out"),SpeakerArr::kStereo);addEventInput(STR16("Notes"),16);}
+ Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData& d) override {
+  assert(d.numInputs==1&&d.numSamples==2);auto& b=d.inputs[0];assert(b.numChannels==2);
+  assert(b.silenceFlags==(silent?3u:0u));
+  assert(b.channelBuffers32[0][0]==(silent?0.f:.25f)&&b.channelBuffers32[0][1]==(silent?0.f:.5f));
+  assert(b.channelBuffers32[1][0]==(silent?0.f:-.75f)&&b.channelBuffers32[1][1]==(silent?0.f:-.125f));
+  return Steinberg::kResultOk;
+ }
 };
+
 int main(){
  {using namespace linux_vst_bridge;AuxiliaryInstrument instrument;wf0::BusLayout layout;layout.read(instrument,instrument);
- assert(layout.counts[0]==1&&layout.counts[1]==1);assert(!layout.buses[0].supported&&!layout.buses[0].active);assert(layout.buses[1].supported);
+ assert(layout.counts[0]==1&&layout.counts[1]==1);assert(layout.buses[0].supported&&layout.buses[0].active);assert(layout.buses[1].supported);
  std::vector<uint8_t> bytes(28+32*layout.size);ap1::put(bytes.data()+20,1,4);ap1::put(bytes.data()+24,layout.size,4);std::array<int,4> indices{};
  for(size_t i=0;i<layout.size;++i){auto&b=layout.buses[i];auto*r=bytes.data()+28+32*i;auto m=b.info.mediaType,d=b.info.direction;ap1::put(r,m,4);ap1::put(r+4,d,4);ap1::put(r+8,indices[m*2+d]++,4);ap1::put(r+12,b.info.channelCount,4);ap1::put(r+16,b.info.busType,4);ap1::put(r+20,b.active,4);ap1::put(r+24,b.arrangement,8);}
- layout.contract(bytes);layout.activate(instrument,true);assert(!layout.buses[0].active);
- ap1::put(bytes.data()+28+20,1,4);bool refused=false;try{layout.contract(bytes);}catch(...){refused=true;}assert(refused);layout.activate(instrument,false);
+ layout.contract(bytes);layout.activate(instrument,true);assert(layout.buses[0].active);
+ std::array<Steinberg::Vst::AudioBusBuffers,8> inputs{};float left[]={.25f,.5f},right[]={-.75f,-.125f},zero[]={0,0};float* pair[]={left,right};float* zeros[]={zero,zero};
+ layout.map_inputs(inputs,pair,zeros,0);assert(inputs[0].channelBuffers32[0]==left&&inputs[0].channelBuffers32[1]==right&&inputs[0].silenceFlags==0);
+ Steinberg::Vst::ProcessData data{};data.numInputs=1;data.inputs=inputs.data();data.numSamples=2;instrument.silent=false;assert(instrument.process(data)==Steinberg::kResultOk);
+ layout.map_inputs(inputs,zeros,zeros,3);instrument.silent=true;assert(instrument.process(data)==Steinberg::kResultOk);
+ ap1::put(bytes.data()+28+20,0,4);layout.contract(bytes);layout.map_inputs(inputs,pair,zeros,0);assert(inputs[0].channelBuffers32[0][0]==0&&inputs[0].channelBuffers32[1][1]==0&&inputs[0].silenceFlags==3);assert(instrument.process(data)==Steinberg::kResultOk);layout.activate(instrument,false);
+ // Main plus auxiliary preserves main routing and refuses auxiliary activation.
+ AuxiliaryInstrument effect(true);wf0::BusLayout fx;fx.read(effect,effect);
+ assert(fx.transported_input==0&&fx.buses[0].supported&&!fx.buses[1].supported&&!fx.buses[1].active);
+ fx.map_inputs(inputs,pair,zeros,0);assert(inputs[0].channelBuffers32[0]==left&&inputs[1].channelBuffers32[0][0]==0&&inputs[1].silenceFlags==3);
+ auto contract=[](const wf0::BusLayout& l){std::vector<uint8_t> v(28+32*l.size);ap1::put(v.data()+20,1,4);ap1::put(v.data()+24,l.size,4);std::array<int,4> ix{};for(size_t i=0;i<l.size;++i){const auto& b=l.buses[i];auto*r=v.data()+28+32*i;auto m=b.info.mediaType,d=b.info.direction;ap1::put(r,m,4);ap1::put(r+4,d,4);ap1::put(r+8,ix[m*2+d]++,4);ap1::put(r+12,b.info.channelCount,4);ap1::put(r+16,b.info.busType,4);ap1::put(r+20,b.active,4);ap1::put(r+24,b.arrangement,8);}return v;};
+ auto bad=contract(fx);ap1::put(bad.data()+28+32+20,1,4);bool refused=false;try{fx.contract(bad);}catch(...){refused=true;}assert(refused);
+ AuxiliaryInstrument no_input(false,false);wf0::BusLayout synth;synth.read(no_input,no_input);assert(synth.transported_input==-1&&synth.counts[0]==0);
  }
 
  {using namespace linux_vst_bridge;wf0::BusLayout b;b.size=1;auto&out=b.buses[0];out.info.mediaType=1;out.info.direction=1;out.info.channelCount=16;out.info.busType=0;out.info.flags=0;out.supported=true;out.active=false;

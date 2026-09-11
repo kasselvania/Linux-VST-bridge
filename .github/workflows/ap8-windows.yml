@@ -15,6 +15,7 @@ on:
       - 'tools/ap13-tests/**'
       - 'tools/ap14-tests/**'
       - 'native-vst3-proxy/include/ap11*'
+      - 'native-vst3-proxy/include/ap18_bus_support.h'
 permissions:
   contents: read
 jobs:

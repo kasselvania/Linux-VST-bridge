@@ -216,3 +216,19 @@ launch now selects the demonstrated operation-scoped accessibility mitigation.
 
 LoFi and FRAGMENTS revision 10 remain valid and their module bytes unchanged.
 512 remains recommended; 256 is unqualified. PR #95 remains draft and unmerged.
+
+
+### AP18 sole auxiliary-input decision
+
+The operator's focused input-bus ruling authorizes exactly one stereo transport
+input: index-zero main input, or sole stereo auxiliary input with no main. Bus
+media, direction, index, type, name, arrangement and supported default activation
+remain SDK-derived. Bitwig alone selects a source. Inactive input is zero; active
+input forwards its exact supplied buffers and validated silence hints. A main
+plus auxiliary topology still transports only main and refuses auxiliary
+activation. No role/product/name dispatch or general multibus support is added.
+
+Preserve Pigments revisions 1 and 2 and the paused stash. New native/Windows
+artifacts require immutable ReviewCandidate revision 3, sequential replacement
+1 -> 2 -> 3, and actual no-source/routed-source/source-removal proof before
+claiming the bounded input path. Existing ordinary products remain unchanged.

@@ -7,6 +7,7 @@
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include "pluginterfaces/vst/vstspeaker.h"
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <bit>
@@ -28,7 +29,8 @@ struct Block {
     std::array<float*, 2> in{}, out{};
     AudioBusBuffers input_bus{}, output_bus{};
     std::array<AudioBusBuffers,8> all_inputs{};
-    std::array<std::array<float*,2>,8> inactive_channels{};
+    std::array<float,capacity+2> silent_input{};
+    std::array<float*,2> silent_channels{silent_input.data()+1,silent_input.data()+1};
     ParameterChanges parameters{2};
     Changes commercial_parameters;Notes notes;ExternalBlock request{};
     AP10Results::Collector returned;
@@ -64,7 +66,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     // All buffers and SDK parameter queues are allocated/populated on the owner
     // thread before activation. Each process call receives a separate block.
     for (int b=0;b<3;++b) {
-        auto& block=blocks[b]; block.gain=b==0?0.5:0.25;
+        auto& block=blocks[b];block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard); block.gain=b==0?0.5:0.25;
         block.returned.buses=uint32_t(layout.counts[3]);
         size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput)block.returned.channels[event_out++]=layout.buses[i].info.channelCount;
         for (int ch=0;ch<2;++ch) {
@@ -89,7 +91,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         block.output_bus.silenceFlags=0;
         block.data.processMode=sustained?kRealtime:kOffline;block.data.symbolicSampleSize=kSample32;
         block.data.numSamples=frames;block.data.numInputs=inputs;block.data.numOutputs=1;
-        for(int i=0;i<inputs;++i){block.all_inputs[i].numChannels=2;block.all_inputs[i].channelBuffers32=i==0?block.in.data():block.inactive_channels[i].data();block.all_inputs[i].silenceFlags=i==0?block.input_bus.silenceFlags:3;}
+        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),block.input_bus.silenceFlags);
         block.data.inputs=inputs?block.all_inputs.data():nullptr;block.data.outputs=&block.output_bus;
         block.data.inputParameterChanges=&block.parameters;
     }
@@ -151,6 +153,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                 if (started) for(uint64_t b=0;sustained||b<uint64_t(external?65:3);++b) {
                     auto& block=blocks[external?0:b];
                     if (external) {
+                        block.silent_input.fill(0.f);
+                        block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard);
                         for(int ch=0;ch<2;++ch) {
                             block.input[ch].fill(0.f);block.output[ch].fill(std::bit_cast<float>(sentinel));
                             block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
@@ -161,7 +165,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
                         block.input_before=block.input;
                         block.gain=request.gain;block.data.numSamples=request.frames;
-                        block.input_bus.silenceFlags=request.silence;block.all_inputs[0].silenceFlags=request.silence;block.output_bus.silenceFlags=0;
+                        block.input_bus.silenceFlags=request.silence;
+                        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),request.silence);block.output_bus.silenceFlags=0;
                         block.parameters.clearQueue();int32 parameter=0,point=0;
                         if(request.gain_present)block.parameters.addParameterData(0,parameter)->addPoint(0,request.gain,point);
                         if(!stateful)block.parameters.addParameterData(2,parameter)->addPoint(0,0.,point);
@@ -187,6 +192,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         ",\"result\":"+std::to_string(block.result));
                     if(block.result!=kResultOk) {ok=false;if(sustained)throw std::runtime_error("Windows processor returned failure");break;}
                     if(block.returned.failed)throw std::runtime_error("malformed or oversized process results");
+                    if(std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
+                       std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;}))
+                        throw std::runtime_error("AP18 inactive input modified");
                     ++processed;
                     if(external) {
                         for(int ch=0;ch<2;++ch) {
