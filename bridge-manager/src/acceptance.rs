@@ -360,11 +360,8 @@ pub fn prepare_capacity(m: &Manager) -> Result<AcceptedSoftware> {
                 .join("runtime/leases")
                 .join(format!("{}.json", owner.session)),
         )?;
-        let receipt: serde_json::Value = read_json(&report.with_extension("ownership.json"))?;
         require(
-            receipt["session"].as_str() == Some(&owner.session)
-                && receipt["transport_retired"] == true
-                && receipt["cleanup_confirmed"] == true,
+            retired_keeper(&report, &owner.session)?,
             "active_lease_unresolved",
         )?;
     }
@@ -376,4 +373,57 @@ pub fn prepare_capacity(m: &Manager) -> Result<AcceptedSoftware> {
         &ap15_profiles()?,
         Qualification::Ap17Capacity,
     )
+}
+
+// Same receipt law as service reconciliation: keepers created by the retained
+// runtime use the legacy completed report, whereas schema-owned sessions must
+// provide their exact minimal ownership receipt. This only reads; setup does
+// not erase leases to gain permission.
+fn retired_keeper(report: &std::path::Path, session: &str) -> Result<bool> {
+    let receipt = report.with_extension("ownership.json");
+    let r: serde_json::Value = if receipt.exists() {
+        let r: serde_json::Value = read_json(&receipt)?;
+        require(
+            r["session"].as_str() == Some(session) && r["transport_retired"] == true,
+            "active_lease_unresolved",
+        )?;
+        r
+    } else {
+        let r: serde_json::Value = read_json(report)?;
+        require(r["ownership_schema"].is_null(), "active_lease_unresolved")?;
+        r
+    };
+    Ok(r["cleanup_confirmed"] == true)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn legacy_keeper_and_modern_receipts_require_positive_cleanup() {
+        let f = crate::test_fixture::Fixture::new();
+        let report = f.outer.join("keeper.json");
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":false})).unwrap();
+        assert!(!retired_keeper(&report, "01").unwrap());
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true})).unwrap();
+        assert!(retired_keeper(&report, "01").unwrap());
+        atomic_json(
+            &report,
+            &serde_json::json!({"ownership_schema":1,"cleanup_confirmed":true}),
+        )
+        .unwrap();
+        assert!(retired_keeper(&report, "01").is_err());
+        let receipt = report.with_extension("ownership.json");
+        atomic_json(
+            &receipt,
+            &serde_json::json!({"session":"02","transport_retired":true,"cleanup_confirmed":true}),
+        )
+        .unwrap();
+        assert!(retired_keeper(&report, "01").is_err());
+        atomic_json(
+            &receipt,
+            &serde_json::json!({"session":"01","transport_retired":true,"cleanup_confirmed":true}),
+        )
+        .unwrap();
+        assert!(retired_keeper(&report, "01").unwrap());
+    }
 }
