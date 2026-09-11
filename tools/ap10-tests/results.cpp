@@ -98,7 +98,7 @@ int main(){
  AuxiliaryInstrument no_input(false,false);wf0::BusLayout synth;synth.read(no_input,no_input);assert(synth.transported_input==-1&&synth.counts[0]==0);
  }
 
- {using namespace linux_vst_bridge;wf0::BusLayout b;b.size=1;auto&out=b.buses[0];out.info.mediaType=1;out.info.direction=1;out.info.channelCount=16;out.info.busType=0;out.info.flags=0;out.supported=true;out.active=false;
+ {using namespace linux_vst_bridge;wf0::BusLayout b;b.size=1;auto&out=b.buses[0];out.info.mediaType=1;out.info.direction=1;out.info.channelCount=16;out.effective_channels=16;out.info.busType=0;out.info.flags=0;out.supported=true;out.active=false;
 std::vector<uint8_t> p(60);ap1::put(p.data()+20,1,4);ap1::put(p.data()+24,1,4);ap1::put(p.data()+28,1,4);ap1::put(p.data()+32,1,4);ap1::put(p.data()+40,16,4);ap1::put(p.data()+48,1,4);b.contract(p);assert(b.buses[0].active);
 ap1::put(p.data()+48,0,4);b.contract(p);assert(!b.buses[0].active);out.supported=false;ap1::put(p.data()+48,1,4);bool refused=false;try{b.contract(p);}catch(...){refused=true;}assert(refused);}
 
