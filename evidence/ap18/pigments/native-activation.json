@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "candidate_revision": 1,
+  "result": "activation_refused",
+  "native_source": "e5bcb80d93f24b2b330fefda842068ff32238ff5",
+  "native_sha256": "5c224a9d046e4f60210dd913c0f2d023898854fe11e41f3e03cb93cc19f478a6",
+  "host": "Bitwig 6.1 normally Applications-launched",
+  "sequence": [
+    "New project",
+    "Browser found Pigments as Arturia instrument",
+    "Selected Pigments and Return",
+    "Could not activate first audio input: kResultFalse"
+  ],
+  "native_records": {
+    "unsupported_bus_activation": {
+      "media": 0,
+      "direction": 0,
+      "index": 0,
+      "active": true
+    },
+    "host_maximum": 512,
+    "sample_rate": 48000,
+    "bridge_frames": 512,
+    "vendor_frames": 48,
+    "total_frames": 560,
+    "phase": 2,
+    "processed": 0,
+    "fault": 0
+  },
+  "cleanup": {
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "dsp_leases": 0
+  },
+  "cause": "Proxy copied vendor default-active flag to a visible unsupported auxiliary bus, then refused activation. SDK census preserves original flag; native default-active advertisement must match supported activation.",
+  "repair": "Keep auxiliary bus/type/index/layout visible; clear native default-active flag for unsupported auxiliary buses. Explicit activation still refuses.",
+  "regression": {
+    "owner": "actual Processor and pinned SDK host",
+    "before": "auxiliary kDefaultActive assertion fails",
+    "after": "pass; inactive auxiliary contract, main activation, exact endpoint retirement"
+  },
+  "nonclaims": [
+    "No Pigments audio or editor success yet",
+    "No sidechain support",
+    "No new Windows bytes"
+  ]
+}

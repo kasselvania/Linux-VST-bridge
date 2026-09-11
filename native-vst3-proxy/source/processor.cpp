@@ -493,7 +493,10 @@ tresult PLUGIN_API Processor::initialize(FUnknown *context) {
   for(const auto& b:AP8::buses){
     bool enabled=b.type==kMain&&(b.flags&BusInfo::kDefaultActive);
     bus_active_[ordinal++]=enabled;
-    auto flags=b.flags;
+    // Preserve the observed descriptor; native default activation must describe
+    // what this proxy can actually activate. Auxiliary buses remain visible,
+    // with their SDK type/index/layout intact, and explicit activation refuses.
+    auto flags=b.type==kMain?b.flags:(b.flags&~uint32_t(BusInfo::kDefaultActive));
     const auto* name=reinterpret_cast<const TChar*>(b.name);
     if(b.media==kAudio){if(b.direction==kInput)addAudioInput(name,b.arrangement,b.type,flags);else addAudioOutput(name,b.arrangement,b.type,flags);}
     else {if(b.direction==kInput)addEventInput(name,b.channels,b.type,flags);else addEventOutput(name,b.channels,b.type,flags);}
