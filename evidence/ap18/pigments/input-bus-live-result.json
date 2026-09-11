@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "disposition": "AUXILIARY_ACTIVATION_OBSERVED_RETURNED_RESULTS_BLOCKED",
+  "claim": "partial real-host observation; not a completed routed-input or musical qualification",
+  "product": "Pigments 7.0.1.6772",
+  "candidate_revision": 3,
+  "candidate_claim": "review_candidate",
+  "profiles": [
+    {
+      "revision": 1,
+      "profile_fingerprint": "b256ec061f87a53d5943ba6f398629a841a32f4e23c2446743469a217025b06f",
+      "claim": "review_candidate",
+      "qualification": "ap18_pigments"
+    },
+    {
+      "revision": 3,
+      "profile_fingerprint": "8ace368513dc54a89c2cc70dea5e50974dde6c268a03614b87d3de0d30723a3a",
+      "claim": "review_candidate",
+      "qualification": "ap18_pigments"
+    },
+    {
+      "revision": 2,
+      "profile_fingerprint": "3478d9dbd29add4c969ce6eef2684e754e247a74eab4eea04414882171ab1250",
+      "claim": "review_candidate",
+      "qualification": "ap18_pigments"
+    }
+  ],
+  "profile_file_sha256": {
+    "1": "681dae01625f2d4c07a106a92c5c605396b666c6cd7160fe8402efb3bf7fe3fd",
+    "2": "e6cf278f2cf444e9a0b68dc048622ca9076783e768f1917f7ffae6c44f58f795",
+    "3": "ad1e73d42d0049d52b02a44b9b0737c50f57749e5cec530f5f387a580647f675"
+  },
+  "artifact_receipt": "evidence/ap18/pigments/input-bus-checkpoint.json",
+  "installed_manager_source": "afe7861e093e63b60f17aaedde002dbde846d6c6",
+  "software_artifacts": {
+    "manager": "c063ce6894db0e455a0843d95f7ce93877a4b6229b121b5df7e347653e23a56d",
+    "supervisor": "fea47c7b4612b315637356e7d3369c95902f926bf1383f2f4792af2c46ce6965",
+    "ownership": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "f515eff6719724b8181eda424fbc678525f36930c26c9dee0ae78c1ba0c5b874"
+  },
+  "test_conditions": {
+    "host": "normally Applications-launched Bitwig 6.1 Flatpak",
+    "platform": "SteamOS 3.8.16 exact existing Deck fixture",
+    "project": "new disposable New 2; original projects untouched",
+    "rate": 48000,
+    "precision": "float32",
+    "bridge_frames": 512,
+    "observed_request_frames": 256,
+    "trace_enabled": true,
+    "cpuweight": "unexpected 10000 observed after first load; restored unset/effective 100; writer unknown; no performance comparison claimed"
+  },
+  "observed": {
+    "candidate_load": true,
+    "native_auxiliary_activation": true,
+    "normal_bitwig_sidechain_selector": true,
+    "selector_text": "No input",
+    "bridge_selected_source": false,
+    "vendor_editor_presented": true,
+    "factory_preset_display": "Welcome",
+    "vendor_editor_close_observed": true,
+    "note_clip": "one-bar loop, C3, velocity 78.7%, two-beat note",
+    "local_monitor_captures": [
+      {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "samples": 573440,
+        "nonzero": 0,
+        "rms": 0.0,
+        "peak": 0.0,
+        "raw_audio_retained": false,
+        "capture_error": false
+      },
+      {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "samples": 573440,
+        "nonzero": 0,
+        "rms": 0.0,
+        "peak": 0.0,
+        "raw_audio_retained": false,
+        "capture_error": false
+      }
+    ]
+  },
+  "terminal": {
+    "session_alias": "pigments-r3-first-load",
+    "processed_blocks": 18852,
+    "worker_exception": true,
+    "detail": "malformed or oversized process results",
+    "native_request_sequence": 18855,
+    "native_position": 4826112,
+    "generation": 1,
+    "epoch": 1,
+    "snapshot_counters": {
+      "admitted_frames": 4826624,
+      "missing_frames": 512,
+      "gaps": 1,
+      "expired_frames": 512,
+      "delivered_frames": 4825600,
+      "priming_frames": 512
+    },
+    "windows_set_processing_false_result": 0,
+    "processing_thread_joined": true,
+    "windows_set_active_false_result": 0,
+    "outer_exit": 5,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "classification": "production AP10Results::Collector failed; exact rejected event/point or capacity condition is not distinguished by retained error",
+    "not_claimed": [
+      "bus activation caused the failure",
+      "vendor process crash",
+      "a specific malformed parameter or capacity overflow",
+      "nonzero Pigments output",
+      "returned-result repair"
+    ],
+    "input_witness": "Windows witness dump absent from retained terminal records; no two-sided live input hash proof claimed"
+  },
+  "quit": {
+    "normal_quit": true,
+    "temporary_edits_declined": true,
+    "state_save_refusal_after_terminal_failure": true,
+    "continued_disposable_project_close": true,
+    "frontend_engine_pluginhost_absent": true
+  },
+  "pending": [
+    "identify first exact Collector refusal without relaxing validation",
+    "real no-source stereo silence witness on both sides",
+    "explicit Bitwig-routed nonzero L/R proof",
+    "source removal returns silence",
+    "nonzero note audio",
+    "preset/gesture/automation/editor-cycle/save-reopen/sibling/removal qualification"
+  ],
+  "final": {
+    "pigments_publication": "Removed",
+    "pigments_active_revision": null,
+    "pigments_physical_discovery_target": null,
+    "candidate_artifacts_and_history_retained": true,
+    "ordinary_products_revision10": true,
+    "ordinary_physical_targets_and_ancestry_unchanged": true,
+    "protected_project_hashes_unchanged": true,
+    "service": "active",
+    "keepers": 1,
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "stale_tmpfs_sessions": 0,
+    "tracing": false,
+    "cpuweight": "unset/effective 100",
+    "debugger_or_bitwig": false,
+    "frames512": "selected/supported/recommended",
+    "frames256": "unqualified"
+  },
+  "privacy": "No raw audio, vendor binaries/state/presets, account fields, private paths or raw process/session identities retained here."
+}

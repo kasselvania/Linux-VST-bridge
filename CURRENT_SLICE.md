@@ -232,3 +232,20 @@ Preserve Pigments revisions 1 and 2 and the paused stash. New native/Windows
 artifacts require immutable ReviewCandidate revision 3, sequential replacement
 1 -> 2 -> 3, and actual no-source/routed-source/source-removal proof before
 claiming the bounded input path. Existing ordinary products remain unchanged.
+
+### Revision-3 real-host checkpoint
+
+Revision 3 was built, sealed, staged and reversibly published. Bitwig accepted
+the auxiliary bus, displayed its normal sidechain selector with No input, and
+presented the real Pigments editor. The session then terminated after 18,852
+processed blocks with `malformed or oversized process results`. The collector's
+first exact refusal is not retained; neither capacity exhaustion nor invalid
+vendor data is established. Two subsequent local output captures were silent.
+Do not count load/editor visibility as musical or routed-input success.
+
+Pigments is restored inactive, its history/artifacts retained. Both ordinary
+revision-10 products and protected project hashes match the pre-test baseline;
+service and keeper are active, zero DSP leases/pending transactions, tracing
+off, CPUWeight unset/effective 100. The next bounded investigation belongs to
+the exact returned-result refusal, before further source-routing qualification.
+See `evidence/ap18/pigments/input-bus-live-result.json`. PR #95 remains draft.
