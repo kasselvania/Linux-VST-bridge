@@ -249,3 +249,13 @@ service and keeper are active, zero DSP leases/pending transactions, tracing
 off, CPUWeight unset/effective 100. The next bounded investigation belongs to
 the exact returned-result refusal, before further source-routing qualification.
 See `evidence/ap18/pigments/input-bus-live-result.json`. PR #95 remains draft.
+
+### First returned-result diagnosis
+
+The focused operator continuation authorizes a fixed POD, first-write-wins
+collector rejection record without changing acceptance or capacities. Emit
+scalar diagnostics after processing-thread join. Preserve revisions 1/2/3;
+revision 4 is a diagnostic ReviewCandidate with the exact new Windows host and
+unchanged revision-3 native. Run only Welcome/no-source/C3 until the first
+refusal or a documented bound beyond 18,852 blocks. Select any repair only from
+the exact refusal; preserve candidate history and restore Pigments inactive.

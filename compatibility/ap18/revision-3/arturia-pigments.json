@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 4,
+  "revision": 3,
   "claim": "review_candidate",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
@@ -56,8 +56,8 @@
     },
     "environment_family": "arturia_persistent_v1",
     "environment_revision": 1,
-    "host_sha256": "18b94eb327e3383a096f51ff634602418554eb9bf1367d4b0095de093574d0d3",
-    "host_source_sha256": "53fbcb387df15f8d6d4624fffdcc59e02aefae592f898df12fc72d1bb6fdc483",
+    "host_sha256": "87275b3f99ae253873ccbf6b8d0820012e84efd125bfde0a76e82917e8363dbd",
+    "host_source_sha256": "96d21911b137770b27192dcbe505f6ba5a06bba136ec2b5dd0a84f812384d2cb",
     "native_sha256": "f29f52f9d96649b1effbc5c1dd8c405074304ec2527d215c3794575e01ad122b",
     "native_source_commit": "36c02af2425e0bebeb940d7372cf3e10ab1da6ad",
     "descriptor_sha256": "07fb5e0b77bbc88b068a87e42eed43317b28d89d550842499eb888a5b2e1c305"
@@ -75,8 +75,7 @@
     "detached_focus_refusal",
     "exact_operator_artifact_only",
     "pigments_under_qualification",
-    "sole_stereo_auxiliary_input_only",
-    "returned_result_diagnosis"
+    "sole_stereo_auxiliary_input_only"
   ],
   "evidence": [
     "docs/AP18.md",

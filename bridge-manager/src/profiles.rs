@@ -68,7 +68,8 @@ closed_enum!(Limitation {
     DirectEditorUnderQualification,
     PigmentsUnderQualification,
     AuxiliaryInputInactive,
-    SoleStereoAuxiliaryInputOnly
+    SoleStereoAuxiliaryInputOnly,
+    ReturnedResultDiagnosis
 });
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

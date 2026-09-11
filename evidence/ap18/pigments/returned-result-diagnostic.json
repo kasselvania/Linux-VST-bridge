@@ -1,19 +1,14 @@
 {
   "schema": 1,
-  "id": "arturia-pigments",
-  "revision": 4,
-  "claim": "review_candidate",
-  "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
-  "factory_vendor": "Arturia",
-  "class": {
-    "class_id": "41727475415649534B61743150726F63",
-    "name": "Pigments",
-    "vendor": "Arturia",
-    "version": "7.0.1.6772",
-    "subcategories": "Instrument|Synth",
-    "metadata_tier": "factory_3_unicode"
-  },
-  "role": "instrument",
+  "claim": "first-refusal diagnostic, unchanged acceptance/capacities; real reproduction pending",
+  "source": "be00b6ff0ff9dd00660dacd89fbde53914f9fb1b",
+  "windows_run": 34647573139,
+  "build_commit": "e1397a92e1e0f90ae5e503e0c2e795de47f4b68b",
+  "source_tree": "1d4dbf1d564376176fe36a77573b275ff5eea451",
+  "artifact_id": 10282956423,
+  "zip_sha256": "c1863dabff31046daa1844d71ce7953ed68ff9c026d766e6ab64db7a4cf3f02d",
+  "profile_revision": 4,
+  "profile_file_sha256": "64e9773239ec910dcefd8ddfc0a15d36d8bca1689b9998c07ffc74da5583b00b",
   "requirements": {
     "runner": {
       "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
@@ -62,26 +57,23 @@
     "native_source_commit": "36c02af2425e0bebeb940d7372cf3e10ab1da6ad",
     "descriptor_sha256": "07fb5e0b77bbc88b068a87e42eed43317b28d89d550842499eb888a5b2e1c305"
   },
-  "capabilities": {
-    "accessibility": "windows_default",
-    "editor": "detached_direct_vendor_lifecycle",
-    "state": "concurrent_read_only_capture_v12",
-    "precision": "float32_only",
-    "performance": "frames512_recommended256_unqualified"
+  "record": {
+    "fixed_scalar_POD": true,
+    "first_write_wins": true,
+    "reset": "next callback only",
+    "payload_bytes_retained": false,
+    "publication": "after vendor process returns, scalar copy; owner formats only after processing thread join",
+    "wire_layout_changed": false,
+    "acceptance_or_capacity_changed": false
   },
-  "limitations": [
-    "short_delivery_gaps",
-    "unqualified256",
-    "detached_focus_refusal",
-    "exact_operator_artifact_only",
-    "pigments_under_qualification",
-    "sole_stereo_auxiliary_input_only",
-    "returned_result_diagnosis"
-  ],
-  "evidence": [
-    "docs/AP18.md",
-    "evidence/ap18/pigments/installed.json",
-    "evidence/ap18/pigments/census.json",
-    "evidence/ap18/pigments/native-activation.json"
-  ]
+  "tests": {
+    "linux_ctest": "7 pass",
+    "linux_runtime": "32 pass",
+    "manager": "60 library + 11 binary pass",
+    "manager_clippy_all_targets": "pass",
+    "hosted_source": "all four pass"
+  },
+  "history": "revisions 1/2/3 immutable; replacement only 1->2->3->4",
+  "native": "revision-3 bytes reused; collector diagnostics do not change native consumer or result encoding",
+  "fixture_reproduction": "pending; Pigments inactive at this source checkpoint"
 }
