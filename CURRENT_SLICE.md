@@ -296,3 +296,8 @@ Leave the PR open and unmerged for independent technical review.
 ## Current implementation checkpoint
 
 Characterization selected a conservative six-instance engineering envelope; eight produced repeated active-playback misses. Typed non-RT admission and durable-lease capacity accounting are implemented locally. Both Linux native artifacts and the sealed revision-8 candidate profiles now exist. The sealed revision-8 candidates are now installed through engineering qualification. Six instances load and play; real Bitwig seventh-device refusal and one-device retirement/replacement passed with exact surviving identities. Full topology, fresh maximum-project recall, controlled failure/restart/reboot and final revision-7 restoration remain incomplete. See `docs/AP17.md` and `evidence/ap17/`. PR #92 remains draft; revision 8 is not ordinary activation authority.
+
+
+### Focused R1 continuation
+
+Review 5173438303 approves the retained removal/replacement and refusal evidence at its exact ownership/visible-control boundary. Native insertion now distinguishes hard fullness, temporary owner contention and terminal generation exhaustion. No callback retry or wait was added. Rebuilt artifacts are bound to new revision-9 ReviewCandidate profiles, with revision-8 bytes retained unchanged. The active Deck publication remains revision 8 until the protected project is closed and the sealed candidate transition can run; revision 7 is still the exact rollback parent. Remaining topology, maximum-project state recall and recovery checks are not complete. See `evidence/ap17/r1/`.
