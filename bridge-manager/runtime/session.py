@@ -543,7 +543,7 @@ def vendor_diagnostic_environment(env, directory, enabled):
         # when PROTON_LOG=1. Keep its redirection off and collect the requested
         # Wine channels through separate, bounded pipes in this private dir.
         result.update(PROTON_LOG='0',PROTON_LOG_DIR=str(directory),
-                      WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,trace+seh,err+module',
+                      WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,trace+seh,trace+unwind,trace+loaddll,err+module',
                       DXVK_LOG_LEVEL='none',VKD3D_DEBUG='none')
     return result
 

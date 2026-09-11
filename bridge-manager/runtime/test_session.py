@@ -599,6 +599,7 @@ class CompanionDiagnosticTests(unittest.TestCase):
         env=session.vendor_diagnostic_environment({},pathlib.Path('/private/log'),True)
         self.assertEqual(env['PROTON_LOG'],'0')
         self.assertNotIn('+all',env['WINEDEBUG']);self.assertIn('trace+process',env['WINEDEBUG'])
+        self.assertIn('trace+unwind',env['WINEDEBUG']);self.assertIn('trace+loaddll',env['WINEDEBUG'])
         self.assertEqual(session.vendor_diagnostic_environment({},pathlib.Path('/private/log'),False),{})
 
 
