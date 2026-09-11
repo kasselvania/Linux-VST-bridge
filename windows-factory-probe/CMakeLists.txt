@@ -97,3 +97,10 @@ target_compile_definitions(ap18-result-custody-tests PRIVATE UNICODE _UNICODE WI
 target_compile_options(ap18-result-custody-tests PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
 target_link_libraries(ap18-result-custody-tests PRIVATE sdk sdk_hosting user32 ole32)
 set_target_properties(ap18-result-custody-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(ap18-bus-census-tests ../tools/ap18-tests/bus_census.cpp)
+target_include_directories(ap18-bus-census-tests PRIVATE source "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap18-bus-census-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap18-bus-census-tests PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
+target_link_libraries(ap18-bus-census-tests PRIVATE sdk sdk_hosting)
+set_target_properties(ap18-bus-census-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

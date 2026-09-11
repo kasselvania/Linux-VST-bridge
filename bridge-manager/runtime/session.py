@@ -43,6 +43,10 @@ def environment(reg):
 
 def command(spec):
     reg=spec['registration'];root=pathlib.Path(reg['environment']['root']);prefix=root/'compatdata/pfx';runner=reg['environment']['runner'];sid=spec['session'];mode='ap12-vendor-access' if spec.get('vendor_access') else 'ap8-module-inspection' if spec['inspect'] else 'ap9-commercial'
+    if spec.get('bus_lifecycle_probe'):
+        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access'):
+            raise RuntimeError('bus lifecycle probe requires isolated inspection')
+        mode='ap18-bus-lifecycle'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
     handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),

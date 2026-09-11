@@ -1,4 +1,5 @@
 #include "inspect_module.h"
+#include "bus_census.h"
 #include "offline_processing.h"
 #include "vendor_handler.h"
 #include "ap8_state.h"
@@ -45,7 +46,7 @@ template<size_t N> std::string bounded(const char (&value)[N]) {
 }
 
 }
-int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory) {
+int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe) {
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;VendorHandler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
@@ -55,7 +56,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
     auto step=[&](const char* name){events.lifecycle("ap8_call",",\"operation\":"+quoted(name));};
     auto ok=[&](tresult result,const char* name){
         events.lifecycle("ap8_result",",\"operation\":"+quoted(name)+",\"result\":"+std::to_string(result));
-        if(result!=kResultOk)throw std::runtime_error(name);
+        if(result!=kResultOk && !(bus_probe && std::strcmp(name,"censusSetProcessing")==0 && result==kNotImplemented))throw std::runtime_error(name);
     };
     try {
         FUnknownPtr<IPluginFactory3> f3(factory);
@@ -108,6 +109,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         step("initializeComponent");ok(component->initialize(&host),"initializeComponent");initialized=true;
         step("queryAudioProcessor");ok(component->queryInterface(IAudioProcessor::iid,reinterpret_cast<void**>(&audio)),"queryAudioProcessor");
         if(!audio)throw std::runtime_error("null audio processor");
+        const auto initial_buses = bus_probe ? EventBusCensus::capture(*component,*audio,false) : EventBusCensus{};
         auto query=component->queryInterface(IEditController::iid,reinterpret_cast<void**>(&controller));
         if(query==kNoInterface&&controller==nullptr){
             TUID cid{};step("getControllerClassId");ok(component->getControllerClassId(cid),"getControllerClassId");
@@ -127,6 +129,19 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
                 SpeakerArrangement arrangement=0;if(media==kAudio)ok(audio->getBusArrangement(dir,i,arrangement),"getBusArrangement");
                 events.lifecycle("ap8_bus",",\"media\":"+std::to_string(media)+",\"direction\":"+std::to_string(dir)+",\"index\":"+std::to_string(i)+",\"channels\":"+std::to_string(b.channelCount)+",\"type\":"+std::to_string(b.busType)+",\"flags\":"+std::to_string(b.flags)+",\"arrangement\":"+std::to_string(arrangement)+",\"name\":"+text16(b.name));}
         }
+        if(bus_probe){
+            auto emit=[&](const char* stage,const EventBusCensus& row){
+                std::string fields=",\"stage\":"+quoted(stage)+",\"count\":"+std::to_string(row.count)+",\"index\":0,\"result\":"+std::to_string(row.result)+",\"activated\":"+(row.activated?"true":"false");
+                if(row.result==kResultOk)fields+=",\"media\":"+std::to_string(row.info.mediaType)+",\"direction\":"+std::to_string(row.info.direction)+",\"channels\":"+std::to_string(row.info.channelCount)+",\"type\":"+std::to_string(row.info.busType)+",\"flags\":"+std::to_string(row.info.flags)+",\"name\":"+text16(row.info.name);
+                fields+=",\"audio\":[";
+                for(size_t i=0;i<row.audio_size;++i){if(i)fields+=',';const auto& a=row.audio[i];fields+="["+std::to_string(a.direction)+","+std::to_string(a.index)+","+std::to_string(a.result)+","+std::to_string(a.arrangement)+"]";}
+                events.lifecycle("ap18_event_bus_census",fields+"]");
+            };
+            emit("initialized",initial_buses);
+            // No process, editor, parameter or state operation in this probe.
+            // The outer inspection owner contains any unresponsive SDK call.
+            run_event_bus_census(*component,*audio,emit,step,ok);
+        }else{
         int n=controller->getParameterCount();if(n<0||n>8192)throw std::runtime_error("parameter count bound");
         events.lifecycle("ap8_parameter_count",",\"count\":"+std::to_string(n));
         step("enumerateParameters");std::string parameters;
@@ -175,6 +190,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             auto result=run_offline_processing(*component,*audio,calls,events,external);
             if(!result.quiescent)ExitProcess(92); // outer owner contains; no release of live processing objects
             if(!result.success)throw std::runtime_error("commercial processing failed");
+        }
         }
     } catch(const std::exception& e){primary=90;events.lifecycle("ap8_failure",",\"reason\":"+quoted(e.what()));}
     // A crashing/hung vendor call is contained by the existing outer process owner.

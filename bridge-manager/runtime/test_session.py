@@ -34,6 +34,23 @@ class VendorOperationTests(unittest.TestCase):
         self.assertEqual(session.vendor_operation_state(1, 0), 'failed')
 
 
+class BusCensusCommandTests(unittest.TestCase):
+    def test_probe_is_inspection_only_and_handshake_bound(self):
+        reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
+             'metadata':{'class_id':'A'*32},'host':{'path':'/fixture/compatdata/pfx/drive_c/host.exe','sha256':'1'*64},
+             'host_source_sha256':'2'*64,'module':{'path':'/fixture/compatdata/pfx/drive_c/plugin.vst3','sha256':'3'*64}}
+        spec={'registration':reg,'session':'4'*32,'inspect':True,'bus_lifecycle_probe':True}
+        argv,binding=session.command(spec)
+        self.assertEqual(argv[argv.index('--mode')+1],'ap18-bus-lifecycle')
+        self.assertIn(b'mode=ap18-bus-lifecycle\n',binding)
+        for key,value in [('inspect',False),('keeper',True),('vendor_access',True)]:
+            with self.assertRaisesRegex(RuntimeError,'isolated inspection'):
+                session.command(dict(spec,**{key:value}))
+        del spec['bus_lifecycle_probe']
+        argv,_=session.command(spec)
+        self.assertEqual(argv[argv.index('--mode')+1],'ap8-module-inspection')
+
+
 @unittest.skipUnless(sys.platform == "linux", "PID/start tracking uses Linux procfs")
 class OwnershipTests(unittest.TestCase):
     def test_subtree_tracking_covers_thread_children_and_reparented_descendants(self):
