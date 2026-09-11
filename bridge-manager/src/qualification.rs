@@ -27,12 +27,14 @@ pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
     match purpose {
         Qualification::Ap15Editor => candidates(),
         Qualification::Ap17Capacity => capacity_candidates(),
+        Qualification::Ap18Pigments => Ok(vec![crate::pigments::candidate()?]),
     }
 }
 fn parent_revision(purpose: Qualification) -> u32 {
     match purpose {
         Qualification::Ap15Editor => 3,
         Qualification::Ap17Capacity => 7,
+        Qualification::Ap18Pigments => 10,
     }
 }
 #[derive(Clone)]
@@ -47,6 +49,7 @@ fn directory(m: &Manager, p: &Profile, purpose: Qualification) -> Result<PathBuf
         .join(match purpose {
             Qualification::Ap15Editor => "software/ap15-qualification",
             Qualification::Ap17Capacity => "software/ap17-qualification",
+            Qualification::Ap18Pigments => "software/ap18-qualification",
         })
         .join(p.fingerprint()?))
 }
@@ -113,6 +116,7 @@ pub(crate) fn stage_selected(m: &Manager, package: &Path, policies: &[Profile]) 
     stage_selected_for(m, package, policies, Qualification::Ap15Editor)
 }
 pub fn stage_for(m: &Manager, package: &Path, purpose: Qualification) -> Result<()> {
+    if purpose == Qualification::Ap18Pigments { return crate::pigments::stage(m, package); }
     stage_selected_for(m, package, &candidates_for(purpose)?, purpose)
 }
 pub(crate) fn stage_selected_for(
@@ -252,6 +256,7 @@ impl Manager {
             derived == r.registration && r.performance.added_frames == 512,
             "qualification_exact_candidate_required",
         )?;
+        if purpose == Qualification::Ap18Pigments { return crate::pigments::retained(self, r, &exact); }
         let parent = r
             .parent
             .as_ref()
@@ -300,6 +305,7 @@ impl Manager {
             }),
             "qualification_exact_candidate_required",
         )?;
+        if purpose == Qualification::Ap18Pigments { return crate::pigments::check_publication(self, p, r); }
         self.verify_qualification_parent_for(&self.registry()?, p, r, purpose)
             .map(|_| ())
     }
@@ -334,6 +340,7 @@ impl Manager {
                 && match purpose {
                     Qualification::Ap15Editor => p.revision > 3,
                     Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
+                    Qualification::Ap18Pigments => false,
                 }
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
@@ -351,6 +358,7 @@ impl Manager {
         let mut capabilities = p.capabilities.clone();
         let mut limitations = prior.profile.limitations.clone();
         match purpose {
+            Qualification::Ap18Pigments => return Err("pigments_has_no_same_class_parent".into()),
             Qualification::Ap15Editor => {
                 capabilities.editor = Editor::DetachedOwnerThreadWithNativePanel;
                 limitations.push(Limitation::DirectEditorUnderQualification);
@@ -448,6 +456,7 @@ impl Manager {
             let Some(purpose) = r.qualification else {
                 continue;
             };
+            if purpose == Qualification::Ap18Pigments { crate::pigments::restore(self)?; continue; }
             let parent = r.parent.as_ref().ok_or("qualification_parent_absent")?;
             let prior = self.load_revision(&key, parent)?;
             require(

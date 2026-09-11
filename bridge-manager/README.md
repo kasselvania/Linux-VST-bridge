@@ -96,3 +96,10 @@ python3 -m unittest discover -s bridge-manager/runtime -v
 ```
 
 Run native and Windows lanes only when their owners or shared contracts change. Synthetic tests do not substitute for real ASC, Pigments, and normally launched Bitwig evidence.
+
+AP18 adds `vendor-product scan pigments` for nonpublishing discovery from the
+installed ASC environment. The engineering-only `qualify-pigments stage
+EXACT_PRODUCT_PACKAGE`, `qualify-pigments publish`, and `qualify-pigments restore`
+use a compiled exact candidate; they accept no caller-authored registration or
+profile. The sealed package path supplies bytes for verification, never policy.
+The candidate remains unverified and cannot use ordinary managed activation.

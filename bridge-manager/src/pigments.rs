@@ -1,0 +1,515 @@
+//! Sealed AP18 new-class qualification. Existing Arturia publications are the
+//! exact baseline, never fictional parents of the new Pigments VST3 class.
+use crate::{profiles::*, publication::*, qualification::InstalledCandidate, *};
+
+pub fn candidate() -> Result<Profile> {
+    Profile::parse(include_bytes!(
+        "../../compatibility/ap18/arturia-pigments.json"
+    ))
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct Anchor {
+    class_id: String,
+    revision: RevisionRef,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct Baseline {
+    schema: u32,
+    candidate: String,
+    parents: Vec<Anchor>,
+}
+fn directory(m: &Manager, p: &Profile) -> Result<PathBuf> {
+    Ok(m.root
+        .join("software/ap18-qualification")
+        .join(p.fingerprint()?))
+}
+fn current_baseline(
+    m: &Manager,
+    p: &Profile,
+    policies: &[Profile],
+) -> Result<(Baseline, Environment)> {
+    require(
+        p.claim == Claim::ReviewCandidate
+            && p.revision == 1
+            && p.id == "arturia-pigments"
+            && p.role == Role::Instrument
+            && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
+        "qualification_candidate_contract",
+    )?;
+    validate_set(policies)?;
+    require(policies.len() == 2, "pigments_baseline_required")?;
+    let transactions = m.root.join("transactions");
+    if transactions.try_exists()? {
+        for (n, entry) in fs::read_dir(transactions)?.enumerate() {
+            require(n < 4096, "publication_record_bound")?;
+            require(
+                !entry?
+                    .file_name()
+                    .to_string_lossy()
+                    .ends_with(".pending.json"),
+                "publication_recovery_pending",
+            )?;
+        }
+    }
+    let db = m.registry()?;
+    let mut parents = Vec::new();
+    let mut environment = None;
+    for policy in policies {
+        require(
+            policy.claim == Claim::VerifiedExactFixture
+                && policy.revision == 10
+                && policy.class.class_id != p.class.class_id,
+            "pigments_baseline_required",
+        )?;
+        let e = db
+            .classes
+            .get(&policy.class.class_id)
+            .ok_or("pigments_baseline_required")?;
+        let reference = e
+            .managed_revision
+            .as_ref()
+            .ok_or("pigments_baseline_required")?;
+        let r = m.load_revision(&policy.class.class_id, reference)?;
+        require(
+            r.profile == *policy
+                && r.qualification.is_none()
+                && r.registration == e.registration
+                && e.publication == Publication::Published
+                && crate::publication::physical(&m.link(&policy.class.class_id))?
+                    == Some(r.target.clone())
+                && !m.publication_pending(&policy.class.class_id)?,
+            "pigments_baseline_changed",
+        )?;
+        m.verify_completed_publication(&r, reference)?;
+        r.registration.verify(&m.root)?;
+        p.verify_environment(
+            &r.registration.environment,
+            &policy.requirements.environment_family,
+        )?;
+        if let Some(prior) = &environment {
+            require(prior == &r.registration.environment, "environment_mismatch")?;
+        }
+        environment = Some(r.registration.environment);
+        parents.push(Anchor {
+            class_id: policy.class.class_id.clone(),
+            revision: reference.clone(),
+        });
+    }
+    for (key, e) in &db.classes {
+        require(
+            !m.publication_pending(key)? && e.publication != Publication::Pending,
+            "publication_recovery_pending",
+        )?;
+    }
+    Ok((
+        Baseline {
+            schema: 1,
+            candidate: p.fingerprint()?,
+            parents,
+        },
+        environment.ok_or("pigments_baseline_required")?,
+    ))
+}
+fn baseline(m: &Manager, p: &Profile) -> Result<Environment> {
+    let (observed, environment) = current_baseline(m, p, &installed_profiles()?)?;
+    let path = directory(m, p)?.join("baseline.json");
+    require(
+        file(&path)?.metadata()?.mode() & 0o222 == 0,
+        "pigments_baseline_mutable",
+    )?;
+    require(
+        read_json::<Baseline>(&path)? == observed,
+        "pigments_baseline_changed",
+    )?;
+    Ok(environment)
+}
+fn module(environment: &Environment, p: &Profile) -> Result<Artifact> {
+    let a = Artifact {
+        path: environment
+            .root
+            .join("compatdata/pfx/drive_c/Program Files/Common Files/VST3/Pigments.vst3"),
+        sha256: p.module_sha256.clone(),
+    };
+    require(a.path.canonicalize()? == a.path, "product_module_alias")?;
+    a.verify()?;
+    Ok(a)
+}
+fn bytes(p: &Profile) -> [(String, String); 3] {
+    [
+        ("host.exe".into(), p.requirements.host_sha256.clone()),
+        (
+            "host-source-manifest.json".into(),
+            p.requirements.host_source_sha256.clone(),
+        ),
+        (
+            format!("{}.so", p.class.class_id),
+            p.requirements.native_sha256.clone(),
+        ),
+    ]
+}
+pub fn stage(m: &Manager, package: &Path) -> Result<()> {
+    stage_exact(m, package, &candidate()?, &installed_profiles()?)
+}
+fn stage_exact(m: &Manager, package: &Path, p: &Profile, policies: &[Profile]) -> Result<()> {
+    let _lock = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    let (receipt, environment) = current_baseline(m, p, policies)?;
+    module(&environment, p)?;
+    let db = m.registry()?;
+    if let Some(e) = db.classes.get(&p.class.class_id) {
+        require(
+            e.publication == Publication::Removed,
+            "qualification_active_restore_first",
+        )?;
+        let prior = m.load_revision(
+            &p.class.class_id,
+            e.managed_revision
+                .as_ref()
+                .ok_or("qualification_exact_candidate_required")?,
+        )?;
+        require(
+            prior.profile == *p && prior.qualification == Some(Qualification::Ap18Pigments),
+            "qualification_exact_candidate_required",
+        )?;
+    }
+    require(
+        crate::publication::physical(&m.link(&p.class.class_id))?.is_none(),
+        "foreign_publication",
+    )?;
+    for (name, sha256) in bytes(p) {
+        Artifact {
+            path: package.join(name),
+            sha256,
+        }
+        .verify()?;
+    }
+    let dest = directory(m, p)?;
+    if dest.try_exists()? {
+        require(
+            read_json::<Baseline>(&dest.join("baseline.json"))? == receipt,
+            "pigments_baseline_changed",
+        )?;
+        crate::qualification::load_for(m, p.clone(), Qualification::Ap18Pigments)?;
+        return Ok(());
+    }
+    private_dir(dest.parent().ok_or("qualification_directory")?)?;
+    let temp = dest.with_file_name(format!(".stage-{}", random_id()?));
+    private_dir(&temp)?;
+    for ((name, sha256), target) in
+        bytes(p)
+            .into_iter()
+            .zip(["host.exe", "host-source-manifest.json", "native.so"])
+    {
+        let path = temp.join(target);
+        fs::copy(package.join(name), &path)?;
+        Artifact {
+            path: path.clone(),
+            sha256,
+        }
+        .verify()?;
+        fs::set_permissions(
+            &path,
+            fs::Permissions::from_mode(if target == "native.so" { 0o500 } else { 0o400 }),
+        )?;
+        File::open(path)?.sync_all()?;
+    }
+    atomic_json(&temp.join("baseline.json"), &receipt)?;
+    fs::set_permissions(
+        temp.join("baseline.json"),
+        fs::Permissions::from_mode(0o400),
+    )?;
+    File::open(temp.join("baseline.json"))?.sync_all()?;
+    File::open(&temp)?.sync_all()?;
+    crate::publication::rename_link(&temp, &dest, false)?;
+    File::open(dest.parent().unwrap())?.sync_all()?;
+    Ok(())
+}
+pub fn binding(m: &Manager) -> Result<Registration> {
+    let p = candidate()?;
+    let environment = baseline(m, &p)?;
+    let c = crate::qualification::load_for(m, p.clone(), Qualification::Ap18Pigments)?;
+    let r = Registration {
+        metadata: p.class.clone(),
+        module: module(&environment, &p)?,
+        environment,
+        host: c.host,
+        host_source_sha256: c.source_manifest.sha256,
+        native: c.native.artifact,
+        compatibility: p.capabilities.compatibility(),
+    };
+    r.verify(&m.root)?;
+    Ok(r)
+}
+pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> Result<()> {
+    require(
+        *p == candidate()? && *r == binding(m)?,
+        "qualification_exact_candidate_required",
+    )?;
+    m.require_inactive(None)?;
+    require(
+        m.performance(&p.class.class_id)?.added_frames == 512,
+        "qualification_candidate_contract",
+    )
+}
+pub(crate) fn retained(m: &Manager, r: &Revision, exact: &InstalledCandidate) -> Result<()> {
+    let mut expected = binding(m)?;
+    expected.native.path = r.registration.native.path.clone();
+    require(
+        r.profile == exact.profile
+            && r.registration == expected
+            && r.qualification == Some(Qualification::Ap18Pigments),
+        "qualification_exact_candidate_required",
+    )?;
+    let db = m.registry()?;
+    let e = db
+        .classes
+        .get(&r.class_id)
+        .ok_or("qualification_publication_changed")?;
+    let reference = e
+        .managed_revision
+        .as_ref()
+        .ok_or("qualification_publication_changed")?;
+    require(
+        reference.id == r.id
+            && e.registration == r.registration
+            && e.publication == Publication::Published
+            && crate::publication::physical(&m.link(&r.class_id))? == Some(r.target.clone())
+            && !m.publication_pending(&r.class_id)?,
+        "qualification_publication_changed",
+    )?;
+    m.verify_completed_publication(r, reference)
+}
+/// Current ordinary host remains the accepted LoFi/FRAGMENTS host. Only this
+/// exact retained new class may use its separately sealed corrected host.
+pub(crate) fn served(
+    m: &Manager,
+    r: &Registration,
+    installed: &Artifact,
+    source: &str,
+) -> Result<()> {
+    let p = candidate()?;
+    baseline(m, &p)?;
+    let policies = installed_profiles()?;
+    require(
+        policies.iter().all(|x| {
+            x.requirements.host_sha256 == installed.sha256
+                && x.requirements.host_source_sha256 == source
+        }),
+        "installed_host_mismatch",
+    )?;
+    let db = m.registry()?;
+    let e = db
+        .classes
+        .get(&r.key())
+        .ok_or("qualification_publication_changed")?;
+    let revision = m.load_revision(
+        &r.key(),
+        e.managed_revision
+            .as_ref()
+            .ok_or("qualification_publication_changed")?,
+    )?;
+    require(revision.registration == *r, "installed_host_mismatch")?;
+    m.verify_retained_authority(&revision, &[p])
+}
+pub fn restore(m: &Manager) -> Result<()> {
+    let p = candidate()?;
+    let db = m.registry()?;
+    if let Some(e) = db.classes.get(&p.class.class_id) {
+        let r = m.load_revision(
+            &p.class.class_id,
+            e.managed_revision
+                .as_ref()
+                .ok_or("qualification_publication_changed")?,
+        )?;
+        require(
+            r.profile == p && r.qualification == Some(Qualification::Ap18Pigments),
+            "qualification_exact_candidate_required",
+        )?;
+        m.unpublish(&p.class.class_id)?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        observation::{derive, Census},
+        test_fixture::{inspection_report, prepared, snapshot, Fixture},
+    };
+    fn fixture() -> (Fixture, Profile, Vec<Profile>, PathBuf) {
+        let (f, mut p, c, n) = prepared();
+        p.revision = 10;
+        let mut policies = Vec::new();
+        for (index, id) in ["01".repeat(16), "02".repeat(16)].into_iter().enumerate() {
+            let mut policy = p.clone();
+            policy.id = format!("fixture.parent{index}");
+            policy.class.class_id = id.clone();
+            let mut facts = c.clone();
+            facts.selected = policy.class.clone();
+            facts.report.path = f.outer.join(format!("report{index}"));
+            atomic_json(&facts.report.path, &inspection_report(&facts)).unwrap();
+            facts.report.sha256 = digest(&facts.report.path).unwrap();
+            facts = Census::from_report(
+                facts.environment,
+                facts.module,
+                facts.module_stamp,
+                facts.host,
+                facts.host_source_sha256,
+                facts.report,
+                &id,
+            )
+            .unwrap();
+            let mut native = n.clone();
+            native.class = policy.class.clone();
+            native.external_ids = external_ids(&id).unwrap();
+            f.m.managed_publish(
+                &policy,
+                &facts,
+                derive(&policy, &facts, &native).unwrap(),
+                &facts.host,
+                &facts.host_source_sha256,
+                None,
+            )
+            .unwrap();
+            policies.push(policy);
+        }
+        p.id = "arturia-pigments".into();
+        p.revision = 1;
+        p.claim = Claim::ReviewCandidate;
+        p.class.class_id = "03".repeat(16);
+        p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+        let module = module(&f.r.environment, &p).err();
+        assert!(module.is_some());
+        fs::copy(
+            &f.r.module.path,
+            f.r.module.path.with_file_name("Pigments.vst3"),
+        )
+        .unwrap();
+        let package = f.outer.join("package");
+        private_dir(&package).unwrap();
+        fs::copy(&f.r.host.path, package.join("host.exe")).unwrap();
+        fs::copy(
+            f.r.host.path.with_file_name("host-source-manifest.json"),
+            package.join("host-source-manifest.json"),
+        )
+        .unwrap();
+        fs::copy(
+            &n.artifact.path,
+            package.join(format!("{}.so", p.class.class_id)),
+        )
+        .unwrap();
+        (f, p, policies, package)
+    }
+    #[test]
+    fn new_class_stage_is_exact_inactive_and_does_not_publish() {
+        let (f, p, policies, package) = fixture();
+        let before = snapshot(&f.outer);
+        for name in [
+            "host.exe".into(),
+            "host-source-manifest.json".into(),
+            format!("{}.so", p.class.class_id),
+        ] {
+            let path = package.join(name);
+            let bytes = fs::read(&path).unwrap();
+            fs::write(&path, b"wrong").unwrap();
+            let damaged = snapshot(&f.outer);
+            assert!(stage_exact(&f.m, &package, &p, &policies).is_err());
+            assert_eq!(snapshot(&f.outer), damaged);
+            fs::write(path, bytes).unwrap();
+        }
+        assert_eq!(snapshot(&f.outer), before);
+        let links: Vec<_> = policies
+            .iter()
+            .map(|p| fs::read_link(f.m.link(&p.class.class_id)).unwrap())
+            .collect();
+        stage_exact(&f.m, &package, &p, &policies).unwrap();
+        let staged = snapshot(&f.outer);
+        stage_exact(&f.m, &package, &p, &policies).unwrap();
+        assert_eq!(snapshot(&f.outer), staged);
+        assert!(!f.m.link(&p.class.class_id).exists());
+        assert!(!f
+            .m
+            .registry()
+            .unwrap()
+            .classes
+            .contains_key(&p.class.class_id));
+        for (p, target) in policies.iter().zip(links) {
+            assert_eq!(fs::read_link(f.m.link(&p.class.class_id)).unwrap(), target);
+        }
+        assert!(binding(&f.m).is_err()); // synthetic stage cannot become sealed runtime authority
+    }
+    #[test]
+    fn baseline_changes_foreign_links_pending_and_unknown_leases_refuse_before_stage() {
+        let (f, p, policies, package) = fixture();
+        let mut wrong = policies.clone();
+        wrong[0].revision = 7;
+        assert!(stage_exact(&f.m, &package, &p, &wrong).is_err());
+        let mut changed = p.clone();
+        changed.requirements.runner.id.push('x');
+        assert!(stage_exact(&f.m, &package, &changed, &policies).is_err());
+        changed = p.clone();
+        changed.module_sha256 = "00".repeat(32);
+        assert!(stage_exact(&f.m, &package, &changed, &policies).is_err());
+        fs::create_dir_all(&f.m.publications).unwrap();
+        fs::write(f.m.link(&p.class.class_id), b"foreign").unwrap();
+        let before = snapshot(&f.outer);
+        assert!(stage_exact(&f.m, &package, &p, &policies).is_err());
+        assert_eq!(snapshot(&f.outer), before);
+        fs::remove_file(f.m.link(&p.class.class_id)).unwrap();
+        let pending =
+            f.m.root
+                .join("transactions")
+                .join(format!("{}.pending.json", policies[0].class.class_id));
+        fs::write(&pending, b"unresolved").unwrap();
+        let before = snapshot(&f.outer);
+        assert!(stage_exact(&f.m, &package, &p, &policies).is_err());
+        assert_eq!(snapshot(&f.outer), before);
+        fs::remove_file(pending).unwrap();
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        fs::write(f.m.root.join("runtime/leases/unresolved.json"), b"{}").unwrap();
+        let before = snapshot(&f.outer);
+        assert!(stage_exact(&f.m, &package, &p, &policies).is_err());
+        assert_eq!(snapshot(&f.outer), before);
+    }
+    #[test]
+    fn ordinary_publish_and_unstaged_engineering_refuse_without_mutation() {
+        let (f, _, c, n) = prepared();
+        let p = candidate().unwrap();
+        let before = snapshot(&f.outer);
+        assert!(f
+            .m
+            .managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
+            .is_err());
+        assert_eq!(snapshot(&f.outer), before);
+        assert!(f
+            .m
+            .qualify_for(&c, None, Qualification::Ap18Pigments)
+            .is_err());
+        assert_eq!(snapshot(&f.outer), before);
+        assert_ne!(n.external_ids, external_ids(&p.class.class_id).unwrap());
+    }
+    #[test]
+    fn compiled_candidate_is_new_identity_not_ordinary_or_ap17_policy() {
+        let p = candidate().unwrap();
+        assert_eq!(p.revision, 1);
+        assert_eq!(p.class.name, "Pigments");
+        assert!(p.claim.require(SelectionPurpose::Activation).is_err());
+        assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());
+        assert_eq!(p.capabilities.accessibility, Accessibility::WindowsDefault);
+        assert!(installed_profiles()
+            .unwrap()
+            .iter()
+            .all(|x| x.revision == 10 && x.class.class_id != p.class.class_id));
+        let base = capacity::fixture_limits();
+        let extended = capacity::service_limits().unwrap();
+        assert_eq!(&extended.classes[..2], base.classes);
+        assert_eq!(extended.classes[2].class_id, p.class.class_id);
+        assert_eq!(extended.classes[2].dsp, 1);
+        assert_eq!(extended.global_dsp, 6);
+        assert_eq!(extended.native_image_hard, 4);
+        assert_eq!(extended.service_workers, 16);
+    }
+}

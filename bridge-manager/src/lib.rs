@@ -6,6 +6,7 @@ pub mod catalogue;
 mod managed_tests;
 pub mod observation;
 pub mod profiles;
+pub mod pigments;
 pub mod publication;
 pub mod qualification;
 pub mod readback;

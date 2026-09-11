@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "claim": "supervised SDK discovery, not musical/editor qualification",
+  "metadata": {
+    "class_id": "41727475415649534B61743150726F63",
+    "name": "Pigments",
+    "vendor": "Arturia",
+    "version": "7.0.1.6772",
+    "subcategories": "Instrument|Synth",
+    "metadata_tier": "factory_3_unicode"
+  },
+  "factory_vendor": "Arturia",
+  "classes": [
+    "41727475415649534B61743150726F63",
+    "4AFD4B6A35D7C240A5C31414FB7D15E6"
+  ],
+  "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+  "parameters": 4446,
+  "float32": true,
+  "float64": false,
+  "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "facts": [
+    {
+      "event": "lifecycle",
+      "sequence": 54,
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 0,
+      "index": 0,
+      "channels": 2,
+      "type": 1,
+      "flags": 1,
+      "arrangement": 3,
+      "name": "Sidechain"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 58,
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 1,
+      "index": 0,
+      "channels": 2,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 3,
+      "name": "Stereo Out"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 61,
+      "state": "ap8_bus",
+      "media": 1,
+      "direction": 0,
+      "index": 0,
+      "channels": 16,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 0,
+      "name": "Midi In"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 64,
+      "state": "ap8_bus",
+      "media": 1,
+      "direction": 1,
+      "index": 0,
+      "channels": 0,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 0,
+      "name": "Midi Out"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 207,
+      "state": "ap12_capabilities",
+      "latency_samples": 44,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 211,
+      "state": "ap12_persistence",
+      "capture_available": true,
+      "sdk_result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 212,
+      "state": "ap8_inspected",
+      "controller_separate": false,
+      "state_bytes": 155038,
+      "latency_samples": 44,
+      "float32_result": 0,
+      "float64_result": 1,
+      "tail_samples": 0
+    }
+  ],
+  "native": {
+    "returncode": 0,
+    "sha256": "5c224a9d046e4f60210dd913c0f2d023898854fe11e41f3e03cb93cc19f478a6",
+    "source_commit": "e5bcb80d93f24b2b330fefda842068ff32238ff5",
+    "input_archive_sha256": "afe03cbcf737657117bbe785baab18364f380f0b5317866a2136f739e3cac2f1",
+    "descriptor_sha256": "07fb5e0b77bbc88b068a87e42eed43317b28d89d550842499eb888a5b2e1c305",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "new_host": {
+    "workflow": 34634651205,
+    "artifact": 10277379331,
+    "zip_sha256": "e086ce4a4329d907d10fe170cebbf7b8da32afcdb1406e9c6d64fd412b2b24fe",
+    "source": "e5bcb80d93f24b2b330fefda842068ff32238ff5",
+    "build": "f99ae36216cbd0ea20aa15f83cdc416908fb3ac1",
+    "tree": "7faf21f37e14aa09f75790a466e04f0e62818a5b",
+    "host_sha256": "d778f238f02f1d034ba906db0b2fbabc5a84afaa234aa2769ed1c3764c12307a",
+    "manifest_sha256": "286a64ede118e267c44db54ebca32f03c7b8d8c6388a156618a92aaea8e68fce"
+  },
+  "failure_and_repair": "Old descriptor and BusLayout required bus zero to be main. Real census has one stereo auxiliary input and no main input. Preserve it inactive; reject sidechain activation. New host must be used for Pigments only."
+}

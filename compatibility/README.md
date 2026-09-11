@@ -81,3 +81,13 @@ The sealed transition and ordinary publication ran on the Deck. Both revision-10
 The protected project remained byte-identical. After retaining the failure, a PID/start-time-bound SIGTERM closed only the stuck test application. Both discovery links were rolled back through normal managed rollback to their exact original revision-7 targets, with revision 3 retained. Revision 10 remains inactive immutable publication history. The new immutable manager/software remains installed and validates the retained revision-7 targets. Final state: service and keeper active, zero DSP leases, no pending transaction or stale transport session, no Bitwig/debugger process, tracing off, bridge CPUWeight unset/effective 100. Capacity readback conservatively returns `engineering_candidate` after restoration because revision 10 is not physically active.
 
 See `evidence/ap17/acceptance/transition.json`, `ordinary-smoke.json`, `installed-final.json` and `validation.json`. The first Bitwig scan also required refreshing the existing VST3 search location; monitoring was restored off, and the same locations remain (their display order changed). No vendor file, authorization or project was replaced. 512 remains selected/supported/recommended; 256 remains unqualified. Short delivery gaps (#72), FRAGMENTS rendering (#80), and the newly retained quit failure remain explicit. ASC/Pigments were not executed. PR #92 stays open and unmerged; `AP17_ACCEPTED_AND_ORDINARY_CAPACITY_PROFILE_READY` is **not** claimed.
+
+AP18 retains `ap18/arturia-pigments.json` as a new exact revision-1
+`review_candidate`, generated from the supervised installed Pigments census.
+Its `windows_default` accessibility posture is distinct from the reviewed
+LoFi/FRAGMENTS process-scoped disabling. The auxiliary input remains declared
+but inactive. `pigments_under_qualification` explicitly excludes ordinary
+activation and any claim of an already qualified Pigments musical workflow.
+The sealed `ap18_pigments` route binds its separate Windows host and native to
+exact existing revision-10 baseline publications; it never changes those
+profiles or treats an existing product's class as Pigments' parent.

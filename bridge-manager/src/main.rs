@@ -610,7 +610,7 @@ fn serve(m: Manager) -> Result<()> {
     // Clean reports retire their leases; uncertain ones remain inspectable.
     let blocked = Arc::new(AtomicBool::new(reconcile_leases(&manager)?));
     let keepers = Arc::new(Mutex::new(Vec::new()));
-    let limits = capacity::fixture_limits();
+    let limits = capacity::service_limits()?;
     let workers = Arc::new(AtomicUsize::new(0));
     let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
     for peer in listener.incoming() {
@@ -655,7 +655,7 @@ fn serve(m: Manager) -> Result<()> {
                     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
                     peer.write_all(&bytes)?;return Ok(());
                 }
-                if matches!(&greeting[..5],b"LVI1\n"|b"LVQ1\n"|b"LVQ2\n") {
+                if matches!(&greeting[..5],b"LVI1\n"|b"LVQ1\n"|b"LVQ2\n"|b"LVQ3\n") {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
@@ -664,6 +664,7 @@ fn serve(m: Manager) -> Result<()> {
                     let request=serde_json::from_slice(&bytes)?;
                     let r=match &greeting[..5] {
                         b"LVQ1\n"=>qualification_binding(&m,request,publication::Qualification::Ap15Editor)?,
+                        b"LVQ3\n"=>qualification_binding(&m,request,publication::Qualification::Ap18Pigments)?,
                         b"LVQ2\n"=>qualification_binding(&m,request,publication::Qualification::Ap17Capacity)?,
                         _=>inspection_binding(&m,request)?,
                     };
@@ -882,6 +883,14 @@ fn qualification_binding(
     request: InspectionRequest,
     purpose: publication::Qualification,
 ) -> Result<HostBinding> {
+    if purpose == publication::Qualification::Ap18Pigments {
+        let requested = inspection_binding(m, request)?;
+        let r = pigments::binding(m)?;
+        require(requested.metadata.class_id == r.metadata.class_id
+            && requested.environment == r.environment && requested.module == r.module
+            && requested.compatibility == r.compatibility, "qualification_exact_candidate_required")?;
+        return Ok(r.into());
+    }
     let candidates = qualification::installed_for(m, purpose)?;
     let r = inspection_binding(m, request)?;
     let matching: Vec<_> = candidates
@@ -968,6 +977,7 @@ fn main() -> Result<()> {
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
+  Some("qualify-pigments")=>managed_cli::run_pigments_qualification(&m,&args[1..]),
   Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
   Some("environment-import") if args.len()==2=>environment_import(&m,Path::new(&args[1])),

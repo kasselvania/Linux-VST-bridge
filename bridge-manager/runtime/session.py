@@ -549,10 +549,12 @@ def vendor_diagnostic_environment(env, directory, enabled):
 
 
 def vendor_compatibility(mode):
-    # One explicit ASC operation only; no environment registry/profile mutation.
+    # Exact registered ASC 2.12 operation tree: the observed UIAutomationCore
+    # null-provider crash requires this local selection. Diagnostic comparison
+    # modes retain default behavior; no global/prefix registry change.
     if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe'):
         raise RuntimeError('vendor launch mode')
-    return {'disable_windows_accessibility':mode=='accessibility_probe'}
+    return {'disable_windows_accessibility':mode in ('normal','accessibility_probe')}
 
 
 def vendor_process_metadata(scope, record, app):
@@ -628,7 +630,7 @@ def vendor_application(spec):
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,
                 'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
                 'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
-                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':mode=='accessibility_probe','account_posture':'unknown'}
+                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':vendor_compatibility(mode)['disable_windows_accessibility'],'account_posture':'unknown'}
     try:
         for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
         scope=CompanionCgroup()

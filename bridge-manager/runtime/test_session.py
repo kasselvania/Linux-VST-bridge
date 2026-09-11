@@ -596,7 +596,7 @@ class CompanionDiagnosticTests(unittest.TestCase):
             cmd,cwd=session.vendor_launch({'application':app,'mode':mode})
             self.assertEqual(cmd[4],verb);self.assertTrue(cmd[-1].endswith(image))
         for mode in ['normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe']:
-            self.assertEqual(session.vendor_compatibility(mode),{'disable_windows_accessibility':mode=='accessibility_probe'})
+            self.assertEqual(session.vendor_compatibility(mode),{'disable_windows_accessibility':mode in ('normal','accessibility_probe')})
         with self.assertRaises(RuntimeError):session.vendor_compatibility('global')
         with self.assertRaises(RuntimeError):session.vendor_launch({'application':app,'mode':'arbitrary'})
         env=session.vendor_diagnostic_environment({},pathlib.Path('/private/log'),True)

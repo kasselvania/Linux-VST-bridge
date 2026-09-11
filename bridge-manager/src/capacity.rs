@@ -60,11 +60,21 @@ pub fn fixture_limits() -> Limits {
     }
 }
 
+/// Explicit engineering extension; the accepted AP17 two-class table is intact.
+/// Successful capacity reservation still requires exact retained publication
+/// and host admission before a processing instance can be exposed.
+pub fn service_limits() -> Result<Limits> {
+    let mut limits = fixture_limits();
+    limits.classes.push(ClassLimit { class_id: crate::pigments::candidate()?.class.class_id, dsp: 1 });
+    Ok(limits)
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Status {
     pub schema: u32,
     pub limits: Limits,
+    pub engineering_classes: Vec<ClassLimit>,
     pub current_workers: usize,
     pub dsp: usize,
     pub available_dsp: usize,
@@ -99,7 +109,10 @@ pub struct Envelope {
 pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Result<Status> {
     limits.verify()?;
     let _lock = m.lock("registry.lock")?;
-    let verified = verified_envelope(m, &limits)?;
+    let extended = limits == service_limits()?;
+    let ordinary_limits = fixture_limits();
+    let verified = verified_envelope(m, if extended { &ordinary_limits } else { &limits })?;
+    let engineering_classes = if extended { vec![limits.classes[2].clone()] } else { Vec::new() };
     let owners = owners(m)?;
     let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();
     let maintenance = owners
@@ -134,6 +147,7 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
             )
         },
         limits,
+        engineering_classes,
         current_workers: workers,
         dsp,
         per_class,
@@ -200,7 +214,7 @@ impl Limits {
                 && self.service_workers <= 16
                 && self.maintenance == 1
                 && self.native_image_hard == 4
-                && (1..=2).contains(&self.classes.len()),
+                && ((1..=2).contains(&self.classes.len()) || *self == service_limits()?),
             "capacity_policy_invalid",
         )?;
         let mut ids = std::collections::BTreeSet::new();

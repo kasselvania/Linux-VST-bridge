@@ -204,9 +204,11 @@ The manager now has an inactive, nonpublishing `vendor-product scan pigments`
 route. It nominates the installed module inside ASC's exact environment, invokes
 the existing supervised module-level SDK census, refuses ambiguous classes and
 checks actual factory/class metadata. It does not ask the operator for IDs,
-hashes or paths. Pigments native generation and engineering publication remain
-pending the real scan result. Normal ASC launch still needs the demonstrated
-accessibility selection promoted from its explicit diagnostic operation.
+hashes or paths. The real scan identifies Pigments 7.0.1.6772 with 4,446 parameters and successful
+opaque state capture. Its generated native and corrected auxiliary-input Windows
+host are built. The sealed revision-1 candidate and new-class qualification route
+are implemented; real Bitwig validation remains pending. Ordinary exact ASC
+launch now selects the demonstrated operation-scoped accessibility mitigation.
 
 LoFi and FRAGMENTS revision 10 remain valid and their module bytes unchanged.
 512 remains recommended; 256 is unqualified. PR #95 remains draft and unmerged.

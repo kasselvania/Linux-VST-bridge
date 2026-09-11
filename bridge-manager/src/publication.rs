@@ -34,6 +34,7 @@ pub struct Revision {
 pub enum Qualification {
     Ap15Editor,
     Ap17Capacity,
+    Ap18Pigments,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -348,6 +349,9 @@ impl Manager {
         installed.verify()?;
         registration.host.verify()?;
         validate_set(current_profiles)?;
+        if registration.key() == crate::pigments::candidate()?.class.class_id {
+            return crate::pigments::served(self, registration, installed, source);
+        }
         require(
             current_profiles
                 .iter()
@@ -810,12 +814,19 @@ impl Manager {
         {
             let prior = self.load_revision(&key, current)?;
             require(
-                prior.qualification.is_none(),
+                prior.qualification.is_none()
+                    || (qualification == Some(Qualification::Ap18Pigments)
+                        && prior.qualification == qualification && prior.profile == *profile
+                        && db.classes[&key].publication == Publication::Removed),
                 "qualification_active_restore_first",
             )?;
         }
         if let Some(purpose) = qualification {
-            self.verify_qualification_parent_for(&db, profile, &registration, purpose)?;
+            if purpose == Qualification::Ap18Pigments {
+                crate::pigments::check_publication(self, profile, &registration)?;
+            } else {
+                self.verify_qualification_parent_for(&db, profile, &registration, purpose)?;
+            }
         }
         registration.verify(&self.root)?;
         require(

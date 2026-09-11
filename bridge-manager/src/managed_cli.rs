@@ -154,6 +154,7 @@ enum InspectionRoute {
     Current,
     Ap15Editor,
     Ap17Capacity,
+    Ap18Pigments,
 }
 fn inspect_through_owner(
     m: &Manager,
@@ -169,6 +170,7 @@ fn inspect_through_owner(
         InspectionRoute::Current => b"LVI1\n",
         InspectionRoute::Ap15Editor => b"LVQ1\n",
         InspectionRoute::Ap17Capacity => b"LVQ2\n",
+        InspectionRoute::Ap18Pigments => b"LVQ3\n",
     })?;
     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
     peer.write_all(&bytes)?;
@@ -413,6 +415,7 @@ fn execute_qualification_for(
                     match purpose {
                         publication::Qualification::Ap15Editor => InspectionRoute::Ap15Editor,
                         publication::Qualification::Ap17Capacity => InspectionRoute::Ap17Capacity,
+                        publication::Qualification::Ap18Pigments => InspectionRoute::Ap18Pigments,
                     },
                 )?);
             }
@@ -456,6 +459,11 @@ fn acceptance_receipt(m: &Manager) -> Result<serde_json::Value> {
     Ok(serde_json::json!({"schema": 1, "software_installed": true,
         "software": software(m)?, "publication_command": "managed publish",
         "readback_command": "managed status"}))
+}
+
+pub(super) fn run_pigments_qualification(m: &Manager, args: &[String]) -> Result<()> {
+    if args == ["restore"] { return render(pigments::restore(m).and_then(|()| status(m))); }
+    render(execute_qualification_for(m, args, publication::Qualification::Ap18Pigments))
 }
 
 #[cfg(test)]

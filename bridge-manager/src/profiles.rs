@@ -43,6 +43,7 @@ closed_enum!(Family {
     ArturiaPersistentV1
 });
 closed_enum!(Accessibility {
+    WindowsDefault,
     DisabledForVendorProcess
 });
 closed_enum!(Editor {
@@ -64,7 +65,9 @@ closed_enum!(Limitation {
     FragmentsAdvancedRedraw,
     ExactOperatorArtifactOnly,
     CapacityUnderQualification,
-    DirectEditorUnderQualification
+    DirectEditorUnderQualification,
+    PigmentsUnderQualification,
+    AuxiliaryInputInactive
 });
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -79,6 +82,7 @@ pub struct Capabilities {
 impl Capabilities {
     pub fn compatibility(&self) -> Compatibility {
         match self.accessibility {
+            Accessibility::WindowsDefault => Compatibility::default(),
             Accessibility::DisabledForVendorProcess => Compatibility {
                 disable_windows_accessibility: true,
             },
