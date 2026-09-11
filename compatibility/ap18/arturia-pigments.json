@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 2,
+  "revision": 3,
   "claim": "review_candidate",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
@@ -56,10 +56,10 @@
     },
     "environment_family": "arturia_persistent_v1",
     "environment_revision": 1,
-    "host_sha256": "d778f238f02f1d034ba906db0b2fbabc5a84afaa234aa2769ed1c3764c12307a",
-    "host_source_sha256": "286a64ede118e267c44db54ebca32f03c7b8d8c6388a156618a92aaea8e68fce",
-    "native_sha256": "6b0da788d32ad42d918f094dadaa76eb96a0c24e4362e23e694dd664d2ba5234",
-    "native_source_commit": "69daa4fc4016fdbc50b75254153f0c2b711eb9df",
+    "host_sha256": "87275b3f99ae253873ccbf6b8d0820012e84efd125bfde0a76e82917e8363dbd",
+    "host_source_sha256": "96d21911b137770b27192dcbe505f6ba5a06bba136ec2b5dd0a84f812384d2cb",
+    "native_sha256": "f29f52f9d96649b1effbc5c1dd8c405074304ec2527d215c3794575e01ad122b",
+    "native_source_commit": "36c02af2425e0bebeb940d7372cf3e10ab1da6ad",
     "descriptor_sha256": "07fb5e0b77bbc88b068a87e42eed43317b28d89d550842499eb888a5b2e1c305"
   },
   "capabilities": {
@@ -75,7 +75,7 @@
     "detached_focus_refusal",
     "exact_operator_artifact_only",
     "pigments_under_qualification",
-    "auxiliary_input_inactive"
+    "sole_stereo_auxiliary_input_only"
   ],
   "evidence": [
     "docs/AP18.md",

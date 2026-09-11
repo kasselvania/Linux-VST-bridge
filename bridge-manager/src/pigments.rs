@@ -11,7 +11,10 @@ pub fn candidate() -> Result<Profile> {
 pub(crate) fn replacement_prior(prior: &Profile, next: &Profile) -> Result<bool> {
     if prior == next { return Ok(true); }
     let first = Profile::parse(include_bytes!("../../compatibility/ap18/revision-1/arturia-pigments.json"))?;
-    Ok(*prior == first && *next == candidate()? && next.revision == 2)
+    let second = Profile::parse(include_bytes!("../../compatibility/ap18/revision-2/arturia-pigments.json"))?;
+    let third = candidate()?;
+    Ok((*prior == first && *next == second)
+        || (*prior == second && *next == third && third.revision == 3))
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -38,7 +41,7 @@ fn current_baseline(
 ) -> Result<(Baseline, Environment)> {
     require(
         p.claim == Claim::ReviewCandidate
-            && p.revision == 2
+            && p.revision == 3
             && p.id == "arturia-pigments"
             && p.role == Role::Instrument
             && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
@@ -391,7 +394,7 @@ mod tests {
             policies.push(policy);
         }
         p.id = "arturia-pigments".into();
-        p.revision = 2;
+        p.revision = 3;
         p.claim = Claim::ReviewCandidate;
         p.class.class_id = "03".repeat(16);
         p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
@@ -520,29 +523,43 @@ mod tests {
     }
     #[test]
     fn failed_candidate_is_history_only_and_replacement_is_exact() {
-        let old_bytes = include_bytes!("../../compatibility/ap18/revision-1/arturia-pigments.json");
-        let old = Profile::parse(old_bytes).unwrap();
-        let new = candidate().unwrap();
-        assert_eq!(crate::hex(&sha2::Sha256::digest(old_bytes)), "681dae01625f2d4c07a106a92c5c605396b666c6cd7160fe8402efb3bf7fe3fd");
-        assert!(replacement_prior(&old, &new).unwrap());
-        assert!(!replacement_prior(&new, &old).unwrap());
-        let mut wrong = old.clone();
-        wrong.module_sha256 = "00".repeat(32);
-        assert!(!replacement_prior(&wrong, &new).unwrap());
-        assert!(old.claim.require(SelectionPurpose::Activation).is_err());
-        assert!(new.claim.require(SelectionPurpose::Activation).is_err());
-        assert_eq!(external_ids(&old.class.class_id).unwrap(), external_ids(&new.class.class_id).unwrap());
-        let mut normalized = new;
-        normalized.revision = old.revision;
-        normalized.requirements.native_sha256 = old.requirements.native_sha256.clone();
-        normalized.requirements.native_source_commit = old.requirements.native_source_commit.clone();
-        normalized.evidence = old.evidence.clone();
-        assert_eq!(normalized, old);
+        let first_bytes = include_bytes!("../../compatibility/ap18/revision-1/arturia-pigments.json");
+        let second_bytes = include_bytes!("../../compatibility/ap18/revision-2/arturia-pigments.json");
+        assert_eq!(crate::hex(&sha2::Sha256::digest(first_bytes)), "681dae01625f2d4c07a106a92c5c605396b666c6cd7160fe8402efb3bf7fe3fd");
+        assert_eq!(crate::hex(&sha2::Sha256::digest(second_bytes)), "e6cf278f2cf444e9a0b68dc048622ca9076783e768f1917f7ffae6c44f58f795");
+        let first = Profile::parse(first_bytes).unwrap();
+        let second = Profile::parse(second_bytes).unwrap();
+        let third = candidate().unwrap();
+        assert!(replacement_prior(&first, &second).unwrap());
+        assert!(replacement_prior(&second, &third).unwrap());
+        assert!(!replacement_prior(&first, &third).unwrap());
+        assert!(!replacement_prior(&third, &second).unwrap());
+        assert!(!replacement_prior(&second, &first).unwrap());
+        for p in [&first,&second,&third] {
+            assert!(p.claim.require(SelectionPurpose::Activation).is_err());
+            assert_eq!(external_ids(&p.class.class_id).unwrap(),external_ids(&first.class.class_id).unwrap());
+        }
+        for change in 0..3 {
+            let mut wrong=second.clone();
+            match change {0=>wrong.module_sha256="00".repeat(32),1=>wrong.requirements.native_sha256="00".repeat(32),_=>wrong.requirements.host_sha256="00".repeat(32)}
+            assert!(!replacement_prior(&wrong,&third).unwrap());
+        }
+        assert!(third.limitations.contains(&Limitation::SoleStereoAuxiliaryInputOnly));
+        assert!(!third.limitations.contains(&Limitation::AuxiliaryInputInactive));
+        let mut normalized=third;
+        normalized.revision=second.revision;
+        normalized.requirements.native_sha256=second.requirements.native_sha256.clone();
+        normalized.requirements.native_source_commit=second.requirements.native_source_commit.clone();
+        normalized.requirements.host_sha256=second.requirements.host_sha256.clone();
+        normalized.requirements.host_source_sha256=second.requirements.host_source_sha256.clone();
+        normalized.limitations=second.limitations.clone();
+        normalized.evidence=second.evidence.clone();
+        assert_eq!(normalized,second);
     }
     #[test]
     fn compiled_candidate_is_new_identity_not_ordinary_or_ap17_policy() {
         let p = candidate().unwrap();
-        assert_eq!(p.revision, 2);
+        assert_eq!(p.revision, 3);
         assert_eq!(p.class.name, "Pigments");
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());
