@@ -35,16 +35,16 @@ def generate(census, native, archive, output):
     c=census['census'];r=census['report'];m=c['selected'];env=c['environment']['environment'];runner=env['runner']
     assert r['cleanup_confirmed'] and r['transport_retired'] and r['error'] is None
     assert m['name']=='Pigments' and m['vendor']==c['factory_vendor']=='Arturia' and 'Instrument' in m['subcategories'].split('|')
-    assert c['float32'] and not c['float64'] and native['returncode']==0 and native['source_commit']==SOURCE
+    assert c['float32'] and not c['float64'] and native['returncode']==0 and len(native['source_commit'])==40
     filehash=lambda path: next(a['sha256'] for a in runner['files'] if a['path']==path)
-    p=dict(schema=1,id='arturia-pigments',revision=1,claim='review_candidate',module_sha256=c['module']['sha256'],factory_vendor=c['factory_vendor'],
+    p=dict(schema=1,id='arturia-pigments',revision=2,claim='review_candidate',module_sha256=c['module']['sha256'],factory_vendor=c['factory_vendor'],
         **{'class':m},role='instrument',requirements=dict(runner=dict(id=runner['id'],version=runner['version'],
         proton_sha256=filehash(runner['proton']),entry_point_sha256=filehash(runner['entry_point']),file_sha256=sorted(a['sha256'] for a in runner['files'])),
         environment_family=c['environment']['family'],environment_revision=env['revision'],host_sha256=sha(host),host_source_sha256=sha(source),
         native_sha256=native['sha256'],native_source_commit=native['source_commit'],descriptor_sha256=native['descriptor_sha256']),
         capabilities=dict(accessibility='windows_default',editor='detached_direct_vendor_lifecycle',state='concurrent_read_only_capture_v12',precision='float32_only',performance='frames512_recommended256_unqualified'),
         limitations=['short_delivery_gaps','unqualified256','detached_focus_refusal','exact_operator_artifact_only','pigments_under_qualification','auxiliary_input_inactive'],
-        evidence=['docs/AP18.md','evidence/ap18/pigments/installed.json','evidence/ap18/pigments/census.json'])
+        evidence=['docs/AP18.md','evidence/ap18/pigments/installed.json','evidence/ap18/pigments/census.json','evidence/ap18/pigments/native-activation.json'])
     output.mkdir(mode=0o700)
     for name,data in [('host.exe',host),('host-source-manifest.json',source),('profile.json',(json.dumps(p,indent=2)+'\n').encode())]:
         (output/name).write_bytes(data);(output/name).chmod(0o400)

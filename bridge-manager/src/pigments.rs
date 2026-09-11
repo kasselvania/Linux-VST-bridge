@@ -7,6 +7,12 @@ pub fn candidate() -> Result<Profile> {
         "../../compatibility/ap18/arturia-pigments.json"
     ))
 }
+/// Failed candidate history can precede a replacement, never grant runtime authority.
+pub(crate) fn replacement_prior(prior: &Profile, next: &Profile) -> Result<bool> {
+    if prior == next { return Ok(true); }
+    let first = Profile::parse(include_bytes!("../../compatibility/ap18/revision-1/arturia-pigments.json"))?;
+    Ok(*prior == first && *next == candidate()? && next.revision == 2)
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Anchor {
@@ -32,7 +38,7 @@ fn current_baseline(
 ) -> Result<(Baseline, Environment)> {
     require(
         p.claim == Claim::ReviewCandidate
-            && p.revision == 1
+            && p.revision == 2
             && p.id == "arturia-pigments"
             && p.role == Role::Instrument
             && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
@@ -170,7 +176,7 @@ fn stage_exact(m: &Manager, package: &Path, p: &Profile, policies: &[Profile]) -
                 .ok_or("qualification_exact_candidate_required")?,
         )?;
         require(
-            prior.profile == *p && prior.qualification == Some(Qualification::Ap18Pigments),
+            replacement_prior(&prior.profile, p)? && prior.qualification == Some(Qualification::Ap18Pigments),
             "qualification_exact_candidate_required",
         )?;
     }
@@ -377,7 +383,7 @@ mod tests {
             policies.push(policy);
         }
         p.id = "arturia-pigments".into();
-        p.revision = 1;
+        p.revision = 2;
         p.claim = Claim::ReviewCandidate;
         p.class.class_id = "03".repeat(16);
         p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
@@ -492,9 +498,30 @@ mod tests {
         assert_ne!(n.external_ids, external_ids(&p.class.class_id).unwrap());
     }
     #[test]
+    fn failed_candidate_is_history_only_and_replacement_is_exact() {
+        let old_bytes = include_bytes!("../../compatibility/ap18/revision-1/arturia-pigments.json");
+        let old = Profile::parse(old_bytes).unwrap();
+        let new = candidate().unwrap();
+        assert_eq!(crate::hex(&sha2::Sha256::digest(old_bytes)), "681dae01625f2d4c07a106a92c5c605396b666c6cd7160fe8402efb3bf7fe3fd");
+        assert!(replacement_prior(&old, &new).unwrap());
+        assert!(!replacement_prior(&new, &old).unwrap());
+        let mut wrong = old.clone();
+        wrong.module_sha256 = "00".repeat(32);
+        assert!(!replacement_prior(&wrong, &new).unwrap());
+        assert!(old.claim.require(SelectionPurpose::Activation).is_err());
+        assert!(new.claim.require(SelectionPurpose::Activation).is_err());
+        assert_eq!(external_ids(&old.class.class_id).unwrap(), external_ids(&new.class.class_id).unwrap());
+        let mut normalized = new;
+        normalized.revision = old.revision;
+        normalized.requirements.native_sha256 = old.requirements.native_sha256.clone();
+        normalized.requirements.native_source_commit = old.requirements.native_source_commit.clone();
+        normalized.evidence = old.evidence.clone();
+        assert_eq!(normalized, old);
+    }
+    #[test]
     fn compiled_candidate_is_new_identity_not_ordinary_or_ap17_policy() {
         let p = candidate().unwrap();
-        assert_eq!(p.revision, 1);
+        assert_eq!(p.revision, 2);
         assert_eq!(p.class.name, "Pigments");
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());

@@ -91,3 +91,10 @@ activation and any claim of an already qualified Pigments musical workflow.
 The sealed `ap18_pigments` route binds its separate Windows host and native to
 exact existing revision-10 baseline publications; it never changes those
 profiles or treats an existing product's class as Pigments' parent.
+
+AP18 Pigments revision 1 is retained as failed native-activation history. Its
+auxiliary bus was incorrectly advertised as default-active despite unsupported
+activation. Revision 2 retains the exact census and Windows artifact and binds
+the corrected native advertisement. Both remain ReviewCandidate; the sealed
+replacement route requires the prior candidate inactive and preserves LoFi and
+FRAGMENTS ordinary revision 10.

@@ -206,8 +206,12 @@ the existing supervised module-level SDK census, refuses ambiguous classes and
 checks actual factory/class metadata. It does not ask the operator for IDs,
 hashes or paths. The real scan identifies Pigments 7.0.1.6772 with 4,446 parameters and successful
 opaque state capture. Its generated native and corrected auxiliary-input Windows
-host are built. The sealed revision-1 candidate and new-class qualification route
-are implemented; real Bitwig validation remains pending. Ordinary exact ASC
+host are built. The sealed candidate and new-class qualification route are implemented. Bitwig
+discovers Pigments; its first revision-1 load refused auxiliary input activation.
+The default-active advertisement is corrected and independently tested through
+the production Processor/SDK fixture. Revision 1 remains immutable history;
+revision 2 binds the corrected native. Actual loading and musical/editor
+validation remain pending. Ordinary exact ASC
 launch now selects the demonstrated operation-scoped accessibility mitigation.
 
 LoFi and FRAGMENTS revision 10 remain valid and their module bytes unchanged.

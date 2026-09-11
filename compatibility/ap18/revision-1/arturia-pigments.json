@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 2,
+  "revision": 1,
   "claim": "review_candidate",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
@@ -58,8 +58,8 @@
     "environment_revision": 1,
     "host_sha256": "d778f238f02f1d034ba906db0b2fbabc5a84afaa234aa2769ed1c3764c12307a",
     "host_source_sha256": "286a64ede118e267c44db54ebca32f03c7b8d8c6388a156618a92aaea8e68fce",
-    "native_sha256": "6b0da788d32ad42d918f094dadaa76eb96a0c24e4362e23e694dd664d2ba5234",
-    "native_source_commit": "69daa4fc4016fdbc50b75254153f0c2b711eb9df",
+    "native_sha256": "5c224a9d046e4f60210dd913c0f2d023898854fe11e41f3e03cb93cc19f478a6",
+    "native_source_commit": "e5bcb80d93f24b2b330fefda842068ff32238ff5",
     "descriptor_sha256": "07fb5e0b77bbc88b068a87e42eed43317b28d89d550842499eb888a5b2e1c305"
   },
   "capabilities": {
@@ -80,7 +80,6 @@
   "evidence": [
     "docs/AP18.md",
     "evidence/ap18/pigments/installed.json",
-    "evidence/ap18/pigments/census.json",
-    "evidence/ap18/pigments/native-activation.json"
+    "evidence/ap18/pigments/census.json"
   ]
 }

@@ -816,7 +816,7 @@ impl Manager {
             require(
                 prior.qualification.is_none()
                     || (qualification == Some(Qualification::Ap18Pigments)
-                        && prior.qualification == qualification && prior.profile == *profile
+                        && prior.qualification == qualification && crate::pigments::replacement_prior(&prior.profile, profile)?
                         && db.classes[&key].publication == Publication::Removed),
                 "qualification_active_restore_first",
             )?;
