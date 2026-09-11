@@ -43,6 +43,7 @@ pub enum LaunchMode {
     AgentProbe,
     RuninprefixProbe,
     InitializedProbe,
+    AccessibilityProbe,
 }
 
 impl LaunchMode {
@@ -52,6 +53,7 @@ impl LaunchMode {
             "diagnose-agent" => Ok(Self::AgentProbe),
             "diagnose-runinprefix" => Ok(Self::RuninprefixProbe),
             "diagnose-initialized" => Ok(Self::InitializedProbe),
+            "diagnose-accessibility" => Ok(Self::AccessibilityProbe),
             _ => Err("vendor_application_launch_mode".into()),
         }
     }
@@ -74,6 +76,8 @@ pub struct OperationResult {
     pub retained_diagnostic_bytes: u64,
     #[serde(default)]
     pub diagnostic_enabled: bool,
+    #[serde(default)]
+    pub windows_accessibility_disabled: bool,
     pub account_posture: AccountPosture,
 }
 
@@ -85,7 +89,7 @@ pub enum AccountPosture {
 
 impl OperationResult {
     pub fn retired(&self) -> bool {
-        matches!(self.schema, 1 | 2)
+        matches!(self.schema, 1 | 2 | 3)
             && self.cleanup_confirmed
             && self.owned_live.unwrap_or(0) == 0
             && matches!(
@@ -256,6 +260,7 @@ mod tests {
             "diagnose-agent",
             "diagnose-runinprefix",
             "diagnose-initialized",
+            "diagnose-accessibility",
         ] {
             assert!(LaunchMode::action(action).is_ok());
         }
@@ -265,6 +270,17 @@ mod tests {
             "retained_diagnostic_bytes":2048,"diagnostic_enabled":true,"account_posture":"unknown"});
         let result: OperationResult = serde_json::from_value(value.clone()).unwrap();
         assert!(!result.retired());
+        assert!(!result.windows_accessibility_disabled);
+        let mut scoped = value.clone();
+        scoped["schema"] = 3.into();
+        scoped["windows_accessibility_disabled"] = true.into();
+        assert!(
+            serde_json::from_value::<OperationResult>(scoped.clone())
+                .unwrap()
+                .windows_accessibility_disabled
+        );
+        scoped["windows_accessibility_disabled"] = "global".into();
+        assert!(serde_json::from_value::<OperationResult>(scoped).is_err());
         let rendered = serde_json::to_string(&result).unwrap();
         assert!(!rendered.contains("private-diagnostic"));
         for field in ["stdout", "stderr", "log_path", "account_email", "token"] {

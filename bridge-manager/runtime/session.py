@@ -528,7 +528,7 @@ class PrivateCapture:
 def vendor_launch(spec):
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root']);runner=env['runner']
     mode=spec.get('mode','normal')
-    if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe'):raise RuntimeError('vendor launch mode')
+    if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe'):raise RuntimeError('vendor launch mode')
     artifact=app['helpers'][0] if mode=='agent_probe' else app['executable']
     executable=pathlib.Path(artifact['path'])
     verb='run' if mode=='initialized_probe' else 'runinprefix'
@@ -546,6 +546,13 @@ def vendor_diagnostic_environment(env, directory, enabled):
                       WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,trace+seh,trace+unwind,trace+loaddll,err+module',
                       DXVK_LOG_LEVEL='none',VKD3D_DEBUG='none')
     return result
+
+
+def vendor_compatibility(mode):
+    # One explicit ASC operation only; no environment registry/profile mutation.
+    if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe'):
+        raise RuntimeError('vendor launch mode')
+    return {'disable_windows_accessibility':mode=='accessibility_probe'}
 
 
 def vendor_process_metadata(scope, record, app):
@@ -617,17 +624,17 @@ def vendor_application(spec):
             if data:captures[key.data].write(data)
             else:sel.unregister(key.fileobj)
     def result(state,live):
-        return {'schema':2,'state':state,'launcher_exit':child.returncode if child else None,
+        return {'schema':3,'state':state,'launcher_exit':child.returncode if child else None,
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,
                 'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
                 'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
-                'diagnostic_enabled':diagnostic,'account_posture':'unknown'}
+                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':mode=='accessibility_probe','account_posture':'unknown'}
     try:
         for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
         scope=CompanionCgroup()
         if scope.members():raise RuntimeError('companion cgroup not initially empty')
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('companion subreaper unavailable')
-        reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
+        reg={'environment':env,'compatibility':vendor_compatibility(mode)}
         argv,cwd=vendor_launch(spec)
         child=subprocess.Popen(argv,cwd=cwd,env=vendor_diagnostic_environment(environment(reg),logs,diagnostic),
                 stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)

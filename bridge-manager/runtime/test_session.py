@@ -592,9 +592,12 @@ class CompanionDiagnosticTests(unittest.TestCase):
         app={'environment':{'root':str(root),'runner':{'entry_point':'/runner/entry','proton':'/runner/proton'}},
              'executable':{'path':str(root/'compatdata/pfx/drive_c/ASC/main.exe')},
              'helpers':[{'path':str(root/'compatdata/pfx/drive_c/ASC/agent.exe')}]}
-        for mode,verb,image in [('agent_probe','runinprefix','agent.exe'),('runinprefix_probe','runinprefix','main.exe'),('initialized_probe','run','main.exe')]:
+        for mode,verb,image in [('agent_probe','runinprefix','agent.exe'),('runinprefix_probe','runinprefix','main.exe'),('initialized_probe','run','main.exe'),('accessibility_probe','runinprefix','main.exe')]:
             cmd,cwd=session.vendor_launch({'application':app,'mode':mode})
             self.assertEqual(cmd[4],verb);self.assertTrue(cmd[-1].endswith(image))
+        for mode in ['normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe']:
+            self.assertEqual(session.vendor_compatibility(mode),{'disable_windows_accessibility':mode=='accessibility_probe'})
+        with self.assertRaises(RuntimeError):session.vendor_compatibility('global')
         with self.assertRaises(RuntimeError):session.vendor_launch({'application':app,'mode':'arbitrary'})
         env=session.vendor_diagnostic_environment({},pathlib.Path('/private/log'),True)
         self.assertEqual(env['PROTON_LOG'],'0')

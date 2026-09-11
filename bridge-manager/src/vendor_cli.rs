@@ -122,7 +122,11 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
             println!("{}", serde_json::to_string(&result)?);
             Ok(())
         }
-        "launch" | "diagnose-agent" | "diagnose-runinprefix" | "diagnose-initialized" => {
+        "launch"
+        | "diagnose-agent"
+        | "diagnose-runinprefix"
+        | "diagnose-initialized"
+        | "diagnose-accessibility" => {
             let mode = LaunchMode::action(&args[0])?;
             let _guard = m.lock("registry.lock")?;
             m.require_inactive(None)?;
