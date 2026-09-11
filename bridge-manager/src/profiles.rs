@@ -279,6 +279,13 @@ pub fn ap14_profiles() -> Result<Vec<Profile>> {
     .collect()
 }
 
+/// Immutable AP15 ordinary history and AP17 rollback parent; not new selection.
+pub fn ap15_profiles() -> Result<Vec<Profile>> {
+    [include_bytes!("../../compatibility/ap15/revision-7/arturia-pure-lofi.json").as_slice(),
+     include_bytes!("../../compatibility/ap15/revision-7/arturia-efx-fragments.json").as_slice()]
+    .into_iter().map(Profile::parse).collect()
+}
+
 /// UUIDv5 law retained from tools/ap8_descriptor.py, independent of revisions.
 pub fn external_ids(class_id: &str) -> Result<[String; 2]> {
     require(valid_hex(class_id, 32), "class_identity")?;

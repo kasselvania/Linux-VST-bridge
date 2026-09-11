@@ -171,6 +171,10 @@ fn systemd(s: &str) -> String {
     )
 }
 fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
+    setup_selected(m, package, false)
+}
+fn setup_selected(m: &Manager, package: Option<&Path>, capacity_acceptance: bool) -> Result<()> {
+    let review = if capacity_acceptance { acceptance::CAPACITY_REVIEW } else { acceptance::REVIEW };
     let _lock = m.lock("setup.lock")?;
     let _registry = m.lock("registry.lock")?;
     // A stopped prior service may leave a positively retired keeper lease.
@@ -203,7 +207,7 @@ fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
             read_json::<String>(&package.join("host-source.json"))?,
         )
     } else {
-        let accepted = acceptance::prepare(m)?;
+        let accepted = if capacity_acceptance { acceptance::prepare_capacity(m)? } else { acceptance::prepare(m)? };
         let old = software(m)?;
         for artifact in [&old.supervisor, &old.ownership] {
             require(
@@ -251,7 +255,7 @@ fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
         identity.push_str(&hex(&sha2::Sha256::digest(serde_json::to_vec(c)?)));
     }
     if package.is_none() {
-        identity.push_str(&hex(&sha2::Sha256::digest(acceptance::REVIEW)));
+        identity.push_str(&hex(&sha2::Sha256::digest(review)));
     }
     let id = hex(&sha2::Sha256::digest(identity.as_bytes()));
     let dest = m.root.join("software").join(&id);
@@ -307,7 +311,7 @@ fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
         }
         if package.is_none() {
             let path = stage.join("acceptance-review.json");
-            fs::write(&path, acceptance::REVIEW)?;
+            fs::write(&path, review)?;
             fs::set_permissions(&path, fs::Permissions::from_mode(0o400))?;
             fs::File::open(path)?.sync_all()?;
         }
@@ -330,7 +334,7 @@ fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
     }
     if package.is_none() {
         require(
-            fs::read(dest.join("acceptance-review.json"))? == acceptance::REVIEW,
+            fs::read(dest.join("acceptance-review.json"))? == review,
             "acceptance_review_identity",
         )?;
     }
@@ -957,6 +961,7 @@ fn main() -> Result<()> {
     match args.first().map(String::as_str){
   Some("setup") if args.len()==2=>setup(&m,Some(Path::new(&args[1]))),
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
+  Some("accept-capacity") if args.len()==1=>managed_cli::run_capacity_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
   Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),

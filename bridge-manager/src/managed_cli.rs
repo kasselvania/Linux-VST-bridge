@@ -449,6 +449,9 @@ pub(super) fn run_acceptance(m: &Manager) -> Result<()> {
     // into a false failure by racing that lock for optional status readback.
     render(setup(m, None).and_then(|()| acceptance_receipt(m)))
 }
+pub(super) fn run_capacity_acceptance(m: &Manager) -> Result<()> {
+    render(setup_selected(m, None, true).and_then(|()| acceptance_receipt(m)))
+}
 fn acceptance_receipt(m: &Manager) -> Result<serde_json::Value> {
     Ok(serde_json::json!({"schema": 1, "software_installed": true,
         "software": software(m)?, "publication_command": "managed publish",

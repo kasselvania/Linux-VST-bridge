@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "id": "arturia-efx-fragments",
-  "revision": 10,
+  "id": "arturia-pure-lofi",
+  "revision": 7,
   "claim": "verified_exact_fixture",
-  "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+  "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
   "factory_vendor": "Arturia",
   "class": {
-    "class_id": "41727475415649536772616E50726F63",
-    "name": "Efx FRAGMENTS",
+    "class_id": "417274754156495350724C4650726F63",
+    "name": "Pure LoFi",
     "vendor": "Arturia",
-    "version": "1.0.0.2925",
-    "subcategories": "Fx|Tools",
+    "version": "1.0.0.6121",
+    "subcategories": "Instrument|Synth",
     "metadata_tier": "factory_3_unicode"
   },
-  "role": "effect",
+  "role": "instrument",
   "requirements": {
     "runner": {
       "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
@@ -58,9 +58,9 @@
     "environment_revision": 1,
     "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
     "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
-    "native_sha256": "11615d88cb253e22ca6f6beecbe946bdb5efd46882d091b65f9c461cd6757428",
-    "native_source_commit": "54d7b2b78ca301b126e4eb94553fe426989835ff",
-    "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e"
+    "native_sha256": "98793ee5169992924cdc5b21f38de8a70b507e28682fdb74bec95a22eb234ff6",
+    "native_source_commit": "a3cb624f126afc5270519012d7af39485fd6fbb6",
+    "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245"
   },
   "capabilities": {
     "accessibility": "disabled_for_vendor_process",
@@ -74,22 +74,24 @@
     "unqualified256",
     "windows_accessibility_unavailable",
     "detached_focus_refusal",
-    "exact_operator_artifact_only",
-    "fragments_advanced_redraw"
+    "exact_operator_artifact_only"
   ],
   "evidence": [
-    "docs/AP17.md",
-    "evidence/ap17/baseline.json",
-    "evidence/ap17/short-intervals.json",
-    "evidence/ap17/native-artifacts.json",
-    "evidence/ap17/r1/source-validation.json",
-    "evidence/ap17/r1/deployment-and-restoration.json",
-    "evidence/ap17/r1/recall-and-failure.json",
-    "evidence/ap17/r1/serial-corner.json",
-    "evidence/ap17/r1/service-recovery.json",
-    "evidence/ap17/r1/reboot-recovery.json",
-    "evidence/ap17/r1/installed-final.json",
-    "evidence/ap17/r1/completion-validation.json",
-    "evidence/ap17/acceptance/review.json"
+    "docs/AP12.md",
+    "docs/AP13.md",
+    "evidence/AP13/installation-final.json",
+    "docs/AP14.md",
+    "evidence/ap14/transactions.json",
+    "evidence/ap14/installed-identities.json",
+    "evidence/ap14/musical-smoke.json",
+    "docs/AP15.md",
+    "evidence/ap15/r2/validation.json",
+    "evidence/ap15/qualification/windows.json",
+    "evidence/ap15/qualification/attachment-rejection.json",
+    "evidence/ap15/qualification/focus-refusal.json",
+    "evidence/ap15/qualification/campaign.json",
+    "evidence/ap15/qualification/lifecycle-and-cleanup.json",
+    "evidence/ap15/qualification/installed-final.json",
+    "evidence/ap15/acceptance/review.json"
   ]
 }

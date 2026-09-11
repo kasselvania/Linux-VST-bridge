@@ -38,7 +38,7 @@ pub struct Limits {
     pub native_image_hard: usize,
 }
 
-/// AP17's conservative engineering envelope for the exact retained Arturia
+/// AP17's independently reviewed exact-fixture envelope for the exact retained Arturia
 /// fixture. These are class identities, never friendly-name dispatch. The
 /// native four-slot mechanic is deliberately not raised to match the service.
 pub fn fixture_limits() -> Limits {
@@ -81,6 +81,7 @@ pub struct Status {
 #[serde(rename_all = "snake_case")]
 pub enum EnvelopeClaim {
     EngineeringCandidate,
+    VerifiedExactFixture,
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -90,11 +91,15 @@ pub struct Envelope {
     pub serial_bridged_depth: usize,
     pub simultaneous_editors: usize,
     pub evidence: String,
+    pub fixture: String,
+    pub seven: String,
+    pub eight: String,
 }
 
 pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Result<Status> {
     limits.verify()?;
     let _lock = m.lock("registry.lock")?;
+    let verified = verified_envelope(m, &limits)?;
     let owners = owners(m)?;
     let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();
     let maintenance = owners
@@ -138,13 +143,53 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
         cleanup_unconfirmed: blocked,
         owners,
         envelope: Envelope {
-            claim: EnvelopeClaim::EngineeringCandidate,
+            claim: if verified { EnvelopeClaim::VerifiedExactFixture } else { EnvelopeClaim::EngineeringCandidate },
             parallel_tracks: 3,
             serial_bridged_depth: 3,
             simultaneous_editors: 2,
             evidence: "docs/AP17.md".into(),
+            fixture: "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit".into(),
+            seven: "unqualified".into(),
+            eight: "excluded_for_tested_workload".into(),
         },
     })
+}
+
+/// Caller holds registry.lock. Read physical revision authority, never infer it
+/// from the manager version or from a retained candidate's mere presence.
+fn verified_envelope(m: &Manager, limits: &Limits) -> Result<bool> {
+    verified_envelope_for(m, limits, &crate::profiles::installed_profiles()?)
+}
+pub(crate) fn verified_envelope_for(
+    m: &Manager,
+    limits: &Limits,
+    profiles: &[crate::profiles::Profile],
+) -> Result<bool> {
+    if *limits != fixture_limits() {
+        return Ok(false);
+    }
+    let db = m.registry()?;
+    for p in profiles {
+        let Some(e) = db.classes.get(&p.class.class_id) else {
+            return Ok(false);
+        };
+        let Some(reference) = &e.managed_revision else {
+            return Ok(false);
+        };
+        let r = m.load_revision(&p.class.class_id, reference)?;
+        if p.revision != 10
+            || p.claim != crate::profiles::Claim::VerifiedExactFixture
+            || r.profile != *p
+            || r.qualification.is_some()
+            || e.publication != Publication::Published
+            || m.publication_pending(&p.class.class_id)?
+            || crate::publication::physical(&m.link(&p.class.class_id))? != Some(r.target.clone())
+        {
+            return Ok(false);
+        }
+        m.verify_completed_publication(&r, reference)?;
+    }
+    Ok(true)
 }
 
 impl Limits {
