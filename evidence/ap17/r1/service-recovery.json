@@ -1,0 +1,2402 @@
+{
+  "schema": 1,
+  "source_head": "4793fb9b422aa8cceb89ff77ca8d0cb2982e6a90",
+  "ordinary_profiles": 7,
+  "qualification": null,
+  "normal_restart": {
+    "operation": "normal_service_restart_devices_closed",
+    "before": "MainPID=33111\nCPUWeight=10000\nActiveState=active\n",
+    "after": "MainPID=38296\nCPUWeight=10000\nActiveState=active\n",
+    "begin_ns": 22896109545625,
+    "end_ns": 22898285164626,
+    "clock": "Linux CLOCK_MONOTONIC",
+    "software_record_sha256": "476da9b2c3578158ffc835d0b4db86fd3343ca0f0e69630598f9d28ee60bf457",
+    "publications_unchanged": true,
+    "prior_keeper_receipts": {
+      "2a6b3ef1779ae32614c5c0901c44172d": {
+        "receipt_absent": true
+      }
+    },
+    "leases_after": [
+      "2a6b3ef1779ae32614c5c0901c44172d"
+    ]
+  },
+  "normal_restart_settled": {
+    "service": {
+      "exit": 0,
+      "stdout": "MainPID=38302\nResult=success\nNRestarts=1\nControlGroup=/user.slice/user-1000.slice/user@1000.service/app.slice/linux-vst-bridge.service\nCPUWeight=10000\nActiveState=active\nSubState=running\n",
+      "stderr": ""
+    },
+    "leases": [],
+    "cpu_files": [
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/linux-vst-bridge.service/cpu.weight"
+    ],
+    "journal": {
+      "exit": 0,
+      "stdout": "Sep 10 18:43:15 steamdeck systemd[1428]: Stopping Linux VST Bridge registered host...\nSep 10 18:43:17 steamdeck linux-vst-bridge[33152]: Traceback (most recent call last):\nSep 10 18:43:17 steamdeck linux-vst-bridge[33152]:   File \"[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/session.py\", line 520, in <module>\nSep 10 18:43:17 steamdeck linux-vst-bridge[33152]:     if complete:print('LVO1 '+spec['session']+' retired',flush=True)\nSep 10 18:43:17 steamdeck linux-vst-bridge[33152]:                 ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nSep 10 18:43:17 steamdeck linux-vst-bridge[33152]: BrokenPipeError: [Errno 32] Broken pipe\nSep 10 18:43:17 steamdeck linux-vst-bridge[33152]: Exception ignored on flushing sys.stdout:\nSep 10 18:43:17 steamdeck linux-vst-bridge[33152]: BrokenPipeError: [Errno 32] Broken pipe\nSep 10 18:43:17 steamdeck systemd[1428]: Stopped Linux VST Bridge registered host.\nSep 10 18:43:17 steamdeck systemd[1428]: linux-vst-bridge.service: Consumed 1h 28min 19.677s CPU time, 3.1G memory peak.\nSep 10 18:43:17 steamdeck systemd[1428]: Started Linux VST Bridge registered host.\nSep 10 18:43:17 steamdeck linux-vst-bridge[38296]: Error: \"operation already running\"\nSep 10 18:43:17 steamdeck systemd[1428]: linux-vst-bridge.service: Main process exited, code=exited, status=1/FAILURE\nSep 10 18:43:17 steamdeck systemd[1428]: linux-vst-bridge.service: Failed with result 'exit-code'.\nSep 10 18:43:19 steamdeck systemd[1428]: linux-vst-bridge.service: Scheduled restart job, restart counter is at 1.\nSep 10 18:43:19 steamdeck systemd[1428]: Started Linux VST Bridge registered host.\n",
+      "stderr": ""
+    }
+  },
+  "keeper_retirement": {
+    "results": [
+      {
+        "name": "environment-2a6b3ef1779ae32614c5c0901c44172d.json",
+        "bytes": 104,
+        "receipt": {
+          "ready": false,
+          "cleanup_confirmed": true,
+          "error": "shared environment owner exited",
+          "raw_exit": -15
+        }
+      }
+    ],
+    "lease_present": false,
+    "capacity": "{\n  \"capacity\": {\n    \"available_dsp\": 6,\n    \"cleanup_unconfirmed\": false,\n    \"current_workers\": 1,\n    \"dsp\": 0,\n    \"envelope\": {\n      \"claim\": \"engineering_candidate\",\n      \"evidence\": \"docs/AP17.md\",\n      \"parallel_tracks\": 3,\n      \"serial_bridged_depth\": 3,\n      \"simultaneous_editors\": 2\n    },\n    \"keepers\": 0,\n    \"limits\": {\n      \"classes\": [\n        {\n          \"class_id\": \"417274754156495350724C4650726F63\",\n          \"dsp\": 3\n        },\n        {\n          \"class_id\": \"41727475415649536772616E50726F63\",\n          \"dsp\": 4\n        }\n      ],\n      \"global_dsp\": 6,\n      \"maintenance\": 1,\n      \"native_image_hard\": 4,\n      \"service_workers\": 16\n    },\n    \"maintenance\": 0,\n    \"maintenance_admissible\": true,\n    \"owners\": [],\n    \"per_class\": {\n      \"417274754156495350724C4650726F63\": 0,\n      \"41727475415649536772616E50726F63\": 0\n    },\n    \"schema\": 1\n  },\n  \"ok\": true\n}\n",
+    "service": "MainPID=38302\nActiveState=active\n"
+  },
+  "normal_restart_maximum_reopen": {
+    "sessions": [
+      {
+        "session": "6084f395a77e0f574080c9c0015a39d9",
+        "class_id": "41727475415649536772616E50726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 139092,
+            "sha256": "797d797e3d305d2823636ed8d2a5e2551336721eb2cf55ee90b7a81eb09e9a93"
+          }
+        ]
+      },
+      {
+        "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+        "class_id": "417274754156495350724C4650726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 196838,
+            "sha256": "41fa84afc3e7ce1a80b8c3e644c7e13eb8c485b11fa94ba3e39afbc4229c3d06"
+          }
+        ]
+      },
+      {
+        "session": "7c620be13cc4acb88ae1c014e6804958",
+        "class_id": "417274754156495350724C4650726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 196838,
+            "sha256": "8e2304ef3a211804605dff42e8015305b9573b719360215749f5d827bfa6f59d"
+          }
+        ]
+      },
+      {
+        "session": "13e0aa0aa6f46ade3ac2522b408291cc",
+        "class_id": "41727475415649536772616E50726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 139092,
+            "sha256": "3cdbc4556d886afcad187c062eddda129aab711aa0df1ef5d7cebbdb6cdeebf1"
+          }
+        ]
+      },
+      {
+        "session": "27e4884e1188e06acb8fbf875626467d",
+        "class_id": "41727475415649536772616E50726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          }
+        ]
+      },
+      {
+        "session": "342aa64b2d7dc2559dad4ff8322bd24c",
+        "class_id": "417274754156495350724C4650726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 196838,
+            "sha256": "588a79494a15fd06a4ff95d428ed9115465155983299d5ff7d87950a72cd171c"
+          }
+        ]
+      }
+    ],
+    "project_hashes": [
+      {
+        "name": "AP17 R1 Maximum.bwproject",
+        "bytes": 201188,
+        "sha256": "586cf60aa84403eff9eb1f3085244aeccdfa5fbe1b9bc8521033950eb865430b"
+      },
+      {
+        "name": "AP17 Mixed.bwproject",
+        "bytes": 201220,
+        "sha256": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db"
+      },
+      {
+        "name": "AP17 R1 Serial.bwproject",
+        "bytes": 184764,
+        "sha256": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc"
+      }
+    ],
+    "capacity": {
+      "capacity": {
+        "available_dsp": 0,
+        "cleanup_unconfirmed": false,
+        "current_workers": 7,
+        "dsp": 6,
+        "envelope": {
+          "claim": "engineering_candidate",
+          "evidence": "docs/AP17.md",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": false,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "13e0aa0aa6f46ade3ac2522b408291cc"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "27e4884e1188e06acb8fbf875626467d"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "342aa64b2d7dc2559dad4ff8322bd24c"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "6084f395a77e0f574080c9c0015a39d9"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "7c620be13cc4acb88ae1c014e6804958"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "keeper",
+            "session": "adb7f46df138fa6ef1e14f0ae2539e50"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 3,
+          "41727475415649536772616E50726F63": 3
+        },
+        "schema": 1
+      },
+      "ok": true
+    },
+    "visible_pairs": [
+      [
+        0.1538,
+        0.631
+      ],
+      [
+        0.2788,
+        0.556
+      ],
+      [
+        0.3538,
+        0.706
+      ]
+    ],
+    "local_audio": {
+      "source": "Deck local output sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 98304,
+      "seconds": 2.048,
+      "peak": 0.3540182411670685,
+      "rms": 0.044773944576709045,
+      "nonzero_samples": 195584,
+      "raw_audio_retained": false,
+      "timing": "outside matched measurement interval"
+    },
+    "discovery_limit": "After reverting artifacts, FRAGMENTS placeholders required selecting its existing browser metadata entry before load; no publication/module edit."
+  },
+  "unexpected_loss": {
+    "operation": "bounded_unexpected_service_loss",
+    "pid": 38302,
+    "start_ticks": 2290033,
+    "manager_sha256": "806889a8bd41ac225d3926ae2b23ae95f21aa91566c3ba5d3e704265dfa23086",
+    "signal": "SIGKILL",
+    "pidfd": true,
+    "signal_before_ns": 23502153482357,
+    "signal_after_ns": 23502153502967,
+    "clock": "Linux CLOCK_MONOTONIC",
+    "expected_dsp": [
+      "6084f395a77e0f574080c9c0015a39d9",
+      "6f49fee6854f5629eaa8b9f810ca9faa"
+    ],
+    "project_sha256": "ef8c0f87ba9becf82527ac3881921beb35508167174f69dbf560dc63053f62e6",
+    "before": {
+      "mono_ns": 23502152851593,
+      "leases": [
+        "6084f395a77e0f574080c9c0015a39d9",
+        "6f49fee6854f5629eaa8b9f810ca9faa",
+        "adb7f46df138fa6ef1e14f0ae2539e50"
+      ],
+      "transport_exists": {
+        "6084f395a77e0f574080c9c0015a39d9": true,
+        "6f49fee6854f5629eaa8b9f810ca9faa": true
+      },
+      "receipts": {
+        "adb7f46df138fa6ef1e14f0ae2539e50": {
+          "ready": true,
+          "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609"
+        }
+      },
+      "status": {
+        "6084f395a77e0f574080c9c0015a39d9": {
+          "available": true,
+          "schema": 2,
+          "sample_monotonic_ns": 23502152990646,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "native": {
+            "publication": 87540,
+            "generation": 1,
+            "epoch": 3,
+            "request_sequence": 29183,
+            "position": 2977024,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 23502145805050,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 202,
+            "admitted_frames": 7470080,
+            "missing_frames": 3328,
+            "gaps": 6,
+            "expired_frames": 3328,
+            "delivered_frames": 7465216,
+            "priming_frames": 1536,
+            "current": true
+          },
+          "delivery": {
+            "publication": 175095,
+            "generation": 1,
+            "epoch": 3,
+            "request_sequence": 29183,
+            "position": 2977024,
+            "stage": 1,
+            "detail": 0,
+            "ticks": 235015911693,
+            "frequency": 10000000,
+            "thread_id": 1036,
+            "process_id": 732,
+            "current": true
+          },
+          "owner": {
+            "publication": 325045,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 0,
+            "detail": 0,
+            "ticks": 235015961619,
+            "frequency": 10000000,
+            "thread_id": 736,
+            "process_id": 732,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          }
+        },
+        "6f49fee6854f5629eaa8b9f810ca9faa": {
+          "available": true,
+          "schema": 2,
+          "sample_monotonic_ns": 23502153231211,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "native": {
+            "publication": 87540,
+            "generation": 1,
+            "epoch": 3,
+            "request_sequence": 29184,
+            "position": 2977024,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 23502147527428,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 202,
+            "admitted_frames": 7470080,
+            "missing_frames": 2048,
+            "gaps": 6,
+            "expired_frames": 2048,
+            "delivered_frames": 7466496,
+            "priming_frames": 1536,
+            "current": true
+          },
+          "delivery": {
+            "publication": 175097,
+            "generation": 1,
+            "epoch": 3,
+            "request_sequence": 29184,
+            "position": 2977024,
+            "stage": 1,
+            "detail": 0,
+            "ticks": 235015928820,
+            "frequency": 10000000,
+            "thread_id": 1032,
+            "process_id": 372,
+            "current": true
+          },
+          "owner": {
+            "publication": 367927,
+            "generation": 1,
+            "epoch": 0,
+            "request_sequence": 0,
+            "position": 0,
+            "stage": 0,
+            "detail": 0,
+            "ticks": 235015946956,
+            "frequency": 10000000,
+            "thread_id": 376,
+            "process_id": 372,
+            "current": true
+          },
+          "editor": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "mailbox_flags": {
+            "request": 0,
+            "reply": 0,
+            "independently_sampled": true
+          }
+        }
+      }
+    },
+    "after_samples": [
+      {
+        "mono_ns": 23503153937154,
+        "leases": [
+          "6084f395a77e0f574080c9c0015a39d9",
+          "6f49fee6854f5629eaa8b9f810ca9faa",
+          "adb7f46df138fa6ef1e14f0ae2539e50"
+        ],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": true,
+            "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609"
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23503154089727,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23503154193260,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23504154823638,
+        "leases": [
+          "6084f395a77e0f574080c9c0015a39d9",
+          "6f49fee6854f5629eaa8b9f810ca9faa",
+          "adb7f46df138fa6ef1e14f0ae2539e50"
+        ],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": true,
+            "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609"
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23504155032122,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23504155388310,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23505155975995,
+        "leases": [
+          "6084f395a77e0f574080c9c0015a39d9",
+          "6f49fee6854f5629eaa8b9f810ca9faa",
+          "adb7f46df138fa6ef1e14f0ae2539e50"
+        ],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": false,
+            "cleanup_confirmed": true,
+            "error": "shared environment owner exited",
+            "raw_exit": -15
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23505156141888,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23505156519916,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23506157052037,
+        "leases": [
+          "6084f395a77e0f574080c9c0015a39d9",
+          "6f49fee6854f5629eaa8b9f810ca9faa",
+          "adb7f46df138fa6ef1e14f0ae2539e50"
+        ],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": false,
+            "cleanup_confirmed": true,
+            "error": "shared environment owner exited",
+            "raw_exit": -15
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23506157190540,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23506157424745,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23507157975783,
+        "leases": [],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": false,
+            "cleanup_confirmed": true,
+            "error": "shared environment owner exited",
+            "raw_exit": -15
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23507158132676,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23507158265029,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23508158838015,
+        "leases": [],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": false,
+            "cleanup_confirmed": true,
+            "error": "shared environment owner exited",
+            "raw_exit": -15
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23508158961538,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23508159101491,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23509159617482,
+        "leases": [],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": false,
+            "cleanup_confirmed": true,
+            "error": "shared environment owner exited",
+            "raw_exit": -15
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23509159743665,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23509159861428,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23510160440568,
+        "leases": [],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": false,
+            "cleanup_confirmed": true,
+            "error": "shared environment owner exited",
+            "raw_exit": -15
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23510160563351,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23510160666563,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23511161365923,
+        "leases": [],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": false,
+            "cleanup_confirmed": true,
+            "error": "shared environment owner exited",
+            "raw_exit": -15
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23511161548087,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23511161703800,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      },
+      {
+        "mono_ns": 23512162293905,
+        "leases": [],
+        "transport_exists": {
+          "6084f395a77e0f574080c9c0015a39d9": false,
+          "6f49fee6854f5629eaa8b9f810ca9faa": false
+        },
+        "receipts": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "adb7f46df138fa6ef1e14f0ae2539e50": {
+            "ready": false,
+            "cleanup_confirmed": true,
+            "error": "shared environment owner exited",
+            "raw_exit": -15
+          }
+        },
+        "status": {
+          "6084f395a77e0f574080c9c0015a39d9": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23512162417378,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87548,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29186,
+              "position": 2977792,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502165892076,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7471104,
+              "missing_frames": 3328,
+              "gaps": 6,
+              "expired_frames": 3328,
+              "delivered_frames": 7466240,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175107,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977536,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 235016024172,
+              "frequency": 10000000,
+              "thread_id": 1036,
+              "process_id": 732,
+              "current": true
+            },
+            "owner": {
+              "publication": 325049,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235016004741,
+              "frequency": 10000000,
+              "thread_id": 736,
+              "process_id": 732,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 1,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          },
+          "6f49fee6854f5629eaa8b9f810ca9faa": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 23512162522980,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 87542,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 2,
+              "detail": 0,
+              "ticks": 23502154619362,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 202,
+              "admitted_frames": 7470592,
+              "missing_frames": 2048,
+              "gaps": 6,
+              "expired_frames": 2048,
+              "delivered_frames": 7467008,
+              "priming_frames": 1536,
+              "current": true
+            },
+            "delivery": {
+              "publication": 175099,
+              "generation": 1,
+              "epoch": 3,
+              "request_sequence": 29185,
+              "position": 2977280,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 235016001143,
+              "frequency": 10000000,
+              "thread_id": 1032,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 367931,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 235015990164,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 0,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        }
+      }
+    ],
+    "service_after": "MainPID=39997\nNRestarts=2\nCPUWeight=10000\nActiveState=active\n"
+  },
+  "unexpected_loss_terminal": [
+    {
+      "session": "6084f395a77e0f574080c9c0015a39d9",
+      "ownership": {
+        "session": "6084f395a77e0f574080c9c0015a39d9",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "native_faults": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 2977792,
+          "processed": 29182,
+          "request_high": 4,
+          "result_high": 4,
+          "detail": "InvalidData: delivery endpoint disconnected"
+        }
+      ]
+    },
+    {
+      "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+      "ownership": {
+        "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "native_faults": [
+        {
+          "event": "ap5_worker_fault",
+          "generation": 1,
+          "fault": 3,
+          "first_position": 2977280,
+          "processed": 29180,
+          "request_high": 11,
+          "result_high": 3,
+          "detail": "InvalidData: delivery endpoint disconnected"
+        }
+      ]
+    }
+  ],
+  "unexpected_loss_reopen": {
+    "fresh_sessions": [
+      {
+        "session": "9cfbfbf1dab1200a933d23ef1ef728b5",
+        "class_id": "417274754156495350724C4650726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 196838,
+            "sha256": "adc58a509eaab032b81f22228d894e95b916358c2442612b0dc1230c781986e8"
+          }
+        ]
+      },
+      {
+        "session": "8b14c48c991830afbcd84a0fc72a7b05",
+        "class_id": "41727475415649536772616E50726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 139092,
+            "sha256": "797d797e3d305d2823636ed8d2a5e2551336721eb2cf55ee90b7a81eb09e9a93"
+          }
+        ]
+      }
+    ],
+    "saved_projects": [
+      {
+        "name": "AP17 R1 Maximum.bwproject",
+        "bytes": 201188,
+        "sha256": "586cf60aa84403eff9eb1f3085244aeccdfa5fbe1b9bc8521033950eb865430b"
+      },
+      {
+        "name": "AP17 Mixed.bwproject",
+        "bytes": 201220,
+        "sha256": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db"
+      },
+      {
+        "name": "AP17 R1 Service Loss.bwproject",
+        "bytes": 82113,
+        "sha256": "ef8c0f87ba9becf82527ac3881921beb35508167174f69dbf560dc63053f62e6"
+      },
+      {
+        "name": "AP17 R1 Serial.bwproject",
+        "bytes": 184764,
+        "sha256": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc"
+      }
+    ],
+    "old_ids_absent_from_fresh_sessions": true,
+    "state_limit": "FRAGMENTS restore digest matches prior; LoFi digest differs, while the observed Macro2 and Grain Mix values match. No opaque byte-equivalence claim.",
+    "visible_values": [
+      0.1538,
+      0.631
+    ],
+    "local_audio": {
+      "source": "Deck local output sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 98304,
+      "seconds": 2.048,
+      "peak": 0.29065224528312683,
+      "rms": 0.02561757173393985,
+      "nonzero_samples": 195584,
+      "raw_audio_retained": false,
+      "timing": "outside matched measurement interval"
+    }
+  },
+  "limits": [
+    "A normal restart had one automatic retry after operation-already-running while an immediate diagnostic status call overlapped startup; no ownership loss.",
+    "Keeper shutdown printed BrokenPipe after writing its positive cleanup receipt; durable retirement remained available.",
+    "Unexpected service loss fails live DSP explicitly; no transparent state or DSP reconstruction.",
+    "Unexpected CPUWeight overrides remain unattributed and are excluded from performance conclusions.",
+    "Six-device native revision-9 qualification was restored to exact ordinary revision 7 before these service checks."
+  ]
+}

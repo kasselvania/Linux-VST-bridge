@@ -1,0 +1,1907 @@
+{
+  "schema": 1,
+  "source_head": "4793fb9b422aa8cceb89ff77ca8d0cb2982e6a90",
+  "profile_revision": 9,
+  "claim": "review_candidate",
+  "qualification": "ap17_capacity",
+  "project": "AP17 R1 Serial",
+  "topology": [
+    "LoFi .1538 -> FRAGMENTS Grain Mix .6310 -> FRAGMENTS Grain Mix .3210 -> Master",
+    "LoFi .2788 -> FRAGMENTS Grain Mix .5560 -> FRAGMENTS Grain Mix .4610 -> Master"
+  ],
+  "counts": {
+    "lofi": 2,
+    "fragments": 4,
+    "total": 6,
+    "serial_depth": 3
+  },
+  "reported_chain_latency_ms": 41.0,
+  "latency_scope": "Bitwig reported, not acoustic latency",
+  "delay_frames_per_proxy": 512,
+  "sample_rate": 48000,
+  "precision": "float32",
+  "intervals": [
+    {
+      "name": "r1-corner-90a",
+      "duration_seconds": 90.032344893,
+      "editor_phase": "closed",
+      "trace_enabled": false,
+      "weight_samples": [
+        {
+          "mono_ns": 22194192981514,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22196193216637,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22198193445700,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22200193684473,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22202194031328,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22204194244220,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22206194470102,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22208194698084,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22210194886685,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22212195109747,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22214195369109,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22216195680492,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22218195948554,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22220196229086,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22222196446226,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22224196661207,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22226196902648,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22228197088508,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22230197407530,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22232197618410,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22234197858100,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22236198823684,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22238199041654,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22240199281243,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22242199449401,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22244199683501,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22246199877219,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22248200126749,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22250200368188,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22252200700448,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22254200882156,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22256201159915,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22258201361983,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22260201612891,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22262201838829,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22264202093197,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22266202320345,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22268202528832,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22270202750919,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22272203014297,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22274203239204,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22276203547362,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22278203756459,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22280204023686,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22282204243313,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22284224486521,
+          "weight": "100"
+        }
+      ],
+      "service_before": null,
+      "service_after": "CPUWeight=[not set]\nActiveState=active\n",
+      "counter_delta": {
+        "17cd5bdd5628f5b39719bbffbc0b6720": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "73b95263e59ce65eaf09cc04e9427e3a": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "4e16021066634bc8c8a2259baaecc03e": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "e3cc0145aea98c12923689f7ae09a526": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "06636f32f2395d647c660e1f8a4ffa51": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "57be3dd56a526cf274691c9cb06d87c8": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        }
+      },
+      "sampled_owned_cpu_percent_one_core_by_comm": {
+        "python3": 18.260104209812944,
+        "host.exe": 183.44518316865603
+      },
+      "cpu_scope": "Only selected-name endpoint samples whose PID/start identity belongs to the six DSP cohorts read after intervals; not total bridge/system CPU.",
+      "power_begin": {
+        "/sys/class/power_supply/ACAD/online": "1"
+      },
+      "power_end": {
+        "/sys/class/power_supply/ACAD/online": "1"
+      },
+      "governors_unchanged": true,
+      "counter_endpoints": {
+        "begin": {
+          "read_bracket_linux_monotonic_ns": [
+            22194191721750,
+            22194192969814
+          ],
+          "native_by_session": {
+            "17cd5bdd5628f5b39719bbffbc0b6720": {
+              "sample_monotonic_ns": 22194191730150,
+              "counter": {
+                "publication": 271412,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 90475,
+                "position": 9202688,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22194188462958,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 23160832,
+                "missing_frames": 29440,
+                "gaps": 53,
+                "expired_frames": 29440,
+                "delivered_frames": 23129344,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "73b95263e59ce65eaf09cc04e9427e3a": {
+              "sample_monotonic_ns": 22194191965635,
+              "counter": {
+                "publication": 249503,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 83172,
+                "position": 1432832,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22194191694680,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 21291008,
+                "missing_frames": 30976,
+                "gaps": 45,
+                "expired_frames": 30976,
+                "delivered_frames": 21257984,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "4e16021066634bc8c8a2259baaecc03e": {
+              "sample_monotonic_ns": 22194192136668,
+              "counter": {
+                "publication": 281004,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 93672,
+                "position": 9202944,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22194191330043,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 23979008,
+                "missing_frames": 11264,
+                "gaps": 20,
+                "expired_frames": 11264,
+                "delivered_frames": 23965696,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "e3cc0145aea98c12923689f7ae09a526": {
+              "sample_monotonic_ns": 22194192262890,
+              "counter": {
+                "publication": 50844,
+                "generation": 1,
+                "epoch": 2,
+                "request_sequence": 16953,
+                "position": 1432320,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22194190301593,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 4338688,
+                "missing_frames": 1024,
+                "gaps": 3,
+                "expired_frames": 1024,
+                "delivered_frames": 4336640,
+                "priming_frames": 1024,
+                "current": true
+              }
+            },
+            "06636f32f2395d647c660e1f8a4ffa51": {
+              "sample_monotonic_ns": 22194192384553,
+              "counter": {
+                "publication": 258948,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 86320,
+                "position": 1432320,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22194191140349,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 22096896,
+                "missing_frames": 10496,
+                "gaps": 20,
+                "expired_frames": 10496,
+                "delivered_frames": 22084352,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "57be3dd56a526cf274691c9cb06d87c8": {
+              "sample_monotonic_ns": 22194192530926,
+              "counter": {
+                "publication": 91794,
+                "generation": 1,
+                "epoch": 1,
+                "request_sequence": 30603,
+                "position": 7832832,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22194191654699,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 7833088,
+                "missing_frames": 512,
+                "gaps": 2,
+                "expired_frames": 512,
+                "delivered_frames": 7832064,
+                "priming_frames": 512,
+                "current": true
+              }
+            }
+          }
+        },
+        "end": {
+          "read_bracket_linux_monotonic_ns": [
+            22284224066643,
+            22284224453100
+          ],
+          "native_by_session": {
+            "17cd5bdd5628f5b39719bbffbc0b6720": {
+              "sample_monotonic_ns": 22284224070193,
+              "counter": {
+                "publication": 322056,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 107356,
+                "position": 13524224,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22284221944972,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 27482112,
+                "missing_frames": 29440,
+                "gaps": 53,
+                "expired_frames": 29440,
+                "delivered_frames": 27450624,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "73b95263e59ce65eaf09cc04e9427e3a": {
+              "sample_monotonic_ns": 22284224157275,
+              "counter": {
+                "publication": 300143,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 100052,
+                "position": 5754112,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22284223905950,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 25612288,
+                "missing_frames": 30976,
+                "gaps": 45,
+                "expired_frames": 30976,
+                "delivered_frames": 25579264,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "4e16021066634bc8c8a2259baaecc03e": {
+              "sample_monotonic_ns": 22284224231346,
+              "counter": {
+                "publication": 331644,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 110552,
+                "position": 13524224,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22284218760722,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 28300288,
+                "missing_frames": 11264,
+                "gaps": 20,
+                "expired_frames": 11264,
+                "delivered_frames": 28286976,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "e3cc0145aea98c12923689f7ae09a526": {
+              "sample_monotonic_ns": 22284224280257,
+              "counter": {
+                "publication": 101484,
+                "generation": 1,
+                "epoch": 2,
+                "request_sequence": 33833,
+                "position": 5753600,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22284220972254,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 8659968,
+                "missing_frames": 1024,
+                "gaps": 3,
+                "expired_frames": 1024,
+                "delivered_frames": 8657920,
+                "priming_frames": 1024,
+                "current": true
+              }
+            },
+            "06636f32f2395d647c660e1f8a4ffa51": {
+              "sample_monotonic_ns": 22284224341898,
+              "counter": {
+                "publication": 309588,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 103200,
+                "position": 5753600,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22284220628297,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 26418176,
+                "missing_frames": 10496,
+                "gaps": 20,
+                "expired_frames": 10496,
+                "delivered_frames": 26405632,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "57be3dd56a526cf274691c9cb06d87c8": {
+              "sample_monotonic_ns": 22284224388229,
+              "counter": {
+                "publication": 142434,
+                "generation": 1,
+                "epoch": 1,
+                "request_sequence": 47483,
+                "position": 12154112,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22284219455105,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 12154368,
+                "missing_frames": 512,
+                "gaps": 2,
+                "expired_frames": 512,
+                "delivered_frames": 12153344,
+                "priming_frames": 512,
+                "current": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "r1-corner-90b",
+      "duration_seconds": 90.030473307,
+      "editor_phase": "closed",
+      "trace_enabled": false,
+      "weight_samples": [
+        {
+          "mono_ns": 22312447920498,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22314448136992,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22316448403527,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22318448628971,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22320448922366,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22322449116779,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22324449314922,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22326449547036,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22328449754789,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22330450109505,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22332450344058,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22334450547671,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22336450697533,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22338450901415,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22340451287481,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22342451500353,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22344451683264,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22346451893246,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22348452142219,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22350452324250,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22352452546872,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22354452799794,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22356453033626,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22358453286188,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22360453713343,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22362453972505,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22364454237866,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22366454497198,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22368454735109,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22370454973320,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22372455209911,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22374455442022,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22376455645872,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22378455908063,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22380456157033,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22382456434634,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22384456644584,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22386457026687,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22388457222517,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22390457419286,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22392457630335,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22394457827894,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22396458023342,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22398458224491,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22400458407919,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 22402477661491,
+          "weight": "100"
+        }
+      ],
+      "service_before": null,
+      "service_after": "CPUWeight=[not set]\nActiveState=active\n",
+      "counter_delta": {
+        "17cd5bdd5628f5b39719bbffbc0b6720": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "73b95263e59ce65eaf09cc04e9427e3a": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "4e16021066634bc8c8a2259baaecc03e": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "e3cc0145aea98c12923689f7ae09a526": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "06636f32f2395d647c660e1f8a4ffa51": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "57be3dd56a526cf274691c9cb06d87c8": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        }
+      },
+      "sampled_owned_cpu_percent_one_core_by_comm": {
+        "python3": 18.271591157703032,
+        "host.exe": 183.27127908942253
+      },
+      "cpu_scope": "Only selected-name endpoint samples whose PID/start identity belongs to the six DSP cohorts read after intervals; not total bridge/system CPU.",
+      "power_begin": {
+        "/sys/class/power_supply/ACAD/online": "1"
+      },
+      "power_end": {
+        "/sys/class/power_supply/ACAD/online": "1"
+      },
+      "governors_unchanged": true,
+      "counter_endpoints": {
+        "begin": {
+          "read_bracket_linux_monotonic_ns": [
+            22312446745316,
+            22312447913158
+          ],
+          "native_by_session": {
+            "17cd5bdd5628f5b39719bbffbc0b6720": {
+              "sample_monotonic_ns": 22312446753176,
+              "counter": {
+                "publication": 337931,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 112648,
+                "position": 14878976,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22312444135236,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 28836864,
+                "missing_frames": 29440,
+                "gaps": 53,
+                "expired_frames": 29440,
+                "delivered_frames": 28805376,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "73b95263e59ce65eaf09cc04e9427e3a": {
+              "sample_monotonic_ns": 22312447059892,
+              "counter": {
+                "publication": 316019,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 105344,
+                "position": 7108864,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22312445870389,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 26967040,
+                "missing_frames": 30976,
+                "gaps": 45,
+                "expired_frames": 30976,
+                "delivered_frames": 26934016,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "4e16021066634bc8c8a2259baaecc03e": {
+              "sample_monotonic_ns": 22312447249185,
+              "counter": {
+                "publication": 347520,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 115844,
+                "position": 14878976,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22312444781568,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 29655040,
+                "missing_frames": 11264,
+                "gaps": 20,
+                "expired_frames": 11264,
+                "delivered_frames": 29641728,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "e3cc0145aea98c12923689f7ae09a526": {
+              "sample_monotonic_ns": 22312447419509,
+              "counter": {
+                "publication": 117360,
+                "generation": 1,
+                "epoch": 2,
+                "request_sequence": 39125,
+                "position": 7108352,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22312444937121,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 10014720,
+                "missing_frames": 1024,
+                "gaps": 3,
+                "expired_frames": 1024,
+                "delivered_frames": 10012672,
+                "priming_frames": 1024,
+                "current": true
+              }
+            },
+            "06636f32f2395d647c660e1f8a4ffa51": {
+              "sample_monotonic_ns": 22312447585792,
+              "counter": {
+                "publication": 325464,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 108492,
+                "position": 7108352,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22312443286240,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 27772928,
+                "missing_frames": 10496,
+                "gaps": 20,
+                "expired_frames": 10496,
+                "delivered_frames": 27760384,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "57be3dd56a526cf274691c9cb06d87c8": {
+              "sample_monotonic_ns": 22312447748325,
+              "counter": {
+                "publication": 158310,
+                "generation": 1,
+                "epoch": 1,
+                "request_sequence": 52775,
+                "position": 13508864,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22312445963111,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 13509120,
+                "missing_frames": 512,
+                "gaps": 2,
+                "expired_frames": 512,
+                "delivered_frames": 13508096,
+                "priming_frames": 512,
+                "current": true
+              }
+            }
+          }
+        },
+        "end": {
+          "read_bracket_linux_monotonic_ns": [
+            22402477218623,
+            22402477621680
+          ],
+          "native_by_session": {
+            "17cd5bdd5628f5b39719bbffbc0b6720": {
+              "sample_monotonic_ns": 22402477222383,
+              "counter": {
+                "publication": 388572,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 129528,
+                "position": 19200256,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22402476649742,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 33158144,
+                "missing_frames": 29440,
+                "gaps": 53,
+                "expired_frames": 29440,
+                "delivered_frames": 33126656,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "73b95263e59ce65eaf09cc04e9427e3a": {
+              "sample_monotonic_ns": 22402477306904,
+              "counter": {
+                "publication": 366660,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 122224,
+                "position": 11430144,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22402475615782,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 31288320,
+                "missing_frames": 30976,
+                "gaps": 45,
+                "expired_frames": 30976,
+                "delivered_frames": 31255296,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "4e16021066634bc8c8a2259baaecc03e": {
+              "sample_monotonic_ns": 22402477377376,
+              "counter": {
+                "publication": 398160,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 132724,
+                "position": 19200256,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22402473335899,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 33976320,
+                "missing_frames": 11264,
+                "gaps": 20,
+                "expired_frames": 11264,
+                "delivered_frames": 33963008,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "e3cc0145aea98c12923689f7ae09a526": {
+              "sample_monotonic_ns": 22402477434817,
+              "counter": {
+                "publication": 168000,
+                "generation": 1,
+                "epoch": 2,
+                "request_sequence": 56005,
+                "position": 11429632,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22402472453282,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 14336000,
+                "missing_frames": 1024,
+                "gaps": 3,
+                "expired_frames": 1024,
+                "delivered_frames": 14333952,
+                "priming_frames": 1024,
+                "current": true
+              }
+            },
+            "06636f32f2395d647c660e1f8a4ffa51": {
+              "sample_monotonic_ns": 22402477493188,
+              "counter": {
+                "publication": 376104,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 125372,
+                "position": 11429632,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22402471782149,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 32094208,
+                "missing_frames": 10496,
+                "gaps": 20,
+                "expired_frames": 10496,
+                "delivered_frames": 32081664,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "57be3dd56a526cf274691c9cb06d87c8": {
+              "sample_monotonic_ns": 22402477553319,
+              "counter": {
+                "publication": 208950,
+                "generation": 1,
+                "epoch": 1,
+                "request_sequence": 69655,
+                "position": 17830144,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22402474644454,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 17830400,
+                "missing_frames": 512,
+                "gaps": 2,
+                "expired_frames": 512,
+                "delivered_frames": 17829376,
+                "priming_frames": 512,
+                "current": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "r1-corner-editors90",
+      "duration_seconds": 90.0278701,
+      "editor_phase": "two open idle",
+      "trace_enabled": false,
+      "weight_samples": [
+        {
+          "mono_ns": 22617061396867,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22619061482129,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22621061628569,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22623061768966,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22625061923081,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22627062120705,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22629062265494,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22631062385561,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22633062513326,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22635063031701,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22637063173083,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22639063338825,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22641063482276,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22643063643596,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22645063774016,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22647063924645,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22649064040804,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22651064238885,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22653064401426,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22655064560898,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22657064669989,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22659064783761,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22661064918795,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22663065036641,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22665065196780,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22667065350730,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22669065480423,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22671065623218,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22673065738815,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22675066044861,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22677066190825,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22679066371944,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22681066564997,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22683066767324,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22685066958385,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22687067101268,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22689067262407,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22691067461482,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22693067557619,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22695067707993,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22697067828591,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22699067965815,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22701068136456,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22703068264112,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22705068392155,
+          "weight": "controller_not_enabled"
+        },
+        {
+          "mono_ns": 22707088881295,
+          "weight": "controller_not_enabled"
+        }
+      ],
+      "service_before": "CPUWeight=[not set]\nActiveState=active\n",
+      "service_after": "CPUWeight=[not set]\nActiveState=active\n",
+      "counter_delta": {
+        "17cd5bdd5628f5b39719bbffbc0b6720": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "73b95263e59ce65eaf09cc04e9427e3a": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "4e16021066634bc8c8a2259baaecc03e": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "e3cc0145aea98c12923689f7ae09a526": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "06636f32f2395d647c660e1f8a4ffa51": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        },
+        "57be3dd56a526cf274691c9cb06d87c8": {
+          "admitted_frames": 4321280,
+          "delivered_frames": 4321280,
+          "missing_frames": 0,
+          "expired_frames": 0,
+          "gaps": 0
+        }
+      },
+      "sampled_owned_cpu_percent_one_core_by_comm": {
+        "python3": 19.305132933495894,
+        "host.exe": 208.54653097030226
+      },
+      "cpu_scope": "Only selected-name endpoint samples whose PID/start identity belongs to the six DSP cohorts read after intervals; not total bridge/system CPU.",
+      "power_begin": {
+        "/sys/class/power_supply/ACAD/online": "1"
+      },
+      "power_end": {
+        "/sys/class/power_supply/ACAD/online": "1"
+      },
+      "governors_unchanged": true,
+      "counter_endpoints": {
+        "begin": {
+          "read_bracket_linux_monotonic_ns": [
+            22617060436749,
+            22617061389196
+          ],
+          "native_by_session": {
+            "17cd5bdd5628f5b39719bbffbc0b6720": {
+              "sample_monotonic_ns": 22617060443739,
+              "counter": {
+                "publication": 509273,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 169762,
+                "position": 29500160,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22617059352809,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 43458048,
+                "missing_frames": 38144,
+                "gaps": 71,
+                "expired_frames": 38144,
+                "delivered_frames": 43417856,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "73b95263e59ce65eaf09cc04e9427e3a": {
+              "sample_monotonic_ns": 22617060707467,
+              "counter": {
+                "publication": 487362,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 162458,
+                "position": 21730048,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22617060500241,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 41588224,
+                "missing_frames": 40704,
+                "gaps": 60,
+                "expired_frames": 40704,
+                "delivered_frames": 41545472,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "4e16021066634bc8c8a2259baaecc03e": {
+              "sample_monotonic_ns": 22617060853181,
+              "counter": {
+                "publication": 518862,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 172958,
+                "position": 29500160,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22617059790941,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 44276224,
+                "missing_frames": 13056,
+                "gaps": 25,
+                "expired_frames": 13056,
+                "delivered_frames": 44261120,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "e3cc0145aea98c12923689f7ae09a526": {
+              "sample_monotonic_ns": 22617060978505,
+              "counter": {
+                "publication": 288702,
+                "generation": 1,
+                "epoch": 2,
+                "request_sequence": 96239,
+                "position": 21729536,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22617059932495,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 24635904,
+                "missing_frames": 2560,
+                "gaps": 7,
+                "expired_frames": 2560,
+                "delivered_frames": 24632320,
+                "priming_frames": 1024,
+                "current": true
+              }
+            },
+            "06636f32f2395d647c660e1f8a4ffa51": {
+              "sample_monotonic_ns": 22617061137709,
+              "counter": {
+                "publication": 496806,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 165606,
+                "position": 21729536,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22617057921708,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 42394112,
+                "missing_frames": 12800,
+                "gaps": 24,
+                "expired_frames": 12800,
+                "delivered_frames": 42379264,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "57be3dd56a526cf274691c9cb06d87c8": {
+              "sample_monotonic_ns": 22617061271023,
+              "counter": {
+                "publication": 329652,
+                "generation": 1,
+                "epoch": 1,
+                "request_sequence": 109889,
+                "position": 28130048,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22617059780911,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 28130304,
+                "missing_frames": 3328,
+                "gaps": 9,
+                "expired_frames": 3328,
+                "delivered_frames": 28126464,
+                "priming_frames": 512,
+                "current": true
+              }
+            }
+          }
+        },
+        "end": {
+          "read_bracket_linux_monotonic_ns": [
+            22707088306849,
+            22707088829303
+          ],
+          "native_by_session": {
+            "17cd5bdd5628f5b39719bbffbc0b6720": {
+              "sample_monotonic_ns": 22707088312609,
+              "counter": {
+                "publication": 559913,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 186642,
+                "position": 33821440,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22707088112434,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 47779328,
+                "missing_frames": 38144,
+                "gaps": 71,
+                "expired_frames": 38144,
+                "delivered_frames": 47739136,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "73b95263e59ce65eaf09cc04e9427e3a": {
+              "sample_monotonic_ns": 22707088436563,
+              "counter": {
+                "publication": 537998,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 179337,
+                "position": 26051072,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22707085154504,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 45909504,
+                "missing_frames": 40704,
+                "gaps": 60,
+                "expired_frames": 40704,
+                "delivered_frames": 45866752,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "4e16021066634bc8c8a2259baaecc03e": {
+              "sample_monotonic_ns": 22707088525925,
+              "counter": {
+                "publication": 569502,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 189838,
+                "position": 33821440,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22707088456963,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 48597504,
+                "missing_frames": 13056,
+                "gaps": 25,
+                "expired_frames": 13056,
+                "delivered_frames": 48582400,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "e3cc0145aea98c12923689f7ae09a526": {
+              "sample_monotonic_ns": 22707088601077,
+              "counter": {
+                "publication": 339342,
+                "generation": 1,
+                "epoch": 2,
+                "request_sequence": 113119,
+                "position": 26050816,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22707087036465,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 28957184,
+                "missing_frames": 2560,
+                "gaps": 7,
+                "expired_frames": 2560,
+                "delivered_frames": 28953600,
+                "priming_frames": 1024,
+                "current": true
+              }
+            },
+            "06636f32f2395d647c660e1f8a4ffa51": {
+              "sample_monotonic_ns": 22707088677439,
+              "counter": {
+                "publication": 547446,
+                "generation": 1,
+                "epoch": 4,
+                "request_sequence": 182486,
+                "position": 26050816,
+                "stage": 3,
+                "detail": 0,
+                "ticks": 22707087216300,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 46715392,
+                "missing_frames": 12800,
+                "gaps": 24,
+                "expired_frames": 12800,
+                "delivered_frames": 46700544,
+                "priming_frames": 2048,
+                "current": true
+              }
+            },
+            "57be3dd56a526cf274691c9cb06d87c8": {
+              "sample_monotonic_ns": 22707088749631,
+              "counter": {
+                "publication": 380291,
+                "generation": 1,
+                "epoch": 1,
+                "request_sequence": 126769,
+                "position": 32451328,
+                "stage": 2,
+                "detail": 0,
+                "ticks": 22707087380914,
+                "frequency": 1000000000,
+                "thread_id": 0,
+                "process_id": 191,
+                "admitted_frames": 32451584,
+                "missing_frames": 3328,
+                "gaps": 9,
+                "expired_frames": 3328,
+                "delivered_frames": 32447744,
+                "priming_frames": 512,
+                "current": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "local_audio": {
+    "source": "Deck local output sink monitor",
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 98304,
+    "seconds": 2.048,
+    "peak": 0.3091232478618622,
+    "rms": 0.023024252044774113,
+    "nonzero_samples": 195584,
+    "raw_audio_retained": false,
+    "timing": "outside matched measurement interval"
+  },
+  "editor_sessions": [
+    {
+      "session": "17cd5bdd5628f5b39719bbffbc0b6720",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 22480301867195,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 2,
+        "close_ack": 2
+      },
+      "publication_before": 3060,
+      "publication_after": 3060,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 1,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 2,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 117440515,
+          "view_epoch": 1,
+          "focus_result": 3,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 249,
+          "kind": 1,
+          "activation": 2,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 2,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 251,
+          "kind": 5,
+          "activation": 2,
+          "target_x11": 117440517,
+          "view_epoch": 2,
+          "focus_result": 2,
+          "native_view": 2,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3055,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 117440515,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3056,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 117440515,
+          "view_epoch": 1,
+          "focus_result": 3,
+          "native_view": 1,
+          "lifecycle": 5
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3057,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 1,
+          "focus_result": 5,
+          "native_view": 1,
+          "lifecycle": 7
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3058,
+          "kind": 108,
+          "activation": 2,
+          "target_x11": 117440517,
+          "view_epoch": 2,
+          "focus_result": 1,
+          "native_view": 2,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3059,
+          "kind": 108,
+          "activation": 2,
+          "target_x11": 117440517,
+          "view_epoch": 2,
+          "focus_result": 2,
+          "native_view": 2,
+          "lifecycle": 4
+        }
+      ]
+    },
+    {
+      "session": "57be3dd56a526cf274691c9cb06d87c8",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 22480308580833,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2352,
+      "publication_after": 2352,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 2,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 3,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 132120579,
+          "view_epoch": 1,
+          "focus_result": 3,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2350,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 132120579,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2351,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 132120579,
+          "view_epoch": 1,
+          "focus_result": 3,
+          "native_view": 1,
+          "lifecycle": 5
+        }
+      ]
+    }
+  ],
+  "saved_projects": [
+    {
+      "name": "AP17 R1 Maximum.bwproject",
+      "bytes": 201188,
+      "sha256": "586cf60aa84403eff9eb1f3085244aeccdfa5fbe1b9bc8521033950eb865430b"
+    },
+    {
+      "name": "AP17 Mixed.bwproject",
+      "bytes": 201220,
+      "sha256": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db"
+    },
+    {
+      "name": "AP17 R1 Serial.bwproject",
+      "bytes": 184764,
+      "sha256": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc"
+    }
+  ],
+  "cleanup": [
+    {
+      "session": "06636f32f2395d647c660e1f8a4ffa51",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    },
+    {
+      "session": "17cd5bdd5628f5b39719bbffbc0b6720",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    },
+    {
+      "session": "4e16021066634bc8c8a2259baaecc03e",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    },
+    {
+      "session": "57be3dd56a526cf274691c9cb06d87c8",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    },
+    {
+      "session": "73b95263e59ce65eaf09cc04e9427e3a",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    },
+    {
+      "session": "e3cc0145aea98c12923689f7ae09a526",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    }
+  ],
+  "nonclaims": [
+    "No hard real-time guarantee.",
+    "Startup/editor/failure-transition gaps outside these intervals remain counted separately.",
+    "CPU controller absence in the two-editor interval is recorded explicitly; it is not a numeric cpu.weight read.",
+    "256 remains unqualified."
+  ]
+}

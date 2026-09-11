@@ -44,9 +44,9 @@ FRAGMENTS’ Advanced panel is now accessible and rendering response has improve
 
 AP17 activates [issue #91](https://github.com/kasselvania/Linux-VST-bridge/issues/91) from integrated AP16 main at `bee44977a9db6b512f5a67076ceedabec5c656b4`.
 
-The source currently has an eight-live-thread service mechanic and a four-slot native backend registry whose real scope depends on Bitwig’s process/module topology. AP17 will observe that topology, distinguish mechanical and product limits, incrementally exercise same-class, mixed, parallel, and serial projects, enforce clean over-limit refusal, and qualify save/reopen, sibling isolation, service restart, and reboot recovery at the selected supported maximum.
+AP17 now distinguishes sixteen service workers, six global DSPs, three LoFi, four FRAGMENTS and the separate four-slot native image ceiling. The exact six-device fixture passed the retained parallel/serial playback, distinct-instance recall, failure containment and service/reboot recovery checks. R1 distinguishes temporary native insertion contention from hard capacity and handle exhaustion.
 
-AP17 does not assume that eight instances work, and it does not increase a limit merely to make the numbers match.
+Both engineering native candidates are restored to exact ordinary revision 7 with revision 3 retained. The immutable AP17 manager remains installed. Short delivery gaps, opaque-state comparison limits and excluded scheduling-confounded intervals remain explicit; 512 is recommended and 256 unqualified. The result is awaiting independent review in PR #92, not a general capacity guarantee.
 
 Read [CURRENT_SLICE.md](CURRENT_SLICE.md) for active authority and [docs/AP17.md](docs/AP17.md) for the source-grounded investigation boundary.
 

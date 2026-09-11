@@ -1,0 +1,1107 @@
+{
+  "schema": 1,
+  "source_head": "4793fb9b422aa8cceb89ff77ca8d0cb2982e6a90",
+  "native_profile_revision": 7,
+  "qualification": null,
+  "normal_reboot": "KDE Applications Restart then Restart Now, with Bitwig closed and zero DSP leases. One normal reboot only. Default gamescope boot retained; one-time steamosctl switch-to-desktop-mode plasma.desktop. No default-session setting changed.",
+  "before_boot": {
+    "uptime_seconds": 24013.28,
+    "boot_id": "db578fe2-1847-4623-b1ec-e2688034f6ae",
+    "service": "MainPID=39997\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+    "software": {
+      "manager": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/linux-vst-bridge",
+        "sha256": "806889a8bd41ac225d3926ae2b23ae95f21aa91566c3ba5d3e704265dfa23086"
+      },
+      "supervisor": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/session.py",
+        "sha256": "60d1cbd3bf7c8a3a2ee4252cf83d10cc80ca24e840b9b13469cc8dcb0c2cdb12"
+      },
+      "ownership": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "host": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/host.exe",
+        "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939"
+      },
+      "source_manifest": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/host-source-manifest.json",
+        "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+      },
+      "source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/native-catalogue.json",
+        "sha256": "933ce31c8184864a1a13fcd6c0f808d5a0d7c29087c473ce2540ad1f1412eecd"
+      }
+    },
+    "leases": [
+      "36b93b89c0e4b9cd7d5ade7332b1bdf6"
+    ],
+    "pending": [],
+    "trace": false,
+    "tmpfs_entries": [
+      "storage-v1"
+    ]
+  },
+  "first_postboot": {
+    "uptime_seconds": 97.02,
+    "boot_id": "ab2c9f03-7022-4012-89fc-72764609116d",
+    "service": "MainPID=1431\nCPUWeight=[not set]\nActiveState=active\nSubState=running\n",
+    "software": {
+      "manager": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/linux-vst-bridge",
+        "sha256": "806889a8bd41ac225d3926ae2b23ae95f21aa91566c3ba5d3e704265dfa23086"
+      },
+      "supervisor": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/session.py",
+        "sha256": "60d1cbd3bf7c8a3a2ee4252cf83d10cc80ca24e840b9b13469cc8dcb0c2cdb12"
+      },
+      "ownership": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "host": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/host.exe",
+        "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939"
+      },
+      "source_manifest": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/host-source-manifest.json",
+        "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+      },
+      "source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": {
+        "path": "[managed]/software/ed522cf3b232682559ae12b079965d9c6294ad6f3fa3d589a63d24d5e87c1fc1/native-catalogue.json",
+        "sha256": "933ce31c8184864a1a13fcd6c0f808d5a0d7c29087c473ce2540ad1f1412eecd"
+      }
+    },
+    "leases": [],
+    "pending": [],
+    "trace": false,
+    "tmpfs_entries": [
+      "storage-v1"
+    ]
+  },
+  "old_transport_disappeared": true,
+  "normal_applications_launch": true,
+  "project": "AP17 R1 Serial",
+  "project_sha256": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc",
+  "topology": "Two independent LoFi -> FRAGMENTS -> FRAGMENTS -> Master tracks; 41.0 ms Bitwig reported per chain.",
+  "capacity": {
+    "checkpoint_not_final_handoff": true,
+    "capacity": {
+      "capacity": {
+        "available_dsp": 0,
+        "cleanup_unconfirmed": false,
+        "current_workers": 7,
+        "dsp": 6,
+        "envelope": {
+          "claim": "engineering_candidate",
+          "evidence": "docs/AP17.md",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": false,
+        "owners": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "108ca428d396013869eb0de4c92c545a"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "517dbda885b5bedebd80e31d596c6030"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "68f4b9476e684a2c63f4358f001edbf6"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "71158c414ba334ff65688bfa2b660230"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "a4748d838c2c016d0bb4cd9d5e0c5835"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "de6099029f5b1f338f5a1d23b4b1115e"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "keeper",
+            "session": "fbdd78326f3719cb0f151f3c8f3f40aa"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 2,
+          "41727475415649536772616E50726F63": 4
+        },
+        "schema": 1
+      },
+      "ok": true
+    },
+    "projects": {
+      "AP15 Lifecycle": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c",
+      "AP17 Mixed": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db",
+      "AP17 independent backup": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db"
+    },
+    "service": "MainPID=1431\nCPUWeight=[not set]\nNice=0\nActiveState=active\n",
+    "effective_weight": "100",
+    "heavy_trace": false,
+    "pending_transactions": []
+  },
+  "observed_signatures": [
+    {
+      "track": 1,
+      "device": "Pure LoFi",
+      "session": "108ca428d396013869eb0de4c92c545a",
+      "visible_signature": {
+        "Macro 2": 0.1538
+      },
+      "association": "Opened this exact editor; native view 1, vendor epoch 1."
+    },
+    {
+      "track": 1,
+      "device": "FRAGMENTS first",
+      "session": "a4748d838c2c016d0bb4cd9d5e0c5835",
+      "visible_signature": {
+        "Grain Mix": 0.631
+      },
+      "association": "Exact prior saved FX payload digest."
+    },
+    {
+      "track": 1,
+      "device": "FRAGMENTS second",
+      "session": "71158c414ba334ff65688bfa2b660230",
+      "visible_signature": {
+        "Grain Mix": 0.321
+      },
+      "association": "Opened this exact editor and exact prior saved FX payload digest."
+    },
+    {
+      "track": 2,
+      "device": "Pure LoFi",
+      "session": "de6099029f5b1f338f5a1d23b4b1115e",
+      "visible_signature": {
+        "Macro 2": 0.2788
+      },
+      "association": "Other LoFi session; both distinct signatures visible on their tracks."
+    },
+    {
+      "track": 2,
+      "device": "FRAGMENTS first",
+      "session": "517dbda885b5bedebd80e31d596c6030",
+      "visible_signature": {
+        "Grain Mix": 0.556
+      },
+      "association": "Exact prior saved FX payload digest."
+    },
+    {
+      "track": 2,
+      "device": "FRAGMENTS second",
+      "session": "68f4b9476e684a2c63f4358f001edbf6",
+      "visible_signature": {
+        "Grain Mix": 0.461
+      },
+      "association": "Exact prior saved FX payload digest."
+    }
+  ],
+  "state_input_digests": {
+    "clock": "Linux monotonic bounded report read; state events retain sequence order, not wall timing",
+    "mono_ns": 946205171200,
+    "sessions": [
+      {
+        "session": "517dbda885b5bedebd80e31d596c6030",
+        "class_id": "41727475415649536772616E50726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          }
+        ]
+      },
+      {
+        "session": "a4748d838c2c016d0bb4cd9d5e0c5835",
+        "class_id": "41727475415649536772616E50726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 139092,
+            "sha256": "797d797e3d305d2823636ed8d2a5e2551336721eb2cf55ee90b7a81eb09e9a93"
+          }
+        ]
+      },
+      {
+        "session": "de6099029f5b1f338f5a1d23b4b1115e",
+        "class_id": "417274754156495350724C4650726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 196838,
+            "sha256": "a8d3eba25540bfbba2cbad789464f4eac5fe769324e652b21beb2fc2ebfaed53"
+          }
+        ]
+      },
+      {
+        "session": "108ca428d396013869eb0de4c92c545a",
+        "class_id": "417274754156495350724C4650726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 196838,
+            "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 196838,
+            "sha256": "adc58a509eaab032b81f22228d894e95b916358c2442612b0dc1230c781986e8"
+          }
+        ]
+      },
+      {
+        "session": "68f4b9476e684a2c63f4358f001edbf6",
+        "class_id": "41727475415649536772616E50726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 139082,
+            "sha256": "00bc232f2656c164be33fe4c8f0fbf2d3a434030836a5a2b46ce9d2e9b8f6ce2"
+          }
+        ]
+      },
+      {
+        "session": "71158c414ba334ff65688bfa2b660230",
+        "class_id": "41727475415649536772616E50726F63",
+        "state_events": [
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_get",
+            "payload_bytes": 139092,
+            "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+          },
+          {
+            "operation": "opaque_set",
+            "payload_bytes": 139092,
+            "sha256": "280a4c58c261438625edfb0e231cf1ab6440b7fc35a8bd8d8ad2e772964d854f"
+          }
+        ]
+      }
+    ],
+    "projects": [
+      {
+        "name": "AP17 R1 Maximum.bwproject",
+        "bytes": 201188,
+        "sha256": "586cf60aa84403eff9eb1f3085244aeccdfa5fbe1b9bc8521033950eb865430b"
+      },
+      {
+        "name": "AP17 Mixed.bwproject",
+        "bytes": 201220,
+        "sha256": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db"
+      },
+      {
+        "name": "AP17 R1 Service Loss.bwproject",
+        "bytes": 82113,
+        "sha256": "ef8c0f87ba9becf82527ac3881921beb35508167174f69dbf560dc63053f62e6"
+      },
+      {
+        "name": "AP17 R1 Serial.bwproject",
+        "bytes": 184764,
+        "sha256": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc"
+      }
+    ]
+  },
+  "ui_lofi": [
+    {
+      "session": "517dbda885b5bedebd80e31d596c6030",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 994936590358,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "a4748d838c2c016d0bb4cd9d5e0c5835",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 994937944083,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "de6099029f5b1f338f5a1d23b4b1115e",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 994939460594,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3055,
+      "publication_after": 3055,
+      "events": []
+    },
+    {
+      "session": "108ca428d396013869eb0de4c92c545a",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 994940895922,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3057,
+      "publication_after": 3057,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 1,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 2,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 96468995,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3055,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 96468995,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3056,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 96468995,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        }
+      ]
+    },
+    {
+      "session": "68f4b9476e684a2c63f4358f001edbf6",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 994942345482,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "71158c414ba334ff65688bfa2b660230",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 994943671612,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    }
+  ],
+  "ui_fx": [
+    {
+      "session": "517dbda885b5bedebd80e31d596c6030",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 1070790108108,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "a4748d838c2c016d0bb4cd9d5e0c5835",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 1070791471284,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "de6099029f5b1f338f5a1d23b4b1115e",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 1070792965272,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3055,
+      "publication_after": 3055,
+      "events": []
+    },
+    {
+      "session": "108ca428d396013869eb0de4c92c545a",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 1070794376602,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 2,
+        "close_ack": 2
+      },
+      "publication_before": 3058,
+      "publication_after": 3058,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 1,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 2,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 96468995,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3055,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 96468995,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3056,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 96468995,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3057,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 1,
+          "focus_result": 5,
+          "native_view": 1,
+          "lifecycle": 7
+        }
+      ]
+    },
+    {
+      "session": "68f4b9476e684a2c63f4358f001edbf6",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 1070795829136,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "71158c414ba334ff65688bfa2b660230",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 1070797360228,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2352,
+      "publication_after": 2352,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 1,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 2,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 119537667,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2350,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 119537667,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2351,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 119537667,
+          "view_epoch": 1,
+          "focus_result": 3,
+          "native_view": 1,
+          "lifecycle": 5
+        }
+      ]
+    }
+  ],
+  "audio": {
+    "source": "Deck local output sink monitor",
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 98304,
+    "seconds": 2.048,
+    "peak": 0.2791469693183899,
+    "rms": 0.02122983825622412,
+    "nonzero_samples": 195584,
+    "raw_audio_retained": false,
+    "timing": "outside matched measurement interval"
+  },
+  "retirement": [
+    {
+      "session": "108ca428d396013869eb0de4c92c545a",
+      "ownership": {
+        "session": "108ca428d396013869eb0de4c92c545a",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "last_native_delivery": {
+        "publication": 129522,
+        "generation": 1,
+        "epoch": 2,
+        "request_sequence": 43178,
+        "position": 10956032,
+        "stage": 3,
+        "detail": 0,
+        "ticks": 1185516475938,
+        "frequency": 1000000000,
+        "thread_id": 0,
+        "process_id": 189,
+        "admitted_frames": 11052544,
+        "missing_frames": 1536,
+        "gaps": 5,
+        "expired_frames": 1536,
+        "delivered_frames": 11049984,
+        "priming_frames": 1024,
+        "current": true
+      },
+      "native_terminal_faults": [],
+      "editor_summary": [
+        {
+          "event": "lifecycle",
+          "sequence": 212,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 12,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 111,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ]
+    },
+    {
+      "session": "517dbda885b5bedebd80e31d596c6030",
+      "ownership": {
+        "session": "517dbda885b5bedebd80e31d596c6030",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "last_native_delivery": {
+        "publication": 67938,
+        "generation": 1,
+        "epoch": 2,
+        "request_sequence": 22649,
+        "position": 3961600,
+        "stage": 3,
+        "detail": 0,
+        "ticks": 1185517624243,
+        "frequency": 1000000000,
+        "thread_id": 0,
+        "process_id": 189,
+        "admitted_frames": 5797376,
+        "missing_frames": 256,
+        "gaps": 1,
+        "expired_frames": 256,
+        "delivered_frames": 5796096,
+        "priming_frames": 1024,
+        "current": true
+      },
+      "native_terminal_faults": [],
+      "editor_summary": [
+        {
+          "event": "lifecycle",
+          "sequence": 187,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ]
+    },
+    {
+      "session": "68f4b9476e684a2c63f4358f001edbf6",
+      "ownership": {
+        "session": "68f4b9476e684a2c63f4358f001edbf6",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "last_native_delivery": {
+        "publication": 65670,
+        "generation": 1,
+        "epoch": 2,
+        "request_sequence": 21893,
+        "position": 3961600,
+        "stage": 3,
+        "detail": 0,
+        "ticks": 1185513432630,
+        "frequency": 1000000000,
+        "thread_id": 0,
+        "process_id": 189,
+        "admitted_frames": 5603840,
+        "missing_frames": 512,
+        "gaps": 2,
+        "expired_frames": 512,
+        "delivered_frames": 5602304,
+        "priming_frames": 1024,
+        "current": true
+      },
+      "native_terminal_faults": [],
+      "editor_summary": [
+        {
+          "event": "lifecycle",
+          "sequence": 187,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ]
+    },
+    {
+      "session": "71158c414ba334ff65688bfa2b660230",
+      "ownership": {
+        "session": "71158c414ba334ff65688bfa2b660230",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "last_native_delivery": {
+        "publication": 129522,
+        "generation": 1,
+        "epoch": 2,
+        "request_sequence": 43178,
+        "position": 10956032,
+        "stage": 3,
+        "detail": 0,
+        "ticks": 1185516704097,
+        "frequency": 1000000000,
+        "thread_id": 0,
+        "process_id": 189,
+        "admitted_frames": 11052544,
+        "missing_frames": 1792,
+        "gaps": 5,
+        "expired_frames": 1792,
+        "delivered_frames": 11049728,
+        "priming_frames": 1024,
+        "current": true
+      },
+      "native_terminal_faults": [],
+      "editor_summary": [
+        {
+          "event": "lifecycle",
+          "sequence": 191,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 0,
+          "removal_messages": 12,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ]
+    },
+    {
+      "session": "a4748d838c2c016d0bb4cd9d5e0c5835",
+      "ownership": {
+        "session": "a4748d838c2c016d0bb4cd9d5e0c5835",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "last_native_delivery": {
+        "publication": 129522,
+        "generation": 1,
+        "epoch": 2,
+        "request_sequence": 43177,
+        "position": 10956032,
+        "stage": 3,
+        "detail": 0,
+        "ticks": 1185514600555,
+        "frequency": 1000000000,
+        "thread_id": 0,
+        "process_id": 189,
+        "admitted_frames": 11052544,
+        "missing_frames": 1536,
+        "gaps": 5,
+        "expired_frames": 1536,
+        "delivered_frames": 11049984,
+        "priming_frames": 1024,
+        "current": true
+      },
+      "native_terminal_faults": [],
+      "editor_summary": [
+        {
+          "event": "lifecycle",
+          "sequence": 189,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ]
+    },
+    {
+      "session": "de6099029f5b1f338f5a1d23b4b1115e",
+      "ownership": {
+        "session": "de6099029f5b1f338f5a1d23b4b1115e",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      "last_native_delivery": {
+        "publication": 64344,
+        "generation": 1,
+        "epoch": 2,
+        "request_sequence": 21451,
+        "position": 3291904,
+        "stage": 3,
+        "detail": 0,
+        "ticks": 1171551401699,
+        "frequency": 1000000000,
+        "thread_id": 0,
+        "process_id": 189,
+        "admitted_frames": 5490688,
+        "missing_frames": 3072,
+        "gaps": 10,
+        "expired_frames": 3072,
+        "delivered_frames": 5486592,
+        "priming_frames": 1024,
+        "current": true
+      },
+      "native_terminal_faults": [],
+      "editor_summary": [
+        {
+          "event": "lifecycle",
+          "sequence": 210,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 111,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        }
+      ]
+    }
+  ],
+  "weight_after_smoke": {
+    "checkpoint_not_final_handoff": true,
+    "capacity": {
+      "capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "engineering_candidate",
+          "evidence": "docs/AP17.md",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "keeper",
+            "session": "fbdd78326f3719cb0f151f3c8f3f40aa"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "ok": true
+    },
+    "projects": {
+      "AP15 Lifecycle": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c",
+      "AP17 Mixed": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db",
+      "AP17 independent backup": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db"
+    },
+    "service": "MainPID=1431\nCPUWeight=10000\nNice=0\nActiveState=active\n",
+    "effective_weight": "10000",
+    "heavy_trace": false,
+    "pending_transactions": []
+  },
+  "weight_restoration": {
+    "before": "MainPID=1431\nCPUWeight=10000\nActiveState=active\n",
+    "drop_in": "# This is a drop-in unit file extension, created via \"systemctl set-property\"\n# or an equivalent operation. Do not edit.\n[Service]\nCPUWeight=10000\n",
+    "writer_if_override": "unidentified",
+    "after": "MainPID=1431\nCPUWeight=[not set]\nActiveState=active\n",
+    "physical_weight": "100",
+    "controllers": "cpu memory pids dmem",
+    "mono_ns": 1273114407429
+  },
+  "limits": [
+    "Postboot smoke began at unset/effective 100 but final check found CPUWeight=10000, writer unidentified. Excluded from performance comparisons; restored unset/effective 100.",
+    "All six restored inputs are distinct; four FRAGMENTS payloads match exact prior saved captures. LoFi opaque bytes differ across captures; correct visible signatures and distinct instance association are proved, not complete opaque byte equivalence.",
+    "Counters include startup, stopped processing, editor actions and playback; no glitch-free reboot/audio claim.",
+    "Moonlight supplied input only. Audio evidence is bounded local sink-monitor scalars, not physical listening or latency."
+  ]
+}
