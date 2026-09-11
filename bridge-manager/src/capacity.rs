@@ -473,8 +473,23 @@ mod tests {
     fn concurrent_reservations_cannot_check_then_over_admit() {
         let f = Fixture::new();
         let p = limits();
-        let barrier = std::sync::Barrier::new(16);
+        // A held reservation deterministically refuses a contender without
+        // publishing a lease. Scheduler yield counts are not a progress law.
+        let held = reserve(&f.m, &p, Some(&p.classes[0].class_id), false).unwrap();
         std::thread::scope(|scope| {
+            assert_eq!(
+                scope
+                    .spawn(|| reason(reserve(&f.m, &p, Some(&p.classes[1].class_id), false)))
+                    .join()
+                    .unwrap(),
+                Refusal::ServiceBusy.code()
+            );
+        });
+        assert!(owners(&f.m).unwrap().is_empty());
+        drop(held);
+
+        let barrier = std::sync::Barrier::new(16);
+        let accepted = std::thread::scope(|scope| {
             let mut jobs = Vec::new();
             for i in 0..16 {
                 let f = &f;
@@ -494,20 +509,42 @@ mod tests {
                             Err(e) if e.to_string() == Refusal::ServiceBusy.code() => {
                                 std::thread::yield_now()
                             }
-                            Err(_) => return false,
+                            Err(e) => {
+                                assert!(matches!(
+                                    e.to_string().as_str(),
+                                    code if code == Refusal::ClassCapacity.code()
+                                        || code == Refusal::GlobalCapacity.code()
+                                ));
+                                return false;
+                            }
                         }
                     }
                     false
                 }));
             }
-            assert_eq!(
-                jobs.into_iter()
-                    .map(|j| j.join().unwrap())
-                    .filter(|accepted| *accepted)
-                    .count(),
-                3
-            );
+            jobs.into_iter()
+                .map(|j| j.join().unwrap())
+                .filter(|accepted| *accepted)
+                .count()
         });
+        assert!((1..=3).contains(&accepted));
+        assert_eq!(owners(&f.m).unwrap().len(), accepted);
+        // All contenders have joined. Prove every remaining capacity unit is
+        // available, without assuming bounded Busy retries must fill it first.
+        for c in &p.classes {
+            for _ in 0..c.dsp {
+                match reserve(&f.m, &p, Some(&c.class_id), false) {
+                    Ok(_guard) => {
+                        lease(&f, &c.class_id, Kind::Dsp);
+                    }
+                    Err(e) => assert!(matches!(
+                        e.to_string().as_str(),
+                        code if code == Refusal::ClassCapacity.code()
+                            || code == Refusal::GlobalCapacity.code()
+                    )),
+                }
+            }
+        }
         let records = owners(&f.m).unwrap();
         assert_eq!(records.len(), 3);
         for c in &p.classes {

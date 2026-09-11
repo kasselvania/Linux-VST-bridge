@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "failed_head": "d94e0a2f94938bc7b680a7b1ac87b5e66a94496f",
+  "failed_manager_run": 34555022923,
+  "source_test": "capacity::tests::concurrent_reservations_cannot_check_then_over_admit",
+  "observed": "One reservation succeeded instead of the test-required three. The production API correctly returns ServiceBusy without waiting; 1000 yield_now calls do not guarantee that the current owner completes durable publication.",
+  "repair": "Test-only: deterministically hold a reservation and prove concurrent ServiceBusy without a lease; retain sixteen racing clients and bounded retries; require concurrent count between one and three, with exactly matching durable owners; after every thread joins fill remaining available units and prove exactly three total with at most two per class. Unexpected errors now fail the test.",
+  "production_capacity_prefix_byte_identical": true,
+  "native_windows_profiles_installed_artifacts_unchanged": true,
+  "records": [
+    {
+      "name": "r1-final-manager-ci-failed.log",
+      "sha256": "bdb0277c2d68a63acfa8af214d7bebd9df27af19881464a7b15ce162a4442812",
+      "result_lines": [
+        "manager\tRun cargo test --manifest-path bridge-manager/Cargo.toml --locked\t2026-09-11T02:32:57.9791555Z     Finished `test` profile [unoptimized + debuginfo] target(s) in 13.77s",
+        "manager\tRun cargo test --manifest-path bridge-manager/Cargo.toml --locked\t2026-09-11T02:33:06.9974249Z   left: 1",
+        "manager\tRun cargo test --manifest-path bridge-manager/Cargo.toml --locked\t2026-09-11T02:33:06.9974630Z  right: 3",
+        "manager\tRun cargo test --manifest-path bridge-manager/Cargo.toml --locked\t2026-09-11T02:33:06.9976532Z test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.01s"
+      ]
+    },
+    {
+      "name": "r1-final-manager-tests.log",
+      "sha256": "fe3c3a62ebfa664bb3ef4967ec4db534daa0d00c467a70d7b74944a1e1156600",
+      "result_lines": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.50s",
+        "test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.51s",
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "name": "r1-final-manager-clippy.log",
+      "sha256": "cc8202f7bd136ed3c333daf97e24e5c0d6a5ed833ae0db7ae68a2387890cb812",
+      "result_lines": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.19s"
+      ]
+    }
+  ],
+  "native_and_PX2_on_failed_manager_head": "Both passed. Manager was a real test failure, not an infrastructure failure; final revised test requires a new hosted result."
+}
