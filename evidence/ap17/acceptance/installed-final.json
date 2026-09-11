@@ -1,0 +1,576 @@
+{
+  "schema": 1,
+  "disposition": "REVISION_7_RESTORED_AFTER_ORDINARY_QUIT_SMOKE_FAILURE",
+  "readback": {
+    "sample_mono_ns": 8570931527460,
+    "software": {
+      "manager": {
+        "path": "[managed]/software/46f68ec043a1f6fc657556ca371e8936a4055e62a616483f234eae25e62a50ef/linux-vst-bridge",
+        "sha256": "2b5a7f349be13965f4fd10d684adad59a6a7ee470c37534ef8d37cf6ec49a47a"
+      },
+      "supervisor": {
+        "path": "[managed]/software/46f68ec043a1f6fc657556ca371e8936a4055e62a616483f234eae25e62a50ef/session.py",
+        "sha256": "60d1cbd3bf7c8a3a2ee4252cf83d10cc80ca24e840b9b13469cc8dcb0c2cdb12"
+      },
+      "ownership": {
+        "path": "[managed]/software/46f68ec043a1f6fc657556ca371e8936a4055e62a616483f234eae25e62a50ef/ownership.py",
+        "sha256": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2"
+      },
+      "host": {
+        "path": "[managed]/software/46f68ec043a1f6fc657556ca371e8936a4055e62a616483f234eae25e62a50ef/host.exe",
+        "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939"
+      },
+      "source_manifest": {
+        "path": "[managed]/software/46f68ec043a1f6fc657556ca371e8936a4055e62a616483f234eae25e62a50ef/host-source-manifest.json",
+        "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+      },
+      "source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": {
+        "path": "[managed]/software/46f68ec043a1f6fc657556ca371e8936a4055e62a616483f234eae25e62a50ef/native-catalogue.json",
+        "sha256": "1eea2194a45f49260886228733633ebf4ec0ac4a438b0a1fce55eef2d1cbaddf"
+      }
+    },
+    "software_verified": {
+      "manager": "2b5a7f349be13965f4fd10d684adad59a6a7ee470c37534ef8d37cf6ec49a47a",
+      "supervisor": "60d1cbd3bf7c8a3a2ee4252cf83d10cc80ca24e840b9b13469cc8dcb0c2cdb12",
+      "ownership": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "1eea2194a45f49260886228733633ebf4ec0ac4a438b0a1fce55eef2d1cbaddf"
+    },
+    "software_record_sha256": "d6c344ac71df664cc3f1d1e78dc9de69a72e81870e87c3808ac23fdd5281d14d",
+    "command_target": "[managed]/software/46f68ec043a1f6fc657556ca371e8936a4055e62a616483f234eae25e62a50ef/linux-vst-bridge",
+    "registry_sha256": "fcdda05b2c453aa41fc373a284854a991b05fccc35e56f539ac0b009d78cbd21",
+    "status": {
+      "products": [
+        {
+          "active_revision": {
+            "id": "90e23e3e71322c27e3f9e4ce1021b9d8",
+            "sha256": "01abb8019e422c5f8b25a176c27ceb0d0e4018c9f99228928cbaaf582185cba2"
+          },
+          "build": "1.0.0.6121",
+          "capabilities": {
+            "accessibility": "disabled_for_vendor_process",
+            "editor": "detached_direct_vendor_lifecycle",
+            "performance": "frames512_recommended256_unqualified",
+            "precision": "float32_only",
+            "state": "concurrent_read_only_capture_v12"
+          },
+          "class_id": "417274754156495350724C4650726F63",
+          "compatibility": {
+            "disable_windows_accessibility": true
+          },
+          "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+          "environment_revision": 1,
+          "environment_valid": true,
+          "expected_target": "[managed]/publications/417274754156495350724C4650726F63/revisions/90e23e3e71322c27e3f9e4ce1021b9d8/LVB_417274754156495350724C4650726F63.vst3",
+          "external_ids": [
+            "ac7f2418f2915958b5b67620593b9a2d",
+            "0c80f2acc39f5975a38d177102555683"
+          ],
+          "installed_host_valid": true,
+          "limitations": [
+            "short_delivery_gaps",
+            "unqualified256",
+            "windows_accessibility_unavailable",
+            "detached_focus_refusal",
+            "exact_operator_artifact_only"
+          ],
+          "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+          "module_valid": true,
+          "name": "Pure LoFi",
+          "native_artifact_valid": true,
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "performance_policy": "frames512_recommended256_unqualified",
+          "physical_target": "[managed]/publications/417274754156495350724C4650726F63/revisions/90e23e3e71322c27e3f9e4ce1021b9d8/LVB_417274754156495350724C4650726F63.vst3",
+          "prior_rollback": {
+            "revision": {
+              "id": "2452b7ebaeb57a847ba957637e3369a7",
+              "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+            },
+            "target": "[managed]/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+            "valid": true
+          },
+          "profile": {
+            "activation_permitted": true,
+            "claim": "verified_exact_fixture",
+            "id": "arturia-pure-lofi",
+            "revision": 7
+          },
+          "publication": "Published",
+          "publication_valid": true,
+          "qualification": null,
+          "recommended_frames": 512,
+          "recorded_revision": {
+            "id": "90e23e3e71322c27e3f9e4ce1021b9d8",
+            "sha256": "01abb8019e422c5f8b25a176c27ceb0d0e4018c9f99228928cbaaf582185cba2"
+          },
+          "recovery_pending": false,
+          "refusal": null,
+          "role": "instrument",
+          "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+          "runner_valid": true,
+          "selection": 1
+        },
+        {
+          "active_revision": {
+            "id": "d7c50af638553b3387f89a1064546aca",
+            "sha256": "e62c353565d4271f648c6831755ef6c95a764bec3a4141cf21bc6a5013fa2b4a"
+          },
+          "build": "1.0.0.2925",
+          "capabilities": {
+            "accessibility": "disabled_for_vendor_process",
+            "editor": "detached_direct_vendor_lifecycle",
+            "performance": "frames512_recommended256_unqualified",
+            "precision": "float32_only",
+            "state": "concurrent_read_only_capture_v12"
+          },
+          "class_id": "41727475415649536772616E50726F63",
+          "compatibility": {
+            "disable_windows_accessibility": true
+          },
+          "environment": "1de8d28b-d98b-4a41-8462-c07cca8e1609",
+          "environment_revision": 1,
+          "environment_valid": true,
+          "expected_target": "[managed]/publications/41727475415649536772616E50726F63/revisions/d7c50af638553b3387f89a1064546aca/LVB_41727475415649536772616E50726F63.vst3",
+          "external_ids": [
+            "96bd361810b3568a9671700732903d6e",
+            "d3181e9d37e75871ba5ffbcae0775861"
+          ],
+          "installed_host_valid": true,
+          "limitations": [
+            "short_delivery_gaps",
+            "unqualified256",
+            "windows_accessibility_unavailable",
+            "detached_focus_refusal",
+            "exact_operator_artifact_only",
+            "fragments_advanced_redraw"
+          ],
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+          "module_valid": true,
+          "name": "Efx FRAGMENTS",
+          "native_artifact_valid": true,
+          "performance": {
+            "added_frames": 512,
+            "schema": 1
+          },
+          "performance_policy": "frames512_recommended256_unqualified",
+          "physical_target": "[managed]/publications/41727475415649536772616E50726F63/revisions/d7c50af638553b3387f89a1064546aca/LVB_41727475415649536772616E50726F63.vst3",
+          "prior_rollback": {
+            "revision": {
+              "id": "213f36d41e964bcbdccd30093a6cded0",
+              "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+            },
+            "target": "[managed]/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+            "valid": true
+          },
+          "profile": {
+            "activation_permitted": true,
+            "claim": "verified_exact_fixture",
+            "id": "arturia-efx-fragments",
+            "revision": 7
+          },
+          "publication": "Published",
+          "publication_valid": true,
+          "qualification": null,
+          "recommended_frames": 512,
+          "recorded_revision": {
+            "id": "d7c50af638553b3387f89a1064546aca",
+            "sha256": "e62c353565d4271f648c6831755ef6c95a764bec3a4141cf21bc6a5013fa2b4a"
+          },
+          "recovery_pending": false,
+          "refusal": null,
+          "role": "effect",
+          "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+          "runner_valid": true,
+          "selection": 2
+        }
+      ],
+      "schema": 1
+    },
+    "physical": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "link": "[home]/.vst3/LVB_417274754156495350724C4650726F63.vst3",
+        "target": "[managed]/publications/417274754156495350724C4650726F63/revisions/90e23e3e71322c27e3f9e4ce1021b9d8/LVB_417274754156495350724C4650726F63.vst3",
+        "history": [
+          {
+            "revision": "90e23e3e71322c27e3f9e4ce1021b9d8",
+            "revision_sha256": "01abb8019e422c5f8b25a176c27ceb0d0e4018c9f99228928cbaaf582185cba2",
+            "target": "[managed]/publications/417274754156495350724C4650726F63/revisions/90e23e3e71322c27e3f9e4ce1021b9d8/LVB_417274754156495350724C4650726F63.vst3",
+            "profile_id": "arturia-pure-lofi",
+            "profile_revision": 7,
+            "claim": "verified_exact_fixture",
+            "profile_sha256": "2e32a4a8a1b15353203bff32281516f3ff17f4a5acd364a822fe367e4cf2b94f",
+            "external_ids": [
+              "ac7f2418f2915958b5b67620593b9a2d",
+              "0c80f2acc39f5975a38d177102555683"
+            ],
+            "native_sha256": "98793ee5169992924cdc5b21f38de8a70b507e28682fdb74bec95a22eb234ff6",
+            "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+            "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+            "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+            "parent": {
+              "id": "2452b7ebaeb57a847ba957637e3369a7",
+              "sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c"
+            },
+            "qualification": null
+          },
+          {
+            "revision": "2452b7ebaeb57a847ba957637e3369a7",
+            "revision_sha256": "cae54ed49658864dff2ce078ba5f789dbc5a494bf30d61bb74ed2c5a53770b6c",
+            "target": "[managed]/publications/417274754156495350724C4650726F63/revisions/2452b7ebaeb57a847ba957637e3369a7/LVB_417274754156495350724C4650726F63.vst3",
+            "profile_id": "arturia-pure-lofi",
+            "profile_revision": 3,
+            "claim": "verified_exact_fixture",
+            "profile_sha256": "13b02bb8a4643772039df81b30b681f66d58c2b9d4976e39c4daabe087a18766",
+            "external_ids": [
+              "ac7f2418f2915958b5b67620593b9a2d",
+              "0c80f2acc39f5975a38d177102555683"
+            ],
+            "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+            "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+            "parent": {
+              "id": "c6766455f13f73c3756db665b1bf92be",
+              "sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4"
+            },
+            "qualification": null
+          },
+          {
+            "revision": "c6766455f13f73c3756db665b1bf92be",
+            "revision_sha256": "214389a00f90d9dc463dbde8ea1a11110611184337876110b7c44baa4b547ad4",
+            "target": "[managed]/publications/417274754156495350724C4650726F63/revisions/c6766455f13f73c3756db665b1bf92be/LVB_417274754156495350724C4650726F63.vst3",
+            "profile_id": "arturia-pure-lofi",
+            "profile_revision": 2,
+            "claim": "review_candidate",
+            "profile_sha256": "044482ca6edd1c4faa7d85869b4149d877b4bcc2b993d70b3eed14b5186408dc",
+            "external_ids": [
+              "ac7f2418f2915958b5b67620593b9a2d",
+              "0c80f2acc39f5975a38d177102555683"
+            ],
+            "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+            "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+            "parent": {
+              "id": "18f3da27dda66a44ed19677d4921af8c",
+              "sha256": "63d76ba0c39bb56cfdf045672778cb87370b009de2cbf51313a0e4429fe9ffca"
+            },
+            "qualification": null
+          },
+          {
+            "revision": "18f3da27dda66a44ed19677d4921af8c",
+            "revision_sha256": "63d76ba0c39bb56cfdf045672778cb87370b009de2cbf51313a0e4429fe9ffca",
+            "target": "[managed]/publications/417274754156495350724C4650726F63/95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a/LVB_417274754156495350724C4650726F63.vst3",
+            "profile_id": "arturia-pure-lofi",
+            "profile_revision": 1,
+            "claim": "review_candidate",
+            "profile_sha256": "de63b8c8ec3ed39dbc7a9b0905ee2cf54ebcaf3ec65826790392516c38d8cd66",
+            "external_ids": [
+              "ac7f2418f2915958b5b67620593b9a2d",
+              "0c80f2acc39f5975a38d177102555683"
+            ],
+            "native_sha256": "95d21b703f805401cedbf84e7ff28e1c348d466b8d1d25da35a82ca40d7b8f8a",
+            "host_sha256": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
+            "host_source_sha256": "350fe2b3a4f18fa230bd093dff1f88380ca2825b7ed566d31455eec51bc61e26",
+            "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+            "parent": null,
+            "qualification": null
+          }
+        ]
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "link": "[home]/.vst3/LVB_41727475415649536772616E50726F63.vst3",
+        "target": "[managed]/publications/41727475415649536772616E50726F63/revisions/d7c50af638553b3387f89a1064546aca/LVB_41727475415649536772616E50726F63.vst3",
+        "history": [
+          {
+            "revision": "d7c50af638553b3387f89a1064546aca",
+            "revision_sha256": "e62c353565d4271f648c6831755ef6c95a764bec3a4141cf21bc6a5013fa2b4a",
+            "target": "[managed]/publications/41727475415649536772616E50726F63/revisions/d7c50af638553b3387f89a1064546aca/LVB_41727475415649536772616E50726F63.vst3",
+            "profile_id": "arturia-efx-fragments",
+            "profile_revision": 7,
+            "claim": "verified_exact_fixture",
+            "profile_sha256": "999a01f3c547b0b6299c2b5bae3a736f15adc6850d5a7d712967e64103172c7c",
+            "external_ids": [
+              "96bd361810b3568a9671700732903d6e",
+              "d3181e9d37e75871ba5ffbcae0775861"
+            ],
+            "native_sha256": "4ee950c4096a33a3635fde6e9732be50a4875238c237a84e828d9cd1b94ed8f4",
+            "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+            "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "parent": {
+              "id": "213f36d41e964bcbdccd30093a6cded0",
+              "sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2"
+            },
+            "qualification": null
+          },
+          {
+            "revision": "213f36d41e964bcbdccd30093a6cded0",
+            "revision_sha256": "47adc2c65a263d1cce237ca431a3a20835c982c0917e3d7cd2ccb1c53e953df2",
+            "target": "[managed]/publications/41727475415649536772616E50726F63/revisions/213f36d41e964bcbdccd30093a6cded0/LVB_41727475415649536772616E50726F63.vst3",
+            "profile_id": "arturia-efx-fragments",
+            "profile_revision": 3,
+            "claim": "verified_exact_fixture",
+            "profile_sha256": "f9819ff473e0670eb44c52f4479a00f6addc8c4020e8ffbbee380fa8e22b4abc",
+            "external_ids": [
+              "96bd361810b3568a9671700732903d6e",
+              "d3181e9d37e75871ba5ffbcae0775861"
+            ],
+            "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+            "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "parent": {
+              "id": "d2fb889b4a3797a2b90c0a57152b0296",
+              "sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882"
+            },
+            "qualification": null
+          },
+          {
+            "revision": "d2fb889b4a3797a2b90c0a57152b0296",
+            "revision_sha256": "5c9132f8b3cc37d110fd39c7eaa838b52e64927a12c7777fa5bf0a74c9247882",
+            "target": "[managed]/publications/41727475415649536772616E50726F63/revisions/d2fb889b4a3797a2b90c0a57152b0296/LVB_41727475415649536772616E50726F63.vst3",
+            "profile_id": "arturia-efx-fragments",
+            "profile_revision": 2,
+            "claim": "review_candidate",
+            "profile_sha256": "11e19dde31ea185a86a340b8a8007cf672d514c2c2a055a33d4dbefa9e52dfeb",
+            "external_ids": [
+              "96bd361810b3568a9671700732903d6e",
+              "d3181e9d37e75871ba5ffbcae0775861"
+            ],
+            "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+            "host_sha256": "ff396a74824cd2ca80ad113c921c9dd73b522224419033983119690e7e18c290",
+            "host_source_sha256": "a139b042360718fd05a1a7dce9fcf9ee25593e75e279b1962df410eeebc7e76d",
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "parent": {
+              "id": "9b8970282584cc344c4f2dbd9339fd71",
+              "sha256": "de339aadd05610d43d9b75ee2d6e6fc48dca686f70f16466db02a36a490e2e78"
+            },
+            "qualification": null
+          },
+          {
+            "revision": "9b8970282584cc344c4f2dbd9339fd71",
+            "revision_sha256": "de339aadd05610d43d9b75ee2d6e6fc48dca686f70f16466db02a36a490e2e78",
+            "target": "[managed]/publications/41727475415649536772616E50726F63/revisions/9b8970282584cc344c4f2dbd9339fd71/LVB_41727475415649536772616E50726F63.vst3",
+            "profile_id": "arturia-efx-fragments",
+            "profile_revision": 1,
+            "claim": "review_candidate",
+            "profile_sha256": "453d1a3da39e1f582f279cc742e51a05f9f73acb09c1799d2578b09441fc8ad2",
+            "external_ids": [
+              "96bd361810b3568a9671700732903d6e",
+              "d3181e9d37e75871ba5ffbcae0775861"
+            ],
+            "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+            "host_sha256": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
+            "host_source_sha256": "350fe2b3a4f18fa230bd093dff1f88380ca2825b7ed566d31455eec51bc61e26",
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "parent": {
+              "id": "44e2f4e8541500ef39eeafe93d84f670",
+              "sha256": "d0600e933025b0f4b1603af584fef2be96ce65fef26a4ea377f2fc6e1a46055b"
+            },
+            "qualification": null
+          },
+          {
+            "revision": "44e2f4e8541500ef39eeafe93d84f670",
+            "revision_sha256": "d0600e933025b0f4b1603af584fef2be96ce65fef26a4ea377f2fc6e1a46055b",
+            "target": "[managed]/publications/41727475415649536772616E50726F63/4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374/LVB_41727475415649536772616E50726F63.vst3",
+            "profile_id": "arturia-efx-fragments",
+            "profile_revision": 1,
+            "claim": "review_candidate",
+            "profile_sha256": "453d1a3da39e1f582f279cc742e51a05f9f73acb09c1799d2578b09441fc8ad2",
+            "external_ids": [
+              "96bd361810b3568a9671700732903d6e",
+              "d3181e9d37e75871ba5ffbcae0775861"
+            ],
+            "native_sha256": "4d0b88072c790276b8d2ba0b48a4d1a70501763f0eda9f424ebcf0fde2ced374",
+            "host_sha256": "a7d38a5071c1f2538b96c8a5279872264907be2e724cbfa2d831473a461d15fa",
+            "host_source_sha256": "350fe2b3a4f18fa230bd093dff1f88380ca2825b7ed566d31455eec51bc61e26",
+            "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+            "parent": null,
+            "qualification": null
+          }
+        ]
+      }
+    ],
+    "leases": [
+      {
+        "session": "7e9f32ea2b63cb4167522abbab84e953",
+        "keeper": true
+      }
+    ],
+    "dsp_leases": 0,
+    "pending": [],
+    "runtime_entries": [
+      "storage-v1"
+    ],
+    "projects": [
+      {
+        "name": "AP15 Lifecycle",
+        "sha256": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c",
+        "bytes": 84205
+      },
+      {
+        "name": "AP16 Delivery",
+        "sha256": "bf65f4f4236ddc655fc938694fb27f3311bc39078b823a732850522ecb11df46",
+        "bytes": 84092
+      }
+    ],
+    "heavy_trace": false,
+    "active_profiler_debugger_bitwig": [],
+    "temporary_units": "",
+    "service": "MainPID=9037\nNRestarts=0\nCPUWeight=[not set]\nNice=0\nCPUSchedulingPolicy=0\nCPUSchedulingPriority=0\nActiveState=active\nSubState=running\n",
+    "effective_cpuweight": "100",
+    "flatpak_override_sha256": "331b64143843cd911f1e1670d2b862789817f4863e0e9b86e1d6937a39abf7d5",
+    "prior_software_record_present": true
+  },
+  "capacity": {
+    "capacity": {
+      "available_dsp": 6,
+      "cleanup_unconfirmed": false,
+      "current_workers": 1,
+      "dsp": 0,
+      "envelope": {
+        "claim": "engineering_candidate",
+        "eight": "excluded_for_tested_workload",
+        "evidence": "docs/AP17.md",
+        "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+        "parallel_tracks": 3,
+        "serial_bridged_depth": 3,
+        "seven": "unqualified",
+        "simultaneous_editors": 2
+      },
+      "keepers": 1,
+      "limits": {
+        "classes": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "dsp": 3
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "dsp": 4
+          }
+        ],
+        "global_dsp": 6,
+        "maintenance": 1,
+        "native_image_hard": 4,
+        "service_workers": 16
+      },
+      "maintenance": 0,
+      "maintenance_admissible": true,
+      "owners": [
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "keeper",
+          "session": "7e9f32ea2b63cb4167522abbab84e953"
+        }
+      ],
+      "per_class": {
+        "417274754156495350724C4650726F63": 0,
+        "41727475415649536772616E50726F63": 0
+      },
+      "schema": 1
+    },
+    "ok": true
+  },
+  "projects": {
+    "AP16 Delivery": "bf65f4f4236ddc655fc938694fb27f3311bc39078b823a732850522ecb11df46",
+    "AP17 R1 Maximum": "586cf60aa84403eff9eb1f3085244aeccdfa5fbe1b9bc8521033950eb865430b",
+    "AP17 Mixed": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db",
+    "AP17 R1 Service Loss": "ef8c0f87ba9becf82527ac3881921beb35508167174f69dbf560dc63053f62e6",
+    "AP17 R1 Serial": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc",
+    "AP17 Topology": "4866130bc6d66f749c5f8a2fa1ca6dae0d27547a864b9a3808119932a6806a7b",
+    "AP15 Lifecycle": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c",
+    "AP17 independent backup": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db"
+  },
+  "Bitwig_processes": [],
+  "exact_pretransition_targets_and_ancestry_restored": true,
+  "inactive_revision10_targets": [
+    {
+      "class_id": "417274754156495350724C4650726F63",
+      "target": "[managed]/publications/417274754156495350724C4650726F63/revisions/2793353d7f0ab82ed377ff0a9d9494ef/LVB_417274754156495350724C4650726F63.vst3",
+      "revision": {
+        "revision": "2793353d7f0ab82ed377ff0a9d9494ef",
+        "revision_sha256": "94272f11363780b141ffd45e3337054a575684892d1b950710d26a616825aa35",
+        "target": "[managed]/publications/417274754156495350724C4650726F63/revisions/2793353d7f0ab82ed377ff0a9d9494ef/LVB_417274754156495350724C4650726F63.vst3",
+        "profile_id": "arturia-pure-lofi",
+        "profile_revision": 10,
+        "claim": "verified_exact_fixture",
+        "profile_sha256": "1e610039d189538dd434e7251b41cd739a5c76e5568dba3c689a867422b1b6f4",
+        "external_ids": [
+          "ac7f2418f2915958b5b67620593b9a2d",
+          "0c80f2acc39f5975a38d177102555683"
+        ],
+        "native_sha256": "ce7531e4c76e53e85abe1153354fac890a6ba641b3b6333f5891a25f49843d59",
+        "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+        "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "parent": {
+          "id": "90e23e3e71322c27e3f9e4ce1021b9d8",
+          "sha256": "01abb8019e422c5f8b25a176c27ceb0d0e4018c9f99228928cbaaf582185cba2"
+        },
+        "qualification": null
+      }
+    },
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "target": "[managed]/publications/41727475415649536772616E50726F63/revisions/4131d5287bd73a3a49fcd20ad28d1d7f/LVB_41727475415649536772616E50726F63.vst3",
+      "revision": {
+        "revision": "4131d5287bd73a3a49fcd20ad28d1d7f",
+        "revision_sha256": "356c59038793d73c09211023869719e68045ad3f79e4b45db7d181bbe43ec96a",
+        "target": "[managed]/publications/41727475415649536772616E50726F63/revisions/4131d5287bd73a3a49fcd20ad28d1d7f/LVB_41727475415649536772616E50726F63.vst3",
+        "profile_id": "arturia-efx-fragments",
+        "profile_revision": 10,
+        "claim": "verified_exact_fixture",
+        "profile_sha256": "de9d8b475253d32f0e692c8c46d6d1a5e431e20ec5b49f699ff78bbf7057700c",
+        "external_ids": [
+          "96bd361810b3568a9671700732903d6e",
+          "d3181e9d37e75871ba5ffbcae0775861"
+        ],
+        "native_sha256": "11615d88cb253e22ca6f6beecbe946bdb5efd46882d091b65f9c461cd6757428",
+        "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+        "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "parent": {
+          "id": "d7c50af638553b3387f89a1064546aca",
+          "sha256": "e62c353565d4271f648c6831755ef6c95a764bec3a4141cf21bc6a5013fa2b4a"
+        },
+        "qualification": null
+      }
+    }
+  ],
+  "rollback_commands": [
+    {
+      "command": [
+        "linux-vst-bridge",
+        "managed",
+        "rollback",
+        "1",
+        "90e23e3e71322c27e3f9e4ce1021b9d8"
+      ],
+      "code": 0
+    },
+    {
+      "command": [
+        "linux-vst-bridge",
+        "managed",
+        "rollback",
+        "2",
+        "d7c50af638553b3387f89a1064546aca"
+      ],
+      "code": 0
+    }
+  ],
+  "software_note": "New immutable acceptance manager/software remains installed; native discovery links and registration are exact retained revision 7. Its current-host policy validates retained revision 7. Revision 10 and revision 9 remain inactive immutable history. Capacity readback conservatively returns engineering_candidate after rollback because ordinary revision 10 is not physically active.",
+  "512_selected_supported_recommended": true,
+  "256_unqualified": true,
+  "ASC_or_Pigments_executed": false,
+  "limits": "Six-instance technical qualification from review 5174642190 is retained; final ordinary-product transition smoke is incomplete. No universal hardware/DAW guarantee."
+}

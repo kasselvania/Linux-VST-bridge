@@ -1,0 +1,172 @@
+{
+  "schema": 1,
+  "source_head": "47e7c8d7bd0d6b991c06247a03dd4c9d37690e0d",
+  "local": [
+    {
+      "name": "backend",
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "result": "62 passed",
+      "log_sha256": "79abcf7044ee154a05cbf6bf3129cea84bf5d621d4705d531419994a744adc9b"
+    },
+    {
+      "name": "client",
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml --locked",
+      "result": "11 passed",
+      "log_sha256": "b2fca28653708063ad7139d1d57de6b8ee12b09a54443911a02d2d508eb6a262"
+    },
+    {
+      "name": "manager",
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "51 library + 8 binary passed",
+      "log_sha256": "ca96ab328ee1cfa841d496c56001256c04ba3d95be7594ee4f7e12e4bd60964f"
+    },
+    {
+      "name": "backend_clippy",
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed",
+      "log_sha256": "8c233a54790c4800d3dd585436af679aa838da259bfdb129412e2d51cdb75cdc"
+    },
+    {
+      "name": "manager_clippy",
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed",
+      "log_sha256": "72ebe9df73b1fe24236710d9bd5266e54e5b1ac1da767a616d0801dae5de7058"
+    },
+    {
+      "name": "python_mac",
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "22 tests, 16 Linux-only skipped",
+      "log_sha256": "24906ee0ae6bae0bcc62b6fe103b6347201bb9cde11afc7163b6a07d0973d883"
+    },
+    {
+      "name": "manager_linux",
+      "command": "RUSTC=\"$(rustup which --toolchain stable rustc)\" CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=/private/tmp/ap12-work/zig-cc.sh cargo build --manifest-path bridge-manager/Cargo.toml --locked --release --target x86_64-unknown-linux-gnu",
+      "result": "passed; Rust 1.90.0 pinned target toolchain",
+      "log_sha256": "3f961158c2f7234aa9468128606473d45200d7963a9811776c9df264ce99ff5d"
+    }
+  ],
+  "linux_native_and_runtime": [
+    {
+      "command": [
+        "cmake",
+        "-S",
+        "[home]/AP17-Work/r1-native-tests",
+        "-B",
+        "[home]/AP17-Work/r1-native-tests/build",
+        "-G",
+        "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DAP2_BUILD_ONLY=ON",
+        "-DAP10_RESULTS_TESTS=ON",
+        "-DAP11_PANEL_TESTS=ON",
+        "-DVST3_SDK_ROOT=[home]/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "-DAP2_RUST_LIBRARY=[home]/AP17-Work/r1-native-tests/libap2_backend.a",
+        "-DAP8_DESCRIPTOR=[home]/AP17-Work/r1-native-tests/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
+      ],
+      "exit": 0,
+      "seconds": 0.7127724360007051
+    },
+    {
+      "command": [
+        "cmake",
+        "--build",
+        "[home]/AP17-Work/r1-native-tests/build",
+        "--target",
+        "ap10-result-lifetime",
+        "ap10-results-tests",
+        "ap11-native-tests",
+        "ap11-state-tests",
+        "ap11-panel-tests",
+        "ap11-activation-tests",
+        "ap3-callback-audit",
+        "CommercialInstrumentBridge",
+        "-j",
+        "4"
+      ],
+      "exit": 0,
+      "seconds": 0.23537768100050016
+    },
+    {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "[home]/AP17-Work/r1-native-tests/build/native-vst3-proxy",
+        "--verbose"
+      ],
+      "exit": 0,
+      "seconds": 6.599291081000047
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "[home]/AP17-Work/r1-native-tests/bridge-manager/runtime",
+        "-v"
+      ],
+      "exit": 0,
+      "output": "\ntest_accessibility_workaround_is_explicit_and_process_scoped (test_session.CensusTests.test_accessibility_workaround_is_explicit_and_process_scoped) ... ok\ntest_changed_artifact_is_refused (test_session.CensusTests.test_changed_artifact_is_refused) ... ok\ntest_only_coordinated_inspection_shares_the_keeper_lock (test_session.CensusTests.test_only_coordinated_inspection_shares_the_keeper_lock) ... ok\ntest_registered_trace_flag_reaches_only_audio_host (test_session.CensusTests.test_registered_trace_flag_reaches_only_audio_host) ... ok\ntest_stat_only_parsing_and_descendant_identity (test_session.CensusTests.test_stat_only_parsing_and_descendant_identity) ... ok\ntest_tracker_rejects_reused_parent_and_follows_new_reparented_children (test_session.CensusTests.test_tracker_rejects_reused_parent_and_follows_new_reparented_children) ... ok\ntest_editor_removal_fault_survives_transport_retirement (test_session.FaultStatusTests.test_editor_removal_fault_survives_transport_retirement) ... ok\ntest_gui_diagnostic_versions_are_exact_and_preserve_retained_layout (test_session.FaultStatusTests.test_gui_diagnostic_versions_are_exact_and_preserve_retained_layout) ... ok\ntest_pending_peer_is_retained_before_containment_without_completion (test_session.FaultStatusTests.test_pending_peer_is_retained_before_containment_without_completion) ... ok\ntest_reader_rejects_identity_and_never_uses_unstable_slot (test_session.FaultStatusTests.test_reader_rejects_identity_and_never_uses_unstable_slot) ... ok\ntest_failed_memory_retirement_never_sends_a_false_receipt (test_session.MemoryTransportTests.test_failed_memory_retirement_never_sends_a_false_receipt) ... ok\ntest_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory (test_session.MemoryTransportTests.test_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory) ... ok\ntest_production_gate_waits_for_exact_windows_views_and_closes_both_owners (test_session.MemoryTransportTests.test_production_gate_waits_for_exact_windows_views_and_closes_both_owners) ... ok\ntest_production_run_admits_memory_transport_and_retires_exact_session (test_session.MemoryTransportTests.test_production_run_admits_memory_transport_and_retires_exact_session) ... ok\ntest_replaced_disk_foreign_and_malformed_storage_are_refused (test_session.MemoryTransportTests.test_replaced_disk_foreign_and_malformed_storage_are_refused) ... ok\ntest_retirement_waits_for_both_owners_and_preserves_sibling_and_record (test_session.MemoryTransportTests.test_retirement_waits_for_both_owners_and_preserves_sibling_and_record) ... ok\ntest_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources (test_session.MemoryTransportTests.test_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources) ... ok\ntest_cleanup_preserves_independent_sibling (test_session.OwnershipTests.test_cleanup_preserves_independent_sibling) ... ok\ntest_early_failure_wakes_native_and_retires_only_after_release (test_session.OwnershipTests.test_early_failure_wakes_native_and_retires_only_after_release) ... ok\ntest_report_failure_does_not_skip_retirement_or_kill_sibling (test_session.OwnershipTests.test_report_failure_does_not_skip_retirement_or_kill_sibling) ... ok\ntest_subtree_tracking_covers_thread_children_and_reparented_descendants (test_session.OwnershipTests.test_subtree_tracking_covers_thread_children_and_reparented_descendants) ... ok\ntest_terminal_sdk_failure_does_not_wait_for_launcher_companion (test_session.OwnershipTests.test_terminal_sdk_failure_does_not_wait_for_launcher_companion) ... ok\n\n----------------------------------------------------------------------\nRan 22 tests in 23.253s\n\nOK\n"
+    }
+  ],
+  "linux_lane_provenance": "Reconfigured and built retained exact R1 CMake inputs; no native/ABI/Windows/runtime source changes in the acceptance transition. Existing production-helper CTest and all 22 Linux runtime tests passed. Reused native bytes, no new artifact build claim.",
+  "source_head_hosted": {
+    "headRefOid": "47e7c8d7bd0d6b991c06247a03dd4c9d37690e0d",
+    "isDraft": false,
+    "state": "OPEN",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-11T03:46:13Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34559576559/job/103139352175",
+        "name": "native-results",
+        "startedAt": "2026-09-11T03:44:28Z",
+        "status": "COMPLETED",
+        "workflowName": "AP10 native result lifetime"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-11T03:45:25Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34559576624/job/103139352337",
+        "name": "manager",
+        "startedAt": "2026-09-11T03:44:28Z",
+        "status": "COMPLETED",
+        "workflowName": "AP12 registered owner"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-09-11T03:45:55Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34559576566/job/103139352023",
+        "name": "PX2 proof policy core",
+        "startedAt": "2026-09-11T03:44:45Z",
+        "status": "COMPLETED",
+        "workflowName": "PX2 proof policy"
+      }
+    ]
+  },
+  "earlier_failures": [
+    {
+      "phase": "first manager compile",
+      "result": "Rust E0382 moved limitation; repaired before validation"
+    },
+    {
+      "phase": "sandboxed socket tests",
+      "result": "backend 47 pass/15 fail; client 10 pass/1 fail due Operation not permitted socket creation; identical tests pass with permitted local sockets"
+    },
+    {
+      "phase": "first Linux cross-build",
+      "result": "default Rust target unavailable; existing pinned stable Rust 1.90 target build used"
+    },
+    {
+      "phase": "first acceptance installation",
+      "result": "keeper receipt compatibility refusal, fixed and tested before software activation"
+    }
+  ],
+  "windows": "Unchanged accepted Windows host/source manifest and SDK/ABI source reused; no Windows rebuild or new Windows qualification claimed.",
+  "final_head_hosted": "Recorded in PR #92 after the evidence-only final commit; source-head hosted runs above are all successful.",
+  "completion": "Automated checks do not override the actual normal-Quit smoke failure. Leave PR open/unmerged for focused review; ordinary revision 7 restored."
+}
