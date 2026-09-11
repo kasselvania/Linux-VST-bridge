@@ -17,6 +17,15 @@ import ownership
 import session
 
 
+class VendorOperationTests(unittest.TestCase):
+    def test_launcher_exit_does_not_complete_or_cancel_owned_helpers(self):
+        self.assertEqual(session.vendor_operation_state(None, 2), 'running')
+        self.assertEqual(session.vendor_operation_state(0, 1), 'unknown')
+        self.assertEqual(session.vendor_operation_state(1, 1), 'unknown')
+        self.assertEqual(session.vendor_operation_state(0, 0), 'completed')
+        self.assertEqual(session.vendor_operation_state(1, 0), 'failed')
+
+
 @unittest.skipUnless(sys.platform == "linux", "PID/start tracking uses Linux procfs")
 class OwnershipTests(unittest.TestCase):
     def test_subtree_tracking_covers_thread_children_and_reparented_descendants(self):

@@ -504,9 +504,60 @@ def install(spec):
         lock.close()
     return code==0 and clean and failure is None
 
+def vendor_operation_state(launcher_exit, owned_live):
+    if launcher_exit is None:return 'running'
+    if owned_live:return 'unknown'
+    return 'completed' if launcher_exit==0 else 'failed'
+
+def vendor_application(spec):
+    """ASC is an exclusive companion operation, never a VST3 instance.
+
+    Launcher exit is not permission to terminate continuing vendor helpers.
+    No generic installer deadline or captured vendor log is applied here.
+    """
+    app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
+    lock=(directory/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
+    report=pathlib.Path(spec['report']);stop=False
+    def cancel(*_):
+        nonlocal stop
+        stop=True
+    signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
+    runner=env['runner'];reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
+    argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(app['executable']['path'],directory/'compatdata/pfx')]
+    child=subprocess.Popen(argv,env=environment(reg),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+    tracker=ProcessTracker(child.pid);sel=selectors.DefaultSelector();last=0;discarded=0;error=None;clean=False
+    for pipe in (child.stdout,child.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
+    try:
+        while not stop:
+            owned=tracker.update()
+            if len(owned)>4096:raise RuntimeError('vendor application process bound')
+            for key,_ in sel.select(.1):
+                data=os.read(key.fileobj.fileno(),16384);discarded+=len(data)
+                if not data:sel.unregister(key.fileobj)
+            if time.monotonic()-last>=1:
+                live={(p['pid'],p['start_ticks']) for p in process_identities()} & owned
+                state=vendor_operation_state(child.poll(),len(live))
+                atomic(report,{'schema':1,'state':state,'launcher_exit':child.returncode,'owned_live':len(live),'discarded_diagnostic_bytes':discarded,'account_posture':'unknown'})
+                last=time.monotonic()
+                if state in ('completed','failed'):
+                    clean=True
+                    if state=='failed':error='vendor application exited unsuccessfully'
+                    break
+    except Exception as e:error=type(e).__name__+': '+str(e)
+    finally:
+        if stop or error:
+            try:clean=all(cleanup_process(child,sorted(tracker.owned)).values())
+            except Exception as e:error=type(e).__name__+': '+str(e)
+        sel.close();child.stdout.close();child.stderr.close()
+        atomic(report,{'schema':1,'state':'cleanup_unconfirmed' if not clean else 'failed' if error else 'cancelled' if stop else 'completed','cleanup_confirmed':clean,'error':error,'launcher_exit':child.returncode,'discarded_diagnostic_bytes':discarded,'account_posture':'unknown'})
+        lock.close()
+    return clean and error is None
+
 if __name__=='__main__':
     os.umask(0o077)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
+    if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
     operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
     # Standalone setup inspection is exclusive: it may start Wine services and

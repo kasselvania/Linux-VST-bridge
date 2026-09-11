@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "installer": {
+    "original_filename": "Arturia_Software_Center__2_12_0_3157.exe",
+    "size": 32989928,
+    "sha256": "e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8",
+    "type": "PE32 Windows GUI installer",
+    "source_assertion": "operator official Arturia site"
+  },
+  "publisher": {
+    "embedded_certificate_subject": "Arturia SAS",
+    "full_authenticode_validation": "not performed; certificate inspection is not signature integrity verification"
+  },
+  "private_admission": "Exact read-only private copy, byte-equal to original Downloads file; no input payload committed",
+  "rollback": {
+    "method": "Private inactive environment tar archive; never executed as another prefix",
+    "bytes": 2464481280,
+    "sha256": "451d9cf5901fec29679c24c8b00aa67fdd5e53eaecac62aa278536d360be0eb2",
+    "regular_files_byte_verified": 15647,
+    "symlink_targets_verified": true,
+    "initial_tar_comparison": "GNU tar reported timestamp differences; independent SHA-256 comparison of every regular file and exact symlink comparison passed"
+  },
+  "installation": {
+    "operator_completed_license_and_setup": true,
+    "result": [
+      {
+        "raw_exit": 0,
+        "cleanup_confirmed": true,
+        "error": null,
+        "discarded_diagnostic_bytes": 0
+      }
+    ],
+    "observed_installer_UI_version": "2.12.0",
+    "executables": [
+      {
+        "relative": "Program Files (x86)/Arturia/Arturia Software Center/ArturiaSoftwareCenterAgent.exe",
+        "bytes": 6691664,
+        "sha256": "d0851a06448ac7babda20411387a816fd412069af6139e1a1d286b51822de37e"
+      },
+      {
+        "relative": "Program Files (x86)/Arturia/Arturia Software Center/unins000.exe",
+        "bytes": 730893,
+        "sha256": "bac5740a7cf2fb240e9c0a777518e76f49c5ca062a254c8e7775eff5d4d6a831"
+      },
+      {
+        "relative": "Program Files (x86)/Arturia/Arturia Software Center/Arturia Software Center.exe",
+        "bytes": 26305440,
+        "sha256": "188afb698a0d7838bf491d208f56e9614846e56a60c90919d1018857ca3e7e25"
+      },
+      {
+        "relative": "Program Files (x86)/Arturia/Arturia Software Center/updater.exe",
+        "bytes": 6117448,
+        "sha256": "4362427643337b3ee881307870359066401da35bb35d02cd55dbfd3a643243bb"
+      }
+    ],
+    "prior_ASC_present": true,
+    "prior_and_new_identities_retained_privately": true,
+    "account_posture": "unknown; no account data inspected",
+    "standalone_relaunch": "pending product-owner deployment"
+  },
+  "preservation": {
+    "modules": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+      }
+    ],
+    "program_files_comparison": {
+      "changed": 5,
+      "removed": 0,
+      "unchanged": 8
+    },
+    "revision10_publications": "unchanged",
+    "windows_host": "unchanged",
+    "native_proxies": "unchanged"
+  },
+  "application_owner_source": {
+    "status": "implementation in progress; not installed or qualified",
+    "commands": [
+      "vendor-app rescan arturia-software-center",
+      "vendor-app status arturia-software-center",
+      "vendor-app launch arturia-software-center",
+      "vendor-app cancel arturia-software-center"
+    ],
+    "rule": "Exact compiled ASC executable/helper identities and successful matching installer receipt; exclusive environment operation; no VST3/DSP session; launcher exit with live helpers remains unknown; explicit cancellation requires positive cleanup",
+    "remaining": [
+      "Linux runtime tests and deployment",
+      "actual companion launch/close/relaunch and focus",
+      "canonical installer admission integration",
+      "Pigments acquisition, discovery, candidate and Bitwig vertical"
+    ]
+  },
+  "public_payload_exclusions": [
+    "installer bytes",
+    "vendor executable bytes",
+    "account data",
+    "license data",
+    "presets",
+    "opaque state",
+    "private paths",
+    "process identifiers"
+  ]
+}
