@@ -1,73 +1,98 @@
-# Registered bridge startup
+# Registered bridge manager
 
-This is the installed management core for the current exact Arturia vertical. Rust owns exact environment/runner bindings, registration, publication, service admission, volatile transport allocation, and immutable software selection. The installed Python supervisor owns each Windows host. Neither runs in an audio callback.
+The Rust manager owns exact environments, runners, installer/application records, registration, publication, capacity, rollback, and canonical readback. The installed Python supervisor owns each launched Windows process tree. Neither runs in an audio callback.
 
-This source is not, by itself, commercial or everyday-workflow qualification. See the retained AP12–AP16 evidence for the actual vendor-access, editor, project, and delivery results.
+## Installed setup
 
-## Setup surface
+`setup PACKAGE` installs an immutable private software revision containing the manager, `session.py`, `ownership.py`, the exact Windows host, its source manifest, and the native catalogue. It updates the stable command link and enables `linux-vst-bridge.service`. Updating software requires closed devices and a stopped service.
 
-Build `linux-vst-bridge` for the Linux fixture. `setup PACKAGE` installs a private, immutable software revision containing that executable, `session.py`, `ownership.py`, and the existing `host.exe`. `host-source.json` records the SHA256 of the accompanying `host-source-manifest.json`; both identify the exact host source and build receipt. Setup enables the user service `linux-vst-bridge.service`. The source checkout and build directory are then unnecessary for playback. Updating software requires closed devices and a stopped service; live software updates are not implemented.
+The typed CLI currently includes:
 
-The typed CLI also supports:
+- `environment-create RUNNER.json` — create a private persistent environment;
+- `environment-import ENVIRONMENT.json` — adopt an existing exact bridge-owned environment without changing vendor/account state;
+- `install ENV_ID INSTALLER_PATH SHA256` — verify and run one normal foreground vendor installer in a bounded user unit;
+- `inspect INSPECTION.json` — inspect one exact module/class in an inactive environment;
+- `vendor-editor INSPECTION.json` — open one exact unpublished vendor editor without DAW audio;
+- managed preview, publication, status, rollback, reconciliation, and unpublish operations;
+- sealed engineering qualification and accepted-transition routes.
 
-- `environment-create RUNNER.json`: create a private persistent environment with exact runner entry points and critical-file hashes.
-- `environment-import ENVIRONMENT.json`: import an existing bridge-owned setup environment without recreating its prefix or modifying vendor/account state.
-- `install ENV_ID INSTALLER_PATH SHA256`: execute a verified normal vendor installer in a bounded user unit, preserving its real foreground UI and exit.
-- `inspect INSPECTION.json`: inspect an exact module and selected class in an inactive environment.
-- profile-driven managed preview, publication, status, reconciliation, rollback, and unpublish operations.
-- bounded vendor-editor and engineering qualification routes where explicitly compiled and admitted.
-
-All record types are in `src/lib.rs`; unknown registration fields, ambiguous SDK roles, missing artifacts, and changed bindings are refused. An installer or standalone inspection requires exclusive environment access. Compatibility profiles may select exact process-scoped behavior such as disabling Windows accessibility for one product host; the shared environment owner does not inherit that setting.
+Unknown fields, changed artifacts, ambiguous class roles, foreign links, active mutation conflicts, and unresolved ownership are refused.
 
 ## Playback and ownership
 
-`~/.vst3/LVB_<Windows-class-ID>.vst3` points atomically to an immutable installed native bundle. The SDK processor/controller IDs retain their established UUIDv5 derivation; display names, paths, and build changes do not generate new IDs. Registration stores the installed native artifact, not its input build location.
+A native bundle under `~/.vst3/LVB_<class-id>.vst3` points atomically to one immutable managed publication. The proxy requests an exact class/module/environment binding outside the audio callback.
 
-The registered proxy requests an exact class/module binding from the service outside the audio callback. The service validates the registration and the connecting DAW process, creates a fresh private tmpfs session under `/run/user/<uid>/linux-vst-bridge`, and transfers the exact session binding. The supervisor preserves the pinned Windows host’s durable `C:\bridge\sessions\...` readiness/gate contract while exposing only the fixed native-created hot transport files as verified views into that RAM session.
+The service validates the registered class and connecting DAW, reserves capacity, creates a private tmpfs session under `/run/user/<uid>/linux-vst-bridge`, and returns a typed startup binding. The supervisor preserves the Windows host's durable `C:\bridge\sessions\...` readiness contract while exposing only the fixed high-frequency transport files as verified views into the RAM-backed session.
 
-A bounded environment owner starts Wine’s shared infrastructure before DSP instances and loads no plug-in. Each admitted DSP instance has its own supervised Windows process, transport, controller, state owner, and editor.
+One environment keeper owns shared Proton/Wine infrastructure and loads no plug-in. Each DSP instance has its own supervisor, Windows process cohort, transport, state owner, controller, and editor.
 
-### AP17 capacity candidate
+## Accepted AP17 capacity
 
-`capacity` asks the running owner for canonical version-1 status. It reports live DSP leases, each class, the separate keeper/maintenance owners, current request workers, the native hard ceiling, the enforced admission limits, and the engineering envelope. The current candidate admits six DSP instances globally, at most three of the exact LoFi class and four of the exact FRAGMENTS class. The native hard ceiling stays four per loaded image/process. Six is a conservative engineering selection; project recall and recovery qualification remain in progress.
+The exact Steam Deck / Bitwig / pinned Arturia fixture supports the following conservative envelope:
 
-Six long-lived DSP owners are separate from the 16-worker mechanical service ceiling. One inspection or standalone vendor-access job requires inactive DSP; the environment keeper loads no plug-in and consumes no DSP slot. An exclusive existing registry lock reserves startup before binding/session/lease exposure. Durable owner leases, not an in-memory permit count, retain capacity until exact positive retirement. Unresolved retirement blocks new admission and survives service restart.
+- 16 service workers;
+- 6 live DSP instances globally;
+- Pure LoFi maximum 3;
+- Efx FRAGMENTS maximum 4;
+- native hard capacity 4 per loaded class image;
+- three qualified parallel tracks;
+- serial bridged depth three;
+- two simultaneous direct editors exercised.
 
-The non-RT registered startup uses `LVB3` and receives a bounded correlated `LVR3` success or typed refusal. Global, per-class, native-image, maintenance, cleanup and service-worker limits are distinct. Only an unowned service-busy refusal may retry: at most 64 attempts with 20 ms backoff inside one ten-second startup deadline. Actual capacity refusal, malformed/stale replies, partial bindings and EOF do not retry. The audio protocol and callbacks are unchanged. Old `LVB1/2` binaries retain their historical startup encoding; they do not acquire typed-refusal support from a manager update alone.
+Seven remains unqualified. Eight was excluded for the tested workload. Global, class, native-image, maintenance, and service-worker limits remain distinct.
 
-`qualify-capacity stage PACKAGE`, `qualify-capacity publish`, and `qualify-capacity restore` reuse the immutable publication transaction for the finite AP17 native candidates. The compiled roster contains exactly the two revision-8 products and their native hashes built from source `244e6b6009f13f81f9aa9f814b15e3db1496bea3`. Ordinary managed activation stays verified-only. An AP17 candidate must preserve the exact verified revision-7 parent, Windows host, descriptor, runner, module, class, editor/state/precision/performance constraints and external IDs. Startup/reconcile restores engineering publications to their retained verified parents when inactive. AP15 qualification remains distinct.
+Startup uses `LVB3`/`LVR3` to return a nonce-correlated exact binding or typed service/global/class/native/maintenance/cleanup refusal before partial ownership. Capacity is retained by durable owner leases and released only after positive native/Windows retirement. Unknown cleanup remains fail-closed.
 
-## Volatile transport and durable recovery
+Revision 10 is the accepted ordinary source generation for AP17. The Deck was left on revision 7 after the final investigation; AP18 may activate revision 10 once through the existing bounded transition. No AP17 campaign replay is required.
 
-High-frequency session mappings are intentionally ephemeral:
+The narrow capacity-enumeration/lease-deletion race is tracked in issue #93 as a focused manager follow-up.
 
-- `ap1.control`
-- `ap1.audio`
-- `ap10.delivery`
-- `ap11.ui`
-- `ap12.status`
+## Volatile transport and durable state
 
-They live in private tmpfs and disappear at user-session or machine restart. Durable owner specifications, readiness/gate files, reports, receipts, software, environment, profiles, publications, vendor state, and projects remain in their existing persistent locations.
+High-frequency mappings are private per-session tmpfs files:
 
-The manager validates tmpfs type, uid, mode, marker, device/inode, and the actual connecting peer’s mount namespace before exposing a binding. There is no disk-backed fallback. Positive descendant cleanup and native release precede removal of the exact session directories. Failed physical retirement cannot produce a success receipt.
+- `ap1.control`;
+- `ap1.audio`;
+- `ap10.delivery`;
+- `ap11.ui`;
+- `ap12.status`.
 
-Ongoing Linux tracking uses process identity as PID plus start time rather than names alone. A terminal SDK failure is observed even if a companion keeps an outer launcher alive. Unconfirmed cleanup blocks new admissions and survives service restart through persisted ownership leases; it does not stop already healthy siblings. Unexpected service loss remains an explicit native failure and cannot silently replace DSP or restore guessed state.
+They disappear at user-session or machine restart. Environment identity, owner specifications, readiness/gate files, reports, receipts, software, profiles, publications, vendor state, and projects remain durable.
+
+The manager verifies tmpfs type, ownership, permissions, marker, device/inode, and the connecting process's mount namespace. There is no disk-backed fallback. Failed physical retirement cannot produce a successful receipt.
+
+## AP18 installer and vendor-application path
+
+The existing `install` route is a one-shot installer supervisor. It verifies exact bytes, obtains exclusive environment access, launches the installer through the pinned runner, tracks descendants, bounds diagnostics and time, contains owned processes, and records launcher exit plus cleanup.
+
+AP18 extends this only as required by the real Arturia Software Center workflow. ASC is a persistent companion application rather than a one-shot installer. The manager needs a reusable exact application identity, launch/focus/status ownership, continuing helper/download/install classification, bounded before/after manifests, and post-install product discovery.
+
+The intended AP18 flow is:
+
+```text
+private exact ASC installer
+→ installed ASC application in the existing Arturia environment
+→ user-owned Arturia sign-in/activation
+→ Pigments download and installation
+→ exact VST3/resource discovery
+→ immutable Pigments ReviewCandidate
+→ reversible Bitwig qualification
+```
+
+The operator has placed unopened ASC installer file(s) in the Steam Deck user's Downloads directory. The implementation must hash and privately admit one exact file before execution. Installer/product bytes, account data, authorization payloads, presets, and sensitive vendor logs never enter Git.
+
+The real ASC UI remains the account/catalogue/download surface. A minimal manager frontend is added only if a demonstrated launch, focus, lifecycle, rescan, or status problem blocks the workflow. Manager state remains canonical; no frontend may automate credentials or licensing.
 
 ## Performance posture
 
-Registered proxies retain 512 added frames and the mailbox delivery path without reading historical preview settings. Optional correlated tracing reads `managed/runtime/trace-enable` at inactive setup. The supervisor passes the same explicit opt-in to the Windows host; inspection and vendor-access jobs do not inherit it.
-
-AP16 moved the hot mappings from journaled environment storage to private tmpfs and repaired one demonstrated 27–29 ms native preparation-stall class. It did not claim gap-free operation. Residual startup, queue/reply, editor/removal, and shutdown-window classes remain tracked in issue #90.
-
-Two serial proxies add 1,024 bridge frames before vendor/device latency. The exact accepted LoFi → FRAGMENTS chain reports 1,264 frames / 26.333 ms at 48 kHz, excluding DAW, device, and acoustic latency.
+The accepted products use 512 added frames per proxy. 256 remains available but unqualified. AP16 repaired one journaled-storage stall by moving hot mappings to private tmpfs; it did not claim gap-free or hard-real-time operation. Remaining delivery classes are tracked in issue #90.
 
 ## Focused checks
 
 ```text
 cargo test --manifest-path bridge-manager/Cargo.toml --locked
+cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings
 python3 -m unittest discover -s bridge-manager/runtime -v
 ```
 
-Rust tests cover exact metadata, managed publication/rollback, artifact replacement, software ownership, transport storage, duplicate service ownership, and independent registrations. Linux process tests cover sibling survival, stat-only tracking, terminal host failure with a lingering launcher, native release before transport retirement, and the tmpfs/C: handshake law.
-
-They do not substitute for normally launched Bitwig and actual vendor tests. AP17 must use the real fixture to establish process topology, resource scale, project recall, clean over-limit refusal, and recovery at the selected supported capacity.
+Run native and Windows lanes only when their owners or shared contracts change. Synthetic tests do not substitute for real ASC, Pigments, and normally launched Bitwig evidence.
