@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "authority": "Operator-directed exact Pigments MIDI-output correction; no further pre-repair sink investigation",
+  "policy": "reported_zero_event_channels_unspecified",
+  "profile": "arturia-pigments",
+  "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+  "class_id": "41727475415649534B61743150726F63",
+  "bus": {
+    "media": "event",
+    "direction": "output",
+    "index": 0,
+    "reported_channel_count": 0,
+    "effective_channel_count": 16,
+    "name_type_flags": "unchanged"
+  },
+  "scope": "Exact profile supplies policy; absent policy retains reported count. No vendor/name dispatch.",
+  "implementation": {
+    "native": "Generated descriptor advertises effective 16 and retains separate reported_bus_channels zero. Original census is unmodified.",
+    "setup": "BusLayout retains raw BusInfo and compares native setup against effective_channels.",
+    "collector": "Only the configured bus limit changes; append/value/offset/type/payload/capacity validators and output packets remain unchanged.",
+    "runtime": "Closed optional registration policy reaches only a freshly constructed supervised environment; no ambient override inheritance."
+  },
+  "native_artifact": {
+    "returncode": 0,
+    "sha256": "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
+    "source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
+    "input_archive_sha256": "58d046ec38633de2bb20496f4953fd67a4d2a030f10ff845ac02832b3fe28853",
+    "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "validation": {
+    "descriptor_tests": 8,
+    "local_backend": 63,
+    "local_manager_before_roster_update": "passed",
+    "manager_clippy_before_roster_update": "passed",
+    "linux_ctest": "7/7 passed",
+    "linux_runtime": "37 passed, no skips",
+    "fixture_corrections": "Out-of-range channels retain existing InvalidEventField rejection; the hand-built legacy bus fixture initializes effective_channels. Failed earlier test runs retained privately; production validation was not loosened.",
+    "hosted_source": {
+      "windows": 34658965046,
+      "native": 34658965038,
+      "manager": 34658965047,
+      "px2": 34658965041,
+      "result": "all passed"
+    }
+  },
+  "live": "pending corrected candidate; no C3 playback claim yet",
+  "limits": [
+    "No capacity increase",
+    "No event dropping or rewriting",
+    "No sink-presence transport change",
+    "No sidechain topology/input-routing change",
+    "No LoFi/FRAGMENTS profile or artifact change",
+    "512 recommended; 256 unqualified"
+  ],
+  "candidate": {
+    "revision": 6,
+    "claim": "review_candidate",
+    "profile_file_sha256": "ca00ca5373f76d10a3d4b60421eecbfa57e60e19e1e06e3b9a4332b20b900879",
+    "requirements": {
+      "environment_family": "arturia_persistent_v1",
+      "environment_revision": 1,
+      "host_sha256": "e008ce8aa10f5ee7b5033b2d33a9cae091505a5a099cbe34dc71bcdaa770a540",
+      "host_source_sha256": "d60a009cd04392f0c5452b4098923e511b575f6dd4d3d3a68fca014c0d38d6fb",
+      "native_sha256": "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
+      "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
+      "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
+    }
+  },
+  "windows": {
+    "run": 34658965046,
+    "source": "eb593b31e24507514198bb24d5c66c8fd0d9489b",
+    "build_commit": "eee4947a4e65c35a4f9517b4fcd40cbf2d0f2c9c",
+    "artifact": 10286054056,
+    "zip_sha256": "93cd2e11efe6a6e5c3283e36db74ada4db4bf95df4334cae5578c144d1511d51",
+    "host_sha256": "e008ce8aa10f5ee7b5033b2d33a9cae091505a5a099cbe34dc71bcdaa770a540",
+    "manifest_sha256": "d60a009cd04392f0c5452b4098923e511b575f6dd4d3d3a68fca014c0d38d6fb"
+  }
+}

@@ -354,3 +354,18 @@ No further pre-repair live investigation or desktop control is authorized.
 Use SSH/background tools for the corrected C3 check, then continue AP18 if it
 plays. The attempted replacement debugger wait expired without finding an
 instance or taking a snapshot.
+
+### Corrected revision 6 built
+
+The exact Pigments profile now declares the closed event-output policy. Its
+native descriptor retains raw zero separately and advertises effective 16;
+Windows preserves raw BusInfo while setup and Collector use effective 16.
+Channels 0/15 pass unchanged; negative/16 remain rejected by the existing MIDI
+field validator. No capacities, result encoding, input routing or sink-delivery
+behavior changed. Revision 5 remains byte-identical in its historical path;
+replacement extends only 5→6, never ordinary activation.
+
+The Linux SDK/CTest lane and 37 Linux runtime tests pass. All four hosted source
+lanes pass at eb593b3. Exact Windows and native identities are retained in
+`evidence/ap18/pigments/event-output-correction.json`. Corrected C3 playback is
+the next check; no live playback success is claimed yet.

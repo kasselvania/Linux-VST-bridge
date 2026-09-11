@@ -316,7 +316,7 @@ mod event_policy_tests {
     use super::*;
     #[test]
     fn policy_is_closed_optional_and_preserves_old_fingerprints() {
-        let original=crate::pigments::candidate().unwrap();
+        let original=Profile::parse(include_bytes!("../../compatibility/ap18/revision-5/arturia-pigments.json")).unwrap();
         let bytes=serde_json::to_vec(&original).unwrap();
         assert!(!String::from_utf8(bytes).unwrap().contains("event_output"));
         assert_eq!(original.fingerprint().unwrap(),"5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4");

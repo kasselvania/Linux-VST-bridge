@@ -14,11 +14,13 @@ pub(crate) fn replacement_prior(prior: &Profile, next: &Profile) -> Result<bool>
     let second = Profile::parse(include_bytes!("../../compatibility/ap18/revision-2/arturia-pigments.json"))?;
     let third = Profile::parse(include_bytes!("../../compatibility/ap18/revision-3/arturia-pigments.json"))?;
     let fourth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-4/arturia-pigments.json"))?;
-    let fifth = candidate()?;
+    let fifth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-5/arturia-pigments.json"))?;
+    let sixth = candidate()?;
     Ok((*prior == first && *next == second)
         || (*prior == second && *next == third)
         || (*prior == third && *next == fourth)
-        || (*prior == fourth && *next == fifth && fifth.revision == 5))
+        || (*prior == fourth && *next == fifth && fifth.revision == 5)
+        || (*prior == fifth && *next == sixth && sixth.revision == 6))
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -45,7 +47,7 @@ fn current_baseline(
 ) -> Result<(Baseline, Environment)> {
     require(
         p.claim == Claim::ReviewCandidate
-            && p.revision == 5
+            && p.revision == 6
             && p.id == "arturia-pigments"
             && p.role == Role::Instrument
             && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
@@ -398,7 +400,7 @@ mod tests {
             policies.push(policy);
         }
         p.id = "arturia-pigments".into();
-        p.revision = 5;
+        p.revision = 6;
         p.claim = Claim::ReviewCandidate;
         p.class.class_id = "03".repeat(16);
         p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
@@ -539,7 +541,19 @@ mod tests {
         let fourth_bytes = include_bytes!("../../compatibility/ap18/revision-4/arturia-pigments.json");
         assert_eq!(crate::hex(&sha2::Sha256::digest(fourth_bytes)), "64e9773239ec910dcefd8ddfc0a15d36d8bca1689b9998c07ffc74da5583b00b");
         let fourth = Profile::parse(fourth_bytes).unwrap();
-        let fifth = candidate().unwrap();
+        let fifth_bytes=include_bytes!("../../compatibility/ap18/revision-5/arturia-pigments.json");
+        assert_eq!(crate::hex(&sha2::Sha256::digest(fifth_bytes)),"dde2e25eb108c98d80926621f8fe9501d87a1ced93bc59bf917278f664c016e9");
+        let fifth=Profile::parse(fifth_bytes).unwrap();
+        let sixth=candidate().unwrap();
+        assert!(replacement_prior(&fifth,&sixth).unwrap());
+        assert!(!replacement_prior(&fourth,&sixth).unwrap());
+        assert!(!replacement_prior(&sixth,&fifth).unwrap());
+        assert_eq!(sixth.capabilities.event_output,Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified));
+        assert!(sixth.claim.require(SelectionPurpose::Activation).is_err());
+        assert_eq!(external_ids(&sixth.class.class_id).unwrap(),external_ids(&fifth.class.class_id).unwrap());
+        let mut normalized=sixth.clone();normalized.revision=fifth.revision;
+        normalized.requirements=fifth.requirements.clone();normalized.capabilities.event_output=None;normalized.evidence=fifth.evidence.clone();
+        assert_eq!(normalized,fifth);
         assert!(replacement_prior(&fourth, &fifth).unwrap());
         assert!(!replacement_prior(&third, &fifth).unwrap());
         assert!(!replacement_prior(&fifth, &fourth).unwrap());
@@ -590,7 +604,7 @@ mod tests {
     #[test]
     fn compiled_candidate_is_new_identity_not_ordinary_or_ap17_policy() {
         let p = candidate().unwrap();
-        assert_eq!(p.revision, 5);
+        assert_eq!(p.revision, 6);
         assert_eq!(p.class.name, "Pigments");
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());

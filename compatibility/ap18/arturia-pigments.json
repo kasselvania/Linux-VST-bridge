@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 5,
+  "revision": 6,
   "claim": "review_candidate",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
@@ -56,13 +56,14 @@
     },
     "environment_family": "arturia_persistent_v1",
     "environment_revision": 1,
-    "host_sha256": "0dd32d2e3db161fa7042b40c574c96b730e8b45495e8faa0d105cf7766efc291",
-    "host_source_sha256": "e15a18af18ec39a49634b6d4576e007dc8ce3bc9abb27264a12b3ff3d509a902",
-    "native_sha256": "f29f52f9d96649b1effbc5c1dd8c405074304ec2527d215c3794575e01ad122b",
-    "native_source_commit": "36c02af2425e0bebeb940d7372cf3e10ab1da6ad",
-    "descriptor_sha256": "07fb5e0b77bbc88b068a87e42eed43317b28d89d550842499eb888a5b2e1c305"
+    "host_sha256": "e008ce8aa10f5ee7b5033b2d33a9cae091505a5a099cbe34dc71bcdaa770a540",
+    "host_source_sha256": "d60a009cd04392f0c5452b4098923e511b575f6dd4d3d3a68fca014c0d38d6fb",
+    "native_sha256": "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
+    "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
+    "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
   },
   "capabilities": {
+    "event_output": "reported_zero_event_channels_unspecified",
     "accessibility": "windows_default",
     "editor": "detached_direct_vendor_lifecycle",
     "state": "concurrent_read_only_capture_v12",
@@ -82,6 +83,8 @@
     "docs/AP18.md",
     "evidence/ap18/pigments/installed.json",
     "evidence/ap18/pigments/census.json",
-    "evidence/ap18/pigments/native-activation.json"
+    "evidence/ap18/pigments/native-activation.json",
+    "evidence/ap18/pigments/event-output-operational-census.json",
+    "evidence/ap18/pigments/event-output-correction.json"
   ]
 }
