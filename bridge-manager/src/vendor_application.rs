@@ -89,7 +89,7 @@ pub enum AccountPosture {
 
 impl OperationResult {
     pub fn retired(&self) -> bool {
-        matches!(self.schema, 1 | 2 | 3)
+        matches!(self.schema, 1..=3)
             && self.cleanup_confirmed
             && self.owned_live.unwrap_or(0) == 0
             && matches!(
