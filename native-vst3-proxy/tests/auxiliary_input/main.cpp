@@ -28,7 +28,7 @@ uint32_t __wrap_ap10_setup(uint64_t,uint32_t,uint32_t,double,const uint8_t*p,uin
 uint32_t __wrap_ap4_activate(uint64_t,uint32_t,uint32_t){++activations;return 0;}
 uint32_t __wrap_ap4_deactivate(uint64_t){return 0;}
 uint32_t __wrap_ap3_transition(uint64_t,uint32_t){return 0;}
-uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t*p){std::memset(p,0,sizeof(*p));return 0;}
+uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t*p){static const ap10_results_t empty{};*p=empty;return 0;}
 uint32_t __wrap_ap13_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*,uint64_t silence,const float*l,const float*r,float*ol,float*orr,uint64_t*out,ap7_delivery_t*d,uint64_t entered){
  assert(entered&&count==2&&e[0].kind==0&&e[1].kind==2);
  assert(e[0].offset==(n?7u:0u)&&e[1].offset==(n?11u:0u));
