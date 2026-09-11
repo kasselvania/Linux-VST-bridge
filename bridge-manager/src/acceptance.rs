@@ -352,6 +352,22 @@ pub fn prepare_capacity(m: &Manager) -> Result<AcceptedSoftware> {
             .all(|o| o.kind == capacity::Kind::Keeper),
         "active_lease_unresolved",
     )?;
+    for owner in capacity::owners(m)? {
+        // Setup requires the old service stopped. A retained keeper lease is
+        // harmless only with its exact positive ownership retirement receipt.
+        let report: PathBuf = read_json(
+            &m.root
+                .join("runtime/leases")
+                .join(format!("{}.json", owner.session)),
+        )?;
+        let receipt: serde_json::Value = read_json(&report.with_extension("ownership.json"))?;
+        require(
+            receipt["session"].as_str() == Some(&owner.session)
+                && receipt["transport_retired"] == true
+                && receipt["cleanup_confirmed"] == true,
+            "active_lease_unresolved",
+        )?;
+    }
     prepare_selected_for(
         m,
         &seal.review,
