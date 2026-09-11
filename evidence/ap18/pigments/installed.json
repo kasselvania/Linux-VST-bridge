@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "phase": "installed_before_sdk_scan",
+  "acquisition": "ASC library: operator selected Pigments only",
+  "activation": "operator reports completed; no activation payload inspected",
+  "module": {
+    "bytes": 31007360,
+    "sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07"
+  },
+  "existing_modules": {
+    "Pure LoFi.vst3": {
+      "bytes": 26519616,
+      "sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636"
+    },
+    "Efx FRAGMENTS.vst3": {
+      "bytes": 20673024,
+      "sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26"
+    }
+  },
+  "roots": {
+    "vst3": "<environment>/drive_c/Program Files/Common Files/VST3/Pigments.vst3",
+    "standalone": "<environment>/drive_c/Program Files/Arturia/Pigments/Pigments.exe",
+    "resources": "<environment>/drive_c/ProgramData/Arturia/Pigments",
+    "presets": "<environment>/drive_c/ProgramData/Arturia/Presets/Pigments",
+    "samples": "<environment>/drive_c/ProgramData/Arturia/Samples/Pigments"
+  },
+  "asc_close": {
+    "schema": 3,
+    "state": "completed",
+    "launcher_exit": 0,
+    "owned_live": 0,
+    "cleanup_confirmed": true,
+    "error": null,
+    "discarded_diagnostic_bytes": 354993,
+    "retained_diagnostic_bytes": 679790,
+    "diagnostic_enabled": true,
+    "windows_accessibility_disabled": true,
+    "account_posture": "unknown"
+  },
+  "claim": "Installed files and operator activation report; no SDK/audio/editor/publication claim yet."
+}

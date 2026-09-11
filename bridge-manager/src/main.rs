@@ -4,6 +4,7 @@ mod managed_cli;
 mod test_fixture;
 mod transport_storage;
 mod vendor_cli;
+mod vendor_product_cli;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{
@@ -965,6 +966,7 @@ fn main() -> Result<()> {
   Some("accept-capacity") if args.len()==1=>managed_cli::run_capacity_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
+  Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
   Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),

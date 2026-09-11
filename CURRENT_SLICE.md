@@ -192,25 +192,21 @@ Update one AP18 implementation PR with exact source and artifact identities, ins
 
 ### Current checkpoint
 
-The focused diagnostic captured a fatal `0xC0000005` exception in ASC's main
-process after the one instrumented operator login. Agent survived main by about
-29.412 seconds; the supervisor retained ownership until the cgroup was empty
-and did not terminate the handoff. Launcher exit 5 alone was previously
-ambiguous; the new private trace establishes a fatal exception for this attempt.
-The exact DLL/function at the relocated fault IP remains unresolved because
-loaded module ranges were not retained. Do not choose a compatibility change
-or repeat login blindly from that gap.
+ASC's post-login fault is now attributed to the pinned runtime's
+`UIAutomationCore!UiaDisconnectProvider` null-provider path. The exact
+operation-scoped accessibility comparison reached the real ASC library. The
+operator installed Pigments through ASC and reports completing activation.
+Normal ASC close returned launcher exit 0 and positive empty-cgroup cleanup.
+Historical failed attempts remain retained; see
+[evidence/ap18/post-login/uia-attribution.json](evidence/ap18/post-login/uia-attribution.json).
 
-The companion owner now retains dedicated-cgroup ownership, bounded private
-separate diagnostics, mapped-image identity and idempotent completed cancellation.
-Focused manager/runtime tests and Linux build pass. These repairs close source
-ownership/observation defects; they do not fix ASC's crash. See
-[the focused result](evidence/ap18/post-login/observation.json) and
-[its interpretation](docs/AP18.md#focused-post-login-diagnosis-fatal-main-process-exception).
-The previous three attempts remain distinct historical evidence.
+The manager now has an inactive, nonpublishing `vendor-product scan pigments`
+route. It nominates the installed module inside ASC's exact environment, invokes
+the existing supervised module-level SDK census, refuses ambiguous classes and
+checks actual factory/class metadata. It does not ask the operator for IDs,
+hashes or paths. Pigments native generation and engineering publication remain
+pending the real scan result. Normal ASC launch still needs the demonstrated
+accessibility selection promoted from its explicit diagnostic operation.
 
-Pigments and the vertical remain incomplete. Ordinary revision-10 publications,
-revision-7/3 history, modules and checked project hashes remain unchanged.
-Service is active, keeper retired/lazy, no DSP or vendor operation remains,
-tracing is off, and CPUWeight is unset/effective 100. 512 remains recommended;
-256 is unqualified. PR #95 remains draft, open and unmerged.
+LoFi and FRAGMENTS revision 10 remain valid and their module bytes unchanged.
+512 remains recommended; 256 is unqualified. PR #95 remains draft and unmerged.
