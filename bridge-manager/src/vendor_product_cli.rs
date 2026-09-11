@@ -63,6 +63,20 @@ fn product(c: &Census) -> Result<()> {
     )
 }
 
+fn finish_scan(mut child: Child, job: &SessionSpec, mut pending: PendingAdmission) -> Result<()> {
+    let status = child.wait()?;
+    let mut receipt = String::new();
+    if let Some(stdout) = child.stdout.take() {
+        stdout.take(128).read_to_string(&mut receipt)?;
+    }
+    pending.complete(
+        &job.session,
+        status.success(),
+        &receipt,
+        Some(&job.directory),
+    )
+}
+
 pub fn run(m: &Manager, args: &[String]) -> Result<()> {
     require(args == ["scan", "pigments"], "vendor-product scan pigments")?;
     let _guard = m.lock("registry.lock")?;
@@ -117,10 +131,10 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
         compatibility: Compatibility::default(),
     };
     let (job, path) = spec(m, r, true, true, false)?;
-    require(
-        spawn(&sw, &path, None)?.wait()?.success(),
-        "product_inspection_cleanup_failed",
-    )?;
+    let mut pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+    let child = spawn(&sw, &path, None)?;
+    pending.expose();
+    finish_scan(child, &job, pending)?;
     module.verify()?;
     require(
         ModuleStamp::read(&module.path)? == stamp,
@@ -155,6 +169,36 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn completed_scan_consumes_exact_receipt_and_releases_its_lease() {
+        let f = test_fixture::Fixture::new();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, true, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        let owner = || {
+            Command::new("/bin/sh")
+                .args([
+                    "-c",
+                    "printf 'LVO1 %s retired\\n' \"$1\"",
+                    "scan-owner",
+                    &job.session,
+                ])
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap()
+        };
+        // Receipt alone cannot hide a still-present transport/session directory.
+        let mut pending =
+            PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        pending.expose();
+        assert!(finish_scan(owner(), &job, pending).is_err());
+        assert!(job.lease.exists());
+        fs::remove_dir_all(&job.directory).unwrap();
+        let mut pending =
+            PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
+        pending.expose();
+        finish_scan(owner(), &job, pending).unwrap();
+        assert!(!job.lease.exists());
+    }
     #[test]
     fn nomination_is_bounded_and_not_sdk_authority() {
         let f = test_fixture::Fixture::new();
