@@ -1,0 +1,393 @@
+{
+  "G2_bounded_observer": {
+    "changes": [
+      {
+        "effective_weight": "100",
+        "monotonic_ns": 18670449527983,
+        "override_mtime_ns": 1789110831468428484,
+        "wall_ns": 1789110882346317450
+      },
+      {
+        "effective_weight": "10000",
+        "monotonic_ns": 18715491226184,
+        "override_mtime_ns": 1789110927308192731,
+        "wall_ns": 1789110927388015381
+      }
+    ],
+    "count": 601,
+    "first": {
+      "effective_weight": "100",
+      "monotonic_ns": 18670449527983,
+      "override_mtime_ns": 1789110831468428484,
+      "wall_ns": 1789110882346317450
+    },
+    "last": {
+      "effective_weight": "10000",
+      "monotonic_ns": 18730631608830,
+      "override_mtime_ns": 1789110927308192731,
+      "wall_ns": 1789110942528397967
+    },
+    "maximum_sample_spacing_ns": 101230269,
+    "not_permanent": true,
+    "read_only": true
+  },
+  "G2_restore": {
+    "baseline": "unset; effective default 100",
+    "before": "# This is a drop-in unit file extension, created via \"systemctl set-property\"\n# or an equivalent operation. Do not edit.\n[Service]\nCPUWeight=10000\n",
+    "mtime_utc": "2026-09-11T07:15:27.308193+00:00",
+    "physical_cpu_weight": "100",
+    "readback": "NRestarts=0\nControlGroup=/user.slice/user-1000.slice/user@1000.service/app.slice/linux-vst-bridge.service\nCPUWeight=[not set]\nActiveState=active\n",
+    "restore": {
+      "exit": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "writer": "unidentified"
+  },
+  "G2_retirement_file_times": {
+    "sessions": [
+      {
+        "files": {
+          ".fault.json": {
+            "bytes": 1321,
+            "mtime_ns": 1789110927544678639
+          },
+          ".json": {
+            "bytes": 159492,
+            "mtime_ns": 1789110927666216796
+          },
+          ".ownership.json": {
+            "bytes": 126,
+            "mtime_ns": 1789110927669744535
+          }
+        },
+        "session": "44837bc437953b8e9e006adb850991ff"
+      },
+      {
+        "files": {
+          ".fault.json": {
+            "bytes": 1323,
+            "mtime_ns": 1789110927572551002
+          },
+          ".json": {
+            "bytes": 159500,
+            "mtime_ns": 1789110927696217391
+          },
+          ".ownership.json": {
+            "bytes": 126,
+            "mtime_ns": 1789110927699399796
+          }
+        },
+        "session": "47f43f2b33e57601484b5bca9e1eea22"
+      },
+      {
+        "files": {
+          ".fault.json": {
+            "bytes": 1314,
+            "mtime_ns": 1789110927524266142
+          },
+          ".json": {
+            "bytes": 160451,
+            "mtime_ns": 1789110927653216538
+          },
+          ".ownership.json": {
+            "bytes": 126,
+            "mtime_ns": 1789110927656730723
+          }
+        },
+        "session": "85c0f1840f00249c3f5463ad45c13142"
+      },
+      {
+        "files": {
+          ".fault.json": {
+            "bytes": 1325,
+            "mtime_ns": 1789110927746698435
+          },
+          ".json": {
+            "bytes": 211249,
+            "mtime_ns": 1789110927874220925
+          },
+          ".ownership.json": {
+            "bytes": 126,
+            "mtime_ns": 1789110927878167756
+          }
+        },
+        "session": "453d9598eb4da982ba981ae84f040c72"
+      },
+      {
+        "files": {
+          ".fault.json": {
+            "bytes": 1315,
+            "mtime_ns": 1789110927146206474
+          },
+          ".json": {
+            "bytes": 213682,
+            "mtime_ns": 1789110927290209332
+          },
+          ".ownership.json": {
+            "bytes": 126,
+            "mtime_ns": 1789110927295042186
+          }
+        },
+        "session": "f89c5d6c4d420544ce5beba6121e1576"
+      },
+      {
+        "files": {
+          ".fault.json": {
+            "bytes": 1312,
+            "mtime_ns": 1789110927334210206
+          },
+          ".json": {
+            "bytes": 161599,
+            "mtime_ns": 1789110927462212746
+          },
+          ".ownership.json": {
+            "bytes": 126,
+            "mtime_ns": 1789110927467212846
+          }
+        },
+        "session": "7fbac063ff95b0cbbd0ac5f27c55746e"
+      }
+    ],
+    "wall_ns": 1789111151145777144
+  },
+  "G_override": [
+    {
+      "mtime_ns": 1789110149346323688,
+      "path": "$XDG_RUNTIME_DIR/systemd/user.control/linux-vst-bridge.service.d/50-CPUWeight.conf",
+      "text": "# This is a drop-in unit file extension, created via \"systemctl set-property\"\n# or an equivalent operation. Do not edit.\n[Service]\nCPUWeight=10000\n"
+    }
+  ],
+  "G_restore": {
+    "baseline": "unset; effective default 100",
+    "before": "# This is a drop-in unit file extension, created via \"systemctl set-property\"\n# or an equivalent operation. Do not edit.\n[Service]\nCPUWeight=10000\n",
+    "mtime_utc": "2026-09-11T07:02:29.346324+00:00",
+    "physical_cpu_weight": "100",
+    "readback": "NRestarts=0\nControlGroup=/user.slice/user-1000.slice/user@1000.service/app.slice/linux-vst-bridge.service\nCPUWeight=[not set]\nActiveState=active\n",
+    "restore": {
+      "exit": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "writer": "unidentified"
+  },
+  "claim_boundary": "This explains the runtime override, not the original surviving Bitwig process. System-wide foreground booster was not disabled or reconfigured.",
+  "consequence": "Both combined runs excluded from fixed-CPUWeight confirmation. Override overlapped remaining cleanup receipts and application exit. No causal claim that it fixed or caused the prior hang. No further full retries.",
+  "narrow_source_inspection": "No CPUWeight mutation in the exercised manager/supervisor/ownership code or read-only capture helpers. Service has no ExecStop/ExecStopPost and no restart; no source attribution inferred.",
+  "owner_evidence": {
+    "journal": [
+      {
+        "code": 0,
+        "end": "2026-09-11 00:02:35",
+        "records": [
+          {
+            "MESSAGE": "SAME PID \"com.bitwig.BitwigStudio.desktop\"",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17936795672",
+            "__REALTIME_TIMESTAMP": "1789110148692460"
+          },
+          {
+            "MESSAGE": "Removing \"app-flatpak-com.bitwig.BitwigStudio-3910225722.scope\" from cache",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937261369",
+            "__REALTIME_TIMESTAMP": "1789110149158157"
+          },
+          {
+            "MESSAGE": "Switching from \"com.bitwig.BitwigStudio.desktop\" to \"steam_app_0\"",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937267559",
+            "__REALTIME_TIMESTAMP": "1789110149164347"
+          },
+          {
+            "MESSAGE": "Previous  systemd  app focused: \"linux-vst-bridge.service\" , appid = \"steam_app_0\" , pid = 25898",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937267684",
+            "__REALTIME_TIMESTAMP": "1789110149164472"
+          },
+          {
+            "MESSAGE": "setting \"linux-vst-bridge.service\" weight to 100 times normal weight",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937267770",
+            "__REALTIME_TIMESTAMP": "1789110149164558"
+          },
+          {
+            "MESSAGE": "Removing \"linux-vst-bridge.service\" from cache",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937423593",
+            "__REALTIME_TIMESTAMP": "1789110149320381"
+          },
+          {
+            "MESSAGE": "Switching from \"steam_app_0\" to \"steam_app_0\"",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937443565",
+            "__REALTIME_TIMESTAMP": "1789110149340353"
+          },
+          {
+            "MESSAGE": "New window focused: appid = \"steam_app_0\" , pid = 25263",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937443671",
+            "__REALTIME_TIMESTAMP": "1789110149340459"
+          },
+          {
+            "MESSAGE": "setting \"\" weight to 100 times normal weight",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937446253",
+            "__REALTIME_TIMESTAMP": "1789110149343041"
+          },
+          {
+            "MESSAGE": "Removing \"linux-vst-bridge.service\" from cache",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937553497",
+            "__REALTIME_TIMESTAMP": "1789110149450285"
+          },
+          {
+            "MESSAGE": "Switching from \"steam_app_0\" to \"com.google.Chrome.desktop\"",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937554055",
+            "__REALTIME_TIMESTAMP": "1789110149450843"
+          },
+          {
+            "MESSAGE": "setting \"app-flatpak-com.google.Chrome-1734551771.scope\" weight to 100 times normal weight",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "17937554246",
+            "__REALTIME_TIMESTAMP": "1789110149451034"
+          }
+        ],
+        "start": "2026-09-11 00:02:20"
+      },
+      {
+        "code": 0,
+        "end": "2026-09-11 00:15:35",
+        "records": [
+          {
+            "MESSAGE": "SAME PID \"com.bitwig.BitwigStudio.desktop\"",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18714990850",
+            "__REALTIME_TIMESTAMP": "1789110926887638"
+          },
+          {
+            "MESSAGE": "Removing \"app-flatpak-com.bitwig.BitwigStudio-410538899.scope\" from cache",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18715395193",
+            "__REALTIME_TIMESTAMP": "1789110927291981"
+          },
+          {
+            "MESSAGE": "Switching from \"com.bitwig.BitwigStudio.desktop\" to \"steam_app_0\"",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18715408403",
+            "__REALTIME_TIMESTAMP": "1789110927305191"
+          },
+          {
+            "MESSAGE": "Previous  systemd  app focused: \"linux-vst-bridge.service\" , appid = \"steam_app_0\" , pid = 27782",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18715408873",
+            "__REALTIME_TIMESTAMP": "1789110927305661"
+          },
+          {
+            "MESSAGE": "setting \"linux-vst-bridge.service\" weight to 100 times normal weight",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18715409526",
+            "__REALTIME_TIMESTAMP": "1789110927306314"
+          },
+          {
+            "MESSAGE": "Removing \"linux-vst-bridge.service\" from cache",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18715589985",
+            "__REALTIME_TIMESTAMP": "1789110927486773"
+          },
+          {
+            "MESSAGE": "SAME PID \"steam_app_0\"",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18715591134",
+            "__REALTIME_TIMESTAMP": "1789110927487922"
+          },
+          {
+            "MESSAGE": "Switching from \"steam_app_0\" to \"com.google.Chrome.desktop\"",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18715601170",
+            "__REALTIME_TIMESTAMP": "1789110927497958"
+          },
+          {
+            "MESSAGE": "setting \"app-flatpak-com.google.Chrome-1734551771.scope\" weight to 100 times normal weight",
+            "_COMM": "foreground_boos",
+            "_EXE": "/usr/bin/foreground_booster",
+            "_PID": "3409",
+            "_SYSTEMD_USER_UNIT": "plasma-foreground-booster.service",
+            "__MONOTONIC_TIMESTAMP": "18715601222",
+            "__REALTIME_TIMESTAMP": "1789110927498010"
+          }
+        ],
+        "start": "2026-09-11 00:15:20"
+      }
+    ],
+    "owner": {
+      "cgroup": "0::/user.slice/user-1000.slice/user@1000.service/background.slice/plasma-foreground-booster.service\n",
+      "executable": "/usr/bin/foreground_booster",
+      "pid": 3409,
+      "sha256": "b8b02d247b116463fa6b22a87aaddd43d269a633c5c541bb8dd134e52d5aa8e5",
+      "start_ticks": 27588
+    }
+  },
+  "schema": 1,
+  "writer": "Identified by exact journal: /usr/bin/foreground_booster, PID 3409 start_ticks 27588, plasma-foreground-booster.service. At each quit it switches from Bitwig to steam_app_0 and explicitly sets linux-vst-bridge.service to 100 times normal weight."
+}

@@ -1,0 +1,518 @@
+{
+  "operations": {
+    "D": {
+      "refusal": {
+        "capacity": {
+          "capacity": {
+            "available_dsp": 0,
+            "cleanup_unconfirmed": false,
+            "current_workers": 7,
+            "dsp": 6,
+            "envelope": {
+              "claim": "verified_exact_fixture",
+              "eight": "excluded_for_tested_workload",
+              "evidence": "docs/AP17.md",
+              "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+              "parallel_tracks": 3,
+              "serial_bridged_depth": 3,
+              "seven": "unqualified",
+              "simultaneous_editors": 2
+            },
+            "keepers": 1,
+            "limits": {
+              "classes": [
+                {
+                  "class_id": "417274754156495350724C4650726F63",
+                  "dsp": 3
+                },
+                {
+                  "class_id": "41727475415649536772616E50726F63",
+                  "dsp": 4
+                }
+              ],
+              "global_dsp": 6,
+              "maintenance": 1,
+              "native_image_hard": 4,
+              "service_workers": 16
+            },
+            "maintenance": 0,
+            "maintenance_admissible": false,
+            "owners": [
+              {
+                "class_id": "417274754156495350724C4650726F63",
+                "kind": "dsp",
+                "session": "033dc699a76b323d624a6333d938d821"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "20800b4c8a9dd37bbe0067b94290efc5"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "51fb2695551fa04e8c51ae4b24fcd61d"
+              },
+              {
+                "class_id": "417274754156495350724C4650726F63",
+                "kind": "dsp",
+                "session": "6ed47df79dcb29cca149c0ed874ffd45"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "keeper",
+                "session": "7e9f32ea2b63cb4167522abbab84e953"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "7fc0b8c50bbb77e034e52e19908860f8"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "c79553eff9b48d0094c0e75880fbd523"
+              }
+            ],
+            "per_class": {
+              "417274754156495350724C4650726F63": 2,
+              "41727475415649536772616E50726F63": 4
+            },
+            "schema": 1
+          },
+          "ok": true
+        },
+        "native": {
+          "engine.log": [
+            "AP2 backend: Other: admission_native_image_capacity"
+          ]
+        },
+        "publications": {
+          "registry_sha256": "f1cb054a11a35e6d7b9695171753175aeaf7c30fda609b0ff905fb4be198c7c0"
+        },
+        "service": [],
+        "tmpfs": [
+          "51fb2695551fa04e8c51ae4b24fcd61d",
+          "20800b4c8a9dd37bbe0067b94290efc5",
+          "7fc0b8c50bbb77e034e52e19908860f8",
+          "033dc699a76b323d624a6333d938d821",
+          "c79553eff9b48d0094c0e75880fbd523",
+          "6ed47df79dcb29cca149c0ed874ffd45"
+        ]
+      }
+    },
+    "Dglobal": {
+      "refusal": {
+        "capacity": {
+          "capacity": {
+            "available_dsp": 0,
+            "cleanup_unconfirmed": false,
+            "current_workers": 7,
+            "dsp": 6,
+            "envelope": {
+              "claim": "verified_exact_fixture",
+              "eight": "excluded_for_tested_workload",
+              "evidence": "docs/AP17.md",
+              "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+              "parallel_tracks": 3,
+              "serial_bridged_depth": 3,
+              "seven": "unqualified",
+              "simultaneous_editors": 2
+            },
+            "keepers": 1,
+            "limits": {
+              "classes": [
+                {
+                  "class_id": "417274754156495350724C4650726F63",
+                  "dsp": 3
+                },
+                {
+                  "class_id": "41727475415649536772616E50726F63",
+                  "dsp": 4
+                }
+              ],
+              "global_dsp": 6,
+              "maintenance": 1,
+              "native_image_hard": 4,
+              "service_workers": 16
+            },
+            "maintenance": 0,
+            "maintenance_admissible": false,
+            "owners": [
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "406583bb0a6de4f0e5dd038db06c5ca0"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "43f7dc3ab47c5bb3eb0b90a3b37d185a"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "538e1358653ee40716ee5989288515a9"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "597776eccb3e7749f0668d3c845cc9c0"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "keeper",
+                "session": "7e9f32ea2b63cb4167522abbab84e953"
+              },
+              {
+                "class_id": "417274754156495350724C4650726F63",
+                "kind": "dsp",
+                "session": "81e843eb305682a8de1d8efd597feb86"
+              },
+              {
+                "class_id": "417274754156495350724C4650726F63",
+                "kind": "dsp",
+                "session": "cbbea779059d5910aa2609abe6e1dc87"
+              }
+            ],
+            "per_class": {
+              "417274754156495350724C4650726F63": 2,
+              "41727475415649536772616E50726F63": 4
+            },
+            "schema": 1
+          },
+          "ok": true
+        },
+        "native": {
+          "engine.log": [
+            "AP2 backend: Other: admission_global_capacity"
+          ]
+        },
+        "publications": {
+          "registry_sha256": "f1cb054a11a35e6d7b9695171753175aeaf7c30fda609b0ff905fb4be198c7c0"
+        },
+        "service": [
+          "Bridge instance: admission_global_capacity"
+        ],
+        "tmpfs": [
+          "538e1358653ee40716ee5989288515a9",
+          "597776eccb3e7749f0668d3c845cc9c0",
+          "406583bb0a6de4f0e5dd038db06c5ca0",
+          "cbbea779059d5910aa2609abe6e1dc87",
+          "43f7dc3ab47c5bb3eb0b90a3b37d185a",
+          "81e843eb305682a8de1d8efd597feb86"
+        ]
+      }
+    },
+    "E": {
+      "replacement": {
+        "fresh": [
+          "c26caccdc3c49d5b8d631c600498b24c"
+        ],
+        "not_full_opaque_state_equivalence": true,
+        "removed": [
+          "806a8bc8c5d822a066f8b93be4c1c496"
+        ],
+        "removed_receipt_before_undo": [
+          {
+            "lease_present": false,
+            "ownership": {
+              "cleanup_confirmed": true,
+              "reporting_error": null,
+              "session": "806a8bc8c5d822a066f8b93be4c1c496",
+              "transport_retired": true
+            },
+            "session": "806a8bc8c5d822a066f8b93be4c1c496",
+            "tmpfs_present": false
+          }
+        ],
+        "unchanged_siblings": [
+          "18c228935c4814924e0c1476d8d2f1b5",
+          "77cddf29f05e4f5704fc8f647a0d56f5",
+          "abca60e800ffd4f9ad270847380ed720",
+          "be42580b118911a41af30647cb5f2918",
+          "c9a656c16a205c21d5c031acd28fb61d"
+        ],
+        "visible_restored_control": {
+          "parameter": "FRAGMENTS Grain Mix",
+          "value": 0.461
+        }
+      }
+    },
+    "G": {
+      "refusal": {
+        "capacity": {
+          "capacity": {
+            "available_dsp": 0,
+            "cleanup_unconfirmed": false,
+            "current_workers": 7,
+            "dsp": 6,
+            "envelope": {
+              "claim": "verified_exact_fixture",
+              "eight": "excluded_for_tested_workload",
+              "evidence": "docs/AP17.md",
+              "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+              "parallel_tracks": 3,
+              "serial_bridged_depth": 3,
+              "seven": "unqualified",
+              "simultaneous_editors": 2
+            },
+            "keepers": 1,
+            "limits": {
+              "classes": [
+                {
+                  "class_id": "417274754156495350724C4650726F63",
+                  "dsp": 3
+                },
+                {
+                  "class_id": "41727475415649536772616E50726F63",
+                  "dsp": 4
+                }
+              ],
+              "global_dsp": 6,
+              "maintenance": 1,
+              "native_image_hard": 4,
+              "service_workers": 16
+            },
+            "maintenance": 0,
+            "maintenance_admissible": false,
+            "owners": [
+              {
+                "class_id": "417274754156495350724C4650726F63",
+                "kind": "dsp",
+                "session": "2449c7edb6805df66d186ac1ec60f515"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "37fbc6c4eb4d344f4ed1b42b473bc0b0"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "keeper",
+                "session": "7e9f32ea2b63cb4167522abbab84e953"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "880a76e0083eda1c7c10bf7f8a88b800"
+              },
+              {
+                "class_id": "417274754156495350724C4650726F63",
+                "kind": "dsp",
+                "session": "b39505e5c957795893ef551ad5c77057"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "c6c42739990589a6213f9eb35d7ef02f"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "f4f8273f782a6b1b4e5319e752d0351e"
+              }
+            ],
+            "per_class": {
+              "417274754156495350724C4650726F63": 2,
+              "41727475415649536772616E50726F63": 4
+            },
+            "schema": 1
+          },
+          "ok": true
+        },
+        "native": {
+          "engine.log": [
+            "AP2 backend: Other: admission_global_capacity"
+          ]
+        },
+        "publications": {
+          "registry_sha256": "f1cb054a11a35e6d7b9695171753175aeaf7c30fda609b0ff905fb4be198c7c0"
+        },
+        "service": [
+          "Bridge instance: admission_global_capacity"
+        ],
+        "tmpfs": [
+          "c6c42739990589a6213f9eb35d7ef02f",
+          "880a76e0083eda1c7c10bf7f8a88b800",
+          "37fbc6c4eb4d344f4ed1b42b473bc0b0",
+          "b39505e5c957795893ef551ad5c77057",
+          "f4f8273f782a6b1b4e5319e752d0351e",
+          "2449c7edb6805df66d186ac1ec60f515"
+        ]
+      },
+      "replacement": {
+        "fresh": [
+          "bdeeea1ea642247892bcf1a4decbb031"
+        ],
+        "not_full_opaque_state_equivalence": true,
+        "removed": [
+          "c6c42739990589a6213f9eb35d7ef02f"
+        ],
+        "removed_receipt_before_undo": [
+          {
+            "lease_present": false,
+            "ownership": {
+              "cleanup_confirmed": true,
+              "reporting_error": null,
+              "session": "c6c42739990589a6213f9eb35d7ef02f",
+              "transport_retired": true
+            },
+            "session": "c6c42739990589a6213f9eb35d7ef02f",
+            "tmpfs_present": false
+          }
+        ],
+        "unchanged_siblings": [
+          "2449c7edb6805df66d186ac1ec60f515",
+          "37fbc6c4eb4d344f4ed1b42b473bc0b0",
+          "880a76e0083eda1c7c10bf7f8a88b800",
+          "b39505e5c957795893ef551ad5c77057",
+          "f4f8273f782a6b1b4e5319e752d0351e"
+        ],
+        "visible_restored_control": {
+          "parameter": "FRAGMENTS Grain Mix",
+          "value": 0.461
+        }
+      }
+    },
+    "G2": {
+      "refusal": {
+        "capacity": {
+          "capacity": {
+            "available_dsp": 0,
+            "cleanup_unconfirmed": false,
+            "current_workers": 7,
+            "dsp": 6,
+            "envelope": {
+              "claim": "verified_exact_fixture",
+              "eight": "excluded_for_tested_workload",
+              "evidence": "docs/AP17.md",
+              "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+              "parallel_tracks": 3,
+              "serial_bridged_depth": 3,
+              "seven": "unqualified",
+              "simultaneous_editors": 2
+            },
+            "keepers": 1,
+            "limits": {
+              "classes": [
+                {
+                  "class_id": "417274754156495350724C4650726F63",
+                  "dsp": 3
+                },
+                {
+                  "class_id": "41727475415649536772616E50726F63",
+                  "dsp": 4
+                }
+              ],
+              "global_dsp": 6,
+              "maintenance": 1,
+              "native_image_hard": 4,
+              "service_workers": 16
+            },
+            "maintenance": 0,
+            "maintenance_admissible": false,
+            "owners": [
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "44837bc437953b8e9e006adb850991ff"
+              },
+              {
+                "class_id": "417274754156495350724C4650726F63",
+                "kind": "dsp",
+                "session": "453d9598eb4da982ba981ae84f040c72"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "keeper",
+                "session": "7e9f32ea2b63cb4167522abbab84e953"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "7fbac063ff95b0cbbd0ac5f27c55746e"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "7ff2f8c1d52b231507ab03c37ba37346"
+              },
+              {
+                "class_id": "41727475415649536772616E50726F63",
+                "kind": "dsp",
+                "session": "85c0f1840f00249c3f5463ad45c13142"
+              },
+              {
+                "class_id": "417274754156495350724C4650726F63",
+                "kind": "dsp",
+                "session": "f89c5d6c4d420544ce5beba6121e1576"
+              }
+            ],
+            "per_class": {
+              "417274754156495350724C4650726F63": 2,
+              "41727475415649536772616E50726F63": 4
+            },
+            "schema": 1
+          },
+          "ok": true
+        },
+        "native": {
+          "engine.log": [
+            "AP2 backend: Other: admission_global_capacity"
+          ]
+        },
+        "publications": {
+          "registry_sha256": "f1cb054a11a35e6d7b9695171753175aeaf7c30fda609b0ff905fb4be198c7c0"
+        },
+        "service": [
+          "Bridge instance: admission_global_capacity",
+          "Bridge instance: admission_global_capacity"
+        ],
+        "tmpfs": [
+          "7ff2f8c1d52b231507ab03c37ba37346",
+          "44837bc437953b8e9e006adb850991ff",
+          "85c0f1840f00249c3f5463ad45c13142",
+          "453d9598eb4da982ba981ae84f040c72",
+          "7fbac063ff95b0cbbd0ac5f27c55746e",
+          "f89c5d6c4d420544ce5beba6121e1576"
+        ]
+      },
+      "replacement": {
+        "fresh": [
+          "47f43f2b33e57601484b5bca9e1eea22"
+        ],
+        "not_full_opaque_state_equivalence": true,
+        "removed": [
+          "7ff2f8c1d52b231507ab03c37ba37346"
+        ],
+        "removed_receipt_before_undo": [
+          {
+            "lease_present": false,
+            "ownership": {
+              "cleanup_confirmed": true,
+              "reporting_error": null,
+              "session": "7ff2f8c1d52b231507ab03c37ba37346",
+              "transport_retired": true
+            },
+            "session": "7ff2f8c1d52b231507ab03c37ba37346",
+            "tmpfs_present": false
+          }
+        ],
+        "unchanged_siblings": [
+          "44837bc437953b8e9e006adb850991ff",
+          "453d9598eb4da982ba981ae84f040c72",
+          "7fbac063ff95b0cbbd0ac5f27c55746e",
+          "85c0f1840f00249c3f5463ad45c13142",
+          "f89c5d6c4d420544ce5beba6121e1576"
+        ],
+        "visible_restored_control": {
+          "parameter": "FRAGMENTS Grain Mix",
+          "value": 0.461
+        }
+      }
+    }
+  },
+  "schema": 1,
+  "service_refusal_log_limit": "15-minute journal tail may include the preceding refusal; current Bitwig log and unchanged session set bind the current attempt. Counts are not inferred from repeated journal lines."
+}
