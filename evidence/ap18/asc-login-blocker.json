@@ -1,0 +1,152 @@
+{
+  "schema": 1,
+  "disposition": "AP18_BLOCKED_ASC_POST_LOGIN_EXIT_CAUSE_UNRESOLVED",
+  "source_commit": "a3ab31c907676c6334e0b0c862e0047d0ecee56f",
+  "source_parent": "e7c423c2cd74f05d7b566cba4178fc8884a78da8",
+  "source_tree": "23cab7f92a810ce16f8e33f8f74e4b83be3fca76",
+  "software_id": "f085ecf3a07f531e70fb169f70af3adf6c3e3edc832f84b94ca35d9e6e8928be",
+  "artifact_sha256": {
+    "manager": "ffb14a894fda2940130f66ed34c4f7ac632d28387832f16652934084584663c3",
+    "supervisor": "8dcdc34accf880dbac76978c60c6f927d0c082c221d28cf7846a5f65bf6392da",
+    "ownership": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "cc178b93d732dc3be1734b8a322f1db517eba47a0dffabf125bfa5bfa01a0322"
+  },
+  "ASC": {
+    "version": "2.12.0.3157",
+    "main_sha256": "188afb698a0d7838bf491d208f56e9614846e56a60c90919d1018857ca3e7e25",
+    "account_posture": "unknown",
+    "operator_report": "After sign-in the subsequent ASC library window did not appear"
+  },
+  "attempts": [
+    {
+      "alias": "asc-attempt-1",
+      "working_directory": "inherited owner directory",
+      "schema": 1,
+      "state": "failed",
+      "launcher_exit": 5,
+      "cleanup_confirmed": true,
+      "discarded_diagnostic_bytes": 529,
+      "account_posture": "unknown"
+    },
+    {
+      "alias": "asc-attempt-2",
+      "working_directory": "inherited owner directory",
+      "schema": 1,
+      "state": "failed",
+      "launcher_exit": 5,
+      "cleanup_confirmed": true,
+      "discarded_diagnostic_bytes": 529,
+      "account_posture": "unknown"
+    },
+    {
+      "alias": "asc-attempt-3",
+      "working_directory": "vendor-shortcut directory verified in actual main process",
+      "schema": 1,
+      "state": "failed",
+      "launcher_exit": 5,
+      "cleanup_confirmed": true,
+      "discarded_diagnostic_bytes": 529,
+      "account_posture": "unknown"
+    }
+  ],
+  "tested_hypothesis": {
+    "observation": "Both installed vendor shortcuts specify the executable directory and no arguments; string terminators are not arguments",
+    "change": "Launch exact registered executable with its parent directory as cwd",
+    "actual_result": "Same launcher exit 5 after operator-owned sign-in; correction did not resolve the failure",
+    "causal_repair_claim": false
+  },
+  "bounded_diagnostics": {
+    "explicit_Windows_version_registry_setting": {
+      "global": null,
+      "ASC_override": null
+    },
+    "ASC_specific_accessibility_override": false,
+    "main_and_agent_architecture": [
+      "PE32+",
+      "PE32+"
+    ],
+    "PE_imports_inspected": true,
+    "dependency_load_failure_established": false,
+    "matching_coredump_available": false,
+    "main_and_agent_file_version": "2.12.0.3157",
+    "vendor_named_Windows_service_configuration_observed": false
+  },
+  "measurement_limits": [
+    "The retained exit is the pinned-runner launcher exit; it does not identify the origin of failure inside ASC, its agent, or the runtime.",
+    "Exit 5 is not evidence of vendor UI Error 05, invalid credentials, Access Denied, or a crash.",
+    "529 bytes of vendor output were discarded on each attempt; their contents are unavailable.",
+    "No explicit registry version override does not establish the effective Windows version.",
+    "No matching coredump does not prove absence of a crash.",
+    "The source command-shape regression proves cwd selection, not successful sign-in or application completion."
+  ],
+  "next_diagnostic_target": "Main/agent/launcher exit ordering and an allowlisted non-secret failure origin at that process boundary, before requesting any further operator login. No runtime migration, preference deletion, authorization mutation, or repeated installer execution.",
+  "local_validation": {
+    "manager_library_passed": 53,
+    "manager_binary_passed": 8,
+    "manager_clippy": "passed --locked --all-targets -- -D warnings",
+    "runtime_Linux_passed": 24,
+    "runtime_Linux_skipped": 0,
+    "runtime_macOS": "24 tests passed with 16 Linux-only skips",
+    "Linux_release_build": "passed via existing stable Rust / zig linker route",
+    "Windows_or_native_rebuilt": false
+  },
+  "installed_state": {
+    "products": [
+      {
+        "profile_id": "arturia-pure-lofi",
+        "revision": 10,
+        "claim": "verified_exact_fixture",
+        "qualification": null,
+        "publication_valid": true
+      },
+      {
+        "profile_id": "arturia-efx-fragments",
+        "revision": 10,
+        "claim": "verified_exact_fixture",
+        "qualification": null,
+        "publication_valid": true
+      }
+    ],
+    "physical_targets_and_ancestry_unchanged": true,
+    "host_native_module_runner_environment_bindings_valid": true,
+    "checked_projects_unchanged": true,
+    "checked_projects": [
+      {
+        "alias": "AP15 Lifecycle",
+        "sha256": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c"
+      },
+      {
+        "alias": "AP16 Delivery",
+        "sha256": "bf65f4f4236ddc655fc938694fb27f3311bc39078b823a732850522ecb11df46"
+      }
+    ],
+    "DSP_leases": 0,
+    "keeper_leases": 0,
+    "keeper_posture": "retired for exclusive ASC operation; service active with lazy keeper creation, not claimed running",
+    "pending_transactions": 0,
+    "tmpfs_session_directories": 0,
+    "service": "active",
+    "ASC_owner_active": false,
+    "ASC_cleanup_confirmed": true,
+    "owned_temporary_units_present": false,
+    "debugger_profiler_Bitwig_present": false,
+    "heavy_trace": false,
+    "CPUWeight": "unset; effective 100",
+    "selected_recommended_frames": 512,
+    "frames256": "unqualified",
+    "original_installer_sha256": "e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8",
+    "private_rollback_retained": true,
+    "private_rollback_bytes": 2464481280
+  },
+  "not_completed": [
+    "ASC library window",
+    "normal companion focus and successful close/relaunch",
+    "canonical installer admission integration",
+    "full companion owner handoff/failure tests",
+    "Pigments acquisition, census, profile, proxy, publication and Bitwig vertical",
+    "post-install existing-product musical/editor/recall check"
+  ],
+  "privacy": "Allowlisted scalar observations only; no account fields, vendor logs, private absolute paths, process identifiers, installers, product binaries, presets or opaque state payloads."
+}

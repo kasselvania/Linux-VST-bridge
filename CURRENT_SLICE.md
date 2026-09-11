@@ -189,3 +189,15 @@ AP18 does not include Serum, another vendor, broad support for every software ce
 ## Handoff
 
 Update one AP18 implementation PR with exact source and artifact identities, installer/ASC lifecycle, user-owned authorization boundary, installation changes, Pigments discovery/profile/publication, actual Bitwig result, preservation/rollback, focused tests, final physical state, and explicit nonclaims. Leave it open and unmerged for independent technical review.
+
+### Current checkpoint
+
+ASC 2.12.0.3157 was installed through the managed environment. Three registered
+launches reached operator-owned sign-in but no subsequent library window; all
+ended with launcher exit 5 and positive cleanup. Matching the vendor shortcut's
+working directory did not resolve the failure. The failure owner remains
+unknown, and further login retries are stopped pending a focused diagnostic
+handoff. See [the bounded record](evidence/ap18/asc-login-blocker.json) and
+[AP18's post-login blocker](docs/AP18.md#post-login-blocker-bounded-stopping-point).
+Pigments and the end-to-end vertical remain incomplete. Ordinary revision-10
+publications are unchanged and valid; PR #95 remains draft, open and unmerged.
