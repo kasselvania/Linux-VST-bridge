@@ -427,7 +427,7 @@ class MemoryTransportTests(unittest.TestCase):
     def test_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources(self):
         with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
             spec,durable,directory=self.fixture(disk,memory)
-            names=('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery')
+            names=('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery','ap18.results')
             for name in names:(directory/name).write_bytes(name.encode());(directory/name).chmod(0o600)
             (durable/'owner.json').write_text('retained durable owner')
             with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
@@ -470,6 +470,7 @@ while not (d/(sid+'.gate')).exists():
 assert (d/(sid+'.gate')).read_bytes()==(d/(sid+'.ready')).read_bytes()
 for n in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
  assert (d/n).is_symlink() and (d/n).read_bytes()==b'exact-'+n.encode()
+assert (d/'ap18.results').is_symlink() and (d/'ap18.results').read_bytes()[:4]==b'LVRS'
 print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
 """
             with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \

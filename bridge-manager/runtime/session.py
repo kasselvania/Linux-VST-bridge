@@ -114,18 +114,18 @@ def transport_environment(spec,env):
         env['PRESSURE_VESSEL_FILESYSTEMS_RW']=str(validate_runtime())
 
 def windows_transport_views(spec):
-    """Keep the pinned host's closed C: handshake contract. Only these native-
+    """Keep the pinned host's closed C: handshake contract. Only these session-owner
     created files alias the exact RAM session. Publish before the Windows gate,
     never during processing; owner.json/handshake/receipts remain durable.
     """
     directory,durable=session_directories(spec)
     if directory==durable:return
     sources=[]
-    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery'):
+    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery','ap18.results'):
         source=directory/name;target=durable/name
         try:m=source.lstat()
         except FileNotFoundError:
-            if name=='ap10.delivery':continue # existing explicit socket diagnostic mode
+            if name in ('ap10.delivery','ap18.results'):continue # retained legacy diagnostic clients
             raise
         if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077:
             raise RuntimeError('transport file ownership/type')
