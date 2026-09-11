@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "attribution_source": "498b708da3b82d904ce412e232344299bbb0ae7a",
+  "operator_attempts": 1,
+  "operator_result": "login window disappeared; library did not appear",
+  "exception": "0xc0000005",
+  "fault": {
+    "module": "UIAutomationCore.dll",
+    "kind": "Wine builtin",
+    "module_sha256": "33a195f56bd5a84ace582ef480db2e272f21856df6437843eda406af295c6049",
+    "loaded_base": "0x6ffffdda0000",
+    "instruction_RVA": "0x7988",
+    "function": "create_uia_node_from_elprov",
+    "function_RVA": "0x7970",
+    "offset": "0x18",
+    "instruction": "mov (%rcx), %rax",
+    "captured_RCX": "0x0",
+    "caller": "UiaDisconnectProvider + 0x31",
+    "caller_RVA": "0x2d11"
+  },
+  "frames": [
+    {
+      "module": "UIAutomationCore.dll",
+      "kind": "builtin",
+      "RVA": "0x7988"
+    },
+    {
+      "module": "UIAutomationCore.dll",
+      "kind": "builtin",
+      "RVA": "0x2d11"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xc8f609"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xbf5fe8"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xbf5f54"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xbf70b3"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xc05187"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xc5e1ce"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xbfe5ba"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xbfe5ef"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xbfe4f6"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0x49efae"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0x49ed9f"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0x49eeef"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0x4533e2"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0x477df1"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xca0e28"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xca0956"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0x4363b4"
+    },
+    {
+      "module": "Arturia Software Center.exe",
+      "kind": "native",
+      "RVA": "0xf71b62"
+    },
+    {
+      "module": "kernel32.dll",
+      "kind": "builtin",
+      "RVA": "0x11649"
+    },
+    {
+      "module": "ntdll.dll",
+      "kind": "builtin",
+      "RVA": "0x10e0f"
+    }
+  ],
+  "interpretation": "An ASC caller reaches UiaDisconnectProvider; the pinned builtin subsequently dereferences a null provider in create_uia_node_from_elprov. This reproduces the prior exact fault IP. No claim that every Wine version or Windows behaves identically; caller intent and validity remain outside this observation.",
+  "ownership": {
+    "outer_exit": 5,
+    "owned_live": 0,
+    "cleanup_confirmed": true,
+    "owner_error": false,
+    "supervisor_termination_caused_fault": false
+  },
+  "capture": {
+    "retained_bytes": 730968,
+    "stdout": 177,
+    "stderr": 710916,
+    "process": 19875,
+    "discarded": 0,
+    "private_logs_published": false,
+    "arguments_locals_or_memory_dump": false
+  },
+  "account_free_reproduction": {
+    "source": "tools/ap18-tests/uia_disconnect.cpp",
+    "call": "Dynamically load UIAutomationCore; call UiaDisconnectProvider(nullptr); catch access violation",
+    "baseline": {
+      "fixture_exit": 42,
+      "meaning": "caught deliberate reproduction access violation",
+      "stderr_bytes": 65371,
+      "overflow": 0,
+      "unit_result": "success/collected"
+    },
+    "operation_local_override": {
+      "WINEDLLOVERRIDES": "uiautomationcore=",
+      "fixture_exit": 0,
+      "meaning": "DLL unavailable with ERROR_MOD_NOT_FOUND; faulting call not executed",
+      "stderr_bytes": 47657,
+      "overflow": 0,
+      "unit_result": "success/collected"
+    },
+    "limitation": "Avoiding the call proves a bounded mitigation mechanism, not ASC library usability."
+  },
+  "comparison_candidate": {
+    "source": "a464faf878dd32e1295e693baa29e46e90d949e8",
+    "command": "vendor-app diagnose-accessibility arturia-software-center",
+    "ordinary_launch_changed": false,
+    "scope": "Only the exact owned ASC operation and descendants; no registry/global/profile mutation",
+    "status_schema": 3,
+    "status_field": "windows_accessibility_disabled",
+    "limitation": "Windows accessibility unavailable during the operation",
+    "artifacts": {
+      "linux-vst-bridge": "8ce43e06f5ba703c05e25ec14fe1e4c3182118e4abf64c76eac5ea268734dff0",
+      "session.py": "187aba603e4f787b636445f8942f5a8f24b8318726d39ebdb7c29c3bed09adc4",
+      "ownership.py": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+      "test_session.py": "2e6abd8414705f9f7c802e2d1fe6918c70f7ef1a3b527ed002101f28270ab32c"
+    },
+    "actual_ASC_result": "pending changed-candidate operator test"
+  },
+  "public_references": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/uiautomationcoreapi/nf-uiautomationcoreapi-uiadisconnectprovider"
+  ],
+  "no_vendor_files_authorization_runtime_changed": true,
+  "Pigments": "blocked; not started"
+}
