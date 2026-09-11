@@ -509,6 +509,15 @@ def vendor_operation_state(launcher_exit, owned_live):
     if owned_live:return 'unknown'
     return 'completed' if launcher_exit==0 else 'failed'
 
+def vendor_launch(spec):
+    app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root']);runner=env['runner']
+    executable=pathlib.Path(app['executable']['path'])
+    argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(executable,directory/'compatdata/pfx')]
+    # The installed ASC Start Menu and Desktop shortcuts both declare this
+    # working directory and no arguments. Relative resources/helper launches
+    # must not inherit the manager's systemd working directory.
+    return argv,executable.parent
+
 def vendor_application(spec):
     """ASC is an exclusive companion operation, never a VST3 instance.
 
@@ -523,9 +532,9 @@ def vendor_application(spec):
         nonlocal stop
         stop=True
     signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
-    runner=env['runner'];reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
-    argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(app['executable']['path'],directory/'compatdata/pfx')]
-    child=subprocess.Popen(argv,env=environment(reg),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+    reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
+    argv,cwd=vendor_launch(spec)
+    child=subprocess.Popen(argv,cwd=cwd,env=environment(reg),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     tracker=ProcessTracker(child.pid);sel=selectors.DefaultSelector();last=0;discarded=0;error=None;clean=False
     for pipe in (child.stdout,child.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
     try:

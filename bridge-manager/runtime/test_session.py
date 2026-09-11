@@ -18,6 +18,14 @@ import session
 
 
 class VendorOperationTests(unittest.TestCase):
+    def test_ASC_launch_uses_vendor_shortcut_working_directory(self):
+        root=pathlib.Path('/fixture/environment')
+        exe=root/'compatdata/pfx/drive_c/Program Files (x86)/Arturia/Arturia Software Center/Arturia Software Center.exe'
+        spec={'application':{'environment':{'root':str(root),'runner':{'entry_point':'/runner/entry','proton':'/runner/proton'}},'executable':{'path':str(exe)}}}
+        argv,cwd=session.vendor_launch(spec)
+        self.assertEqual(cwd,exe.parent)
+        self.assertEqual(argv,['/runner/entry','--verb=run','--','/runner/proton','runinprefix',r'C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe'])
+
     def test_launcher_exit_does_not_complete_or_cancel_owned_helpers(self):
         self.assertEqual(session.vendor_operation_state(None, 2), 'running')
         self.assertEqual(session.vendor_operation_state(0, 1), 'unknown')
