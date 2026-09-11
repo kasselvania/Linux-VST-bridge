@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "source_commit": "67da9c0edc8b091cd889906da94d358eab144841",
+  "software_id": "1da16539f5c9810ebba6d569058f6ce4a8567ef86e71fb484a64588a82ad4320",
+  "artifact_sha256": {
+    "manager": "e372e24da059c845fbaae133c95322af2cb790c2cf309442aee1a864bd682b2d",
+    "supervisor": "aed18e3b607ee7f02c11cf3d55490b9a8af890556a65db8566fd7c2a4ec63359",
+    "ownership": "c87ed617bf28dda93887e7dc627ee2aa51b14cf046f05c7b3134af6f223ffae2",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "1c498bbb3f20306832cae17c55bc7435839e583cc5cec2fd015992febbd401b1"
+  },
+  "products": [
+    {
+      "profile_id": "arturia-pure-lofi",
+      "profile_revision": 10,
+      "claim": "verified_exact_fixture",
+      "publication_valid": true,
+      "qualification": null
+    },
+    {
+      "profile_id": "arturia-efx-fragments",
+      "profile_revision": 10,
+      "claim": "verified_exact_fixture",
+      "publication_valid": true,
+      "qualification": null
+    }
+  ],
+  "tests": {
+    "manager_library": 53,
+    "manager_binary": 8,
+    "clippy": "passed, all targets, warnings denied",
+    "runtime_macos": "23 tests, 16 Linux-only skips",
+    "runtime_linux": "23 passed, no skips",
+    "linux_build": "x86_64-unknown-linux-gnu release, existing stable Rust and zig linker"
+  },
+  "first_ASC_launch": {
+    "registered_rescan_exit": 0,
+    "unit_launch_exit": 0,
+    "initial_state": "running",
+    "terminal_state": "failed",
+    "launcher_exit": 5,
+    "cleanup_confirmed": true,
+    "discarded_diagnostic_bytes": 529,
+    "cause": "unknown; no account or vendor-log contents retained"
+  },
+  "operator_report": "Completed sign-in; subsequent window did not appear",
+  "follow_up": "One normal relaunch after confirmed cleanup; result pending",
+  "remaining": [
+    "ASC window failure diagnosis",
+    "normal application focus and relaunch qualification",
+    "canonical installer admission integration",
+    "full application-owner failure tests",
+    "Pigments acquisition and Bitwig vertical"
+  ],
+  "public_data_policy": "Only allowlisted scalar fields and artifact digests. No paths, process identifiers, account fields, installer bytes or vendor payloads."
+}
