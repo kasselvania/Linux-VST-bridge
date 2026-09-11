@@ -68,7 +68,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     for (int b=0;b<3;++b) {
         auto& block=blocks[b];block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard); block.gain=b==0?0.5:0.25;
         block.returned.buses=uint32_t(layout.counts[3]);
-        size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput)block.returned.channels[event_out++]=layout.buses[i].info.channelCount;
+        size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput){block.returned.channels[event_out]=layout.buses[i].info.channelCount;block.returned.bus_active[event_out++]=layout.buses[i].active?1:0;}
         for (int ch=0;ch<2;++ch) {
             block.input[ch].front()=block.input[ch][frames+1]=std::bit_cast<float>(guard);
             block.output[ch].fill(std::bit_cast<float>(sentinel));
@@ -134,6 +134,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     uint64_t processed=0,intervals=0;
     bool restart=false;
     std::exception_ptr primary_error;
+    AP10Results::RejectionRecord first_rejection{};
+    uint64_t rejected_generation=0,rejected_epoch=0,rejected_sequence=0,rejected_position=0,rejected_callback=0;
+    uint32_t rejected_input_notes=0,rejected_input_parameters=0;
     do {
     joined=false;restart=false;
     try {
@@ -186,6 +189,13 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     if(external)external->before_process();
                     const auto process_start=std::chrono::steady_clock::now();
                     block.result=processor.process(block.data);
+                    // Scalar handoff after the vendor call; emitted only after join.
+                    if(block.returned.failed&&first_rejection.reason==AP10Results::Rejection::None){
+                        first_rejection=block.returned.rejection;rejected_callback=processed+1;
+                        rejected_generation=block.request.generation;rejected_epoch=block.request.epoch;
+                        rejected_sequence=block.request.sequence;rejected_position=block.request.position;
+                        for(size_t i=0;i<block.request.event_count;++i){if(block.request.events[i].kind==2)++rejected_input_parameters;else ++rejected_input_notes;}
+                    }
                     const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     if(external)external->after_process();
                     if(!sustained)events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
@@ -225,6 +235,41 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
         ",\"processing_stopped\":"+(stopped?"true":"false")+
         ",\"worker_exception\":"+(worker_exception?"true":"false"));
+    if(first_rejection.reason!=AP10Results::Rejection::None){
+        // This branch is on the owner after worker.join(): no process-call I/O.
+        const auto& r=first_rejection;
+        static constexpr const char* names[]={"None","EventCapacity","NegativeBus","UndeclaredBus","BusStorage","NegativeEventOffset","EventExtent","NonFinitePPQ","UnsupportedEvent","InvalidEventField","EventChannel","EventPayload","PayloadCapacity","NullPayload","PayloadAlignment","QueueCapacity","PointCapacity","NegativePointOffset","PointExtent","NonFiniteValue","ValueBelowZero","ValueAboveOne"};
+        std::string detail=",\"schema\":1,\"reason\":\""+std::string(names[static_cast<uint32_t>(r.reason)])+"\"";
+        detail+=",\"frames\":"+std::to_string(r.frames);
+        detail+=",\"events\":"+std::to_string(r.events);
+        detail+=",\"points\":"+std::to_string(r.points);
+        detail+=",\"queues\":"+std::to_string(r.queues);
+        detail+=",\"bytes\":"+std::to_string(r.bytes);
+        detail+=",\"event_type\":"+std::to_string(r.event_type);
+        detail+=",\"bus\":"+std::to_string(r.bus);
+        detail+=",\"offset\":"+std::to_string(r.offset);
+        detail+=",\"channel\":"+std::to_string(r.channel);
+        detail+=",\"declared_channels\":"+std::to_string(r.declared_channels);
+        detail+=",\"event_bus_active\":"+std::to_string(r.event_bus_active);
+        detail+=",\"flags\":"+std::to_string(r.flags);
+        detail+=",\"declared_buses\":"+std::to_string(r.declared_buses);
+        detail+=",\"payload_type\":"+std::to_string(r.payload_type);
+        detail+=",\"payload_size\":"+std::to_string(r.payload_size);
+        detail+=",\"parameter_id\":"+std::to_string(r.parameter_id);
+        detail+=",\"ppq_bits\":"+std::to_string(r.ppq_bits);
+        detail+=",\"value_bits\":"+std::to_string(r.value_bits);
+        detail+=",\"field_a\":"+std::to_string(r.field_a);
+        detail+=",\"field_b\":"+std::to_string(r.field_b);
+        detail+=",\"extra_bits\":"+std::to_string(r.extra_bits);
+        detail+=",\"generation\":"+std::to_string(rejected_generation);
+        detail+=",\"epoch\":"+std::to_string(rejected_epoch);
+        detail+=",\"sequence\":"+std::to_string(rejected_sequence);
+        detail+=",\"position\":"+std::to_string(rejected_position);
+        detail+=",\"callback\":"+std::to_string(rejected_callback);
+        detail+=",\"input_notes\":"+std::to_string(rejected_input_notes);
+        detail+=",\"input_parameters\":"+std::to_string(rejected_input_parameters);
+        events.lifecycle("ap18_result_rejection",detail);
+    }
     if (!stopped) return {false,false};
     if(hosted&&ok) {
         external->lifecycle_ack(13);

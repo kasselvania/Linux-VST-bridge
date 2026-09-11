@@ -10,7 +10,7 @@
 namespace linux_vst_bridge::wf0 {
 class HostCallbackSink;
 class EventWriter;
-struct ExternalBlock { Steinberg::Vst::ProcessContext context{};uint64_t gui_revision=0;bool has_context=false; int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
+struct ExternalBlock { Steinberg::Vst::ProcessContext context{};uint64_t gui_revision=0,generation=0,epoch=0,sequence=0,position=0;bool has_context=false; int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
 // Private C++ edge interface; no object/layout crosses the process boundary.
 class ExternalProcessing {
 public:

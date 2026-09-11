@@ -4,6 +4,8 @@
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include <cassert>
 #include <iostream>
+#include <tuple>
+#include <limits>
 using namespace AP10Results;
 // Production BusLayout reads the SDK object's real bus declarations. No
 // Pigments name dispatch: a sole auxiliary input uses the one explicitly selected stereo lane.
@@ -19,7 +21,34 @@ struct AuxiliaryInstrument final : Steinberg::Vst::AudioEffect {
  }
 };
 
+static void rejection_tests(){
+ Collector c;auto reset=[&]{c.reset(16);c.buses=1;c.channels[0]=16;c.bus_active[0]=1;};
+ auto event=[] {Event e{};e.type=Event::kNoteOnEvent;e.noteOn={0,60,0,.5f,0,7};return e;};
+ auto check=[&](Event e,Rejection reason){assert(c.addEvent(e)==kResultFalse);assert(c.failed&&c.rejection.reason==reason);};
+ reset();auto e=event();for(unsigned i=0;i<ap10_event_capacity;++i)assert(c.addEvent(e)==kResultOk);check(e,Rejection::EventCapacity);assert(c.rejection.events==64);
+ auto first=c.rejection;e.type=999;check(e,Rejection::EventCapacity);int32 index=0;assert(!c.addParameterData(9,index));assert(std::memcmp(&first,&c.rejection,sizeof(first))==0);
+ reset();assert(c.rejection.reason==Rejection::None&&!c.failed);
+ for(auto [bus,declared,reason]:{std::tuple{-1,1,Rejection::NegativeBus},std::tuple{1,1,Rejection::UndeclaredBus},std::tuple{8,9,Rejection::BusStorage}}){reset();c.buses=declared;e=event();e.busIndex=bus;check(e,reason);assert(c.rejection.bus==bus);}
+ reset();c.channels[0]=0;e=event();check(e,Rejection::EventChannel);assert(c.rejection.channel==0&&c.rejection.declared_channels==0&&c.rejection.bus==0&&c.rejection.event_type==Event::kNoteOnEvent&&c.rejection.event_bus_active==1&&c.rejection.events==0);
+ for(auto [offset,reason]:{std::pair{-1,Rejection::NegativeEventOffset},std::pair{16,Rejection::EventExtent}}){reset();e=event();e.sampleOffset=offset;check(e,reason);}
+ reset();e=event();e.ppqPosition=std::numeric_limits<double>::infinity();check(e,Rejection::NonFinitePPQ);
+ reset();e=event();e.type=999;check(e,Rejection::UnsupportedEvent);
+ reset();e=event();e.noteOn.pitch=128;check(e,Rejection::InvalidEventField);assert(c.rejection.field_a==128);
+ std::array<uint8_t,513> bytes{};auto data=[&](uint32_t n){Event d{};d.type=Event::kDataEvent;d.data={n,DataEvent::kMidiSysEx,bytes.data()};return d;};
+ reset();check(data(513),Rejection::EventPayload);assert(c.rejection.payload_size==513);
+ reset();for(int i=0;i<8;++i){e=data(512);assert(c.addEvent(e)==kResultOk);}check(data(1),Rejection::PayloadCapacity);assert(c.rejection.bytes==4096&&c.rejection.events==8);
+ reset();e=data(1);e.data.bytes=nullptr;check(e,Rejection::NullPayload);
+ reset();for(int i=0;i<7;++i){e=data(512);assert(c.addEvent(e)==kResultOk);}e=data(511);assert(c.addEvent(e)==kResultOk);check(data(1),Rejection::PayloadAlignment);assert(c.rejection.bytes==4095);
+ reset();for(uint32_t i=0;i<ap10_point_capacity;++i)assert(c.addParameterData(i,index));assert(!c.addParameterData(128,index));assert(c.rejection.reason==Rejection::QueueCapacity&&c.rejection.queues==128&&c.rejection.points==0&&c.rejection.parameter_id==128);
+ reset();auto*q=c.addParameterData(123,index);for(uint32_t i=0;i<ap10_point_capacity;++i)assert(q->addPoint(0,.5,index)==kResultOk);assert(q->addPoint(0,.5,index)==kResultFalse);assert(c.rejection.reason==Rejection::PointCapacity&&c.rejection.points==128&&c.rejection.queues==1);
+ for(auto [offset,value,reason]:{std::tuple{-1,.5,Rejection::NegativePointOffset},std::tuple{16,.5,Rejection::PointExtent},std::tuple{0,std::numeric_limits<double>::infinity(),Rejection::NonFiniteValue},std::tuple{0,std::numeric_limits<double>::quiet_NaN(),Rejection::NonFiniteValue},std::tuple{0,-.1,Rejection::ValueBelowZero},std::tuple{0,1.1,Rejection::ValueAboveOne}}){reset();q=c.addParameterData(123,index);assert(q->addPoint(offset,value,index)==kResultFalse);assert(c.rejection.reason==reason&&c.rejection.parameter_id==123&&c.rejection.offset==offset&&c.rejection.value_bits==std::bit_cast<uint64_t>(value));}
+ // Existing accepted encoding is unchanged; diagnostic channel observes no payload.
+ reset();static const ap10_results_t empty{};c.values=empty;ap10_results_t expected{};e=event();assert(append(expected,e,16)&&c.addEvent(e)==kResultOk);e=data(3);assert(append(expected,e,16)&&c.addEvent(e)==kResultOk);assert(std::memcmp(&expected,&c.values,sizeof(expected))==0);assert(c.rejection.reason==Rejection::None);
+ c.reset(0);e=event();assert(c.addEvent(e)==kResultOk);q=c.addParameterData(1,index);assert(q->addPoint(0,.25,index)==kResultOk);e.sampleOffset=1;check(e,Rejection::EventExtent);
+}
+
 int main(){
+ rejection_tests();
  {using namespace linux_vst_bridge::wf0;InputObservation t;float z[]={0,0},l[]={.25f,.5f},r[]={-.75f,-.125f};t.observe(1,1,0,2,3,z,z);t.observe(1,2,2,2,0,l,r);t.observe(1,3,4,2,0,l,r);t.observe(1,4,6,2,3,z,z);assert(t.count==3&&t.rows[1].sequence==2&&t.rows[0].hash==t.rows[2].hash&&t.rows[1].hash[0]!=t.rows[1].hash[1]);assert(t.rows[1].hash[0]==1596836236129080722ull&&t.rows[1].hash[1]==15537787510424757890ull);for(unsigned i=0;i<80;++i)t.observe(1,i,i,2,0,i%2?z:l,i%2?z:r);assert(t.count==32&&t.overflow>0);}
 
  {using namespace linux_vst_bridge;AuxiliaryInstrument instrument;wf0::BusLayout layout;layout.read(instrument,instrument);
