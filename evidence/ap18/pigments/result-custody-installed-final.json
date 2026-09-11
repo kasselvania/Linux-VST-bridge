@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "pigments": "Removed/inactive; no discovery publication; revisions1-5 retained",
+  "ordinary_products": "LoFi and FRAGMENTS revision10 physical targets, immutable ancestry, profiles, external IDs and module/native/host identities equal baseline",
+  "ordinary_physical_comparison": true,
+  "project_hash_comparison": true,
+  "diagnostic_project": {
+    "project": "AP18 Result Diagnostic",
+    "sha256": "95566160733ba263a8a8d7a6ebf45d0b07eee1d228f88d4b4025012ee5d2083c",
+    "size": 25142
+  },
+  "software": {
+    "manager": "441725fb03fda4a118edd446b267da2f1e82c0a4df56a34281a9aae0cf938106",
+    "supervisor": "ec972b8c55b3f8ac22aa82ae4f52451447c7c5b1b956a3219247ba279ed479ae",
+    "ownership": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "4c9a41dd5cf4e5cc1c6b009ac62e02020a4f9aef1915c581f956a6adf33c54af"
+  },
+  "dsp_leases": 0,
+  "keeper_leases": 1,
+  "pending_transactions": 0,
+  "tmpfs_session_directories": 0,
+  "service": "active/running",
+  "keeper": "active",
+  "heavy_tracing": false,
+  "debugger_or_bitwig": [],
+  "CPUWeight": "unset/effective100",
+  "CPUWeight_intermediate": "Final readback initially found unexpected override; reset and reread. Writer unknown.",
+  "bridge_frames": 512,
+  "recommended_frames": 512,
+  "frames256": "unqualified",
+  "profiles": [
+    {
+      "revision": 5,
+      "profile_fingerprint": "5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4",
+      "claim": "review_candidate",
+      "qualification": "ap18_pigments"
+    },
+    {
+      "revision": 4,
+      "profile_fingerprint": "a1aba3dbf61abd2b44e2093f6afe06859ce7d39e61acd00a2ec943391ed09202",
+      "claim": "review_candidate",
+      "qualification": "ap18_pigments"
+    },
+    {
+      "revision": 1,
+      "profile_fingerprint": "b256ec061f87a53d5943ba6f398629a841a32f4e23c2446743469a217025b06f",
+      "claim": "review_candidate",
+      "qualification": "ap18_pigments"
+    },
+    {
+      "revision": 3,
+      "profile_fingerprint": "8ace368513dc54a89c2cc70dea5e50974dde6c268a03614b87d3de0d30723a3a",
+      "claim": "review_candidate",
+      "qualification": "ap18_pigments"
+    },
+    {
+      "revision": 2,
+      "profile_fingerprint": "3478d9dbd29add4c969ce6eef2684e754e247a74eab4eea04414882171ab1250",
+      "claim": "review_candidate",
+      "qualification": "ap18_pigments"
+    }
+  ],
+  "vendor_files_or_authorization_modified": false,
+  "original_project_hashes": [
+    {
+      "name": "AP15 Lifecycle",
+      "sha256": "6a10e5446e8411dee0fca8925bae716b992de9d3619ba5b2334408c383f7202c",
+      "bytes": 84205
+    },
+    {
+      "name": "AP16 Delivery",
+      "sha256": "bf65f4f4236ddc655fc938694fb27f3311bc39078b823a732850522ecb11df46",
+      "bytes": 84092
+    }
+  ]
+}

@@ -276,3 +276,23 @@ changed host/reporting bytes require ReviewCandidate revision 5. After generated
 and hosted validation, one bounded Welcome/no-input/C3 run leaves the editor
 open until the first rejection, typed host exit or 30,000 completed blocks. No
 save or manual editor close precedes the outcome. Restore Pigments inactive.
+
+### Revision-5 custody result
+
+The single permitted run retained `EventChannel` at request 360, callback 358,
+position 91392, offset 144 in 256 frames. Pigments emitted a standard Note On,
+bus 0/channel 0/pitch 60, against active output-event bus metadata declaring zero
+channels. All prior output counts were zero. `process()` returned, custody
+committed, and processing subsequently stopped/joined; readable JSON agrees.
+The rejection preceded editor initialization, so the requested persistent
+Welcome/open-editor interval was not reached. No second attempt was made.
+
+Do not increase capacities or silently interpret zero as sixteen. The SDK also
+requires used channel counts to be rechecked after arrangement negotiation;
+the current layout retains earlier metadata. Whether this is stale metadata or
+a vendor metadata/event conflict is not established. Keep revision 4's abrupt
+view-release exit separate. Pigments is inactive again, ordinary revision10
+publications/projects unchanged, zero DSP/pending/stale sessions, service and
+keeper active, tracing off, CPUWeight restored unset/effective100. See
+`evidence/ap18/pigments/result-custody-live.json` and
+`evidence/ap18/pigments/result-custody-installed-final.json`. PR #95 stays draft.

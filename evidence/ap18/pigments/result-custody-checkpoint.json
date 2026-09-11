@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "claim": "diagnostic only; live reproduction pending",
+  "claim": "diagnostic custody validated; first exact live rejection retained; no validator repair",
   "source": "9f5b8db975badd3151ddab418169e676f5a3eaaf",
   "windows_build": "722e0ac10b09e1d465b3f06052facf607c6d8563",
   "common_tree": "561d0f247e0946bf23d99bd8e1ac2bdbd579176c",
@@ -43,7 +43,7 @@
       "persistent IPlugView removal refusal and std::terminate preserve rejection",
       "later publisher cannot replace first record"
     ],
-    "linux_runtime": "35 passed, including independent supervisor pre-containment persistence and interrupted slot",
+    "linux_runtime": "35 passed, including independent supervisor pre-containment persistence, interrupted slot, and Windows-visible gate alias",
     "manager": "60 library + 11 binary passed",
     "manager_clippy": "passed",
     "hosted_source": {
@@ -51,6 +51,13 @@
       "native": 34650773196,
       "manager": 34650773280,
       "proof_policy": 34650773164
+    },
+    "final_source_head": "537794f185ca07a472252d845d61d9908d55ef74",
+    "final_source_workflows": {
+      "windows": 34651530250,
+      "native": 34651530269,
+      "manager": 34651530260,
+      "proof_policy": 34651530256
     }
   },
   "live_attempt_bound": {
@@ -61,5 +68,6 @@
     "editor": "opened once, left open until outcome",
     "stop": "first typed rejection, host exit, or bound",
     "explicit_save": false
-  }
+  },
+  "live_result": "evidence/ap18/pigments/result-custody-live.json"
 }

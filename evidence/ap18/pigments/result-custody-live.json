@@ -1,0 +1,177 @@
+{
+  "schema": 1,
+  "implementation_head": "537794f185ca07a472252d845d61d9908d55ef74",
+  "session_alias": "pigments-r5-c3-01",
+  "attempt_count": 1,
+  "primary_outcome": "first exact Collector rejection retained in independent session mapping before teardown",
+  "conditions": {
+    "launch": "Bitwig Applications entry",
+    "project": "AP18 Result Diagnostic, saved note-only project; unsaved Pigments insertion",
+    "note": "C3, MIDI 60, one bar loop, note length two beats, velocity 0.787401556968689",
+    "sample_rate": 48000,
+    "precision": "float32",
+    "host_maximum": 512,
+    "observed_internal_callback_frames": 256,
+    "bridge_frames": 512,
+    "sidechain_source": "none selected; no source or routing operation performed",
+    "editor": "One normal open action after load. First rejection preceded editor initialization: early snapshot open=0, later terminal snapshot open=1/stage217. No persistent Welcome/editor interval was reached or claimed. No manual editor close or explicit save before outcome.",
+    "tracing": false,
+    "CPUWeight_at_admission": "[not set]",
+    "CPUWeight_at_first_observer_interval": "[not set]",
+    "CPUWeight_limit": "A later final readback found an override again; restored separately. No timing/CPU performance claim."
+  },
+  "first_rejection": {
+    "generation": 1,
+    "epoch": 1,
+    "request_sequence": 360,
+    "position": 91392,
+    "callback": 358,
+    "input_notes": 1,
+    "input_parameters": 0,
+    "reason": "EventChannel",
+    "frames": 256,
+    "events": 0,
+    "points": 0,
+    "queues": 0,
+    "bytes": 0,
+    "event_type": 0,
+    "bus": 0,
+    "offset": 144,
+    "channel": 0,
+    "declared_channels": 0,
+    "event_bus_active": 1,
+    "flags": 0,
+    "declared_buses": 1,
+    "payload_type": 0,
+    "payload_size": 0,
+    "parameter_id": 0,
+    "ppq_bits": 0,
+    "value_bits": 1061786406,
+    "field_a": 60,
+    "field_b": 0,
+    "extra_bits": 0,
+    "process_returned": 1,
+    "reserved": 0,
+    "reason_code": 10
+  },
+  "decoded_note": {
+    "type": "kNoteOnEvent",
+    "pitch": 60,
+    "velocity": 0.787401556968689,
+    "length": 0
+  },
+  "counts": {
+    "successful_processed_blocks": 357,
+    "rejected_callback": 358,
+    "input_note_count": 1,
+    "input_parameter_count": 0,
+    "prior_output_events": 0,
+    "prior_output_points": 0,
+    "prior_output_queues": 0,
+    "prior_payload_bytes": 0
+  },
+  "custody": {
+    "commit": 1,
+    "session_match": true,
+    "independent_observer_read_before_ui_teardown": true,
+    "supervisor_retained_before_containment": true,
+    "post_join_projection_matches": true,
+    "rejected_packet_not_delivered": true
+  },
+  "terminal": {
+    "processing_thread_joined": true,
+    "processing_stopped": true,
+    "worker_exception": true,
+    "processing_error": "malformed or oversized process results",
+    "sdk_terminal_code": 90,
+    "sdk_terminal_note": "Status record, not an OS exception identity; do not interpret its historical interface-query label as the rejection cause.",
+    "outer_exit_after_containment": -15,
+    "outer_exit_before_containment": null,
+    "windows_os_exit": "not separately recorded",
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "native": {
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 360,
+      "position": 91392,
+      "stage": 2,
+      "detail": 0,
+      "admitted_frames": 91648,
+      "missing_frames": 256,
+      "gaps": 1,
+      "expired_frames": 256,
+      "delivered_frames": 90880,
+      "priming_frames": 512
+    },
+    "delivery": {
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 360,
+      "position": 91392,
+      "stage": 0,
+      "detail": 0
+    },
+    "editor": {
+      "available": true,
+      "independently_sampled": true,
+      "closed": 0,
+      "failure": 0,
+      "open": 1,
+      "view_stage": 217,
+      "open_stage": 100,
+      "exception_code": 0
+    }
+  },
+  "publication": {
+    "revision": {
+      "id": "62f060e2a92e92cc8dccfb60fbc05112",
+      "sha256": "35a4b5fe04834b4f328b48dae1df6242de795e385db400ea8ed25572021d0488"
+    },
+    "prior": {
+      "id": "b4ca93f8c90cf1caa8fabdb007081bc2",
+      "sha256": "2158e68b0bcd724567cf8069c3fe317cf4f8539729fab17e984844265d76a6c3"
+    },
+    "target": "<MANAGED>/publications/41727475415649534B61743150726F63/revisions/62f060e2a92e92cc8dccfb60fbc05112/LVB_41727475415649534B61743150726F63.vst3",
+    "qualification": "ap18_pigments",
+    "profile": {
+      "activation_permitted": false,
+      "claim": "review_candidate",
+      "id": "arturia-pigments",
+      "revision": 5
+    },
+    "profile_fingerprint": "5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4"
+  },
+  "classification": {
+    "established": "A standard channel-bearing Note On reaches Collector on active output event bus 0 with retained channel count zero. Channel validation is the first refusal.",
+    "excluded_for_this_first_refusal": [
+      "event/point/queue/payload capacity",
+      "unsupported event type",
+      "negative or out-of-range sample offset",
+      "non-finite or out-of-range parameter value",
+      "missing sidechain source"
+    ],
+    "not_established": [
+      "the exact reason for revision3 original failure",
+      "the exception/termination cause of revision4 view release",
+      "installation or save-location defect",
+      "vendor bug versus metadata-lifecycle mismatch"
+    ],
+    "sdk_source": "https://github.com/steinbergmedia/vst3_pluginterfaces/blob/4f547e8e102b47de4a8b8aaf343c73b700786372/vst/ivstcomponent.h#L88-L91",
+    "remaining_boundary": "BusInfo defines event channelCount as supported MIDI channels and requires rechecking used channel counts after setBusArrangements. The current layout retains its earlier bus metadata; no post-negotiation event-channel requery is retained. Resolve that ownership/SDK boundary and vendor intent before any zero-to-16 rule, discard or compatibility repair.",
+    "validator_changed": false
+  },
+  "post_outcome_ui": [
+    "Stop transport",
+    "Normal Quit",
+    "Decline saving unsaved test insertion",
+    "Bitwig unavailable-state warning after host absence",
+    "Proceed without temporary state; Bitwig exits"
+  ],
+  "nonclaims": [
+    "No routed sidechain proof",
+    "No musical/editor/preset/automation/recall qualification",
+    "No claim that original 18852-block failure caused revision4 teardown exit",
+    "No second live attempt"
+  ]
+}
