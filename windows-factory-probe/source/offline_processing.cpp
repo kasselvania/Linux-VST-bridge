@@ -1,6 +1,7 @@
 #include <string_view>
 #include <windows.h>
 #include "offline_processing.h"
+#include "result_status.h"
 #include "../../native-vst3-proxy/include/ap10_sdk_results.h"
 #include "component_instance_session.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
@@ -189,12 +190,13 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     if(external)external->before_process();
                     const auto process_start=std::chrono::steady_clock::now();
                     block.result=processor.process(block.data);
-                    // Scalar handoff after the vendor call; emitted only after join.
+                    // Custody immediately after the vendor call, before any throw/teardown.
                     if(block.returned.failed&&first_rejection.reason==AP10Results::Rejection::None){
                         first_rejection=block.returned.rejection;rejected_callback=processed+1;
                         rejected_generation=block.request.generation;rejected_epoch=block.request.epoch;
                         rejected_sequence=block.request.sequence;rejected_position=block.request.position;
                         for(size_t i=0;i<block.request.event_count;++i){if(block.request.events[i].kind==2)++rejected_input_parameters;else ++rejected_input_notes;}
+                        if(external&&external->result_status())external->result_status()->publish(first_rejection,rejected_generation,rejected_epoch,rejected_sequence,rejected_position,rejected_callback,rejected_input_notes,rejected_input_parameters);
                     }
                     const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     if(external)external->after_process();
@@ -263,7 +265,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         detail+=",\"extra_bits\":"+std::to_string(r.extra_bits);
         detail+=",\"generation\":"+std::to_string(rejected_generation);
         detail+=",\"epoch\":"+std::to_string(rejected_epoch);
-        detail+=",\"sequence\":"+std::to_string(rejected_sequence);
+        detail+=",\"request_sequence\":"+std::to_string(rejected_sequence);
         detail+=",\"position\":"+std::to_string(rejected_position);
         detail+=",\"callback\":"+std::to_string(rejected_callback);
         detail+=",\"input_notes\":"+std::to_string(rejected_input_notes);

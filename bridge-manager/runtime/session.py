@@ -163,6 +163,61 @@ def operation_lock_mode(spec):
         return fcntl.LOCK_SH
     return fcntl.LOCK_EX if spec['inspect'] and not spec.get('keeper') else fcntl.LOCK_SH
 
+class ResultStatus:
+    """LVRS v1 first-rejection custody, independently readable after host death.
+
+    Fixed 1024-byte file, two 384-byte slots and an atomic commit. No vendor
+    payloads. All concurrent words use libatomic, never Python memory copies.
+    """
+    fields=('generation','epoch','request_sequence','position','callback','input_notes','input_parameters',
+            'reason','frames','events','points','queues','bytes','event_type','bus','offset','channel',
+            'declared_channels','event_bus_active','flags','declared_buses','payload_type','payload_size',
+            'parameter_id','ppq_bits','value_bits','field_a','field_b','extra_bits','process_returned','reserved')
+    reasons=('None','EventCapacity','NegativeBus','UndeclaredBus','BusStorage','NegativeEventOffset',
+             'EventExtent','NonFinitePPQ','UnsupportedEvent','InvalidEventField','EventChannel','EventPayload',
+             'PayloadCapacity','NullPayload','PayloadAlignment','QueueCapacity','PointCapacity',
+             'NegativePointOffset','PointExtent','NonFiniteValue','ValueBelowZero','ValueAboveOne')
+    @staticmethod
+    def create(directory,sid):
+        header=b'LVRS'+struct.pack('<III',1,1024,31)+bytes.fromhex(sid)
+        fd=os.open(directory/'ap18.results',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'wb') as f:
+            f.write(header+bytes(1024-len(header)))
+    def __init__(self,directory,sid):
+        self.map=None;self.sid=sid;self.last=None
+        try:fd=os.open(directory/'ap18.results',os.O_RDWR|os.O_NOFOLLOW)
+        except FileNotFoundError:return
+        try:
+            st=os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=1024 or st.st_mode&0o077:raise RuntimeError('result status ownership/extent')
+            self.map=mmap.mmap(fd,1024,access=mmap.ACCESS_WRITE)
+        finally:os.close(fd)
+        if self.map[:32]!=b'LVRS'+struct.pack('<III',1,1024,31)+bytes.fromhex(sid):
+            self.close();raise RuntimeError('result status identity/version')
+        lib=ctypes.CDLL('libatomic.so.1');self.load=getattr(lib,'__atomic_load_8')
+        self.load.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load.restype=ctypes.c_uint64
+        self.address=ctypes.addressof(ctypes.c_char.from_buffer(self.map))
+    def word(self,at):return self.load(self.address+at,5)
+    def snapshot(self):
+        if self.map is None:return {'available':False}
+        for _ in range(3):
+            commit=self.word(64)
+            if not commit:return {'available':True,'schema':1,'rejection':None}
+            if commit!=1:raise RuntimeError('result status first-write counter')
+            row=dict(zip(self.fields,(self.word(128+(commit&1)*384+i*8) for i in range(31))))
+            if commit!=self.word(64):continue
+            if not 0<row['reason']<len(self.reasons) or row['process_returned']!=1 or row['reserved']:raise RuntimeError('result status malformed record')
+            for key in ('frames','event_type','bus','offset','channel','declared_channels','event_bus_active','field_a','field_b'):
+                v=row[key]
+                if v>0xffffffff:raise RuntimeError('result status scalar extent')
+                row[key]=v-(1<<32) if v&(1<<31) else v
+            row['reason_code']=row['reason'];row['reason']=self.reasons[row['reason']]
+            self.last={'available':True,'schema':1,'session':self.sid,'publication':commit,'rejection':row}
+            return self.last
+        return self.last or {'available':True,'schema':1,'incomplete':True}
+    def close(self):
+        if self.map is not None:self.map.close();self.map=None
+
 class FaultStatus:
     """Atomic, bounded read of AP12 status; independent of either Windows thread.
 
@@ -174,7 +229,7 @@ class FaultStatus:
     """
     fields=('generation','epoch','request_sequence','position','stage','detail','ticks','frequency','thread_id','process_id')
     def __init__(self,directory,sid):
-        self.map=None;self.mailbox=None;self.gui=None;self.directory=directory;self.sid=sid;self.last=[None]*3;self.pending=None;self.suspect=None
+        self.result_status=ResultStatus(directory,sid);self.map=None;self.mailbox=None;self.gui=None;self.directory=directory;self.sid=sid;self.last=[None]*3;self.pending=None;self.suspect=None
         try:
             fd=os.open(directory/'ap12.status',os.O_RDWR|os.O_NOFOLLOW)
         except FileNotFoundError:return # legacy diagnostic clients
@@ -216,11 +271,12 @@ class FaultStatus:
                 return {**self.last[index],'current':True}
         return {**self.last[index],'current':False} if self.last[index] else {'current':False}
     def snapshot(self):
-        if self.map is None:return {'available':False}
+        if self.map is None:return {'available':False,'result_status':self.result_status.snapshot()}
         return {'available':True,'schema':self.version,'sample_monotonic_ns':time.monotonic_ns(),
                 'clock_domains':['linux_monotonic_ns','windows_qpc','windows_qpc'],
                 **{name:self.lane(i) for i,name in enumerate(('native','delivery','owner'))},
                 'editor':self.editor_snapshot(),
+                'result_status':self.result_status.snapshot(),
                 'mailbox_flags':None if self.mailbox is None else {
                     'request':self.load4(self.mailbox_address+64,5),
                     'reply':self.load4(self.mailbox_address+128,5),
@@ -264,6 +320,7 @@ class FaultStatus:
             # deadline or declare that this request necessarily fails later.
             self.suspect=self.snapshot();self.suspect['observed_pending_seconds']=now-self.pending[1]
     def close(self):
+        self.result_status.close()
         if self.gui is not None:self.gui.close();self.gui=None
         if self.mailbox is not None:self.mailbox.close();self.mailbox=None
         if self.map is not None:self.map.close();self.map=None
@@ -316,6 +373,7 @@ def run(spec,peer=None):
         while not (directory/'ap1.control').exists():
             if native_stopped() or time.monotonic()>=end:raise RuntimeError('native setup disconnected or timed out')
             time.sleep(.02)
+    if not spec['inspect'] and not spec.get('vendor_access'):ResultStatus.create(directory,sid)
     visibility=FaultStatus(directory,sid) if not spec['inspect'] and not spec.get('vendor_access') else None
     root=subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None

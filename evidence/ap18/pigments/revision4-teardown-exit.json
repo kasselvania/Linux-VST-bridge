@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "source_head": "b6efaa7b8d624a13f5e50b288fd8c75f34e15fce",
+  "attempt": "revision4-editor-close",
+  "independent_observations": [
+    "revision3: Collector failure after 18852 processed blocks; reason unavailable",
+    "revision4: abnormal host exit during editor teardown",
+    "Bitwig state-save warning after host absence; not evidence of installation or location defect"
+  ],
+  "outer_exit": 5,
+  "windows_exit": null,
+  "windows_exit_limit": "No terminal Windows record or exception code; outer Proton exit is not a Windows exception identity.",
+  "last_complete_status": {
+    "available": true,
+    "schema": 2,
+    "clock_domains": [
+      "linux_monotonic_ns",
+      "windows_qpc",
+      "windows_qpc"
+    ],
+    "native": {
+      "publication": 16394,
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 5467,
+      "position": 1398784,
+      "stage": 2,
+      "detail": 0,
+      "frequency": 1000000000,
+      "admitted_frames": 1399296,
+      "missing_frames": 0,
+      "gaps": 0,
+      "expired_frames": 0,
+      "delivered_frames": 1398784,
+      "priming_frames": 512,
+      "current": true
+    },
+    "delivery": {
+      "publication": 32787,
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 5466,
+      "position": 1398528,
+      "stage": 1,
+      "detail": 0,
+      "frequency": 10000000,
+      "current": true
+    },
+    "owner": {
+      "publication": 828,
+      "generation": 1,
+      "epoch": 0,
+      "request_sequence": 0,
+      "position": 0,
+      "stage": 22,
+      "detail": 0,
+      "frequency": 10000000,
+      "current": true
+    },
+    "editor": {
+      "available": true,
+      "independently_sampled": true,
+      "closed": 1,
+      "failure": 0,
+      "open": 1,
+      "view_stage": 215,
+      "open_stage": 100,
+      "exception_code": 0
+    },
+    "mailbox_flags": {
+      "request": 1,
+      "reply": 0,
+      "independently_sampled": true
+    }
+  },
+  "last_lifecycle": {
+    "event": "lifecycle",
+    "sequence": 235,
+    "state": "ap2_lifecycle_ack",
+    "kind": 11,
+    "next_sequence": 3
+  },
+  "process_returned_for_pending_request": "unknown",
+  "collector_failed": "unknown",
+  "ap0_thread_joined": false,
+  "ap18_result_rejection": false,
+  "teardown": {
+    "removed_entry": true,
+    "removed_success": true,
+    "setFrame_null_success": true,
+    "view_release_entry": true,
+    "view_release_completion": "not retained",
+    "DestroyWindow_entry": false,
+    "DestroyWindow_completion": "not reached in last recorded close",
+    "component_handler_restoration": "not reached in recorded close",
+    "attribution": "Last complete view stage 215 is immediately before vendor IPlugView release. Removed refusal/exception and wrong-thread early return are excluded for this close. No proof of DestroyWindow failure, handler restoration failure, terminate fallback, or exact vendor/runtime termination cause."
+  },
+  "ordering": [
+    "independent owner records host absent and positive containment",
+    "later normal Bitwig quit declines test edits",
+    "Bitwig requests plug-in state and displays unavailable-state warning",
+    "proceed without temporary state closes Bitwig"
+  ],
+  "ordering_limit": "UI sequence observed; no exact monotonic timestamp for Bitwig state request retained.",
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "restored": {
+    "pigments": "inactive",
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "service": "active",
+    "keeper": "active",
+    "tracing": false,
+    "CPUWeight": "unset/effective100"
+  }
+}

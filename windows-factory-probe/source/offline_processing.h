@@ -8,6 +8,7 @@
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 namespace linux_vst_bridge::wf0 {
+class ResultStatus;
 class HostCallbackSink;
 class EventWriter;
 struct ExternalBlock { Steinberg::Vst::ProcessContext context{};uint64_t gui_revision=0,generation=0,epoch=0,sequence=0,position=0;bool has_context=false; int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
@@ -40,6 +41,7 @@ public:
     virtual uint32_t lifecycle_request(uint16_t) { return 256; }
     virtual void lifecycle_ack(uint16_t) {}
     virtual void lifecycle_activity(bool,uint64_t) {}
+    virtual ResultStatus* result_status() {return nullptr;}
     virtual void before_process() {}
     virtual void after_process() {}
     virtual void ready() = 0;

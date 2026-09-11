@@ -30,6 +30,7 @@ public:
     uint32_t lifecycle_request(uint16_t) override;
     void lifecycle_ack(uint16_t) override;
     void lifecycle_activity(bool,uint64_t) override;
+    ResultStatus* result_status() override;
     void before_process() override;
     void after_process() override;
     void ready() override;

@@ -259,3 +259,20 @@ revision 4 is a diagnostic ReviewCandidate with the exact new Windows host and
 unchanged revision-3 native. Run only Welcome/no-source/C3 until the first
 refusal or a documented bound beyond 18,852 blocks. Select any repair only from
 the exact refusal; preserve candidate history and restore Pigments inactive.
+
+### Crash-surviving returned-result custody
+
+The revision-4 attempt exited during vendor view release after successful
+`removed()` and `setFrame(nullptr)`, before a Windows terminal record or
+processing-thread join. The exact exception/termination cause is unknown. This
+is separate from revision 3's collector refusal and the later Bitwig state-save
+warning. No installation/save-path cause is established. Retain existing
+evidence without repeating that attempt.
+
+The next diagnostic uses an independently versioned, fixed scalar session mapping
+written after `process()` returns and before error/teardown. The Linux owner
+reads it before containment. Post-join JSON is secondary. Preserve revision 4;
+changed host/reporting bytes require ReviewCandidate revision 5. After generated
+and hosted validation, one bounded Welcome/no-input/C3 run leaves the editor
+open until the first rejection, typed host exit or 30,000 completed blocks. No
+save or manual editor close precedes the outcome. Restore Pigments inactive.

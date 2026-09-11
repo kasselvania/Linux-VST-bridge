@@ -740,3 +740,39 @@ os._exit(5)
 
 if __name__ == '__main__':
     unittest.main()
+
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux atomic mapped-status reader')
+class ResultCustodyTests(unittest.TestCase):
+    def test_empty_interrupted_first_write_and_immutable_complete_slot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='18'*16
+            session.ResultStatus.create(root,sid)
+            with self.assertRaises(FileExistsError):session.ResultStatus.create(root,sid)
+            reader=session.ResultStatus(root,sid)
+            try:
+                self.assertIsNone(reader.snapshot()['rejection'])
+                # Independent child dies with only an inactive partial slot.
+                code="import os,mmap,struct,sys;f=open(sys.argv[1],'r+b');m=mmap.mmap(f.fileno(),1024);struct.pack_into('<Q',m,512,99);os._exit(7)"
+                p=subprocess.run([sys.executable,'-c',code,str(root/'ap18.results')])
+                self.assertEqual(p.returncode,7);self.assertIsNone(reader.snapshot()['rejection'])
+                row=[17,3,91,1440,1,1,0,21,256,0,0,1,0,0xffffffff,0xffffffff,0,0xffffffff,0xffffffff,0xffffffff,0,0,0,0,42,0,0x4000000000000000,0,0,0,1,0]
+                # The Windows full-path test writes the same explicit word layout.
+                with (root/'ap18.results').open('r+b') as f:
+                    f.seek(512);f.write(session.struct.pack('<31Q',*row));f.seek(64);f.write(session.struct.pack('<Q',1))
+                result=reader.snapshot()['rejection']
+                self.assertEqual(result['reason'],'ValueAboveOne');self.assertEqual(result['request_sequence'],91)
+                self.assertEqual(result['event_type'],-1);self.assertEqual(result['parameter_id'],42)
+                # Interrupted attempted replacement never commits over prior slot.
+                with (root/'ap18.results').open('r+b') as f:f.seek(128);f.write(b'\xff'*248)
+                self.assertEqual(reader.snapshot()['rejection'],result)
+                self.assertNotIn('payload',result)
+            finally:reader.close()
+    def test_version_identity_extent_and_permissions_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='18'*16;session.ResultStatus.create(root,sid)
+            with self.assertRaisesRegex(RuntimeError,'identity/version'):session.ResultStatus(root,'19'*16)
+            p=root/'ap18.results';p.chmod(0o644)
+            with self.assertRaisesRegex(RuntimeError,'ownership/extent'):session.ResultStatus(root,sid)
+            p.chmod(0o600)
+            with p.open('r+b') as f:f.seek(4);f.write(session.struct.pack('<I',2))
+            with self.assertRaisesRegex(RuntimeError,'identity/version'):session.ResultStatus(root,sid)
