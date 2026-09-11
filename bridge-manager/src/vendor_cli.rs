@@ -81,6 +81,29 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
             Ok(())
         }
         "cancel" => {
+            let _guard = m.lock("registry.lock")?;
+            let prior: OperationResult = read_json(&directory.join("operation-result.json"))?;
+            if prior.retired() {
+                let state = Command::new("systemctl")
+                    .args([
+                        "--user",
+                        "show",
+                        "linux-vst-bridge-vendor-arturia-software-center",
+                        "-p",
+                        "ActiveState",
+                        "--value",
+                    ])
+                    .output()?;
+                if state.status.success()
+                    && matches!(
+                        std::str::from_utf8(&state.stdout)?.trim(),
+                        "inactive" | "failed"
+                    )
+                {
+                    println!("{}", serde_json::to_string(&prior)?);
+                    return Ok(());
+                }
+            }
             let app: Application = read_json(&record)?;
             app.verify(&m.root)?;
             let result = Command::new("systemctl")

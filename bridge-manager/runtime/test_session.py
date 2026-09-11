@@ -570,6 +570,23 @@ class CompanionDiagnosticTests(unittest.TestCase):
                 self.assertEqual((p/'stdout').stat().st_mode&0o777,0o600)
             finally:out.close();err.close()
 
+    def test_wrapper_arguments_are_not_registered_image_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=pathlib.Path(temp);image=root/'agent.exe';image.write_bytes(b'exact image')
+            proc=root/'proc'/'123';proc.mkdir(parents=True)
+            (proc/'cmdline').write_bytes(str(image).encode()+b'\0')
+            (proc/'maps').write_text('')
+            artifact={'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()}
+            app={'executable':artifact,'helpers':[artifact,artifact],'environment':{'runner':{'files':[]}}}
+            class Scope:
+                proc_root=root/'proc'
+                def identity(self,pid):return None
+            record={'pid':123,'ppid':1}
+            self.assertEqual(session.vendor_process_metadata(Scope(),record,app)['registered_images'],[])
+            st=image.stat()
+            (proc/'maps').write_text(f'1000-2000 r--p 00000000 {os.major(st.st_dev):x}:{os.minor(st.st_dev):x} {st.st_ino} /container/alias/agent.exe\n')
+            self.assertEqual(len(session.vendor_process_metadata(Scope(),record,app)['registered_images']),3)
+
     def test_diagnostic_modes_do_not_accept_arbitrary_executable_or_verb(self):
         root=pathlib.Path('/fixture/environment')
         app={'environment':{'root':str(root),'runner':{'entry_point':'/runner/entry','proton':'/runner/proton'}},

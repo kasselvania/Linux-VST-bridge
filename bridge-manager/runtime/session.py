@@ -553,12 +553,12 @@ def vendor_process_metadata(scope, record, app):
     try:exe=os.readlink(root/'exe')
     except (FileNotFoundError,ProcessLookupError):pass
     candidates=[('main',app['executable']),('agent',app['helpers'][0]),('updater',app['helpers'][1])]
-    # Never retain arguments: a bootstrap could carry account or URL material.
+    # Arguments identify an intended launch, not the process running that PE.
+    # Match mapped file identity across container path aliases; never read or
+    # retain bootstrap arguments that could contain account or URL material.
     try:
-        with (root/'cmdline').open('rb') as f:args=f.read(8192).split(b'\0')
         with (root/'maps').open(errors='replace') as f:maps=f.read(262144)
-    except (FileNotFoundError,ProcessLookupError):args=[];maps=''
-    prefix=pathlib.Path(app['environment']['root'])/'compatdata/pfx'
+    except (FileNotFoundError,ProcessLookupError):maps=''
     mapped=set()
     for line in maps.splitlines():
         fields=line.split(None,5)
@@ -567,9 +567,9 @@ def vendor_process_metadata(scope, record, app):
                 major,minor=fields[3].split(':');mapped.add((int(major,16),int(minor,16),int(fields[4])))
             except ValueError:pass
     for role,artifact in candidates:
-        path=artifact['path'];win=windows(path,prefix).encode();m=pathlib.Path(path).stat()
+        path=artifact['path'];m=pathlib.Path(path).stat()
         image_mapped=(os.major(m.st_dev),os.minor(m.st_dev),m.st_ino) in mapped
-        if exe==path or win in args or path.encode() in args or image_mapped:
+        if exe==path or image_mapped:
             roles.append({'role':role,'path':path,'sha256':artifact['sha256']})
     if not roles:
         for artifact in app['environment']['runner']['files']:
