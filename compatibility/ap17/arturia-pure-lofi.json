@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pure-lofi",
-  "revision": 8,
+  "revision": 9,
   "claim": "review_candidate",
   "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
   "factory_vendor": "Arturia",
@@ -58,8 +58,8 @@
     "environment_revision": 1,
     "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
     "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
-    "native_sha256": "57bbe6be6620f8dba44f2fd9e65f88341d05cdb615e86b791fefa523a7f30466",
-    "native_source_commit": "244e6b6009f13f81f9aa9f814b15e3db1496bea3",
+    "native_sha256": "ce7531e4c76e53e85abe1153354fac890a6ba641b3b6333f5891a25f49843d59",
+    "native_source_commit": "54d7b2b78ca301b126e4eb94553fe426989835ff",
     "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245"
   },
   "capabilities": {
@@ -81,6 +81,7 @@
     "docs/AP17.md",
     "evidence/ap17/baseline.json",
     "evidence/ap17/short-intervals.json",
-    "evidence/ap17/native-artifacts.json"
+    "evidence/ap17/native-artifacts.json",
+    "evidence/ap17/r1/source-validation.json"
   ]
 }

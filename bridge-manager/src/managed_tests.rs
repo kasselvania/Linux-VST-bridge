@@ -1717,7 +1717,7 @@ fn capacity_qualification_is_exact_separate_and_never_ordinary_authority() {
     for mutation in 0..8 {
         let mut bad = candidate.clone();
         match mutation {
-            0 => bad.revision = 9,
+            0 => bad.revision = 10,
             1 => bad.requirements.host_sha256 = "ef".repeat(32),
             2 => bad.requirements.host_source_sha256 = "fe".repeat(32),
             3 => bad.requirements.runner.version.push_str("different"),
@@ -1792,7 +1792,7 @@ fn sealed_ap17_roster_changes_only_native_startup_and_never_activation() {
     let candidates=qualification::candidates_for(Qualification::Ap17Capacity).unwrap();
     assert_eq!(candidates.len(),2);
     for (prior,candidate) in priors.iter().zip(&candidates) {
-        assert_eq!(prior.revision,7);assert_eq!(candidate.revision,8);
+        assert_eq!(prior.revision,7);assert_eq!(candidate.revision,9);
         assert_eq!(candidate.claim,Claim::ReviewCandidate);
         assert!(!candidate.claim.permits(SelectionPurpose::Activation));
         assert!(candidate.claim.permits(SelectionPurpose::Qualification));
@@ -1808,4 +1808,29 @@ fn sealed_ap17_roster_changes_only_native_startup_and_never_activation() {
     }
     assert_ne!(candidates,qualification::candidates_for(Qualification::Ap15Editor).unwrap());
     assert!(serde_json::from_str::<Qualification>("\"generic_candidate\"").is_err());
+}
+
+#[test]
+fn ap17_r1_keeps_revision_eight_bytes_and_constraints_immutable() {
+    let old = [
+        include_bytes!("../../compatibility/ap17/revision-8/arturia-pure-lofi.json").as_slice(),
+        include_bytes!("../../compatibility/ap17/revision-8/arturia-efx-fragments.json").as_slice(),
+    ];
+    let hashes = ["29f39a4b5e92750dab81c1b823e468b5ffba794fbac69f75e9fe464d213224e3", "c640e98e49d0c3e5c55c87cf8d0a0fd4754a3523e39603ba5058901290e64693"];
+    let current = qualification::candidates_for(Qualification::Ap17Capacity).unwrap();
+    for ((bytes, hash), next) in old.into_iter().zip(hashes).zip(current) {
+        assert_eq!(hex(&Sha256::digest(bytes)), hash);
+        let prior = Profile::parse(bytes).unwrap();
+        assert_eq!(prior.revision, 8);
+        assert_eq!(prior.claim, Claim::ReviewCandidate);
+        assert!(!prior.claim.permits(SelectionPurpose::Activation));
+        assert_eq!(next.revision, 9);
+        let mut normalized = next.clone();
+        normalized.revision = prior.revision;
+        normalized.evidence = prior.evidence.clone();
+        normalized.requirements.native_sha256 = prior.requirements.native_sha256.clone();
+        normalized.requirements.native_source_commit = prior.requirements.native_source_commit.clone();
+        assert_eq!(normalized, prior);
+        assert_eq!(external_ids(&next.class.class_id).unwrap(), external_ids(&prior.class.class_id).unwrap());
+    }
 }

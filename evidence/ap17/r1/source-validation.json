@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "review": 5173438303,
+  "source_commit": "54d7b2b78ca301b126e4eb94553fe426989835ff",
+  "prior_head": "99f328ae33405197ab455e74ba9af78a6b1f42b9",
+  "repair": "Full, Busy and GenerationExhausted are typed insertion outcomes retained directly through non-RT startup. Busy is a distinct temporary refusal, with no implicit retry or new wait. Callback/lease path and native capacity remain unchanged.",
+  "regression": "Three entries occupied plus one retired/reusable slot with owner held on a concurrent thread. Insertion closure must not run; release permits exactly one new handle; occupied full and stale handles remain refused. Generation exhaustion refuses repeatedly without creation.",
+  "records": [
+    {
+      "name": "r1-before.log",
+      "sha256": "191ddb23046cc920167f31e0691d6c6d1f13ec4c683d181fe15477dfd7a786ec",
+      "summary": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.29s",
+        "  left: \"3\"",
+        " right: \"admission_native_image_busy\"",
+        "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 60 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "name": "r1-after.log",
+      "sha256": "6613f7bddce909cd4c14b5cd8edcf38e0b6ab8a2cd58cbe48b925fdcaaba9ce7",
+      "summary": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.33s",
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "name": "r1-backend-tests.log",
+      "sha256": "7f6e728a9c44949125cc735df03f0a94991cecaa55831530676540f0e1619f69",
+      "summary": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s",
+        "test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.07s"
+      ]
+    },
+    {
+      "name": "r1-manager-tests.log",
+      "sha256": "224e046e9fb62d8892d9fa19427724eb09f5f22efb836ccbd53f43eda64185b0",
+      "summary": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.08s",
+        "test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.42s",
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "name": "r1-python-tests.log",
+      "sha256": "e8f66b25d248b228c39ce3d6ffcb67777de26e090e38baf5ff186394d3679c5c",
+      "summary": [
+        "Ran 22 tests in 0.014s",
+        "OK (skipped=16)"
+      ]
+    },
+    {
+      "name": "r1-backend-clippy.log",
+      "sha256": "d522af4ce3f157fbc36209a0aaca0cd4257ea8af1891eafeb8e0ff2154756c24",
+      "summary": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.26s"
+      ]
+    },
+    {
+      "name": "r1-manager-clippy.log",
+      "sha256": "4cf86278c1e6d659943a46a3d7e3da429ac15be90f0f17742e24ef85228e7d3e",
+      "summary": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s"
+      ]
+    },
+    {
+      "name": "r1-roster-manager-tests.log",
+      "sha256": "339af8235c9ab4bb344a654988df2c5a973994767e6a0f25589eb7f1f6ecca04",
+      "summary": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.34s",
+        "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.51s"
+      ]
+    },
+    {
+      "name": "r1-roster-manager-tests-final.log",
+      "sha256": "959eb4d6c61273ca80dced41ba2799557bfff69dbf1b329bc8111238814abd94",
+      "summary": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.70s",
+        "test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.78s",
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "name": "r1-roster-manager-clippy.log",
+      "sha256": "117e2be337de6ad5ed30e3a1763cd9da0825a17f9bf625efe5c79839ee3e597f",
+      "summary": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.69s"
+      ]
+    }
+  ],
+  "pending": [
+    "Exact repaired candidate deployment",
+    "Remaining AP17 recovery matrix"
+  ],
+  "windows": "Unchanged source/tests/ABI and accepted host binary reused; no new compilation claimed.",
+  "roster_test_adjustment": "The prior negative fixture used revision 9 as an unsupported revision; after sealing the new immutable revision 9, that negative input became revision 10. All mismatch checks and all sixteen boundary checks remain required.",
+  "linux_native": {
+    "commands": [
+      {
+        "command": [
+          "cmake",
+          "-S",
+          "$DECK_HOME/AP17-Work/r1-native-tests",
+          "-B",
+          "$DECK_HOME/AP17-Work/r1-native-tests/build",
+          "-G",
+          "Ninja",
+          "-DCMAKE_BUILD_TYPE=Release",
+          "-DAP2_BUILD_ONLY=ON",
+          "-DAP10_RESULTS_TESTS=ON",
+          "-DAP11_PANEL_TESTS=ON",
+          "-DVST3_SDK_ROOT=$DECK_HOME/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+          "-DAP2_RUST_LIBRARY=$DECK_HOME/AP17-Work/r1-native-tests/libap2_backend.a",
+          "-DAP8_DESCRIPTOR=$DECK_HOME/AP17-Work/r1-native-tests/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
+        ],
+        "exit": 0,
+        "seconds": 2.1164486239977123
+      },
+      {
+        "command": [
+          "cmake",
+          "--build",
+          "$DECK_HOME/AP17-Work/r1-native-tests/build",
+          "--target",
+          "ap10-result-lifetime",
+          "ap10-results-tests",
+          "ap11-native-tests",
+          "ap11-state-tests",
+          "ap11-panel-tests",
+          "ap11-activation-tests",
+          "ap3-callback-audit",
+          "CommercialInstrumentBridge",
+          "-j",
+          "4"
+        ],
+        "exit": 0,
+        "seconds": 26.55897150599776
+      },
+      {
+        "command": [
+          "ctest",
+          "--test-dir",
+          "$DECK_HOME/AP17-Work/r1-native-tests/build/native-vst3-proxy",
+          "--verbose"
+        ],
+        "exit": 0,
+        "seconds": 6.521951129998342
+      },
+      {
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "$DECK_HOME/AP17-Work/r1-native-tests/bridge-manager/runtime",
+          "-v"
+        ],
+        "exit": 0,
+        "output": "\ntest_accessibility_workaround_is_explicit_and_process_scoped (test_session.CensusTests.test_accessibility_workaround_is_explicit_and_process_scoped) ... ok\ntest_changed_artifact_is_refused (test_session.CensusTests.test_changed_artifact_is_refused) ... ok\ntest_only_coordinated_inspection_shares_the_keeper_lock (test_session.CensusTests.test_only_coordinated_inspection_shares_the_keeper_lock) ... ok\ntest_registered_trace_flag_reaches_only_audio_host (test_session.CensusTests.test_registered_trace_flag_reaches_only_audio_host) ... ok\ntest_stat_only_parsing_and_descendant_identity (test_session.CensusTests.test_stat_only_parsing_and_descendant_identity) ... ok\ntest_tracker_rejects_reused_parent_and_follows_new_reparented_children (test_session.CensusTests.test_tracker_rejects_reused_parent_and_follows_new_reparented_children) ... ok\ntest_editor_removal_fault_survives_transport_retirement (test_session.FaultStatusTests.test_editor_removal_fault_survives_transport_retirement) ... ok\ntest_gui_diagnostic_versions_are_exact_and_preserve_retained_layout (test_session.FaultStatusTests.test_gui_diagnostic_versions_are_exact_and_preserve_retained_layout) ... ok\ntest_pending_peer_is_retained_before_containment_without_completion (test_session.FaultStatusTests.test_pending_peer_is_retained_before_containment_without_completion) ... ok\ntest_reader_rejects_identity_and_never_uses_unstable_slot (test_session.FaultStatusTests.test_reader_rejects_identity_and_never_uses_unstable_slot) ... ok\ntest_failed_memory_retirement_never_sends_a_false_receipt (test_session.MemoryTransportTests.test_failed_memory_retirement_never_sends_a_false_receipt) ... ok\ntest_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory (test_session.MemoryTransportTests.test_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory) ... ok\ntest_production_gate_waits_for_exact_windows_views_and_closes_both_owners (test_session.MemoryTransportTests.test_production_gate_waits_for_exact_windows_views_and_closes_both_owners) ... ok\ntest_production_run_admits_memory_transport_and_retires_exact_session (test_session.MemoryTransportTests.test_production_run_admits_memory_transport_and_retires_exact_session) ... ok\ntest_replaced_disk_foreign_and_malformed_storage_are_refused (test_session.MemoryTransportTests.test_replaced_disk_foreign_and_malformed_storage_are_refused) ... ok\ntest_retirement_waits_for_both_owners_and_preserves_sibling_and_record (test_session.MemoryTransportTests.test_retirement_waits_for_both_owners_and_preserves_sibling_and_record) ... ok\ntest_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources (test_session.MemoryTransportTests.test_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources) ... ok\ntest_cleanup_preserves_independent_sibling (test_session.OwnershipTests.test_cleanup_preserves_independent_sibling) ... ok\ntest_early_failure_wakes_native_and_retires_only_after_release (test_session.OwnershipTests.test_early_failure_wakes_native_and_retires_only_after_release) ... ok\ntest_report_failure_does_not_skip_retirement_or_kill_sibling (test_session.OwnershipTests.test_report_failure_does_not_skip_retirement_or_kill_sibling) ... ok\ntest_subtree_tracking_covers_thread_children_and_reparented_descendants (test_session.OwnershipTests.test_subtree_tracking_covers_thread_children_and_reparented_descendants) ... ok\ntest_terminal_sdk_failure_does_not_wait_for_launcher_companion (test_session.OwnershipTests.test_terminal_sdk_failure_does_not_wait_for_launcher_companion) ... ok\n\n----------------------------------------------------------------------\nRan 22 tests in 23.680s\n\nOK\n"
+      }
+    ],
+    "ctest": "6/6 passed",
+    "runtime": "22/22 passed no skips",
+    "test_archive": {
+      "archive_sha256": "336ff3b7e8896cca19af595d3d5625239348a3738d14a708a944d72e5e13bdf3",
+      "source": "54d7b2b78ca301b126e4eb94553fe426989835ff",
+      "backend_features": []
+    }
+  }
+}

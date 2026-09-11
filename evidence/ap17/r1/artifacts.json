@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "revision8_immutable": true,
+  "revision9_claim": "review_candidate",
+  "records": [
+    {
+      "profile": "arturia-pure-lofi",
+      "revision8_file_sha256": "29f39a4b5e92750dab81c1b823e468b5ffba794fbac69f75e9fe464d213224e3",
+      "repaired_native": {
+        "returncode": 0,
+        "bundle": "$DECK_HOME/.cache/linux-vst-bridge/ap9-builds/80f028e316d637ba3ec9caf4397c1259ef21e7d0d2e981799278963d7b3c34da/build/VST3/Release/CommercialInstrumentBridge.vst3",
+        "sha256": "ce7531e4c76e53e85abe1153354fac890a6ba641b3b6333f5891a25f49843d59",
+        "source_commit": "54d7b2b78ca301b126e4eb94553fe426989835ff",
+        "input_archive_sha256": "80f028e316d637ba3ec9caf4397c1259ef21e7d0d2e981799278963d7b3c34da",
+        "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+        "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+      }
+    },
+    {
+      "profile": "arturia-efx-fragments",
+      "revision8_file_sha256": "c640e98e49d0c3e5c55c87cf8d0a0fd4754a3523e39603ba5058901290e64693",
+      "repaired_native": {
+        "returncode": 0,
+        "bundle": "$DECK_HOME/.cache/linux-vst-bridge/ap9-builds/6e67c64439226610fef77abeb490f415d76f5d9357d32ef7de1ac3f02e402b97/build/VST3/Release/CommercialInstrumentBridge.vst3",
+        "sha256": "11615d88cb253e22ca6f6beecbe946bdb5efd46882d091b65f9c461cd6757428",
+        "source_commit": "54d7b2b78ca301b126e4eb94553fe426989835ff",
+        "input_archive_sha256": "6e67c64439226610fef77abeb490f415d76f5d9357d32ef7de1ac3f02e402b97",
+        "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+        "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+      }
+    }
+  ],
+  "installed": false
+}

@@ -333,7 +333,7 @@ impl Manager {
             p.claim == Claim::ReviewCandidate
                 && match purpose {
                     Qualification::Ap15Editor => p.revision > 3,
-                    Qualification::Ap17Capacity => p.revision == 8,
+                    Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
                 }
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
