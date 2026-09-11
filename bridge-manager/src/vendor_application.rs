@@ -35,6 +35,28 @@ pub enum OperationState {
     CleanupUnconfirmed,
 }
 
+/// Closed, temporary AP18 observations; never accepts a command or path.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LaunchMode {
+    Normal,
+    AgentProbe,
+    RuninprefixProbe,
+    InitializedProbe,
+}
+
+impl LaunchMode {
+    pub fn action(s: &str) -> Result<Self> {
+        match s {
+            "launch" => Ok(Self::Normal),
+            "diagnose-agent" => Ok(Self::AgentProbe),
+            "diagnose-runinprefix" => Ok(Self::RuninprefixProbe),
+            "diagnose-initialized" => Ok(Self::InitializedProbe),
+            _ => Err("vendor_application_launch_mode".into()),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationResult {
@@ -48,6 +70,10 @@ pub struct OperationResult {
     #[serde(default)]
     pub error: Option<String>,
     pub discarded_diagnostic_bytes: u64,
+    #[serde(default)]
+    pub retained_diagnostic_bytes: u64,
+    #[serde(default)]
+    pub diagnostic_enabled: bool,
     pub account_posture: AccountPosture,
 }
 
@@ -59,7 +85,7 @@ pub enum AccountPosture {
 
 impl OperationResult {
     pub fn retired(&self) -> bool {
-        self.schema == 1
+        matches!(self.schema, 1 | 2)
             && self.cleanup_confirmed
             && self.owned_live.unwrap_or(0) == 0
             && matches!(
@@ -221,5 +247,30 @@ mod tests {
             .retired());
         value["account_email"] = "must not be retained".into();
         assert!(serde_json::from_value::<OperationResult>(value).is_err());
+    }
+
+    #[test]
+    fn diagnostic_modes_and_public_result_cannot_supply_or_expose_private_data() {
+        for action in [
+            "launch",
+            "diagnose-agent",
+            "diagnose-runinprefix",
+            "diagnose-initialized",
+        ] {
+            assert!(LaunchMode::action(action).is_ok());
+        }
+        assert!(LaunchMode::action("diagnose /tmp/arbitrary.exe").is_err());
+        let value = serde_json::json!({"schema":2,"state":"unknown","launcher_exit":5,
+            "owned_live":1,"cleanup_confirmed":false,"discarded_diagnostic_bytes":17,
+            "retained_diagnostic_bytes":2048,"diagnostic_enabled":true,"account_posture":"unknown"});
+        let result: OperationResult = serde_json::from_value(value.clone()).unwrap();
+        assert!(!result.retired());
+        let rendered = serde_json::to_string(&result).unwrap();
+        assert!(!rendered.contains("private-diagnostic"));
+        for field in ["stdout", "stderr", "log_path", "account_email", "token"] {
+            let mut bad = value.clone();
+            bad[field] = "private".into();
+            assert!(serde_json::from_value::<OperationResult>(bad).is_err());
+        }
     }
 }

@@ -1,5 +1,7 @@
 use super::*;
-use linux_vst_bridge::vendor_application::{self, Application, ApplicationId, OperationResult};
+use linux_vst_bridge::vendor_application::{
+    self, Application, ApplicationId, LaunchMode, OperationResult,
+};
 
 pub fn run(m: &Manager, args: &[String]) -> Result<()> {
     require(args.len() == 2, "vendor-app ACTION arturia-software-center")?;
@@ -97,7 +99,8 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
             println!("{}", serde_json::to_string(&result)?);
             Ok(())
         }
-        "launch" => {
+        "launch" | "diagnose-agent" | "diagnose-runinprefix" | "diagnose-initialized" => {
+            let mode = LaunchMode::action(&args[0])?;
             let _guard = m.lock("registry.lock")?;
             m.require_inactive(None)?;
             let app: Application = read_json(&record)?;
@@ -137,7 +140,7 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
             }
             atomic_json(
                 &job,
-                &serde_json::json!({"application":app,"report":directory.join("operation-result.json")}),
+                &serde_json::json!({"application":app,"report":directory.join("operation-result.json"),"mode":mode}),
             )?;
             let result = Command::new("systemd-run")
                 .args([

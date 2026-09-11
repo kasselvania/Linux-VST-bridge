@@ -554,5 +554,168 @@ print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
             finally:native.close();owner.close()
 
 
+class CompanionDiagnosticTests(unittest.TestCase):
+    def test_private_capture_capacity_time_and_separate_streams(self):
+        with tempfile.TemporaryDirectory() as temp:
+            p=pathlib.Path(temp);out=session.PrivateCapture(p/'stdout',capacity=4)
+            err=session.PrivateCapture(p/'stderr',capacity=3)
+            try:
+                out.write(b'abcdef');err.write(b'xyz!')
+                self.assertEqual((out.retained,out.discarded),(4,2))
+                self.assertEqual((err.retained,err.discarded),(3,1))
+                out.deadline=0;out.write(b'late')
+                self.assertEqual((out.retained,out.discarded),(4,6))
+                self.assertEqual((p/'stdout').read_bytes(),b'abcd')
+                self.assertEqual((p/'stderr').read_bytes(),b'xyz')
+                self.assertEqual((p/'stdout').stat().st_mode&0o777,0o600)
+            finally:out.close();err.close()
+
+    def test_diagnostic_modes_do_not_accept_arbitrary_executable_or_verb(self):
+        root=pathlib.Path('/fixture/environment')
+        app={'environment':{'root':str(root),'runner':{'entry_point':'/runner/entry','proton':'/runner/proton'}},
+             'executable':{'path':str(root/'compatdata/pfx/drive_c/ASC/main.exe')},
+             'helpers':[{'path':str(root/'compatdata/pfx/drive_c/ASC/agent.exe')}]}
+        for mode,verb,image in [('agent_probe','runinprefix','agent.exe'),('runinprefix_probe','runinprefix','main.exe'),('initialized_probe','run','main.exe')]:
+            cmd,cwd=session.vendor_launch({'application':app,'mode':mode})
+            self.assertEqual(cmd[4],verb);self.assertTrue(cmd[-1].endswith(image))
+        with self.assertRaises(RuntimeError):session.vendor_launch({'application':app,'mode':'arbitrary'})
+        env=session.vendor_diagnostic_environment({},pathlib.Path('/private/log'),True)
+        self.assertEqual(env['PROTON_LOG'],'0')
+        self.assertNotIn('+all',env['WINEDEBUG']);self.assertIn('trace+process',env['WINEDEBUG'])
+        self.assertEqual(session.vendor_diagnostic_environment({},pathlib.Path('/private/log'),False),{})
+
+
+class CgroupFixture:
+    group='/user.slice/linux-vst-bridge-vendor-arturia-software-center.service'
+    def __init__(self, path, supervisor=99999):
+        self.path=path;self.proc=path/'proc';self.cg=path/'cgroup';self.supervisor=supervisor
+        self.unit=self.cg/self.group.lstrip('/');self.unit.mkdir(parents=True)
+        self.record(supervisor,1,1);self.set_members([])
+    def record(self,pid,start,parent,group=None,state='S'):
+        p=self.proc/str(pid);p.mkdir(parents=True,exist_ok=True)
+        fields=['0']*50;fields[0]=state;fields[1]=str(parent);fields[19]=str(start)
+        (p/'stat').write_text(str(pid)+' (fixture) '+' '.join(fields))
+        (p/'cgroup').write_text('0::'+(self.group if group is None else group)+'\n')
+    def set_members(self,pids):
+        (self.unit/'cgroup.procs').write_text('\n'.join(map(str,[self.supervisor,*pids])))
+    def scope(self):
+        return ownership.CompanionCgroup(proc_root=self.proc,cgroup_root=self.cg,supervisor=self.supervisor)
+
+
+class CompanionCgroupTests(unittest.TestCase):
+    def test_fast_reparented_agent_and_unknown_handoff_keep_unit_alive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f=CgroupFixture(pathlib.Path(temp));scope=f.scope()
+            # The parent was never sampled. Both new processes have already
+            # been reparented by the time the outer launcher returns 5.
+            f.record(101,1001,1);f.record(102,1002,1)
+            f.set_members([101,102]);members=scope.members()
+            self.assertEqual([p['pid'] for p in members],[101,102])
+            self.assertEqual(session.vendor_operation_state(5,len(members)),'unknown')
+            f.set_members([102])
+            self.assertEqual(session.vendor_operation_state(0,len(scope.members())),'unknown')
+            f.set_members([])
+            self.assertEqual(session.vendor_operation_state(0,len(scope.members())),'completed')
+
+    def test_same_user_session_and_foreign_cgroup_never_authorize_adoption(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f=CgroupFixture(pathlib.Path(temp));scope=f.scope()
+            f.record(101,1001,1);f.record(102,1002,1,group='/user.slice/unrelated.service')
+            f.set_members([101,102])
+            self.assertEqual([p['pid'] for p in scope.members()],[101])
+            f.record(99999,1,1,group='/user.slice/unrelated.service')
+            with self.assertRaises(RuntimeError):f.scope()
+
+    def test_normal_main_and_agent_close_requires_empty_physical_group(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f=CgroupFixture(pathlib.Path(temp));scope=f.scope()
+            f.record(101,1001,1);f.record(102,1002,1);f.set_members([101,102])
+            self.assertEqual(session.vendor_operation_state(0,len(scope.members())),'unknown')
+            f.set_members([102]);self.assertEqual(session.vendor_operation_state(0,len(scope.members())),'unknown')
+            f.set_members([]);self.assertTrue(scope.cleanup(lambda:None,timeout=.1))
+
+    def test_cancel_signals_exact_members_with_pidfd_and_rechecks_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f=CgroupFixture(pathlib.Path(temp));scope=f.scope()
+            f.record(101,1001,1);f.record(102,1002,1,group='/user.slice/unrelated.service');f.set_members([101,102])
+            with patch.object(os,'pidfd_open',create=True,return_value=77) as opened, \
+                 patch.object(os,'close') as closed, patch.object(signal,'pidfd_send_signal',create=True) as sent:
+                scope.signal_members(signal.SIGTERM)
+                opened.assert_called_once_with(101);sent.assert_called_once_with(77,signal.SIGTERM);closed.assert_called_once_with(77)
+            def recycled(_):f.record(101,2002,1);return 78
+            with patch.object(os,'pidfd_open',create=True,side_effect=recycled), \
+                 patch.object(os,'close'),patch.object(signal,'pidfd_send_signal',create=True) as sent:
+                scope.signal_members(signal.SIGTERM);sent.assert_not_called()
+
+    @unittest.skipUnless(sys.platform=='linux','real subreaper and pidfd fixture')
+    def test_production_owner_survives_unsampled_double_fork_until_cancel(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=pathlib.Path(temp);env=root/'environment';env.mkdir();(env/'operation.lock').touch()
+            image=root/'image';image.write_bytes(b'exact fixture');artifact={'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()}
+            app={'executable':artifact,'helpers':[artifact,artifact],
+                 'environment':{'root':str(env),'runner':{'files':[]}}}
+            pidfile=root/'handoff';report=root/'result.json';f=CgroupFixture(root/'kernel',os.getpid())
+            base_scope=f.scope()
+            class LiveFixture:
+                proc_root=f.proc;group=f.group
+                def identity(self,pid):return base_scope.identity(pid)
+                def members(self):
+                    ids=[]
+                    if pidfile.exists():
+                        for pid in json.loads(pidfile.read_text()):
+                            try:
+                                raw=(pathlib.Path('/proc')/str(pid)/'stat').read_text()
+                                p=f.proc/str(pid);p.mkdir(exist_ok=True);(p/'stat').write_text(raw);(p/'cgroup').write_text('0::'+f.group+'\n');ids.append(pid)
+                            except FileNotFoundError:pass
+                    f.set_members(ids);return base_scope.members()
+                def cleanup(self,reap):
+                    deadline=time.monotonic()+4
+                    while time.monotonic()<deadline:
+                        reap()
+                        if not [p for p in self.members() if p['state']!='Z']:return True
+                        base_scope.signal_members(signal.SIGTERM);time.sleep(.02)
+                    return False
+            code='''import os,sys,json,time
+middle=os.fork()
+if middle==0:
+ child=os.fork()
+ if child==0:
+  os.setsid();time.sleep(30);os._exit(0)
+ with open(sys.argv[1],'w') as f:json.dump([child],f)
+ os._exit(0)
+os.waitpid(middle,0)
+print('private stdout',flush=True)
+print('private stderr',file=sys.stderr,flush=True)
+os._exit(5)
+'''
+            observed=[];done=threading.Event();oldterm=signal.getsignal(signal.SIGTERM);oldint=signal.getsignal(signal.SIGINT)
+            sibling=subprocess.Popen(['/bin/sleep','30'],start_new_session=True)
+            def stop_after_handoff():
+                deadline=time.monotonic()+5
+                while time.monotonic()<deadline and not done.is_set():
+                    try:
+                        value=json.loads(report.read_text())
+                        if value['launcher_exit']==5 and value['owned_live']==1:
+                            observed.append(value);os.kill(os.getpid(),signal.SIGTERM);return
+                    except (FileNotFoundError,json.JSONDecodeError):pass
+                    time.sleep(.02)
+                if not done.is_set():os.kill(os.getpid(),signal.SIGTERM)
+            watcher=threading.Thread(target=stop_after_handoff);watcher.start()
+            try:
+                with patch.object(session,'CompanionCgroup',return_value=LiveFixture()), \
+                     patch.object(session,'vendor_launch',return_value=([sys.executable,'-c',code,str(pidfile)],root)), \
+                     patch.object(session,'environment',return_value=os.environ.copy()):
+                    self.assertTrue(session.vendor_application({'application':app,'report':str(report),'mode':'runinprefix_probe'}))
+                self.assertEqual(len(observed),1);self.assertEqual(observed[0]['state'],'unknown')
+                final=json.loads(report.read_text());self.assertEqual(final['state'],'cancelled');self.assertTrue(final['cleanup_confirmed'])
+                self.assertNotIn('private stdout',report.read_text());self.assertIsNone(sibling.poll())
+                logs=list(root.glob('private-diagnostic-*'));self.assertEqual(len(logs),1)
+                self.assertIn(b'private stdout',(logs[0]/'stdout.log').read_bytes())
+                self.assertIn(b'private stderr',(logs[0]/'stderr.log').read_bytes())
+            finally:
+                done.set();watcher.join(timeout=6);signal.signal(signal.SIGTERM,oldterm);signal.signal(signal.SIGINT,oldint)
+                sibling.terminate();sibling.wait(timeout=3)
+                session.ctypes.CDLL(None).prctl(36,0,0,0,0)
+
 if __name__ == '__main__':
     unittest.main()

@@ -3,7 +3,7 @@
 Extracted from pc0_diagnostic_primitives; installed playback has no proof-harness
 or git imports. PID/start-time identity is never replaced with process names.
 """
-import os,signal,subprocess,time
+import os,pathlib,signal,subprocess,time
 from collections import deque
 from typing import Any
 CLEANUP_SECONDS=10.0
@@ -149,3 +149,95 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]])
         fail(f"owned descendants survived cleanup: {remaining}")
     return {"owned_descendants_zero": True, "process_group_empty": True}
 
+
+
+class CompanionCgroup:
+    """AP18 companion-only authority: the dedicated systemd unit, not ancestry.
+
+    A process may double-fork or be created by wineserver between samples. It is
+    still a member of this unit. Unknown members keep the operation alive too.
+    This observer is never used by audio-session supervision.
+    """
+    MAX_PROCESSES = 4096
+    MAX_GROUPS = 64
+
+    def __init__(self, group=None, proc_root='/proc', cgroup_root='/sys/fs/cgroup', supervisor=None):
+        self.proc_root = pathlib.Path(proc_root)
+        self.cgroup_root = pathlib.Path(cgroup_root)
+        self.supervisor = os.getpid() if supervisor is None else supervisor
+        actual = self.group_of(self.supervisor)
+        self.group = actual if group is None else group
+        if (not self.group or self.group != actual or '..' in self.group.split('/')
+                or not self.group.endswith('/linux-vst-bridge-vendor-arturia-software-center.service')):
+            fail('companion requires its exact dedicated cgroup')
+        self.root = self.cgroup_root / self.group.lstrip('/')
+        self.root_identity = (self.root.stat().st_dev, self.root.stat().st_ino)
+
+    def group_of(self, pid):
+        try:
+            lines = (self.proc_root / str(pid) / 'cgroup').read_text().splitlines()
+        except (FileNotFoundError, ProcessLookupError):
+            return None
+        return next((line[3:] for line in lines if line.startswith('0::')), None)
+
+    def identity(self, pid):
+        try:
+            raw = (self.proc_root / str(pid) / 'stat').read_text()
+            head, sep, _ = raw.partition(' ('); fields = raw.rsplit(')', 1)[1].split()
+            if not sep or int(head) != pid: fail('companion malformed process identity')
+            return {'pid':pid, 'start_ticks':int(fields[19]), 'ppid':int(fields[1]),
+                    'state':fields[0], 'exit_code':int(fields[49]) if len(fields)>49 else None}
+        except (FileNotFoundError, ProcessLookupError):
+            return None
+
+    def contains(self, group):
+        return group == self.group or (group is not None and group.startswith(self.group + '/'))
+
+    def members(self):
+        current = self.root.stat()
+        if (current.st_dev, current.st_ino) != self.root_identity: fail('companion cgroup replaced')
+        pids=set(); groups=[self.root]; visited=0
+        while groups:
+            directory=groups.pop(); visited+=1
+            if visited>self.MAX_GROUPS: fail('companion cgroup bound')
+            try:
+                for value in (directory/'cgroup.procs').read_text().split():
+                    pids.add(int(value))
+                    if len(pids)>self.MAX_PROCESSES: fail('companion process bound')
+                for entry in directory.iterdir():
+                    if entry.is_dir() and not entry.is_symlink():groups.append(entry)
+            except FileNotFoundError:
+                if directory==self.root:raise
+        result=[]
+        for pid in sorted(pids):
+            if pid==self.supervisor:continue
+            before=self.identity(pid); group=self.group_of(pid); after=self.identity(pid)
+            if before is None or after is None:continue
+            if before['start_ticks']!=after['start_ticks'] or not self.contains(group):continue
+            after['cgroup']=group
+            result.append(after)
+        return result
+
+    def signal_members(self, sig):
+        # pidfds prevent signalling a recycled PID. Membership is rechecked after
+        # opening the pidfd; never signal by session, command substring or name.
+        for record in self.members():
+            if record['state']=='Z':continue
+            try:
+                fd=os.pidfd_open(record['pid'])
+                try:
+                    now=self.identity(record['pid'])
+                    if (now and now['start_ticks']==record['start_ticks']
+                            and self.contains(self.group_of(record['pid']))):
+                        signal.pidfd_send_signal(fd,sig)
+                finally:os.close(fd)
+            except ProcessLookupError:pass
+
+    def cleanup(self, reap, timeout=CLEANUP_SECONDS):
+        deadline=time.monotonic()+timeout
+        while True:
+            reap(); live=[p for p in self.members() if p['state']!='Z']
+            if not live:return True
+            if time.monotonic()>=deadline:return False
+            self.signal_members(signal.SIGKILL if time.monotonic()>deadline-3 else signal.SIGTERM)
+            time.sleep(POLL_SECONDS)

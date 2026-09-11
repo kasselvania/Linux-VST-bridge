@@ -6,7 +6,7 @@ callback work. The Rust manager supplies an exact verified registration.
 """
 import ctypes,mmap
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
-from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker
+from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -509,57 +509,183 @@ def vendor_operation_state(launcher_exit, owned_live):
     if owned_live:return 'unknown'
     return 'completed' if launcher_exit==0 else 'failed'
 
+class PrivateCapture:
+    """Fixed byte/time retention; continue draining after capacity is exhausted."""
+    def __init__(self, path, capacity=2*1024*1024, seconds=600):
+        self.fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        self.capacity=capacity;self.deadline=time.monotonic()+seconds
+        self.retained=0;self.discarded=0
+    def write(self, data):
+        count=min(len(data),self.capacity-self.retained) if time.monotonic()<self.deadline else 0
+        view=memoryview(data)[:count]
+        while view:
+            written=os.write(self.fd,view);view=view[written:];self.retained+=written
+        self.discarded+=len(data)-count
+    def event(self, value):self.write((json.dumps(value,separators=(',',':'))+'\n').encode())
+    def close(self):os.close(self.fd)
+
+
 def vendor_launch(spec):
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root']);runner=env['runner']
-    executable=pathlib.Path(app['executable']['path'])
-    argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(executable,directory/'compatdata/pfx')]
-    # The installed ASC Start Menu and Desktop shortcuts both declare this
-    # working directory and no arguments. Relative resources/helper launches
-    # must not inherit the manager's systemd working directory.
+    mode=spec.get('mode','normal')
+    if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe'):raise RuntimeError('vendor launch mode')
+    artifact=app['helpers'][0] if mode=='agent_probe' else app['executable']
+    executable=pathlib.Path(artifact['path'])
+    verb='run' if mode=='initialized_probe' else 'runinprefix'
+    argv=[runner['entry_point'],'--verb=run','--',runner['proton'],verb,windows(executable,directory/'compatdata/pfx')]
     return argv,executable.parent
 
-def vendor_application(spec):
-    """ASC is an exclusive companion operation, never a VST3 instance.
 
-    Launcher exit is not permission to terminate continuing vendor helpers.
-    No generic installer deadline or captured vendor log is applied here.
+def vendor_diagnostic_environment(env, directory, enabled):
+    result=env.copy()
+    if enabled:
+        # This pinned Proton opens/removes its own unbounded regular log file
+        # when PROTON_LOG=1. Keep its redirection off and collect the requested
+        # Wine channels through separate, bounded pipes in this private dir.
+        result.update(PROTON_LOG='0',PROTON_LOG_DIR=str(directory),
+                      WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,trace+seh,err+module',
+                      DXVK_LOG_LEVEL='none',VKD3D_DEBUG='none')
+    return result
+
+
+def vendor_process_metadata(scope, record, app):
+    root=scope.proc_root/str(record['pid']);roles=[];exe=None
+    try:exe=os.readlink(root/'exe')
+    except (FileNotFoundError,ProcessLookupError):pass
+    candidates=[('main',app['executable']),('agent',app['helpers'][0]),('updater',app['helpers'][1])]
+    # Never retain arguments: a bootstrap could carry account or URL material.
+    try:
+        with (root/'cmdline').open('rb') as f:args=f.read(8192).split(b'\0')
+        with (root/'maps').open(errors='replace') as f:maps=f.read(262144)
+    except (FileNotFoundError,ProcessLookupError):args=[];maps=''
+    prefix=pathlib.Path(app['environment']['root'])/'compatdata/pfx'
+    mapped=set()
+    for line in maps.splitlines():
+        fields=line.split(None,5)
+        if len(fields)>=5:
+            try:
+                major,minor=fields[3].split(':');mapped.add((int(major,16),int(minor,16),int(fields[4])))
+            except ValueError:pass
+    for role,artifact in candidates:
+        path=artifact['path'];win=windows(path,prefix).encode();m=pathlib.Path(path).stat()
+        image_mapped=(os.major(m.st_dev),os.minor(m.st_dev),m.st_ino) in mapped
+        if exe==path or win in args or path.encode() in args or image_mapped:
+            roles.append({'role':role,'path':path,'sha256':artifact['sha256']})
+    if not roles:
+        for artifact in app['environment']['runner']['files']:
+            if exe==artifact['path']:
+                roles.append({'role':'runner_infrastructure','path':artifact['path'],'sha256':artifact['sha256']});break
+    parent=scope.identity(record['ppid'])
+    return {'executable':exe,'registered_images':roles,'parent_identity':
+            {'pid':parent['pid'],'start_ticks':parent['start_ticks']} if parent else None}
+
+
+def vendor_application(spec):
+    """Own every process in the dedicated unit until observed retirement.
+
+    Linux ancestry is not application-completion authority. Cgroup membership
+    survives rapid double-fork, Wine bootstrap and parent replacement. Unknown
+    members prevent unit exit just as known main/Agent processes do.
     """
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
+    report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
+    mode=spec.get('mode','normal');diagnostic=mode!='normal'
     lock=(directory/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
-    report=pathlib.Path(spec['report']);stop=False
+    logs=report.parent/('private-diagnostic-'+os.urandom(16).hex());logs.mkdir(mode=0o700)
+    captures={name:PrivateCapture(logs/(name+'.log')) for name in ('stdout','stderr','process')}
+    journal=captures['process'];sel=selectors.DefaultSelector();observed={};reaped={};last=0
+    def event(kind,**fields):journal.event(dict(event=kind,monotonic_ns=time.monotonic_ns(),**fields))
     def cancel(*_):
         nonlocal stop
         stop=True
     signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
-    reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
-    argv,cwd=vendor_launch(spec)
-    child=subprocess.Popen(argv,cwd=cwd,env=environment(reg),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
-    tracker=ProcessTracker(child.pid);sel=selectors.DefaultSelector();last=0;discarded=0;error=None;clean=False
-    for pipe in (child.stdout,child.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
+    def reap():
+        if child is not None:child.poll()
+        for _ in range(128):
+            try:info=os.waitid(os.P_ALL,0,os.WEXITED|os.WNOHANG|os.WNOWAIT)
+            except ChildProcessError:break
+            if info is None:break
+            identity=scope.identity(info.si_pid) if scope else None
+            pid,status=os.waitpid(info.si_pid,os.WNOHANG)
+            if not pid:break
+            code=os.waitstatus_to_exitcode(status)
+            if len(reaped)<4096:reaped[pid]=code
+            event('reaped',pid=pid,start_ticks=identity['start_ticks'] if identity else None,exit_status=code)
+    def drain(timeout):
+        for key,_ in sel.select(timeout):
+            data=os.read(key.fileobj.fileno(),16384)
+            if data:captures[key.data].write(data)
+            else:sel.unregister(key.fileobj)
+    def result(state,live):
+        return {'schema':2,'state':state,'launcher_exit':child.returncode if child else None,
+                'owned_live':live,'cleanup_confirmed':clean,'error':error,
+                'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
+                'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
+                'diagnostic_enabled':diagnostic,'account_posture':'unknown'}
     try:
+        for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
+        scope=CompanionCgroup()
+        if scope.members():raise RuntimeError('companion cgroup not initially empty')
+        if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('companion subreaper unavailable')
+        reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
+        argv,cwd=vendor_launch(spec)
+        child=subprocess.Popen(argv,cwd=cwd,env=vendor_diagnostic_environment(environment(reg),logs,diagnostic),
+                stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        event('launcher_started',pid=child.pid,mode=mode,cgroup=scope.group)
+        for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:
+            os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
+        outer_recorded=False
         while not stop:
-            owned=tracker.update()
-            if len(owned)>4096:raise RuntimeError('vendor application process bound')
-            for key,_ in sel.select(.1):
-                data=os.read(key.fileobj.fileno(),16384);discarded+=len(data)
-                if not data:sel.unregister(key.fileobj)
+            members=scope.members();now=time.monotonic_ns()
+            for record in members:
+                key=(record['pid'],record['start_ticks'])
+                if key not in observed:
+                    if len(observed)>=4096:raise RuntimeError('companion lifetime process bound')
+                    observed[key]={'first_observed':now,'last_observed':now,'metadata':None}
+                item=observed[key];item['last_observed']=now
+                if item['metadata'] is None or now-item.get('metadata_time',0)>=1_000_000_000:
+                    metadata=vendor_process_metadata(scope,record,app);after=scope.identity(record['pid'])
+                    if after is None or after['start_ticks']!=record['start_ticks']:continue
+                    item['metadata_time']=now
+                    if metadata!=item['metadata']:
+                        item['metadata']=metadata
+                        event('process_observed',**record,**metadata,first_observed=item['first_observed'],last_observed=now)
+            present={(v['pid'],v['start_ticks']) for v in members}
+            for key,item in observed.items():
+                if key not in present and not item.get('retired'):
+                    item['retired']=True
+                    event('process_disappeared',pid=key[0],start_ticks=key[1],first_observed=item['first_observed'],last_observed=item['last_observed'],exit_status=reaped.get(key[0]))
+            reap()
+            if child.returncode is not None and not outer_recorded:
+                event('launcher_exit',exit_status=child.returncode);outer_recorded=True
+            live=[p for p in scope.members() if p['state']!='Z']
+            state=vendor_operation_state(child.returncode,len(live))
+            if state in ('completed','failed'):
+                # No member remains that could create a later handoff. A
+                # second ancestry sample or a fixed grace period is not proof.
+                for _ in range(64):drain(0)
+                clean=True
+                if state=='failed':error='vendor_application_launcher_failed_after_cgroup_empty'
+                event('cgroup_empty',launcher_exit=child.returncode)
+                break
             if time.monotonic()-last>=1:
-                live={(p['pid'],p['start_ticks']) for p in process_identities()} & owned
-                state=vendor_operation_state(child.poll(),len(live))
-                atomic(report,{'schema':1,'state':state,'launcher_exit':child.returncode,'owned_live':len(live),'discarded_diagnostic_bytes':discarded,'account_posture':'unknown'})
-                last=time.monotonic()
-                if state in ('completed','failed'):
-                    clean=True
-                    if state=='failed':error='vendor application exited unsuccessfully'
-                    break
-    except Exception as e:error=type(e).__name__+': '+str(e)
+                atomic(report,result(state,len(live)));last=time.monotonic()
+            drain(.1)
+    except Exception as exc:
+        error='vendor_application_observation_failed'
+        event('owner_error',error_type=type(exc).__name__)
     finally:
-        if stop or error:
-            try:clean=all(cleanup_process(child,sorted(tracker.owned)).values())
-            except Exception as e:error=type(e).__name__+': '+str(e)
-        sel.close();child.stdout.close();child.stderr.close()
-        atomic(report,{'schema':1,'state':'cleanup_unconfirmed' if not clean else 'failed' if error else 'cancelled' if stop else 'completed','cleanup_confirmed':clean,'error':error,'launcher_exit':child.returncode,'discarded_diagnostic_bytes':discarded,'account_posture':'unknown'})
+        if not clean and scope is not None:
+            try:clean=scope.cleanup(reap)
+            except Exception as exc:event('cleanup_error',error_type=type(exc).__name__)
+        if child is not None:
+            for _ in range(64):drain(0)
+            child.stdout.close();child.stderr.close()
+        sel.close()
+        state='cleanup_unconfirmed' if not clean else 'failed' if error else 'cancelled' if stop else 'completed'
+        event('operation_retired',state=state,cleanup_confirmed=clean)
+        atomic(report,result(state,0 if clean else None))
+        for capture in captures.values():capture.close()
         lock.close()
     return clean and error is None
 
