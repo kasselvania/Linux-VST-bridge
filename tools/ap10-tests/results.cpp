@@ -63,7 +63,7 @@ static void event_policy_tests(){
  Collector c;c.buses=1;c.channels[0]=effective.effective_channels;c.bus_active[0]=1;
  Event e{};e.type=Event::kNoteOnEvent;e.busIndex=0;e.sampleOffset=144;e.flags=3;e.noteOn={0,60,0,.787401556968689f,0,17};
  for(int channel:{0,15,-1,16}){c.reset(256);e.noteOn.channel=channel;auto result=c.addEvent(e);
-  if(channel<0||channel>=16){assert(result==kResultFalse&&c.rejection.reason==Rejection::EventChannel);continue;}
+  if(channel<0||channel>=16){assert(result==kResultFalse&&c.rejection.reason==(channel<0?Rejection::InvalidEventField:Rejection::EventChannel));continue;}
   assert(result==kResultOk);ap10_results_t expected{};assert(append(expected,e,256));assert(std::memcmp(&expected,&c.values,sizeof(expected))==0);
   Output output;output.packet=c.values;Collector host;host.buses=1;host.channels[0]=16;host.reset(256);ProcessData data{};data.numSamples=256;data.outputEvents=&host;
   assert(output.deliver(data,[](int b){return b==0?1:-1;},[](uint32_t){return false;}));Event delivered{};assert(host.getEvent(0,delivered)==kResultOk);
