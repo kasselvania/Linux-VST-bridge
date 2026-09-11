@@ -1,0 +1,2569 @@
+{
+  "editors": {
+    "F": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "events": [
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 0,
+            "kind": 1,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 1,
+            "target_x11": 0,
+            "view_epoch": 0
+          },
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 2,
+            "kind": 5,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 2,
+            "target_x11": 115343363,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 1,
+            "kind": 108,
+            "lifecycle": 3,
+            "native_view": 1,
+            "slot_sequence": 3055,
+            "target_x11": 115343363,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 2,
+            "kind": 108,
+            "lifecycle": 4,
+            "native_view": 1,
+            "slot_sequence": 3056,
+            "target_x11": 115343363,
+            "view_epoch": 1
+          }
+        ],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 1
+        },
+        "publication_after": 3057,
+        "publication_before": 3057,
+        "sample_mono_ns": 16814723665543,
+        "session": "ff0b6ecdacac5244f3480d3d0e902dd0"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 16814725098286,
+        "session": "7ace3a99d9d424369527dd3f2204e7da"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 16814726341942,
+        "session": "3d9697e1cdce2178d95bd1bec90032cc"
+      },
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 3055,
+        "publication_before": 3055,
+        "sample_mono_ns": 16814727994261,
+        "session": "9265f244e57f1f2208739870fd451502"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 16814729436684,
+        "session": "c206e1bcf7afd27333a6b644e3e9644e"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 0,
+            "kind": 1,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 1,
+            "target_x11": 0,
+            "view_epoch": 0
+          },
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 2,
+            "kind": 5,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 2,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 1,
+            "kind": 108,
+            "lifecycle": 3,
+            "native_view": 1,
+            "slot_sequence": 2350,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 2,
+            "kind": 108,
+            "lifecycle": 4,
+            "native_view": 1,
+            "slot_sequence": 2351,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          }
+        ],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 1
+        },
+        "publication_after": 2352,
+        "publication_before": 2352,
+        "sample_mono_ns": 16814730827365,
+        "session": "b169cbb76a0a94bdaa9a0769561b45fc"
+      }
+    ],
+    "G": [
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 17782728354179,
+        "session": "37fbc6c4eb4d344f4ed1b42b473bc0b0"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 0,
+            "kind": 1,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 1,
+            "target_x11": 0,
+            "view_epoch": 0
+          },
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 2,
+            "kind": 5,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 2,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 1,
+            "kind": 108,
+            "lifecycle": 3,
+            "native_view": 1,
+            "slot_sequence": 2350,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 2,
+            "kind": 108,
+            "lifecycle": 4,
+            "native_view": 1,
+            "slot_sequence": 2351,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          }
+        ],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 1
+        },
+        "publication_after": 2352,
+        "publication_before": 2352,
+        "sample_mono_ns": 17782729958954,
+        "session": "bdeeea1ea642247892bcf1a4decbb031"
+      },
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "events": [
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 0,
+            "kind": 1,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 1,
+            "target_x11": 0,
+            "view_epoch": 0
+          },
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 2,
+            "kind": 5,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 2,
+            "target_x11": 113246211,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 1,
+            "kind": 108,
+            "lifecycle": 3,
+            "native_view": 1,
+            "slot_sequence": 3055,
+            "target_x11": 113246211,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 2,
+            "kind": 108,
+            "lifecycle": 4,
+            "native_view": 1,
+            "slot_sequence": 3056,
+            "target_x11": 113246211,
+            "view_epoch": 1
+          }
+        ],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 1
+        },
+        "publication_after": 3057,
+        "publication_before": 3057,
+        "sample_mono_ns": 17782731477208,
+        "session": "b39505e5c957795893ef551ad5c77057"
+      },
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 3055,
+        "publication_before": 3055,
+        "sample_mono_ns": 17782734708489,
+        "session": "2449c7edb6805df66d186ac1ec60f515"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 17782736790175,
+        "session": "f4f8273f782a6b1b4e5319e752d0351e"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 17782738193406,
+        "session": "880a76e0083eda1c7c10bf7f8a88b800"
+      }
+    ],
+    "G2": [
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 18602659822372,
+        "session": "44837bc437953b8e9e006adb850991ff"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 0,
+            "kind": 1,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 1,
+            "target_x11": 0,
+            "view_epoch": 0
+          },
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 2,
+            "kind": 5,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 2,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 1,
+            "kind": 108,
+            "lifecycle": 3,
+            "native_view": 1,
+            "slot_sequence": 2350,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 2,
+            "kind": 108,
+            "lifecycle": 4,
+            "native_view": 1,
+            "slot_sequence": 2351,
+            "target_x11": 127926275,
+            "view_epoch": 1
+          }
+        ],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 1
+        },
+        "publication_after": 2352,
+        "publication_before": 2352,
+        "sample_mono_ns": 18602661594089,
+        "session": "47f43f2b33e57601484b5bca9e1eea22"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 18602663315005,
+        "session": "85c0f1840f00249c3f5463ad45c13142"
+      },
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "events": [
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 0,
+            "kind": 1,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 1,
+            "target_x11": 0,
+            "view_epoch": 0
+          },
+          {
+            "activation": 1,
+            "direction": "native_commands",
+            "focus_result": 2,
+            "kind": 5,
+            "lifecycle": 1,
+            "native_view": 1,
+            "slot_sequence": 2,
+            "target_x11": 115343363,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 1,
+            "kind": 108,
+            "lifecycle": 3,
+            "native_view": 1,
+            "slot_sequence": 3055,
+            "target_x11": 115343363,
+            "view_epoch": 1
+          },
+          {
+            "activation": 1,
+            "direction": "windows_events",
+            "focus_result": 2,
+            "kind": 108,
+            "lifecycle": 4,
+            "native_view": 1,
+            "slot_sequence": 3056,
+            "target_x11": 115343363,
+            "view_epoch": 1
+          }
+        ],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 1
+        },
+        "publication_after": 3057,
+        "publication_before": 3057,
+        "sample_mono_ns": 18602664842377,
+        "session": "453d9598eb4da982ba981ae84f040c72"
+      },
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 3055,
+        "publication_before": 3055,
+        "sample_mono_ns": 18602666636575,
+        "session": "f89c5d6c4d420544ce5beba6121e1576"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "events": [],
+        "header": {
+          "close_ack": 0,
+          "close_request": 0,
+          "closed": 0,
+          "failure": 0,
+          "open": 0
+        },
+        "publication_after": 2350,
+        "publication_before": 2350,
+        "sample_mono_ns": 18602668126146,
+        "session": "7fbac063ff95b0cbbd0ac5f27c55746e"
+      }
+    ]
+  },
+  "intervals": {
+    "G": {
+      "begin_monotonic_ns": 17828541857560,
+      "deltas": {
+        "2449c7edb6805df66d186ac1ec60f515": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1439744,
+          "expired_frames": 1536,
+          "gaps": 6,
+          "missing_frames": 1536
+        },
+        "37fbc6c4eb4d344f4ed1b42b473bc0b0": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1441280,
+          "expired_frames": 0,
+          "gaps": 0,
+          "missing_frames": 0
+        },
+        "880a76e0083eda1c7c10bf7f8a88b800": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1441280,
+          "expired_frames": 0,
+          "gaps": 0,
+          "missing_frames": 0
+        },
+        "b39505e5c957795893ef551ad5c77057": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1439488,
+          "expired_frames": 1792,
+          "gaps": 7,
+          "missing_frames": 1792
+        },
+        "bdeeea1ea642247892bcf1a4decbb031": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1441024,
+          "expired_frames": 256,
+          "gaps": 1,
+          "missing_frames": 256
+        },
+        "f4f8273f782a6b1b4e5319e752d0351e": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1441024,
+          "expired_frames": 256,
+          "gaps": 1,
+          "missing_frames": 256
+        }
+      },
+      "end_monotonic_ns": 17858567212557,
+      "not_performance_comparison": true,
+      "seconds": 30.025354997,
+      "service": "CPUWeight=[not set]\nActiveState=active\n",
+      "status_begin": {
+        "2449c7edb6805df66d186ac1ec60f515": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 648448,
+            "process_id": 1476,
+            "publication": 17469,
+            "request_sequence": 2913,
+            "stage": 1,
+            "thread_id": 1828,
+            "ticks": 178284809177
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 744960,
+            "current": true,
+            "delivered_frames": 736768,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 7168,
+            "frequency": 1000000000,
+            "gaps": 18,
+            "generation": 1,
+            "missing_frames": 7168,
+            "position": 648448,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 8730,
+            "request_sequence": 2913,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17828537904184
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1476,
+            "publication": 363687,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1808,
+            "ticks": 178284818291
+          },
+          "sample_monotonic_ns": 17828542414302,
+          "schema": 2
+        },
+        "37fbc6c4eb4d344f4ed1b42b473bc0b0": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 647936,
+            "process_id": 1644,
+            "publication": 17457,
+            "request_sequence": 2911,
+            "stage": 1,
+            "thread_id": 1472,
+            "ticks": 178284797088
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 744448,
+            "current": true,
+            "delivered_frames": 742656,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 768,
+            "frequency": 1000000000,
+            "gaps": 3,
+            "generation": 1,
+            "missing_frames": 768,
+            "position": 647936,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 8724,
+            "request_sequence": 2911,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17828536592495
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1644,
+            "publication": 351269,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1268,
+            "ticks": 178284814860
+          },
+          "sample_monotonic_ns": 17828541864430,
+          "schema": 2
+        },
+        "880a76e0083eda1c7c10bf7f8a88b800": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 18341632,
+            "process_id": 840,
+            "publication": 429891,
+            "request_sequence": 71651,
+            "stage": 1,
+            "thread_id": 2036,
+            "ticks": 178284801954
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 18341888,
+            "current": true,
+            "delivered_frames": 18338560,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 2816,
+            "frequency": 1000000000,
+            "gaps": 6,
+            "generation": 1,
+            "missing_frames": 2816,
+            "position": 18341632,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 214944,
+            "request_sequence": 71651,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17828537172367
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 840,
+            "publication": 351293,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 640,
+            "ticks": 178284843068
+          },
+          "sample_monotonic_ns": 17828542639057,
+          "schema": 2
+        },
+        "b39505e5c957795893ef551ad5c77057": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 18709248,
+            "process_id": 1424,
+            "publication": 438507,
+            "request_sequence": 73087,
+            "stage": 1,
+            "thread_id": 1564,
+            "ticks": 178284811625
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 1,
+            "open_stage": 100,
+            "view_stage": 16
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 18709504,
+            "current": true,
+            "delivered_frames": 18699776,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 9216,
+            "frequency": 1000000000,
+            "gaps": 26,
+            "generation": 1,
+            "missing_frames": 9216,
+            "position": 18709248,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 219252,
+            "request_sequence": 73087,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17828538155659
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1424,
+            "publication": 256169,
+            "request_sequence": 0,
+            "stage": 25,
+            "thread_id": 1608,
+            "ticks": 178282888850
+          },
+          "sample_monotonic_ns": 17828542287050,
+          "schema": 2
+        },
+        "bdeeea1ea642247892bcf1a4decbb031": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 7446272,
+            "process_id": 608,
+            "publication": 174531,
+            "request_sequence": 29090,
+            "stage": 1,
+            "thread_id": 472,
+            "ticks": 178284798701
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 1,
+            "open_stage": 100,
+            "view_stage": 100
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 7446528,
+            "current": true,
+            "delivered_frames": 7445504,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 512,
+            "frequency": 1000000000,
+            "gaps": 2,
+            "generation": 1,
+            "missing_frames": 512,
+            "position": 7446272,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 87264,
+            "request_sequence": 29090,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17828536839630
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 608,
+            "publication": 139195,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 904,
+            "ticks": 178284831202
+          },
+          "sample_monotonic_ns": 17828542138496,
+          "schema": 2
+        },
+        "f4f8273f782a6b1b4e5319e752d0351e": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 647936,
+            "process_id": 1752,
+            "publication": 17457,
+            "request_sequence": 2911,
+            "stage": 1,
+            "thread_id": 1816,
+            "ticks": 178284788063
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 744448,
+            "current": true,
+            "delivered_frames": 743168,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 256,
+            "frequency": 1000000000,
+            "gaps": 1,
+            "generation": 1,
+            "missing_frames": 256,
+            "position": 647936,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 8724,
+            "request_sequence": 2911,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17828535769247
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1752,
+            "publication": 359645,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1056,
+            "ticks": 178284844560
+          },
+          "sample_monotonic_ns": 17828542528585,
+          "schema": 2
+        }
+      },
+      "status_end": {
+        "2449c7edb6805df66d186ac1ec60f515": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 2089728,
+            "process_id": 1476,
+            "publication": 51245,
+            "request_sequence": 8543,
+            "stage": 3,
+            "thread_id": 1828,
+            "ticks": 178585082723
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 2186240,
+            "current": true,
+            "delivered_frames": 2176512,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 8704,
+            "frequency": 1000000000,
+            "gaps": 24,
+            "generation": 1,
+            "missing_frames": 8704,
+            "position": 2089728,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 25619,
+            "request_sequence": 8543,
+            "stage": 2,
+            "thread_id": 0,
+            "ticks": 17858565609912
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1476,
+            "publication": 390417,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1808,
+            "ticks": 178585063191
+          },
+          "sample_monotonic_ns": 17858567047214,
+          "schema": 2
+        },
+        "37fbc6c4eb4d344f4ed1b42b473bc0b0": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 2089216,
+            "process_id": 1644,
+            "publication": 51237,
+            "request_sequence": 8541,
+            "stage": 1,
+            "thread_id": 1472,
+            "ticks": 178585056929
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 2185728,
+            "current": true,
+            "delivered_frames": 2183936,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 768,
+            "frequency": 1000000000,
+            "gaps": 3,
+            "generation": 1,
+            "missing_frames": 768,
+            "position": 2089216,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 25614,
+            "request_sequence": 8541,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17858563238711
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1644,
+            "publication": 377945,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1268,
+            "ticks": 178585089801
+          },
+          "sample_monotonic_ns": 17858566781038,
+          "schema": 2
+        },
+        "880a76e0083eda1c7c10bf7f8a88b800": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 19782912,
+            "process_id": 840,
+            "publication": 463671,
+            "request_sequence": 77281,
+            "stage": 1,
+            "thread_id": 2036,
+            "ticks": 178585067451
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 19783168,
+            "current": true,
+            "delivered_frames": 19779840,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 2816,
+            "frequency": 1000000000,
+            "gaps": 6,
+            "generation": 1,
+            "missing_frames": 2816,
+            "position": 19782912,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 231834,
+            "request_sequence": 77281,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17858564261033
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 840,
+            "publication": 378009,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 640,
+            "ticks": 178585089931
+          },
+          "sample_monotonic_ns": 17858567156486,
+          "schema": 2
+        },
+        "b39505e5c957795893ef551ad5c77057": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 20150528,
+            "process_id": 1424,
+            "publication": 472287,
+            "request_sequence": 78717,
+            "stage": 1,
+            "thread_id": 1564,
+            "ticks": 178585086324
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 1,
+            "open_stage": 100,
+            "view_stage": 16
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 20150784,
+            "current": true,
+            "delivered_frames": 20139264,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 11008,
+            "frequency": 1000000000,
+            "gaps": 33,
+            "generation": 1,
+            "missing_frames": 11008,
+            "position": 20150528,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 236142,
+            "request_sequence": 78717,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17858566209766
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1424,
+            "publication": 257027,
+            "request_sequence": 0,
+            "stage": 25,
+            "thread_id": 1608,
+            "ticks": 178584116206
+          },
+          "sample_monotonic_ns": 17858566975672,
+          "schema": 2
+        },
+        "bdeeea1ea642247892bcf1a4decbb031": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 8887552,
+            "process_id": 608,
+            "publication": 208311,
+            "request_sequence": 34720,
+            "stage": 1,
+            "thread_id": 472,
+            "ticks": 178585060323
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 1,
+            "open_stage": 100,
+            "view_stage": 100
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 8887808,
+            "current": true,
+            "delivered_frames": 8886528,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 768,
+            "frequency": 1000000000,
+            "gaps": 3,
+            "generation": 1,
+            "missing_frames": 768,
+            "position": 8887552,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 104154,
+            "request_sequence": 34720,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17858563629539
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 608,
+            "publication": 164619,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 904,
+            "ticks": 178585088253
+          },
+          "sample_monotonic_ns": 17858566894861,
+          "schema": 2
+        },
+        "f4f8273f782a6b1b4e5319e752d0351e": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 2089216,
+            "process_id": 1752,
+            "publication": 51237,
+            "request_sequence": 8541,
+            "stage": 1,
+            "thread_id": 1816,
+            "ticks": 178585061900
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 2185728,
+            "current": true,
+            "delivered_frames": 2184192,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 512,
+            "frequency": 1000000000,
+            "gaps": 2,
+            "generation": 1,
+            "missing_frames": 512,
+            "position": 2089216,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 25614,
+            "request_sequence": 8541,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 17858563756962
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1752,
+            "publication": 386293,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1056,
+            "ticks": 178585094726
+          },
+          "sample_monotonic_ns": 17858567101625,
+          "schema": 2
+        }
+      },
+      "tracing": false,
+      "weight_samples": [
+        {
+          "mono_ns": 17828542770880,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17830542985061,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17832543350785,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17834543587288,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17836543811080,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17838544148676,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17840544533413,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17842544844230,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17844545151307,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17846545621458,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17848545869736,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17850546278978,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17852546563958,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17854546841190,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17856547131222,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 17858567246688,
+          "weight": "100"
+        }
+      ]
+    },
+    "G2": {
+      "begin_monotonic_ns": 18640043946821,
+      "deltas": {
+        "44837bc437953b8e9e006adb850991ff": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1441024,
+          "expired_frames": 256,
+          "gaps": 1,
+          "missing_frames": 256
+        },
+        "453d9598eb4da982ba981ae84f040c72": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1438208,
+          "expired_frames": 3072,
+          "gaps": 12,
+          "missing_frames": 3072
+        },
+        "47f43f2b33e57601484b5bca9e1eea22": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1441280,
+          "expired_frames": 0,
+          "gaps": 0,
+          "missing_frames": 0
+        },
+        "7fbac063ff95b0cbbd0ac5f27c55746e": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1441024,
+          "expired_frames": 256,
+          "gaps": 1,
+          "missing_frames": 256
+        },
+        "85c0f1840f00249c3f5463ad45c13142": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1441280,
+          "expired_frames": 0,
+          "gaps": 0,
+          "missing_frames": 0
+        },
+        "f89c5d6c4d420544ce5beba6121e1576": {
+          "admitted_frames": 1441280,
+          "delivered_frames": 1438976,
+          "expired_frames": 2304,
+          "gaps": 9,
+          "missing_frames": 2304
+        }
+      },
+      "end_monotonic_ns": 18670069956605,
+      "not_performance_comparison": true,
+      "seconds": 30.026009784,
+      "service": "CPUWeight=[not set]\nActiveState=active\n",
+      "status_begin": {
+        "44837bc437953b8e9e006adb850991ff": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 19806464,
+            "process_id": 1068,
+            "publication": 464223,
+            "request_sequence": 77373,
+            "stage": 1,
+            "thread_id": 1800,
+            "ticks": 186399706009
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 19806720,
+            "current": true,
+            "delivered_frames": 19803904,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 2304,
+            "frequency": 1000000000,
+            "gaps": 9,
+            "generation": 1,
+            "missing_frames": 2304,
+            "position": 19806464,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 232110,
+            "request_sequence": 77373,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18640043982961
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1068,
+            "publication": 379221,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1812,
+            "ticks": 186399686930
+          },
+          "sample_monotonic_ns": 18640043953751,
+          "schema": 2
+        },
+        "453d9598eb4da982ba981ae84f040c72": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 20175104,
+            "process_id": 1664,
+            "publication": 472863,
+            "request_sequence": 78813,
+            "stage": 1,
+            "thread_id": 1192,
+            "ticks": 186399705688
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 1,
+            "open_stage": 100,
+            "view_stage": 16
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 20175360,
+            "current": true,
+            "delivered_frames": 20162304,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 12544,
+            "frequency": 1000000000,
+            "gaps": 36,
+            "generation": 1,
+            "missing_frames": 12544,
+            "position": 20175104,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 236430,
+            "request_sequence": 78813,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18640043964321
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1664,
+            "publication": 267689,
+            "request_sequence": 0,
+            "stage": 25,
+            "thread_id": 1748,
+            "ticks": 186393187003
+          },
+          "sample_monotonic_ns": 18640044601234,
+          "schema": 2
+        },
+        "47f43f2b33e57601484b5bca9e1eea22": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 8611072,
+            "process_id": 1340,
+            "publication": 201831,
+            "request_sequence": 33640,
+            "stage": 1,
+            "thread_id": 1136,
+            "ticks": 186399702245
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 1,
+            "open_stage": 100,
+            "view_stage": 100
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 8611328,
+            "current": true,
+            "delivered_frames": 8606720,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 4096,
+            "frequency": 1000000000,
+            "gaps": 9,
+            "generation": 1,
+            "missing_frames": 4096,
+            "position": 8611072,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 100914,
+            "request_sequence": 33640,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18640043664695
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1340,
+            "publication": 161685,
+            "request_sequence": 0,
+            "stage": 25,
+            "thread_id": 1172,
+            "ticks": 186399679913
+          },
+          "sample_monotonic_ns": 18640044256507,
+          "schema": 2
+        },
+        "7fbac063ff95b0cbbd0ac5f27c55746e": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 494336,
+            "process_id": 460,
+            "publication": 13857,
+            "request_sequence": 2311,
+            "stage": 1,
+            "thread_id": 888,
+            "ticks": 186399693402
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 590848,
+            "current": true,
+            "delivered_frames": 587008,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 2816,
+            "frequency": 1000000000,
+            "gaps": 8,
+            "generation": 1,
+            "missing_frames": 2816,
+            "position": 494336,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 6924,
+            "request_sequence": 2311,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18640042733105
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 460,
+            "publication": 387377,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 856,
+            "ticks": 186399709738
+          },
+          "sample_monotonic_ns": 18640044877070,
+          "schema": 2
+        },
+        "85c0f1840f00249c3f5463ad45c13142": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 494336,
+            "process_id": 828,
+            "publication": 13857,
+            "request_sequence": 2311,
+            "stage": 1,
+            "thread_id": 1400,
+            "ticks": 186399671236
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 590848,
+            "current": true,
+            "delivered_frames": 585728,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 4096,
+            "frequency": 1000000000,
+            "gaps": 11,
+            "generation": 1,
+            "missing_frames": 4096,
+            "position": 494336,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 6924,
+            "request_sequence": 2311,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18640040559980
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 828,
+            "publication": 379133,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1084,
+            "ticks": 186399706737
+          },
+          "sample_monotonic_ns": 18640044439011,
+          "schema": 2
+        },
+        "f89c5d6c4d420544ce5beba6121e1576": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 494848,
+            "process_id": 400,
+            "publication": 13869,
+            "request_sequence": 2313,
+            "stage": 1,
+            "thread_id": 1272,
+            "ticks": 186399703172
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 591360,
+            "current": true,
+            "delivered_frames": 583168,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 7168,
+            "frequency": 1000000000,
+            "gaps": 24,
+            "generation": 1,
+            "missing_frames": 7168,
+            "position": 494848,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 6930,
+            "request_sequence": 2313,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18640043762197
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 400,
+            "publication": 391505,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 604,
+            "ticks": 186399678333
+          },
+          "sample_monotonic_ns": 18640044753997,
+          "schema": 2
+        }
+      },
+      "status_end": {
+        "44837bc437953b8e9e006adb850991ff": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 21247744,
+            "process_id": 1068,
+            "publication": 498003,
+            "request_sequence": 83003,
+            "stage": 1,
+            "thread_id": 1800,
+            "ticks": 186699953745
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 21248000,
+            "current": true,
+            "delivered_frames": 21244928,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 2560,
+            "frequency": 1000000000,
+            "gaps": 10,
+            "generation": 1,
+            "missing_frames": 2560,
+            "position": 21247744,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 249000,
+            "request_sequence": 83003,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18670069321922
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1068,
+            "publication": 405737,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1812,
+            "ticks": 186699916896
+          },
+          "sample_monotonic_ns": 18670069449514,
+          "schema": 2
+        },
+        "453d9598eb4da982ba981ae84f040c72": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 21616384,
+            "process_id": 1664,
+            "publication": 506639,
+            "request_sequence": 84443,
+            "stage": 3,
+            "thread_id": 1192,
+            "ticks": 186699957572
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 1,
+            "open_stage": 100,
+            "view_stage": 16
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 21616640,
+            "current": true,
+            "delivered_frames": 21600512,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 15616,
+            "frequency": 1000000000,
+            "gaps": 48,
+            "generation": 1,
+            "missing_frames": 15616,
+            "position": 21616384,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 253319,
+            "request_sequence": 84443,
+            "stage": 2,
+            "thread_id": 0,
+            "ticks": 18670069421114
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1664,
+            "publication": 268385,
+            "request_sequence": 0,
+            "stage": 25,
+            "thread_id": 1748,
+            "ticks": 186697832595
+          },
+          "sample_monotonic_ns": 18670069682869,
+          "schema": 2
+        },
+        "47f43f2b33e57601484b5bca9e1eea22": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 1,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 10052352,
+            "process_id": 1340,
+            "publication": 235607,
+            "request_sequence": 39270,
+            "stage": 3,
+            "thread_id": 1136,
+            "ticks": 186699943544
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 1,
+            "open_stage": 100,
+            "view_stage": 100
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 10052608,
+            "current": true,
+            "delivered_frames": 10048000,
+            "detail": 0,
+            "epoch": 1,
+            "expired_frames": 4096,
+            "frequency": 1000000000,
+            "gaps": 9,
+            "generation": 1,
+            "missing_frames": 4096,
+            "position": 10052352,
+            "priming_frames": 512,
+            "process_id": 190,
+            "publication": 117803,
+            "request_sequence": 39270,
+            "stage": 2,
+            "thread_id": 0,
+            "ticks": 18670068154117
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 1340,
+            "publication": 186737,
+            "request_sequence": 0,
+            "stage": 25,
+            "thread_id": 1172,
+            "ticks": 186699950372
+          },
+          "sample_monotonic_ns": 18670069550236,
+          "schema": 2
+        },
+        "7fbac063ff95b0cbbd0ac5f27c55746e": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 1935616,
+            "process_id": 460,
+            "publication": 47637,
+            "request_sequence": 7941,
+            "stage": 1,
+            "thread_id": 888,
+            "ticks": 186699947216
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 2032128,
+            "current": true,
+            "delivered_frames": 2028032,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 3072,
+            "frequency": 1000000000,
+            "gaps": 9,
+            "generation": 1,
+            "missing_frames": 3072,
+            "position": 1935616,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 23814,
+            "request_sequence": 7941,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18670068682888
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 460,
+            "publication": 413941,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 856,
+            "ticks": 186699914952
+          },
+          "sample_monotonic_ns": 18670069874093,
+          "schema": 2
+        },
+        "85c0f1840f00249c3f5463ad45c13142": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 1935616,
+            "process_id": 828,
+            "publication": 47637,
+            "request_sequence": 7941,
+            "stage": 1,
+            "thread_id": 1400,
+            "ticks": 186699949793
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 2032128,
+            "current": true,
+            "delivered_frames": 2027008,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 4096,
+            "frequency": 1000000000,
+            "gaps": 11,
+            "generation": 1,
+            "missing_frames": 4096,
+            "position": 1935616,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 23814,
+            "request_sequence": 7941,
+            "stage": 3,
+            "thread_id": 0,
+            "ticks": 18670069021005
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 828,
+            "publication": 405717,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 1084,
+            "ticks": 186699947988
+          },
+          "sample_monotonic_ns": 18670069623198,
+          "schema": 2
+        },
+        "f89c5d6c4d420544ce5beba6121e1576": {
+          "available": true,
+          "clock_domains": [
+            "linux_monotonic_ns",
+            "windows_qpc",
+            "windows_qpc"
+          ],
+          "delivery": {
+            "current": true,
+            "detail": 0,
+            "epoch": 2,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 1936128,
+            "process_id": 400,
+            "publication": 47645,
+            "request_sequence": 7943,
+            "stage": 3,
+            "thread_id": 1272,
+            "ticks": 186699956953
+          },
+          "editor": {
+            "available": true,
+            "closed": 0,
+            "exception_code": 0,
+            "failure": 0,
+            "independently_sampled": true,
+            "open": 0,
+            "open_stage": 0,
+            "view_stage": 0
+          },
+          "mailbox_flags": {
+            "independently_sampled": true,
+            "reply": 0,
+            "request": 0
+          },
+          "native": {
+            "admitted_frames": 2032640,
+            "current": true,
+            "delivered_frames": 2022144,
+            "detail": 0,
+            "epoch": 2,
+            "expired_frames": 9472,
+            "frequency": 1000000000,
+            "gaps": 33,
+            "generation": 1,
+            "missing_frames": 9472,
+            "position": 1936128,
+            "priming_frames": 1024,
+            "process_id": 190,
+            "publication": 23819,
+            "request_sequence": 7943,
+            "stage": 2,
+            "thread_id": 0,
+            "ticks": 18670068950114
+          },
+          "owner": {
+            "current": true,
+            "detail": 0,
+            "epoch": 0,
+            "frequency": 10000000,
+            "generation": 1,
+            "position": 0,
+            "process_id": 400,
+            "publication": 418131,
+            "request_sequence": 0,
+            "stage": 0,
+            "thread_id": 604,
+            "ticks": 186699940320
+          },
+          "sample_monotonic_ns": 18670069749191,
+          "schema": 2
+        }
+      },
+      "tracing": false,
+      "weight_samples": [
+        {
+          "mono_ns": 18640045024383,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18642045285488,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18644045604701,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18646045973284,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18648046253293,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18650046528661,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18652046808946,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18654047074400,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18656047405493,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18658047688773,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18660048036762,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18662048335609,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18664048549032,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18666048806804,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18668049117245,
+          "weight": "100"
+        },
+        {
+          "mono_ns": 18670070021816,
+          "weight": "100"
+        }
+      ]
+    }
+  },
+  "local_output_G": {
+    "channels": 2,
+    "frames": 98304,
+    "nonzero_samples": 195584,
+    "peak": 0.32645654678344727,
+    "raw_audio_retained": false,
+    "rms": 0.03523675204086367,
+    "sample_rate": 48000,
+    "seconds": 2.048,
+    "source": "Deck local output sink monitor",
+    "timing": "outside matched measurement interval"
+  },
+  "no_raw_audio_retained": true,
+  "prior_ordinary_smoke_retained": {
+    "expired_frames": 2560,
+    "issue": 90,
+    "lofi_gap_groups": 10,
+    "missing_frames": 2560,
+    "nonzero_local_output": true
+  },
+  "schema": 1
+}

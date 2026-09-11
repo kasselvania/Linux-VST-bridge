@@ -1,0 +1,1416 @@
+{
+  "schema": 1,
+  "scope": "Whole sessions across startup, stopped processing, controls, active playback and intentional failures. These are not steady-interval deltas. Missing native lifecycle records are not zero; independent pre-containment counters remain explicitly labeled.",
+  "phases": [
+    {
+      "name": "r1-maximum-retired",
+      "sessions": [
+        {
+          "session": "57c3d59329ff0cd67addde49e505c813",
+          "ownership": {
+            "session": "57c3d59329ff0cd67addde49e505c813",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 54348,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 18120,
+            "position": 4541184,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 21146498935035,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 207,
+            "admitted_frames": 4637696,
+            "missing_frames": 1024,
+            "gaps": 3,
+            "expired_frames": 1024,
+            "delivered_frames": 4635648,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 191,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 1,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "886df1ecab753158ca856dc9744504f0",
+          "ownership": {
+            "session": "886df1ecab753158ca856dc9744504f0",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 61380,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 20463,
+            "position": 5141248,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 21051900375958,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 207,
+            "admitted_frames": 5237760,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 5236736,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 191,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 1,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "a2144aa5d912a27483d801ce9a47caf0",
+          "ownership": {
+            "session": "a2144aa5d912a27483d801ce9a47caf0",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 370914,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 123641,
+            "position": 31651072,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 20944783637962,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 207,
+            "admitted_frames": 31651328,
+            "missing_frames": 3328,
+            "gaps": 3,
+            "expired_frames": 3328,
+            "delivered_frames": 31647488,
+            "priming_frames": 512,
+            "current": true
+          },
+          "native_summary_and_faults": [
+            {
+              "event": "ap7_observation",
+              "offered_samples": 63302656,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 63302656,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 0,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap3_proxy_lifecycle",
+              "phase": 6,
+              "requested_maximum": 512,
+              "requested_rate": 48000,
+              "requested_mode": 0,
+              "frames": 31651328,
+              "blocks": 61819,
+              "callback_rejections": 0,
+              "rejected_silent_frames": 0,
+              "discontinuities": 0,
+              "successful_silent_callbacks": 1,
+              "successful_silent_frames": 512,
+              "priming_frames": 512,
+              "underrun_frames": 3328,
+              "underrun_gaps": 3,
+              "underrun_callbacks": 7,
+              "expired_output_frames": 3328,
+              "delivered_frames": 31647488,
+              "zero_gain_blocks": 0,
+              "gain_min": 1,
+              "gain_max": 1,
+              "clean": true
+            }
+          ],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 181,
+              "state": "ap3_processing_summary",
+              "processed_blocks": 123638,
+              "intervals": 1,
+              "process_mode": "kRealtime"
+            },
+            {
+              "event": "lifecycle",
+              "sequence": 185,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 1,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "b5fb30ccc547c1e25d0ab0749189f439",
+          "ownership": {
+            "session": "b5fb30ccc547c1e25d0ab0749189f439",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 54348,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 18120,
+            "position": 4541184,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 21146498032018,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 207,
+            "admitted_frames": 4637696,
+            "missing_frames": 768,
+            "gaps": 2,
+            "expired_frames": 768,
+            "delivered_frames": 4635904,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 210,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 0,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 61,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "e6aa5093a68cab881514f6af961985bb",
+          "ownership": {
+            "session": "e6aa5093a68cab881514f6af961985bb",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 325356,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 108455,
+            "position": 27763456,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 20944782104883,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 207,
+            "admitted_frames": 27763712,
+            "missing_frames": 4608,
+            "gaps": 9,
+            "expired_frames": 4608,
+            "delivered_frames": 27758592,
+            "priming_frames": 512,
+            "current": true
+          },
+          "native_summary_and_faults": [
+            {
+              "event": "ap7_observation",
+              "offered_samples": 55527424,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 55527424,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 0,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap3_proxy_lifecycle",
+              "phase": 6,
+              "requested_maximum": 512,
+              "requested_rate": 48000,
+              "requested_mode": 0,
+              "frames": 27763712,
+              "blocks": 54226,
+              "callback_rejections": 0,
+              "rejected_silent_frames": 0,
+              "discontinuities": 0,
+              "successful_silent_callbacks": 1,
+              "successful_silent_frames": 512,
+              "priming_frames": 512,
+              "underrun_frames": 4608,
+              "underrun_gaps": 9,
+              "underrun_callbacks": 12,
+              "expired_output_frames": 4608,
+              "delivered_frames": 27758592,
+              "zero_gain_blocks": 0,
+              "gain_min": 1,
+              "gain_max": 1,
+              "clean": true
+            }
+          ],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 200,
+              "state": "ap3_processing_summary",
+              "processed_blocks": 108452,
+              "intervals": 1,
+              "process_mode": "kRealtime"
+            },
+            {
+              "event": "lifecycle",
+              "sequence": 204,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 1,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 61,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "fad87414c89a904e1865582e76e1a0d9",
+          "ownership": {
+            "session": "fad87414c89a904e1865582e76e1a0d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 61380,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 20463,
+            "position": 5141248,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 21051900747165,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 207,
+            "admitted_frames": 5237760,
+            "missing_frames": 256,
+            "gaps": 1,
+            "expired_frames": 256,
+            "delivered_frames": 5236480,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 210,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 1,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 61,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "r1-corner-retired",
+      "sessions": [
+        {
+          "session": "06636f32f2395d647c660e1f8a4ffa51",
+          "ownership": {
+            "session": "06636f32f2395d647c660e1f8a4ffa51",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 618630,
+            "generation": 1,
+            "epoch": 4,
+            "request_sequence": 206214,
+            "position": 32125184,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 22833635245249,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 191,
+            "admitted_frames": 52789760,
+            "missing_frames": 13568,
+            "gaps": 26,
+            "expired_frames": 13312,
+            "delivered_frames": 52774144,
+            "priming_frames": 2048,
+            "current": true
+          },
+          "native_summary_and_faults": [
+            {
+              "event": "ap7_observation",
+              "offered_samples": 105579520,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 105579520,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 21,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap9_unpublished",
+              "requests": 4
+            },
+            {
+              "event": "ap3_proxy_lifecycle",
+              "phase": 6,
+              "requested_maximum": 512,
+              "requested_rate": 48000,
+              "requested_mode": 0,
+              "frames": 52789760,
+              "blocks": 103105,
+              "callback_rejections": 0,
+              "rejected_silent_frames": 0,
+              "discontinuities": 0,
+              "successful_silent_callbacks": 4,
+              "successful_silent_frames": 2048,
+              "priming_frames": 2048,
+              "underrun_frames": 13568,
+              "underrun_gaps": 26,
+              "underrun_callbacks": 35,
+              "expired_output_frames": 13312,
+              "delivered_frames": 52774144,
+              "zero_gain_blocks": 0,
+              "gain_min": 1,
+              "gain_max": 1,
+              "clean": true
+            }
+          ],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 205,
+              "state": "ap3_processing_summary",
+              "processed_blocks": 206210,
+              "intervals": 4,
+              "process_mode": "kRealtime"
+            },
+            {
+              "event": "lifecycle",
+              "sequence": 209,
+              "state": "ap11_editor_summary",
+              "opens": 2,
+              "closes": 2,
+              "focuses": 2,
+              "removal_messages": 24,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "17cd5bdd5628f5b39719bbffbc0b6720",
+          "ownership": {
+            "session": "17cd5bdd5628f5b39719bbffbc0b6720",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 631098,
+            "generation": 1,
+            "epoch": 4,
+            "request_sequence": 210371,
+            "position": 39895808,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 22833637123237,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 191,
+            "admitted_frames": 53853696,
+            "missing_frames": 38656,
+            "gaps": 73,
+            "expired_frames": 38400,
+            "delivered_frames": 53812992,
+            "priming_frames": 2048,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 230,
+              "state": "ap11_editor_summary",
+              "opens": 2,
+              "closes": 2,
+              "focuses": 1,
+              "removal_messages": 24,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 859,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "4e16021066634bc8c8a2259baaecc03e",
+          "ownership": {
+            "session": "4e16021066634bc8c8a2259baaecc03e",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 640686,
+            "generation": 1,
+            "epoch": 4,
+            "request_sequence": 213566,
+            "position": 39895808,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 22833635917846,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 191,
+            "admitted_frames": 54671872,
+            "missing_frames": 13312,
+            "gaps": 26,
+            "expired_frames": 13056,
+            "delivered_frames": 54656512,
+            "priming_frames": 2048,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 207,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 1,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "57be3dd56a526cf274691c9cb06d87c8",
+          "ownership": {
+            "session": "57be3dd56a526cf274691c9cb06d87c8",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 451476,
+            "generation": 1,
+            "epoch": 1,
+            "request_sequence": 150498,
+            "position": 38525696,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 22833635663910,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 191,
+            "admitted_frames": 38525952,
+            "missing_frames": 3584,
+            "gaps": 10,
+            "expired_frames": 3328,
+            "delivered_frames": 38521856,
+            "priming_frames": 512,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 191,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 0,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 62,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "73b95263e59ce65eaf09cc04e9427e3a",
+          "ownership": {
+            "session": "73b95263e59ce65eaf09cc04e9427e3a",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 599592,
+            "generation": 1,
+            "epoch": 4,
+            "request_sequence": 199869,
+            "position": 31307008,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 22816583771079,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 191,
+            "admitted_frames": 51165184,
+            "missing_frames": 41472,
+            "gaps": 63,
+            "expired_frames": 41472,
+            "delivered_frames": 51121664,
+            "priming_frames": 2048,
+            "current": true
+          },
+          "native_summary_and_faults": [
+            {
+              "event": "ap7_observation",
+              "offered_samples": 102330368,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 102330368,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 130,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap9_unpublished",
+              "requests": 6
+            },
+            {
+              "event": "ap3_proxy_lifecycle",
+              "phase": 6,
+              "requested_maximum": 512,
+              "requested_rate": 48000,
+              "requested_mode": 0,
+              "frames": 51165184,
+              "blocks": 99932,
+              "callback_rejections": 0,
+              "rejected_silent_frames": 0,
+              "discontinuities": 0,
+              "successful_silent_callbacks": 4,
+              "successful_silent_frames": 2048,
+              "priming_frames": 2048,
+              "underrun_frames": 41472,
+              "underrun_gaps": 63,
+              "underrun_callbacks": 109,
+              "expired_output_frames": 41472,
+              "delivered_frames": 51121664,
+              "zero_gain_blocks": 0,
+              "gain_min": 1,
+              "gain_max": 1,
+              "clean": true
+            }
+          ],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 228,
+              "state": "ap3_processing_summary",
+              "processed_blocks": 199864,
+              "intervals": 4,
+              "process_mode": "kRealtime"
+            },
+            {
+              "event": "lifecycle",
+              "sequence": 232,
+              "state": "ap11_editor_summary",
+              "opens": 2,
+              "closes": 2,
+              "focuses": 1,
+              "removal_messages": 24,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 859,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "e3cc0145aea98c12923689f7ae09a526",
+          "ownership": {
+            "session": "e3cc0145aea98c12923689f7ae09a526",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 410526,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 136847,
+            "position": 32125184,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 22833635998848,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 191,
+            "admitted_frames": 35031552,
+            "missing_frames": 3328,
+            "gaps": 9,
+            "expired_frames": 3072,
+            "delivered_frames": 35027200,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 195,
+              "state": "ap11_editor_summary",
+              "opens": 0,
+              "closes": 0,
+              "focuses": 0,
+              "removal_messages": 0,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 62,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "r1-service-loss-receipts",
+      "sessions": [
+        {
+          "session": "6084f395a77e0f574080c9c0015a39d9",
+          "ownership": {
+            "session": "6084f395a77e0f574080c9c0015a39d9",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 87548,
+            "generation": 1,
+            "epoch": 3,
+            "request_sequence": 29186,
+            "position": 2977792,
+            "stage": 2,
+            "detail": 0,
+            "ticks": 23502165892076,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 202,
+            "admitted_frames": 7471104,
+            "missing_frames": 3328,
+            "gaps": 6,
+            "expired_frames": 3328,
+            "delivered_frames": 7466240,
+            "priming_frames": 1536,
+            "current": true
+          },
+          "native_summary_and_faults": [
+            {
+              "event": "ap5_worker_fault",
+              "generation": 1,
+              "fault": 3,
+              "first_position": 2977792,
+              "processed": 29182,
+              "request_high": 4,
+              "result_high": 4,
+              "detail": "InvalidData: delivery endpoint disconnected"
+            },
+            {
+              "event": "ap7_observation",
+              "offered_samples": 14941184,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 14941184,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 0,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap9_unpublished",
+              "requests": 2
+            }
+          ],
+          "windows_processing_summary": [],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+          "ownership": {
+            "session": "6f49fee6854f5629eaa8b9f810ca9faa",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 87542,
+            "generation": 1,
+            "epoch": 3,
+            "request_sequence": 29185,
+            "position": 2977280,
+            "stage": 2,
+            "detail": 0,
+            "ticks": 23502154619362,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 202,
+            "admitted_frames": 7470592,
+            "missing_frames": 2048,
+            "gaps": 6,
+            "expired_frames": 2048,
+            "delivered_frames": 7467008,
+            "priming_frames": 1536,
+            "current": true
+          },
+          "native_summary_and_faults": [
+            {
+              "event": "ap5_worker_fault",
+              "generation": 1,
+              "fault": 3,
+              "first_position": 2977280,
+              "processed": 29180,
+              "request_high": 11,
+              "result_high": 3,
+              "detail": "InvalidData: delivery endpoint disconnected"
+            },
+            {
+              "event": "ap7_observation",
+              "offered_samples": 14940160,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 14940160,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 0,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap9_unpublished",
+              "requests": 2
+            }
+          ],
+          "windows_processing_summary": [],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "r1-postboot-retired",
+      "sessions": [
+        {
+          "session": "108ca428d396013869eb0de4c92c545a",
+          "ownership": {
+            "session": "108ca428d396013869eb0de4c92c545a",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 129522,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 43178,
+            "position": 10956032,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 1185516475938,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 189,
+            "admitted_frames": 11052544,
+            "missing_frames": 1536,
+            "gaps": 5,
+            "expired_frames": 1536,
+            "delivered_frames": 11049984,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [
+            {
+              "event": "ap7_observation",
+              "offered_samples": 22105088,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 22105088,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 0,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap9_unpublished",
+              "requests": 0
+            },
+            {
+              "event": "ap3_proxy_lifecycle",
+              "phase": 6,
+              "requested_maximum": 512,
+              "requested_rate": 48000,
+              "requested_mode": 0,
+              "frames": 11052544,
+              "blocks": 21587,
+              "callback_rejections": 0,
+              "rejected_silent_frames": 0,
+              "discontinuities": 0,
+              "successful_silent_callbacks": 2,
+              "successful_silent_frames": 1024,
+              "priming_frames": 1024,
+              "underrun_frames": 1536,
+              "underrun_gaps": 5,
+              "underrun_callbacks": 5,
+              "expired_output_frames": 1536,
+              "delivered_frames": 11049984,
+              "zero_gain_blocks": 0,
+              "gain_min": 1,
+              "gain_max": 1,
+              "clean": true
+            }
+          ],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 208,
+              "state": "ap3_processing_summary",
+              "processed_blocks": 43174,
+              "intervals": 2,
+              "process_mode": "kRealtime"
+            },
+            {
+              "event": "lifecycle",
+              "sequence": 212,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 1,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 111,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "517dbda885b5bedebd80e31d596c6030",
+          "ownership": {
+            "session": "517dbda885b5bedebd80e31d596c6030",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 67938,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 22649,
+            "position": 3961600,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 1185517624243,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 189,
+            "admitted_frames": 5797376,
+            "missing_frames": 256,
+            "gaps": 1,
+            "expired_frames": 256,
+            "delivered_frames": 5796096,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 187,
+              "state": "ap11_editor_summary",
+              "opens": 0,
+              "closes": 0,
+              "focuses": 0,
+              "removal_messages": 0,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "68f4b9476e684a2c63f4358f001edbf6",
+          "ownership": {
+            "session": "68f4b9476e684a2c63f4358f001edbf6",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 65670,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 21893,
+            "position": 3961600,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 1185513432630,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 189,
+            "admitted_frames": 5603840,
+            "missing_frames": 512,
+            "gaps": 2,
+            "expired_frames": 512,
+            "delivered_frames": 5602304,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 187,
+              "state": "ap11_editor_summary",
+              "opens": 0,
+              "closes": 0,
+              "focuses": 0,
+              "removal_messages": 0,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "71158c414ba334ff65688bfa2b660230",
+          "ownership": {
+            "session": "71158c414ba334ff65688bfa2b660230",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 129522,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 43178,
+            "position": 10956032,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 1185516704097,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 189,
+            "admitted_frames": 11052544,
+            "missing_frames": 1792,
+            "gaps": 5,
+            "expired_frames": 1792,
+            "delivered_frames": 11049728,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 191,
+              "state": "ap11_editor_summary",
+              "opens": 1,
+              "closes": 1,
+              "focuses": 0,
+              "removal_messages": 12,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "a4748d838c2c016d0bb4cd9d5e0c5835",
+          "ownership": {
+            "session": "a4748d838c2c016d0bb4cd9d5e0c5835",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 129522,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 43177,
+            "position": 10956032,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 1185514600555,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 189,
+            "admitted_frames": 11052544,
+            "missing_frames": 1536,
+            "gaps": 5,
+            "expired_frames": 1536,
+            "delivered_frames": 11049984,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [
+            {
+              "event": "ap7_observation",
+              "offered_samples": 22105088,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 22105088,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 0,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap9_unpublished",
+              "requests": 0
+            },
+            {
+              "event": "ap3_proxy_lifecycle",
+              "phase": 6,
+              "requested_maximum": 512,
+              "requested_rate": 48000,
+              "requested_mode": 0,
+              "frames": 11052544,
+              "blocks": 21587,
+              "callback_rejections": 0,
+              "rejected_silent_frames": 0,
+              "discontinuities": 0,
+              "successful_silent_callbacks": 2,
+              "successful_silent_frames": 1024,
+              "priming_frames": 1024,
+              "underrun_frames": 1536,
+              "underrun_gaps": 5,
+              "underrun_callbacks": 5,
+              "expired_output_frames": 1536,
+              "delivered_frames": 11049984,
+              "zero_gain_blocks": 0,
+              "gain_min": 1,
+              "gain_max": 1,
+              "clean": true
+            }
+          ],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 185,
+              "state": "ap3_processing_summary",
+              "processed_blocks": 43174,
+              "intervals": 2,
+              "process_mode": "kRealtime"
+            },
+            {
+              "event": "lifecycle",
+              "sequence": 189,
+              "state": "ap11_editor_summary",
+              "opens": 0,
+              "closes": 0,
+              "focuses": 0,
+              "removal_messages": 0,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 60,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        },
+        {
+          "session": "de6099029f5b1f338f5a1d23b4b1115e",
+          "ownership": {
+            "session": "de6099029f5b1f338f5a1d23b4b1115e",
+            "cleanup_confirmed": true,
+            "transport_retired": true,
+            "reporting_error": null
+          },
+          "last_independent_native_counter": {
+            "publication": 64344,
+            "generation": 1,
+            "epoch": 2,
+            "request_sequence": 21451,
+            "position": 3291904,
+            "stage": 3,
+            "detail": 0,
+            "ticks": 1171551401699,
+            "frequency": 1000000000,
+            "thread_id": 0,
+            "process_id": 189,
+            "admitted_frames": 5490688,
+            "missing_frames": 3072,
+            "gaps": 10,
+            "expired_frames": 3072,
+            "delivered_frames": 5486592,
+            "priming_frames": 1024,
+            "current": true
+          },
+          "native_summary_and_faults": [],
+          "windows_processing_summary": [
+            {
+              "event": "lifecycle",
+              "sequence": 210,
+              "state": "ap11_editor_summary",
+              "opens": 0,
+              "closes": 0,
+              "focuses": 0,
+              "removal_messages": 0,
+              "gestures": 0,
+              "values": 0,
+              "ends": 0,
+              "host_updates": 111,
+              "stale_updates": 0,
+              "suppressed_echoes": 0,
+              "scale_supported": false,
+              "scale": 1.0,
+              "failure": 0
+            }
+          ],
+          "discarded_windows_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        }
+      ]
+    }
+  ]
+}

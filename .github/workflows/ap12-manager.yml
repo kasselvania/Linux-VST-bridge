@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'bridge-manager/**'
+      - 'native-audio-client/**'
       - 'compatibility/**'
       - '.github/workflows/ap12-manager.yml'
       - 'tools/ap8_descriptor.py'

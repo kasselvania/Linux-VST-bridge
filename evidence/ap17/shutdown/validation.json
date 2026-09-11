@@ -1,0 +1,74 @@
+{
+  "checks": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "exit": 0,
+      "log_sha256": "e18279376c822315d0797e593f3cf77a6c39043f14fe8a9536be9f6c0df9a888",
+      "platform": "macOS local",
+      "result_lines": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.08s",
+        "test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.01s"
+      ]
+    },
+    {
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml --locked",
+      "exit": 0,
+      "log_sha256": "39ef31758ada4b7d87618d4684863ce97c197eba110461f18bf5f0d6f232a390",
+      "platform": "macOS local",
+      "result_lines": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s",
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "exit": 0,
+      "log_sha256": "a46a2473ede789624ea64b8b672fee5bf56fe4872034d258ee60d2a7b54c913b",
+      "platform": "macOS local",
+      "result_lines": [
+        "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s",
+        "test result: ok. 51 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 36.25s",
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "exit": 0,
+      "log_sha256": "8c233a54790c4800d3dd585436af679aa838da259bfdb129412e2d51cdb75cdc",
+      "platform": "macOS local",
+      "result_lines": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s"
+      ]
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "exit": 0,
+      "log_sha256": "59639588a6f1826f129cbcd121edc07279dab94786f5fa5bde6b3439b2e845cc",
+      "platform": "macOS local",
+      "result_lines": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s"
+      ]
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "exit": 0,
+      "log_sha256": "d3fb55bb80cbb2230a1e865564b6c8e083a4f1c4c9553d20511f930ebb966bf0",
+      "platform": "macOS local",
+      "result_lines": [
+        "Ran 22 tests in 0.013s",
+        "OK (skipped=16)"
+      ]
+    }
+  ],
+  "evidence_safety": "Allow-listed lifecycle and canonical artifact records; home/runtime paths normalized. No credentials, authorization files, vendor stdout, opaque state, presets, binaries or raw audio committed.",
+  "hosted_final_head": "Final applicable AP10 native / AP12 manager / PX2 workflow identities and conclusions recorded in PR #92 body after evidence commit.",
+  "native_ctest": "Not rebuilt for this evidence-only investigation; no native source, lifecycle fixture or profile/catalogue input changed. Retained prior lane remains distinct.",
+  "production_source_changed": false,
+  "python_platform_limit": "22 discovered; 6 passed, 16 Linux-only skipped on macOS. Hosted Linux lane required separately.",
+  "schema": 1,
+  "tested_source_head": "de29758d67f7b46c722b18c1a28ba8100e96be67",
+  "windows": "Unchanged accepted Windows host reused; no new Windows build/test claim."
+}

@@ -1,0 +1,1088 @@
+{
+  "schema": 1,
+  "source_head": "4793fb9b422aa8cceb89ff77ca8d0cb2982e6a90",
+  "claim": "Focused revision-9 maximum recall and single-host containment; AP17 recovery matrix remains in progress",
+  "product": {
+    "profile_revision": 9,
+    "claim": "review_candidate",
+    "qualification": "ap17_capacity",
+    "delay_frames": 512,
+    "ordinary_activation": false
+  },
+  "project": {
+    "name": "AP17 R1 Maximum",
+    "saved": {
+      "name": "AP17 R1 Maximum.bwproject",
+      "bytes": 201188,
+      "sha256": "586cf60aa84403eff9eb1f3085244aeccdfa5fbe1b9bc8521033950eb865430b"
+    },
+    "normal_quit_and_Applications_relaunch": true,
+    "fresh_sessions": 6,
+    "tracks": [
+      {
+        "track": 1,
+        "route": "Pure LoFi -> Efx FRAGMENTS -> Master",
+        "visible_values_before_and_after": {
+          "LoFi_Macro2": 0.1538,
+          "FRAGMENTS_GrainMix": 0.631
+        },
+        "devices": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "before_session": "e6aa5093a68cab881514f6af961985bb",
+            "reopened_session": "73b95263e59ce65eaf09cc04e9427e3a",
+            "before_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "41fa84afc3e7ce1a80b8c3e644c7e13eb8c485b11fa94ba3e39afbc4229c3d06"
+            },
+            "explicit_capture": {
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "c50abdcc49e16858a290671b85f3b5f2e3e699471b86ae4225ce5f0458f3cb82"
+            },
+            "reopened_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "41fa84afc3e7ce1a80b8c3e644c7e13eb8c485b11fa94ba3e39afbc4229c3d06"
+            },
+            "same_prior_payload_restored": true,
+            "equals_latest_capture": false,
+            "before_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 123731971,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3055,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 123731971,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3056,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 123731971,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 4
+              }
+            ],
+            "reopened_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 100663299,
+                "view_epoch": 1,
+                "focus_result": 3,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3055,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 100663299,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3056,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 100663299,
+                "view_epoch": 1,
+                "focus_result": 3,
+                "native_view": 1,
+                "lifecycle": 5
+              }
+            ]
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "before_session": "a2144aa5d912a27483d801ce9a47caf0",
+            "reopened_session": "06636f32f2395d647c660e1f8a4ffa51",
+            "before_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 139092,
+              "sha256": "797d797e3d305d2823636ed8d2a5e2551336721eb2cf55ee90b7a81eb09e9a93"
+            },
+            "explicit_capture": {
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "797d797e3d305d2823636ed8d2a5e2551336721eb2cf55ee90b7a81eb09e9a93"
+            },
+            "reopened_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 139092,
+              "sha256": "797d797e3d305d2823636ed8d2a5e2551336721eb2cf55ee90b7a81eb09e9a93"
+            },
+            "same_prior_payload_restored": true,
+            "equals_latest_capture": true,
+            "before_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 100663299,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2350,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 100663299,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2351,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 100663299,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 4
+              }
+            ],
+            "reopened_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 104857603,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2350,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 104857603,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2351,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 104857603,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 4
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "track": 2,
+        "route": "Pure LoFi -> Efx FRAGMENTS -> Master",
+        "visible_values_before_and_after": {
+          "LoFi_Macro2": 0.2788,
+          "FRAGMENTS_GrainMix": 0.556
+        },
+        "devices": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "before_session": "fad87414c89a904e1865582e76e1a0d9",
+            "reopened_session": "17cd5bdd5628f5b39719bbffbc0b6720",
+            "before_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "8e2304ef3a211804605dff42e8015305b9573b719360215749f5d827bfa6f59d"
+            },
+            "explicit_capture": {
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "b52ace0c8199a738eed051d80c8bfb21f6d34175cbda77f17d81786f38033e0c"
+            },
+            "reopened_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "8e2304ef3a211804605dff42e8015305b9573b719360215749f5d827bfa6f59d"
+            },
+            "same_prior_payload_restored": true,
+            "equals_latest_capture": false,
+            "before_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 127926275,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3055,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 127926275,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3056,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 127926275,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 4
+              }
+            ],
+            "reopened_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 117440515,
+                "view_epoch": 1,
+                "focus_result": 3,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3055,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 117440515,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3056,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 117440515,
+                "view_epoch": 1,
+                "focus_result": 3,
+                "native_view": 1,
+                "lifecycle": 5
+              }
+            ]
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "before_session": "886df1ecab753158ca856dc9744504f0",
+            "reopened_session": "4e16021066634bc8c8a2259baaecc03e",
+            "before_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+            },
+            "explicit_capture": {
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+            },
+            "reopened_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f"
+            },
+            "same_prior_payload_restored": true,
+            "equals_latest_capture": true,
+            "before_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 113246211,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2350,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 113246211,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2351,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 113246211,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 4
+              }
+            ],
+            "reopened_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 123731971,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2350,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 123731971,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2351,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 123731971,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 4
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "track": 3,
+        "route": "Pure LoFi -> Efx FRAGMENTS -> Master",
+        "visible_values_before_and_after": {
+          "LoFi_Macro2": 0.3538,
+          "FRAGMENTS_GrainMix": 0.706
+        },
+        "devices": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "before_session": "57c3d59329ff0cd67addde49e505c813",
+            "reopened_session": "956a1a4901d046a19493b36bb4b4ff4e",
+            "before_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 139092,
+              "sha256": "3cdbc4556d886afcad187c062eddda129aab711aa0df1ef5d7cebbdb6cdeebf1"
+            },
+            "explicit_capture": {
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "3cdbc4556d886afcad187c062eddda129aab711aa0df1ef5d7cebbdb6cdeebf1"
+            },
+            "reopened_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 139092,
+              "sha256": "3cdbc4556d886afcad187c062eddda129aab711aa0df1ef5d7cebbdb6cdeebf1"
+            },
+            "same_prior_payload_restored": true,
+            "equals_latest_capture": true,
+            "before_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 119537667,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2350,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 119537667,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2351,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 119537667,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 4
+              }
+            ],
+            "reopened_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 132120579,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2350,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 132120579,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 2351,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 132120579,
+                "view_epoch": 1,
+                "focus_result": 2,
+                "native_view": 1,
+                "lifecycle": 4
+              }
+            ]
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "before_session": "b5fb30ccc547c1e25d0ab0749189f439",
+            "reopened_session": "1a5f52075365c49d178de15dbaacc70d",
+            "before_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "588a79494a15fd06a4ff95d428ed9115465155983299d5ff7d87950a72cd171c"
+            },
+            "explicit_capture": {
+              "operation": "opaque_get",
+              "payload_bytes": 197102,
+              "sha256": "f4e8c2a220efc7510b533d318fa1cb7291fd73db5675988789bcaaf8068440cc"
+            },
+            "reopened_restore": {
+              "operation": "opaque_set",
+              "payload_bytes": 196838,
+              "sha256": "588a79494a15fd06a4ff95d428ed9115465155983299d5ff7d87950a72cd171c"
+            },
+            "same_prior_payload_restored": true,
+            "equals_latest_capture": false,
+            "before_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 132120579,
+                "view_epoch": 1,
+                "focus_result": 3,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3055,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 132120579,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3056,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 132120579,
+                "view_epoch": 1,
+                "focus_result": 3,
+                "native_view": 1,
+                "lifecycle": 5
+              }
+            ],
+            "reopened_editor": [
+              {
+                "direction": "native_commands",
+                "slot_sequence": 1,
+                "kind": 1,
+                "activation": 1,
+                "target_x11": 0,
+                "view_epoch": 0,
+                "focus_result": 0,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "native_commands",
+                "slot_sequence": 2,
+                "kind": 5,
+                "activation": 1,
+                "target_x11": 127926275,
+                "view_epoch": 1,
+                "focus_result": 3,
+                "native_view": 1,
+                "lifecycle": 1
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3055,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 127926275,
+                "view_epoch": 1,
+                "focus_result": 1,
+                "native_view": 1,
+                "lifecycle": 3
+              },
+              {
+                "direction": "windows_events",
+                "slot_sequence": 3056,
+                "kind": 108,
+                "activation": 1,
+                "target_x11": 127926275,
+                "view_epoch": 1,
+                "focus_result": 3,
+                "native_view": 1,
+                "lifecycle": 5
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "old_retirement": [
+      {
+        "session": "57c3d59329ff0cd67addde49e505c813",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      {
+        "session": "886df1ecab753158ca856dc9744504f0",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      {
+        "session": "a2144aa5d912a27483d801ce9a47caf0",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      {
+        "session": "b5fb30ccc547c1e25d0ab0749189f439",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      {
+        "session": "e6aa5093a68cab881514f6af961985bb",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      },
+      {
+        "session": "fad87414c89a904e1865582e76e1a0d9",
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "reporting_error": null
+      }
+    ]
+  },
+  "state_limit": "All six reopened payload digests match their own prior restore and all six visible signatures remain distinct. LoFi latest explicit capture digests differ from the payloads Bitwig later supplied; no claim that every latest capture byte was persisted. No opaque state or project bytes exported.",
+  "single_host_failure": {
+    "injection": {
+      "operation": "controlled_one_host_failure",
+      "session": "956a1a4901d046a19493b36bb4b4ff4e",
+      "pid": 36442,
+      "start_ticks": 2129785,
+      "signal": "SIGKILL",
+      "pidfd": true,
+      "before_ns": 21573856560886,
+      "after_ns": 21573856678189,
+      "clock": "Linux CLOCK_MONOTONIC",
+      "scope": "one exact owned FRAGMENTS host; keeper and siblings not signalled"
+    },
+    "affected_cleanup": {
+      "session": "956a1a4901d046a19493b36bb4b4ff4e",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    },
+    "affected_fault": {
+      "session": "956a1a4901d046a19493b36bb4b4ff4e",
+      "early_pending": null,
+      "before_containment": {
+        "available": true,
+        "schema": 2,
+        "sample_monotonic_ns": 21573928848190,
+        "clock_domains": [
+          "linux_monotonic_ns",
+          "windows_qpc",
+          "windows_qpc"
+        ],
+        "native": {
+          "publication": 108596,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 36202,
+          "position": 3048448,
+          "stage": 2,
+          "detail": 0,
+          "ticks": 21573857941043,
+          "frequency": 1000000000,
+          "thread_id": 0,
+          "process_id": 191,
+          "admitted_frames": 9267200,
+          "missing_frames": 6144,
+          "gaps": 11,
+          "expired_frames": 6144,
+          "delivered_frames": 9260032,
+          "priming_frames": 1024,
+          "current": true
+        },
+        "delivery": {
+          "publication": 217197,
+          "generation": 1,
+          "epoch": 2,
+          "request_sequence": 36201,
+          "position": 3048192,
+          "stage": 1,
+          "detail": 0,
+          "ticks": 215733381276,
+          "frequency": 10000000,
+          "thread_id": 824,
+          "process_id": 296,
+          "current": true
+        },
+        "owner": {
+          "publication": 245693,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 0,
+          "detail": 0,
+          "ticks": 215733396226,
+          "frequency": 10000000,
+          "thread_id": 420,
+          "process_id": 296,
+          "current": true
+        },
+        "editor": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 1,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "mailbox_flags": {
+          "request": 1,
+          "reply": 0,
+          "independently_sampled": true
+        }
+      }
+    },
+    "survivors": [
+      {
+        "session": "17cd5bdd5628f5b39719bbffbc0b6720",
+        "class_id": "417274754156495350724C4650726F63",
+        "same_supervisor": true,
+        "same_transport": true,
+        "same_generation": true,
+        "lease_retained": true,
+        "editor_after": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "counter_delta": {
+          "admitted_frames": 3064832,
+          "delivered_frames": 3041024,
+          "missing_frames": 23808,
+          "expired_frames": 23808,
+          "gaps": 37
+        }
+      },
+      {
+        "session": "73b95263e59ce65eaf09cc04e9427e3a",
+        "class_id": "417274754156495350724C4650726F63",
+        "same_supervisor": true,
+        "same_transport": true,
+        "same_generation": true,
+        "lease_retained": true,
+        "editor_after": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 16,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "counter_delta": {
+          "admitted_frames": 3064832,
+          "delivered_frames": 3045888,
+          "missing_frames": 18944,
+          "expired_frames": 18944,
+          "gaps": 27
+        }
+      },
+      {
+        "session": "4e16021066634bc8c8a2259baaecc03e",
+        "class_id": "41727475415649536772616E50726F63",
+        "same_supervisor": true,
+        "same_transport": true,
+        "same_generation": true,
+        "lease_retained": true,
+        "editor_after": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "counter_delta": {
+          "admitted_frames": 3064832,
+          "delivered_frames": 3056896,
+          "missing_frames": 7936,
+          "expired_frames": 7936,
+          "gaps": 11
+        }
+      },
+      {
+        "session": "06636f32f2395d647c660e1f8a4ffa51",
+        "class_id": "41727475415649536772616E50726F63",
+        "same_supervisor": true,
+        "same_transport": true,
+        "same_generation": true,
+        "lease_retained": true,
+        "editor_after": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 1,
+          "view_stage": 100,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "counter_delta": {
+          "admitted_frames": 3064832,
+          "delivered_frames": 3057152,
+          "missing_frames": 7680,
+          "expired_frames": 7680,
+          "gaps": 12
+        }
+      },
+      {
+        "session": "1a5f52075365c49d178de15dbaacc70d",
+        "class_id": "417274754156495350724C4650726F63",
+        "same_supervisor": true,
+        "same_transport": true,
+        "same_generation": true,
+        "lease_retained": true,
+        "editor_after": {
+          "available": true,
+          "independently_sampled": true,
+          "closed": 0,
+          "failure": 0,
+          "open": 0,
+          "view_stage": 217,
+          "open_stage": 100,
+          "exception_code": 0
+        },
+        "counter_delta": {
+          "admitted_frames": 3064832,
+          "delivered_frames": 3039232,
+          "missing_frames": 25600,
+          "expired_frames": 25600,
+          "gaps": 40
+        }
+      }
+    ],
+    "local_output_after": {
+      "source": "Deck local output sink monitor",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 98304,
+      "seconds": 2.048,
+      "peak": 0.3198469877243042,
+      "rms": 0.03632308802246363,
+      "nonzero_samples": 196096,
+      "raw_audio_retained": false,
+      "timing": "outside matched measurement interval"
+    },
+    "host_UI": "Removing the deliberately failed track produced an explicit FRAGMENTS state-save refusal; operator-authorized test removal proceeded without overwriting the saved maximum project.",
+    "nonclaim": "Containment and continued output are not glitch-free playback. The displayed counter deltas include editor opening and the controlled-failure observation bracket; causal attribution of each gap was not attempted.",
+    "native_terminal_records": [
+      {
+        "event": "ap5_worker_fault",
+        "generation": 1,
+        "fault": 3,
+        "first_position": 3048448,
+        "processed": 36198,
+        "request_high": 7,
+        "result_high": 5,
+        "detail": "InvalidData: delivery endpoint disconnected"
+      },
+      {
+        "event": "ap7_fault_progress",
+        "context_ready": true,
+        "epoch": 2,
+        "worker_op": 3,
+        "worker_epoch": 2,
+        "worker_position": 3048448,
+        "request_published": 36207,
+        "request_consumed": 36202,
+        "result_published": 36196,
+        "result_consumed": 36196,
+        "service_us_max_at_report": 24580,
+        "observation_skips": 0
+      },
+      {
+        "event": "ap7_observation",
+        "offered_samples": 18533376,
+        "verified_returned_samples": 0,
+        "unchecked_samples": 18533376,
+        "dropped_jobs": 0,
+        "dropped_samples": 0,
+        "reader_skips": 0,
+        "unretained_gap_traces": 0,
+        "maximum_error": 0,
+        "before_edit_samples": 0,
+        "edits": 0
+      },
+      {
+        "event": "ap9_unpublished",
+        "requests": 0
+      }
+    ]
+  },
+  "scheduler_confounds": {
+    "reopen_readback": {
+      "service": "MainPID=33111\nCPUWeight=10000\nNice=0\nActiveState=active\n",
+      "effective_weight": "10000",
+      "heavy_trace": false,
+      "pending_transactions": []
+    },
+    "restoration": {
+      "before": "# This is a drop-in unit file extension, created via \"systemctl set-property\"\n# or an equivalent operation. Do not edit.\n[Service]\nCPUWeight=10000\n",
+      "mtime_utc": "2026-09-11T01:13:12.654564+00:00",
+      "writer": "unidentified",
+      "baseline": "unset; effective default 100",
+      "restore": {
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "readback": "NRestarts=0\nControlGroup=/user.slice/user-1000.slice/user@1000.service/app.slice/linux-vst-bridge.service\nCPUWeight=[not set]\nActiveState=active\n",
+      "physical_cpu_weight": "100"
+    },
+    "writer": "unidentified",
+    "performance_claim_from_this_interval": false
+  },
+  "pending": [],
+  "later_completed_checks": [
+    "serial-corner.json",
+    "service-recovery.json",
+    "reboot-recovery.json",
+    "installed-final.json"
+  ]
+}

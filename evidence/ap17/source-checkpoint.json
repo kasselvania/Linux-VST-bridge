@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "status": "source_checkpoint_not_fixture_acceptance",
+  "base": "ad8d89b5833ddbcd81bcbe21515947e948f3c1ef",
+  "checks": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "result": "pass",
+      "tests": 60,
+      "platform": "macOS; Unix sockets require sandbox escalation"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "pass",
+      "library_tests": 44,
+      "command_tests": 8
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "pass"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "pass"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "pass_with_platform_skips",
+      "tests": 22,
+      "skipped": 16,
+      "platform": "macOS; required Linux run pending"
+    },
+    {
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml --locked admission",
+      "result": "pass",
+      "tests": 2
+    }
+  ],
+  "pending": [
+    "Linux native CMake/CTest",
+    "Linux supervisor tests",
+    "exact candidate artifact/package/profile roster",
+    "Deck typed admission, selected maximum recall and recovery",
+    "final hosted checks"
+  ],
+  "unchanged": [
+    "Windows-owned source/tests/build inputs/shared UI ABI",
+    "installed software/native/profile/publication",
+    "512 selected/recommended; 256 unqualified"
+  ]
+}

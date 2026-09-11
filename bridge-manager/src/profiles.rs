@@ -63,6 +63,7 @@ closed_enum!(Limitation {
     DetachedFocusRefusal,
     FragmentsAdvancedRedraw,
     ExactOperatorArtifactOnly,
+    CapacityUnderQualification,
     DirectEditorUnderQualification
 });
 
@@ -276,6 +277,13 @@ pub fn ap14_profiles() -> Result<Vec<Profile>> {
     .into_iter()
     .map(Profile::parse)
     .collect()
+}
+
+/// Immutable AP15 ordinary history and AP17 rollback parent; not new selection.
+pub fn ap15_profiles() -> Result<Vec<Profile>> {
+    [include_bytes!("../../compatibility/ap15/revision-7/arturia-pure-lofi.json").as_slice(),
+     include_bytes!("../../compatibility/ap15/revision-7/arturia-efx-fragments.json").as_slice()]
+    .into_iter().map(Profile::parse).collect()
 }
 
 /// UUIDv5 law retained from tools/ap8_descriptor.py, independent of revisions.

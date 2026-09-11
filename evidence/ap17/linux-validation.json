@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "source_head": "a1d5120cb5c407c023635368f85d0b02908ef547",
+  "manager_artifact": {
+    "source_commit": "b422f75d1ba3f7eacb60f63c4343566438d77d3e",
+    "manager_sha256": "11fa07899779c306ee01c21898837139aaed0e1003668a645ee46c97cf629d7d",
+    "target": "x86_64-unknown-linux-gnu",
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+    "linker": "0.14.1",
+    "linker_wrapper_sha256": "fa6f027ae722120bb2f2966f6f469725b1a31cf452de1f4b978989878131e3d3",
+    "windows_reused": true
+  },
+  "native_cmake_ctest_and_linux_runtime": [
+    {
+      "command": [
+        "cmake",
+        "-S",
+        "$DECK_HOME/AP17-Work/native-tests",
+        "-B",
+        "$DECK_HOME/AP17-Work/native-tests/build",
+        "-G",
+        "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DAP2_BUILD_ONLY=ON",
+        "-DAP10_RESULTS_TESTS=ON",
+        "-DAP11_PANEL_TESTS=ON",
+        "-DVST3_SDK_ROOT=$DECK_HOME/.cache/linux-vst-bridge/dependencies/vst3sdk/3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+        "-DAP2_RUST_LIBRARY=$DECK_HOME/AP17-Work/native-tests/libap2_backend.a",
+        "-DAP8_DESCRIPTOR=$DECK_HOME/AP17-Work/native-tests/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
+      ],
+      "exit": 0,
+      "seconds": 1.7604298749993177
+    },
+    {
+      "command": [
+        "cmake",
+        "--build",
+        "$DECK_HOME/AP17-Work/native-tests/build",
+        "--target",
+        "ap10-result-lifetime",
+        "ap10-results-tests",
+        "ap11-native-tests",
+        "ap11-state-tests",
+        "ap11-panel-tests",
+        "ap11-activation-tests",
+        "ap3-callback-audit",
+        "CommercialInstrumentBridge",
+        "-j",
+        "4"
+      ],
+      "exit": 0,
+      "seconds": 20.005553613000302
+    },
+    {
+      "command": [
+        "ctest",
+        "--test-dir",
+        "$DECK_HOME/AP17-Work/native-tests/build/native-vst3-proxy",
+        "--verbose"
+      ],
+      "exit": 0,
+      "seconds": 6.510181622001255
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "$DECK_HOME/AP17-Work/native-tests/bridge-manager/runtime",
+        "-v"
+      ],
+      "exit": 0,
+      "output": "\ntest_accessibility_workaround_is_explicit_and_process_scoped (test_session.CensusTests.test_accessibility_workaround_is_explicit_and_process_scoped) ... ok\ntest_changed_artifact_is_refused (test_session.CensusTests.test_changed_artifact_is_refused) ... ok\ntest_only_coordinated_inspection_shares_the_keeper_lock (test_session.CensusTests.test_only_coordinated_inspection_shares_the_keeper_lock) ... ok\ntest_registered_trace_flag_reaches_only_audio_host (test_session.CensusTests.test_registered_trace_flag_reaches_only_audio_host) ... ok\ntest_stat_only_parsing_and_descendant_identity (test_session.CensusTests.test_stat_only_parsing_and_descendant_identity) ... ok\ntest_tracker_rejects_reused_parent_and_follows_new_reparented_children (test_session.CensusTests.test_tracker_rejects_reused_parent_and_follows_new_reparented_children) ... ok\ntest_editor_removal_fault_survives_transport_retirement (test_session.FaultStatusTests.test_editor_removal_fault_survives_transport_retirement) ... ok\ntest_gui_diagnostic_versions_are_exact_and_preserve_retained_layout (test_session.FaultStatusTests.test_gui_diagnostic_versions_are_exact_and_preserve_retained_layout) ... ok\ntest_pending_peer_is_retained_before_containment_without_completion (test_session.FaultStatusTests.test_pending_peer_is_retained_before_containment_without_completion) ... ok\ntest_reader_rejects_identity_and_never_uses_unstable_slot (test_session.FaultStatusTests.test_reader_rejects_identity_and_never_uses_unstable_slot) ... ok\ntest_failed_memory_retirement_never_sends_a_false_receipt (test_session.MemoryTransportTests.test_failed_memory_retirement_never_sends_a_false_receipt) ... ok\ntest_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory (test_session.MemoryTransportTests.test_pinned_windows_handshake_remains_c_drive_and_only_transport_uses_memory) ... ok\ntest_production_gate_waits_for_exact_windows_views_and_closes_both_owners (test_session.MemoryTransportTests.test_production_gate_waits_for_exact_windows_views_and_closes_both_owners) ... ok\ntest_production_run_admits_memory_transport_and_retires_exact_session (test_session.MemoryTransportTests.test_production_run_admits_memory_transport_and_retires_exact_session) ... ok\ntest_replaced_disk_foreign_and_malformed_storage_are_refused (test_session.MemoryTransportTests.test_replaced_disk_foreign_and_malformed_storage_are_refused) ... ok\ntest_retirement_waits_for_both_owners_and_preserves_sibling_and_record (test_session.MemoryTransportTests.test_retirement_waits_for_both_owners_and_preserves_sibling_and_record) ... ok\ntest_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources (test_session.MemoryTransportTests.test_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources) ... ok\ntest_cleanup_preserves_independent_sibling (test_session.OwnershipTests.test_cleanup_preserves_independent_sibling) ... ok\ntest_early_failure_wakes_native_and_retires_only_after_release (test_session.OwnershipTests.test_early_failure_wakes_native_and_retires_only_after_release) ... ok\ntest_report_failure_does_not_skip_retirement_or_kill_sibling (test_session.OwnershipTests.test_report_failure_does_not_skip_retirement_or_kill_sibling) ... ok\ntest_subtree_tracking_covers_thread_children_and_reparented_descendants (test_session.OwnershipTests.test_subtree_tracking_covers_thread_children_and_reparented_descendants) ... ok\ntest_terminal_sdk_failure_does_not_wait_for_launcher_companion (test_session.OwnershipTests.test_terminal_sdk_failure_does_not_wait_for_launcher_companion) ... ok\n\n----------------------------------------------------------------------\nRan 22 tests in 23.298s\n\nOK\n"
+    }
+  ],
+  "manager_linux_initial": [
+    {
+      "kind": "lib",
+      "sha256": "846baa67a4fedc39cebc940fe16ecaa5c8dcec40e019a4e3ed9c1cd1ae4cf69a",
+      "exit": 101,
+      "seconds": 4.608200984999712,
+      "output": "\nrunning 45 tests\ntest capacity::tests::failed_startup_returns_only_unexposed_reservation_and_unknown_owner_blocks ... ok\ntest capacity::tests::durable_ownership_survives_service_reconstruction_and_exact_release ... ok\ntest capacity::tests::maintenance_never_becomes_dsp_and_excludes_new_dsp ... ok\ntest managed_tests::accepted_profiles_preserve_all_historical_bytes_and_exact_technical_constraints ... FAILED\ntest capacity::tests::global_class_maintenance_and_keeper_are_distinct ... ok\ntest capacity::tests::concurrent_reservations_cannot_check_then_over_admit ... ok\ntest managed_tests::ap15_capability_is_closed_and_verified_revision_three_bytes_are_immutable ... ok\ntest managed_tests::candidate_corruption_after_activation_restores_exact_prior ... ok\ntest managed_tests::canonical_claim_names_preserve_all_lifecycle_states ... ok\ntest managed_tests::active_target_refuses_mutation_but_keeper_and_healthy_sibling_survive ... ok\ntest managed_tests::capacity_qualification_is_exact_separate_and_never_ordinary_authority ... ok\ntest managed_tests::claim_eligibility_separates_qualification_new_activation_and_current_host_policy ... ok\ntest managed_tests::acceptance_rejects_wrong_review_artifacts_profiles_and_physical_state_before_mutation ... ok\ntest managed_tests::exact_matching_refuses_ambiguity_and_incompatible_observations ... ok\ntest managed_tests::exact_native_catalogue_adopts_owned_copy_without_build_tree_dependency ... ok\ntest managed_tests::exact_retained_candidate_and_legacy_rollback_survive_verified_transition ... ok\ntest managed_tests::explicit_host_update_preserves_exact_prior_host_for_rollback_only ... ok\ntest managed_tests::failed_updates_and_profile_revision_reuse_keep_the_prior_exact ... ok\ntest managed_tests::foreign_publication_is_never_overwritten ... ok\ntest managed_tests::installed_operator_command_preserves_foreign_entries_and_updates_only_owned_link ... ok\ntest managed_tests::every_publication_boundary_recovers_using_physical_links_and_preserves_prior ... ok\ntest managed_tests::pending_status_reads_the_activated_candidate_before_registry_commit ... ok\ntest managed_tests::ordinary_seven_publishes_idempotently_and_retains_exact_three_rollback ... ok\ntest managed_tests::production_inspection_consumer_requires_completed_correlated_exact_sdk_census ... ok\ntest managed_tests::publication_is_idempotent_and_exact_rollback_keeps_external_identity ... ok\ntest managed_tests::qualification_is_visible_bounded_inactive_and_preserves_ordinary_authority ... ok\ntest managed_tests::retained_candidate_serving_requires_exact_qualification_marker_and_parent ... ok\ntest managed_tests::revision_three_preserves_exact_revision_two_constraints_and_external_ids ... ok\ntest managed_tests::capacity_qualification_all_boundaries_restore_exact_seven ... ok\ntest managed_tests::sealed_ap15_roster_preserves_exact_verified_constraints_and_refuses_ordinary_activation ... ok\ntest managed_tests::sealed_ap17_roster_changes_only_native_startup_and_never_activation ... ok\ntest managed_tests::sealed_stage_checks_all_bytes_and_exact_parent_before_mutation ... ok\ntest managed_tests::shipped_profiles_are_closed_and_separate_from_local_bindings ... ok\ntest managed_tests::status_requires_real_target_and_provenance_and_reports_pending ... ok\ntest managed_tests::two_managed_classes_update_remove_and_roll_back_independently ... ok\ntest tests::changed_or_missing_artifacts_refuse_startup ... ok\ntest tests::duplicate_service_start_and_changed_binding_are_refused ... ok\ntest tests::exact_metadata_and_roles ... ok\ntest tests::idempotent_publication_and_removal_preserve_vendor_files ... ok\ntest tests::installed_delay_is_inactive_versioned_and_separate_from_identity ... ok\ntest tests::interrupted_publication_recovers_and_never_overwrites_foreign_entry ... ok\ntest tests::removing_one_mapping_preserves_the_other ... ok\ntest managed_tests::qualification_boundaries_restore_exact_verified_parent ... ok\ntest managed_tests::accepted_publication_preserves_three_at_all_existing_boundaries ... ok\ntest managed_tests::rollback_and_unpublish_interruptions_reconcile_without_touching_siblings ... ok\n\nfailures:\n\n---- managed_tests::accepted_profiles_preserve_all_historical_bytes_and_exact_technical_constraints stdout ----\n\nthread 'managed_tests::accepted_profiles_preserve_all_historical_bytes_and_exact_technical_constraints' panicked at src/managed_tests.rs:1337:14:\ncalled `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: \"No such file or directory\" }\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    managed_tests::accepted_profiles_preserve_all_historical_bytes_and_exact_technical_constraints\n\ntest result: FAILED. 44 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.61s\n\n\n"
+    },
+    {
+      "kind": "bin",
+      "sha256": "67d5f2ef7481920bd220bc8751ebb371b9f83978dd45bd622234ef5010f671df",
+      "exit": 0,
+      "seconds": 0.034894631999122794,
+      "output": "\nrunning 11 tests\ntest tests::exposed_binding_cannot_erase_an_unresolved_retirement ... ok\ntest tests::failed_unlink_or_post_spawn_error_keeps_admission_blocked ... ok\ntest tests::only_exact_positive_retirement_releases_one_exposed_owner ... ok\ntest tests::restart_requires_positive_prior_cleanup ... ok\ntest transport_storage::tests::hidden_mount_is_not_a_shared_transport ... ok\ntest transport_storage::tests::journaled_storage_is_refused_before_directory_creation ... ok\ntest transport_storage::tests::memory_storage_is_private_exact_and_never_adopts_foreign_sessions ... ok\ntest transport_storage::tests::unexposed_memory_is_removed_but_exposed_ownership_is_retained ... ok\ntest managed_cli::tests::completed_setup_receipt_does_not_race_service_startup_registry_lock ... ok\ntest managed_cli::tests::missing_exact_sealed_package_cannot_mutate_installed_state ... ok\ntest managed_cli::tests::actual_candidate_command_qualifies_without_activation_or_durable_mutation ... ok\n\ntest result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s\n\n\n"
+    }
+  ],
+  "manager_linux_portable_fixture": [
+    {
+      "kind": "bin",
+      "sha256": "67d5f2ef7481920bd220bc8751ebb371b9f83978dd45bd622234ef5010f671df",
+      "exit": 0,
+      "seconds": 0.05114169099942956,
+      "output": "\nrunning 11 tests\ntest tests::exposed_binding_cannot_erase_an_unresolved_retirement ... ok\ntest tests::failed_unlink_or_post_spawn_error_keeps_admission_blocked ... ok\ntest tests::only_exact_positive_retirement_releases_one_exposed_owner ... ok\ntest tests::restart_requires_positive_prior_cleanup ... ok\ntest transport_storage::tests::hidden_mount_is_not_a_shared_transport ... ok\ntest transport_storage::tests::journaled_storage_is_refused_before_directory_creation ... ok\ntest transport_storage::tests::memory_storage_is_private_exact_and_never_adopts_foreign_sessions ... ok\ntest transport_storage::tests::unexposed_memory_is_removed_but_exposed_ownership_is_retained ... ok\ntest managed_cli::tests::completed_setup_receipt_does_not_race_service_startup_registry_lock ... ok\ntest managed_cli::tests::missing_exact_sealed_package_cannot_mutate_installed_state ... ok\ntest managed_cli::tests::actual_candidate_command_qualifies_without_activation_or_durable_mutation ... ok\n\ntest result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s\n\n\n"
+    },
+    {
+      "kind": "lib",
+      "sha256": "6fc00902bc4c556a6732d8233b3968422c8b75a132c231a5aa4a4317f84a1dbb",
+      "exit": 0,
+      "seconds": 4.594358334999924,
+      "output": "\nrunning 45 tests\ntest capacity::tests::failed_startup_returns_only_unexposed_reservation_and_unknown_owner_blocks ... ok\ntest capacity::tests::durable_ownership_survives_service_reconstruction_and_exact_release ... ok\ntest capacity::tests::global_class_maintenance_and_keeper_are_distinct ... ok\ntest managed_tests::accepted_profiles_preserve_all_historical_bytes_and_exact_technical_constraints ... ok\ntest capacity::tests::maintenance_never_becomes_dsp_and_excludes_new_dsp ... ok\ntest capacity::tests::concurrent_reservations_cannot_check_then_over_admit ... ok\ntest managed_tests::ap15_capability_is_closed_and_verified_revision_three_bytes_are_immutable ... ok\ntest managed_tests::candidate_corruption_after_activation_restores_exact_prior ... ok\ntest managed_tests::canonical_claim_names_preserve_all_lifecycle_states ... ok\ntest managed_tests::active_target_refuses_mutation_but_keeper_and_healthy_sibling_survive ... ok\ntest managed_tests::capacity_qualification_is_exact_separate_and_never_ordinary_authority ... ok\ntest managed_tests::claim_eligibility_separates_qualification_new_activation_and_current_host_policy ... ok\ntest managed_tests::acceptance_rejects_wrong_review_artifacts_profiles_and_physical_state_before_mutation ... ok\ntest managed_tests::exact_matching_refuses_ambiguity_and_incompatible_observations ... ok\ntest managed_tests::exact_native_catalogue_adopts_owned_copy_without_build_tree_dependency ... ok\ntest managed_tests::exact_retained_candidate_and_legacy_rollback_survive_verified_transition ... ok\ntest managed_tests::explicit_host_update_preserves_exact_prior_host_for_rollback_only ... ok\ntest managed_tests::failed_updates_and_profile_revision_reuse_keep_the_prior_exact ... ok\ntest managed_tests::foreign_publication_is_never_overwritten ... ok\ntest managed_tests::installed_operator_command_preserves_foreign_entries_and_updates_only_owned_link ... ok\ntest managed_tests::every_publication_boundary_recovers_using_physical_links_and_preserves_prior ... ok\ntest managed_tests::pending_status_reads_the_activated_candidate_before_registry_commit ... ok\ntest managed_tests::production_inspection_consumer_requires_completed_correlated_exact_sdk_census ... ok\ntest managed_tests::ordinary_seven_publishes_idempotently_and_retains_exact_three_rollback ... ok\ntest managed_tests::publication_is_idempotent_and_exact_rollback_keeps_external_identity ... ok\ntest managed_tests::qualification_is_visible_bounded_inactive_and_preserves_ordinary_authority ... ok\ntest managed_tests::retained_candidate_serving_requires_exact_qualification_marker_and_parent ... ok\ntest managed_tests::revision_three_preserves_exact_revision_two_constraints_and_external_ids ... ok\ntest managed_tests::capacity_qualification_all_boundaries_restore_exact_seven ... ok\ntest managed_tests::sealed_ap15_roster_preserves_exact_verified_constraints_and_refuses_ordinary_activation ... ok\ntest managed_tests::sealed_ap17_roster_changes_only_native_startup_and_never_activation ... ok\ntest managed_tests::sealed_stage_checks_all_bytes_and_exact_parent_before_mutation ... ok\ntest managed_tests::shipped_profiles_are_closed_and_separate_from_local_bindings ... ok\ntest managed_tests::status_requires_real_target_and_provenance_and_reports_pending ... ok\ntest managed_tests::two_managed_classes_update_remove_and_roll_back_independently ... ok\ntest tests::changed_or_missing_artifacts_refuse_startup ... ok\ntest tests::duplicate_service_start_and_changed_binding_are_refused ... ok\ntest tests::exact_metadata_and_roles ... ok\ntest tests::idempotent_publication_and_removal_preserve_vendor_files ... ok\ntest tests::installed_delay_is_inactive_versioned_and_separate_from_identity ... ok\ntest tests::interrupted_publication_recovers_and_never_overwrites_foreign_entry ... ok\ntest tests::removing_one_mapping_preserves_the_other ... ok\ntest managed_tests::qualification_boundaries_restore_exact_verified_parent ... ok\ntest managed_tests::rollback_and_unpublish_interruptions_reconcile_without_touching_siblings ... ok\ntest managed_tests::accepted_publication_preserves_three_at_all_existing_boundaries ... ok\n\ntest result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.59s\n\n\n"
+    }
+  ],
+  "native_test_input": {
+    "archive_sha256": "fc255fb3c322b5582211f4a3477fe5498a59ad05b71f3afa7a3c2a3f91ca744f",
+    "source": "244e6b6009f13f81f9aa9f814b15e3db1496bea3",
+    "backend_features": []
+  },
+  "note": "Initial cross-compiled historical-profile test could not find its Mac compile path. The test-only fixture root was made explicit; unchanged exact hash assertions passed against transferred Git profile history. No production binary was rebuilt or substituted for that test correction."
+}

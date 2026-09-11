@@ -1,0 +1,1717 @@
+{
+  "schema": 1,
+  "result": "INCOMPLETE_NORMAL_QUIT_FAILED",
+  "project": "AP17 R1 Serial",
+  "project_sha256": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc",
+  "launch": "Applications > Multimedia > Bitwig Studio > existing Recent project",
+  "ordinary_revision": 10,
+  "initial_capacity": {
+    "available_dsp": 0,
+    "cleanup_unconfirmed": false,
+    "current_workers": 7,
+    "dsp": 6,
+    "envelope": {
+      "claim": "verified_exact_fixture",
+      "eight": "excluded_for_tested_workload",
+      "evidence": "docs/AP17.md",
+      "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+      "parallel_tracks": 3,
+      "serial_bridged_depth": 3,
+      "seven": "unqualified",
+      "simultaneous_editors": 2
+    },
+    "keepers": 1,
+    "limits": {
+      "classes": [
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "dsp": 3
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "dsp": 4
+        }
+      ],
+      "global_dsp": 6,
+      "maintenance": 1,
+      "native_image_hard": 4,
+      "service_workers": 16
+    },
+    "maintenance": 0,
+    "maintenance_admissible": false,
+    "owners": [
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "kind": "dsp",
+        "session": "199f921bc12e91b1a69495f9d473a3d9"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "kind": "dsp",
+        "session": "465d9ae840fdf460f576cfb5c4bd3c53"
+      },
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "kind": "dsp",
+        "session": "4d5eb9f3259da3a60f1799e7ba5da80f"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "kind": "keeper",
+        "session": "7e9f32ea2b63cb4167522abbab84e953"
+      },
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "kind": "dsp",
+        "session": "916d7e6dd8c1e04926b9038386578ee2"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "kind": "dsp",
+        "session": "9fd8b4d2ef36a999e833682f2f2aba2a"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "kind": "dsp",
+        "session": "fb3cd0fc2c80e0241611a4c9e0db8436"
+      }
+    ],
+    "per_class": {
+      "417274754156495350724C4650726F63": 2,
+      "41727475415649536772616E50726F63": 4
+    },
+    "schema": 1
+  },
+  "seventh_attempt": {
+    "action": "Duplicate selected track-2 Pure LoFi device",
+    "native": {
+      "engine.log": [
+        "AP2 backend: Other: admission_global_capacity"
+      ]
+    },
+    "service": [
+      "Bridge instance: admission_global_capacity"
+    ],
+    "capacity": {
+      "available_dsp": 0,
+      "cleanup_unconfirmed": false,
+      "current_workers": 7,
+      "dsp": 6,
+      "envelope": {
+        "claim": "verified_exact_fixture",
+        "eight": "excluded_for_tested_workload",
+        "evidence": "docs/AP17.md",
+        "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+        "parallel_tracks": 3,
+        "serial_bridged_depth": 3,
+        "seven": "unqualified",
+        "simultaneous_editors": 2
+      },
+      "keepers": 1,
+      "limits": {
+        "classes": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "dsp": 3
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "dsp": 4
+          }
+        ],
+        "global_dsp": 6,
+        "maintenance": 1,
+        "native_image_hard": 4,
+        "service_workers": 16
+      },
+      "maintenance": 0,
+      "maintenance_admissible": false,
+      "owners": [
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "199f921bc12e91b1a69495f9d473a3d9"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "465d9ae840fdf460f576cfb5c4bd3c53"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "4d5eb9f3259da3a60f1799e7ba5da80f"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "keeper",
+          "session": "7e9f32ea2b63cb4167522abbab84e953"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "916d7e6dd8c1e04926b9038386578ee2"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "9fd8b4d2ef36a999e833682f2f2aba2a"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "fb3cd0fc2c80e0241611a4c9e0db8436"
+        }
+      ],
+      "per_class": {
+        "417274754156495350724C4650726F63": 2,
+        "41727475415649536772616E50726F63": 4
+      },
+      "schema": 1
+    },
+    "unchanged_cohorts": {
+      "199f921bc12e91b1a69495f9d473a3d9": [
+        [
+          11934,
+          706506
+        ],
+        [
+          11939,
+          706519
+        ],
+        [
+          12005,
+          706625
+        ],
+        [
+          12028,
+          706634
+        ],
+        [
+          12029,
+          706640
+        ],
+        [
+          12032,
+          706679
+        ]
+      ],
+      "fb3cd0fc2c80e0241611a4c9e0db8436": [
+        [
+          12045,
+          706894
+        ],
+        [
+          12047,
+          706903
+        ],
+        [
+          12114,
+          707011
+        ],
+        [
+          12137,
+          707020
+        ],
+        [
+          12138,
+          707027
+        ],
+        [
+          12140,
+          707066
+        ]
+      ],
+      "7e9f32ea2b63cb4167522abbab84e953": [
+        [
+          9072,
+          603313
+        ],
+        [
+          9074,
+          603322
+        ],
+        [
+          9142,
+          603531
+        ],
+        [
+          9165,
+          603542
+        ],
+        [
+          9166,
+          603549
+        ],
+        [
+          9168,
+          603550
+        ],
+        [
+          9172,
+          603564
+        ],
+        [
+          9175,
+          603569
+        ],
+        [
+          9184,
+          603574
+        ],
+        [
+          9190,
+          603616
+        ],
+        [
+          9197,
+          603622
+        ],
+        [
+          9220,
+          603739
+        ],
+        [
+          9222,
+          603751
+        ],
+        [
+          9240,
+          603780
+        ],
+        [
+          9249,
+          603783
+        ],
+        [
+          9251,
+          603794
+        ],
+        [
+          11788,
+          705874
+        ],
+        [
+          11790,
+          705878
+        ]
+      ],
+      "4d5eb9f3259da3a60f1799e7ba5da80f": [
+        [
+          11548,
+          704805
+        ],
+        [
+          11550,
+          704817
+        ],
+        [
+          11617,
+          705004
+        ],
+        [
+          11640,
+          705016
+        ],
+        [
+          11641,
+          705023
+        ],
+        [
+          11643,
+          705075
+        ]
+      ],
+      "916d7e6dd8c1e04926b9038386578ee2": [
+        [
+          11803,
+          705994
+        ],
+        [
+          11805,
+          706005
+        ],
+        [
+          11869,
+          706105
+        ],
+        [
+          11892,
+          706114
+        ],
+        [
+          11893,
+          706121
+        ],
+        [
+          11905,
+          706159
+        ]
+      ],
+      "9fd8b4d2ef36a999e833682f2f2aba2a": [
+        [
+          11674,
+          705601
+        ],
+        [
+          11679,
+          705614
+        ],
+        [
+          11743,
+          705716
+        ],
+        [
+          11766,
+          705725
+        ],
+        [
+          11767,
+          705731
+        ],
+        [
+          11770,
+          705768
+        ]
+      ],
+      "465d9ae840fdf460f576cfb5c4bd3c53": [
+        [
+          12153,
+          707281
+        ],
+        [
+          12155,
+          707291
+        ],
+        [
+          12225,
+          707400
+        ],
+        [
+          12248,
+          707410
+        ],
+        [
+          12249,
+          707416
+        ],
+        [
+          12251,
+          707458
+        ]
+      ]
+    },
+    "cohorts_identical_after": true,
+    "tmpfs_sessions": [
+      "465d9ae840fdf460f576cfb5c4bd3c53",
+      "fb3cd0fc2c80e0241611a4c9e0db8436",
+      "199f921bc12e91b1a69495f9d473a3d9",
+      "916d7e6dd8c1e04926b9038386578ee2",
+      "9fd8b4d2ef36a999e833682f2f2aba2a",
+      "4d5eb9f3259da3a60f1799e7ba5da80f"
+    ],
+    "no_extra_editor_or_publication": true,
+    "registry_sha256": "e65c8c4e1b9f08f415ab8bb85b4c8c4b703964b09bd25380fffc53792746a1b4",
+    "ui_error": "Could not load initial plug-in state; exact underlying refusal is admission_global_capacity",
+    "cleanup": "Undo Copy Pure LoFi Device removed the failed UI duplicate"
+  },
+  "removal_replacement": {
+    "removed": "465d9ae840fdf460f576cfb5c4bd3c53",
+    "receipt": [
+      {
+        "session": "465d9ae840fdf460f576cfb5c4bd3c53",
+        "ownership": {
+          "session": "465d9ae840fdf460f576cfb5c4bd3c53",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "reporting_error": null
+        },
+        "lease_present": false,
+        "tmpfs_present": false
+      }
+    ],
+    "capacity_after_removal": {
+      "available_dsp": 1,
+      "cleanup_unconfirmed": false,
+      "current_workers": 6,
+      "dsp": 5,
+      "envelope": {
+        "claim": "verified_exact_fixture",
+        "eight": "excluded_for_tested_workload",
+        "evidence": "docs/AP17.md",
+        "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+        "parallel_tracks": 3,
+        "serial_bridged_depth": 3,
+        "seven": "unqualified",
+        "simultaneous_editors": 2
+      },
+      "keepers": 1,
+      "limits": {
+        "classes": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "dsp": 3
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "dsp": 4
+          }
+        ],
+        "global_dsp": 6,
+        "maintenance": 1,
+        "native_image_hard": 4,
+        "service_workers": 16
+      },
+      "maintenance": 0,
+      "maintenance_admissible": false,
+      "owners": [
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "199f921bc12e91b1a69495f9d473a3d9"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "4d5eb9f3259da3a60f1799e7ba5da80f"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "keeper",
+          "session": "7e9f32ea2b63cb4167522abbab84e953"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "916d7e6dd8c1e04926b9038386578ee2"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "9fd8b4d2ef36a999e833682f2f2aba2a"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "fb3cd0fc2c80e0241611a4c9e0db8436"
+        }
+      ],
+      "per_class": {
+        "417274754156495350724C4650726F63": 2,
+        "41727475415649536772616E50726F63": 3
+      },
+      "schema": 1
+    },
+    "action": "Undo Delete once",
+    "fresh_session": "0f424a9f248e6615dcc7730d7ae08f9f",
+    "capacity_after_replacement": {
+      "available_dsp": 0,
+      "cleanup_unconfirmed": false,
+      "current_workers": 7,
+      "dsp": 6,
+      "envelope": {
+        "claim": "verified_exact_fixture",
+        "eight": "excluded_for_tested_workload",
+        "evidence": "docs/AP17.md",
+        "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+        "parallel_tracks": 3,
+        "serial_bridged_depth": 3,
+        "seven": "unqualified",
+        "simultaneous_editors": 2
+      },
+      "keepers": 1,
+      "limits": {
+        "classes": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "dsp": 3
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "dsp": 4
+          }
+        ],
+        "global_dsp": 6,
+        "maintenance": 1,
+        "native_image_hard": 4,
+        "service_workers": 16
+      },
+      "maintenance": 0,
+      "maintenance_admissible": false,
+      "owners": [
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "0f424a9f248e6615dcc7730d7ae08f9f"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "199f921bc12e91b1a69495f9d473a3d9"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "4d5eb9f3259da3a60f1799e7ba5da80f"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "keeper",
+          "session": "7e9f32ea2b63cb4167522abbab84e953"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "916d7e6dd8c1e04926b9038386578ee2"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "9fd8b4d2ef36a999e833682f2f2aba2a"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "fb3cd0fc2c80e0241611a4c9e0db8436"
+        }
+      ],
+      "per_class": {
+        "417274754156495350724C4650726F63": 2,
+        "41727475415649536772616E50726F63": 4
+      },
+      "schema": 1
+    },
+    "five_sibling_sessions_unchanged": [
+      "199f921bc12e91b1a69495f9d473a3d9",
+      "4d5eb9f3259da3a60f1799e7ba5da80f",
+      "916d7e6dd8c1e04926b9038386578ee2",
+      "9fd8b4d2ef36a999e833682f2f2aba2a",
+      "fb3cd0fc2c80e0241611a4c9e0db8436"
+    ],
+    "observed_track2_values": {
+      "lofi_macro2": 0.2788,
+      "first_fragments_grain_mix": 0.556,
+      "restored_fragments_grain_mix": 0.461
+    }
+  },
+  "two_editors": [
+    {
+      "session": "199f921bc12e91b1a69495f9d473a3d9",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 7694638377326,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "fb3cd0fc2c80e0241611a4c9e0db8436",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 7694639800635,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "0f424a9f248e6615dcc7730d7ae08f9f",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 7694641856246,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2352,
+      "publication_after": 2352,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 1,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 2,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 127926275,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2350,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 127926275,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2351,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 127926275,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        }
+      ]
+    },
+    {
+      "session": "4d5eb9f3259da3a60f1799e7ba5da80f",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 7694643465469,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3055,
+      "publication_after": 3055,
+      "events": []
+    },
+    {
+      "session": "916d7e6dd8c1e04926b9038386578ee2",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 7694644890078,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3057,
+      "publication_after": 3057,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 1,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 2,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 115343363,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3055,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 115343363,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3056,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 115343363,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        }
+      ]
+    },
+    {
+      "session": "9fd8b4d2ef36a999e833682f2f2aba2a",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 7694646348647,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    }
+  ],
+  "editor_observation": "One normal action opened each real vendor editor on its intended track-2 LoFi and replacement FRAGMENTS owner, with exactly two open channels, foreground/keyboard confirmation and no visible bridge panel. No full AP15 lifecycle replay.",
+  "active_interval": {
+    "seconds": 30.02643771,
+    "clock": "Linux monotonic; external before/after scalar snapshots, no hard-real-time claim",
+    "rows": [
+      {
+        "session": "199f921bc12e91b1a69495f9d473a3d9",
+        "begin": {
+          "admitted_frames": 3917824,
+          "missing_frames": 10240,
+          "gaps": 11,
+          "expired_frames": 10240,
+          "delivered_frames": 3906048,
+          "priming_frames": 1536
+        },
+        "end": {
+          "admitted_frames": 5359104,
+          "missing_frames": 10240,
+          "gaps": 11,
+          "expired_frames": 10240,
+          "delivered_frames": 5347328,
+          "priming_frames": 1536
+        },
+        "delta": {
+          "admitted_frames": 1441280,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 1441280,
+          "priming_frames": 0
+        },
+        "generation": 1,
+        "epoch": 3,
+        "native_stage": 3,
+        "native_detail": 0,
+        "editor_failure": 0
+      },
+      {
+        "session": "fb3cd0fc2c80e0241611a4c9e0db8436",
+        "begin": {
+          "admitted_frames": 32004608,
+          "missing_frames": 12544,
+          "gaps": 21,
+          "expired_frames": 12544,
+          "delivered_frames": 31991552,
+          "priming_frames": 512
+        },
+        "end": {
+          "admitted_frames": 33445888,
+          "missing_frames": 12544,
+          "gaps": 21,
+          "expired_frames": 12544,
+          "delivered_frames": 33432832,
+          "priming_frames": 512
+        },
+        "delta": {
+          "admitted_frames": 1441280,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 1441280,
+          "priming_frames": 0
+        },
+        "generation": 1,
+        "epoch": 1,
+        "native_stage": 2,
+        "native_detail": 0,
+        "editor_failure": 0
+      },
+      {
+        "session": "0f424a9f248e6615dcc7730d7ae08f9f",
+        "begin": {
+          "admitted_frames": 8656896,
+          "missing_frames": 2048,
+          "gaps": 4,
+          "expired_frames": 2048,
+          "delivered_frames": 8654336,
+          "priming_frames": 512
+        },
+        "end": {
+          "admitted_frames": 10098176,
+          "missing_frames": 2048,
+          "gaps": 4,
+          "expired_frames": 2048,
+          "delivered_frames": 10095616,
+          "priming_frames": 512
+        },
+        "delta": {
+          "admitted_frames": 1441280,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 1441280,
+          "priming_frames": 0
+        },
+        "generation": 1,
+        "epoch": 1,
+        "native_stage": 2,
+        "native_detail": 0,
+        "editor_failure": 0
+      },
+      {
+        "session": "4d5eb9f3259da3a60f1799e7ba5da80f",
+        "begin": {
+          "admitted_frames": 2544640,
+          "missing_frames": 14592,
+          "gaps": 11,
+          "expired_frames": 14592,
+          "delivered_frames": 2528000,
+          "priming_frames": 2048
+        },
+        "end": {
+          "admitted_frames": 3985920,
+          "missing_frames": 15616,
+          "gaps": 15,
+          "expired_frames": 15616,
+          "delivered_frames": 3968256,
+          "priming_frames": 2048
+        },
+        "delta": {
+          "admitted_frames": 1441280,
+          "missing_frames": 1024,
+          "gaps": 4,
+          "expired_frames": 1024,
+          "delivered_frames": 1440256,
+          "priming_frames": 0
+        },
+        "generation": 1,
+        "epoch": 4,
+        "native_stage": 2,
+        "native_detail": 0,
+        "editor_failure": 0
+      },
+      {
+        "session": "916d7e6dd8c1e04926b9038386578ee2",
+        "begin": {
+          "admitted_frames": 32370176,
+          "missing_frames": 26624,
+          "gaps": 25,
+          "expired_frames": 26624,
+          "delivered_frames": 32343040,
+          "priming_frames": 512
+        },
+        "end": {
+          "admitted_frames": 33811456,
+          "missing_frames": 28160,
+          "gaps": 31,
+          "expired_frames": 28160,
+          "delivered_frames": 33782784,
+          "priming_frames": 512
+        },
+        "delta": {
+          "admitted_frames": 1441280,
+          "missing_frames": 1536,
+          "gaps": 6,
+          "expired_frames": 1536,
+          "delivered_frames": 1439744,
+          "priming_frames": 0
+        },
+        "generation": 1,
+        "epoch": 1,
+        "native_stage": 2,
+        "native_detail": 0,
+        "editor_failure": 0
+      },
+      {
+        "session": "9fd8b4d2ef36a999e833682f2f2aba2a",
+        "begin": {
+          "admitted_frames": 3807744,
+          "missing_frames": 14080,
+          "gaps": 10,
+          "expired_frames": 14080,
+          "delivered_frames": 3792128,
+          "priming_frames": 1536
+        },
+        "end": {
+          "admitted_frames": 5249024,
+          "missing_frames": 14080,
+          "gaps": 10,
+          "expired_frames": 14080,
+          "delivered_frames": 5233408,
+          "priming_frames": 1536
+        },
+        "delta": {
+          "admitted_frames": 1441280,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 1441280,
+          "priming_frames": 0
+        },
+        "generation": 1,
+        "epoch": 3,
+        "native_stage": 3,
+        "native_detail": 0,
+        "editor_failure": 0
+      }
+    ],
+    "bridge_weight_samples": [
+      {
+        "mono_ns": 7739457742506,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7741458017677,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7743458313090,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7745458526693,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7747458734847,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7749458921123,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7751459200473,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7753459479325,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7755459722278,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7757460019664,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7759460311273,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7761460589673,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7763461333225,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7765461568779,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7767461862527,
+        "weight": "100"
+      },
+      {
+        "mono_ns": 7769482959752,
+        "weight": "100"
+      }
+    ],
+    "conditions": {
+      "trace": false,
+      "host_maximum": 512,
+      "internal_chunk_maximum": 256,
+      "sample_rate": 48000,
+      "precision": "float32",
+      "bridge_frames": 512,
+      "editors_open": 2,
+      "AC_online": true,
+      "governor": "powersave",
+      "Bitwig_flatpak_scope_CPUWeight": 10000,
+      "bridge_CPUWeight": "unset/effective 100"
+    },
+    "claim": "Nonzero local output with two editors; 10 additional LoFi gap groups / 2560 missed and expired frames remain. Not a zero-gap or performance-improvement result."
+  },
+  "local_audio": {
+    "source": "Deck local output sink monitor",
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 98304,
+    "seconds": 2.048,
+    "peak": 0.3055175542831421,
+    "rms": 0.036456884096949034,
+    "nonzero_samples": 196608,
+    "raw_audio_retained": false,
+    "timing": "Separate local scalar output check during active playback; no exact time-alignment or latency claim."
+  },
+  "quit": {
+    "normal_command_requested": true,
+    "discard_temporary_test_edits": true,
+    "completed_normally": false,
+    "first_failure_local_time": "2026-09-10 21:18:26",
+    "observed": "After File > Quit and No to saving temporary changes, project/engine disconnected, all bridge sessions retired, but Bitwig main window and audio-engine process remained. Further normal Quit/window-close requests did not finish. UI menu interaction still responded.",
+    "log": "Stopping engine for AP17 R1 Serial; ramona-server EOFException; plug-in-host client broken pipe and exit code 1; engine project disconnect complete.",
+    "causal_limit": "No attribution to manager/profile authority, vendor DSP or a particular native owner is proven. Native/Windows bytes equal the independently accepted revision-9 bytes.",
+    "positive_cleanup_is_not_clean_sdk_exit": true,
+    "retirement_receipts": [
+      {
+        "session": "0f424a9f248e6615dcc7730d7ae08f9f",
+        "ownership": {
+          "session": "0f424a9f248e6615dcc7730d7ae08f9f",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "reporting_error": null
+        },
+        "editor_summary": {
+          "event": "lifecycle",
+          "sequence": 179,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 5,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        "native_final_summary": null,
+        "endpoint_closed_record_retained": false,
+        "last_fault_sample": {
+          "publication": 300954,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 100321,
+          "position": 25681152,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 8094140450513,
+          "frequency": 1000000000,
+          "thread_id": 0,
+          "process_id": 506,
+          "admitted_frames": 25681408,
+          "missing_frames": 12800,
+          "gaps": 29,
+          "expired_frames": 12800,
+          "delivered_frames": 25668096,
+          "priming_frames": 512,
+          "current": true
+        }
+      },
+      {
+        "session": "199f921bc12e91b1a69495f9d473a3d9",
+        "ownership": {
+          "session": "199f921bc12e91b1a69495f9d473a3d9",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "reporting_error": null
+        },
+        "editor_summary": {
+          "event": "lifecycle",
+          "sequence": 195,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        "native_final_summary": null,
+        "endpoint_closed_record_retained": false,
+        "last_fault_sample": {
+          "publication": 92274,
+          "generation": 1,
+          "epoch": 3,
+          "request_sequence": 30761,
+          "position": 5029632,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 7821877148977,
+          "frequency": 1000000000,
+          "thread_id": 0,
+          "process_id": 506,
+          "admitted_frames": 7874048,
+          "missing_frames": 21248,
+          "gaps": 23,
+          "expired_frames": 21248,
+          "delivered_frames": 7851264,
+          "priming_frames": 1536,
+          "current": true
+        }
+      },
+      {
+        "session": "465d9ae840fdf460f576cfb5c4bd3c53",
+        "ownership": {
+          "session": "465d9ae840fdf460f576cfb5c4bd3c53",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "reporting_error": null
+        },
+        "editor_summary": {
+          "event": "lifecycle",
+          "sequence": 181,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        "native_final_summary": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 19877888,
+          "blocks": 38824,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 12032,
+          "underrun_gaps": 7,
+          "underrun_callbacks": 27,
+          "expired_output_frames": 12032,
+          "delivered_frames": 19865344,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "endpoint_closed_record_retained": true,
+        "last_fault_sample": {
+          "publication": 232944,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 77651,
+          "position": 19877632,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 7490799778330,
+          "frequency": 1000000000,
+          "thread_id": 0,
+          "process_id": 506,
+          "admitted_frames": 19877888,
+          "missing_frames": 12032,
+          "gaps": 7,
+          "expired_frames": 12032,
+          "delivered_frames": 19865344,
+          "priming_frames": 512,
+          "current": true
+        }
+      },
+      {
+        "session": "4d5eb9f3259da3a60f1799e7ba5da80f",
+        "ownership": {
+          "session": "4d5eb9f3259da3a60f1799e7ba5da80f",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "reporting_error": null
+        },
+        "editor_summary": {
+          "event": "lifecycle",
+          "sequence": 228,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 127,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        "native_final_summary": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 5574144,
+          "blocks": 10887,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 4,
+          "successful_silent_frames": 2048,
+          "priming_frames": 2048,
+          "underrun_frames": 52736,
+          "underrun_gaps": 44,
+          "underrun_callbacks": 123,
+          "expired_output_frames": 52736,
+          "delivered_frames": 5519360,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "endpoint_closed_record_retained": true,
+        "last_fault_sample": {
+          "publication": 65322,
+          "generation": 1,
+          "epoch": 4,
+          "request_sequence": 21777,
+          "position": 4103424,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 7802572020173,
+          "frequency": 1000000000,
+          "thread_id": 0,
+          "process_id": 506,
+          "admitted_frames": 5574144,
+          "missing_frames": 52736,
+          "gaps": 44,
+          "expired_frames": 52736,
+          "delivered_frames": 5519360,
+          "priming_frames": 2048,
+          "current": true
+        }
+      },
+      {
+        "session": "916d7e6dd8c1e04926b9038386578ee2",
+        "ownership": {
+          "session": "916d7e6dd8c1e04926b9038386578ee2",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "reporting_error": null
+        },
+        "editor_summary": {
+          "event": "lifecycle",
+          "sequence": 202,
+          "state": "ap11_editor_summary",
+          "opens": 1,
+          "closes": 1,
+          "focuses": 1,
+          "removal_messages": 5,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 127,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        "native_final_summary": null,
+        "endpoint_closed_record_retained": false,
+        "last_fault_sample": {
+          "publication": 578844,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 192952,
+          "position": 49394432,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 8094141504163,
+          "frequency": 1000000000,
+          "thread_id": 0,
+          "process_id": 506,
+          "admitted_frames": 49394688,
+          "missing_frames": 79872,
+          "gaps": 57,
+          "expired_frames": 79872,
+          "delivered_frames": 49314304,
+          "priming_frames": 512,
+          "current": true
+        }
+      },
+      {
+        "session": "9fd8b4d2ef36a999e833682f2f2aba2a",
+        "ownership": {
+          "session": "9fd8b4d2ef36a999e833682f2f2aba2a",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "reporting_error": null
+        },
+        "editor_summary": {
+          "event": "lifecycle",
+          "sequence": 197,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        "native_final_summary": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7705600,
+          "blocks": 15050,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 3,
+          "successful_silent_frames": 1536,
+          "priming_frames": 1536,
+          "underrun_frames": 29184,
+          "underrun_gaps": 19,
+          "underrun_callbacks": 66,
+          "expired_output_frames": 29184,
+          "delivered_frames": 7674880,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "endpoint_closed_record_retained": true,
+        "last_fault_sample": {
+          "publication": 90300,
+          "generation": 1,
+          "epoch": 3,
+          "request_sequence": 30103,
+          "position": 4971264,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 7820662200094,
+          "frequency": 1000000000,
+          "thread_id": 0,
+          "process_id": 506,
+          "admitted_frames": 7705600,
+          "missing_frames": 29184,
+          "gaps": 19,
+          "expired_frames": 29184,
+          "delivered_frames": 7674880,
+          "priming_frames": 1536,
+          "current": true
+        }
+      },
+      {
+        "session": "fb3cd0fc2c80e0241611a4c9e0db8436",
+        "ownership": {
+          "session": "fb3cd0fc2c80e0241611a4c9e0db8436",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "reporting_error": null
+        },
+        "editor_summary": {
+          "event": "lifecycle",
+          "sequence": 179,
+          "state": "ap11_editor_summary",
+          "opens": 0,
+          "closes": 0,
+          "focuses": 0,
+          "removal_messages": 0,
+          "gestures": 0,
+          "values": 0,
+          "ends": 0,
+          "host_updates": 60,
+          "stale_updates": 0,
+          "suppressed_echoes": 0,
+          "scale_supported": false,
+          "scale": 1.0,
+          "failure": 0
+        },
+        "native_final_summary": null,
+        "endpoint_closed_record_retained": false,
+        "last_fault_sample": {
+          "publication": 574560,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 191523,
+          "position": 49028864,
+          "stage": 3,
+          "detail": 0,
+          "ticks": 8094141227587,
+          "frequency": 1000000000,
+          "thread_id": 0,
+          "process_id": 506,
+          "admitted_frames": 49029120,
+          "missing_frames": 29696,
+          "gaps": 41,
+          "expired_frames": 29696,
+          "delivered_frames": 48998912,
+          "priming_frames": 512,
+          "current": true
+        }
+      }
+    ],
+    "selected_disconnect_records": [
+      {
+        "session": "0f424a9f248e6615dcc7730d7ae08f9f",
+        "error": "Windows SDK host failed: 90",
+        "raw_exit": -15,
+        "cleanup_confirmed": true,
+        "lifecycle": [
+          {
+            "event": "lifecycle",
+            "sequence": 177,
+            "state": "ap1_transport_error",
+            "detail": "control disconnected/IO"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 178,
+            "state": "ap8_failure",
+            "reason": "control disconnected/IO"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 179,
+            "state": "ap11_editor_summary",
+            "opens": 1,
+            "closes": 1,
+            "focuses": 1,
+            "removal_messages": 5,
+            "gestures": 0,
+            "values": 0,
+            "ends": 0,
+            "host_updates": 60,
+            "stale_updates": 0,
+            "suppressed_echoes": 0,
+            "scale_supported": false,
+            "scale": 1.0,
+            "failure": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 180,
+            "state": "ap8_call",
+            "operation": "clearComponentHandler"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 181,
+            "state": "ap8_result",
+            "operation": "clearComponentHandler",
+            "result": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 182,
+            "state": "ap8_call",
+            "operation": "terminateComponent"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 183,
+            "state": "ap8_result",
+            "operation": "terminateComponent",
+            "result": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 184,
+            "state": "ap8_inspection_closed",
+            "exit_code": 90
+          }
+        ]
+      },
+      {
+        "session": "199f921bc12e91b1a69495f9d473a3d9",
+        "error": "Windows SDK host failed: 90",
+        "raw_exit": -15,
+        "cleanup_confirmed": true,
+        "lifecycle": [
+          {
+            "event": "lifecycle",
+            "sequence": 193,
+            "state": "ap1_transport_error",
+            "detail": "control disconnected/IO"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 194,
+            "state": "ap8_failure",
+            "reason": "control disconnected/IO"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 195,
+            "state": "ap11_editor_summary",
+            "opens": 0,
+            "closes": 0,
+            "focuses": 0,
+            "removal_messages": 0,
+            "gestures": 0,
+            "values": 0,
+            "ends": 0,
+            "host_updates": 60,
+            "stale_updates": 0,
+            "suppressed_echoes": 0,
+            "scale_supported": false,
+            "scale": 1.0,
+            "failure": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 196,
+            "state": "ap8_call",
+            "operation": "clearComponentHandler"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 197,
+            "state": "ap8_result",
+            "operation": "clearComponentHandler",
+            "result": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 198,
+            "state": "ap8_call",
+            "operation": "terminateComponent"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 199,
+            "state": "ap8_result",
+            "operation": "terminateComponent",
+            "result": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 200,
+            "state": "ap8_inspection_closed",
+            "exit_code": 90
+          }
+        ]
+      },
+      {
+        "session": "916d7e6dd8c1e04926b9038386578ee2",
+        "error": "Windows SDK host failed: 90",
+        "raw_exit": -15,
+        "cleanup_confirmed": true,
+        "lifecycle": [
+          {
+            "event": "lifecycle",
+            "sequence": 200,
+            "state": "ap1_transport_error",
+            "detail": "control disconnected/IO"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 201,
+            "state": "ap8_failure",
+            "reason": "control disconnected/IO"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 202,
+            "state": "ap11_editor_summary",
+            "opens": 1,
+            "closes": 1,
+            "focuses": 1,
+            "removal_messages": 5,
+            "gestures": 0,
+            "values": 0,
+            "ends": 0,
+            "host_updates": 127,
+            "stale_updates": 0,
+            "suppressed_echoes": 0,
+            "scale_supported": false,
+            "scale": 1.0,
+            "failure": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 203,
+            "state": "ap8_call",
+            "operation": "clearComponentHandler"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 204,
+            "state": "ap8_result",
+            "operation": "clearComponentHandler",
+            "result": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 205,
+            "state": "ap8_call",
+            "operation": "terminateComponent"
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 206,
+            "state": "ap8_result",
+            "operation": "terminateComponent",
+            "result": 0
+          },
+          {
+            "event": "lifecycle",
+            "sequence": 207,
+            "state": "ap8_inspection_closed",
+            "exit_code": 90
+          }
+        ]
+      }
+    ],
+    "containment": {
+      "action": "SIGTERM exact stuck Bitwig UI after normal Quit failed",
+      "pid": 9650,
+      "start_ticks": 615384,
+      "project_preserved": true,
+      "dsp_before": 0,
+      "process_absent": true
+    }
+  },
+  "project_final_sha256": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc",
+  "project_unchanged": true,
+  "disposition": "Exact revision 7 restored; AP17_ACCEPTED_AND_ORDINARY_CAPACITY_PROFILE_READY is not claimed."
+}

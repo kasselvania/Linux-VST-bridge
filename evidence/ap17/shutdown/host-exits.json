@@ -1,0 +1,485 @@
+{
+  "irregularities": "Broken-pipe plug-in-host exit 1/encoded256 and Windows control-loss status90 also occur with complete normal application exit. These are retained as abnormal teardown results, not renamed clean SDK completion.",
+  "logs": {
+    "A": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 98850,
+        "file_bytes": 98850,
+        "shutdown_lines": [
+          "[2026-09-10 23:09:45.476 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:10:03.941 float-document-master info] Stopping engine for New 1",
+          "[2026-09-10 23:10:04.467 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:10:04.467 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:10:04.474 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:10:33.313 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:11:48.641 float-document-master info] Stopping engine for AP17 R1 Serial",
+          "[2026-09-10 23:11:48.679 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:11:48.679 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:11:48.691 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:11:49.196 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:11:49.206 float-document-interface info] Terminating engine process 91",
+          "[2026-09-10 23:11:49.207 float-document-interface info] Requesting shutdown of engine process 91",
+          "[2026-09-10 23:11:49.365 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-10 23:11:49.366 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-10 23:11:49.409 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 29284,
+        "file_bytes": 29284,
+        "shutdown_lines": [
+          "[2026-9-10 23:10:4.379 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:10:4.380 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:10:4.380 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:11:49.075 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:11:49.195 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-10 23:11:49.275 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-10 23:11:49.275 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-10 23:11:49.287 BITWIG_ENGINE error] Child process with PID 209 exited with error code: 1",
+          "[2026-9-10 23:11:49.287 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:11:49.287 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:11:49.287 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:11:49.288 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:11:49.289 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:11:49.317 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:11:49.317 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-10 23:11:49.348 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-10 23:11:49.354 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    },
+    "B": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 70573,
+        "file_bytes": 70573,
+        "shutdown_lines": [
+          "[2026-09-10 23:14:10.558 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:14:51.673 float-document-master info] Stopping engine for New 1",
+          "[2026-09-10 23:14:52.066 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:14:52.066 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:14:52.071 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:15:03.838 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:15:44.421 float-document-master info] Stopping engine for AP15 Lifecycle",
+          "[2026-09-10 23:15:44.443 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:15:44.444 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:15:44.449 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:15:44.850 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:15:44.869 float-document-interface info] Terminating engine process 92",
+          "[2026-09-10 23:15:44.869 float-document-interface info] Requesting shutdown of engine process 92",
+          "[2026-09-10 23:15:45.043 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-10 23:15:45.044 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-10 23:15:45.071 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 21906,
+        "file_bytes": 21906,
+        "shutdown_lines": [
+          "[2026-9-10 23:14:52.019 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:14:52.020 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:14:52.020 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:15:44.802 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:15:44.848 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-10 23:15:44.982 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-10 23:15:44.982 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-10 23:15:44.985 BITWIG_ENGINE error] Child process with PID 223 exited with error code: 1",
+          "[2026-9-10 23:15:44.985 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:15:44.985 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:15:44.985 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:15:44.986 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:15:44.987 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:15:45.004 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:15:45.004 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-10 23:15:45.033 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-10 23:15:45.037 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    },
+    "C": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 96388,
+        "file_bytes": 96388,
+        "shutdown_lines": [
+          "[2026-09-10 23:17:23.417 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:18:07.011 float-document-master info] Stopping engine for New 1",
+          "[2026-09-10 23:18:07.495 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:18:07.495 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:18:07.502 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:18:36.055 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:19:25.689 float-document-master info] Stopping engine for AP17 R1 Serial",
+          "[2026-09-10 23:19:25.721 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:19:25.721 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:19:25.732 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:19:26.266 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:19:26.277 float-document-interface info] Terminating engine process 91",
+          "[2026-09-10 23:19:26.277 float-document-interface info] Requesting shutdown of engine process 91",
+          "[2026-09-10 23:19:26.422 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-10 23:19:26.423 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-10 23:19:26.429 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 29364,
+        "file_bytes": 29364,
+        "shutdown_lines": [
+          "[2026-9-10 23:18:7.434 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:18:7.435 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:18:7.435 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:19:26.129 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:19:26.264 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-10 23:19:26.328 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-10 23:19:26.328 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-10 23:19:26.340 BITWIG_ENGINE error] Child process with PID 189 exited with error code: 1",
+          "[2026-9-10 23:19:26.340 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:19:26.340 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:19:26.340 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:19:26.341 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:19:26.343 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:19:26.372 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:19:26.372 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-10 23:19:26.406 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-10 23:19:26.413 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    },
+    "D": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 97765,
+        "file_bytes": 97765,
+        "shutdown_lines": [
+          "[2026-09-10 23:21:05.613 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:21:20.495 float-document-master info] Stopping engine for New 1",
+          "[2026-09-10 23:21:21.038 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:21:21.038 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:21:21.044 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:21:50.164 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:22:52.751 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:22:52.877 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:23:54.151 float-document-master info] Stopping engine for AP17 R1 Serial",
+          "[2026-09-10 23:23:54.185 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:23:54.185 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:23:54.195 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:23:54.662 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:23:54.672 float-document-interface info] Terminating engine process 93",
+          "[2026-09-10 23:23:54.672 float-document-interface info] Requesting shutdown of engine process 93",
+          "[2026-09-10 23:23:54.901 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-10 23:23:54.901 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-10 23:23:54.926 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 30636,
+        "file_bytes": 30636,
+        "shutdown_lines": [
+          "[2026-9-10 23:21:20.953 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:21:20.953 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:21:20.953 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:23:54.581 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:23:54.659 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-10 23:23:54.813 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-10 23:23:54.813 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-10 23:23:54.824 BITWIG_ENGINE error] Child process with PID 190 exited with error code: 1",
+          "[2026-9-10 23:23:54.824 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:23:54.824 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:23:54.824 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:23:54.826 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:23:54.828 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:23:54.855 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:23:54.855 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-10 23:23:54.886 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-10 23:23:54.893 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    },
+    "Dglobal": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 97740,
+        "file_bytes": 97740,
+        "shutdown_lines": [
+          "[2026-09-10 23:26:10.361 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:26:47.793 float-document-master info] Stopping engine for New 1",
+          "[2026-09-10 23:26:48.233 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:26:48.234 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:26:48.241 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:27:17.312 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:28:38.787 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:28:39.122 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:30:38.250 float-document-master info] Stopping engine for AP17 R1 Serial",
+          "[2026-09-10 23:30:38.302 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:30:38.302 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:30:38.314 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:30:38.860 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:30:38.870 float-document-interface info] Terminating engine process 94",
+          "[2026-09-10 23:30:38.870 float-document-interface info] Requesting shutdown of engine process 94",
+          "[2026-09-10 23:30:39.042 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-10 23:30:39.043 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-10 23:30:39.073 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 30634,
+        "file_bytes": 30634,
+        "shutdown_lines": [
+          "[2026-9-10 23:26:48.182 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:26:48.182 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:26:48.182 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:30:38.750 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:30:38.858 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-10 23:30:38.952 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-10 23:30:38.952 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-10 23:30:38.966 BITWIG_ENGINE error] Child process with PID 190 exited with error code: 1",
+          "[2026-9-10 23:30:38.966 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:30:38.966 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:30:38.966 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:30:38.967 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:30:38.969 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:30:38.997 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:30:38.997 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-10 23:30:39.028 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-10 23:30:39.033 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    },
+    "E": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 104980,
+        "file_bytes": 104980,
+        "shutdown_lines": [
+          "[2026-09-10 23:32:18.137 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:33:01.815 float-document-master info] Stopping engine for New 1",
+          "[2026-09-10 23:33:02.291 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:33:02.292 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:33:02.297 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:33:31.287 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:35:03.907 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:35:04.047 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:36:31.957 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:36:36.667 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:38:06.867 float-document-master info] Stopping engine for AP17 R1 Serial",
+          "[2026-09-10 23:38:06.901 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:38:06.901 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:38:06.914 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:38:07.415 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:38:07.423 float-document-interface info] Terminating engine process 91",
+          "[2026-09-10 23:38:07.423 float-document-interface info] Requesting shutdown of engine process 91",
+          "[2026-09-10 23:38:07.615 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-10 23:38:07.616 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-10 23:38:07.626 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 29737,
+        "file_bytes": 29737,
+        "shutdown_lines": [
+          "[2026-9-10 23:33:2.208 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:33:2.208 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:33:2.208 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:38:7.307 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:38:7.423 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-10 23:38:7.525 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-10 23:38:7.525 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-10 23:38:7.540 BITWIG_ENGINE error] Child process with PID 186 exited with error code: 1",
+          "[2026-9-10 23:38:7.540 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:38:7.540 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:38:7.540 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:38:7.542 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:38:7.542 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:38:7.570 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:38:7.570 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-10 23:38:7.600 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-10 23:38:7.605 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    },
+    "F": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 103655,
+        "file_bytes": 103655,
+        "shutdown_lines": [
+          "[2026-09-10 23:40:31.049 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:40:59.167 float-document-master info] Stopping engine for New 1",
+          "[2026-09-10 23:40:59.696 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:40:59.696 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:40:59.701 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:41:28.811 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:51:05.781 float-document-master info] Stopping engine for AP17 R1 Serial",
+          "[2026-09-10 23:51:06.011 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:51:06.012 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:51:06.023 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:51:23.499 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:51:23.508 float-document-interface info] Terminating engine process 93",
+          "[2026-09-10 23:51:23.508 float-document-interface info] Requesting shutdown of engine process 93",
+          "[2026-09-10 23:51:23.539 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-10 23:51:23.539 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-10 23:51:23.560 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 29356,
+        "file_bytes": 29356,
+        "shutdown_lines": [
+          "[2026-9-10 23:40:59.615 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:40:59.615 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:40:59.616 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:51:6.436 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:51:6.651 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-10 23:51:6.651 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-10 23:51:6.660 BITWIG_ENGINE error] Child process with PID 192 exited with error code: 1",
+          "[2026-9-10 23:51:6.660 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:51:6.660 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-10 23:51:6.660 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-10 23:51:6.661 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:51:6.662 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:51:6.664 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-10 23:51:23.497 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-10 23:51:23.499 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-10 23:51:23.527 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-10 23:51:23.532 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    },
+    "G": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 122074,
+        "file_bytes": 122074,
+        "shutdown_lines": [
+          "[2026-09-10 23:53:32.327 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:53:52.627 float-document-master info] Stopping engine for New 1",
+          "[2026-09-10 23:53:53.129 ramona-server error] Connection broken with client:",
+          "[2026-09-10 23:53:53.129 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-10 23:53:53.138 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:54:22.241 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:55:20.577 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:55:20.866 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:56:40.803 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:56:40.961 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:57:01.639 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:57:01.692 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-10 23:58:00.478 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-10 23:58:05.235 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-11 00:02:28.291 float-document-master info] Stopping engine for AP17 R1 Serial",
+          "[2026-09-11 00:02:28.695 ramona-server error] Connection broken with client:",
+          "[2026-09-11 00:02:28.695 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-11 00:02:28.732 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-11 00:02:29.184 ramona-server error] Connection broken with client:",
+          "[2026-09-11 00:02:29.190 float-document-interface info] Terminating engine process 93",
+          "[2026-09-11 00:02:29.190 float-document-interface info] Requesting shutdown of engine process 93",
+          "[2026-09-11 00:02:29.355 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-11 00:02:29.357 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-11 00:02:29.392 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 35111,
+        "file_bytes": 35111,
+        "shutdown_lines": [
+          "[2026-9-10 23:53:53.047 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-10 23:53:53.047 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-10 23:53:53.047 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-11 0:2:29.101 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-11 0:2:29.182 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-11 0:2:29.286 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-11 0:2:29.286 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-11 0:2:29.294 BITWIG_ENGINE error] Child process with PID 190 exited with error code: 1",
+          "[2026-9-11 0:2:29.295 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-11 0:2:29.295 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-11 0:2:29.295 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-11 0:2:29.296 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-11 0:2:29.296 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-11 0:2:29.318 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-11 0:2:29.318 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-11 0:2:29.344 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-11 0:2:29.348 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    },
+    "G2": {
+      "BitwigStudio.log": {
+        "capture_tail_bytes": 106938,
+        "file_bytes": 106938,
+        "shutdown_lines": [
+          "[2026-09-11 00:06:18.646 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-11 00:06:53.772 float-document-master info] Stopping engine for New 1",
+          "[2026-09-11 00:06:54.206 ramona-server error] Connection broken with client:",
+          "[2026-09-11 00:06:54.206 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-11 00:06:54.213 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-11 00:07:23.226 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-11 00:08:36.428 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-11 00:08:36.746 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-11 00:09:05.136 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-11 00:09:05.313 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-11 00:10:14.601 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-11 00:10:14.674 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-11 00:11:07.779 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-11 00:11:12.464 float-document-master info] FloatDocument.isEngineReadyChanged(false->true)",
+          "[2026-09-11 00:15:26.537 float-document-master info] Stopping engine for AP17 R1 Serial",
+          "[2026-09-11 00:15:26.891 ramona-server error] Connection broken with client:",
+          "[2026-09-11 00:15:26.892 float-document-master info] FloatDocument.engineDisconnected()",
+          "[2026-09-11 00:15:26.918 float-document-master info] FloatDocument.isEngineReadyChanged(true->false)",
+          "[2026-09-11 00:15:27.326 ramona-server error] Connection broken with client:",
+          "[2026-09-11 00:15:27.335 float-document-interface info] Terminating engine process 92",
+          "[2026-09-11 00:15:27.335 float-document-interface info] Requesting shutdown of engine process 92",
+          "[2026-09-11 00:15:27.525 float-engine-communication info] Engine process exited with exit code 0",
+          "[2026-09-11 00:15:27.525 float-engine-communication info] Engine process exited without errors",
+          "[2026-09-11 00:15:27.538 gui-toolkit-core info] Application event loop has finished"
+        ],
+        "unretained_prefix_bytes": 0
+      },
+      "engine.log": {
+        "capture_tail_bytes": 34733,
+        "file_bytes": 34733,
+        "shutdown_lines": [
+          "[2026-9-11 0:6:54.128 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-11 0:6:54.128 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-11 0:6:54.128 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-11 0:15:27.272 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-11 0:15:27.325 BITWIG_ENGINE info] Requesting engine process shutdown",
+          "[2026-9-11 0:15:27.451 BITWIG_PLUGIN_HOST error] PluginHost: Client died: Could not send responses to client: Error writing to named pipe: Broken pipe",
+          "[2026-9-11 0:15:27.451 BITWIG_PLUGIN_HOST info] PluginHost: exiting with code 1",
+          "[2026-9-11 0:15:27.460 BITWIG_ENGINE error] Child process with PID 190 exited with error code: 1",
+          "[2026-9-11 0:15:27.460 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-11 0:15:27.460 BITWIG_ENGINE info] Waiting for plugin host process to exit",
+          "[2026-9-11 0:15:27.460 BITWIG_ENGINE info] Plugin host process exited with code: 256",
+          "[2026-9-11 0:15:27.461 BITWIG_ENGINE info] Project deleted",
+          "[2026-9-11 0:15:27.462 BITWIG_ENGINE info] Project disconnecting from has been deleted",
+          "[2026-9-11 0:15:27.483 BITWIG_ENGINE info] Disconnected from project",
+          "[2026-9-11 0:15:27.483 BITWIG_ENGINE info] PluginHost: Requesting shutdown",
+          "[2026-9-11 0:15:27.513 BITWIG_ENGINE info] Engine process shutdown completed within a reasonable time",
+          "[2026-9-11 0:15:27.518 BITWIG_ENGINE info] Engine process shutdown"
+        ],
+        "unretained_prefix_bytes": 0
+      }
+    }
+  },
+  "prior_hang": "evidence/ap17/acceptance/ordinary-smoke.json",
+  "prior_survivors": {
+    "engine": {
+      "pid": 9745,
+      "start_ticks": 616413,
+      "wait": "epoll"
+    },
+    "frontend": {
+      "pid": 9650,
+      "start_ticks": 615384,
+      "wait": "futex"
+    },
+    "limitation": "Prior capture did not retain complete thread stacks/FD ownership; no retrospective external-host attribution is possible."
+  },
+  "schema": 1
+}

@@ -26,6 +26,13 @@ pub enum RefusalCode {
     QualificationMismatch,
     QualificationActive,
     AcceptanceMismatch,
+    AdmissionServiceBusy,
+    AdmissionGlobalCapacity,
+    AdmissionClassCapacity,
+    AdmissionNativeImageCapacity,
+    AdmissionCleanupUnconfirmed,
+    AdmissionMaintenanceActive,
+    AdmissionBindingInvalid,
     LocalRecordOrIoFailure,
 }
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -33,18 +40,34 @@ pub struct Refusal {
     pub code: RefusalCode,
     pub detail: String,
 }
-pub fn refusal(e: &(dyn std::error::Error + Send + Sync)) -> Refusal {
+pub fn refusal(e: &(dyn std::error::Error + Send + Sync + 'static)) -> Refusal {
     let detail = e.to_string();
+    if let Some(reason) = e.downcast_ref::<crate::capacity::Refusal>() {
+        use crate::capacity::Refusal as A;
+        let code = match reason {
+            A::ServiceBusy => RefusalCode::AdmissionServiceBusy,
+            A::GlobalCapacity => RefusalCode::AdmissionGlobalCapacity,
+            A::ClassCapacity => RefusalCode::AdmissionClassCapacity,
+            A::NativeImageCapacity => RefusalCode::AdmissionNativeImageCapacity,
+            A::CleanupUnconfirmed => RefusalCode::AdmissionCleanupUnconfirmed,
+            A::MaintenanceActive => RefusalCode::AdmissionMaintenanceActive,
+            A::BindingInvalid => RefusalCode::AdmissionBindingInvalid,
+        };
+        return Refusal { code, detail };
+    }
     let code = match detail.as_str() {
         s if s.starts_with("acceptance_") => RefusalCode::AcceptanceMismatch,
-        "ap15_candidate_artifacts_pending" => RefusalCode::QualificationArtifactsPending,
+        "ap15_candidate_artifacts_pending" | "ap17_candidate_artifacts_pending" => {
+            RefusalCode::QualificationArtifactsPending
+        }
         "qualification_verified_parent_required" | "qualification_parent_absent" => {
             RefusalCode::QualificationParentRequired
         }
         "qualification_verified_parent_mismatch"
         | "qualification_exact_candidate_required"
         | "qualification_artifact_location_or_mutability"
-        | "qualification_candidate_contract" => RefusalCode::QualificationMismatch,
+        | "qualification_candidate_contract"
+        | "qualification_capacity_contract" => RefusalCode::QualificationMismatch,
         "qualification_active_restore_first" | "qualification_publication_changed" => {
             RefusalCode::QualificationActive
         }
@@ -66,7 +89,9 @@ pub fn refusal(e: &(dyn std::error::Error + Send + Sync)) -> Refusal {
         | "foreign_or_missing_publication"
         | "foreign_transaction_pointer"
         | "foreign_publication_race" => RefusalCode::ForeignPublication,
-        "publication_recovery_pending" => RefusalCode::RecoveryPending,
+        "publication_recovery_pending" | "qualification_publication_pending" => {
+            RefusalCode::RecoveryPending
+        }
         "environment_selection_required" | "product_selection_required" => {
             RefusalCode::SelectionRequired
         }
@@ -264,7 +289,7 @@ impl Manager {
                 compatibility: r.compatibility.clone(),
                 capabilities: revision.as_ref().map(|r| r.profile.capabilities.clone()),
                 limitations: revision.as_ref().map(|r| r.profile.limitations.clone()),
-                qualification: revision.as_ref().and_then(|r| r.qualification.clone()),
+                qualification: revision.as_ref().and_then(|r| r.qualification),
                 recovery_pending: pending,
                 refusal: error.as_ref().map(|e| refusal(e.as_ref())),
             });

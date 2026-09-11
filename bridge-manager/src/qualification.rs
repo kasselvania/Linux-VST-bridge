@@ -1,4 +1,4 @@
-//! AP15 engineering qualification only. Ordinary activation policy is unchanged.
+//! Sealed AP15 editor and AP17 capacity engineering qualifications. Ordinary activation policy is unchanged.
 //! The sealed package catalogue is compiled with the manager; callers supply
 //! neither a profile nor a native image as activation authority.
 use crate::{catalogue::NativeArtifact, observation::Census, profiles::*, publication::*, *};
@@ -14,6 +14,27 @@ pub fn candidates() -> Result<Vec<Profile>> {
     validate_set(&result)?;
     Ok(result)
 }
+// A missing finite roster is a hard refusal, never arbitrary profile input.
+fn capacity_candidates() -> Result<Vec<Profile>> {
+    let result = [
+        include_bytes!("../../compatibility/ap17/arturia-pure-lofi.json").as_slice(),
+        include_bytes!("../../compatibility/ap17/arturia-efx-fragments.json").as_slice(),
+    ].into_iter().map(Profile::parse).collect::<Result<Vec<_>>>()?;
+    validate_set(&result)?;
+    Ok(result)
+}
+pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
+    match purpose {
+        Qualification::Ap15Editor => candidates(),
+        Qualification::Ap17Capacity => capacity_candidates(),
+    }
+}
+fn parent_revision(purpose: Qualification) -> u32 {
+    match purpose {
+        Qualification::Ap15Editor => 3,
+        Qualification::Ap17Capacity => 7,
+    }
+}
 #[derive(Clone)]
 pub struct InstalledCandidate {
     pub profile: Profile,
@@ -21,13 +42,23 @@ pub struct InstalledCandidate {
     pub host: Artifact,
     pub source_manifest: Artifact,
 }
-fn directory(m: &Manager, p: &Profile) -> Result<PathBuf> {
+fn directory(m: &Manager, p: &Profile, purpose: Qualification) -> Result<PathBuf> {
     Ok(m.root
-        .join("software/ap15-qualification")
+        .join(match purpose {
+            Qualification::Ap15Editor => "software/ap15-qualification",
+            Qualification::Ap17Capacity => "software/ap17-qualification",
+        })
         .join(p.fingerprint()?))
 }
 pub(crate) fn load(m: &Manager, p: Profile) -> Result<InstalledCandidate> {
-    let dir = directory(m, &p)?;
+    load_for(m, p, Qualification::Ap15Editor)
+}
+pub(crate) fn load_for(
+    m: &Manager,
+    p: Profile,
+    purpose: Qualification,
+) -> Result<InstalledCandidate> {
+    let dir = directory(m, &p, purpose)?;
     let host = Artifact {
         path: dir.join("host.exe"),
         sha256: p.requirements.host_sha256.clone(),
@@ -63,7 +94,13 @@ pub(crate) fn load(m: &Manager, p: Profile) -> Result<InstalledCandidate> {
     })
 }
 pub fn installed(m: &Manager) -> Result<Vec<InstalledCandidate>> {
-    candidates()?.into_iter().map(|p| load(m, p)).collect()
+    installed_for(m, Qualification::Ap15Editor)
+}
+pub fn installed_for(m: &Manager, purpose: Qualification) -> Result<Vec<InstalledCandidate>> {
+    candidates_for(purpose)?
+        .into_iter()
+        .map(|p| load_for(m, p, purpose))
+        .collect()
 }
 /// Engineering package input is a location only. Every accepted byte and the
 /// finite file roster are fixed by the compiled candidate profiles.
@@ -73,12 +110,27 @@ pub fn stage(m: &Manager, package: &Path) -> Result<()> {
 }
 // Private production helper; tests supply synthetic sealed bytes, never CLI policy.
 pub(crate) fn stage_selected(m: &Manager, package: &Path, policies: &[Profile]) -> Result<()> {
+    stage_selected_for(m, package, policies, Qualification::Ap15Editor)
+}
+pub fn stage_for(m: &Manager, package: &Path, purpose: Qualification) -> Result<()> {
+    stage_selected_for(m, package, &candidates_for(purpose)?, purpose)
+}
+pub(crate) fn stage_selected_for(
+    m: &Manager,
+    package: &Path,
+    policies: &[Profile],
+    purpose: Qualification,
+) -> Result<()> {
     validate_set(policies)?;
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let db = m.registry()?;
     // Validate the complete candidate set and all source files before copying.
     for p in policies {
+        require(
+            !m.publication_pending(&p.class.class_id)?,
+            "qualification_publication_pending",
+        )?;
         let e = db
             .classes
             .get(&p.class.class_id)
@@ -87,7 +139,7 @@ pub(crate) fn stage_selected(m: &Manager, package: &Path, policies: &[Profile]) 
         registration.host.sha256 = p.requirements.host_sha256.clone();
         registration.native.sha256 = p.requirements.native_sha256.clone();
         registration.host_source_sha256 = p.requirements.host_source_sha256.clone();
-        m.verify_qualification_parent(&db, p, &registration)?;
+        m.verify_qualification_parent_for(&db, p, &registration, purpose)?;
         for (name, hash) in package_files(p) {
             Artifact {
                 path: package.join(name),
@@ -97,9 +149,9 @@ pub(crate) fn stage_selected(m: &Manager, package: &Path, policies: &[Profile]) 
         }
     }
     for p in policies.iter().cloned() {
-        let dest = directory(m, &p)?;
+        let dest = directory(m, &p, purpose)?;
         if fs::symlink_metadata(&dest).is_ok() {
-            load(m, p)?;
+            load_for(m, p, purpose)?;
             continue;
         }
         private_dir(dest.parent().unwrap())?;
@@ -126,7 +178,7 @@ pub(crate) fn stage_selected(m: &Manager, package: &Path, policies: &[Profile]) 
         File::open(&pending)?.sync_all()?;
         crate::publication::rename_link(&pending, &dest, false)?;
         File::open(dest.parent().unwrap())?.sync_all()?;
-        load(m, p)?;
+        load_for(m, p, purpose)?;
     }
     Ok(())
 }
@@ -162,9 +214,9 @@ impl Manager {
                 "qualification_candidate_contract",
             );
         }
+        let purpose = r.qualification.ok_or("qualification_candidate_contract")?;
         require(
             p.claim == Claim::ReviewCandidate
-                && r.qualification == Some(Qualification::Ap15Editor)
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
         )?;
@@ -174,7 +226,7 @@ impl Manager {
             roster.iter().filter(|candidate| *candidate == p).count() == 1,
             "qualification_exact_candidate_required",
         )?;
-        let exact = load(self, p.clone())?;
+        let exact = load_for(self, p.clone(), purpose)?;
         require(
             exact.host == r.registration.host
                 && exact.source_manifest.sha256 == r.registration.host_source_sha256
@@ -225,12 +277,20 @@ impl Manager {
         // instead of pretending the current physical pointer still names it.
         entry.managed_revision = Some(parent.clone());
         entry.registration = prior.registration.clone();
-        self.verify_qualification_parent_record(&prior_db, p, &r.registration, false)?;
+        self.verify_qualification_parent_record(&prior_db, p, &r.registration, false, purpose)?;
         Ok(())
     }
     /// Read-only guard used by the existing supervised inspection admission.
     pub fn check_editor_qualification_parent(&self, p: &Profile, r: &Registration) -> Result<()> {
-        let candidates = installed(self)?;
+        self.check_qualification_parent_for(p, r, Qualification::Ap15Editor)
+    }
+    pub fn check_qualification_parent_for(
+        &self,
+        p: &Profile,
+        r: &Registration,
+        purpose: Qualification,
+    ) -> Result<()> {
+        let candidates = installed_for(self, purpose)?;
         require(
             candidates.iter().any(|c| {
                 c.profile == *p
@@ -240,7 +300,7 @@ impl Manager {
             }),
             "qualification_exact_candidate_required",
         )?;
-        self.verify_qualification_parent(&self.registry()?, p, r)
+        self.verify_qualification_parent_for(&self.registry()?, p, r, purpose)
             .map(|_| ())
     }
     pub(crate) fn verify_qualification_parent(
@@ -249,7 +309,16 @@ impl Manager {
         p: &Profile,
         registration: &Registration,
     ) -> Result<Revision> {
-        self.verify_qualification_parent_record(db, p, registration, true)
+        self.verify_qualification_parent_for(db, p, registration, Qualification::Ap15Editor)
+    }
+    pub(crate) fn verify_qualification_parent_for(
+        &self,
+        db: &Registry,
+        p: &Profile,
+        registration: &Registration,
+        purpose: Qualification,
+    ) -> Result<Revision> {
+        self.verify_qualification_parent_record(db, p, registration, true, purpose)
     }
     fn verify_qualification_parent_record(
         &self,
@@ -257,11 +326,15 @@ impl Manager {
         p: &Profile,
         registration: &Registration,
         check_pointer: bool,
+        purpose: Qualification,
     ) -> Result<Revision> {
         p.validate()?;
         require(
             p.claim == Claim::ReviewCandidate
-                && p.revision > 3
+                && match purpose {
+                    Qualification::Ap15Editor => p.revision > 3,
+                    Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
+                }
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
         )?;
@@ -276,14 +349,28 @@ impl Manager {
         let prior = self.load_revision(&p.class.class_id, reference)?;
         let r = &prior.registration;
         let mut capabilities = p.capabilities.clone();
-        capabilities.editor = Editor::DetachedOwnerThreadWithNativePanel;
         let mut limitations = prior.profile.limitations.clone();
-        limitations.push(Limitation::DirectEditorUnderQualification);
+        match purpose {
+            Qualification::Ap15Editor => {
+                capabilities.editor = Editor::DetachedOwnerThreadWithNativePanel;
+                limitations.push(Limitation::DirectEditorUnderQualification);
+            }
+            Qualification::Ap17Capacity => {
+                limitations.push(Limitation::CapacityUnderQualification);
+                require(
+                    p.requirements.host_sha256 == prior.profile.requirements.host_sha256
+                        && p.requirements.host_source_sha256
+                            == prior.profile.requirements.host_source_sha256
+                        && p.requirements.native_sha256 != prior.profile.requirements.native_sha256,
+                    "qualification_capacity_contract",
+                )?;
+            }
+        }
         require(
             e.publication == Publication::Published
                 && prior.qualification.is_none()
                 && prior.profile.claim == Claim::VerifiedExactFixture
-                && prior.profile.revision == 3
+                && prior.profile.revision == parent_revision(purpose)
                 && prior.profile.id == p.id
                 && prior.profile.module_sha256 == p.module_sha256
                 && prior.profile.class == p.class
@@ -315,7 +402,15 @@ impl Manager {
     /// A caller selects only a compiled exact candidate. Registration is derived
     /// from supervised facts and product-owned artifact records inside this call.
     pub fn qualify_editor(&self, census: &Census, fail: Option<Boundary>) -> Result<RevisionRef> {
-        let candidates = installed(self)?;
+        self.qualify_for(census, fail, Qualification::Ap15Editor)
+    }
+    pub fn qualify_for(
+        &self,
+        census: &Census,
+        fail: Option<Boundary>,
+        purpose: Qualification,
+    ) -> Result<RevisionRef> {
+        let candidates = installed_for(self, purpose)?;
         let selected: Vec<_> = candidates
             .iter()
             .filter(|c| c.profile.class.class_id == census.selected.class_id)
@@ -336,7 +431,7 @@ impl Manager {
             census,
             r,
             (&c.host, &c.source_manifest.sha256),
-            Some(Qualification::Ap15Editor),
+            Some(purpose),
             fail,
         )
     }
@@ -350,14 +445,14 @@ impl Manager {
                 continue;
             };
             let r = self.load_revision(&key, &reference)?;
-            if r.qualification.is_none() {
+            let Some(purpose) = r.qualification else {
                 continue;
-            }
+            };
             let parent = r.parent.as_ref().ok_or("qualification_parent_absent")?;
             let prior = self.load_revision(&key, parent)?;
             require(
                 prior.profile.claim == Claim::VerifiedExactFixture
-                    && prior.profile.revision == 3
+                    && prior.profile.revision == parent_revision(purpose)
                     && prior.qualification.is_none(),
                 "qualification_verified_parent_required",
             )?;

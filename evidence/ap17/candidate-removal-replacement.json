@@ -1,0 +1,649 @@
+{
+  "schema": 1,
+  "status": "focused_operations_complete_not_full_AP17_acceptance",
+  "source_head": "a1d5120cb5c407c023635368f85d0b02908ef547",
+  "project": "AP17 Mixed protected six-device copy",
+  "saved_project_sha256": "82db212f2755df1dafea5ca3dc1addbf7ce55f76310cbd9b36cd3e8edc6943db",
+  "operation": "Undo failed seventh FRAGMENTS copy, remove track-three FRAGMENTS during saved-scene playback, restore via Bitwig Undo Delete Device",
+  "actual_Bitwig_seventh_refusal": {
+    "native": "AP2 backend: Other: admission_global_capacity",
+    "service": "Bridge instance: admission_global_capacity",
+    "host": "Could not load initial plug-in state",
+    "owners_unchanged": true,
+    "dsp": 6
+  },
+  "removed": [
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "kind": "dsp",
+      "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38"
+    }
+  ],
+  "replacement": [
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "kind": "dsp",
+      "session": "588f001c96b8b1e46146308f82e4b5a1"
+    }
+  ],
+  "counts": [
+    6,
+    5,
+    6
+  ],
+  "surviving_owners_unchanged": true,
+  "removed_receipt": {
+    "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38",
+    "receipt": {
+      "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    },
+    "lease_present": false,
+    "tmpfs_present": false,
+    "sibling_lease_present": true
+  },
+  "class_refusal": {
+    "clock": "Linux CLOCK_MONOTONIC elapsed per startup request",
+    "before": {
+      "capacity": {
+        "available_dsp": 1,
+        "cleanup_unconfirmed": false,
+        "current_workers": 6,
+        "dsp": 5,
+        "envelope": {
+          "claim": "engineering_candidate",
+          "evidence": "docs/AP17.md",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": false,
+        "owners": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "139399efefcaf7b0b7a36efcf8cd7145"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "keeper",
+            "session": "16829538f4e00deba51d494775de8eb0"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "16e5d6ed950d40972c5af4edee19c85c"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "5291d724cdbf2809dab469fb1ce6a0be"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "8a11c219bf00c0aa78418978b536a9ca"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "a3655e004def12288bf7ba148900c299"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 3,
+          "41727475415649536772616E50726F63": 2
+        },
+        "schema": 1
+      },
+      "ok": true
+    },
+    "refusals": [
+      {
+        "class": "417274754156495350724C4650726F63",
+        "attempt": 0,
+        "request": "ea762c8772e7de3007e10559f7e0c2e3",
+        "refusal": "admission_class_capacity",
+        "wire_status": 3,
+        "reply_bytes": 24,
+        "elapsed_ns": 30461246
+      },
+      {
+        "class": "417274754156495350724C4650726F63",
+        "attempt": 1,
+        "request": "6d7311f3bb856aa02163edf035c96a43",
+        "refusal": "admission_class_capacity",
+        "wire_status": 3,
+        "reply_bytes": 24,
+        "elapsed_ns": 30587009
+      },
+      {
+        "class": "417274754156495350724C4650726F63",
+        "attempt": 2,
+        "request": "64d4917afc7443d828b2e8b04e0e203c",
+        "refusal": "admission_class_capacity",
+        "wire_status": 3,
+        "reply_bytes": 24,
+        "elapsed_ns": 31773818
+      }
+    ],
+    "after": {
+      "capacity": {
+        "available_dsp": 1,
+        "cleanup_unconfirmed": false,
+        "current_workers": 6,
+        "dsp": 5,
+        "envelope": {
+          "claim": "engineering_candidate",
+          "evidence": "docs/AP17.md",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": false,
+        "owners": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "139399efefcaf7b0b7a36efcf8cd7145"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "keeper",
+            "session": "16829538f4e00deba51d494775de8eb0"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "16e5d6ed950d40972c5af4edee19c85c"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "5291d724cdbf2809dab469fb1ce6a0be"
+          },
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "kind": "dsp",
+            "session": "8a11c219bf00c0aa78418978b536a9ca"
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "dsp",
+            "session": "a3655e004def12288bf7ba148900c299"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 3,
+          "41727475415649536772616E50726F63": 2
+        },
+        "schema": 1
+      },
+      "ok": true
+    },
+    "leases_unchanged": true,
+    "scope": "Three direct production LVB3 service probes at 3 LoFi plus 2 FRAGMENTS: class refusal despite one global slot available; no lease mutation."
+  },
+  "readback": {
+    "before": {
+      "available_dsp": 0,
+      "cleanup_unconfirmed": false,
+      "current_workers": 7,
+      "dsp": 6,
+      "envelope": {
+        "claim": "engineering_candidate",
+        "evidence": "docs/AP17.md",
+        "parallel_tracks": 3,
+        "serial_bridged_depth": 3,
+        "simultaneous_editors": 2
+      },
+      "keepers": 1,
+      "limits": {
+        "classes": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "dsp": 3
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "dsp": 4
+          }
+        ],
+        "global_dsp": 6,
+        "maintenance": 1,
+        "native_image_hard": 4,
+        "service_workers": 16
+      },
+      "maintenance": 0,
+      "maintenance_admissible": false,
+      "owners": [
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "139399efefcaf7b0b7a36efcf8cd7145"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "keeper",
+          "session": "16829538f4e00deba51d494775de8eb0"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "16e5d6ed950d40972c5af4edee19c85c"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "5291d724cdbf2809dab469fb1ce6a0be"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "8a11c219bf00c0aa78418978b536a9ca"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "a3655e004def12288bf7ba148900c299"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38"
+        }
+      ],
+      "per_class": {
+        "417274754156495350724C4650726F63": 3,
+        "41727475415649536772616E50726F63": 3
+      },
+      "schema": 1
+    },
+    "removed": {
+      "available_dsp": 1,
+      "cleanup_unconfirmed": false,
+      "current_workers": 6,
+      "dsp": 5,
+      "envelope": {
+        "claim": "engineering_candidate",
+        "evidence": "docs/AP17.md",
+        "parallel_tracks": 3,
+        "serial_bridged_depth": 3,
+        "simultaneous_editors": 2
+      },
+      "keepers": 1,
+      "limits": {
+        "classes": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "dsp": 3
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "dsp": 4
+          }
+        ],
+        "global_dsp": 6,
+        "maintenance": 1,
+        "native_image_hard": 4,
+        "service_workers": 16
+      },
+      "maintenance": 0,
+      "maintenance_admissible": false,
+      "owners": [
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "139399efefcaf7b0b7a36efcf8cd7145"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "keeper",
+          "session": "16829538f4e00deba51d494775de8eb0"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "16e5d6ed950d40972c5af4edee19c85c"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "5291d724cdbf2809dab469fb1ce6a0be"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "8a11c219bf00c0aa78418978b536a9ca"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "a3655e004def12288bf7ba148900c299"
+        }
+      ],
+      "per_class": {
+        "417274754156495350724C4650726F63": 3,
+        "41727475415649536772616E50726F63": 2
+      },
+      "schema": 1
+    },
+    "restored": {
+      "available_dsp": 0,
+      "cleanup_unconfirmed": false,
+      "current_workers": 7,
+      "dsp": 6,
+      "envelope": {
+        "claim": "engineering_candidate",
+        "evidence": "docs/AP17.md",
+        "parallel_tracks": 3,
+        "serial_bridged_depth": 3,
+        "simultaneous_editors": 2
+      },
+      "keepers": 1,
+      "limits": {
+        "classes": [
+          {
+            "class_id": "417274754156495350724C4650726F63",
+            "dsp": 3
+          },
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "dsp": 4
+          }
+        ],
+        "global_dsp": 6,
+        "maintenance": 1,
+        "native_image_hard": 4,
+        "service_workers": 16
+      },
+      "maintenance": 0,
+      "maintenance_admissible": false,
+      "owners": [
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "139399efefcaf7b0b7a36efcf8cd7145"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "keeper",
+          "session": "16829538f4e00deba51d494775de8eb0"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "16e5d6ed950d40972c5af4edee19c85c"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "5291d724cdbf2809dab469fb1ce6a0be"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "588f001c96b8b1e46146308f82e4b5a1"
+        },
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "kind": "dsp",
+          "session": "8a11c219bf00c0aa78418978b536a9ca"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "kind": "dsp",
+          "session": "a3655e004def12288bf7ba148900c299"
+        }
+      ],
+      "per_class": {
+        "417274754156495350724C4650726F63": 3,
+        "41727475415649536772616E50726F63": 3
+      },
+      "schema": 1
+    }
+  },
+  "restored_controls": {
+    "track3_lofi_macro2": 0.3538,
+    "track3_fragments_grain_mix": 0.706,
+    "observation": "Actual Moonlight screenshots of Bitwig controls before removal and after replacement; no raw proprietary state retained"
+  },
+  "two_editors": [
+    {
+      "session": "588f001c96b8b1e46146308f82e4b5a1",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 14909695855857,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2352,
+      "publication_after": 2352,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 1,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 2,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 119537667,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2350,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 119537667,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 2351,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 119537667,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        }
+      ]
+    },
+    {
+      "session": "139399efefcaf7b0b7a36efcf8cd7145",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 14909698047087,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3055,
+      "publication_after": 3055,
+      "events": []
+    },
+    {
+      "session": "8a11c219bf00c0aa78418978b536a9ca",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 14909700062134,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3055,
+      "publication_after": 3055,
+      "events": []
+    },
+    {
+      "session": "5291d724cdbf2809dab469fb1ce6a0be",
+      "class_id": "417274754156495350724C4650726F63",
+      "sample_mono_ns": 14909702090480,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 1,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 3057,
+      "publication_after": 3057,
+      "events": [
+        {
+          "direction": "native_commands",
+          "slot_sequence": 475,
+          "kind": 1,
+          "activation": 1,
+          "target_x11": 0,
+          "view_epoch": 0,
+          "focus_result": 0,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "native_commands",
+          "slot_sequence": 476,
+          "kind": 5,
+          "activation": 1,
+          "target_x11": 132120579,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 1
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3055,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 132120579,
+          "view_epoch": 1,
+          "focus_result": 1,
+          "native_view": 1,
+          "lifecycle": 3
+        },
+        {
+          "direction": "windows_events",
+          "slot_sequence": 3056,
+          "kind": 108,
+          "activation": 1,
+          "target_x11": 132120579,
+          "view_epoch": 1,
+          "focus_result": 2,
+          "native_view": 1,
+          "lifecycle": 4
+        }
+      ]
+    },
+    {
+      "session": "a3655e004def12288bf7ba148900c299",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 14909703373859,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    },
+    {
+      "session": "16e5d6ed950d40972c5af4edee19c85c",
+      "class_id": "41727475415649536772616E50726F63",
+      "sample_mono_ns": 14909704503285,
+      "header": {
+        "closed": 0,
+        "failure": 0,
+        "open": 0,
+        "close_request": 0,
+        "close_ack": 0
+      },
+      "publication_before": 2350,
+      "publication_after": 2350,
+      "events": []
+    }
+  ],
+  "local_audio_after_replacement": {
+    "source": "Deck local output sink monitor",
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 98304,
+    "seconds": 2.048,
+    "peak": 0.28376853466033936,
+    "rms": 0.0243449176878177,
+    "nonzero_samples": 196608,
+    "raw_audio_retained": false,
+    "timing": "outside matched measurement interval"
+  },
+  "limits": [
+    "Local audio observation is sink-monitor output, not physical acoustic latency.",
+    "Window screenshots prove visible presentation only; exact session/token/epoch readback is separate.",
+    "Saved project and independent backup were not overwritten by these operations.",
+    "Full topology, controlled failure, restart and final restoration checks remain pending."
+  ]
+}

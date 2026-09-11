@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "status": "built_not_installed",
+  "native": [
+    {
+      "returncode": 0,
+      "bundle": "$DECK_HOME/.cache/linux-vst-bridge/ap9-builds/ded45e64a0f0023d2332684cf6e25d34a7b033309b59399b8a33d18c1bdf986e/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "57bbe6be6620f8dba44f2fd9e65f88341d05cdb615e86b791fefa523a7f30466",
+      "source_commit": "244e6b6009f13f81f9aa9f814b15e3db1496bea3",
+      "input_archive_sha256": "ded45e64a0f0023d2332684cf6e25d34a7b033309b59399b8a33d18c1bdf986e",
+      "descriptor_sha256": "6cdc4bb90883a8b0761b99f9f54014fed7ad3341479baed661a2a572446a3245",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    },
+    {
+      "returncode": 0,
+      "bundle": "$DECK_HOME/.cache/linux-vst-bridge/ap9-builds/15536dcdff94a4f7f4e1d17bf17118c1b153c31d0cf6e6dccbf7f254ddd2c3eb/build/VST3/Release/CommercialInstrumentBridge.vst3",
+      "sha256": "986eea4b7eeb0d0e4418de292688f8eb8388538d2be8638a31687be300ee5f93",
+      "source_commit": "244e6b6009f13f81f9aa9f814b15e3db1496bea3",
+      "input_archive_sha256": "15536dcdff94a4f7f4e1d17bf17118c1b153c31d0cf6e6dccbf7f254ddd2c3eb",
+      "descriptor_sha256": "b00e996ef6c4db571e3488e4d36244a8a85f338e1bc55254556d2b116e06ef1e",
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+    }
+  ],
+  "windows": "Unchanged accepted host/manifest reused. No Windows build is represented by these Linux builds."
+}

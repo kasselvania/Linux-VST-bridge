@@ -795,7 +795,9 @@ pub(crate) unsafe fn open(
                 0
             }
             Ok(Err(e)) => retain(&e),
-            Err(code) => code as i32,
+            // Preserve Full, temporary Busy, and terminal generation exhaustion.
+            // This startup-only refusal creates no manager/session ownership.
+            Err(e) => retain(&io::Error::other(e)),
         }
     }) as u32
 }

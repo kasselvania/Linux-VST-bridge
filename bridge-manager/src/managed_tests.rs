@@ -1330,15 +1330,15 @@ fn accepted_profiles_preserve_all_historical_bytes_and_exact_technical_constrain
     ] {
         assert_eq!(
             digest(
-                &Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../compatibility")
+                &std::env::var_os("LVB_TEST_COMPATIBILITY_ROOT").map(PathBuf::from)
+                    .unwrap_or_else(||PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../compatibility"))
                     .join(path)
             )
             .unwrap(),
             hash
         );
     }
-    let profiles = installed_profiles().unwrap();
+    let profiles = ap15_profiles().unwrap();
     let candidates = qualification::candidates().unwrap();
     assert_eq!(profiles.len(), 2);
     for (p, c) in profiles.iter().zip(&candidates) {
@@ -1601,4 +1601,365 @@ fn accepted_publication_preserves_three_at_all_existing_boundaries() {
         assert_eq!(snapshot(prior.target.parent().unwrap()), untouched);
         assert!(!t.f.m.publication_pending(key).unwrap());
     }
+}
+
+fn capacity_candidate(
+    f: &Fixture,
+    p: &Profile,
+    c: &Census,
+    n: &NativeArtifact,
+) -> (Profile, Census, NativeArtifact) {
+    capacity_candidate_revision(f, p, c, n, 8)
+}
+fn capacity_candidate_revision(f: &Fixture, p: &Profile, c: &Census, n: &NativeArtifact, revision: u32) -> (Profile, Census, NativeArtifact) {
+    let mut candidate = p.clone();
+    candidate.revision = revision;
+    candidate.claim = Claim::ReviewCandidate;
+    candidate
+        .limitations
+        .push(Limitation::CapacityUnderQualification);
+    let mut native = n.clone();
+    let file = f.outer.join("capacity-native.so");
+    fs::write(&file, b"native LVB3 exact capacity startup").unwrap();
+    native.artifact = Artifact {
+        path: file,
+        sha256: String::new(),
+    };
+    native.artifact.sha256 = digest(&native.artifact.path).unwrap();
+    native.source_commit = "17".repeat(20);
+    candidate.requirements.native_sha256 = native.artifact.sha256.clone();
+    candidate.requirements.native_source_commit = native.source_commit.clone();
+    let package = f.outer.join("capacity-package");
+    private_dir(&package).unwrap();
+    fs::copy(&c.host.path, package.join("host.exe")).unwrap();
+    fs::copy(
+        c.host.path.with_file_name("host-source-manifest.json"),
+        package.join("host-source-manifest.json"),
+    )
+    .unwrap();
+    fs::copy(
+        &native.artifact.path,
+        package.join(format!("{}.so", p.class.class_id)),
+    )
+    .unwrap();
+    qualification::stage_selected_for(
+        &f.m,
+        &package,
+        std::slice::from_ref(&candidate),
+        Qualification::Ap17Capacity,
+    )
+    .unwrap();
+    let installed =
+        qualification::load_for(&f.m, candidate.clone(), Qualification::Ap17Capacity).unwrap();
+    let mut census = c.clone();
+    census.host = installed.host;
+    census.report.path = f.outer.join("capacity-inspection.json");
+    atomic_json(&census.report.path, &inspection_report(&census)).unwrap();
+    census.report.sha256 = digest(&census.report.path).unwrap();
+    (candidate, census, installed.native)
+}
+fn qualify_capacity(
+    f: &Fixture,
+    p: &Profile,
+    c: &Census,
+    n: &NativeArtifact,
+    fail: Option<Boundary>,
+) -> Result<RevisionRef> {
+    f.m.publish_selected(
+        p,
+        c,
+        derive_for(p, c, n, SelectionPurpose::Qualification)?,
+        (&c.host, &c.host_source_sha256),
+        Some(Qualification::Ap17Capacity),
+        fail,
+    )
+}
+#[test]
+fn capacity_qualification_all_boundaries_restore_exact_seven() {
+    for point in BOUNDARIES {
+        let (f, mut p, c, n) = prepared();
+        p.revision = 7;
+        p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+        let parent = publish(&f, &p, &c, &n, None).unwrap();
+        let prior = f.m.load_revision(&p.class.class_id, &parent).unwrap();
+        let before = snapshot(prior.target.parent().unwrap());
+        let vendor = snapshot(&f.r.environment.root);
+        let (candidate, census, native) = capacity_candidate(&f, &p, &c, &n);
+        reason(
+            qualify_capacity(&f, &candidate, &census, &native, Some(point)),
+            &format!("injected_{point:?}"),
+        );
+        f.m.reconcile().unwrap();
+        f.m.reconcile().unwrap();
+        assert_eq!(
+            fs::read_link(f.m.link(&p.class.class_id)).unwrap(),
+            prior.target,
+            "{point:?}"
+        );
+        assert_eq!(
+            f.m.registry().unwrap().classes[&p.class.class_id].managed_revision,
+            Some(parent)
+        );
+        assert_eq!(snapshot(prior.target.parent().unwrap()), before);
+        assert_eq!(snapshot(&f.r.environment.root), vendor);
+        assert!(!f.m.publication_pending(&p.class.class_id).unwrap());
+    }
+}
+#[test]
+fn capacity_qualification_is_exact_separate_and_never_ordinary_authority() {
+    let (f, mut p, c, n) = prepared();
+    p.revision = 7;
+    p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+    let parent = publish(&f, &p, &c, &n, None).unwrap();
+    let prior = f.m.load_revision(&p.class.class_id, &parent).unwrap();
+    let (candidate, census, native) = capacity_candidate(&f, &p, &c, &n);
+    reason(
+        derive(&candidate, &census, &native),
+        "profile_review_candidate_not_activatable",
+    );
+    for mutation in 0..8 {
+        let mut bad = candidate.clone();
+        match mutation {
+            0 => bad.revision = 10,
+            1 => bad.requirements.host_sha256 = "ef".repeat(32),
+            2 => bad.requirements.host_source_sha256 = "fe".repeat(32),
+            3 => bad.requirements.runner.version.push_str("different"),
+            4 => bad.requirements.environment_revision += 1,
+            5 => bad.module_sha256 = "ba".repeat(32),
+            6 => bad.requirements.descriptor_sha256 = "be".repeat(32),
+            _ => bad.requirements.native_sha256 = p.requirements.native_sha256.clone(),
+        }
+        let before = snapshot(&f.outer);
+        assert!(qualify_capacity(&f, &bad, &census, &native, None).is_err());
+        assert_eq!(snapshot(&f.outer), before);
+    }
+    let mut registration = derive_for(
+        &candidate,
+        &census,
+        &native,
+        SelectionPurpose::Qualification,
+    )
+    .unwrap();
+    assert!(f
+        .m
+        .verify_qualification_parent_for(
+            &f.m.registry().unwrap(),
+            &candidate,
+            &registration,
+            Qualification::Ap15Editor
+        )
+        .is_err());
+    let next = qualify_capacity(&f, &candidate, &census, &native, None).unwrap();
+    let active = f.m.load_revision(&p.class.class_id, &next).unwrap();
+    assert_eq!(active.qualification, Some(Qualification::Ap17Capacity));
+    assert_eq!(active.parent, Some(parent.clone()));
+    assert_eq!(active.external_ids, prior.external_ids);
+    assert_eq!(active.performance.added_frames, 512);
+    registration.native.path = active.registration.native.path.clone();
+    assert_eq!(registration, active.registration);
+    f.m.verify_retained_authority(&active, std::slice::from_ref(&candidate))
+        .unwrap();
+    let mut wrong = active.clone();
+    wrong.qualification = Some(Qualification::Ap15Editor);
+    assert!(f
+        .m
+        .verify_retained_authority(&wrong, std::slice::from_ref(&candidate))
+        .is_err());
+    wrong.qualification = None;
+    assert!(f
+        .m
+        .verify_retained_authority(&wrong, std::slice::from_ref(&candidate))
+        .is_err());
+    // Ordinary verified profiles, not the engineering history, own host policy.
+    assert!(f
+        .m
+        .verify_served_host(
+            &active.registration,
+            &c.host,
+            &c.host_source_sha256,
+            std::slice::from_ref(&candidate)
+        )
+        .is_err());
+    f.m.restore_editor_qualifications().unwrap();
+    assert_eq!(
+        fs::read_link(f.m.link(&p.class.class_id)).unwrap(),
+        prior.target
+    );
+    f.m.verify_served_host(&prior.registration, &c.host, &c.host_source_sha256, &[p])
+        .unwrap();
+}
+
+#[test]
+fn sealed_ap17_roster_changes_only_native_startup_and_never_activation() {
+    let priors=ap15_profiles().unwrap();
+    let candidates=qualification::candidates_for(Qualification::Ap17Capacity).unwrap();
+    assert_eq!(candidates.len(),2);
+    for (prior,candidate) in priors.iter().zip(&candidates) {
+        assert_eq!(prior.revision,7);assert_eq!(candidate.revision,9);
+        assert_eq!(candidate.claim,Claim::ReviewCandidate);
+        assert!(!candidate.claim.permits(SelectionPurpose::Activation));
+        assert!(candidate.claim.permits(SelectionPurpose::Qualification));
+        assert_ne!(candidate.requirements.native_sha256,prior.requirements.native_sha256);
+        assert_ne!(candidate.requirements.native_source_commit,prior.requirements.native_source_commit);
+        let mut normalized=candidate.clone();normalized.revision=prior.revision;
+        normalized.claim=prior.claim.clone();normalized.evidence=prior.evidence.clone();
+        assert_eq!(normalized.limitations.pop(),Some(Limitation::CapacityUnderQualification));
+        normalized.requirements.native_sha256=prior.requirements.native_sha256.clone();
+        normalized.requirements.native_source_commit=prior.requirements.native_source_commit.clone();
+        assert_eq!(&normalized,prior);
+        assert_eq!(external_ids(&candidate.class.class_id).unwrap(),external_ids(&prior.class.class_id).unwrap());
+    }
+    assert_ne!(candidates,qualification::candidates_for(Qualification::Ap15Editor).unwrap());
+    assert!(serde_json::from_str::<Qualification>("\"generic_candidate\"").is_err());
+}
+
+#[test]
+fn ap17_r1_keeps_revision_eight_bytes_and_constraints_immutable() {
+    let old = [
+        include_bytes!("../../compatibility/ap17/revision-8/arturia-pure-lofi.json").as_slice(),
+        include_bytes!("../../compatibility/ap17/revision-8/arturia-efx-fragments.json").as_slice(),
+    ];
+    let hashes = ["29f39a4b5e92750dab81c1b823e468b5ffba794fbac69f75e9fe464d213224e3", "c640e98e49d0c3e5c55c87cf8d0a0fd4754a3523e39603ba5058901290e64693"];
+    let current = qualification::candidates_for(Qualification::Ap17Capacity).unwrap();
+    for ((bytes, hash), next) in old.into_iter().zip(hashes).zip(current) {
+        assert_eq!(hex(&Sha256::digest(bytes)), hash);
+        let prior = Profile::parse(bytes).unwrap();
+        assert_eq!(prior.revision, 8);
+        assert_eq!(prior.claim, Claim::ReviewCandidate);
+        assert!(!prior.claim.permits(SelectionPurpose::Activation));
+        assert_eq!(next.revision, 9);
+        let mut normalized = next.clone();
+        normalized.revision = prior.revision;
+        normalized.evidence = prior.evidence.clone();
+        normalized.requirements.native_sha256 = prior.requirements.native_sha256.clone();
+        normalized.requirements.native_source_commit = prior.requirements.native_source_commit.clone();
+        assert_eq!(normalized, prior);
+        assert_eq!(external_ids(&next.class.class_id).unwrap(), external_ids(&prior.class.class_id).unwrap());
+    }
+}
+
+
+struct CapacityAcceptanceFixture {
+    t: AcceptanceFixture,
+    three: RevisionRef,
+}
+impl CapacityAcceptanceFixture {
+    fn new() -> Self {
+        let mut t = AcceptanceFixture::new();
+        let three = t.review.products[0].parent.clone();
+        let seven = publish(&t.f, &t.verified, &t.census, &t.native, None).unwrap();
+        t.prior = t.verified.clone();
+        let (p,c,n) = capacity_candidate_revision(&t.f, &t.prior, &t.census, &t.native, 9);
+        let candidate = qualify_capacity(&t.f, &p, &c, &n, None).unwrap();
+        t.f.m.restore_editor_qualifications().unwrap();
+        t.candidate = p.clone(); t.census = c; t.native = n;
+        t.verified = p; t.verified.revision = 10; t.verified.claim = Claim::VerifiedExactFixture;
+        t.verified.limitations.retain(|l| *l != Limitation::CapacityUnderQualification);
+        let seal: acceptance::CapacityReview = serde_json::from_slice(acceptance::CAPACITY_REVIEW).unwrap();
+        t.review = seal.review;
+        t.review.products = vec![acceptance::AcceptedProduct {
+            class_id: t.candidate.class.class_id.clone(), candidate_profile_sha256: t.candidate.fingerprint().unwrap(), candidate, parent: seven,
+        }];
+        Self {t, three}
+    }
+    fn prepare(&self) -> Result<acceptance::AcceptedSoftware> {
+        let t = &self.t;
+        acceptance::prepare_selected_for(&t.f.m, &t.review, std::slice::from_ref(&t.verified), std::slice::from_ref(&t.candidate), std::slice::from_ref(&t.prior), Qualification::Ap17Capacity)
+    }
+}
+#[test]
+fn capacity_acceptance_seal_refuses_all_caller_policy_variations() {
+    let seal: acceptance::CapacityReview = serde_json::from_slice(acceptance::CAPACITY_REVIEW).unwrap();
+    acceptance::verify_capacity_seal(&seal).unwrap();
+    for i in 0..14 {
+        let mut bad = seal.clone();
+        match i {
+            0 => bad.review.review += 1, 1 => bad.review.head.push('0'), 2 => bad.review.tree.push('0'),
+            3 => bad.limits.global_dsp += 1, 4 => bad.limits.classes[0].dsp += 1,
+            5 => bad.limits.service_workers += 1, 6 => bad.limits.native_image_hard += 1,
+            7 => bad.limits.maintenance += 1, 8 => bad.parallel_tracks += 1,
+            9 => bad.serial_bridged_depth += 1, 10 => bad.simultaneous_editors += 1,
+            11 => bad.evidence[0].sha256 = "ab".repeat(32),
+            12 => bad.prior_manager_sha256 = "ab".repeat(32),
+            _ => bad.review.products[0].candidate.sha256 = "ab".repeat(32),
+        }
+        assert!(acceptance::verify_capacity_seal(&bad).is_err(), "mutation {i}");
+    }
+}
+#[test]
+fn capacity_acceptance_exact_nine_to_ten_and_rollback_ancestry() {
+    let t = CapacityAcceptanceFixture::new();
+    let before = snapshot(&t.t.f.outer);
+    assert_eq!(t.prepare().unwrap().catalogue.natives, vec![t.t.native.clone()]);
+    assert_eq!(snapshot(&t.t.f.outer), before);
+    assert!(acceptance::prepare_capacity(&t.t.f.m).is_err()); // never synthetic public authority
+    let x = &t.t;
+    let key = &x.prior.class.class_id;
+    let ten = publish(&x.f, &x.verified, &x.census, &x.native, None).unwrap();
+    assert_eq!(publish(&x.f, &x.verified, &x.census, &x.native, None).unwrap(), ten);
+    let revision = x.f.m.load_revision(key, &ten).unwrap();
+    assert!(revision.qualification.is_none());
+    assert!(capacity::verified_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.verified)).unwrap());
+    assert!(!capacity::verified_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.candidate)).unwrap());
+    assert_eq!(revision.parent.as_ref(), Some(&x.review.products[0].parent));
+    assert_eq!(revision.performance.added_frames, 512);
+    assert_eq!(revision.external_ids, external_ids(key).unwrap());
+    let seven = x.f.m.load_revision(key, &x.review.products[0].parent).unwrap();
+    assert_eq!(seven.parent.as_ref(), Some(&t.three));
+    let preserved = snapshot(seven.target.parent().unwrap());
+    x.f.m.rollback(key, &seven.id, None).unwrap();
+    assert_eq!(fs::read_link(x.f.m.link(key)).unwrap(), seven.target);
+    assert_eq!(snapshot(seven.target.parent().unwrap()), preserved);
+    x.f.m.rollback(key, &t.three.id, None).unwrap();
+}
+#[test]
+fn capacity_acceptance_mismatches_and_ownership_refuse_without_mutation() {
+    let mut t = CapacityAcceptanceFixture::new();
+    for i in 0..14 {
+        let original = t.t.verified.clone(); let review = t.t.review.clone(); let candidate = t.t.candidate.clone();
+        match i {
+            0 => t.t.review.review += 1, 1 => t.t.review.tree = "ab".repeat(20),
+            2 => t.t.review.products[0].parent.id = "ab".repeat(16),
+            3 => t.t.review.products[0].candidate_profile_sha256 = "ab".repeat(32),
+            4 => t.t.verified.requirements.host_sha256 = "ab".repeat(32),
+            5 => t.t.verified.requirements.host_source_sha256 = "ab".repeat(32),
+            6 => t.t.verified.requirements.native_sha256 = "ab".repeat(32),
+            7 => t.t.verified.requirements.descriptor_sha256 = "ab".repeat(32),
+            8 => t.t.verified.class.class_id = "FE".repeat(16),
+            9 => t.t.verified.requirements.environment_revision += 1,
+            10 => t.t.verified.requirements.runner.version.push('x'),
+            11 => t.t.candidate.evidence.push("docs/forged.md".into()),
+            12 => t.t.verified.module_sha256 = "ab".repeat(32),
+            _ => t.t.review.products[0].candidate.id = "ab".repeat(16),
+        }
+        let before = snapshot(&t.t.f.outer);
+        assert!(t.prepare().is_err(), "mutation {i}");
+        assert_eq!(snapshot(&t.t.f.outer), before);
+        t.t.verified = original; t.t.review = review; t.t.candidate = candidate;
+    }
+    let key = &t.t.prior.class.class_id;
+    let active = lease(&t.t.f, key, false);
+    let before = snapshot(&t.t.f.outer); assert!(t.prepare().is_err()); assert_eq!(snapshot(&t.t.f.outer), before);
+    fs::remove_file(active).unwrap();
+    let pending = t.t.f.m.root.join("transactions/unknown.pending.json"); fs::write(&pending,b"pending").unwrap();
+    let before = snapshot(&t.t.f.outer); assert!(t.prepare().is_err()); assert_eq!(snapshot(&t.t.f.outer),before); fs::remove_file(pending).unwrap();
+    fs::remove_file(t.t.f.m.link(key)).unwrap(); symlink(&t.t.f.outer,t.t.f.m.link(key)).unwrap();
+    let before = snapshot(&t.t.f.outer); assert!(t.prepare().is_err()); assert_eq!(snapshot(&t.t.f.outer),before);
+}
+#[test]
+fn capacity_verified_ten_preserves_candidate_bytes_and_technical_contract() {
+    let current = installed_profiles().unwrap();
+    let candidates = qualification::candidates_for(Qualification::Ap17Capacity).unwrap();
+    for (p,c) in current.iter().zip(&candidates) {
+        assert_eq!(p.revision,10); assert_eq!(p.claim,Claim::VerifiedExactFixture);
+        assert_eq!(c.revision,9); assert_eq!(c.claim,Claim::ReviewCandidate);
+        assert!(p.claim.permits(SelectionPurpose::Activation)); assert!(!c.claim.permits(SelectionPurpose::Activation));
+        let mut normalized=p.clone();normalized.revision=9;normalized.claim=c.claim.clone();normalized.evidence=c.evidence.clone();normalized.limitations.push(Limitation::CapacityUnderQualification);
+        assert_eq!(&normalized,c); assert!(c.evidence.iter().all(|e|p.evidence.contains(e)));
+        assert_eq!(external_ids(&p.class.class_id).unwrap(),external_ids(&c.class.class_id).unwrap());
+    }
+    let seal: acceptance::CapacityReview=serde_json::from_slice(acceptance::CAPACITY_REVIEW).unwrap();
+    for (p,s) in candidates.iter().zip(&seal.review.products) {assert_eq!(p.fingerprint().unwrap(),s.candidate_profile_sha256);}
+    assert_eq!(current[0].requirements.native_sha256,"ce7531e4c76e53e85abe1153354fac890a6ba641b3b6333f5891a25f49843d59");
+    assert_eq!(current[1].requirements.native_sha256,"11615d88cb253e22ca6f6beecbe946bdb5efd46882d091b65f9c461cd6757428");
 }

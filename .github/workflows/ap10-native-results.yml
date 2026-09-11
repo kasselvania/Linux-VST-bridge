@@ -7,6 +7,7 @@ on:
       - 'CMakeLists.txt'
       - 'cmake/HP0*.cmake'
       - 'native-vst3-proxy/**'
+      - 'native-audio-client/**'
       - 'vst-state/**'
       - 'tools/ap10-tests/**'
       - 'tools/ap11-tests/**'
@@ -32,7 +33,9 @@ jobs:
       - name: Acquire existing pinned official SDK
         run: python3 tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/ap10-sdk"
       - name: Test production transport including first idle reply deadline
-        run: cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked
+        run: |
+          cargo test --manifest-path native-audio-client/Cargo.toml --locked admission
+          cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked
       - name: Build Rust backend
         run: RUSTFLAGS="-C relocation-model=pic" cargo build --manifest-path native-vst3-proxy/backend/Cargo.toml --release --locked
       - name: Build production native processor and SDK regressions

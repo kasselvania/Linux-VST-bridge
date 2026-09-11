@@ -1,0 +1,1384 @@
+{
+  "capture_limits": {
+    "fds_per_process": 512,
+    "log_tail_bytes_per_file": 131072,
+    "processes": 32,
+    "threads_per_process": 256
+  },
+  "classification": "prior frontend/engine hang not reproduced; causal owner unresolved; full-sequence fixed-scheduling confirmation blocked",
+  "clock_law": "GUI request bracket uses Linux monotonic_ns and wall_ns; existing host logs use local wall clock; Windows events use sequence order. No exact cross-clock call-time subtraction. Post-quit observer takes two proc snapshots two seconds apart.",
+  "comparisons": [
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "16036",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 16017,
+          "pid": 16036,
+          "ppid": 16034,
+          "session": 16017,
+          "start_ticks": 1476129
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "16129",
+            "91"
+          ],
+          "native_images": [],
+          "pgrp": 16017,
+          "pid": 16129,
+          "ppid": 16036,
+          "session": 16017,
+          "start_ticks": 1477163
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "440547ee695394de959197b86507c06e",
+            "5778357489e52f3fa3275b22c8f361ec",
+            "6554be325da9cdffbbe4992cb2e9ca96",
+            "7102ec756b022cd64823fa7fbc6ff935",
+            "a433232d730870f14f4e737a276242b5",
+            "de6e432479e348321bdcce44bce39ffd"
+          ],
+          "namespace_pids": [
+            "16250",
+            "209"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/90e23e3e71322c27e3f9e4ce1021b9d8/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/d7c50af638553b3387f89a1064546aca/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 16017,
+          "pid": 16250,
+          "ppid": 16129,
+          "session": 16017,
+          "start_ticks": 1479317
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 14907431895060,
+        "end_monotonic_ns": 14907446088560,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789107119342878367
+      },
+      "fixed_scheduling_confirmation": true,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit"
+      ],
+      "id": "A",
+      "initial_sessions": [
+        "440547ee695394de959197b86507c06e",
+        "a433232d730870f14f4e737a276242b5",
+        "6554be325da9cdffbbe4992cb2e9ca96",
+        "de6e432479e348321bdcce44bce39ffd",
+        "5778357489e52f3fa3275b22c8f361ec",
+        "7102ec756b022cd64823fa7fbc6ff935"
+      ],
+      "native_final_summaries_present": 2,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "engineering_candidate",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 7,
+      "qualification_limit": "process-exit result; nonzero plug-in-host/Windows status is not a clean SDK claim",
+      "request_bracket_before": {
+        "monotonic_ns": 14887782902994,
+        "wall_ns": 1789107099679692521
+      },
+      "retirement_receipts": 6,
+      "second_after": {
+        "begin_monotonic_ns": 14909446203932,
+        "end_monotonic_ns": 14909460257221,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789107121357046418
+      },
+      "service_after": "MainPID=9037\nCPUWeight=[not set]\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 2,
+        "90": 4
+      },
+      "workload": "plain saved 2 LoFi + 4 FRAGMENTS"
+    },
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "17513",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 17498,
+          "pid": 17513,
+          "ppid": 17511,
+          "session": 17498,
+          "start_ticks": 1502678
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "17608",
+            "92"
+          ],
+          "native_images": [],
+          "pgrp": 17498,
+          "pid": 17608,
+          "ppid": 17513,
+          "session": 17498,
+          "start_ticks": 1503665
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "73a162db6ee6349606b9bf5192d3b003",
+            "7cdc0a9bfb077d7919a9ca7b2f75574e"
+          ],
+          "namespace_pids": [
+            "17777",
+            "223"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/cdfd027dac788ed3fafc926476344de1/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/1578640fdff319f7420ea08f12f316c7/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 17498,
+          "pid": 17777,
+          "ppid": 17608,
+          "session": 17498,
+          "start_ticks": 1508069
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 15161458483394,
+        "end_monotonic_ns": 15161472450000,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789107373369239837
+      },
+      "fixed_scheduling_confirmation": true,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit"
+      ],
+      "id": "B",
+      "initial_sessions": [
+        "7cdc0a9bfb077d7919a9ca7b2f75574e",
+        "73a162db6ee6349606b9bf5192d3b003"
+      ],
+      "native_final_summaries_present": 2,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "verified_exact_fixture",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 10,
+      "qualification_limit": "process-exit result; nonzero plug-in-host/Windows status is not a clean SDK claim",
+      "request_bracket_before": {
+        "monotonic_ns": 15123700973566,
+        "wall_ns": 1789107335597763233
+      },
+      "retirement_receipts": 2,
+      "second_after": {
+        "begin_monotonic_ns": 15163472539575,
+        "end_monotonic_ns": 15163487203362,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789107375383992419
+      },
+      "service_after": "MainPID=9037\nCPUWeight=[not set]\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 2
+      },
+      "workload": "plain saved 1 LoFi + 1 FRAGMENTS"
+    },
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "18234",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 18219,
+          "pid": 18234,
+          "ppid": 18232,
+          "session": 18219,
+          "start_ticks": 1521938
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "18327",
+            "91"
+          ],
+          "native_images": [],
+          "pgrp": 18219,
+          "pid": 18327,
+          "ppid": 18234,
+          "session": 18219,
+          "start_ticks": 1522955
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "13fb3d58a831a328f57d5f5d9a058007",
+            "27b6e18079d17f495cdd0c514ec8cf84",
+            "64d3cb91ea63faad1e029271673160a1",
+            "6805023d066aa16747641bcbb42e7267",
+            "e1e7d1a0b94639ef6584462b4f24e2e7",
+            "e7d4d0dcb93d0c02eb6372ae964307fb"
+          ],
+          "namespace_pids": [
+            "18434",
+            "189"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/cdfd027dac788ed3fafc926476344de1/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/1578640fdff319f7420ea08f12f316c7/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 18219,
+          "pid": 18434,
+          "ppid": 18327,
+          "session": 18219,
+          "start_ticks": 1527617
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 15364141953693,
+        "end_monotonic_ns": 15364156511397,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789107576053300874
+      },
+      "fixed_scheduling_confirmation": true,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit"
+      ],
+      "id": "C",
+      "initial_sessions": [
+        "13fb3d58a831a328f57d5f5d9a058007",
+        "e1e7d1a0b94639ef6584462b4f24e2e7",
+        "27b6e18079d17f495cdd0c514ec8cf84",
+        "6805023d066aa16747641bcbb42e7267",
+        "64d3cb91ea63faad1e029271673160a1",
+        "e7d4d0dcb93d0c02eb6372ae964307fb"
+      ],
+      "native_final_summaries_present": 2,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "verified_exact_fixture",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 10,
+      "qualification_limit": "process-exit result; nonzero plug-in-host/Windows status is not a clean SDK claim",
+      "request_bracket_before": {
+        "monotonic_ns": 15344973042033,
+        "wall_ns": 1789107556869831440
+      },
+      "retirement_receipts": 6,
+      "second_after": {
+        "begin_monotonic_ns": 15366156616202,
+        "end_monotonic_ns": 15366170127660,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789107578066916577
+      },
+      "service_after": "MainPID=9037\nCPUWeight=[not set]\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 2,
+        "90": 4
+      },
+      "workload": "plain saved 2 LoFi + 4 FRAGMENTS"
+    },
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "19381",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 19366,
+          "pid": 19381,
+          "ppid": 19379,
+          "session": 19366,
+          "start_ticks": 1544157
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "19476",
+            "93"
+          ],
+          "native_images": [],
+          "pgrp": 19366,
+          "pid": 19476,
+          "ppid": 19381,
+          "session": 19366,
+          "start_ticks": 1545168
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "033dc699a76b323d624a6333d938d821",
+            "20800b4c8a9dd37bbe0067b94290efc5",
+            "51fb2695551fa04e8c51ae4b24fcd61d",
+            "6ed47df79dcb29cca149c0ed874ffd45",
+            "7fc0b8c50bbb77e034e52e19908860f8",
+            "c79553eff9b48d0094c0e75880fbd523"
+          ],
+          "namespace_pids": [
+            "19576",
+            "190"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/cdfd027dac788ed3fafc926476344de1/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/1578640fdff319f7420ea08f12f316c7/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 19366,
+          "pid": 19576,
+          "ppid": 19476,
+          "session": 19366,
+          "start_ticks": 1546981
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 15632787909254,
+        "end_monotonic_ns": 15632802815101,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789107844699604048
+      },
+      "fixed_scheduling_confirmation": true,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit",
+        "Save Project > No (temporary edits only)"
+      ],
+      "id": "D",
+      "initial_sessions": [
+        "20800b4c8a9dd37bbe0067b94290efc5",
+        "7fc0b8c50bbb77e034e52e19908860f8",
+        "6ed47df79dcb29cca149c0ed874ffd45",
+        "c79553eff9b48d0094c0e75880fbd523",
+        "51fb2695551fa04e8c51ae4b24fcd61d",
+        "033dc699a76b323d624a6333d938d821"
+      ],
+      "native_final_summaries_present": 2,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "verified_exact_fixture",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 10,
+      "qualification_limit": "process-exit result; nonzero plug-in-host/Windows status is not a clean SDK claim",
+      "request_bracket_before": {
+        "monotonic_ns": 15604759921267,
+        "wall_ns": 1789107816656710744
+      },
+      "retirement_receipts": 6,
+      "second_after": {
+        "begin_monotonic_ns": 15634802900486,
+        "end_monotonic_ns": 15634816629852,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789107846713418869
+      },
+      "service_after": "MainPID=9037\nCPUWeight=[not set]\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 2,
+        "90": 4
+      },
+      "workload": "2+4 plus refused fifth FRAGMENTS (native image capacity)"
+    },
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "20577",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 20558,
+          "pid": 20577,
+          "ppid": 20575,
+          "session": 20558,
+          "start_ticks": 1574620
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "20673",
+            "94"
+          ],
+          "native_images": [],
+          "pgrp": 20558,
+          "pid": 20673,
+          "ppid": 20577,
+          "session": 20558,
+          "start_ticks": 1575646
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "406583bb0a6de4f0e5dd038db06c5ca0",
+            "43f7dc3ab47c5bb3eb0b90a3b37d185a",
+            "538e1358653ee40716ee5989288515a9",
+            "597776eccb3e7749f0668d3c845cc9c0",
+            "81e843eb305682a8de1d8efd597feb86",
+            "cbbea779059d5910aa2609abe6e1dc87"
+          ],
+          "namespace_pids": [
+            "20774",
+            "190"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/cdfd027dac788ed3fafc926476344de1/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/1578640fdff319f7420ea08f12f316c7/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 20558,
+          "pid": 20774,
+          "ppid": 20673,
+          "session": 20558,
+          "start_ticks": 1579692
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 16037080626458,
+        "end_monotonic_ns": 16037095190432,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789108248991980079
+      },
+      "fixed_scheduling_confirmation": true,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit",
+        "Save Project > No (temporary edits only)"
+      ],
+      "id": "Dglobal",
+      "initial_sessions": [
+        "cbbea779059d5910aa2609abe6e1dc87",
+        "81e843eb305682a8de1d8efd597feb86",
+        "538e1358653ee40716ee5989288515a9",
+        "406583bb0a6de4f0e5dd038db06c5ca0",
+        "597776eccb3e7749f0668d3c845cc9c0",
+        "43f7dc3ab47c5bb3eb0b90a3b37d185a"
+      ],
+      "native_final_summaries_present": 2,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "verified_exact_fixture",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 10,
+      "qualification_limit": "process-exit result; nonzero plug-in-host/Windows status is not a clean SDK claim",
+      "request_bracket_before": {
+        "monotonic_ns": 16000095994816,
+        "wall_ns": 1789108211992784103
+      },
+      "retirement_receipts": 6,
+      "second_after": {
+        "begin_monotonic_ns": 16039095288223,
+        "end_monotonic_ns": 16039110156334,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789108251006945301
+      },
+      "service_after": "MainPID=9037\nCPUWeight=[not set]\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 2,
+        "90": 4
+      },
+      "workload": "2+4 plus refused third LoFi (global capacity)"
+    },
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "21793",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 21778,
+          "pid": 21793,
+          "ppid": 21791,
+          "session": 21778,
+          "start_ticks": 1611420
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "21886",
+            "91"
+          ],
+          "native_images": [],
+          "pgrp": 21778,
+          "pid": 21886,
+          "ppid": 21793,
+          "session": 21778,
+          "start_ticks": 1612424
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "18c228935c4814924e0c1476d8d2f1b5",
+            "77cddf29f05e4f5704fc8f647a0d56f5",
+            "806a8bc8c5d822a066f8b93be4c1c496",
+            "abca60e800ffd4f9ad270847380ed720",
+            "be42580b118911a41af30647cb5f2918",
+            "c9a656c16a205c21d5c031acd28fb61d"
+          ],
+          "namespace_pids": [
+            "21987",
+            "186"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/cdfd027dac788ed3fafc926476344de1/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/1578640fdff319f7420ea08f12f316c7/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 21778,
+          "pid": 21987,
+          "ppid": 21886,
+          "session": 21778,
+          "start_ticks": 1617099
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 16488315028564,
+        "end_monotonic_ns": 16488329058396,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789108700225847473
+      },
+      "fixed_scheduling_confirmation": true,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit",
+        "Save Project > No (temporary edits only)"
+      ],
+      "id": "E",
+      "initial_sessions": [
+        "77cddf29f05e4f5704fc8f647a0d56f5",
+        "806a8bc8c5d822a066f8b93be4c1c496",
+        "be42580b118911a41af30647cb5f2918",
+        "c9a656c16a205c21d5c031acd28fb61d",
+        "abca60e800ffd4f9ad270847380ed720",
+        "18c228935c4814924e0c1476d8d2f1b5"
+      ],
+      "native_final_summaries_present": 3,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "verified_exact_fixture",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 10,
+      "qualification_limit": "process-exit result; nonzero plug-in-host/Windows status is not a clean SDK claim",
+      "request_bracket_before": {
+        "monotonic_ns": 16448791551544,
+        "wall_ns": 1789108660688340951
+      },
+      "retirement_receipts": 7,
+      "second_after": {
+        "begin_monotonic_ns": 16490329157626,
+        "end_monotonic_ns": 16490343416201,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789108702240205198
+      },
+      "service_after": "MainPID=9037\nCPUWeight=[not set]\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 3,
+        "90": 4
+      },
+      "workload": "2+4 plus one FRAGMENTS removal and Undo Delete"
+    },
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "23190",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 23175,
+          "pid": 23190,
+          "ppid": 23188,
+          "session": 23175,
+          "start_ticks": 1660690
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "23286",
+            "93"
+          ],
+          "native_images": [],
+          "pgrp": 23175,
+          "pid": 23286,
+          "ppid": 23190,
+          "session": 23175,
+          "start_ticks": 1661718
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "3d9697e1cdce2178d95bd1bec90032cc",
+            "7ace3a99d9d424369527dd3f2204e7da",
+            "9265f244e57f1f2208739870fd451502",
+            "b169cbb76a0a94bdaa9a0769561b45fc",
+            "c206e1bcf7afd27333a6b644e3e9644e",
+            "ff0b6ecdacac5244f3480d3d0e902dd0"
+          ],
+          "namespace_pids": [
+            "23388",
+            "192"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/cdfd027dac788ed3fafc926476344de1/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/1578640fdff319f7420ea08f12f316c7/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 23175,
+          "pid": 23388,
+          "ppid": 23286,
+          "session": 23175,
+          "start_ticks": 1664836
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 17282445936167,
+        "end_monotonic_ns": 17282460239503,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789109494357029070
+      },
+      "fixed_scheduling_confirmation": true,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit",
+        "Save Project > No (temporary edits only)"
+      ],
+      "id": "F",
+      "initial_sessions": [
+        "ff0b6ecdacac5244f3480d3d0e902dd0",
+        "7ace3a99d9d424369527dd3f2204e7da",
+        "3d9697e1cdce2178d95bd1bec90032cc",
+        "9265f244e57f1f2208739870fd451502",
+        "c206e1bcf7afd27333a6b644e3e9644e",
+        "b169cbb76a0a94bdaa9a0769561b45fc"
+      ],
+      "native_final_summaries_present": 2,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "verified_exact_fixture",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 10,
+      "qualification_limit": "process-exit result; nonzero plug-in-host/Windows status is not a clean SDK claim",
+      "request_bracket_before": {
+        "monotonic_ns": 17245424441319,
+        "wall_ns": 1789109457321230776
+      },
+      "retirement_receipts": 6,
+      "second_after": {
+        "begin_monotonic_ns": 17284460327604,
+        "end_monotonic_ns": 17284474910577,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789109496371699544
+      },
+      "service_after": "MainPID=9037\nCPUWeight=[not set]\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 2,
+        "90": 4
+      },
+      "workload": "2+4 plus two intended editors, stopped transport"
+    },
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "24668",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 24649,
+          "pid": 24668,
+          "ppid": 24666,
+          "session": 24649,
+          "start_ticks": 1738830
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "24763",
+            "93"
+          ],
+          "native_images": [],
+          "pgrp": 24649,
+          "pid": 24763,
+          "ppid": 24668,
+          "session": 24649,
+          "start_ticks": 1739846
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "2449c7edb6805df66d186ac1ec60f515",
+            "37fbc6c4eb4d344f4ed1b42b473bc0b0",
+            "880a76e0083eda1c7c10bf7f8a88b800",
+            "b39505e5c957795893ef551ad5c77057",
+            "c6c42739990589a6213f9eb35d7ef02f",
+            "f4f8273f782a6b1b4e5319e752d0351e"
+          ],
+          "namespace_pids": [
+            "24894",
+            "190"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/cdfd027dac788ed3fafc926476344de1/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/1578640fdff319f7420ea08f12f316c7/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 24649,
+          "pid": 24894,
+          "ppid": 24763,
+          "session": 24649,
+          "start_ticks": 1742184
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 17949629990085,
+        "end_monotonic_ns": 17949644162292,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789110161540952469
+      },
+      "fixed_scheduling_confirmation": false,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit",
+        "Save Project > No (temporary edits only)"
+      ],
+      "id": "G",
+      "initial_sessions": [
+        "c6c42739990589a6213f9eb35d7ef02f",
+        "37fbc6c4eb4d344f4ed1b42b473bc0b0",
+        "b39505e5c957795893ef551ad5c77057",
+        "2449c7edb6805df66d186ac1ec60f515",
+        "f4f8273f782a6b1b4e5319e752d0351e",
+        "880a76e0083eda1c7c10bf7f8a88b800"
+      ],
+      "native_final_summaries_present": 3,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "verified_exact_fixture",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 10,
+      "qualification_limit": "G/G2 CPUWeight changed from 100 to 10000 during shutdown; complete exits retained but excluded from required fixed-scheduling confirmation",
+      "request_bracket_before": {
+        "monotonic_ns": 17905928325969,
+        "wall_ns": 1789110117825115116
+      },
+      "retirement_receipts": 7,
+      "second_after": {
+        "begin_monotonic_ns": 17951644252938,
+        "end_monotonic_ns": 17951659346205,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789110163556135642
+      },
+      "service_after": "MainPID=9037\nCPUWeight=10000\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 3,
+        "90": 4
+      },
+      "workload": "full sequence: global refusal, undo failed copy, FRAGMENTS removal/Undo, two editors, active scene"
+    },
+    {
+      "all_retirements_confirmed": true,
+      "bitwig_process_identity_before": [
+        {
+          "comm": "BitwigStudio",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "26547",
+            "4"
+          ],
+          "native_images": [],
+          "pgrp": 26531,
+          "pid": 26547,
+          "ppid": 26545,
+          "session": 26531,
+          "start_ticks": 1815508
+        },
+        {
+          "comm": "BitwigAudioEngi",
+          "mapped_sessions": [],
+          "namespace_pids": [
+            "26641",
+            "92"
+          ],
+          "native_images": [],
+          "pgrp": 26531,
+          "pid": 26641,
+          "ppid": 26547,
+          "session": 26531,
+          "start_ticks": 1816477
+        },
+        {
+          "comm": "BitwigPluginHos",
+          "mapped_sessions": [
+            "44837bc437953b8e9e006adb850991ff",
+            "453d9598eb4da982ba981ae84f040c72",
+            "7fbac063ff95b0cbbd0ac5f27c55746e",
+            "7ff2f8c1d52b231507ab03c37ba37346",
+            "85c0f1840f00249c3f5463ad45c13142",
+            "f89c5d6c4d420544ce5beba6121e1576"
+          ],
+          "namespace_pids": [
+            "26779",
+            "190"
+          ],
+          "native_images": [
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/417274754156495350724C4650726F63/revisions/cdfd027dac788ed3fafc926476344de1/LVB_417274754156495350724C4650726F63.vst3/Contents/x86_64-linux/LVB_417274754156495350724C4650726F63.so",
+            "$HOME/.local/share/linux-vst-bridge/managed/publications/41727475415649536772616E50726F63/revisions/1578640fdff319f7420ea08f12f316c7/LVB_41727475415649536772616E50726F63.vst3/Contents/x86_64-linux/LVB_41727475415649536772616E50726F63.so"
+          ],
+          "pgrp": 26531,
+          "pid": 26779,
+          "ppid": 26641,
+          "session": 26531,
+          "start_ticks": 1820289
+        }
+      ],
+      "bitwig_ui_observed_absent": true,
+      "first_after": {
+        "begin_monotonic_ns": 18727977788175,
+        "end_monotonic_ns": 18727993037574,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789110939889827061
+      },
+      "fixed_scheduling_confirmation": false,
+      "gui_sequence": [
+        "Applications > Multimedia > Bitwig Studio",
+        "Open saved project",
+        "File > Quit",
+        "Save Project > No (temporary edits only)"
+      ],
+      "id": "G2",
+      "initial_sessions": [
+        "7ff2f8c1d52b231507ab03c37ba37346",
+        "44837bc437953b8e9e006adb850991ff",
+        "85c0f1840f00249c3f5463ad45c13142",
+        "453d9598eb4da982ba981ae84f040c72",
+        "f89c5d6c4d420544ce5beba6121e1576",
+        "7fbac063ff95b0cbbd0ac5f27c55746e"
+      ],
+      "native_final_summaries_present": 3,
+      "no_manual_containment": true,
+      "post_capacity": {
+        "available_dsp": 6,
+        "cleanup_unconfirmed": false,
+        "current_workers": 1,
+        "dsp": 0,
+        "envelope": {
+          "claim": "verified_exact_fixture",
+          "eight": "excluded_for_tested_workload",
+          "evidence": "docs/AP17.md",
+          "fixture": "SteamOS 3.8.16 / Bitwig 6.1 / exact pinned AP17 Arturia installation; not a universal hardware or DAW limit",
+          "parallel_tracks": 3,
+          "serial_bridged_depth": 3,
+          "seven": "unqualified",
+          "simultaneous_editors": 2
+        },
+        "keepers": 1,
+        "limits": {
+          "classes": [
+            {
+              "class_id": "417274754156495350724C4650726F63",
+              "dsp": 3
+            },
+            {
+              "class_id": "41727475415649536772616E50726F63",
+              "dsp": 4
+            }
+          ],
+          "global_dsp": 6,
+          "maintenance": 1,
+          "native_image_hard": 4,
+          "service_workers": 16
+        },
+        "maintenance": 0,
+        "maintenance_admissible": true,
+        "owners": [
+          {
+            "class_id": "41727475415649536772616E50726F63",
+            "kind": "keeper",
+            "session": "7e9f32ea2b63cb4167522abbab84e953"
+          }
+        ],
+        "per_class": {
+          "417274754156495350724C4650726F63": 0,
+          "41727475415649536772616E50726F63": 0
+        },
+        "schema": 1
+      },
+      "profile_revision": 10,
+      "qualification_limit": "G/G2 CPUWeight changed from 100 to 10000 during shutdown; complete exits retained but excluded from required fixed-scheduling confirmation",
+      "request_bracket_before": {
+        "monotonic_ns": 18683458298770,
+        "wall_ns": 1789110895355088237
+      },
+      "retirement_receipts": 7,
+      "second_after": {
+        "begin_monotonic_ns": 18729993121826,
+        "end_monotonic_ns": 18730009234343,
+        "processes": [],
+        "processes_unretained": 0,
+        "wall_ns": 1789110941906023630
+      },
+      "service_after": "MainPID=9037\nCPUWeight=10000\nNice=0\nActiveState=active\nSubState=running\n",
+      "trace_enabled": false,
+      "windows_terminal_counts": {
+        "0": 3,
+        "90": 4
+      },
+      "workload": "repeat full sequence after scheduling restoration; bounded quit weight observer"
+    }
+  ],
+  "debugger_or_strace_used": false,
+  "discovery_preparation": "Before A, after exact revision-7 rollback, LoFi was initially missing from Bitwig cache. Existing ~/.vst3 location refreshed; immediate reload still missing; normal quit/relaunch admitted all six. Four-FRAGMENTS preparation quit is separate, not comparison A. No vendor/legacy rescan or path change; subsequent comparisons use the same location.",
+  "disposition": [
+    "SHUTDOWN_HANG_NOT_REPRODUCED",
+    "FIXED_BASELINE_COMBINED_CONFIRMATION_BLOCKED",
+    "REVISION_7_RESTORED",
+    "PR_92_DRAFT_AND_UNMERGED"
+  ],
+  "fixture": {
+    "added_frames_per_proxy": 512,
+    "daw": "Bitwig Studio 6.1 Flatpak",
+    "host_maximum": 512,
+    "hosting": "Together",
+    "internal_chunks": 256,
+    "launch": "Applications",
+    "os": "SteamOS 3.8.16",
+    "precision": "float32",
+    "project": "AP17 R1 Serial",
+    "project_sha256": "a21b59bbb6505fbff67f834d52aeb0978595501d8d81b6071b44964a1165c4cc",
+    "sample_rate": 48000
+  },
+  "observed_source_head": "de29758d67f7b46c722b18c1a28ba8100e96be67",
+  "production_changes": false,
+  "review": 5175233255,
+  "schema": 1
+}

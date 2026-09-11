@@ -1,0 +1,1118 @@
+{
+  "schema": 1,
+  "status": "partial_capacity_evidence",
+  "setting": {
+    "rate": 48000,
+    "precision": "float32",
+    "added_frames_per_proxy": 512,
+    "host_maximum": 512,
+    "role_of_chunks": "Endpoint snapshots do not independently retain actual host callback sizes."
+  },
+  "intervals": [
+    {
+      "name": "candidate-six-90a",
+      "input_sha256": "052ade908cbb666e16ced61997ea766c302e353bbe6416df7b1401eefdada800",
+      "editors_open": 0,
+      "seconds": 90.022775673,
+      "clock": "Linux monotonic endpoint midpoint; bounded snapshot bracket",
+      "begin_bracket_ns": [
+        13256607989125,
+        13256609327199
+      ],
+      "end_bracket_ns": [
+        13346631218866,
+        13346631648804
+      ],
+      "trace_enabled": false,
+      "service_end": "CPUWeight=[not set]\nActiveState=active\n",
+      "conditions_begin": {
+        "power": {
+          "/sys/class/power_supply/ACAD/online": "1"
+        },
+        "governors": {
+          "/sys/devices/system/cpu/cpu7/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu5/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu6/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor": "powersave"
+        },
+        "clock_ticks": 100
+      },
+      "conditions_end": {
+        "power": {
+          "/sys/class/power_supply/ACAD/online": "1"
+        },
+        "governors": {
+          "/sys/devices/system/cpu/cpu7/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu5/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu6/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor": "powersave"
+        },
+        "clock_ticks": 100
+      },
+      "bitwig_scope_weight_begin": [
+        "10000"
+      ],
+      "bitwig_scope_weight_end": [
+        "10000"
+      ],
+      "cpu_by_comm_one_core": {
+        "python3": 25.149191224938292,
+        "BitwigStudio": 46.77705134638479,
+        "BitwigAudioEngi": 9.319863709241709,
+        "linux-vst-bridg": 0.0,
+        "host.exe": 209.38034690762453,
+        "BitwigPluginHos": 42.73363014237527
+      },
+      "cpu_scope": "Exact PID/start identities with selected comm names: Bitwig app/engine/plugin host, host.exe, manager and python3. Includes observer/other Python processes; excludes other Wine/system/compositor processes. Not total bridge/system CPU.",
+      "sessions": [
+        {
+          "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 1219072,
+            "delivered_frames": 1218048,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 5539840,
+            "delivered_frames": 5538816,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "139399efefcaf7b0b7a36efcf8cd7145",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 9080320,
+            "delivered_frames": 9076736,
+            "missing_frames": 3072,
+            "expired_frames": 3072,
+            "gaps": 7,
+            "priming_frames": 512
+          },
+          "counters_end": {
+            "admitted_frames": 13401088,
+            "delivered_frames": 13397504,
+            "missing_frames": 3072,
+            "expired_frames": 3072,
+            "gaps": 7,
+            "priming_frames": 512
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "8a11c219bf00c0aa78418978b536a9ca",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 1219584,
+            "delivered_frames": 1217024,
+            "missing_frames": 1536,
+            "expired_frames": 1536,
+            "gaps": 6,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 5540352,
+            "delivered_frames": 5537792,
+            "missing_frames": 1536,
+            "expired_frames": 1536,
+            "gaps": 6,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "5291d724cdbf2809dab469fb1ce6a0be",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 1219584,
+            "delivered_frames": 1218048,
+            "missing_frames": 512,
+            "expired_frames": 512,
+            "gaps": 2,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 5540352,
+            "delivered_frames": 5538816,
+            "missing_frames": 512,
+            "expired_frames": 512,
+            "gaps": 2,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "a3655e004def12288bf7ba148900c299",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 1219072,
+            "delivered_frames": 1218048,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 5539840,
+            "delivered_frames": 5538816,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "16e5d6ed950d40972c5af4edee19c85c",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 12519936,
+            "delivered_frames": 12517376,
+            "missing_frames": 2048,
+            "expired_frames": 2048,
+            "gaps": 1,
+            "priming_frames": 512
+          },
+          "counters_end": {
+            "admitted_frames": 16840704,
+            "delivered_frames": 16838144,
+            "missing_frames": 2048,
+            "expired_frames": 2048,
+            "gaps": 1,
+            "priming_frames": 512
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        }
+      ],
+      "comparison_eligible": true,
+      "limitation": "Bridge weight was sampled at interval end only; not a continuous scheduler-setting audit. Moonlight minimized; stream state unverified."
+    },
+    {
+      "name": "candidate-six-90b",
+      "input_sha256": "982386709c28ff031483799a55c143f847d121f3b9e273a61514c2d1ca895ba1",
+      "editors_open": 0,
+      "seconds": 90.0226408075,
+      "clock": "Linux monotonic endpoint midpoint; bounded snapshot bracket",
+      "begin_bracket_ns": [
+        13396040492053,
+        13396041421140
+      ],
+      "end_bracket_ns": [
+        13486063330084,
+        13486063864724
+      ],
+      "trace_enabled": false,
+      "service_end": "CPUWeight=[not set]\nActiveState=active\n",
+      "conditions_begin": {
+        "power": {
+          "/sys/class/power_supply/ACAD/online": "1"
+        },
+        "governors": {
+          "/sys/devices/system/cpu/cpu7/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu5/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu6/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor": "powersave"
+        },
+        "clock_ticks": 100
+      },
+      "conditions_end": {
+        "power": {
+          "/sys/class/power_supply/ACAD/online": "1"
+        },
+        "governors": {
+          "/sys/devices/system/cpu/cpu7/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu5/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu6/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor": "powersave"
+        },
+        "clock_ticks": 100
+      },
+      "bitwig_scope_weight_begin": [
+        "10000"
+      ],
+      "bitwig_scope_weight_end": [
+        "10000"
+      ],
+      "cpu_by_comm_one_core": {
+        "python3": 25.226987118231683,
+        "BitwigStudio": 46.99928775748051,
+        "BitwigAudioEngi": 9.330985988249498,
+        "linux-vst-bridg": 0.0,
+        "host.exe": 209.82499325243424,
+        "BitwigPluginHos": 42.866993962684305
+      },
+      "cpu_scope": "Exact PID/start identities with selected comm names: Bitwig app/engine/plugin host, host.exe, manager and python3. Includes observer/other Python processes; excludes other Wine/system/compositor processes. Not total bridge/system CPU.",
+      "sessions": [
+        {
+          "session": "fb0e31d9f5ec3bfb874eaf06d9a38e38",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 7911424,
+            "delivered_frames": 7910400,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 12232704,
+            "delivered_frames": 12231680,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4321280,
+            "delivered_frames": 4321280,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "139399efefcaf7b0b7a36efcf8cd7145",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 15772672,
+            "delivered_frames": 15768832,
+            "missing_frames": 3328,
+            "expired_frames": 3328,
+            "gaps": 8,
+            "priming_frames": 512
+          },
+          "counters_end": {
+            "admitted_frames": 20093952,
+            "delivered_frames": 20090112,
+            "missing_frames": 3328,
+            "expired_frames": 3328,
+            "gaps": 8,
+            "priming_frames": 512
+          },
+          "delta": {
+            "admitted_frames": 4321280,
+            "delivered_frames": 4321280,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "8a11c219bf00c0aa78418978b536a9ca",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 7911936,
+            "delivered_frames": 7909120,
+            "missing_frames": 1792,
+            "expired_frames": 1792,
+            "gaps": 7,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 12233216,
+            "delivered_frames": 12230400,
+            "missing_frames": 1792,
+            "expired_frames": 1792,
+            "gaps": 7,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4321280,
+            "delivered_frames": 4321280,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "5291d724cdbf2809dab469fb1ce6a0be",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 7911936,
+            "delivered_frames": 7910144,
+            "missing_frames": 768,
+            "expired_frames": 768,
+            "gaps": 3,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 12233216,
+            "delivered_frames": 12231424,
+            "missing_frames": 768,
+            "expired_frames": 768,
+            "gaps": 3,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4321280,
+            "delivered_frames": 4321280,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "a3655e004def12288bf7ba148900c299",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 7911424,
+            "delivered_frames": 7910400,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 12232704,
+            "delivered_frames": 12231680,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4321280,
+            "delivered_frames": 4321280,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "16e5d6ed950d40972c5af4edee19c85c",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 19212288,
+            "delivered_frames": 19209728,
+            "missing_frames": 2048,
+            "expired_frames": 2048,
+            "gaps": 1,
+            "priming_frames": 512
+          },
+          "counters_end": {
+            "admitted_frames": 23533568,
+            "delivered_frames": 23531008,
+            "missing_frames": 2048,
+            "expired_frames": 2048,
+            "gaps": 1,
+            "priming_frames": 512
+          },
+          "delta": {
+            "admitted_frames": 4321280,
+            "delivered_frames": 4321280,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        }
+      ],
+      "comparison_eligible": true,
+      "limitation": "Bridge weight was sampled at interval end only; not a continuous scheduler-setting audit. Moonlight minimized; stream state unverified."
+    },
+    {
+      "name": "candidate-two-editors-90",
+      "input_sha256": "9b989bb5de10b9349fb2213b44a0dbcb2281de60439d2005664021cbbf02ebf5",
+      "editors_open": 2,
+      "seconds": 90.0211504855,
+      "clock": "Linux monotonic endpoint midpoint; bounded snapshot bracket",
+      "begin_bracket_ns": [
+        14945797761578,
+        14945799256642
+      ],
+      "end_bracket_ns": [
+        15035819446771,
+        15035819872420
+      ],
+      "trace_enabled": false,
+      "service_end": "CPUWeight=10000\nActiveState=active\n",
+      "conditions_begin": {
+        "power": {
+          "/sys/class/power_supply/ACAD/online": "1"
+        },
+        "governors": {
+          "/sys/devices/system/cpu/cpu7/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu5/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu6/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor": "powersave"
+        },
+        "clock_ticks": 100
+      },
+      "conditions_end": {
+        "power": {
+          "/sys/class/power_supply/ACAD/online": "1"
+        },
+        "governors": {
+          "/sys/devices/system/cpu/cpu7/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu5/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu3/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu6/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor": "powersave",
+          "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor": "powersave"
+        },
+        "clock_ticks": 100
+      },
+      "bitwig_scope_weight_begin": [
+        "[not set]"
+      ],
+      "bitwig_scope_weight_end": [
+        "[not set]"
+      ],
+      "cpu_by_comm_one_core": {
+        "python3": 27.015873346250224,
+        "BitwigStudio": 47.24445285427723,
+        "BitwigAudioEngi": 9.875456992112028,
+        "linux-vst-bridg": 0.0,
+        "host.exe": 237.15537831788487,
+        "BitwigPluginHos": 44.50065321754869
+      },
+      "cpu_scope": "Exact PID/start identities with selected comm names: Bitwig app/engine/plugin host, host.exe, manager and python3. Includes observer/other Python processes; excludes other Wine/system/compositor processes. Not total bridge/system CPU.",
+      "sessions": [
+        {
+          "session": "588f001c96b8b1e46146308f82e4b5a1",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 7353344,
+            "delivered_frames": 7352576,
+            "missing_frames": 256,
+            "expired_frames": 256,
+            "gaps": 1,
+            "priming_frames": 512
+          },
+          "counters_end": {
+            "admitted_frames": 11674112,
+            "delivered_frames": 11673344,
+            "missing_frames": 256,
+            "expired_frames": 256,
+            "gaps": 1,
+            "priming_frames": 512
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 100,
+            "open_stage": 100,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 100,
+            "open_stage": 100,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "139399efefcaf7b0b7a36efcf8cd7145",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 61848064,
+            "delivered_frames": 61827072,
+            "missing_frames": 19968,
+            "expired_frames": 19968,
+            "gaps": 44,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 66168832,
+            "delivered_frames": 66147328,
+            "missing_frames": 20480,
+            "expired_frames": 20480,
+            "gaps": 46,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320256,
+            "missing_frames": 512,
+            "expired_frames": 512,
+            "gaps": 2,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "8a11c219bf00c0aa78418978b536a9ca",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 53970432,
+            "delivered_frames": 53955072,
+            "missing_frames": 13824,
+            "expired_frames": 13824,
+            "gaps": 46,
+            "priming_frames": 1536
+          },
+          "counters_end": {
+            "admitted_frames": 58291200,
+            "delivered_frames": 58275840,
+            "missing_frames": 13824,
+            "expired_frames": 13824,
+            "gaps": 46,
+            "priming_frames": 1536
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "5291d724cdbf2809dab469fb1ce6a0be",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 82298880,
+            "delivered_frames": 82285824,
+            "missing_frames": 12032,
+            "expired_frames": 12032,
+            "gaps": 37,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 86619648,
+            "delivered_frames": 86606336,
+            "missing_frames": 12288,
+            "expired_frames": 12288,
+            "gaps": 38,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320512,
+            "missing_frames": 256,
+            "expired_frames": 256,
+            "gaps": 1,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 16,
+            "open_stage": 100,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 1,
+            "view_stage": 16,
+            "open_stage": 100,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "a3655e004def12288bf7ba148900c299",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 54792192,
+            "delivered_frames": 54789376,
+            "missing_frames": 1280,
+            "expired_frames": 1280,
+            "gaps": 5,
+            "priming_frames": 1536
+          },
+          "counters_end": {
+            "admitted_frames": 59112960,
+            "delivered_frames": 59110144,
+            "missing_frames": 1280,
+            "expired_frames": 1280,
+            "gaps": 5,
+            "priming_frames": 1536
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        },
+        {
+          "session": "16e5d6ed950d40972c5af4edee19c85c",
+          "generation_begin": 1,
+          "generation_end": 1,
+          "counters_begin": {
+            "admitted_frames": 66099200,
+            "delivered_frames": 66093824,
+            "missing_frames": 4352,
+            "expired_frames": 4352,
+            "gaps": 8,
+            "priming_frames": 1024
+          },
+          "counters_end": {
+            "admitted_frames": 70419968,
+            "delivered_frames": 70414592,
+            "missing_frames": 4352,
+            "expired_frames": 4352,
+            "gaps": 8,
+            "priming_frames": 1024
+          },
+          "delta": {
+            "admitted_frames": 4320768,
+            "delivered_frames": 4320768,
+            "missing_frames": 0,
+            "expired_frames": 0,
+            "gaps": 0,
+            "priming_frames": 0
+          },
+          "editor_begin": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          },
+          "editor_end": {
+            "available": true,
+            "independently_sampled": true,
+            "closed": 0,
+            "failure": 0,
+            "open": 0,
+            "view_stage": 0,
+            "open_stage": 0,
+            "exception_code": 0
+          }
+        }
+      ],
+      "comparison_eligible": false,
+      "limitation": "Bridge CPUWeight runtime override found at final readback; excluded from matched performance claims."
+    }
+  ],
+  "scheduler_anomaly_restoration": {
+    "before": "# This is a drop-in unit file extension, created via \"systemctl set-property\"\n# or an equivalent operation. Do not edit.\n[Service]\nCPUWeight=10000\n",
+    "mtime_utc": "2026-09-10T23:32:43.363812+00:00",
+    "writer": "unidentified",
+    "baseline": "unset; effective default 100",
+    "restore": {
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "readback": "NRestarts=0\nControlGroup=USER_CGROUP/app.slice/linux-vst-bridge.service\nCPUWeight=[not set]\nActiveState=active\n",
+    "physical_cpu_weight": "100"
+  },
+  "nonclaims": [
+    "No universal gap-free or hard-real-time claim.",
+    "Two-editor confounded interval retained honestly; cannot attribute its gaps or CPU to the candidate.",
+    "Existing startup and editor-period gaps remain visible in lifetime counters.",
+    "Full AP17 recovery and topology acceptance incomplete."
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "source_head_reused": "4793fb9b422aa8cceb89ff77ca8d0cb2982e6a90",
+  "production_changes_this_checkpoint": false,
+  "validation_reused": "evidence/ap17/r1/source-validation.json",
+  "new_validation": [
+    {
+      "file": "r1-final-policy.log",
+      "sha256": "d2a6bda55aeb11c82e00bd1233ac61c9c1e5d0a9d1f555341b2922603adf7027",
+      "exit": 1,
+      "summary": [
+        "----------------------------------------------------------------------",
+        "Ran 122 tests in 52.203s",
+        "",
+        "FAILED (failures=7)"
+      ]
+    },
+    {
+      "file": "r1-final-client-unsandboxed.log",
+      "sha256": "3d1efb749ae14399771ad1811f001eb7d570ccae6c700209ff7edc3ae986f8fa",
+      "exit": 0,
+      "summary": [
+        "----------------------------------------------------------------------",
+        "Ran 4 tests in 5.690s",
+        "",
+        "OK"
+      ]
+    }
+  ],
+  "local_socket_failure_disposition": "The 122-test policy command inside the sandbox had seven failure assertions in four real socket client tests, exiting before control-file publication. Identical four tests passed with loopback permission; no source changes. Other policy tests passed.",
+  "json_parse": "all evidence/ap17/r1 JSON parsed",
+  "git_diff_check": "passed",
+  "payload_review": "Only scalar counters, identities, hashes, bounded lifecycle/ownership records and observed UI values. No audio, vendor state, preset, credential, installer or proprietary module payloads.",
+  "prior_head_CI": [
+    {
+      "workflow": "AP10 native result lifetime",
+      "run": 34547798919,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "AP12 registered owner",
+      "run": 34547798935,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "PX2 proof policy",
+      "run": 34547798795,
+      "conclusion": "success"
+    }
+  ],
+  "final_head_CI_location": "PR #92 check suite and PR body; final evidence-only head does not rebuild deployed artifact identities."
+}

@@ -1,0 +1,90 @@
+{
+  "review": {
+    "schema": 1,
+    "review": 5174642190,
+    "head": "20f2c3a7382aa7dd0abb973c7ab09d708919ea29",
+    "tree": "7e4fa0866b51a7ec415cb4a4039444835178ced1",
+    "products": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "candidate_profile_sha256": "f9771e692c93dcb53351cc2e79b6e08ce7b501a8709def1aa03b22f6e9836a9c",
+        "candidate": {
+          "id": "81c75bb40ed6b229e29a8fc48f3f0a0d",
+          "sha256": "1a9ed30fa9efbfae8b6ec7f1e7852180bd9a8445e509fa6767964091d3186870"
+        },
+        "parent": {
+          "id": "90e23e3e71322c27e3f9e4ce1021b9d8",
+          "sha256": "01abb8019e422c5f8b25a176c27ceb0d0e4018c9f99228928cbaaf582185cba2"
+        }
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "candidate_profile_sha256": "0400f8f2425b5512362e4c6a636a091abe2f2c8315b4926327d30fcfd3f1f74e",
+        "candidate": {
+          "id": "d6fca8ad1ec4b5a1ece5c8d134b816d8",
+          "sha256": "7236e8b50fd59a50980c71911ad99f1316c3d6899b67392fed2b5fa5d09fda16"
+        },
+        "parent": {
+          "id": "d7c50af638553b3387f89a1064546aca",
+          "sha256": "e62c353565d4271f648c6831755ef6c95a764bec3a4141cf21bc6a5013fa2b4a"
+        }
+      }
+    ]
+  },
+  "prior_software_sha256": "476da9b2c3578158ffc835d0b4db86fd3343ca0f0e69630598f9d28ee60bf457",
+  "prior_manager_sha256": "806889a8bd41ac225d3926ae2b23ae95f21aa91566c3ba5d3e704265dfa23086",
+  "prior_manager_source": "e8326f062950489b5b4dc2dff4aa63f6c50527ae",
+  "limits": {
+    "global_dsp": 6,
+    "classes": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "dsp": 3
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "dsp": 4
+      }
+    ],
+    "service_workers": 16,
+    "maintenance": 1,
+    "native_image_hard": 4
+  },
+  "parallel_tracks": 3,
+  "serial_bridged_depth": 3,
+  "simultaneous_editors": 2,
+  "evidence": [
+    {
+      "path": "evidence/ap17/r1/artifacts.json",
+      "sha256": "d269d609b565d68de678a090fa8d4ece41a2fda3425cf97c22a2cd5643f4cca0"
+    },
+    {
+      "path": "evidence/ap17/r1/deployment-and-restoration.json",
+      "sha256": "9870bfc433c817c548fc089269b073f64f3dd5f009ae38749c45a05bd8dedde2"
+    },
+    {
+      "path": "evidence/ap17/r1/recall-and-failure.json",
+      "sha256": "adf6cad2f7f3647e61747f0c62f09372893ed3de279b0094003e08726066f798"
+    },
+    {
+      "path": "evidence/ap17/r1/serial-corner.json",
+      "sha256": "f3db6212683bf9a36a88e2f083a76bf4b3b1e5376b8fbd665bd8062510b46681"
+    },
+    {
+      "path": "evidence/ap17/r1/service-recovery.json",
+      "sha256": "ce0ee402ebd40f5ab780877bb9167aab0bf835e371e7cf554b98afd506f6eb21"
+    },
+    {
+      "path": "evidence/ap17/r1/reboot-recovery.json",
+      "sha256": "6901ac739ca5093862ebacf784ff32f6c873a1664c4d550bd2aa1fd50d60f616"
+    },
+    {
+      "path": "evidence/ap17/r1/installed-final.json",
+      "sha256": "e094c6f0eb108ccbdfcd9862b3349fdbe4a8baa477a3495c756768e47aca4481"
+    },
+    {
+      "path": "evidence/ap17/r1/completion-validation.json",
+      "sha256": "b557fda141cea2fb9d743d45a2ad3f00fb155f3cfd03930eb59f0af3f5a33d07"
+    }
+  ]
+}

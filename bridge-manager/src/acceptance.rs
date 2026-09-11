@@ -1,4 +1,4 @@
-//! One sealed AP15 review transition. No caller-selected profile, artifact,
+//! Sealed AP15 and AP17 independent-review transitions. No caller-selected profile, artifact,
 //! review or publication can grant acceptance authority.
 use crate::{catalogue::*, observation::*, profiles::*, publication::*, *};
 
@@ -30,7 +30,7 @@ pub struct AcceptedSoftware {
 /// precedes candidate software creation, commands, registry or link mutation.
 pub fn prepare(m: &Manager) -> Result<AcceptedSoftware> {
     let review: Review = serde_json::from_slice(REVIEW)?;
-    let profiles = installed_profiles()?;
+    let profiles = ap15_profiles()?;
     let candidates = qualification::candidates()?;
     require(
         profiles.len() == 2 && candidates.len() == 2,
@@ -48,11 +48,47 @@ pub(crate) fn prepare_selected(
     candidates: &[Profile],
     parents: &[Profile],
 ) -> Result<AcceptedSoftware> {
+    prepare_selected_for(
+        m,
+        review,
+        profiles,
+        candidates,
+        parents,
+        Qualification::Ap15Editor,
+    )
+}
+
+pub(crate) fn prepare_selected_for(
+    m: &Manager,
+    review: &Review,
+    profiles: &[Profile],
+    candidates: &[Profile],
+    parents: &[Profile],
+    purpose: Qualification,
+) -> Result<AcceptedSoftware> {
+    let (review_id, head, tree, revision, candidate_revision, limitation) = match purpose {
+        Qualification::Ap15Editor => (
+            5161767138,
+            "a84761133f15897a9526269f2eeb35a268419c15",
+            "d99e259837bec91eb5be6ef302644a3b72595dee",
+            7,
+            6,
+            Limitation::DirectEditorUnderQualification,
+        ),
+        Qualification::Ap17Capacity => (
+            5174642190,
+            "20f2c3a7382aa7dd0abb973c7ab09d708919ea29",
+            "7e4fa0866b51a7ec415cb4a4039444835178ced1",
+            10,
+            9,
+            Limitation::CapacityUnderQualification,
+        ),
+    };
     require(
         review.schema == 1
-            && review.review == 5161767138
-            && review.head == "a84761133f15897a9526269f2eeb35a268419c15"
-            && review.tree == "d99e259837bec91eb5be6ef302644a3b72595dee"
+            && review.review == review_id
+            && review.head == head
+            && review.tree == tree
             && review.products.len() == profiles.len()
             && candidates.len() == profiles.len()
             && parents.len() == profiles.len(),
@@ -84,17 +120,15 @@ pub(crate) fn prepare_selected(
     let mut source_manifest = None;
     for ((p, candidate), parent_profile) in profiles.iter().zip(candidates).zip(parents) {
         let mut normalized = p.clone();
-        normalized.revision = 6;
+        normalized.revision = candidate_revision;
         normalized.claim = Claim::ReviewCandidate;
         normalized.evidence = candidate.evidence.clone();
-        normalized
-            .limitations
-            .push(Limitation::DirectEditorUnderQualification);
+        normalized.limitations.push(limitation.clone());
         require(
-            p.revision == 7
+            p.revision == revision
                 && p.claim == Claim::VerifiedExactFixture
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle
-                && candidate.revision == 6
+                && candidate.revision == candidate_revision
                 && normalized == *candidate
                 && candidate.evidence.iter().all(|e| p.evidence.contains(e)),
             "acceptance_profile_transition",
@@ -112,14 +146,18 @@ pub(crate) fn prepare_selected(
         )?;
         let retained = m.load_revision(&p.class.class_id, &seal.candidate)?;
         require(
-            read_json::<Profile>(&m.root.join("profiles").join(&candidate.id).join("6.json"))?
-                == *candidate,
+            read_json::<Profile>(
+                &m.root
+                    .join("profiles")
+                    .join(&candidate.id)
+                    .join(format!("{candidate_revision}.json")),
+            )? == *candidate,
             "acceptance_profile_identity",
         )?;
         require(
             retained.profile == *candidate
                 && retained.parent.as_ref() == Some(&seal.parent)
-                && retained.qualification == Some(Qualification::Ap15Editor)
+                && retained.qualification == Some(purpose)
                 && retained.external_ids == external_ids(&p.class.class_id)?
                 && retained.performance.added_frames == 512,
             "acceptance_candidate_identity",
@@ -127,14 +165,24 @@ pub(crate) fn prepare_selected(
         m.verify_completed_publication(&retained, &seal.candidate)?;
         // Existing qualification law verifies the active physical parent and
         // all unchanged registration/environment/module/SDK constraints.
-        let prior = m.verify_qualification_parent(&db, candidate, &retained.registration)?;
+        let prior = match purpose {
+            Qualification::Ap15Editor => {
+                m.verify_qualification_parent(&db, candidate, &retained.registration)?
+            }
+            Qualification::Ap17Capacity => {
+                m.verify_qualification_parent_for(&db, candidate, &retained.registration, purpose)?
+            }
+        };
         require(
             prior.profile == *parent_profile
                 && prior.id == seal.parent.id
                 && db.classes[&p.class.class_id].managed_revision.as_ref() == Some(&seal.parent),
             "acceptance_parent_identity",
         )?;
-        let exact = qualification::load(m, candidate.clone())?;
+        let exact = match purpose {
+            Qualification::Ap15Editor => qualification::load(m, candidate.clone())?,
+            Qualification::Ap17Capacity => qualification::load_for(m, candidate.clone(), purpose)?,
+        };
         require(
             exact.host == retained.registration.host
                 && exact.source_manifest.sha256 == retained.registration.host_source_sha256,
@@ -197,4 +245,185 @@ pub(crate) fn prepare_selected(
         source_manifest: source_manifest.ok_or("acceptance_roster")?,
         catalogue,
     })
+}
+
+/// Finite AP17 acceptance seal. The CLI accepts no policy inputs.
+pub const CAPACITY_REVIEW: &[u8] = include_bytes!("../../evidence/ap17/acceptance/review.json");
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct EvidenceIdentity {
+    pub path: String,
+    pub sha256: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CapacityReview {
+    pub review: Review,
+    pub prior_software_sha256: String,
+    pub prior_manager_sha256: String,
+    pub prior_manager_source: String,
+    pub limits: capacity::Limits,
+    pub parallel_tracks: usize,
+    pub serial_bridged_depth: usize,
+    pub simultaneous_editors: usize,
+    pub evidence: Vec<EvidenceIdentity>,
+}
+pub(crate) fn verify_capacity_seal(seal: &CapacityReview) -> Result<()> {
+    let compiled: CapacityReview = serde_json::from_slice(CAPACITY_REVIEW)?;
+    require(
+        serde_json::to_vec(seal)? == serde_json::to_vec(&compiled)?
+            && seal.limits == capacity::fixture_limits()
+            && (
+                seal.parallel_tracks,
+                seal.serial_bridged_depth,
+                seal.simultaneous_editors,
+            ) == (3, 3, 2),
+        "acceptance_capacity_identity",
+    )?;
+    let evidence: &[(&str, &[u8])] = &[
+        (
+            "evidence/ap17/r1/artifacts.json",
+            include_bytes!("../../evidence/ap17/r1/artifacts.json"),
+        ),
+        (
+            "evidence/ap17/r1/deployment-and-restoration.json",
+            include_bytes!("../../evidence/ap17/r1/deployment-and-restoration.json"),
+        ),
+        (
+            "evidence/ap17/r1/recall-and-failure.json",
+            include_bytes!("../../evidence/ap17/r1/recall-and-failure.json"),
+        ),
+        (
+            "evidence/ap17/r1/serial-corner.json",
+            include_bytes!("../../evidence/ap17/r1/serial-corner.json"),
+        ),
+        (
+            "evidence/ap17/r1/service-recovery.json",
+            include_bytes!("../../evidence/ap17/r1/service-recovery.json"),
+        ),
+        (
+            "evidence/ap17/r1/reboot-recovery.json",
+            include_bytes!("../../evidence/ap17/r1/reboot-recovery.json"),
+        ),
+        (
+            "evidence/ap17/r1/installed-final.json",
+            include_bytes!("../../evidence/ap17/r1/installed-final.json"),
+        ),
+        (
+            "evidence/ap17/r1/completion-validation.json",
+            include_bytes!("../../evidence/ap17/r1/completion-validation.json"),
+        ),
+    ];
+    require(
+        seal.evidence.len() == evidence.len(),
+        "acceptance_evidence_identity",
+    )?;
+    for (expected, (path, bytes)) in seal.evidence.iter().zip(evidence) {
+        require(
+            expected.path == *path && expected.sha256 == hex(&sha2::Sha256::digest(bytes)),
+            "acceptance_evidence_identity",
+        )?;
+    }
+    Ok(())
+}
+pub fn prepare_capacity(m: &Manager) -> Result<AcceptedSoftware> {
+    let seal: CapacityReview = serde_json::from_slice(CAPACITY_REVIEW)?;
+    verify_capacity_seal(&seal)?;
+    require(
+        digest(&m.root.join("software.json"))? == seal.prior_software_sha256,
+        "acceptance_prior_software_identity",
+    )?;
+    // The exact prior software record pins the manager, helpers and catalogue.
+    let old: serde_json::Value = read_json(&m.root.join("software.json"))?;
+    require(
+        old["manager"]["sha256"].as_str() == Some(&seal.prior_manager_sha256),
+        "acceptance_prior_software_identity",
+    )?;
+    let profiles = installed_profiles()?;
+    let candidates = qualification::candidates_for(Qualification::Ap17Capacity)?;
+    require(
+        profiles.len() == 2 && candidates.len() == 2,
+        "acceptance_roster",
+    )?;
+    // Unknown or unresolved lease metadata is never permission for setup.
+    require(
+        capacity::owners(m)?
+            .iter()
+            .all(|o| o.kind == capacity::Kind::Keeper),
+        "active_lease_unresolved",
+    )?;
+    for owner in capacity::owners(m)? {
+        // Setup requires the old service stopped. A retained keeper lease is
+        // harmless only with its exact positive ownership retirement receipt.
+        let report: PathBuf = read_json(
+            &m.root
+                .join("runtime/leases")
+                .join(format!("{}.json", owner.session)),
+        )?;
+        require(
+            retired_keeper(&report, &owner.session)?,
+            "active_lease_unresolved",
+        )?;
+    }
+    prepare_selected_for(
+        m,
+        &seal.review,
+        &profiles,
+        &candidates,
+        &ap15_profiles()?,
+        Qualification::Ap17Capacity,
+    )
+}
+
+// Same receipt law as service reconciliation: keepers created by the retained
+// runtime use the legacy completed report, whereas schema-owned sessions must
+// provide their exact minimal ownership receipt. This only reads; setup does
+// not erase leases to gain permission.
+fn retired_keeper(report: &std::path::Path, session: &str) -> Result<bool> {
+    let receipt = report.with_extension("ownership.json");
+    let r: serde_json::Value = if receipt.exists() {
+        let r: serde_json::Value = read_json(&receipt)?;
+        require(
+            r["session"].as_str() == Some(session) && r["transport_retired"] == true,
+            "active_lease_unresolved",
+        )?;
+        r
+    } else {
+        let r: serde_json::Value = read_json(report)?;
+        require(r["ownership_schema"].is_null(), "active_lease_unresolved")?;
+        r
+    };
+    Ok(r["cleanup_confirmed"] == true)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn legacy_keeper_and_modern_receipts_require_positive_cleanup() {
+        let f = crate::test_fixture::Fixture::new();
+        let report = f.outer.join("keeper.json");
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":false})).unwrap();
+        assert!(!retired_keeper(&report, "01").unwrap());
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true})).unwrap();
+        assert!(retired_keeper(&report, "01").unwrap());
+        atomic_json(
+            &report,
+            &serde_json::json!({"ownership_schema":1,"cleanup_confirmed":true}),
+        )
+        .unwrap();
+        assert!(retired_keeper(&report, "01").is_err());
+        let receipt = report.with_extension("ownership.json");
+        atomic_json(
+            &receipt,
+            &serde_json::json!({"session":"02","transport_retired":true,"cleanup_confirmed":true}),
+        )
+        .unwrap();
+        assert!(retired_keeper(&report, "01").is_err());
+        atomic_json(
+            &receipt,
+            &serde_json::json!({"session":"01","transport_retired":true,"cleanup_confirmed":true}),
+        )
+        .unwrap();
+        assert!(retired_keeper(&report, "01").unwrap());
+    }
 }
