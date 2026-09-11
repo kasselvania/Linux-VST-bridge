@@ -14,7 +14,7 @@ struct BusLayout {
   for(int media=0;media<2;++media)for(int dir=0;dir<2;++dir){auto n=c.getBusCount(media,dir);require(n>=0&&n<=8,"bus count bound");counts[media*2+dir]=n;
    for(int i=0;i<n;++i){auto& b=buses[size++];require(c.getBusInfo(media,dir,i,b.info)==kResultOk,"bus metadata query");
     require(b.info.mediaType==media&&b.info.direction==dir&&(b.info.busType==kMain||b.info.busType==kAux),"bus metadata tuple");
-    if(media==kAudio){require(p.getBusArrangement(dir,i,b.arrangement)==kResultOk&&b.arrangement==SpeakerArr::kStereo&&b.info.channelCount==2,"only declared stereo audio supported");require((i==0)==(b.info.busType==kMain),"main audio bus index");}
+    if(media==kAudio){require(p.getBusArrangement(dir,i,b.arrangement)==kResultOk&&b.arrangement==SpeakerArr::kStereo&&b.info.channelCount==2,"only declared stereo audio supported");require(b.info.busType!=kMain||i==0,"main audio bus index");require(dir!=kOutput||b.info.busType==kMain,"main audio output required");}
     else require(b.info.channelCount>=0&&b.info.channelCount<=16,"event channel bound");
     b.supported=b.info.busType==kMain;b.active=b.supported&&(b.info.flags&BusInfo::kDefaultActive);
    }

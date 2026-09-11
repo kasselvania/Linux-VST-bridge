@@ -10,6 +10,16 @@ class Descriptor(unittest.TestCase):
   a=self.gen(self.records());self.assertIn('effect=true',a);self.assertIn('{0,0,1,2,1,1,3,',a)
   self.assertIn('{1,1,0,16,0,1,0,', self.gen(self.records(False)))
   self.assertEqual([s for s in a.splitlines() if '_UID 'in s],[s for s in self.gen(self.records(False)).splitlines() if '_UID 'in s])
+ def test_instrument_auxiliary_only_input_preserves_inactive_bus(self):
+  r=self.records(False)
+  r.insert(0,dict(state='ap8_bus',media=0,direction=0,index=0,channels=2,type=1,flags=1,arrangement=3,name='Sidechain'))
+  r.append(dict(state='ap12_class',class_id='00'*16,name='Aux instrument',vendor='Test',version='1.0',subcategories='Instrument|Synth',metadata_tier='factory_3_unicode'))
+  a=generate(r,'00'*16,'ab'*32)
+  self.assertIn('effect=false',a);self.assertIn('{0,0,0,2,1,1,3,u"Sidechain"}',a)
+  r[-1]['subcategories']='Fx'
+  with self.assertRaises(ValueError):generate(r,'00'*16,'ab'*32)
+  r[-1]['subcategories']='Instrument|Synth';r[1]['type']=1
+  with self.assertRaises(ValueError):generate(r,'00'*16,'ab'*32)
  def test_arrangements_indices_and_precision_are_not_guessed(self):
   for k,v in [('arrangement',0),('channels',1),('index',2)]:
    r=self.records();r[0][k]=v

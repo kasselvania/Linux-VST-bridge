@@ -20,7 +20,7 @@ def generate(records,class_id,module_sha256):
     for direction in (0,1):
         group=[r for r in buses if r['media']==0 and r['direction']==direction]
         mains=[r for r in group if r['type']==0]
-        if len(mains)!=(1 if direction or group else 0) or (mains and mains[0]['index']!=0):
+        if len(mains)>(1 if group else 0) or (direction and len(mains)!=1) or (mains and mains[0]['index']!=0):
             raise ValueError('one index-zero main audio bus required')
         if direction and len(group)!=1:raise ValueError('one audio output supported')
     notes=[r for r in buses if r['media']==1 and r['direction']==0]
@@ -41,6 +41,8 @@ def generate(records,class_id,module_sha256):
     if ('Fx' in categories)==('Instrument' in categories):
         raise ValueError('ambiguous or absent declared VST3 role')
     effect='Fx' in categories
+    if effect and not any(r['media']==0 and r['direction']==0 and r['type']==0 for r in buses):
+        raise ValueError('effect requires main audio input')
     literals={}
     for key,limit in [('vendor',63),('version',63),('subcategories',127)]:
         value=vendor[key]

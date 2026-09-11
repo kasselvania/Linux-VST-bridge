@@ -1,9 +1,23 @@
 #include "native-vst3-proxy/source/output_results.h"
 #include "windows-factory-probe/source/bus_layout.h"
+#include "public.sdk/source/vst/vstaudioeffect.h"
 #include <cassert>
 #include <iostream>
 using namespace AP10Results;
+// Production BusLayout reads the SDK object's real bus declarations. No
+// Pigments name dispatch: auxiliary-only input is represented, never enabled.
+struct AuxiliaryInstrument final : Steinberg::Vst::AudioEffect {
+ AuxiliaryInstrument(){using namespace Steinberg::Vst;addAudioInput(STR16("Sidechain"),SpeakerArr::kStereo,kAux);addAudioOutput(STR16("Stereo Out"),SpeakerArr::kStereo);addEventInput(STR16("Notes"),16);}
+};
 int main(){
+ {using namespace linux_vst_bridge;AuxiliaryInstrument instrument;wf0::BusLayout layout;layout.read(instrument,instrument);
+ assert(layout.counts[0]==1&&layout.counts[1]==1);assert(!layout.buses[0].supported&&!layout.buses[0].active);assert(layout.buses[1].supported);
+ std::vector<uint8_t> bytes(28+32*layout.size);ap1::put(bytes.data()+20,1,4);ap1::put(bytes.data()+24,layout.size,4);std::array<int,4> indices{};
+ for(size_t i=0;i<layout.size;++i){auto&b=layout.buses[i];auto*r=bytes.data()+28+32*i;auto m=b.info.mediaType,d=b.info.direction;ap1::put(r,m,4);ap1::put(r+4,d,4);ap1::put(r+8,indices[m*2+d]++,4);ap1::put(r+12,b.info.channelCount,4);ap1::put(r+16,b.info.busType,4);ap1::put(r+20,b.active,4);ap1::put(r+24,b.arrangement,8);}
+ layout.contract(bytes);layout.activate(instrument,true);assert(!layout.buses[0].active);
+ ap1::put(bytes.data()+28+20,1,4);bool refused=false;try{layout.contract(bytes);}catch(...){refused=true;}assert(refused);layout.activate(instrument,false);
+ }
+
  {using namespace linux_vst_bridge;wf0::BusLayout b;b.size=1;auto&out=b.buses[0];out.info.mediaType=1;out.info.direction=1;out.info.channelCount=16;out.info.busType=0;out.info.flags=0;out.supported=true;out.active=false;
 std::vector<uint8_t> p(60);ap1::put(p.data()+20,1,4);ap1::put(p.data()+24,1,4);ap1::put(p.data()+28,1,4);ap1::put(p.data()+32,1,4);ap1::put(p.data()+40,16,4);ap1::put(p.data()+48,1,4);b.contract(p);assert(b.buses[0].active);
 ap1::put(p.data()+48,0,4);b.contract(p);assert(!b.buses[0].active);out.supported=false;ap1::put(p.data()+48,1,4);bool refused=false;try{b.contract(p);}catch(...){refused=true;}assert(refused);}
