@@ -319,8 +319,15 @@ pub(crate) fn served(
     require(revision.registration == *r, "installed_host_mismatch")?;
     m.verify_retained_authority(&revision, &[p])
 }
+fn already_restored(m: &Manager, key: &str, state: &Publication) -> Result<bool> {
+    if *state != Publication::Removed { return Ok(false); }
+    require(crate::publication::physical(&m.link(key))?.is_none(), "foreign_publication")?;
+    Ok(true)
+}
 pub fn restore(m: &Manager) -> Result<()> {
-    let p = candidate()?;
+    restore_selected(m, &candidate()?)
+}
+fn restore_selected(m: &Manager, p: &Profile) -> Result<()> {
     let db = m.registry()?;
     if let Some(e) = db.classes.get(&p.class.class_id) {
         let r = m.load_revision(
@@ -330,9 +337,10 @@ pub fn restore(m: &Manager) -> Result<()> {
                 .ok_or("qualification_publication_changed")?,
         )?;
         require(
-            r.profile == p && r.qualification == Some(Qualification::Ap18Pigments),
+            replacement_prior(&r.profile, p)? && r.qualification == Some(Qualification::Ap18Pigments),
             "qualification_exact_candidate_required",
         )?;
+        if already_restored(m, &p.class.class_id, &e.publication)? { return Ok(()); }
         m.unpublish(&p.class.class_id)?;
     }
     Ok(())
@@ -496,6 +504,19 @@ mod tests {
             .is_err());
         assert_eq!(snapshot(&f.outer), before);
         assert_ne!(n.external_ids, external_ids(&p.class.class_id).unwrap());
+    }
+    #[test]
+    fn removed_candidate_reconciliation_is_inert_and_refuses_foreign_link() {
+        let (f, p, _, _) = fixture();
+        let before = snapshot(&f.outer);
+        assert!(already_restored(&f.m, &p.class.class_id, &Publication::Removed).unwrap());
+        assert!(already_restored(&f.m, &p.class.class_id, &Publication::Removed).unwrap());
+        assert!(!already_restored(&f.m, &p.class.class_id, &Publication::Published).unwrap());
+        assert_eq!(snapshot(&f.outer), before);
+        fs::write(f.m.link(&p.class.class_id), b"foreign").unwrap();
+        let before = snapshot(&f.outer);
+        assert!(already_restored(&f.m, &p.class.class_id, &Publication::Removed).is_err());
+        assert_eq!(snapshot(&f.outer), before);
     }
     #[test]
     fn failed_candidate_is_history_only_and_replacement_is_exact() {
