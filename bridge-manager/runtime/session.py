@@ -39,6 +39,10 @@ def environment(reg):
         if key in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS'):env[key]=value
     if not env.get('DISPLAY'):raise RuntimeError('graphical user session is unavailable')
     if reg['compatibility']['disable_windows_accessibility']:env['WINEDLLOVERRIDES']='uiautomationcore='
+    policy=reg['compatibility'].get('event_output')
+    if policy is not None:
+        if policy!='reported_zero_event_channels_unspecified':raise RuntimeError('unsupported event output policy')
+        env['LVB_EVENT_OUTPUT_POLICY']=policy
     return env
 
 def command(spec):

@@ -296,3 +296,61 @@ publications/projects unchanged, zero DSP/pending/stale sessions, service and
 keeper active, tracing off, CPUWeight restored unset/effective100. See
 `evidence/ap18/pigments/result-custody-live.json` and
 `evidence/ap18/pigments/result-custody-installed-final.json`. PR #95 stays draft.
+
+
+### Event-output operational census (review 5183863039)
+
+A separate nonprocessing inspection mode now captures the same component's raw
+output-event BusInfo after initialization, arrangement negotiation, processing
+setup, event-bus activation, component activation, and processing start. The
+production inspection owner retains its normal admission lock, timeout and
+positive cleanup. No editor or state capture is needed. The SDK fixture covers
+unchanged zero, zero becoming sixteen, and an unchanged positive count.
+
+The exact installed Pigments reported **zero at all six stages**, with one active
+main event-output bus and unchanged stereo audio arrangements. All SDK calls and
+cleanup completed. This excludes a positive post-negotiation channel count for
+this fixture. No raw value was replaced, compatibility policy selected, or
+result validator changed. Bitwig's event/parameter sink presence remains the
+next required observation. Revisions 1–5 and both ordinary revision-10 products
+remain unchanged; no revision-6 profile has been created.
+
+See `evidence/ap18/pigments/event-output-operational-census.json`. PR #95 remains
+draft and unmerged. This is census evidence, not successful Pigments processing.
+
+### Native sink observation interrupted
+
+The one authorized external callback snapshot found both Bitwig result sinks
+non-null, output-event bus active and advertised channels zero, but it occurred
+28.360 seconds after the supervisor's pre-containment snapshot of an already
+failed Windows session. It therefore does not establish sink presence on a
+healthy or rejected callback. Case B/C remains unresolved; no normalization or
+revision 6 has been created. A replacement live snapshot requires renewed
+operator authorization; the first authorized snapshot has been consumed.
+
+The preceding session independently retained EventChannel at request 90385,
+callback 90383, position 23137792, 256 frames, Note On bus0/channel0/pitch58,
+offset32, zero input notes/parameters and zero prior output use. Processing
+returned, stopped and joined; mapped custody and post-join JSON agree. The
+outer launcher exited 5; the final editor stage was 215, before vendor view
+release. Exact Windows termination cause remains unknown. The operator reported
+a possible touchscreen UI close; this is context, not causal proof.
+
+Pigments was restored inactive. Ordinary LoFi/FRAGMENTS physical publications,
+software, protected project hashes and Flatpak permissions equal baseline.
+Service/keeper active; zero DSP/pending/stale sessions, tracing off, no Bitwig or
+debugger, CPUWeight unset/effective100. An earlier unexplained CPUWeight override
+is excluded from performance evidence. See
+`evidence/ap18/pigments/event-output-sink-interrupted.json`.
+
+### Direct correction authorized after the interrupted observation
+
+The operator explicitly removed the pre-repair sink-observation prerequisite.
+Implement the exact-profile reported-zero/effective-sixteen interpretation in
+the native descriptor, Windows setup comparison and Collector bus limit. Keep
+the existing result-delivery path, all other validation and capacities. Preserve
+revisions 1–5; build corrected revision 6 through the existing sealed route.
+No further pre-repair live investigation or desktop control is authorized.
+Use SSH/background tools for the corrected C3 check, then continue AP18 if it
+plays. The attempted replacement debugger wait expired without finding an
+instance or taking a snapshot.

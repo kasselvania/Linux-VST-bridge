@@ -35,6 +35,15 @@ class VendorOperationTests(unittest.TestCase):
 
 
 class BusCensusCommandTests(unittest.TestCase):
+    def test_event_policy_is_registered_not_ambient(self):
+        reg={'environment':{'root':'/fixture'},'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\nLVB_EVENT_OUTPUT_POLICY=reported_zero_event_channels_unspecified\n'):
+            self.assertNotIn('LVB_EVENT_OUTPUT_POLICY',session.environment(reg))
+            reg['compatibility']['event_output']='reported_zero_event_channels_unspecified'
+            self.assertEqual(session.environment(reg)['LVB_EVENT_OUTPUT_POLICY'],reg['compatibility']['event_output'])
+            reg['compatibility']['event_output']='all_zero_buses'
+            with self.assertRaisesRegex(RuntimeError,'unsupported event output policy'):session.environment(reg)
+
     def test_probe_is_inspection_only_and_handshake_bound(self):
         reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
              'metadata':{'class_id':'A'*32},'host':{'path':'/fixture/compatdata/pfx/drive_c/host.exe','sha256':'1'*64},

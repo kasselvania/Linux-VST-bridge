@@ -196,6 +196,8 @@ impl Metadata {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Compatibility {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_output: Option<profiles::EventOutputPolicy>,
     pub disable_windows_accessibility: bool,
 }
 /// Installed performance preference, independently versioned from vendor state

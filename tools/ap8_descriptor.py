@@ -1,8 +1,19 @@
 """Prepare one native descriptor from actual SDK inspection (not a scanner)."""
 import argparse,hashlib,json,pathlib,uuid,math
 
-def generate(records,class_id,module_sha256):
-    buses=[r for r in records if r.get('state')=='ap8_bus']
+def generate(records,class_id,module_sha256,profile=None):
+    buses=[dict(r) for r in records if r.get('state')=='ap8_bus']
+    policy=None if profile is None else profile['capabilities'].get('event_output')
+    if profile is not None and (profile['class']['class_id']!=class_id or profile['module_sha256']!=module_sha256):
+        raise ValueError('descriptor profile identity mismatch')
+    if policy is not None:
+        if policy!='reported_zero_event_channels_unspecified':raise ValueError('unsupported event output policy')
+        outputs=[r for r in buses if r['media']==1 and r['direction']==1]
+        if len(outputs)!=1 or outputs[0]['index']!=0 or outputs[0]['channels']!=0:
+            raise ValueError('event output policy metadata mismatch')
+        outputs[0]['channels']=16
+    # The original census is never changed; keep raw counts in the descriptor too.
+    raw=[r['channels'] for r in records if r.get('state')=='ap8_bus']
     # Preserve SDK indices and arrangements. One stereo main or sole auxiliary input may be active;
     # additional auxiliary audio remains represented but inactive.
     for media in (0,1):
@@ -74,6 +85,7 @@ inline constexpr char vendor[]='''+literals['vendor']+''';
 inline constexpr char version[]='''+literals['version']+''';
 inline constexpr char subcategories[]='''+literals['subcategories']+''';
 inline constexpr bool effect='''+('true' if effect else 'false')+''';
+inline constexpr int reported_bus_channels[]={'''+','.join(str(n) for n in raw)+'''};
 inline constexpr Bus buses[]={
 '''+',\n'.join('{'+','.join([str(r[k]) for k in ('media','direction','index','channels','type','flags')]+[str(r.get('arrangement',0)),quote(r['name'])])+'}' for r in buses)+'''
 };
@@ -86,6 +98,6 @@ inline constexpr Parameter parameters[]={
 '''
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('inspection',type=pathlib.Path);p.add_argument('--class-id',required=True);p.add_argument('--module-sha256',required=True);p.add_argument('--output',type=pathlib.Path,required=True);a=p.parse_args()
-    a.output.write_text(generate(json.loads(a.inspection.read_text())['records'],a.class_id,a.module_sha256))
+    p=argparse.ArgumentParser();p.add_argument('inspection',type=pathlib.Path);p.add_argument('--class-id',required=True);p.add_argument('--module-sha256',required=True);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--profile',type=pathlib.Path);a=p.parse_args()
+    a.output.write_text(generate(json.loads(a.inspection.read_text())['records'],a.class_id,a.module_sha256,json.loads(a.profile.read_text()) if a.profile else None))
 if __name__=='__main__':main()

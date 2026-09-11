@@ -54,6 +54,7 @@ closed_enum!(State {
     ConcurrentReadOnlyCaptureV12
 });
 closed_enum!(Precision { Float32Only });
+closed_enum!(EventOutputPolicy { ReportedZeroEventChannelsUnspecified });
 closed_enum!(PerformancePolicy {
     Frames512Recommended256Unqualified
 });
@@ -75,6 +76,8 @@ closed_enum!(Limitation {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Capabilities {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_output: Option<EventOutputPolicy>,
     pub accessibility: Accessibility,
     pub editor: Editor,
     pub state: State,
@@ -83,11 +86,9 @@ pub struct Capabilities {
 }
 impl Capabilities {
     pub fn compatibility(&self) -> Compatibility {
-        match self.accessibility {
-            Accessibility::WindowsDefault => Compatibility::default(),
-            Accessibility::DisabledForVendorProcess => Compatibility {
-                disable_windows_accessibility: true,
-            },
+        Compatibility {
+            disable_windows_accessibility: self.accessibility == Accessibility::DisabledForVendorProcess,
+            event_output: self.event_output.clone(),
         }
     }
 }
@@ -308,4 +309,23 @@ pub fn external_ids(class_id: &str) -> Result<[String; 2]> {
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
         hex(&bytes)
     }))
+}
+
+#[cfg(test)]
+mod event_policy_tests {
+    use super::*;
+    #[test]
+    fn policy_is_closed_optional_and_preserves_old_fingerprints() {
+        let original=crate::pigments::candidate().unwrap();
+        let bytes=serde_json::to_vec(&original).unwrap();
+        assert!(!String::from_utf8(bytes).unwrap().contains("event_output"));
+        assert_eq!(original.fingerprint().unwrap(),"5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4");
+        let mut corrected=original.clone();
+        corrected.capabilities.event_output=Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified);
+        assert_eq!(corrected.capabilities.compatibility().event_output,corrected.capabilities.event_output);
+        assert!(Profile::parse(&serde_json::to_vec(&corrected).unwrap()).is_ok());
+        assert!(corrected.claim.require(SelectionPurpose::Activation).is_err());
+        let mut value=serde_json::to_value(corrected).unwrap();value["capabilities"]["event_output"]=serde_json::json!("all_zero_buses");
+        assert!(Profile::parse(&serde_json::to_vec(&value).unwrap()).is_err());
+    }
 }

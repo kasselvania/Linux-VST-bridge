@@ -69,7 +69,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     for (int b=0;b<3;++b) {
         auto& block=blocks[b];block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard); block.gain=b==0?0.5:0.25;
         block.returned.buses=uint32_t(layout.counts[3]);
-        size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput){block.returned.channels[event_out]=layout.buses[i].info.channelCount;block.returned.bus_active[event_out++]=layout.buses[i].active?1:0;}
+        size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput){block.returned.channels[event_out]=layout.buses[i].effective_channels;block.returned.bus_active[event_out++]=layout.buses[i].active?1:0;}
         for (int ch=0;ch<2;++ch) {
             block.input[ch].front()=block.input[ch][frames+1]=std::bit_cast<float>(guard);
             block.output[ch].fill(std::bit_cast<float>(sentinel));

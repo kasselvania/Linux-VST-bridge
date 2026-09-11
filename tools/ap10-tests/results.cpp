@@ -47,7 +47,35 @@ static void rejection_tests(){
  c.reset(0);e=event();assert(c.addEvent(e)==kResultOk);q=c.addParameterData(1,index);assert(q->addPoint(0,.25,index)==kResultOk);e.sampleOffset=1;check(e,Rejection::EventExtent);
 }
 
+static void event_policy_tests(){
+ using namespace linux_vst_bridge;using namespace Steinberg::Vst;
+ AuxiliaryInstrument instrument;instrument.addEventOutput(STR16("Output"),0);
+ wf0::BusLayout raw,corrected;raw.read(instrument,instrument,false);corrected.read(instrument,instrument,true);
+ auto& original=raw.buses[raw.size-1];auto& effective=corrected.buses[corrected.size-1];
+ assert(original.info.channelCount==0&&original.effective_channels==0);
+ assert(effective.info.channelCount==0&&effective.effective_channels==16);
+ std::vector<uint8_t> setup(28+32*corrected.size);ap1::put(setup.data()+20,1,4);ap1::put(setup.data()+24,corrected.size,4);
+ std::array<unsigned,4> index{};
+ for(size_t i=0;i<corrected.size;++i){auto& b=corrected.buses[i];auto* p=setup.data()+28+32*i;unsigned m=b.info.mediaType,d=b.info.direction;
+  ap1::put(p,m,4);ap1::put(p+4,d,4);ap1::put(p+8,index[m*2+d]++,4);ap1::put(p+12,b.effective_channels,4);ap1::put(p+16,b.info.busType,4);ap1::put(p+20,b.active,4);ap1::put(p+24,b.arrangement,8);
+ }
+ corrected.contract(setup);bool refused=false;try{raw.contract(setup);}catch(...){refused=true;}assert(refused);
+ Collector c;c.buses=1;c.channels[0]=effective.effective_channels;c.bus_active[0]=1;
+ Event e{};e.type=Event::kNoteOnEvent;e.busIndex=0;e.sampleOffset=144;e.flags=3;e.noteOn={0,60,0,.787401556968689f,0,17};
+ for(int channel:{0,15,-1,16}){c.reset(256);e.noteOn.channel=channel;auto result=c.addEvent(e);
+  if(channel<0||channel>=16){assert(result==kResultFalse&&c.rejection.reason==Rejection::EventChannel);continue;}
+  assert(result==kResultOk);ap10_results_t expected{};assert(append(expected,e,256));assert(std::memcmp(&expected,&c.values,sizeof(expected))==0);
+  Output output;output.packet=c.values;Collector host;host.buses=1;host.channels[0]=16;host.reset(256);ProcessData data{};data.numSamples=256;data.outputEvents=&host;
+  assert(output.deliver(data,[](int b){return b==0?1:-1;},[](uint32_t){return false;}));Event delivered{};assert(host.getEvent(0,delivered)==kResultOk);
+  assert(delivered.busIndex==e.busIndex&&delivered.sampleOffset==e.sampleOffset&&delivered.flags==e.flags&&delivered.noteOn.channel==channel&&delivered.noteOn.pitch==60&&delivered.noteOn.velocity==e.noteOn.velocity&&delivered.noteOn.noteId==17);
+  output.release_requested=true;assert(output.release(data,[](int){return 1;}));assert(output.active_notes()==0);
+ }
+ c.reset(256);c.channels[0]=original.effective_channels;e.noteOn.channel=0;assert(c.addEvent(e)==kResultFalse&&c.rejection.reason==Rejection::EventChannel);
+ AuxiliaryInstrument positive;positive.addEventOutput(STR16("Output"),7);raw.read(positive,positive,false);assert(raw.buses[raw.size-1].effective_channels==7);
+}
+
 int main(){
+ event_policy_tests();
  rejection_tests();
  {using namespace linux_vst_bridge::wf0;InputObservation t;float z[]={0,0},l[]={.25f,.5f},r[]={-.75f,-.125f};t.observe(1,1,0,2,3,z,z);t.observe(1,2,2,2,0,l,r);t.observe(1,3,4,2,0,l,r);t.observe(1,4,6,2,3,z,z);assert(t.count==3&&t.rows[1].sequence==2&&t.rows[0].hash==t.rows[2].hash&&t.rows[1].hash[0]!=t.rows[1].hash[1]);assert(t.rows[1].hash[0]==1596836236129080722ull&&t.rows[1].hash[1]==15537787510424757890ull);for(unsigned i=0;i<80;++i)t.observe(1,i,i,2,0,i%2?z:l,i%2?z:r);assert(t.count==32&&t.overflow>0);}
 
