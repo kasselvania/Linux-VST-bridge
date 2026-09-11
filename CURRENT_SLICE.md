@@ -192,12 +192,25 @@ Update one AP18 implementation PR with exact source and artifact identities, ins
 
 ### Current checkpoint
 
-ASC 2.12.0.3157 was installed through the managed environment. Three registered
-launches reached operator-owned sign-in but no subsequent library window; all
-ended with launcher exit 5 and positive cleanup. Matching the vendor shortcut's
-working directory did not resolve the failure. The failure owner remains
-unknown, and further login retries are stopped pending a focused diagnostic
-handoff. See [the bounded record](evidence/ap18/asc-login-blocker.json) and
-[AP18's post-login blocker](docs/AP18.md#post-login-blocker-bounded-stopping-point).
-Pigments and the end-to-end vertical remain incomplete. Ordinary revision-10
-publications are unchanged and valid; PR #95 remains draft, open and unmerged.
+The focused diagnostic captured a fatal `0xC0000005` exception in ASC's main
+process after the one instrumented operator login. Agent survived main by about
+29.412 seconds; the supervisor retained ownership until the cgroup was empty
+and did not terminate the handoff. Launcher exit 5 alone was previously
+ambiguous; the new private trace establishes a fatal exception for this attempt.
+The exact DLL/function at the relocated fault IP remains unresolved because
+loaded module ranges were not retained. Do not choose a compatibility change
+or repeat login blindly from that gap.
+
+The companion owner now retains dedicated-cgroup ownership, bounded private
+separate diagnostics, mapped-image identity and idempotent completed cancellation.
+Focused manager/runtime tests and Linux build pass. These repairs close source
+ownership/observation defects; they do not fix ASC's crash. See
+[the focused result](evidence/ap18/post-login/observation.json) and
+[its interpretation](docs/AP18.md#focused-post-login-diagnosis-fatal-main-process-exception).
+The previous three attempts remain distinct historical evidence.
+
+Pigments and the vertical remain incomplete. Ordinary revision-10 publications,
+revision-7/3 history, modules and checked project hashes remain unchanged.
+Service is active, keeper retired/lazy, no DSP or vendor operation remains,
+tracing is off, and CPUWeight is unset/effective 100. 512 remains recommended;
+256 is unqualified. PR #95 remains draft, open and unmerged.

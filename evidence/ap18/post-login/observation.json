@@ -1,0 +1,172 @@
+{
+  "schema": 1,
+  "basis": "Focused AP18 post-login diagnostic work order; no unchanged login retries",
+  "reviewed_start": "ec2d1ab044762fd523feeb40943b2b93fc63ec00",
+  "final_owner_source": "87c0bdec5b79f6520f7d087dee646218422877d6",
+  "fixture": {
+    "ASC": "2.12.0.3157",
+    "main_sha256": "188afb698a0d7838bf491d208f56e9614846e56a60c90919d1018857ca3e7e25",
+    "agent_sha256": "d0851a06448ac7babda20411387a816fd412069af6139e1a1d286b51822de37e",
+    "updater_sha256": "4362427643337b3ee881307870359066401da35bb35d02cd55dbfd3a643243bb",
+    "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "environment": "existing Arturia persistent revision 1"
+  },
+  "startup": {
+    "shortcuts": 2,
+    "target": "exact registered ASC main",
+    "arguments": [],
+    "working_directory": "ASC executable parent",
+    "matching_Run_RunOnce": 0,
+    "matching_Startup_shortcuts": 0,
+    "matching_services": 0,
+    "scheduled_task_files": 0,
+    "manifest_execution_level": {
+      "main": "requireAdministrator",
+      "agent": "asInvoker",
+      "updater": "asInvoker"
+    },
+    "uiAccess": false,
+    "Agent_contract": "No separate startup registration found. Launching the main creates the exact Agent in both tested runner modes. No invented Agent arguments or persistent startup change."
+  },
+  "probes": [
+    {
+      "id": "agent-only",
+      "owner_source": "1286d13e8de441af86bb303e3064a400586efe8c",
+      "login": false,
+      "actual_registered_images": [
+        "agent"
+      ],
+      "main_window_count": 0,
+      "local_IPC": "Owned UNIX sockets and loopback TCP socket metadata observed; no payload inspected; peer protocol readiness unproved",
+      "result": "natural exit 0; positive cgroup cleanup after about 35.6 seconds",
+      "missing_DLL_errors": 0,
+      "overflow_bytes": 0,
+      "note": "No main was launched during this probe. Natural Agent exit does not establish Agent failure."
+    },
+    {
+      "id": "main-runinprefix",
+      "owner_source": "1286d13e8de441af86bb303e3064a400586efe8c",
+      "login": false,
+      "actual_registered_images": [
+        "main",
+        "agent"
+      ],
+      "visible_top_level_windows": 1,
+      "window_geometry": [
+        960,
+        660,
+        100,
+        85
+      ],
+      "result": "explicit cancel; positive cleanup",
+      "missing_DLL_errors": 0,
+      "overflow_bytes": 0
+    },
+    {
+      "id": "main-full-initialization",
+      "owner_source": "1286d13e8de441af86bb303e3064a400586efe8c",
+      "login": false,
+      "actual_registered_images": [
+        "main",
+        "agent"
+      ],
+      "visible_top_level_windows": 1,
+      "window_geometry": [
+        960,
+        660,
+        100,
+        85
+      ],
+      "result": "explicit cancel; positive cleanup",
+      "missing_DLL_errors": 0,
+      "overflow_bytes": 0
+    }
+  ],
+  "probe_limitations": [
+    "The first observer incorrectly counted wrapper command arguments as image identity. Independent mapped-device/inode snapshots established one real main and one Agent. Commit 87c0bdec removes argument matching and never reads command lines.",
+    "An Agent-only probe completed before cancel; the old CLI reported the already collected unit missing. Commit 87c0bdec makes completed cancellation idempotent.",
+    "Full initialization and runinprefix both reached login. No post-login success or runner-mode fix follows from this non-login comparison."
+  ],
+  "final_login": {
+    "attempts": 1,
+    "operator_owned": true,
+    "account_fields_captured": false,
+    "route": "exact main, runinprefix, diagnostic channels enabled",
+    "before": {
+      "main": 1,
+      "agent": 1,
+      "updater": 0,
+      "visible_main_windows": 1
+    },
+    "operator_result": "Login window closes/minimizes; no library, error or signal appears",
+    "exception": {
+      "process_alias": "asc-main",
+      "thread_alias": "asc-main-thread",
+      "Windows_exception_code": "0xC0000005",
+      "fault_IP": "0x00006ffffdda7988",
+      "termination_status_signed": -1073741819,
+      "outer_launcher_exit": 5,
+      "classification": "Fatal access violation in the ASC main process; outer 5 is not an observed Arturia Error 05",
+      "DLL_or_symbol": "unresolved: loaded module base/range map was not retained; preferred PE bases do not resolve relocated fault address",
+      "missing_DLL_errors": 0
+    },
+    "relative_timeline_ms": {
+      "clock": "Python time.monotonic_ns, relative to first journal event; sampled observation, not exact Windows exit clock",
+      "main_disappeared": 42029.112,
+      "agent_disappeared": 71440.825,
+      "outer_exit_observed": 71594.106,
+      "cgroup_empty": 71594.888,
+      "owner_retired": 71594.994,
+      "agent_survived_main_by": 29411.713
+    },
+    "clock_caveat": "Wine timestamp orders exception and NtTerminateProcess in the Windows trace. It is not directly subtracted from Python monotonic time. Membership sampling is nominally 100 ms plus observer scheduling/collection; exact-image refresh is 1 s.",
+    "after": {
+      "main": 0,
+      "agent": 0,
+      "top_level_ASC_windows": 0,
+      "owned_cgroup_members": 0,
+      "cleanup_confirmed": true,
+      "owner_error": false,
+      "cancel_or_cleanup_signal_before_empty": false
+    },
+    "retained_bytes": {
+      "stdout": 177,
+      "stderr": 327705,
+      "process": 18878,
+      "total": 346760
+    },
+    "discarded_bytes": 0
+  },
+  "id_ascd_metadata": {
+    "pre_install_archive_entry_present": false,
+    "after_prior_attempts_exists": false,
+    "after_each_probe_exists": false,
+    "after_final_login_exists": false,
+    "contents_accessed": false,
+    "scope": "Existence/size/mtime only; absence at samples does not exclude transient creation/deletion."
+  },
+  "causal_result": {
+    "established": [
+      "The main launch starts the Agent; it is not simply absent.",
+      "Both registered images exist before operator login.",
+      "ASC main suffers a fatal access violation and disappears before Agent.",
+      "The supervisor retains the operation until the cgroup is empty and does not kill the handoff in this attempt.",
+      "No process remains with an invisible library window after failure."
+    ],
+    "not_established": [
+      "Exact DLL/function at the relocated crash address",
+      "Whether account processing, a runtime function, or earlier corruption triggers the fault",
+      "ASC main-to-Agent IPC semantics or successful authenticated handoff",
+      "A repair for the ASC crash",
+      "That the previous discarded-log attempts had the same crash"
+    ]
+  },
+  "next_boundary": "Resolve the captured fault against an actual loaded-module map / symbolized Windows stack before choosing a compatibility change. No further unchanged login attempt is authorized.",
+  "disposition": [
+    "COMPANION_OWNERSHIP_REPAIRED",
+    "ASC_MAIN_ACCESS_VIOLATION_CAPTURED",
+    "ASC_LIBRARY_BLOCKED",
+    "PIGMENTS_BLOCKED",
+    "PR_95_DRAFT_UNMERGED"
+  ]
+}
