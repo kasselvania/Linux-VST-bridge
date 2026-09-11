@@ -1,5 +1,6 @@
 #include "native-vst3-proxy/source/output_results.h"
 #include "windows-factory-probe/source/bus_layout.h"
+#include "windows-factory-probe/source/input_observation.h"
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include <cassert>
 #include <iostream>
@@ -19,6 +20,8 @@ struct AuxiliaryInstrument final : Steinberg::Vst::AudioEffect {
 };
 
 int main(){
+ {using namespace linux_vst_bridge::wf0;InputObservation t;float z[]={0,0},l[]={.25f,.5f},r[]={-.75f,-.125f};t.observe(1,1,0,2,3,z,z);t.observe(1,2,2,2,0,l,r);t.observe(1,3,4,2,0,l,r);t.observe(1,4,6,2,3,z,z);assert(t.count==3&&t.rows[1].sequence==2&&t.rows[0].hash==t.rows[2].hash&&t.rows[1].hash[0]!=t.rows[1].hash[1]);assert(t.rows[1].hash[0]==1596836236129080722ull&&t.rows[1].hash[1]==15537787510424757890ull);for(unsigned i=0;i<80;++i)t.observe(1,i,i,2,0,i%2?z:l,i%2?z:r);assert(t.count==32&&t.overflow>0);}
+
  {using namespace linux_vst_bridge;AuxiliaryInstrument instrument;wf0::BusLayout layout;layout.read(instrument,instrument);
  assert(layout.counts[0]==1&&layout.counts[1]==1);assert(layout.buses[0].supported&&layout.buses[0].active);assert(layout.buses[1].supported);
  std::vector<uint8_t> bytes(28+32*layout.size);ap1::put(bytes.data()+20,1,4);ap1::put(bytes.data()+24,layout.size,4);std::array<int,4> indices{};

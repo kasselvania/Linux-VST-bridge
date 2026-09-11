@@ -7,6 +7,7 @@ mod gui;
 mod instances;
 mod mailbox;
 mod observer;
+mod input_observation;
 mod performance;
 mod preview;
 mod process_results;

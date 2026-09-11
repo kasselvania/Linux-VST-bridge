@@ -460,6 +460,7 @@ impl Drop for Guard<'_> {
     }
 }
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>) {
+    let mut input_observation = crate::input_observation::InputObservation::new(crate::observer::delivery_enabled());
     let mut previous_control = [0u64; 4];
     let mut deferred = None;
     if let Some(status) = &mut session.fault_status {
@@ -569,6 +570,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     }
                     let n = item.n as usize;
                     let original = item.data;
+                    input_observation.observe(item.epoch,session.state.next,item.position,item.flags,[&item.data[0][..n],&item.data[1][..n]]);
                     session.gui_revision = item.gui_revision;
                     let (words, flags) = session.process_positioned(
                         n,
@@ -659,6 +661,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             crate::preview::append_report(path, progress_text(&s).as_bytes());
         }
     }
+    if let Some(path) = &report { crate::preview::append_report(path, input_observation.report().as_bytes()); }
     if let Some(observer) = &mut session.witness {
         observer.finish();
         if let Some(path) = &report {

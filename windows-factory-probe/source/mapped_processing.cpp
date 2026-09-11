@@ -1,3 +1,4 @@
+#include "input_observation.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
@@ -78,7 +79,7 @@ struct Socket {
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
 }
 struct MappedSession::Impl {
- EventWriter& events;DeliveryTrace diagnostic;std::array<uint64_t,15> completion_trace{};std::unique_ptr<FaultStatus> fault;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
+ EventWriter& events;DeliveryTrace diagnostic;InputObservation input_observation;std::array<uint64_t,15> completion_trace{};std::unique_ptr<FaultStatus> fault;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
  BusLayout buses;
  std::unique_ptr<GuiChannel> gui;std::unique_ptr<EditorSession> editor;std::wstring editor_title;
  std::atomic<bool> can_notify{false},audio_active{false};
@@ -207,7 +208,7 @@ struct MappedSession::Impl {
   if(capture_failed.load(std::memory_order_acquire)){std::lock_guard lock(mutex);std::rethrow_exception(state_error);}
   if(processing&&mailbox){last_fast=mailbox->receive(f,socket.minor);if(!last_fast)f=socket.receive(true);}else f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
 
- ~Impl(){try{diagnostic.dump(events);}catch(...){}if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
+ ~Impl(){try{if(diagnostic.enabled)input_observation.dump(events);diagnostic.dump(events);}catch(...){}if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
  void error(const std::exception& e){
   state.failed=true;
   if(capture_active.load()&&socket.value!=INVALID_SOCKET){shutdown(socket.value,SD_BOTH);return;}
@@ -322,6 +323,7 @@ void MappedSession::lifecycle_activity(bool owner,uint64_t stage){if(impl_->faul
 void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
 bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{require(!x.controller_update_failed.load(),"controller automation update failed");x.diagnostic.current={};x.diagnostic.stamp(0);if(x.fault)x.fault->stage(1,1);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.fault)x.fault->publish(1,{0,x.timeline.epoch,f.sequence,x.timeline.position,2,f.kind});if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
+ if(x.diagnostic.enabled)x.input_observation.observe(x.timeline.epoch,x.state.next,x.timeline.position,x.current.frames,x.current.silence,left,right);
  out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
  if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames,x.socket.minor>=10?104:x.socket.minor>=8?96:0);}
  out.gui_revision=x.socket.minor>=10?get(f.payload.data()+f.payload.size()-8,8):0;
