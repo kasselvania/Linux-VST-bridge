@@ -369,3 +369,18 @@ The Linux SDK/CTest lane and 37 Linux runtime tests pass. All four hosted source
 lanes pass at eb593b3. Exact Windows and native identities are retained in
 `evidence/ap18/pigments/event-output-correction.json`. Corrected C3 playback is
 the next check; no live playback success is claimed yet.
+
+### Corrected revision 6 operator audio and separate host exit
+
+All four hosted lanes pass at 27543277. The operator reported audible Pigments
+output followed by slowdown/failures. The retained corrected session has no
+Collector rejection; its last native request is 23136. The host exited with
+outer status 5 at editor stage 215, before vendor-view release completion.
+There is no processing-thread-joined event. Positive containment is recorded.
+This is neither a clean musical pass nor evidence of an installation/save-path
+defect. The exact release/host-exit cause and slowdown remain unresolved.
+See `evidence/ap18/pigments/event-output-corrected-live.json`. No further live
+sequence or desktop input was used to obtain this evidence. After operator-confirmed closure, the sealed restore returned Pigments inactive.
+Zero DSP leases, no pending transactions, service/keeper active and tracing off
+were confirmed. CPUWeight was again found at 10000, writer unknown, and restored
+to unset/effective 100; this interval is not performance-comparison evidence.

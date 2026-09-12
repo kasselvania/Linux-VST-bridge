@@ -45,7 +45,7 @@
       "result": "all passed"
     }
   },
-  "live": "pending corrected candidate; no C3 playback claim yet",
+  "live": "Operator reported audio; no retained Collector rejection. Subsequent host exit at editor-release stage 215 is unresolved. See event-output-corrected-live.json.",
   "limits": [
     "No capacity increase",
     "No event dropping or rewriting",
