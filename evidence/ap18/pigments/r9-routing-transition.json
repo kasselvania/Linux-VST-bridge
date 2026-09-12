@@ -1,0 +1,526 @@
+{
+  "schema": "ap18-r9-routing-transition-v1",
+  "disposition": "ROUTING_RECONFIGURATION_LIFECYCLE_CORRELATION_FAILURE",
+  "product_source": "29ebeecc9b6a31b46b2b234265a9976ca567107c",
+  "windows_source": "656c0dff72f6b515bd409a9a45b8bedefc7d5144",
+  "session_alias": "pigments-r9-routing-1",
+  "profile_revision": 9,
+  "profile_sha256": "13f6ec3d3230a5bc96a2089cfcb040c386cdd6acd258e5ce099f094c4102123c",
+  "profile_claim": "review_candidate",
+  "qualification": "ap18_pigments",
+  "publication": {
+    "id": "d61b81be9a5529b50d262b3f9c768f0d",
+    "sha256": "cf69d3c52854a91432ed43d879a987865daf491de6e838ebd8653c2e473d624c",
+    "parent": {
+      "id": "eb73a1dc6cc442e484433de536929c76",
+      "sha256": "a8b5e8a5497e7d4763119780a731684b2e779ffaf6a834699894695cb3346cf8"
+    }
+  },
+  "workload": {
+    "project_alias": "protected AP18 Input Routing Check",
+    "launch": "Applications desktop entry via gio",
+    "rate": 48000,
+    "precision": "float32",
+    "host_maximum": 512,
+    "transport_chunks": 256,
+    "bridge_frames": 512,
+    "notes": "existing C3 loop",
+    "editor": "opened on insertion then hidden using normal Bitwig editor action",
+    "trace": "existing bounded worker observers enabled",
+    "source": "Bitwig built-in Test Tone on Audio 2; 1 kHz, displayed gain -42 dB; route selected as Audio 2 (PRE) through normal sidechain popup",
+    "mac_controls_taken": false,
+    "global_focus_requested": false,
+    "routing_ui_note": "Menu is a separate Bitwig-owned override-redirect X11 popup, invisible to main-window-only readback; subsequent input targeted that popup. No physical input or global modifiers used.",
+    "not_a_block_count_or_performance_campaign": true
+  },
+  "local_audio_before_source": {
+    "source": "Deck local default sink monitor",
+    "rate": 48000,
+    "channels": 2,
+    "samples": 573440,
+    "nonzero": 269150,
+    "rms": 0.02988614548837535,
+    "peak": 0.06250286847352982,
+    "raw_audio_retained": false,
+    "capture_error": false
+  },
+  "observed_transition": [
+    "No input displayed; C3 loop produced nonzero local audio",
+    "Audio 2 Test Tone added; Pigments still No input",
+    "Audio 2 (PRE) selected in normal VST sidechain menu",
+    "Bitwig reported plug-in crashed; no reload or repeated routing attempt",
+    "Normal quit; agent-created disposable edits declined; saved copy and source unchanged"
+  ],
+  "native_input_witness": [
+    {
+      "event": "ap18_input_observation",
+      "retained": 2,
+      "overflow": 0,
+      "capacity": 32,
+      "collection": "native_transport_worker",
+      "hash": "fnv1a64_f32le_per_channel"
+    },
+    {
+      "event": "ap18_input",
+      "epoch": 1,
+      "request_sequence": 3,
+      "position": 0,
+      "frames": 256,
+      "silence": 3,
+      "hash": [
+        5897611217847481125,
+        5897611217847481125
+      ],
+      "peak": [
+        0,
+        0
+      ]
+    },
+    {
+      "event": "ap18_input",
+      "epoch": 1,
+      "request_sequence": 104683,
+      "position": 26798080,
+      "frames": 256,
+      "silence": 0,
+      "hash": [
+        4653849689737929825,
+        4653849689737929825
+      ],
+      "peak": [
+        0.02497355,
+        0.02497355
+      ]
+    }
+  ],
+  "native_failure": [
+    {
+      "event": "ap5_worker_fault",
+      "generation": 1,
+      "fault": 3,
+      "first_position": 26799104,
+      "processed": 104684,
+      "request_high": 4,
+      "result_high": 4,
+      "detail": "InvalidData: wrong lifecycle response"
+    },
+    {
+      "event": "ap7_fault_progress",
+      "context_ready": true,
+      "epoch": 0,
+      "worker_op": 14,
+      "worker_epoch": 1,
+      "worker_position": 0,
+      "request_published": 104686,
+      "request_consumed": 104686,
+      "result_published": 104682,
+      "result_consumed": 104682,
+      "service_us_max_at_report": 5127,
+      "observation_skips": 0
+    }
+  ],
+  "windows_lifecycle": [
+    {
+      "event": "lifecycle",
+      "sequence": 220,
+      "state": "ap10_delivery_setup",
+      "mailbox_version": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 221,
+      "state": "ap9_processing_setup",
+      "sample_rate": 48000.0,
+      "maximum": 256,
+      "precision": "float32",
+      "vendor_float64": false,
+      "latency_samples": 48,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 227,
+      "state": "ap10_delivery_setup",
+      "mailbox_version": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 228,
+      "state": "ap9_processing_setup",
+      "sample_rate": 48000.0,
+      "maximum": 256,
+      "precision": "float32",
+      "vendor_float64": false,
+      "latency_samples": 48,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 229,
+      "state": "ap10_delivery_setup",
+      "mailbox_version": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 230,
+      "state": "ap9_processing_setup",
+      "sample_rate": 48000.0,
+      "maximum": 256,
+      "precision": "float32",
+      "vendor_float64": false,
+      "latency_samples": 48,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 231,
+      "state": "ap0_call_started",
+      "operation": "set_active_true",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 232,
+      "state": "ap0_call_completed",
+      "operation": "set_active_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 233,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 235,
+      "state": "ap0_call_started",
+      "operation": "set_processing_true",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 236,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 237,
+      "state": "ap2_lifecycle_ack",
+      "kind": 11,
+      "next_sequence": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 238,
+      "state": "ap0_call_started",
+      "operation": "set_processing_false",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 239,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 240,
+      "state": "ap0_thread_joined",
+      "joined": true,
+      "processing_stopped": true,
+      "worker_exception": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 241,
+      "state": "ap2_lifecycle_ack",
+      "kind": 13,
+      "next_sequence": 104687
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 242,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 104684,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 243,
+      "state": "ap0_call_started",
+      "operation": "set_active_false",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 244,
+      "state": "ap0_call_completed",
+      "operation": "set_active_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 245,
+      "state": "ap2_lifecycle_ack",
+      "kind": 15,
+      "next_sequence": 104687
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 246,
+      "state": "ap10_delivery_setup",
+      "mailbox_version": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 247,
+      "state": "ap9_processing_setup",
+      "sample_rate": 48000.0,
+      "maximum": 256,
+      "precision": "float32",
+      "vendor_float64": false,
+      "latency_samples": 48,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 248,
+      "state": "ap10_delivery_setup",
+      "mailbox_version": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 249,
+      "state": "ap9_processing_setup",
+      "sample_rate": 48000.0,
+      "maximum": 256,
+      "precision": "float32",
+      "vendor_float64": false,
+      "latency_samples": 48,
+      "tail_samples": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 250,
+      "state": "ap0_call_started",
+      "operation": "set_active_true",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 251,
+      "state": "ap0_call_completed",
+      "operation": "set_active_true",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 252,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 104687
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 254,
+      "state": "ap1_transport_error",
+      "detail": "lifecycle correlation"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 255,
+      "state": "ap0_call_started",
+      "operation": "set_processing_false",
+      "owner_thread": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 256,
+      "state": "ap0_call_completed",
+      "operation": "set_processing_false",
+      "result": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 257,
+      "state": "ap0_thread_joined",
+      "joined": true,
+      "processing_stopped": true,
+      "worker_exception": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 258,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 0,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 259,
+      "state": "ap3_processing_error",
+      "detail": "lifecycle correlation"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 260,
+      "state": "ap0_call_started",
+      "operation": "set_active_false",
+      "owner_thread": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 261,
+      "state": "ap0_call_completed",
+      "operation": "set_active_false",
+      "result": 0
+    }
+  ],
+  "terminal": {
+    "raw_exit": 92,
+    "exit_before_cleanup": 92,
+    "error": "Windows host exited without successful close",
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "vendor_retirement": null,
+    "retirement_disposition": null
+  },
+  "last_complete_status": {
+    "available": true,
+    "schema": 2,
+    "sample_monotonic_ns": 89052213653462,
+    "clock_domains": [
+      "linux_monotonic_ns",
+      "windows_qpc",
+      "windows_qpc"
+    ],
+    "native": {
+      "publication": 314052,
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 104686,
+      "position": 26798848,
+      "stage": 3,
+      "detail": 0,
+      "ticks": 89051933341557,
+      "frequency": 1000000000,
+      "admitted_frames": 26799104,
+      "missing_frames": 1024,
+      "gaps": 3,
+      "expired_frames": 1024,
+      "delivered_frames": 26797568,
+      "priming_frames": 512,
+      "current": true
+    },
+    "delivery": {
+      "publication": 628112,
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 104687,
+      "position": 26799104,
+      "stage": 0,
+      "detail": 0,
+      "ticks": 890506286487,
+      "frequency": 10000000,
+      "current": true
+    },
+    "owner": {
+      "publication": 75891,
+      "generation": 1,
+      "epoch": 0,
+      "request_sequence": 0,
+      "position": 0,
+      "stage": 0,
+      "detail": 0,
+      "ticks": 890506294788,
+      "frequency": 10000000,
+      "current": true
+    },
+    "editor": {
+      "available": true,
+      "independently_sampled": true,
+      "closed": 0,
+      "failure": 0,
+      "open": 0,
+      "view_stage": 218,
+      "open_stage": 100,
+      "exception_code": 0
+    },
+    "result_status": {
+      "available": true,
+      "schema": 1,
+      "rejection": null
+    },
+    "mailbox_flags": {
+      "request": 0,
+      "reply": 0,
+      "independently_sampled": true
+    }
+  },
+  "two_sided_input_proof": false,
+  "windows_input_witness_emitted": false,
+  "classification": {
+    "observed": "Lifecycle request/response correlation failed after route reconfiguration stopped/joined/deactivated the first interval and activated a second interval. Second interval processed zero blocks.",
+    "source_boundaries": [
+      "windows-factory-probe/source/mapped_processing.cpp: MappedSession::lifecycle_request requires matching kind/session/sequence",
+      "native-vst3-proxy/backend/src/lib.rs: lifecycle response validates kind/session/sequence/payload"
+    ],
+    "unknown": "Exact mismatching request/reply field is not retained. No claim of specific stale frame or sequence reset cause.",
+    "not_collector_rejection": true,
+    "not_view_release_failure": true,
+    "reporting_fix_limit": "Input dump is reached only on successful process-scoped retirement. This lifecycle failure prevents ready commit and intentionally terminates with status 92, so no Windows witness was emitted."
+  },
+  "final": {
+    "pigments_active": false,
+    "ordinary_revision10_physical_unchanged": true,
+    "protected_projects_unchanged": true,
+    "source_and_test_copy_sha256": "95566160733ba263a8a8d7a6ebf45d0b07eee1d228f88d4b4025012ee5d2083c",
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "stale_transport": false,
+    "trace": false,
+    "bitwig_debugger_profiler_absent": true,
+    "service_active": true,
+    "keeper_count": 1,
+    "cpuweight_before": 100,
+    "cpuweight_after": 10000,
+    "cpuweight_note": "SteamOS foreground-booster behavior identified by operator; no scheduling repair or manual adjustment in this session. Not performance evidence.",
+    "512_recommended": true,
+    "256_unqualified": true
+  },
+  "remaining": [
+    "Windows/native matching routed-input witness",
+    "Source removal return-to-silence witness",
+    "Preset",
+    "Gesture and automation",
+    "Protected save/reopen",
+    "Ordinary Arturia sibling and independent removal"
+  ],
+  "tests": {
+    "manager_library": 61,
+    "manager_binary": 11,
+    "manager_clippy": "passed",
+    "windows_host_and_editor_reporting_fixture": "passed",
+    "final_product_head_workflows": {
+      "AP8": 34666506530,
+      "AP10": 34666506532,
+      "AP12": 34666506533,
+      "PX2": 34666506537
+    },
+    "all_four_passed": true
+  },
+  "nonclaims": [
+    "No full AP18 success or ordinary Pigments activation",
+    "No two-sided routed-input proof from native witness alone",
+    "No unchanged-profile relabeling",
+    "No new repair after this material failure",
+    "No payloads, audio, credentials or vendor state retained publicly"
+  ]
+}

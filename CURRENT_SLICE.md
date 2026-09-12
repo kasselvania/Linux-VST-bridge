@@ -447,3 +447,24 @@ revision-8 destructor is intentionally bypassed and cannot own this report.
 Revision 8 remains immutable; audio, hide/reopen and retirement are not retested
 ceremonially. Continue the remaining sidechain, preset, automation, save/reopen
 and sibling checks after the new Windows build and sealed artifact binding.
+
+## Revision 9: routed-input reconfiguration stops qualification
+
+The authorized reporting fix and sealed revision 8→9 binding passed manager
+tests/Clippy and all four hosted lanes. The protected C3 loop produced nonzero
+local audio with No input. Selecting Audio 2 (PRE), carrying Bitwig's built-in
+Test Tone, then caused a new lifecycle-correlation failure. Native input records
+show silence then nonzero samples, but the Windows witness was not emitted: the
+second processing interval failed before retirement-ready could commit. This is
+not two-sided routed-input proof, a Collector rejection, or vendor-view release.
+No reload or repeated attempt followed. The exact mismatching lifecycle field
+is not yet known; no transport repair was made. See
+`evidence/ap18/pigments/r9-routing-transition.json`.
+
+Normal Bitwig quit completed; Pigments is inactive, ordinary LoFi/FRAGMENTS
+revision-10 physical targets and project hashes are unchanged, zero DSP leases
+and pending transactions, no stale transport, service/keeper active, tracing off.
+SteamOS-owned CPUWeight read back 10000 after the run (100 before); it was not
+manually changed and this is not performance evidence. 512 remains recommended;
+256 unqualified. PR #95 remains draft; the remaining AP18 checks stopped at this
+new material failure.
