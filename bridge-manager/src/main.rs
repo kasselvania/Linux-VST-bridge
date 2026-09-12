@@ -692,6 +692,7 @@ fn serve(m: Manager) -> Result<()> {
                     let r=match &greeting[..5] {
                         b"LVQ1\n"=>qualification_binding(&m,request,publication::Qualification::Ap15Editor)?,
                         b"LVQ4\n"=>qualification_binding(&m,request,publication::Qualification::Uir1Input)?,
+                        b"LVQ5\n"=>qualification_binding(&m,request,publication::Qualification::If1Failure)?,
                         b"LVQ3\n"=>qualification_binding(&m,request,publication::Qualification::Ap18Pigments)?,
                         b"LVQ2\n"=>qualification_binding(&m,request,publication::Qualification::Ap17Capacity)?,
                         _=>inspection_binding(&m,request)?,
@@ -1023,6 +1024,7 @@ fn main() -> Result<()> {
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
   Some("qualify-ui")=>managed_cli::run_ui_qualification(&m,&args[1..]),
+  Some("qualify-failure")=>managed_cli::run_failure_qualification(&m,&args[1..]),
   Some("qualify-pigments")=>managed_cli::run_pigments_qualification(&m,&args[1..]),
   Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),

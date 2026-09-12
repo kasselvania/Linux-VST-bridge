@@ -36,12 +36,28 @@ pub fn uir1_candidate() -> Result<Profile> {
         "qualification_ui_contract")?;
     Ok(p)
 }
+pub fn if1_candidate() -> Result<Profile> {
+    let p = Profile::parse(include_bytes!("../../compatibility/if1/arturia-pigments.json"))?;
+    let ordinary = Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))?;
+    let mut same = p.clone();
+    same.revision = ordinary.revision; same.claim = ordinary.claim.clone();
+    same.evidence = ordinary.evidence.clone();
+    same.requirements.host_sha256 = ordinary.requirements.host_sha256.clone();
+    same.requirements.host_source_sha256 = ordinary.requirements.host_source_sha256.clone();
+    same.requirements.native_sha256 = ordinary.requirements.native_sha256.clone();
+    same.requirements.native_source_commit = ordinary.requirements.native_source_commit.clone();
+    require(p.revision == 14 && p.claim == Claim::ReviewCandidate && ordinary.revision == 11
+        && ordinary.claim == Claim::VerifiedExactFixture && same == ordinary,
+        "qualification_failure_contract")?;
+    Ok(p)
+}
 pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
     match purpose {
         Qualification::Ap15Editor => candidates(),
         Qualification::Ap17Capacity => capacity_candidates(),
         Qualification::Ap18Pigments => Ok(vec![crate::pigments::candidate()?]),
         Qualification::Uir1Input => Ok(vec![uir1_candidate()?]),
+        Qualification::If1Failure => Ok(vec![if1_candidate()?]),
     }
 }
 fn parent_revision(purpose: Qualification) -> u32 {
@@ -49,7 +65,7 @@ fn parent_revision(purpose: Qualification) -> u32 {
         Qualification::Ap15Editor => 3,
         Qualification::Ap17Capacity => 7,
         Qualification::Ap18Pigments => 10,
-        Qualification::Uir1Input => 11,
+        Qualification::Uir1Input | Qualification::If1Failure => 11,
     }
 }
 #[derive(Clone)]
@@ -66,6 +82,7 @@ fn directory(m: &Manager, p: &Profile, purpose: Qualification) -> Result<PathBuf
             Qualification::Ap17Capacity => "software/ap17-qualification",
             Qualification::Ap18Pigments => "software/ap18-qualification",
             Qualification::Uir1Input => "software/uir1-qualification",
+            Qualification::If1Failure => "software/if1-qualification",
         })
         .join(p.fingerprint()?))
 }
@@ -140,7 +157,7 @@ fn uir1_ordinary_parent(m: &Manager) -> Result<()> {
     require(prior.profile == p && prior.qualification.is_none(), "qualification_verified_parent_mismatch")
 }
 pub fn stage_for(m: &Manager, package: &Path, purpose: Qualification) -> Result<()> {
-    if purpose == Qualification::Uir1Input { uir1_ordinary_parent(m)?; }
+    if matches!(purpose, Qualification::Uir1Input | Qualification::If1Failure) { uir1_ordinary_parent(m)?; }
     if purpose == Qualification::Ap18Pigments { return crate::pigments::stage(m, package); }
     stage_selected_for(m, package, &candidates_for(purpose)?, purpose)
 }
@@ -287,7 +304,7 @@ impl Manager {
             .as_ref()
             .ok_or("qualification_verified_parent_required")?;
         let prior = self.load_revision(&r.class_id, parent)?;
-        if purpose == Qualification::Uir1Input {
+        if matches!(purpose, Qualification::Uir1Input | Qualification::If1Failure) {
             require(prior.profile == crate::profiles::pigments_eleven()?, "qualification_verified_parent_mismatch")?;
         }
         let mut prior_db = self.registry()?;
@@ -323,7 +340,7 @@ impl Manager {
         r: &Registration,
         purpose: Qualification,
     ) -> Result<()> {
-        if purpose == Qualification::Uir1Input { uir1_ordinary_parent(self)?; }
+        if matches!(purpose, Qualification::Uir1Input | Qualification::If1Failure) { uir1_ordinary_parent(self)?; }
         let candidates = installed_for(self, purpose)?;
         require(
             candidates.iter().any(|c| {
@@ -371,6 +388,7 @@ impl Manager {
                     Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
                     Qualification::Ap18Pigments => false,
                     Qualification::Uir1Input => p.revision == 12,
+                    Qualification::If1Failure => p.revision == 14,
                 }
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
@@ -389,15 +407,19 @@ impl Manager {
         let mut limitations = prior.profile.limitations.clone();
         match purpose {
             Qualification::Ap18Pigments => return Err("pigments_has_no_same_class_parent".into()),
-            Qualification::Uir1Input => {
-                // Only the Windows host changes. Full normalization prevents a
-                // UI experiment from smuggling another technical policy change.
+            Qualification::Uir1Input | Qualification::If1Failure => {
+                // UIR1 changes only the host; IF1 also binds a new native.
+                // Every other technical constraint must equal the exact parent.
                 let mut normalized = p.clone();
                 normalized.revision = prior.profile.revision;
                 normalized.claim = prior.profile.claim.clone();
                 normalized.evidence = prior.profile.evidence.clone();
                 normalized.requirements.host_sha256 = prior.profile.requirements.host_sha256.clone();
                 normalized.requirements.host_source_sha256 = prior.profile.requirements.host_source_sha256.clone();
+                if purpose == Qualification::If1Failure {
+                    normalized.requirements.native_sha256 = prior.profile.requirements.native_sha256.clone();
+                    normalized.requirements.native_source_commit = prior.profile.requirements.native_source_commit.clone();
+                }
                 require(normalized == prior.profile
                     && p.requirements.host_sha256 != prior.profile.requirements.host_sha256
                     && p.requirements.host_source_sha256 != prior.profile.requirements.host_source_sha256,
@@ -462,7 +484,7 @@ impl Manager {
         fail: Option<Boundary>,
         purpose: Qualification,
     ) -> Result<RevisionRef> {
-        if purpose == Qualification::Uir1Input { uir1_ordinary_parent(self)?; }
+        if matches!(purpose, Qualification::Uir1Input | Qualification::If1Failure) { uir1_ordinary_parent(self)?; }
         let candidates = installed_for(self, purpose)?;
         let selected: Vec<_> = candidates
             .iter()

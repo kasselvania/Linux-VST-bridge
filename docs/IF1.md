@@ -66,3 +66,7 @@ reads custody after the child terminates; normal SDK close must leave it empty.
 The one automatic UIO1 menu/resize check remains pending. No new candidate or
 ordinary acceptance is claimed by source/fixture results. Pigments11 is active;
 12/13 are retained unchanged, with 13 inactive failed ordinary history.
+
+## Engineering publication
+
+Pigments revision 14 is the exact IF1 native/Windows candidate. `qualify-failure` uses the existing sealed publication and rollback owners with `if1_failure`; its immediate physical parent must be ordinary revision 11. Revisions 12 and 13 remain inactive immutable history. Ordinary activation and older acceptance commands cannot promote this candidate. `uio1 admit-if1` permits observation only of its exact physical candidate publication.

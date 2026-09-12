@@ -47,9 +47,10 @@ def verified_package(source):
     return manifest
 
 class Context:
-    def __init__(self,admission_binary,class_id,package,uir1=False):
+    def __init__(self,admission_binary,class_id,package,uir1=False,if1=False):
         os.umask(0o077)
-        command=['admit-uir1'] if uir1 else ['admit',class_id]
+        if uir1 and if1:raise RuntimeError('conflicting exact diagnostic purpose')
+        command=['admit-if1'] if if1 else (['admit-uir1'] if uir1 else ['admit',class_id])
         self.admission=json.loads(subprocess.check_output([str(admission_binary),*command],timeout=20))
         if self.admission['registration']['metadata']['class_id']!=class_id:raise RuntimeError('admission class mismatch')
         if self.admission['schema']!=1:raise RuntimeError('admission schema')

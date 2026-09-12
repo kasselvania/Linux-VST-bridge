@@ -1,7 +1,7 @@
 # IF1 — terminal instance failure propagation
 
 Continue on `codex/uir1-xwayland-input-retrieval` from diagnostic head
-`828fad8854082da412b88614c9b38c8c082e013e`. PR #97 was already merged as
+`828fad8854082da412b88614c9b38c8c082e013e`. PR #98 (continuation of merged #97) was already merged as
 `a1befbb3b28abd310a2baf4ace33d7fe9f6240cf` before this instruction; keep the
 IF1 continuation draft and unmerged. The operator acknowledged that state.
 

@@ -13,22 +13,29 @@ pub struct Admission {
 }
 
 pub fn admit(m: &Manager, class: &str) -> Result<Admission> {
-    admit_selected(m, class, false)
+    admit_selected(m, class, None)
 }
 /// The development experiment has its own exact compiled admission. It does
 /// not grant ordinary UIO1 or activation authority to arbitrary candidates.
 pub fn admit_uir1(m: &Manager) -> Result<Admission> {
-    admit_selected(m, &crate::qualification::uir1_candidate()?.class.class_id, true)
+    admit_selected(m, &crate::qualification::uir1_candidate()?.class.class_id, Some(Qualification::Uir1Input))
 }
-fn admit_selected(m: &Manager, class: &str, uir1: bool) -> Result<Admission> {
+pub fn admit_if1(m: &Manager) -> Result<Admission> {
+    admit_selected(m, &crate::qualification::if1_candidate()?.class.class_id, Some(Qualification::If1Failure))
+}
+fn admit_selected(m: &Manager, class: &str, purpose: Option<Qualification>) -> Result<Admission> {
     let _lock = m.lock("registry.lock")?;
     let db = m.registry()?;
     let e = db.classes.get(class).ok_or("uio1_class_absent")?;
     let reference = e.managed_revision.as_ref().ok_or("uio1_profile_absent")?;
     let revision = m.load_revision(class, reference)?;
-    if uir1 {
-        let exact = crate::qualification::uir1_candidate()?;
-        require(revision.profile == exact && revision.qualification == Some(Qualification::Uir1Input),
+    if let Some(purpose) = purpose {
+        let exact = match purpose {
+            Qualification::Uir1Input => crate::qualification::uir1_candidate()?,
+            Qualification::If1Failure => crate::qualification::if1_candidate()?,
+            _ => return Err("uio1_unsupported_qualification".into()),
+        };
+        require(revision.profile == exact && revision.qualification == Some(purpose),
             "uio1_exact_uir1_qualification_required")?;
         m.verify_retained_authority(&revision, &[exact])?;
     } else {
