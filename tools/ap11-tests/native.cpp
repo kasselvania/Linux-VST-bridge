@@ -311,7 +311,13 @@ void terminal_instance_regression() {
   terminal_record.words[3]=generation;terminal_record.words[4]=2;terminal_record.words[5]=104687;
   terminal_record.words[6]=512;terminal_record.words[7]=9;terminal_record.words[14]=failureClass;
   terminal_record.words[15]=90;terminal_record.words[18]=failureClass;terminal_record.words[19]=failureClass;
+  if(failureClass==2)check(c->setComponentHandler(nullptr)==kResultOk,"IF1 absent handler");
   const auto count=commands.size();host.tick();
+  if(failureClass==2){
+    check(host.reload_calls==0,"IF1 no fabricated handler reload");
+    check(c->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"IF1 later handler");
+    check(c->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"IF1 repeated handler");
+  }
   check(host.reload_calls==1&&host.gestures.back()==AP11::End,"IF1 completes gesture and asks reload once");
   check(c->panelClose(token)&&!c->panelOpen(token)&&commands.size()==count,"IF1 dead generation never forwarded");
   auto* view=c->createView(ViewType::kEditor);ViewRect rect{};

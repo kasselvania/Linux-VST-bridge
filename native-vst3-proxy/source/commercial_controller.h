@@ -106,12 +106,12 @@ public:
     connected_ = false;
     generation_ = 0;
     pending_count_ = 0;
-    status_ = "Disconnected";
+    if(!terminal_failed_) status_ = "Disconnected";
     return EditController::disconnect(peer);
   }
   Result PLUGIN_API setParamNormalized(
       Steinberg::Vst::ParamID id, Steinberg::Vst::ParamValue value) override {
-    if (!onOwner() || !std::isfinite(value) || value < 0 || value > 1 ||
+    if (terminal_failed_ || !onOwner() || !std::isfinite(value) || value < 0 || value > 1 ||
         !state(id))
       return Steinberg::kResultFalse;
     auto r = EditController::setParamNormalized(id, value);
@@ -570,7 +570,7 @@ private:
     ticking_ = false;
   }
   void capabilities(bool attached = true) {
-    if (!connected_)
+    if (!connected_ || terminal_failed_)
       return;
     auto *m = allocateMessage();
     if (m) {
