@@ -41,7 +41,7 @@ void census(DWORD pid){HANDLE p=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FA
 }
 struct Owner {
   HANDLE file=INVALID_HANDLE_VALUE,map=nullptr,process=nullptr,thread=nullptr;
-  HMODULE dll=nullptr;HHOOK hooks[3]{};uio1::Header* h=nullptr;
+  HMODULE dll=nullptr;HHOOK hooks[4]{};uio1::Header* h=nullptr;
   ~Owner(){
     if(h){
       uio1::atom(h->stop).store(1);
@@ -69,8 +69,8 @@ int observe(HWND root,uint64_t expected,unsigned seconds,const wchar_t* output){
   auto&h=*o.h;memcpy(h.magic,"UIO1",4);h.version=1;h.bytes=uio1::mapping_bytes;h.record_size=uio1::record_bytes;h.pid=pid;h.tid=tid;h.start=expected;h.root=uint64_t(root);h.nonce=now()^uint64_t(GetCurrentProcessId());LARGE_INTEGER freq{};QueryPerformanceFrequency(&freq);h.frequency=uint64_t(freq.QuadPart);
   wchar_t path[32768]{};check(GetModuleFileNameW(nullptr,path,32768)>0,"helper path");std::wstring dllpath(path);dllpath.resize(dllpath.find_last_of(L"\\/")+1);dllpath+=L"uio1-hook.dll";
   o.dll=LoadLibraryExW(dllpath.c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);check(o.dll!=nullptr,"exact adjacent hook library");
-  const int kinds[]={WH_GETMESSAGE,WH_CALLWNDPROC,WH_CALLWNDPROCRET};const char* symbols[]={"uio1_get","uio1_call","uio1_return"};
-  for(unsigned i=0;i<3;++i){auto proc=reinterpret_cast<HOOKPROC>(GetProcAddress(o.dll,symbols[i]));check(proc!=nullptr,"hook export");o.hooks[i]=SetWindowsHookExW(kinds[i],proc,o.dll,tid);check(o.hooks[i]!=nullptr,"thread hook installation");}
+  const int kinds[]={WH_GETMESSAGE,WH_CALLWNDPROC,WH_CALLWNDPROCRET,WH_MOUSE};const char* symbols[]={"uio1_get","uio1_call","uio1_return","uio1_mouse"};
+  for(unsigned i=0;i<4;++i){auto proc=reinterpret_cast<HOOKPROC>(GetProcAddress(o.dll,symbols[i]));check(proc!=nullptr,"hook export");o.hooks[i]=SetWindowsHookExW(kinds[i],proc,o.dll,tid);check(o.hooks[i]!=nullptr,"thread hook installation");}
   const auto end=GetTickCount64()+seconds*1000ULL;uint64_t next=0;
   while(GetTickCount64()<end&&!uio1::atom(h.stop).load()&&WaitForSingleObject(o.process,0)==WAIT_TIMEOUT&&WaitForSingleObject(o.thread,0)==WAIT_TIMEOUT){
     if(!IsWindow(root)||GetWindowThreadProcessId(root,nullptr)!=tid){uio1::atom(h.scope_errors).fetch_add(1);break;}

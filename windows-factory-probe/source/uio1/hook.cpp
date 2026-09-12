@@ -54,7 +54,12 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
       r.buttons=uint32_t(wp)&0xffff;
     }
     if(msg==WM_KEYDOWN||msg==WM_KEYUP||msg==WM_SYSKEYDOWN||msg==WM_SYSKEYUP)r.key_class=uio1::key_class(wp);
-    if(msg==WM_NCHITTEST&&source==3)r.result=result;
+    if(msg==WM_NCHITTEST){
+      r.screen_x=short(LOWORD(lp));r.screen_y=short(HIWORD(lp));
+      POINT p{r.screen_x,r.screen_y};ScreenToClient(hwnd,&p);r.x=p.x;r.y=p.y;
+      if(source==3)r.result=result;
+    }
+    if(source>=5&&source<=8)r.result=result; // hit code / next-hook boolean
     if(heartbeat)r.result=int64_t(began-sent);
     r.message_time=message_time;r.cost_ticks=now()-began;
     uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),r);
@@ -81,6 +86,19 @@ extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_call(int c,WPARAM w,LPARA
 extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_return(int c,WPARAM w,LPARAM l){
   if(c>=0){auto&m=*reinterpret_cast<CWPRETSTRUCT*>(l);observe(m.hwnd,m.message,m.wParam,m.lParam,3,m.lResult);}
   return CallNextHookEx(nullptr,c,w,l);
+}
+extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_mouse(int c,WPARAM w,LPARAM l){
+  // Thread-scoped mouse hook, not a global low-level hook. Retain the downstream
+  // chain result unchanged so swallowed input is distinguishable from a stalled
+  // window procedure. Never retain MOUSEHOOKSTRUCT::dwExtraInfo.
+  HWND hwnd=nullptr;LPARAM position=0;int hit=0;
+  if(c==HC_ACTION||c==HC_NOREMOVE){auto&m=*reinterpret_cast<MOUSEHOOKSTRUCT*>(l);hwnd=m.hwnd;POINT p=m.pt;
+    ScreenToClient(hwnd,&p);position=MAKELPARAM(short(p.x),short(p.y));hit=m.wHitTestCode;
+    observe(hwnd,UINT(w),0,position,c==HC_ACTION?5:7,hit);
+  }
+  const auto result=CallNextHookEx(nullptr,c,w,l);
+  if(hwnd)observe(hwnd,UINT(w),0,position,c==HC_ACTION?6:8,result?1:0);
+  return result;
 }
 BOOL WINAPI DllMain(HINSTANCE,DWORD reason,LPVOID){
   if(reason==DLL_PROCESS_DETACH){if(header)UnmapViewOfFile(header);if(mapping)CloseHandle(mapping);}

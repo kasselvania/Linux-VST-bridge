@@ -73,6 +73,7 @@ class X11:
         bind(self.t,'XTestFakeMotionEvent',I,[P,I,I,I,U]);bind(self.t,'XTestFakeButtonEvent',I,[P,C.c_uint,I,U]);bind(self.t,'XTestFakeKeyEvent',I,[P,C.c_uint,I,U])
         bind(self.c,'XCompositeQueryExtension',I,[P,C.POINTER(I),C.POINTER(I)]);bind(self.c,'XCompositeNameWindowPixmap',U,[P,U])
         self.capture_backend=None
+        self.expected_pointer=None
         self.display=self.x.XOpenDisplay(None)
         if not self.display:raise RuntimeError('X11 display unavailable; native Wayland needs portal consent')
         self.root=self.x.XDefaultRootWindow(self.display);self.buttons=set();self.keys=set();self.pixmap=0;self.errors=[]
@@ -116,11 +117,13 @@ class X11:
     def move(self, point):
         rect=self.check_identity();x,y=normalized(rect,point);before=time.monotonic_ns()
         if not self.t.XTestFakeMotionEvent(self.display,-1,x,y,0):raise RuntimeError('XTEST motion refused')
-        self.sync();return dict(kind='motion',interval_ns=[before,time.monotonic_ns()],target=[x,y],pointer=self.pointer())
+        self.sync();self.expected_pointer=[x,y]
+        return dict(kind='motion',interval_ns=[before,time.monotonic_ns()],target=[x,y],pointer=self.pointer())
     def button(self, down, button=1):
         if button not in (1,3):raise ValueError('only bounded primary/secondary buttons')
         if down:
             rect=self.check_identity();p=self.pointer()
+            if self.expected_pointer is None or p['screen']!=self.expected_pointer:raise RuntimeError('pointer move not acknowledged at target')
             if not 0<=p['client'][0]<rect[2] or not 0<=p['client'][1]<rect[3] or p['active']!=[self.window]:raise RuntimeError('target not active under pointer')
             if p['mask']&0x1fff:raise RuntimeError('operator key/button held; refuse shared input')
             self.buttons.add(button) # retain ownership before sending, for failure cleanup
@@ -130,6 +133,13 @@ class X11:
         self.sync()
         if not down:self.buttons.remove(button)
         return dict(kind='button_down' if down else 'button_up',interval_ns=[before,time.monotonic_ns()],pointer=self.pointer())
+    def settle_pointer(self,seconds=.75):
+        # XWayland can acknowledge XTEST before the compositor applies motion.
+        # Wait for readback; never turn a pending warp into a click elsewhere.
+        deadline=time.monotonic()+seconds
+        while self.pointer()['screen']!=self.expected_pointer:
+            if time.monotonic()>deadline:raise RuntimeError('XWayland pointer did not settle')
+            self.sync();time.sleep(.005)
     def key(self, down, name):
         # A closed non-text vocabulary. Keycodes are resolved on this server.
         symbols={'space':0x20,'escape':0xff1b,'left':0xff51,'right':0xff53}
