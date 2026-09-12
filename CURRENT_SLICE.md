@@ -1,64 +1,47 @@
-# UIO1 — Cross-boundary editor observability
+# UIR1 — XWayland-to-Win32 input retrieval latency
 
-Base: AP18 merge `1fae92b31baa8dc8b1d444bdb5412124c6de6243`.
-The operator selected UIO1 after AP18 acceptance. AP18 is merged; its profiles,
-artifacts and retained results are immutable. This slice observes UI interaction,
-not audio reliability or another AP18 qualification campaign.
+Base: UIO1 merge `ddf256c60d3f770e3f2773724d260ed362a1267f`, tree
+`31afc83d0096d73aacbb636e1bd823919402605c`.
+The operator selected this slice after review 5186750570 accepted and merged
+UIO1. [UIO1](docs/UIO1.md) remains immutable evidence: exact X11 delivery preceded
+first observable Win32 hardware-mouse retrieval by at least 8.237357339 seconds.
+It does not identify an internal Wine admission or queue timestamp.
 
-## Outcome
+## One claim
 
-Follow one exact Pigments page click and parameter drag from desktop input to
-Win32 receipt, focus/capture, VST semantics where available, local pixels and UI
-service latency. Identify the observed delay boundary from a bounded
-three-action session: host-driven parameter update, same-control drag, page click.
-Interpret that record before another live session. No rendering repair without
-attribution. No universal plug-in UI automation claim.
+Determine whether the retrieval delay can occur with generated parent/child
+windows and the production unfiltered `VendorView::pump`, on the exact pinned
+Proton runner, without a vendor plug-in. Compare an idle queue with a declared,
+finite posted/sent-message workload using the existing UIO1 XTEST, X RECORD,
+thread-scoped Win32 hooks and bounded cross-clock brackets.
 
-## Implementation boundary
+## Scope and decision
 
-Use a separate, development-only Windows diagnostic helper and thread-scoped
-hooks on the exact registered editor UI thread. Do not replace the accepted host,
-native image, profile, publication or audio protocol. Rust owns diagnostic
-admission and public report meanings; narrow C++ owns Win32 hooks; Python follows
-the existing Linux tooling pattern for X11 capture and input. No audio callback
-instrumentation. The helper has a bounded lifetime, ring capacity, overflow and
-positive unhook/exit results. No global hooks, unrelated process adoption or raw
-keyboard text. Private frames/logs remain bounded; public reports contain aliases
-and scalar witnesses. Profile accessibility posture gates optional UIA probing.
+Development fixture, private isolated headless KWin/XWayland display, fresh
+unlicensed scratch prefix, exact existing runner and diagnostic helpers. No
+operator desktop input, vendor session, authorization, project, product host,
+profile or publication mutation. No audio callback instrumentation.
 
-XTEST targets exact current XWayland/X11 geometry; native Wayland requires a
-RemoteDesktop portal grant and EIS, never an XTEST fallback. Input down-state is
-owned and released on cancellation. Local frame capture is independent of
-Moonlight. Cross-clock records retain brackets and uncertainty. Diagnostic
-latency is not a product performance result.
+An idle failure selects generic Wine/XWayland or pump integration. A load-only
+failure selects queue/pump fairness as the generated mechanism, without claiming
+that the same traffic existed in Pigments. If both work, the remaining direction
+is the real vendor child-window/focus/capture interaction; no vendor test before
+interpreting the fixture. No production repair before the fixture selects an
+owner. Never discard messages or implement a product-name exception.
 
-## Verification and restoration
+## Bounded verification
 
-Generated tests cover child-window scope, input/dispatch/heartbeat, ring overflow,
-unhook/cancellation, coordinate transforms, frame summaries, privacy and profile
-gating. Run affected Windows, manager and runtime lanes, then one bounded
-Pigments demonstration. Retain failures and limits. Preserve vendor authorization,
-original/protected projects, LoFi/FRAGMENTS revision 10, Pigments revision 11,
-512 recommendation and 256 unqualified. Remove only owned diagnostics, leave
-service/keeper healthy and no owned input held. One UIO1 PR, open for review.
+Use actual production pump code. Retain exact target/child, X11 receipt, first
+Win32 retrieval, heartbeat, traffic submitted/handled, overflow and clock
+uncertainty. Four posted chains admit at most 4096 messages over at most six
+seconds, each with one explicitly synthetic 1ms handler wait. A separate producer
+sends at most 64 messages with 500ms bounds. These are generated conditions, not
+measured vendor workload. The fixture's overall lifetime is at most 60 seconds.
 
-## Completed result
-
-UIO1's bounded diagnostic result is complete; see [docs/UIO1.md](docs/UIO1.md).
-The initial stale-pointer failure, corrected XTEST record and interpreted
-Moonlight comparison are retained separately. The latter proves at least
-8.237 seconds of delay after exact X11 delivery and before first observable Win32
-hardware-mouse retrieval, with continuing UI heartbeats. Review 5186685909 accepts
-that lower bound and the tooling. X11 reading/translation, Wine input admission,
-an already-admitted queued message, posted/sent-message priority or starvation,
-focus/capture processing, and vendor interaction remain unresolved internal
-owners. No queue-admission timestamp, internal cause or renderer repair is claimed.
-Disposition: `UIO1_OBSERVABILITY_COMPLETE_X11_TO_WIN32_RETRIEVAL_DELAY_IDENTIFIED`.
-This correction requires no additional UIO1 live testing.
-The selected XWayland adapter is implemented; native Wayland remains an explicit
-portal/EIS boundary, and the optional UIA census was unavailable.
-
-All diagnostic helpers/hooks are retired. The pre-existing project and DSP
-session remain open with the editor logically closed; no saved project, accepted
-profile, publication or product artifact changed. The final-head validation and
-review disposition belong to PR #96, which remains open and unmerged.
+Run Windows fixture and affected tooling/CI checks. Preserve failed harness
+attempts separately. Private process identities and mapping contents stay out of
+Git. Public evidence contains aliases and scalar summaries. Positive containment
+must retire the scratch runner, observers and compositor; no held synthetic
+input or transient unit. Existing product sessions, service and keeper remain
+untouched. One UIR1 PR, unmerged for review. 512 remains recommended; 256 remains
+unqualified. No audio, renderer, general Wine or product performance claim.

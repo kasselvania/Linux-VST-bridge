@@ -106,9 +106,9 @@ Read [docs/AP18.md](docs/AP18.md) for the accepted implementation and its exact 
 
 Serum 2 remains the planned second-vendor generalization after the Arturia acquisition/install vertical.
 
-## Current slice: UIO1 — Editor observability
+## Current slice: UIR1 — Input retrieval latency
 
-[UIO1](docs/UIO1.md) adds bounded, development-only input, child-window, heartbeat,
+[UIO1](docs/UIO1.md) is accepted and merged. It adds bounded, development-only input, child-window, heartbeat,
 VST gesture and local-frame observations without replacing accepted product
 artifacts. The Pigments demonstration captured at least 8.237 seconds between
 exact X11 delivery and first observable Win32 hardware-mouse retrieval while the
@@ -116,7 +116,11 @@ UI thread continued servicing heartbeats. Translation, queue admission or an
 already-admitted message waiting behind other traffic, focus/capture, and vendor
 interaction remain unresolved. No renderer fix or universally responsive plug-in
 UI is claimed. The exact records and limits
-are retained in [evidence/uio1](evidence/uio1/). See
+are retained in [evidence/uio1](evidence/uio1/).
+
+[UIR1](docs/UIR1.md) begins with a generated pinned-Proton idle/loaded queue
+comparison on an isolated XWayland display. No further Pigments session or
+operator desktop control precedes that differential. See
 [CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
 
 ## Architecture
