@@ -4,13 +4,19 @@ UIO1 is complete at its diagnostic boundary. A real Pigments interaction was
 received by X11, then waited **at least 8.237 seconds before the Win32 mouse hook**.
 The UI thread continued servicing heartbeats. The eventual button reached the
 correct vendor child, was not consumed by the downstream hook chain, and was
-followed by a VST BeginEdit. This identifies an input-admission delay before
-Win32 retrieval. It does **not** identify an internal Wine function or fix the
-responsiveness defect. No renderer correction is justified by this record.
+followed by a VST BeginEdit. The finding is a delay after exact X11 delivery and
+before first observable Win32 hardware-mouse retrieval. It does **not** establish
+when Wine translated or admitted the message, identify an internal cause, or fix
+the responsiveness defect. No renderer correction is justified by this record.
 
 AP18 was merged at `1fae92b31baa8dc8b1d444bdb5412124c6de6243`. Its accepted product,
 profiles, audio protocol and retained qualification remain unchanged. PR #96
 contains development diagnostics, generated fixtures, and the bounded result.
+[Technical review 5186685909](https://github.com/kasselvania/Linux-VST-bridge/pull/96#pullrequestreview-5186685909)
+accepted the tooling and measured lower bound at head
+`f474faf8e11f11a81ba16799ff314d5a240c0271`. This wording correction preserves every
+measurement and artifact and performs no further live testing. The disposition is
+`UIO1_OBSERVABILITY_COMPLETE_X11_TO_WIN32_RETRIEVAL_DELAY_IDENTIFIED`.
 
 ## Exact result
 
@@ -59,9 +65,20 @@ subsequently retained for the same logical view/epoch after normal editor close.
 This is not permanent input loss. Both page requests eventually became visible
 outside their bounded timing records. The record rules out a Moonlight-only
 pixel delay for the measured wait, and the human comparison rules out an
-XTEST-only failure. It does not separate every Wine hardware-input/focus/queue
-condition from vendor interactions with those mechanisms. The production pump
-uses unfiltered `PeekMessage(nullptr, 0, 0, PM_REMOVE)`; it was not changed.
+XTEST-only failure. WH_MOUSE and WH_GETMESSAGE observe the retrieval boundary;
+neither inspects Wine's internal queue or timestamps first translation/admission.
+The following internal owners remain unresolved:
+
+- X11 event reading/translation;
+- Wine input admission;
+- an already-admitted message waiting in the queue;
+- posted/sent-message priority or starvation;
+- focus/capture processing;
+- vendor interaction with those mechanisms.
+
+The production pump uses unfiltered `PeekMessage(nullptr, 0, 0, PM_REMOVE)`; it was
+not changed. Continued retrieval of posted heartbeat traffic does not prove that
+hardware mouse input had not already entered a Wine/Win32 queue.
 
 See [result](../evidence/uio1/result.json),
 [failed mechanisms](../evidence/uio1/failed-mechanisms.json), and the three

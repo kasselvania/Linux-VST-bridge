@@ -111,9 +111,11 @@ Serum 2 remains the planned second-vendor generalization after the Arturia acqui
 [UIO1](docs/UIO1.md) adds bounded, development-only input, child-window, heartbeat,
 VST gesture and local-frame observations without replacing accepted product
 artifacts. The Pigments demonstration captured at least 8.237 seconds between
-X11 mouse receipt and Win32 mouse admission while the UI thread continued
-servicing heartbeats. This identifies the input boundary; it does not claim a
-renderer fix or universally responsive plug-in UI. The exact records and limits
+exact X11 delivery and first observable Win32 hardware-mouse retrieval while the
+UI thread continued servicing heartbeats. Translation, queue admission or an
+already-admitted message waiting behind other traffic, focus/capture, and vendor
+interaction remain unresolved. No renderer fix or universally responsive plug-in
+UI is claimed. The exact records and limits
 are retained in [evidence/uio1](evidence/uio1/). See
 [CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
 

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "disposition": "UIO1_OBSERVABILITY_COMPLETE_INPUT_ADMISSION_DELAY_IDENTIFIED",
+  "disposition": "UIO1_OBSERVABILITY_COMPLETE_X11_TO_WIN32_RETRIEVAL_DELAY_IDENTIFIED",
   "fixture": {
     "product": "Pigments 7.0.1.6772",
     "profile_revision": 11,
@@ -48,8 +48,8 @@
     }
   ],
   "finding": {
-    "boundary": "X11 delivery to Wine/Win32 hardware mouse admission, before WH_MOUSE and PeekMessage retrieval",
-    "classification": "input admission delay, not a demonstrated renderer defect",
+    "boundary": "delay after exact X11 delivery and before first observable Win32 hardware-mouse retrieval",
+    "classification": "X11-to-Win32 retrieval delay; internal cause unresolved",
     "specific_internal_function": "not established",
     "x11_button_down": {
       "kind": "x11_received",
@@ -144,7 +144,15 @@
     "after_observation": "retained GUI history later contained Value 0.6800000071525574 and End for the same logical view/epoch; editor closed normally",
     "page_click": "correct X11 target and coordinates; no Win32 page button within observation; navigation hash unchanged; requested page appeared later outside bounded timing record",
     "permanent_event_loss_claim": false,
-    "product_fix_claim": false
+    "product_fix_claim": false,
+    "unresolved_internal_owners": [
+      "X11 event reading/translation",
+      "Wine input admission",
+      "an already-admitted message waiting in the queue",
+      "posted/sent-message priority or starvation",
+      "focus/capture processing",
+      "vendor interaction with those mechanisms"
+    ]
   },
   "interpretation": [
     "X11 receipt excludes absence of Deck mouse input for these actions.",
@@ -154,10 +162,11 @@
     "The production pump uses unfiltered PeekMessage(nullptr, 0, 0, PM_REMOVE); no message filter was changed.",
     "A Moonlight input comparison reproduced the delayed boundary, so the observation is not specific to XTEST injection.",
     "Local exact-window page pixels also remained unchanged during the wait; Moonlight-only display latency does not explain this record.",
-    "Wine hardware-input/focus/queue admission and vendor interactions with that path remain candidates; no internal Wine function or rendering repair is selected."
+    "WH_MOUSE and WH_GETMESSAGE observe retrieval, not first Wine translation or queue admission. The record cannot distinguish pre-admission delay from an already-admitted event delayed in the queue; every listed internal owner remains unresolved."
   ],
   "limits": [
     "Diagnostic-on observation is not product latency or audio performance qualification.",
+    "Wine's internal input queue was not inspected; no queue-admission timestamp or pre-admission residence time is claimed.",
     "WH_GETMESSAGE records posted-message retrieval; WH_CALLWNDPROC/RET covers sent-message calls, not arbitrary posted WndProc execution time.",
     "GUI events are observed at poll time, not synchronized vendor emission time.",
     "Host parameter updates were already replaying. Their projection is instance-scoped; Begin/Value/End remain editor-scoped.",
@@ -166,5 +175,10 @@
     "Only the X11/XWayland adapter is implemented and exercised. Native Wayland has a fail-closed portal/EIS boundary, not a completed injection backend.",
     "Loaded OpenGL modules are observed; presenting API/thread, GPU frame time and compositor latency were not measured.",
     "No general UI map, OCR, graphics optimization, raw keyboard text, account inspection or full AP18 campaign."
-  ]
+  ],
+  "claim_review": {
+    "id": 5186685909,
+    "reviewed_head": "f474faf8e11f11a81ba16799ff314d5a240c0271",
+    "result": "tooling and lower bound accepted; retrieval claim narrowed without new measurements or artifact changes"
+  }
 }

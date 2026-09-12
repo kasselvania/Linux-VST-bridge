@@ -9,7 +9,7 @@ not audio reliability or another AP18 qualification campaign.
 
 Follow one exact Pigments page click and parameter drag from desktop input to
 Win32 receipt, focus/capture, VST semantics where available, local pixels and UI
-service latency. Identify the current responsiveness owner from a bounded
+service latency. Identify the observed delay boundary from a bounded
 three-action session: host-driven parameter update, same-control drag, page click.
 Interpret that record before another live session. No rendering repair without
 attribution. No universal plug-in UI automation claim.
@@ -47,8 +47,14 @@ service/keeper healthy and no owned input held. One UIO1 PR, open for review.
 UIO1's bounded diagnostic result is complete; see [docs/UIO1.md](docs/UIO1.md).
 The initial stale-pointer failure, corrected XTEST record and interpreted
 Moonlight comparison are retained separately. The latter proves at least
-8.237 seconds of delay after X11 observation before Win32 mouse admission, with
-continuing UI heartbeats. No internal Wine function or renderer repair is claimed.
+8.237 seconds of delay after exact X11 delivery and before first observable Win32
+hardware-mouse retrieval, with continuing UI heartbeats. Review 5186685909 accepts
+that lower bound and the tooling. X11 reading/translation, Wine input admission,
+an already-admitted queued message, posted/sent-message priority or starvation,
+focus/capture processing, and vendor interaction remain unresolved internal
+owners. No queue-admission timestamp, internal cause or renderer repair is claimed.
+Disposition: `UIO1_OBSERVABILITY_COMPLETE_X11_TO_WIN32_RETRIEVAL_DELAY_IDENTIFIED`.
+This correction requires no additional UIO1 live testing.
 The selected XWayland adapter is implemented; native Wayland remains an explicit
 portal/EIS boundary, and the optional UIA census was unavailable.
 
