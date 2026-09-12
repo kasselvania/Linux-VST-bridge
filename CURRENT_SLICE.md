@@ -436,5 +436,14 @@ only after positive physical cleanup; this is not clean SDK destruction.
 
 Revisions 1–7 remain immutable. Revision 8 binds the tested Windows host and
 unchanged native proxy; generated lifecycle, manager and Linux supervision checks
-pass. The one live load/audio/hide/reopen/retirement check is pending. Pigments remains inactive;
+pass. The one live load/audio/hide/reopen/retirement check passed with positive process-scoped cleanup (see `evidence/ap18/pigments/process-retirement-live.json`). Pigments is restored inactive;
 LoFi and FRAGMENTS ordinary revision 10 are unchanged. PR #95 remains draft.
+
+## Authorized revision-9 reporting continuation
+
+The operator authorized revision 9 solely to drain the existing bounded Windows
+input witness after processing joins and before process retirement commits. The
+revision-8 destructor is intentionally bypassed and cannot own this report.
+Revision 8 remains immutable; audio, hide/reopen and retirement are not retested
+ceremonially. Continue the remaining sidechain, preset, automation, save/reopen
+and sibling checks after the new Windows build and sealed artifact binding.

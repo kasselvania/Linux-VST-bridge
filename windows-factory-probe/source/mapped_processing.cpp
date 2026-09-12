@@ -297,7 +297,13 @@ void MappedSession::retire_vendor_process(bool quiescent){auto& x=*impl_;
    no_pending=x.closed&&!x.active&&!x.audio_active.load()&&!x.timeline.running&&!x.state.outstanding&&!x.state.failed&&!x.has_pending
      &&(!x.waiting||x.serviced)&&!x.capture_active.load()&&!x.state_error&&!x.capture_failed.load();}
   complete_process_retirement(quiescent,no_pending,x.editor.get(),*x.retirement,x.timeline.epoch,x.state.next,x.timeline.position,
-    x.fault?x.fault->rows[1].generation:0,[&]{finish(true);});
+    x.fault?x.fault->rows[1].generation:0,[&]{
+      // This observer previously drained only in ~Impl. Process-scoped
+      // retirement never runs that destructor: drain bounded scalar witnesses
+      // here, after processing joined and before committing retirement custody.
+      if(x.diagnostic.enabled)x.input_observation.dump(x.events);
+      finish(true);
+    });
   Sleep(5000); // bounded final-owner wait, never the processing callback
  }catch(...){TerminateProcess(GetCurrentProcess(),92);std::terminate();}
  TerminateProcess(GetCurrentProcess(),92);std::terminate(); // never enter DLL detach or vendor destructors

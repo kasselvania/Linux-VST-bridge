@@ -2,6 +2,7 @@
 // mapping. This is deterministic instrumentation, not commercial evidence.
 #include "controller_updates.h"
 #include "process_retirement.h"
+#include "input_observation.h"
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "component_instance_session.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
@@ -331,11 +332,11 @@ struct RetirementPlugin:AudioEffect {
  tresult PLUGIN_API setActive(TBool on)override{inactive=!on;return AudioEffect::setActive(on);}
 };
 struct RetirementExternal:ExternalProcessing {
- RetirementPlugin& p;Mapping& native;EditorSession& editor;Controller& c;std::atomic<unsigned> phase{0};HWND parent;uint32_t epoch;
+ RetirementPlugin& p;Mapping& native;EditorSession& editor;Controller& c;std::atomic<unsigned> phase{0};HWND parent;uint32_t epoch;InputObservation input;uint64_t sequence=0;
  RetirementExternal(RetirementPlugin& p,Mapping& n,EditorSession& e,Controller& c):p(p),native(n),editor(e),c(c),parent(e.view().window()),epoch(e.view().opens){}
  bool commercial()const override{return true;}bool stateful()const override{return true;}
  void ready()override{}
- bool next(ExternalBlock& b,float*,float*)override{Sleep(1);if(phase.load()==2)return false;b.frames=16;b.silence=3;b.gain_present=false;return true;}
+ bool next(ExternalBlock& b,float* left,float* right)override{Sleep(1);if(phase.load()==2)return false;b.frames=16;b.silence=3;b.gain_present=false;std::fill_n(left,16,0.f);std::fill_n(right,16,0.f);++sequence;input.observe(1,sequence,(sequence-1)*16,16,3,left,right);return true;}
  void done(const float*,const float*,uint64_t,uint64_t,const ap10_results_t*)override{}
  void service_owner()override{
   if(p.blocks.load()<2)return;
@@ -355,7 +356,13 @@ void retirement_child(const char* path,int mode){
  const_cast<VendorView&>(editor->view()).destruction(mode==5?controlledDestroy:ordered_destroy);if(mode==5)destroyRefusals=1;
  if(mode==3)c->stats.refuse_frame=true;if(mode==4)c->stats.refuse=true;
  RetirementStatus status(std::filesystem::path(path).wstring(),native.id);bool endpoint=false;
- try{complete_process_retirement(mode!=1&&result.retirement_ready,mode!=2,editor,status,1,20,256,1,[&]{endpoint=true;});}
+ try{complete_process_retirement(mode!=1&&result.retirement_ready,mode!=2,editor,status,1,20,256,1,[&]{
+  check(plugin.stopped&&plugin.inactive&&result.quiescent,"input report only after worker joined");
+  check(external.input.count==1&&external.input.rows[0].silence==3,"worker retained exact silent input witness");
+  auto before=events.sequence();external.input.dump(events);
+  check(events.sequence()==before+2,"bounded input summary and row flushed before retirement commit");
+  endpoint=true;
+ });}
  catch(...){check(mode!=0,"ordinary process retirement succeeds");check(!endpoint,"failed detach cannot close endpoint or commit");ExitProcess(0);}
  check(mode==0&&endpoint&&!IsWindow(external.parent)&&c->stats.retirement==std::vector<int>({1,2,4})&&c->stats.destroyed==0,"exact detach parent destruction without vendor release");
  Sleep(5000);ExitProcess(89); // parent must reclaim the owned child first

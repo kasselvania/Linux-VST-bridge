@@ -1,0 +1,257 @@
+{
+  "schema": "ap18-process-scoped-retirement-live-v1",
+  "session_alias": "pigments-retirement-check-1",
+  "product_source": "43173f7bc3ff97a9b91acf73e5c9f518298c2b80",
+  "profile_revision": 8,
+  "profile_sha256": "bd52a44bd7e786776361a172a99599c9082233caf4643a293cd1ebc194e0acc4",
+  "profile_claim": "review_candidate",
+  "qualification": "ap18_pigments",
+  "publication": {
+    "id": "eb73a1dc6cc442e484433de536929c76",
+    "sha256": "a8b5e8a5497e7d4763119780a731684b2e779ffaf6a834699894695cb3346cf8"
+  },
+  "prior_rollback": {
+    "revision": {
+      "id": "9019b5ab5b30ab940fd5cf00cc069bf5",
+      "sha256": "33cacbca131749035b983e45e1147342e2de485673515f80f0f1799bd70e5d2f"
+    },
+    "target": "<MANAGED>/publications/41727475415649534B61743150726F63/revisions/9019b5ab5b30ab940fd5cf00cc069bf5/LVB_41727475415649534B61743150726F63.vst3",
+    "valid": true
+  },
+  "installed_artifacts": {
+    "linux-vst-bridge": "a07c466418989ac3b0817a96985458ac79bb2b19a9ed18d05769f405718220e9",
+    "session.py": "77f530db96d8f5852e3aa3330105cbe5dc4ab5941471c46cc21b610b0b6428d5",
+    "ownership.py": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+    "pigments-package/host.exe": "f3007377e997305c9ffe30a8fa55119a42413e9ec2614faa0fcf0a90cd2478a7",
+    "pigments-package/host-source-manifest.json": "8a2744614aeb4b80e967854cb20d4a562af8464d1ea0419fe3eed4ea610f3ba8"
+  },
+  "host_requirements": {
+    "runner": {
+      "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+      "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+      "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+      "file_sha256": [
+        "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+        "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+        "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+        "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+        "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+        "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+        "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+        "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+        "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+        "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+        "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+        "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+        "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+        "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+        "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+        "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+        "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+        "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+        "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+        "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+        "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+        "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+        "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+        "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+        "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+        "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+        "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+        "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+        "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+      ]
+    },
+    "environment_family": "arturia_persistent_v1",
+    "environment_revision": 1,
+    "host_sha256": "f3007377e997305c9ffe30a8fa55119a42413e9ec2614faa0fcf0a90cd2478a7",
+    "host_source_sha256": "8a2744614aeb4b80e967854cb20d4a562af8464d1ea0419fe3eed4ea610f3ba8",
+    "native_sha256": "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
+    "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
+    "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
+  },
+  "workload": {
+    "application": "Bitwig Studio 6.1 Flatpak",
+    "launch": "Applications desktop entry via gio",
+    "project_alias": "protected process-retirement C3 copy",
+    "notes": "existing C3 loop",
+    "rate": 48000,
+    "precision": "float32",
+    "host_maximum": 512,
+    "bridge_delay": 512,
+    "sidechain": "No input",
+    "trace": false,
+    "no_global_input_or_Mac_focus": true,
+    "launch_helper_timeout": "gio remained attached to project-folder dialog; existing Bitwig launch completed; no second launch"
+  },
+  "ordinary_editor": {
+    "opened_on_insertion": true,
+    "normal_Bitwig_close": "retained hidden, stage 218",
+    "same_processing_session": true,
+    "native_view_tokens": [
+      1,
+      2
+    ],
+    "logical_editor_epochs": [
+      1,
+      2
+    ],
+    "same_parent_window": true,
+    "reopened_focused": true,
+    "vendor_release_not_called": true
+  },
+  "local_audio": {
+    "hidden": {
+      "source": "Deck local default sink monitor",
+      "rate": 48000,
+      "channels": 2,
+      "samples": 573440,
+      "nonzero": 266082,
+      "rms": 0.02962528060406414,
+      "peak": 0.06250286847352982,
+      "raw_audio_retained": false,
+      "capture_error": false
+    },
+    "reopened": {
+      "source": "Deck local default sink monitor",
+      "rate": 48000,
+      "channels": 2,
+      "samples": 573440,
+      "nonzero": 319582,
+      "rms": 0.032521700499970385,
+      "peak": 0.06250286847352982,
+      "raw_audio_retained": false,
+      "capture_error": false
+    }
+  },
+  "quit": {
+    "normal_quit": true,
+    "disposable_test_edits_declined": true,
+    "saved_source_and_copy_hash": "95566160733ba263a8a8d7a6ebf45d0b07eee1d228f88d4b4025012ee5d2083c",
+    "retirement_ready": {
+      "schema": 1,
+      "state": "process_scoped_retirement_ready",
+      "milestones": 127,
+      "epoch": 1,
+      "sequence": 52000,
+      "position": 13310976,
+      "generation": 1,
+      "reserved0": 0,
+      "reserved1": 0,
+      "reserved2": 0
+    },
+    "disposition": "process_scoped_vendor_retirement",
+    "outer_launcher_exit_after_supervisor_containment": -15,
+    "outer_launcher_exited_before_containment": null,
+    "error": null,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "bitwig_frontend_engine_and_plugin_host_absent": true,
+    "final_editor": {
+      "available": true,
+      "independently_sampled": true,
+      "closed": 1,
+      "failure": 0,
+      "open": 0,
+      "view_stage": 217,
+      "open_stage": 100,
+      "exception_code": 0
+    },
+    "collector_rejection": null,
+    "clean_sdk_destruction_claimed": false
+  },
+  "native_final": [
+    {
+      "event": "ap10_process_results",
+      "stats_status": 0,
+      "events_delivered": 206,
+      "points_delivered": 0,
+      "late_events": 0,
+      "late_points": 0,
+      "host_unrequested_events": 0,
+      "host_unrequested_points": 0,
+      "rejected": 0,
+      "cleanup_sent": 0,
+      "cleanup_unavailable": 0,
+      "active_notes_unreleased": 0,
+      "discarded_on_reset": 0,
+      "pending_events": 0,
+      "pending_points": 0
+    },
+    {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 512,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 13310976,
+      "blocks": 25998,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 1,
+      "successful_silent_frames": 512,
+      "priming_frames": 512,
+      "underrun_frames": 0,
+      "underrun_gaps": 0,
+      "underrun_callbacks": 0,
+      "expired_output_frames": 0,
+      "delivered_frames": 13310464,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    }
+  ],
+  "windows_processing_summary": [
+    {
+      "event": "lifecycle",
+      "sequence": 242,
+      "state": "ap0_thread_joined",
+      "joined": true,
+      "processing_stopped": true,
+      "worker_exception": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 244,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 51996,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    }
+  ],
+  "final": {
+    "pigments_active": false,
+    "ordinary_revision10_physical_unchanged": true,
+    "protected_projects_unchanged": true,
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "stale_transport": false,
+    "heavy_trace": false,
+    "bitwig_debugger_profiler_absent": true,
+    "service_active": true,
+    "keeper_lease_count": 1,
+    "effective_cpuweight": "100",
+    "512_recommended": true,
+    "256_unqualified": true
+  },
+  "remaining_blocker": {
+    "kind": "source_reporting_ownership_gap",
+    "detail": "Windows InputObservation.dump is invoked only in MappedSession::Impl destructor. Process-scoped retirement intentionally bypasses that destructor, so remaining two-sided input witnesses cannot be retained through the current report path.",
+    "not_a_new_audio_or_retirement_failure": true,
+    "next_immutable_revision_requires_chain_extension": true,
+    "sidechain_routing_preset_automation_state_sibling_campaign_not_run": true,
+    "revision9_reporting_fix_authorized": true
+  },
+  "nonclaims": [
+    "not a performance benchmark or prolonged block-count test",
+    "no general Arturia retirement exception",
+    "no SDK object destruction success",
+    "no new sidechain-routing or saved-state qualification claim",
+    "no raw audio, vendor state, preset, credentials or license payload retained"
+  ]
+}
