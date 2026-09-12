@@ -326,9 +326,13 @@ mod event_policy_tests {
         assert_eq!(original.fingerprint().unwrap(),"5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4");
         let mut corrected=original.clone();
         corrected.capabilities.event_output=Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified);
+        corrected.capabilities.editor_lifetime=Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement);
+        assert_eq!(corrected.capabilities.compatibility().editor_lifetime,corrected.capabilities.editor_lifetime);
         assert_eq!(corrected.capabilities.compatibility().event_output,corrected.capabilities.event_output);
         assert!(Profile::parse(&serde_json::to_vec(&corrected).unwrap()).is_ok());
         assert!(corrected.claim.require(SelectionPurpose::Activation).is_err());
+        let mut bad=serde_json::to_value(&corrected).unwrap();bad["capabilities"]["editor_lifetime"]=serde_json::json!("retain_everything");
+        assert!(Profile::parse(&serde_json::to_vec(&bad).unwrap()).is_err());
         let mut value=serde_json::to_value(corrected).unwrap();value["capabilities"]["event_output"]=serde_json::json!("all_zero_buses");
         assert!(Profile::parse(&serde_json::to_vec(&value).unwrap()).is_err());
     }

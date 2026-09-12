@@ -15,12 +15,14 @@ pub(crate) fn replacement_prior(prior: &Profile, next: &Profile) -> Result<bool>
     let third = Profile::parse(include_bytes!("../../compatibility/ap18/revision-3/arturia-pigments.json"))?;
     let fourth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-4/arturia-pigments.json"))?;
     let fifth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-5/arturia-pigments.json"))?;
-    let sixth = candidate()?;
+    let sixth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-6/arturia-pigments.json"))?;
+    let seventh = candidate()?;
     Ok((*prior == first && *next == second)
         || (*prior == second && *next == third)
         || (*prior == third && *next == fourth)
         || (*prior == fourth && *next == fifth && fifth.revision == 5)
-        || (*prior == fifth && *next == sixth && sixth.revision == 6))
+        || (*prior == fifth && *next == sixth && sixth.revision == 6)
+        || (*prior == sixth && *next == seventh && seventh.revision == 7))
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -47,7 +49,7 @@ fn current_baseline(
 ) -> Result<(Baseline, Environment)> {
     require(
         p.claim == Claim::ReviewCandidate
-            && p.revision == 6
+            && p.revision == 7
             && p.id == "arturia-pigments"
             && p.role == Role::Instrument
             && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
@@ -400,7 +402,7 @@ mod tests {
             policies.push(policy);
         }
         p.id = "arturia-pigments".into();
-        p.revision = 6;
+        p.revision = 7;
         p.claim = Claim::ReviewCandidate;
         p.class.class_id = "03".repeat(16);
         p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
@@ -544,7 +546,23 @@ mod tests {
         let fifth_bytes=include_bytes!("../../compatibility/ap18/revision-5/arturia-pigments.json");
         assert_eq!(crate::hex(&sha2::Sha256::digest(fifth_bytes)),"dde2e25eb108c98d80926621f8fe9501d87a1ced93bc59bf917278f664c016e9");
         let fifth=Profile::parse(fifth_bytes).unwrap();
-        let sixth=candidate().unwrap();
+        let sixth_bytes=include_bytes!("../../compatibility/ap18/revision-6/arturia-pigments.json");
+        assert_eq!(crate::hex(&sha2::Sha256::digest(sixth_bytes)),"ca00ca5373f76d10a3d4b60421eecbfa57e60e19e1e06e3b9a4332b20b900879");
+        let sixth=Profile::parse(sixth_bytes).unwrap();
+        let seventh=candidate().unwrap();
+        assert!(replacement_prior(&sixth,&seventh).unwrap());
+        assert!(!replacement_prior(&fifth,&seventh).unwrap());
+        assert!(!replacement_prior(&seventh,&sixth).unwrap());
+        assert!(seventh.claim.require(SelectionPurpose::Activation).is_err());
+        assert_eq!(seventh.capabilities.editor_lifetime,Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement));
+        let mut lifetime_normalized=seventh.clone();
+        lifetime_normalized.revision=sixth.revision;
+        lifetime_normalized.requirements.host_sha256=sixth.requirements.host_sha256.clone();
+        lifetime_normalized.requirements.host_source_sha256=sixth.requirements.host_source_sha256.clone();
+        lifetime_normalized.capabilities.editor_lifetime=None;
+        lifetime_normalized.evidence=sixth.evidence.clone();
+        assert_eq!(lifetime_normalized,sixth);
+        assert_eq!(external_ids(&seventh.class.class_id).unwrap(),external_ids(&sixth.class.class_id).unwrap());
         assert!(replacement_prior(&fifth,&sixth).unwrap());
         assert!(!replacement_prior(&fourth,&sixth).unwrap());
         assert!(!replacement_prior(&sixth,&fifth).unwrap());
@@ -604,7 +622,7 @@ mod tests {
     #[test]
     fn compiled_candidate_is_new_identity_not_ordinary_or_ap17_policy() {
         let p = candidate().unwrap();
-        assert_eq!(p.revision, 6);
+        assert_eq!(p.revision, 7);
         assert_eq!(p.class.name, "Pigments");
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());

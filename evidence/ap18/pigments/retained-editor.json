@@ -1,19 +1,14 @@
 {
   "schema": 1,
-  "id": "arturia-pigments",
-  "revision": 7,
+  "policy": "retain_editor_view_until_instance_retirement",
+  "profile_revision": 7,
   "claim": "review_candidate",
-  "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
-  "factory_vendor": "Arturia",
-  "class": {
-    "class_id": "41727475415649534B61743150726F63",
-    "name": "Pigments",
-    "vendor": "Arturia",
-    "version": "7.0.1.6772",
-    "subcategories": "Instrument|Synth",
-    "metadata_tier": "factory_3_unicode"
-  },
-  "role": "instrument",
+  "windows_source": "19b9ff917782ae9ca1f028d53fb6f8ca3902af13",
+  "windows_build": "f57d26d242a1e08ee20908acdb438c7061aae405",
+  "windows_tree": "62628c88b65fb254f8c3405d6d001a8a1a7d0e68",
+  "windows_run": 34661367087,
+  "windows_artifact": 10287109206,
+  "windows_zip_sha256": "f52eb7f6abc4af55a818d8235336ddc24afc46a3f10a39ec79eb516027b77a5d",
   "requirements": {
     "runner": {
       "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
@@ -62,31 +57,35 @@
     "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
     "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
   },
-  "capabilities": {
-    "editor_lifetime": "retain_editor_view_until_instance_retirement",
-    "event_output": "reported_zero_event_channels_unspecified",
-    "accessibility": "windows_default",
-    "editor": "detached_direct_vendor_lifecycle",
-    "state": "concurrent_read_only_capture_v12",
-    "precision": "float32_only",
-    "performance": "frames512_recommended256_unqualified"
+  "profile_file_sha256": "e7c0eba8db18b8a05a4acdc996bb369f11f38ae2e2706eb50a5581dfc6254d8d",
+  "retained_revision6_file_sha256": "ca00ca5373f76d10a3d4b60421eecbfa57e60e19e1e06e3b9a4332b20b900879",
+  "behavior": {
+    "ordinary_close": "cancel focus; end gestures/groups; hide attached view and parent; no SDK or HWND destruction",
+    "reopen": "reuse view, parent and frame; advance logical epoch and retire old callback handler",
+    "final_retirement": "processing stop/join and component deactivate precede setFrame(nullptr), removed, release, DestroyWindow and original-handler restoration",
+    "scope": "exact candidate profile only; ordinary products and standalone vendor access unchanged"
   },
-  "limitations": [
-    "short_delivery_gaps",
-    "unqualified256",
-    "detached_focus_refusal",
-    "exact_operator_artifact_only",
-    "pigments_under_qualification",
-    "sole_stereo_auxiliary_input_only",
-    "returned_result_diagnosis"
-  ],
-  "evidence": [
-    "docs/AP18.md",
-    "evidence/ap18/pigments/installed.json",
-    "evidence/ap18/pigments/census.json",
-    "evidence/ap18/pigments/native-activation.json",
-    "evidence/ap18/pigments/event-output-operational-census.json",
-    "evidence/ap18/pigments/event-output-correction.json",
-    "evidence/ap18/pigments/retained-editor.json"
+  "generated_tests": {
+    "Windows_editor": "passed on final Windows source",
+    "first_failed_regression": "Hidden controller host-value echo suppression was lost; corrected without weakening the test.",
+    "checks": [
+      "no removal/frame-detach/release/parent destruction during logical close",
+      "exact parent reuse and greater epoch",
+      "host-value updates while hidden",
+      "exact final teardown order and one-time release",
+      "invalid retained parent refuses replacement",
+      "legacy lifecycle and gesture tests retained"
+    ],
+    "native_backend": "63 passed",
+    "linux_ctest": "7/7 passed",
+    "linux_runtime": "37 passed, no skips"
+  },
+  "live": "pending one bounded functional check",
+  "limits": [
+    "MIDI-output correction unchanged",
+    "No result capacities or wire-layout changes",
+    "No auxiliary-input routing changes",
+    "512 remains recommended; 256 unqualified",
+    "Candidate remains engineering-only and will be restored inactive"
   ]
 }
