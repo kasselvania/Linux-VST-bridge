@@ -63,9 +63,18 @@ root subprocess exit through the supervisor, unaffected unrelated processes,
 and Windows fatal EditorSession destruction in a child. The Windows parent
 reads custody after the child terminates; normal SDK close must leave it empty.
 
-The one automatic UIO1 menu/resize check remains pending. No new candidate or
-ordinary acceptance is claimed by source/fixture results. Pigments11 is active;
-12/13 are retained unchanged, with 13 inactive failed ordinary history.
+The single automatic check delivered the menu Down/Up to the vendor child.
+The private harness then stopped on a filename collision before resize. During
+subsequent cleanup the Windows endpoint exited: IF1 retained the first native
+transport fault and complete state identity, and Bitwig displayed its crashed
+plug-in status. No repeated interaction or reload was attempted. The exact
+Windows exit cause and the resize result remain unresolved. Generated tests,
+not a live notification counter, prove exact-once controller/reload behavior.
+
+Ordinary Pigments11 is restored; 12/13/14 are inactive immutable history.
+Service and keeper are active with zero DSP leases, pending transactions or
+stale transports. See `evidence/if1/live-check.json`, `installed-final.json` and
+`validation.json`. IF1 is not claimed fully qualified and remains draft.
 
 ## Engineering publication
 

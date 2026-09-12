@@ -1,9 +1,9 @@
 # IF1 — terminal instance failure propagation
 
 Continue on `codex/uir1-xwayland-input-retrieval` from diagnostic head
-`828fad8854082da412b88614c9b38c8c082e013e`. PR #98 (continuation of merged #97) was already merged as
+`828fad8854082da412b88614c9b38c8c082e013e`. PR #97 was already merged as
 `a1befbb3b28abd310a2baf4ace33d7fe9f6240cf` before this instruction; keep the
-IF1 continuation draft and unmerged. The operator acknowledged that state.
+IF1 continuation, PR #98, draft and unmerged. The operator acknowledged that state.
 
 ## Claim and scope
 
@@ -44,3 +44,13 @@ zero DSP leases/transactions/stale transport, service/keeper healthy, tracing of
 512 remains recommended; 256 unqualified. No audio-performance claim.
 
 Status: incident preserved and ordinary 11 restored; IF1 implementation pending.
+
+## Current checkpoint
+
+Source and generated IF1 regressions pass. Candidate 14 was exercised once; the
+menu click reached the vendor, but a private harness filename collision left
+resize incomplete. A subsequent endpoint exit committed terminal custody and
+Bitwig showed a crashed plug-in. Exact exit cause and live notification count
+remain unproved. No replay is authorized by this checkpoint. Ordinary 11 is
+restored, candidates/history retained, service/keeper active and DSP/transactions/
+stale transports zero. PR #98 remains draft; no acceptance claim.
