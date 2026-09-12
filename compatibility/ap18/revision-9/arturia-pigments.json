@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 10,
+  "revision": 9,
   "claim": "review_candidate",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
@@ -56,8 +56,8 @@
     },
     "environment_family": "arturia_persistent_v1",
     "environment_revision": 1,
-    "host_sha256": "5a781f7d77a2e7499d2d07b7e92b8d29976f72e71f8f0f96e8e3f1878051125e",
-    "host_source_sha256": "f37577944dce23724760d71278187b9c116947798220469a30ff62e12bf65233",
+    "host_sha256": "1d6c2f7a3e3271fc4fb70f36506a57201d9b8ee5c2ff62ced32c5f052f2dc200",
+    "host_source_sha256": "f4acc935092ba4742c035f8f52a2d419541f4e9d5c97af7d129c2b2323c69056",
     "native_sha256": "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
     "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
     "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
@@ -90,8 +90,6 @@
     "evidence/ap18/pigments/event-output-correction.json",
     "evidence/ap18/pigments/retained-editor.json",
     "evidence/ap18/pigments/process-retirement.json",
-    "evidence/ap18/pigments/process-retirement-live.json",
-    "evidence/ap18/lc1/regression-before.json",
-    "evidence/ap18/lc1/regression-after.json"
+    "evidence/ap18/pigments/process-retirement-live.json"
   ]
 }

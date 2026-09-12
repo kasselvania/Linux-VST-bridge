@@ -18,7 +18,8 @@ pub(crate) fn replacement_prior(prior: &Profile, next: &Profile) -> Result<bool>
     let sixth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-6/arturia-pigments.json"))?;
     let seventh = Profile::parse(include_bytes!("../../compatibility/ap18/revision-7/arturia-pigments.json"))?;
     let eighth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-8/arturia-pigments.json"))?;
-    let ninth = candidate()?;
+    let ninth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-9/arturia-pigments.json"))?;
+    let tenth = candidate()?;
     Ok((*prior == first && *next == second)
         || (*prior == second && *next == third)
         || (*prior == third && *next == fourth)
@@ -26,7 +27,8 @@ pub(crate) fn replacement_prior(prior: &Profile, next: &Profile) -> Result<bool>
         || (*prior == fifth && *next == sixth && sixth.revision == 6)
         || (*prior == sixth && *next == seventh && seventh.revision == 7)
         || (*prior == seventh && *next == eighth && eighth.revision == 8)
-        || (*prior == eighth && *next == ninth && ninth.revision == 9))
+        || (*prior == eighth && *next == ninth && ninth.revision == 9)
+        || (*prior == ninth && *next == tenth && tenth.revision == 10))
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -53,7 +55,7 @@ fn current_baseline(
 ) -> Result<(Baseline, Environment)> {
     require(
         p.claim == Claim::ReviewCandidate
-            && p.revision == 9
+            && p.revision == 10
             && p.id == "arturia-pigments"
             && p.role == Role::Instrument
             && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
@@ -406,7 +408,7 @@ mod tests {
             policies.push(policy);
         }
         p.id = "arturia-pigments".into();
-        p.revision = 9;
+        p.revision = 10;
         p.claim = Claim::ReviewCandidate;
         p.class.class_id = "03".repeat(16);
         p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
@@ -560,7 +562,27 @@ mod tests {
         let eighth_bytes=include_bytes!("../../compatibility/ap18/revision-8/arturia-pigments.json");
         assert_eq!(crate::hex(&sha2::Sha256::digest(eighth_bytes)),"bbb68e8a5cf0d401fc39ab33ff4e39bd71385d3bc5bf9a557f5b23af1e4a439b");
         let eighth=Profile::parse(eighth_bytes).unwrap();
-        let ninth=candidate().unwrap();
+        let ninth_bytes=include_bytes!("../../compatibility/ap18/revision-9/arturia-pigments.json");
+        assert_eq!(crate::hex(&sha2::Sha256::digest(ninth_bytes)),"a7ee1933ef287c730c496e88ab66e17c4948b5386e24b88606c8296d2d925dad");
+        let ninth=Profile::parse(ninth_bytes).unwrap();
+        assert_eq!(ninth.fingerprint().unwrap(),"13f6ec3d3230a5bc96a2089cfcb040c386cdd6acd258e5ce099f094c4102123c");
+        let tenth=candidate().unwrap();
+        assert_eq!(tenth.revision,10);
+        assert!(replacement_prior(&ninth,&tenth).unwrap());
+        assert!(!replacement_prior(&eighth,&tenth).unwrap());
+        assert!(!replacement_prior(&tenth,&ninth).unwrap());
+        assert!(tenth.claim.require(SelectionPurpose::Activation).is_err());
+        let mut normalized=tenth.clone();normalized.revision=ninth.revision;
+        normalized.requirements.host_sha256=ninth.requirements.host_sha256.clone();
+        normalized.requirements.host_source_sha256=ninth.requirements.host_source_sha256.clone();
+        normalized.evidence=ninth.evidence.clone();assert_eq!(normalized,ninth);
+        assert_eq!(external_ids(&tenth.class.class_id).unwrap(),external_ids(&ninth.class.class_id).unwrap());
+        for change in 0..3 {
+            let mut wrong=tenth.clone();
+            match change {0=>wrong.module_sha256="00".repeat(32),1=>wrong.requirements.native_sha256="00".repeat(32),_=>wrong.requirements.host_sha256="00".repeat(32)}
+            assert!(!replacement_prior(&ninth,&wrong).unwrap());
+        }
+        println!("LC1 revision10 fingerprint {}",tenth.fingerprint().unwrap());
         assert!(replacement_prior(&eighth,&ninth).unwrap());
         assert!(!replacement_prior(&seventh,&ninth).unwrap());
         assert!(!replacement_prior(&ninth,&eighth).unwrap());
@@ -667,7 +689,7 @@ mod tests {
     #[test]
     fn compiled_candidate_is_new_identity_not_ordinary_or_ap17_policy() {
         let p = candidate().unwrap();
-        assert_eq!(p.revision, 9);
+        assert_eq!(p.revision, 10);
         assert_eq!(p.class.name, "Pigments");
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());

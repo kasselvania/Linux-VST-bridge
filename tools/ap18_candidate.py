@@ -5,10 +5,10 @@ compiled finite profile/artifact roster. Never reads vendor state or licenses.
 """
 import argparse, hashlib, json, pathlib, subprocess, zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SOURCE = '656c0dff72f6b515bd409a9a45b8bedefc7d5144'
-BUILD = '78466f2125ea5d4f279c9536270c1dab5a2a5c35'
-TREE = 'a0684383f807ed660733428e9286052fca7d9f73'
-ZIP = 'd80aacc0bd0f8c5ab451243b97b7aadaf44d659e8432b3e7b35dfca9859a0c04'
+SOURCE = 'c7a58b63a65a7fdc7564cf6c29be272960d9871a'
+BUILD = '9abe3466fed71d153a19c7df804bdb341817e9f8'
+TREE = 'ac450c126ae4db5d980c49d8a28857bd719d99e4'
+ZIP = 'f948eb277f00898211478b27bdd2684865712aef7cf73fd818ed9562ab11be09'
 def sha(b): return hashlib.sha256(b).hexdigest()
 def git(*a): return subprocess.check_output(['git',*a],cwd=ROOT,text=True).strip()
 def generate(census, native, archive, output):
@@ -28,7 +28,7 @@ def generate(census, native, archive, output):
         mode,kind,blob,path=row.split(None,3);assert kind=='blob'
         inputs.append(dict(path=path,git_mode=mode,git_blob=blob))
     manifest=dict(schema='linux-vst-bridge-ap18-host-source/v1',source_head=SOURCE,commit=BUILD,tree=TREE,
-        ci_run=34666184236,artifact_id=10289596609,artifact_zip_sha256=ZIP,binaries=binaries,
+        ci_run=34671854278,artifact_id=10290733513,artifact_zip_sha256=ZIP,binaries=binaries,
         sdk_commit='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',sdk_lock='cmake/HP0Vst3SdkLock.cmake',
         toolchain=dict(generator='Visual Studio 17 2022',architecture='x64',toolset='v143',windows_sdk='10.0.19041.0',observed_msvc='19.44.35228.0'),inputs=inputs)
     source=(json.dumps(manifest,sort_keys=True,separators=(',',':'))+'\n').encode()
@@ -37,14 +37,14 @@ def generate(census, native, archive, output):
     assert m['name']=='Pigments' and m['vendor']==c['factory_vendor']=='Arturia' and 'Instrument' in m['subcategories'].split('|')
     assert c['float32'] and not c['float64'] and native['returncode']==0 and len(native['source_commit'])==40
     filehash=lambda path: next(a['sha256'] for a in runner['files'] if a['path']==path)
-    p=dict(schema=1,id='arturia-pigments',revision=9,claim='review_candidate',module_sha256=c['module']['sha256'],factory_vendor=c['factory_vendor'],
+    p=dict(schema=1,id='arturia-pigments',revision=10,claim='review_candidate',module_sha256=c['module']['sha256'],factory_vendor=c['factory_vendor'],
         **{'class':m},role='instrument',requirements=dict(runner=dict(id=runner['id'],version=runner['version'],
         proton_sha256=filehash(runner['proton']),entry_point_sha256=filehash(runner['entry_point']),file_sha256=sorted(a['sha256'] for a in runner['files'])),
         environment_family=c['environment']['family'],environment_revision=env['revision'],host_sha256=sha(host),host_source_sha256=sha(source),
         native_sha256=native['sha256'],native_source_commit=native['source_commit'],descriptor_sha256=native['descriptor_sha256']),
         capabilities=dict(vendor_retirement='process_scoped_vendor_retirement',editor_lifetime='retain_editor_view_until_instance_retirement',event_output='reported_zero_event_channels_unspecified',accessibility='windows_default',editor='detached_direct_vendor_lifecycle',state='concurrent_read_only_capture_v12',precision='float32_only',performance='frames512_recommended256_unqualified'),
         limitations=['short_delivery_gaps','unqualified256','detached_focus_refusal','exact_operator_artifact_only','pigments_under_qualification','sole_stereo_auxiliary_input_only','returned_result_diagnosis'],
-        evidence=['docs/AP18.md','evidence/ap18/pigments/installed.json','evidence/ap18/pigments/census.json','evidence/ap18/pigments/native-activation.json','evidence/ap18/pigments/event-output-operational-census.json','evidence/ap18/pigments/event-output-correction.json','evidence/ap18/pigments/retained-editor.json','evidence/ap18/pigments/process-retirement.json','evidence/ap18/pigments/process-retirement-live.json'])
+        evidence=['docs/AP18.md','evidence/ap18/pigments/installed.json','evidence/ap18/pigments/census.json','evidence/ap18/pigments/native-activation.json','evidence/ap18/pigments/event-output-operational-census.json','evidence/ap18/pigments/event-output-correction.json','evidence/ap18/pigments/retained-editor.json','evidence/ap18/pigments/process-retirement.json','evidence/ap18/pigments/process-retirement-live.json','evidence/ap18/lc1/regression-before.json','evidence/ap18/lc1/regression-after.json'])
     output.mkdir(mode=0o700)
     for name,data in [('host.exe',host),('host-source-manifest.json',source),('profile.json',(json.dumps(p,indent=2)+'\n').encode())]:
         (output/name).write_bytes(data);(output/name).chmod(0o400)

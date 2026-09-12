@@ -61,6 +61,7 @@ fn same_session_reconfiguration_two_ended() {
     let ready = ap1_native_client::endpoint::receive_version(&mut session.socket, 10, 12).unwrap();
     assert_eq!((ready.kind, ready.sequence, ready.session), (2, 0, id));
     assert!(ready.payload.is_empty());
+    let mut fault_socket = session.socket.try_clone().unwrap();
     let mut shared = Shared::new();
     shared.gui = session.gui.clone();
     shared.state_capable.store(true, Ordering::Release);
@@ -134,6 +135,30 @@ fn same_session_reconfiguration_two_ended() {
             assert_eq!(result.audio.data, [[0.125; CAP], [-0.25; CAP]]);
         }
         assert_eq!(unsafe { ap3_transition(handle, STOP) }, 0);
+        wait(&shared, || {
+            shared.ack.load(Ordering::Acquire) == (epoch << 8) | 13
+        });
+        if epoch == 2 && std::env::var_os("LVB_LC1_BAD_DEACTIVATE_SEQUENCE").is_some() {
+            // Fault injection only while the real queued worker is idle after
+            // its acknowledged Stop. Windows must not accept next+1 here.
+            use ap1_native_client::endpoint::{receive_version, send_version};
+            let wrong = ap1_native_client::Frame {
+                kind: 14,
+                session: id,
+                sequence: 104689,
+                payload: vec![],
+            };
+            send_version(&mut fault_socket, &wrong, 5, 12).unwrap();
+            let rejected = receive_version(&mut fault_socket, 5, 12).unwrap();
+            assert_eq!(
+                (rejected.kind, rejected.session, rejected.sequence),
+                (7, id, 104688)
+            );
+            assert_eq!(unsafe { ap3_close(handle) }, 2);
+            run.handle = 0;
+            eprintln!("LC1 wrong Deactivate sequence refused: actual104689 expected104688");
+            return;
+        }
         assert_eq!(unsafe { ap4_deactivate(handle) }, 0);
         assert_eq!(shared.ack.load(Ordering::Acquire), 15);
     }
