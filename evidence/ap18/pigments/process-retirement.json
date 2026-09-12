@@ -93,14 +93,15 @@
     "release_bomb_never_called": true,
     "default_sdk_release_tests_retained": true,
     "linux": "production supervisor consumes typed record and contains only its cohort; missing/incomplete records remain failure; unrelated sibling survives; cleanup and transport retirement once",
-    "linux_runtime_tests": 40,
+    "linux_runtime_tests": 41,
     "manager_tests": {
       "library": 61,
       "binary": 11
     },
     "backend_tests": 63,
     "client_tests": 11,
-    "native_cmake_ctest_exit": 0
+    "native_cmake_ctest_exit": 0,
+    "required_retirement_mapping_crosses_existing_tmpfs_windows_gate": true
   },
   "nonclaims": [
     "not clean SDK object destruction",

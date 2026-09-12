@@ -137,10 +137,11 @@ def windows_transport_views(spec):
     directory,durable=session_directories(spec)
     if directory==durable:return
     sources=[]
-    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery','ap18.results'):
+    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery','ap18.results','ap18.retirement'):
         source=directory/name;target=durable/name
         try:m=source.lstat()
         except FileNotFoundError:
+            if name=='ap18.retirement' and spec.get('registration',{}).get('compatibility',{}).get('vendor_retirement') is None:continue
             if name in ('ap10.delivery','ap18.results'):continue # retained legacy diagnostic clients
             raise
         if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077:

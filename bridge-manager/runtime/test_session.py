@@ -488,8 +488,15 @@ class MemoryTransportTests(unittest.TestCase):
                 self.assertFalse(directory.exists() or durable.exists())
 
     def test_production_gate_waits_for_exact_windows_views_and_closes_both_owners(self):
+        self.run_gate(False)
+
+    def test_retirement_custody_crosses_exact_tmpfs_windows_gate(self):
+        self.run_gate(True)
+
+    def run_gate(self,scoped):
         with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
             spec,durable,directory=self.fixture(disk,memory)
+            if scoped:spec['registration']['compatibility']={'vendor_retirement':'process_scoped_vendor_retirement'}
             for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
                 (directory/name).write_bytes(b'exact-'+name.encode());(directory/name).chmod(0o600)
             # Use the production command's binding and exact C: paths. The fake
@@ -509,13 +516,24 @@ assert (d/(sid+'.gate')).read_bytes()==(d/(sid+'.ready')).read_bytes()
 for n in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
  assert (d/n).is_symlink() and (d/n).read_bytes()==b'exact-'+n.encode()
 assert (d/'ap18.results').is_symlink() and (d/'ap18.results').read_bytes()[:4]==b'LVRS'
-print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
+import os
+if os.environ.get('LVB_VENDOR_RETIREMENT'):
+ import ctypes,mmap
+ assert (d/'ap18.retirement').is_symlink()
+ f=open(d/'ap18.retirement','r+b');m=mmap.mmap(f.fileno(),256)
+ assert m[:4]==b'LVRT' and m[16:32]==bytes.fromhex(sid)
+ a=ctypes.addressof(ctypes.c_char.from_buffer(m));lib=ctypes.CDLL('libatomic.so.1')
+ store=getattr(lib,'__atomic_store_8');store.argtypes=[ctypes.c_void_p,ctypes.c_uint64,ctypes.c_int]
+ for i,v in enumerate([127,1,20,256,1,0,0,0]):store(a+192+i*8,v,5)
+ store(a+64,1,5);time.sleep(30)
+else:print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
 """
             with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \
                  patch.object(session,'command',return_value=([sys.executable,'-c',program,str(durable),spec['session']],binding)), \
-                 patch.object(session,'environment',return_value=os.environ.copy()), \
+                 patch.object(session,'environment',return_value=dict(os.environ,LVB_VENDOR_RETIREMENT='process_scoped_vendor_retirement') if scoped else os.environ.copy()), \
                  patch.object(session,'FaultStatus',return_value=None):
                 outcome=session.run(spec)
+            if scoped:self.assertEqual(outcome['retirement_disposition'],'process_scoped_vendor_retirement')
             self.assertTrue(outcome['gated'])
             self.assertIsNone(outcome['error'])
             self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
