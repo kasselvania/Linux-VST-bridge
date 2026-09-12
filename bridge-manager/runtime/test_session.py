@@ -5,6 +5,7 @@ import os
 import pathlib
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -928,3 +929,105 @@ time.sleep(30)
                     outcome=session.run(spec)
                 self.assertIsNone(outcome['error']);self.assertIsNone(outcome['vendor_retirement'])
                 self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+
+@unittest.skipUnless(sys.platform.startswith('linux'), 'Linux atomic custody/process fixture')
+class TerminalInstanceTests(unittest.TestCase):
+    @staticmethod
+    def create(root,sid):
+        data=bytearray(2048);data[:32]=b'LVIF'+struct.pack('<III',1,2048,0)+bytes.fromhex(sid)
+        row=[1,*struct.unpack('<QQ',bytes.fromhex(sid)),7,2,104687,512,9,7,104680,1,2,3,4,0,0,768,11,0,0,0,0,0,0]
+        struct.pack_into('<Q',data,1024,1);struct.pack_into('<24Q',data,1344,*row)
+        p=root/'if1.terminal';p.write_bytes(data);p.chmod(0o600)
+
+    def test_root_exit_through_actual_supervisor_cleanup(self):
+        # Real subprocess exit, actual run/containment/report/transport owner.
+        # Only runner launch and environment boundaries are replaced.
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=MemoryTransportTests().fixture(disk,memory)
+            self.create(directory,spec['session'])
+            unrelated=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
+            try:
+                with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \
+                     patch.object(session,'command',return_value=([sys.executable,'-c','raise SystemExit(90)'],b'')), \
+                     patch.object(session,'environment',return_value=os.environ.copy()):
+                    result=session.run(spec)
+                self.assertEqual(result['retirement_disposition'],'terminal_instance_failure')
+                r=result['fault_status']['before_containment']['terminal_instance']
+                self.assertEqual((r['failure_class'],r['status'],r['generation'],r['epoch'],r['sequence']),(1,90,7,2,104687))
+                self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+                self.assertFalse(directory.exists() or durable.exists())
+                self.assertIsNone(unrelated.poll())
+            finally:unrelated.terminate();unrelated.wait(timeout=5)
+
+    def test_concurrent_progress_retry_keeps_first_pending_root_failure(self):
+        import queue
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);sid='31'*16;self.create(root,sid)
+            t=session.TerminalStatus(root,sid);request=queue.Queue();done=queue.Queue()
+            original=t.word;errors=[]
+            def progress():
+                try:
+                    for round in range(3):
+                        request.get(timeout=5)
+                        for step in (1,2):
+                            n=round*2+step;c=original(1024)
+                            row=[original(1088+(c&1)*256+i*8) for i in range(24)]
+                            row[5]=104687+n;row[6]=row[16]=n*256
+                            for i,v in enumerate(row):t.store(t.address+1088+((c+1)&1)*256+i*8,v,5)
+                            t.store(t.address+1024,c+1,5)
+                        done.put(True)
+                except BaseException as e:errors.append(e);done.put(False)
+            worker=threading.Thread(target=progress);worker.start();reads=0
+            def racing_word(offset):
+                nonlocal reads
+                if offset==1024:
+                    reads+=1
+                    if reads%2==0:
+                        request.put(True);self.assertTrue(done.get(timeout=5))
+                return original(offset)
+            try:
+                with patch.object(t,'word',side_effect=racing_word):
+                    self.assertFalse(t.root_exit(90))
+                worker.join(timeout=5);self.assertFalse(worker.is_alive());self.assertEqual(errors,[])
+                self.assertFalse(t.completed);self.assertEqual(original(64),0)
+                self.assertTrue(t.root_exit(99))
+                first=t.snapshot()
+                self.assertEqual((first['status'],first['sequence'],first['last_completed_position']),(90,104693,1536))
+                self.assertTrue(t.root_exit(100));self.assertEqual(first,t.snapshot())
+            finally:worker.join(timeout=5);t.close()
+
+    def test_competing_failure_wins_while_supervisor_reads_progress(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);sid='31'*16;self.create(root,sid)
+            t=session.TerminalStatus(root,sid);original=t.word;ready=threading.Event();done=threading.Event()
+            def editor_failure():
+                if not ready.wait(5):return
+                row=[original(1344+i*8) for i in range(24)]
+                row[14:16]=[2,93];row[18:20]=[2,2]
+                for i,v in enumerate(row):t.store(t.address+384+i*8,v,5)
+                expected=session.ctypes.c_uint64(0)
+                t.cas(t.address+64,session.ctypes.byref(expected),2,False,5,5);done.set()
+            worker=threading.Thread(target=editor_failure);worker.start()
+            def interleave(offset):
+                if offset==1024:
+                    ready.set();self.assertTrue(done.wait(5))
+                return original(offset)
+            try:
+                with patch.object(t,'word',side_effect=interleave):self.assertTrue(t.root_exit(90))
+                worker.join(timeout=5);self.assertFalse(worker.is_alive())
+                first=t.snapshot();self.assertEqual((first['failure_class'],first['status']),(2,93))
+                t.root_exit(99);self.assertEqual(first,t.snapshot())
+            finally:ready.set();worker.join(timeout=5);t.close()
+
+    def test_first_custody_partial_write_and_identity(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);sid='31'*16;self.create(root,sid)
+            t=session.TerminalStatus(root,sid)
+            self.assertIsNone(t.snapshot())
+            # An interrupted other producer never commits or locks the record.
+            t.store(t.address+384,999,5)
+            t.root_exit(90);first=t.snapshot();t.root_exit(12)
+            self.assertEqual(first,t.snapshot());self.assertEqual(first['state_revision'],9)
+            self.assertEqual(first['last_completed_position'],512)
+            t.close()
+            with self.assertRaisesRegex(RuntimeError,'session/version'):session.TerminalStatus(root,'32'*16)

@@ -20,6 +20,7 @@ unsafe extern "C" {
     fn munmap(a: *mut c_void, n: usize) -> i32;
 }
 pub struct Status {
+    pub terminal: std::sync::Arc<crate::terminal::Status>,
     pointer: NonNull<u8>,
     _file: File,
     counter: u64,
@@ -38,7 +39,9 @@ impl Status {
         file.set_len(BYTES as u64)?;
         let p = unsafe { mmap(std::ptr::null_mut(), BYTES, 3, 1, file.as_raw_fd(), 0) };
         need(p as isize != -1, "fault status mapping failed")?;
+        let terminal = std::sync::Arc::new(crate::terminal::Status::create(&path.with_file_name("if1.terminal"), session)?);
         let value = Self {
+            terminal,
             pointer: NonNull::new(p.cast()).ok_or_else(|| invalid("null fault status"))?,
             _file: file,
             counter: 0,

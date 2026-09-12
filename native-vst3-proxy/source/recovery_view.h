@@ -5,6 +5,7 @@
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include <X11/Xlib.h>
 #include <cstring>
+#include <cstdio>
 #include <thread>
 namespace AP2 {
 class RecoveryView final : public Steinberg::CPluginView,
@@ -13,6 +14,13 @@ public:
   explicit RecoveryView(Steinberg::Vst::IEditController *controller)
       : controller_(controller), owner_(std::this_thread::get_id()) {
     setRect({0, 0, 640, 210});
+  }
+  RecoveryView(Steinberg::Vst::IEditController *controller,const char* failure,uint64_t revision)
+      : RecoveryView(controller) {
+    failure_=failure;
+    std::snprintf(failure_snapshot_,sizeof(failure_snapshot_),revision ?
+        "Confirmed snapshot #%llu retained; later edits may be unavailable." :
+        "No confirmed complete snapshot is available.",static_cast<unsigned long long>(revision));
   }
   ~RecoveryView() override { removed(); }
   Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID iid, void **out) override {
@@ -58,7 +66,7 @@ public:
     // Drain only a bounded number per tick. The DAW owns the event thread.
     for (unsigned n = 0; n < 32 && XPending(display_); ++n) {
       XEvent event{}; XNextEvent(display_, &event);
-      if (event.type == ButtonRelease && event.xbutton.button == Button1 &&
+      if (!failure_ && event.type == ButtonRelease && event.xbutton.button == Button1 &&
           event.xbutton.x >= 16 && event.xbutton.x <= 282 &&
           event.xbutton.y >= 154 && event.xbutton.y <= 190) {
         action_ = true;
@@ -79,6 +87,15 @@ private:
     for (unsigned i = 0; i < 127 && value[i]; ++i) out[i] = value[i] < 128 ? char(value[i]) : '?';
   }
   void draw(const char *pending) {
+    if (failure_) {
+      XSetForeground(display_,gc_,0x20252b);XFillRectangle(display_,window_,gc_,0,0,640,210);
+      XSetForeground(display_,gc_,0xeeeeee);
+      text(16,28,"Bridge instance failed");text(16,60,failure_);
+      text(16,92,failure_snapshot_);
+      text(16,124,"Remove/reload the device or reopen your saved project.");
+      text(16,156,"No stale plug-in state has been substituted.");
+      XFlush(display_);return;
+    }
     char snapshot[128]{}, status[128]{}, gain[128]{};
     parameter(snapshotID, snapshot); parameter(recoveryID, status);
     controller_->getParamStringByValue(0, controller_->getParamNormalized(0), gain_value_);
@@ -105,5 +122,7 @@ private:
   Window window_ = 0;
   GC gc_ = nullptr;
   bool registered_ = false, action_ = false;
+  const char* failure_=nullptr;
+  char failure_snapshot_[128]{};
 };
 } // namespace AP2

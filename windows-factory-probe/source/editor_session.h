@@ -168,15 +168,17 @@ public:
                  "GUI duplicate parameter ID");
     view_.diagnostic(
         [](void *p, uint32_t stage) {
-          static_cast<GuiChannel *>(p)->view_stage(stage);
+          static_cast<EditorSession *>(p)->channel_.view_stage(stage);
         },
-        &channel_);
+        this);
     view_.fault_diagnostic([](void *p, EXCEPTION_POINTERS *e) {
-      static_cast<GuiChannel *>(p)->view_fault(e);
+      auto* self=static_cast<EditorSession *>(p);
+      if(self->fault_)self->fault_->terminal.editor_fatal(e&&e->ExceptionRecord?e->ExceptionRecord->ExceptionCode:0,5);
+      self->channel_.view_fault(e);
     });
     channel_.ready();
   }
-  ~EditorSession() { if (!retire()) std::terminate(); }
+  ~EditorSession() { if (!retire()) {if(fault_)fault_->terminal.editor_fatal(AP11::Removal);std::terminate();} }
   Steinberg::tresult scoped_edit(uint64_t native, uint32_t epoch, uint32_t kind, uint32_t id, double value) override {
     if (owner_ != std::this_thread::get_id()) return Steinberg::kNotImplemented;
     // Synchronous host-value echoes belong to the processing instance even
@@ -373,6 +375,7 @@ public:
     FaultStatus::Scope activity(fault_,2,22);
     channel_.heartbeat();
     if (channel_.closed() || channel_.failure()) {
+      if (channel_.failure() && fault_) fault_->terminal.editor_fatal(channel_.failure());
       if (!close(AP11::EditorFailed))
         channel_.fail(AP11::Removal);
       else {

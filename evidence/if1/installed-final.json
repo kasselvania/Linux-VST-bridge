@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "products": [
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-pigments",
+        "revision": 11
+      },
+      "class_id": "41727475415649534B61743150726F63",
+      "active_revision": {
+        "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+        "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+      },
+      "publication_valid": true,
+      "qualification": null,
+      "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+      "external_ids": [
+        "2a87961b6a485bdea59c9009fc661460",
+        "ce18a28bb102517c9e5db63bb7d72d9b"
+      ],
+      "recommended_frames": 512,
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      },
+      "runner_valid": true,
+      "environment_valid": true,
+      "module_valid": true,
+      "native_artifact_valid": true,
+      "installed_host_valid": true
+    },
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-pure-lofi",
+        "revision": 10
+      },
+      "class_id": "417274754156495350724C4650726F63",
+      "active_revision": {
+        "id": "51f241c4da508aa1fbbc9d6d172eb123",
+        "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+      },
+      "publication_valid": true,
+      "qualification": null,
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "external_ids": [
+        "ac7f2418f2915958b5b67620593b9a2d",
+        "0c80f2acc39f5975a38d177102555683"
+      ],
+      "recommended_frames": 512,
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      },
+      "runner_valid": true,
+      "environment_valid": true,
+      "module_valid": true,
+      "native_artifact_valid": true,
+      "installed_host_valid": true
+    },
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-efx-fragments",
+        "revision": 10
+      },
+      "class_id": "41727475415649536772616E50726F63",
+      "active_revision": {
+        "id": "e340c6f8ad5ca494d2fb477214c9937e",
+        "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+      },
+      "publication_valid": true,
+      "qualification": null,
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "external_ids": [
+        "96bd361810b3568a9671700732903d6e",
+        "d3181e9d37e75871ba5ffbcae0775861"
+      ],
+      "recommended_frames": 512,
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      },
+      "runner_valid": true,
+      "environment_valid": true,
+      "module_valid": true,
+      "native_artifact_valid": true,
+      "installed_host_valid": true
+    }
+  ],
+  "candidate": {
+    "revision": 14,
+    "fingerprint": "f205fd398ec4ad086932c56f20bc556b14efed18c3e867bd3fd11acf7de79c1a",
+    "publication": {
+      "id": "44d2c3e94fd2c1ab5d6ec18d46335528",
+      "sha256": "20a86907b41e8c58d69c5c61df8f95f20fa63cff89e78b56957136b699dba391"
+    },
+    "parent": {
+      "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+      "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+    },
+    "qualification": "if1_failure",
+    "active": false
+  },
+  "retained_history": [
+    11,
+    12,
+    13,
+    14
+  ],
+  "ordinary_pigments": 11,
+  "software": {
+    "source": "f086041beb108b9060d5de05fd943861caa0c01d",
+    "record_sha256": "6b94fc98de0a0924aa0eb9b7f3c0612643fa235611468e9adfcb341ea56d278f",
+    "revision": "9d3be1ec158dbfaeb980a646dee2e63326165bd9d4a1e8626fc0a368af53af2a",
+    "artifacts": {
+      "manager": "e1df6f4640f140c7ddc4124d204f032d62d487ef334073ad5b43ce58dac7d727",
+      "supervisor": "ebaa59d80f529d97dacb52a321f0f1e9cc283b2b5b46a815a7e0984ecc96abe1",
+      "ownership": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "f93ae38d97aaa3441ca0f6725a109659d2c3201ef5f0f7af712b9a4ccf48a47c"
+    },
+    "prior_software_revision": "35b58d63ad517675597c274b837ec1363dcca6c7ac0d9020558903c731b1c971",
+    "prior_artifacts": {
+      "manager": "ebe5246216c751018d1c72f4ddf5c96e83abb55456e840c8447b4db3d2b8943f",
+      "supervisor": "77f530db96d8f5852e3aa3330105cbe5dc4ab5941471c46cc21b610b0b6428d5",
+      "ownership": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "80749d44d072fe1599454750f574a0b024a8439b15d3197784808c84ae514ce7"
+    }
+  },
+  "service": "active",
+  "keepers": 1,
+  "dsp_leases": 0,
+  "cleanup_unconfirmed": false,
+  "pending_transactions": 0,
+  "stale_tmpfs": 0,
+  "processes": {
+    "bitwig": 0,
+    "debuggers": 0,
+    "diagnostics": 0
+  },
+  "diagnostic_units": 0,
+  "tracing": false,
+  "cpuweight": {
+    "configured": "10000",
+    "effective": "10000",
+    "changed_by_if1": false,
+    "ownership": "ordinary SteamOS policy; no performance comparison"
+  },
+  "projects": {
+    "protected_original": "917e54d01f562b05cca0e7761f85f1114e7b94b301dfdc85a66365edc33db3c8",
+    "retained_uir1_copy": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573",
+    "if1_test_copy": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573"
+  },
+  "selected_supported_recommended_frames": 512,
+  "frames256": "unqualified"
+}

@@ -137,12 +137,12 @@ def windows_transport_views(spec):
     directory,durable=session_directories(spec)
     if directory==durable:return
     sources=[]
-    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery','ap18.results','ap18.retirement'):
+    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery','ap18.results','ap18.retirement','if1.terminal'):
         source=directory/name;target=durable/name
         try:m=source.lstat()
         except FileNotFoundError:
             if name=='ap18.retirement' and spec.get('registration',{}).get('compatibility',{}).get('vendor_retirement') is None:continue
-            if name in ('ap10.delivery','ap18.results'):continue # retained legacy diagnostic clients
+            if name in ('ap10.delivery','ap18.results','if1.terminal'):continue # retained legacy diagnostic clients
             raise
         if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077:
             raise RuntimeError('transport file ownership/type')
@@ -274,6 +274,63 @@ class RetirementStatus:
     def close(self):
         if self.map is not None:self.map.close();self.map=None
 
+class TerminalStatus:
+    """IF1 v1: native-created custody, separate fixed single-writer slots.
+
+    A complete producer slot is committed with libatomic compare/exchange.
+    The supervisor never claims a slot before writing it and never replaces
+    another owner's first failure. Optional only for older immutable natives.
+    """
+    def __init__(self,directory,sid):
+        self.map=None;self.sid=sid;self.completed=False;self.pending=None
+        try:fd=os.open(directory/'if1.terminal',os.O_RDWR|os.O_NOFOLLOW)
+        except FileNotFoundError:return
+        try:
+            st=os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=2048 or st.st_mode&0o077:raise RuntimeError('IF1 ownership/extent')
+            self.map=mmap.mmap(fd,2048,access=mmap.ACCESS_WRITE)
+        finally:os.close(fd)
+        if self.map[:32]!=b'LVIF'+struct.pack('<III',1,2048,0)+bytes.fromhex(sid):
+            self.close();raise RuntimeError('IF1 session/version')
+        self.lib=ctypes.CDLL('libatomic.so.1')
+        self.load=getattr(self.lib,'__atomic_load_8');self.load.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load.restype=ctypes.c_uint64
+        self.store=getattr(self.lib,'__atomic_store_8');self.store.argtypes=[ctypes.c_void_p,ctypes.c_uint64,ctypes.c_int]
+        self.cas=getattr(self.lib,'__atomic_compare_exchange_8');self.cas.argtypes=[ctypes.c_void_p,ctypes.POINTER(ctypes.c_uint64),ctypes.c_uint64,ctypes.c_bool,ctypes.c_int,ctypes.c_int];self.cas.restype=ctypes.c_bool
+        self.address=ctypes.addressof(ctypes.c_char.from_buffer(self.map))
+    def word(self,o):return self.load(self.address+o,5)
+    def root_exit(self,status,domain=4):
+        if self.map is None or self.completed:return True
+        # Preserve the first observed failure across bounded unstable reads.
+        # Only a complete competing record or a completed CAS ends custody.
+        if self.pending is None:self.pending=(status,domain)
+        if self.word(64):self.completed=True;return True
+        status,domain=self.pending
+        for _ in range(3):
+            c=self.word(1024)
+            if not c:return False
+            base=1088+(c&1)*256
+            row=[self.word(base+i*8) for i in range(24)]
+            if self.word(1024)!=c:continue
+            row[14:16]=[1,status&0xffffffffffffffff];row[18]=3;row[19]=domain
+            for i,v in enumerate(row):self.store(self.address+640+i*8,v,5)
+            expected=ctypes.c_uint64(0);self.cas(self.address+64,ctypes.byref(expected),3,False,5,5)
+            self.completed=True
+            return True
+        return False  # retry on the next owner call; never consume pending failure
+    def snapshot(self):
+        if self.map is None:return None
+        c=self.word(64)
+        if not c:return None
+        if c not in (1,2,3):raise RuntimeError('IF1 producer')
+        r=[self.word(128+(c-1)*256+i*8) for i in range(24)]
+        if r[0]!=1 or struct.pack('<QQ',*r[1:3])!=bytes.fromhex(self.sid) or r[18]!=c or r[14] not in (1,2,3) or r[19] not in (1,2,3,4,5) or any(r[20:]):raise RuntimeError('IF1 record identity')
+        return {'schema':1,'session':self.sid,'generation':r[3],'epoch':r[4],'sequence':r[5],
+          'last_completed_position':r[6],'state_revision':r[7],'state_generation':r[8],'state_through':r[9],
+          'state_sha256':struct.pack('<QQQQ',*r[10:14]).hex(),'failure_class':r[14],
+          'status':r[15],'position':r[16],'native_phase':r[17],'producer':r[18],'status_domain':r[19]}
+    def close(self):
+        if self.map is not None:self.map.close();self.map=None
+
 class FaultStatus:
     """Atomic, bounded read of AP12 status; independent of either Windows thread.
 
@@ -285,7 +342,7 @@ class FaultStatus:
     """
     fields=('generation','epoch','request_sequence','position','stage','detail','ticks','frequency','thread_id','process_id')
     def __init__(self,directory,sid):
-        self.result_status=ResultStatus(directory,sid);self.map=None;self.mailbox=None;self.gui=None;self.directory=directory;self.sid=sid;self.last=[None]*3;self.pending=None;self.suspect=None
+        self.terminal=TerminalStatus(directory,sid);self.result_status=ResultStatus(directory,sid);self.map=None;self.mailbox=None;self.gui=None;self.directory=directory;self.sid=sid;self.last=[None]*3;self.pending=None;self.suspect=None
         try:
             fd=os.open(directory/'ap12.status',os.O_RDWR|os.O_NOFOLLOW)
         except FileNotFoundError:return # legacy diagnostic clients
@@ -327,12 +384,12 @@ class FaultStatus:
                 return {**self.last[index],'current':True}
         return {**self.last[index],'current':False} if self.last[index] else {'current':False}
     def snapshot(self):
-        if self.map is None:return {'available':False,'result_status':self.result_status.snapshot()}
+        if self.map is None:return {'available':False,'result_status':self.result_status.snapshot(),'terminal_instance':self.terminal.snapshot()}
         return {'available':True,'schema':self.version,'sample_monotonic_ns':time.monotonic_ns(),
                 'clock_domains':['linux_monotonic_ns','windows_qpc','windows_qpc'],
                 **{name:self.lane(i) for i,name in enumerate(('native','delivery','owner'))},
                 'editor':self.editor_snapshot(),
-                'result_status':self.result_status.snapshot(),
+                'result_status':self.result_status.snapshot(),'terminal_instance':self.terminal.snapshot(),
                 'mailbox_flags':None if self.mailbox is None else {
                     'request':self.load4(self.mailbox_address+64,5),
                     'reply':self.load4(self.mailbox_address+128,5),
@@ -376,6 +433,7 @@ class FaultStatus:
             # deadline or declare that this request necessarily fails later.
             self.suspect=self.snapshot();self.suspect['observed_pending_seconds']=now-self.pending[1]
     def close(self):
+        self.terminal.close()
         self.result_status.close()
         if self.gui is not None:self.gui.close();self.gui=None
         if self.mailbox is not None:self.mailbox.close();self.mailbox=None
@@ -503,10 +561,12 @@ def run(spec,peer=None):
             # host; the launcher return code is retained separately, never invented.
             terminal=next((r for r in reversed(records) if r.get('state')=='ap8_inspection_closed'),None)
             if terminal and terminal.get('exit_code'):
+                if visibility:visibility.terminal.root_exit(terminal['exit_code'],3)
                 failure='Windows SDK host failed: '+str(terminal['exit_code']);break
             if any(r.get('state')=='scanner_completed' for r in records):break
             if root.poll() is not None:
                 code=root.returncode
+                if visibility and retirement_ready is None:visibility.terminal.root_exit(code)
                 for _ in range(20):
                     if not sel.get_map():break
                     pump(.01)
@@ -520,6 +580,7 @@ def run(spec,peer=None):
         fault=None;fault_reporting_error=None
         if visibility:
             try:
+                if retirement_ready is None and root.poll() is not None:visibility.terminal.root_exit(root.returncode)
                 fault={'session':sid,'early_pending':visibility.suspect,'before_containment':visibility.snapshot()}
                 atomic(report.with_suffix('.fault.json'),fault)
             except Exception as e:fault_reporting_error=type(e).__name__+': '+str(e)[:256]
@@ -563,6 +624,10 @@ def run(spec,peer=None):
         outcome['retirement_disposition']='process_scoped_vendor_retirement'
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
+    if fault and fault.get('before_containment',{}).get('terminal_instance'):
+        outcome['retirement_disposition']='terminal_instance_failure'
+        try:atomic(report,outcome)
+        except OSError:pass
     # Minimal ownership receipt is independent of the rich report, with a
     # bounded stdout result to the live Rust parent even if persistence fails.
     receipt={k:outcome.get(k,False) for k in ('session','cleanup_confirmed','transport_retired')}

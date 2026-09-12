@@ -106,7 +106,7 @@ struct MappedSession::Impl {
     ++controller_updates_applied;return true;
    });
    if(!ok)controller_update_failed.store(true);
-  }catch(...){controller_update_failed.store(true);}
+  }catch(...){if(fault)fault->terminal.editor_fatal(1);controller_update_failed.store(true);}
  }
  explicit Impl(EventWriter&e):events(e){}
  void state_call(Frame f,bool reserved=false){
@@ -309,7 +309,8 @@ void MappedSession::retire_vendor_process(bool quiescent){auto& x=*impl_;
  TerminateProcess(GetCurrentProcess(),92);std::terminate(); // never enter DLL detach or vendor destructors
 }
 void MappedSession::service_owner(){auto& x=*impl_;
- x.update_controller();if(x.editor)x.editor->service();
+ try{x.update_controller();if(x.editor)x.editor->service();}
+ catch(...){if(x.fault)x.fault->terminal.editor_fatal(2);throw;}
  if(auto flags=x.requested_restart.exchange(0)){FaultStatus::Scope activity(x.fault.get(),2,24,flags);auto latency=x.processor->getLatencySamples(),tail=x.processor->getTailSamples();x.published_traits.store(uint64_t(latency)|(uint64_t(tail)<<32));x.published_restart.fetch_or(flags);}
  std::unique_lock lock(x.mutex);
  if(x.waiting&&!x.serviced){

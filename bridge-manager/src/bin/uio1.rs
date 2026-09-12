@@ -3,6 +3,7 @@ use linux_vst_bridge::{ui_observation::*, Manager, Result};
 fn run() -> Result<()> {
     let a: Vec<_> = std::env::args().skip(1).collect();
     match a.as_slice() {
+        [command] if command == "admit-if1" => println!("{}", serde_json::to_string(&admit_if1(&Manager::installed()?)?)?),
         [command] if command == "admit-uir1" => println!("{}", serde_json::to_string(&admit_uir1(&Manager::installed()?)?)?),
         [command, class] if command == "admit" => println!(
             "{}",

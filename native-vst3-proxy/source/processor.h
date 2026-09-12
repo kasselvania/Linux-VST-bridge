@@ -80,6 +80,7 @@ private:
   Steinberg::tresult guiPoll(uint64_t generation,unsigned limit);
   bool deliverResults(Steinberg::Vst::ProcessData&);
   int eventOutputActive(int)const;
+  uint64_t terminal_notified_generation_=0;
   bool notifications_=false;uint32_t vendor_latency_=0;
   std::array<bool,32> bus_active_{};
   int stereo_input_ordinal_=-1; // SDK-selected input lane, never product-role dispatch.

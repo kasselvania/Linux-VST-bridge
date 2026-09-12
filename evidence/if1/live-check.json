@@ -1,0 +1,176 @@
+{
+  "schema": 1,
+  "disposition": "IF1_CUSTODY_OBSERVED_RESIZE_CHECK_INCOMPLETE",
+  "manager_source": "f086041beb108b9060d5de05fd943861caa0c01d",
+  "profile_revision": 14,
+  "profile_fingerprint": "f205fd398ec4ad086932c56f20bc556b14efed18c3e867bd3fd11acf7de79c1a",
+  "session": "if1-live-A",
+  "launch": "normal Applications entry; protected copy; no Mac controls",
+  "actions": {
+    "editor_opened": true,
+    "menu_click": {
+      "point": [
+        25,
+        22
+      ],
+      "win32_down_up_observed": true,
+      "correct_vendor_child": true,
+      "menu_window_usability": "No usable resize choices in retained parent-window capture; independent popup rendering/geometry is not proved by that capture."
+    },
+    "resize_attempted": false,
+    "repeat": false
+  },
+  "harness": {
+    "failure": "Private command file action-2.json collided with the frame metadata output of the same name. Collection stopped after the menu click and pointer observation.",
+    "helper": {
+      "exit": 0,
+      "kept": 529,
+      "overflow": 0,
+      "stderr_bytes": 529,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    },
+    "observer": {
+      "committed": 381,
+      "dropped": 0,
+      "ready": 1,
+      "closed": 1,
+      "hook_calls": 8708,
+      "hook_ticks": 182345,
+      "max_hook_ticks": 1448,
+      "filtered": 8327,
+      "heartbeat_errors": 0,
+      "scope_errors": 0,
+      "unhook_errors": 0,
+      "detached": 1
+    },
+    "public_imagery": false
+  },
+  "before_cleanup": {
+    "terminal_record": null,
+    "collector_rejection": null,
+    "editor_open": true
+  },
+  "subsequent_cleanup": {
+    "menu_dismissal": "One Escape after normal Bitwig activation was refused; no repeated menu click.",
+    "ordinary_quit_requested": true,
+    "outer_exit": 5,
+    "exact_windows_executable_exit": null,
+    "root_exit_cause": "unresolved; no SDK-stage or causal linkage inferred",
+    "first_worker_fault": {
+      "event": "ap5_worker_fault",
+      "generation": 1,
+      "fault": 3,
+      "first_position": 24221184,
+      "processed": 94614,
+      "request_high": 43,
+      "result_high": 2,
+      "detail": "InvalidData: delivery endpoint disconnected"
+    },
+    "retirement_disposition": "terminal_instance_failure",
+    "normal_retirement_ready": null,
+    "status": {
+      "available": true,
+      "schema": 2,
+      "clock_domains": [
+        "linux_monotonic_ns",
+        "windows_qpc",
+        "windows_qpc"
+      ],
+      "native": {
+        "publication": 283844,
+        "generation": 1,
+        "epoch": 1,
+        "request_sequence": 94618,
+        "position": 24221184,
+        "stage": 2,
+        "detail": 0,
+        "admitted_frames": 24221696,
+        "missing_frames": 0,
+        "gaps": 0,
+        "expired_frames": 0,
+        "delivered_frames": 24221184,
+        "priming_frames": 512,
+        "current": true
+      },
+      "delivery": {
+        "publication": 567687,
+        "generation": 1,
+        "epoch": 1,
+        "request_sequence": 94617,
+        "position": 24220928,
+        "stage": 1,
+        "detail": 0,
+        "current": true
+      },
+      "owner": {
+        "publication": 226995,
+        "generation": 1,
+        "epoch": 0,
+        "request_sequence": 0,
+        "position": 0,
+        "stage": 25,
+        "detail": 0,
+        "current": true
+      },
+      "editor": {
+        "available": true,
+        "independently_sampled": true,
+        "closed": 1,
+        "failure": 0,
+        "open": 1,
+        "view_stage": 16,
+        "open_stage": 100,
+        "exception_code": 0
+      },
+      "result_status": {
+        "available": true,
+        "schema": 1,
+        "rejection": null
+      },
+      "terminal_instance": {
+        "schema": 1,
+        "session": "if1-live-A",
+        "generation": 1,
+        "epoch": 1,
+        "sequence": 94618,
+        "last_completed_position": 24221184,
+        "state_revision": 3,
+        "state_generation": 1,
+        "state_through": 0,
+        "state_sha256": "f03752c9a4a4bd04a39af4a5eaf52f2b19b127c04cda119049f4c3d35190a604",
+        "failure_class": 3,
+        "status": 3,
+        "position": 24221184,
+        "native_phase": 11,
+        "producer": 1,
+        "status_domain": 1
+      },
+      "mailbox_flags": {
+        "request": 1,
+        "reply": 0,
+        "independently_sampled": true
+      }
+    },
+    "cleanup_confirmed": true,
+    "transport_retired": true
+  },
+  "host_visible": {
+    "bitwig_crashed_plugin_status": true,
+    "frontend_event": "Plug-in crashed",
+    "live_ap10_notification_count": "not independently recorded; exact-once propagation and kReloadComponent are proved by the generated processor/controller fixture",
+    "native_failure_view_live": "not reopened during this check",
+    "bitwig_normal_exit": true,
+    "engine_exit": 0,
+    "state_save_warning": false
+  },
+  "nonclaims": [
+    "Resize is not qualified by this attempt.",
+    "No attribution of the vendor/root exit to the menu, resize, Escape or shutdown call.",
+    "No gap-free, audible output, timing or performance result.",
+    "No clean SDK destruction or successful normal seven-milestone retirement."
+  ],
+  "private_receipt_sha256": "a50cdb113cb0f1e0203917eeda310dc26e877c412d53ccd637bb6ebfe99063e1"
+}

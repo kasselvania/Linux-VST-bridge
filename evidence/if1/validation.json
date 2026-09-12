@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "source": "f086041beb108b9060d5de05fd943861caa0c01d",
+  "local": {
+    "native_backend": {
+      "passed": 65,
+      "ignored": 1
+    },
+    "native_audio_client": {
+      "passed": 11
+    },
+    "manager": {
+      "library": 75,
+      "binary": 12
+    },
+    "clippy": "both backend and manager strict all-targets passed",
+    "runtime_macos": {
+      "collected": 43,
+      "passed": 17,
+      "linux_only_skipped": 26
+    },
+    "uio1": {
+      "passed": 10
+    }
+  },
+  "linux_runtime": {
+    "passed": 43,
+    "owner": "AP12 hosted source run"
+  },
+  "windows": {
+    "artifact_run": 34717588690,
+    "child_editor_fatal": "passed; production std::terminate remains; terminal record read by parent after exit",
+    "normal_child": "passed; no fabricated terminal record"
+  },
+  "native_sdk": {
+    "lane": "AP10 native result lifetime",
+    "passed": 7,
+    "callback_audit": "passed"
+  },
+  "hosted": [
+    {
+      "name": "AP8 Windows host",
+      "run": 34718204166,
+      "conclusion": "success"
+    },
+    {
+      "name": "AP10 native result lifetime",
+      "run": 34718204170,
+      "conclusion": "success"
+    },
+    {
+      "name": "AP12 registered owner",
+      "run": 34718204168,
+      "conclusion": "success"
+    },
+    {
+      "name": "PX2 proof policy",
+      "run": 34718204162,
+      "conclusion": "success"
+    }
+  ],
+  "retained_failed_attempts": [
+    "Initial macOS sandbox denied local sockets; authorized run passed.",
+    "First Windows child fixture addressed its nested GUI directory rather than the parent terminal mapping; corrected fixture passed.",
+    "Candidate profile evidence exceeded existing bound; candidate references shortened, schema unchanged.",
+    "Sealed inspection greeting omitted from duplicated filter; one tested decoder now owns admission and dispatch.",
+    "Private live capture output collided with its command filename; live check remains explicitly incomplete."
+  ],
+  "product_retest": false
+}

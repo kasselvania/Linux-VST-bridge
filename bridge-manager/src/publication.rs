@@ -36,6 +36,7 @@ pub enum Qualification {
     Ap17Capacity,
     Ap18Pigments,
     Uir1Input,
+    If1Failure,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

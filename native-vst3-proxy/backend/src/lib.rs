@@ -3,6 +3,7 @@
 mod commercial_tests;
 mod context;
 mod fault_status;
+mod terminal;
 mod gui;
 mod instances;
 mod mailbox;

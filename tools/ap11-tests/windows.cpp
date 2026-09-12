@@ -15,6 +15,13 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+namespace linux_vst_bridge::wf0 {
+struct TerminalStatusTestAccess {
+ template<class AfterCopy> static bool fail(TerminalStatus& status,AfterCopy after_copy) {
+  return status.editor_fatal_after_copy(AP11::Removal,2,after_copy);
+ }
+};
+}
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 using namespace linux_vst_bridge::wf0;
@@ -384,6 +391,69 @@ void process_retirement_regression(){
   CloseHandle(child.hThread);CloseHandle(child.hProcess);UnmapViewOfFile(p);CloseHandle(mapping);CloseHandle(f);std::filesystem::remove_all(dir);
  }
 }
+// Real EditorSession fatal destruction in a child. Parent retains mapped
+// first-failure custody after process exit; no destructor report is required.
+void terminal_child(const char* path,int mode) {
+ std::set_terminate([]{ExitProcess(93);});
+ HostApplication host;auto* c=new Controller;check(c->initialize(&host)==kResultOk,"IF1 child controller");
+ Mapping native{std::filesystem::path(path)};GuiChannel channel(native.dir.wstring(),native.id);
+ FaultStatus fault(std::filesystem::path(path).wstring(),native.id);auto* editor=new EditorSession(channel,*c,nullptr,true);editor->fault_status(&fault);
+ native.command(AP11::Open);editor->service(true);native.drain();
+ check(editor->is_open(),"IF1 child editor attached");
+ if(mode==20)c->stats.refuse=true; // persistent removed() refusal
+ delete editor; // production destructor commits fatal before std::terminate
+ check(mode==21&&c->stats.destroyed==1,"ordinary SDK view release unchanged");
+ ExitProcess(0);
+}
+void terminal_progress_regression() {
+ auto dir=std::filesystem::temp_directory_path()/(L"if1-progress-"+std::to_wstring(GetCurrentProcessId()));std::filesystem::create_directory(dir);
+ HANDLE f=CreateFileW((dir/L"if1.terminal").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_NEW,0,nullptr);check(f!=INVALID_HANDLE_VALUE,"progress file");
+ HANDLE mapping=CreateFileMappingW(f,nullptr,PAGE_READWRITE,0,2048,nullptr);auto* p=static_cast<uint8_t*>(MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,2048));check(p!=nullptr,"progress map");memset(p,0,2048);
+ memcpy(p,"LVIF",4);linux_vst_bridge::ap1::put(p+4,1,4);linux_vst_bridge::ap1::put(p+8,2048,4);p[16]=19;
+ auto load=[&](size_t at){return uint64_t(InterlockedCompareExchange64(reinterpret_cast<volatile LONG64*>(p+at),0,0));};
+ auto store=[&](size_t at,uint64_t v){InterlockedExchange64(reinterpret_cast<volatile LONG64*>(p+at),LONG64(v));};
+ std::array<uint64_t,24> row{1,19,0,7,2,104687,0,9,7,104680,1,2,3,4,0,0,0,11,0,0,0,0,0,0};
+ for(size_t i=0;i<row.size();++i)store(1344+i*8,row[i]);store(1024,1);
+ HANDLE request=CreateEventW(nullptr,FALSE,FALSE,nullptr),done=CreateEventW(nullptr,FALSE,FALSE,nullptr);check(request&&done,"progress barriers");
+ std::thread writer([&]{
+  for(unsigned round=0;round<3;++round){
+   check(WaitForSingleObject(request,5000)==WAIT_OBJECT_0,"progress requested");
+   // Force both slot reuse and commit changes during every bounded read.
+   for(unsigned step=1;step<=2;++step){auto n=round*2+step;auto c=load(1024);row[5]=104687+n;row[6]=row[16]=n*256;
+    for(size_t i=0;i<row.size();++i)store(1088+((c+1)&1)*256+i*8,row[i]);store(1024,c+1);}
+   SetEvent(done);
+  }
+ });
+ {
+  std::array<uint8_t,16> id{};id[0]=19;TerminalStatus terminal(dir.wstring(),id);
+  check(!TerminalStatusTestAccess::fail(terminal,[&]{SetEvent(request);check(WaitForSingleObject(done,5000)==WAIT_OBJECT_0,"progress committed");}),"unstable fatal context stays pending");
+  writer.join();check(load(64)==0,"unstable read publishes no torn failure");
+  check(terminal.editor_fatal(999,5),"stable later owner call retries pending failure");
+  check(load(64)==2&&load(384+15*8)==AP11::Removal&&load(384+19*8)==2,"first fatal status/domain survive retry");
+  check(load(384+5*8)==104693&&load(384+6*8)==1536&&load(384+16*8)==1536,"retry retains one complete progress context");
+  check(load(384+7*8)==9&&load(384+9*8)==104680,"confirmed state identity retained");
+  check(terminal.editor_fatal(1000)&&load(384+15*8)==AP11::Removal,"later fatal cannot overwrite first");
+ }
+ CloseHandle(request);CloseHandle(done);UnmapViewOfFile(p);CloseHandle(mapping);CloseHandle(f);std::filesystem::remove_all(dir);
+}
+void terminal_editor_regression() {
+ wchar_t exe[32768]{};check(GetModuleFileNameW(nullptr,exe,32768)!=0,"IF1 executable");
+ for(int mode:{20,21}) {
+  auto dir=std::filesystem::temp_directory_path()/(L"if1-editor-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(mode));std::filesystem::create_directory(dir);
+  HANDLE f=CreateFileW((dir/L"if1.terminal").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_NEW,0,nullptr);check(f!=INVALID_HANDLE_VALUE,"IF1 file");
+  HANDLE mapping=CreateFileMappingW(f,nullptr,PAGE_READWRITE,0,2048,nullptr);auto* p=static_cast<uint8_t*>(MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,2048));check(p!=nullptr,"IF1 map");memset(p,0,2048);
+  memcpy(p,"LVIF",4);linux_vst_bridge::ap1::put(p+4,1,4);linux_vst_bridge::ap1::put(p+8,2048,4);p[16]=19;
+  const std::array<uint64_t,24> row{1,19,0,7,2,104687,512,9,7,104680,1,2,3,4,0,0,768,11,0,0,0,0,0,0};
+  for(size_t i=0;i<row.size();++i)linux_vst_bridge::ap1::put(p+1344+i*8,row[i],8);linux_vst_bridge::ap1::put(p+1024,1,8);
+  std::wstring command=L"\""+std::wstring(exe)+L"\" \""+dir.wstring()+L"\" "+std::to_wstring(mode);STARTUPINFOW startup{};startup.cb=sizeof(startup);PROCESS_INFORMATION child{};
+  check(CreateProcessW(exe,command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&startup,&child)!=0,"IF1 child");
+  check(WaitForSingleObject(child.hProcess,5000)==WAIT_OBJECT_0,"IF1 child terminal");DWORD code=0;GetExitCodeProcess(child.hProcess,&code);
+  auto commit=InterlockedCompareExchange64(reinterpret_cast<volatile LONG64*>(p+64),0,0);
+  if(mode==20){if(code!=93||commit!=2)std::cerr<<"IF1 child exit="<<code<<" commit="<<commit<<"\n";check(code==93&&commit==2,"fatal editor custody survives terminate");check(linux_vst_bridge::ap1::get(p+384+14*8,8)==2&&linux_vst_bridge::ap1::get(p+384+15*8,8)==AP11::Removal,"exact fatal editor class/detail");check(linux_vst_bridge::ap1::get(p+384+5*8,8)==104687,"exact terminal sequence");}
+  else check(code==0&&commit==0,"ordinary close never fabricates failure");
+  CloseHandle(child.hThread);CloseHandle(child.hProcess);UnmapViewOfFile(p);CloseHandle(mapping);CloseHandle(f);std::filesystem::remove_all(dir);
+ }
+}
 void lifecycle_faults() {
   HostApplication host;
   auto *c=new Controller;
@@ -491,7 +561,9 @@ int main(int argc,char** argv) {
   check(CoGetApartmentType(&type, &qualifier) == S_OK &&
             (type == APTTYPE_STA || type == APTTYPE_MAINSTA),
         "controller and view own a Windows STA apartment");
-  if(argc==3)retirement_child(argv[1],std::stoi(argv[2]));
+  if(argc==3){auto mode=std::stoi(argv[2]);if(mode>=20)terminal_child(argv[1],mode);else retirement_child(argv[1],mode);}
+  terminal_progress_regression();
+  terminal_editor_regression();
   process_retirement_regression();
   lifecycle_faults();
   retained_lifecycle();

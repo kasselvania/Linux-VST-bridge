@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <exception>
 #include "ap1_protocol.h"
+#include "terminal_status.h"
 namespace linux_vst_bridge::wf0 {
 // AP12 fault-status v1/v2, independent of mailbox/protocol versions. Three lanes:
 // native transport, Windows delivery, Windows UI owner. No C++ objects on wire.
@@ -21,7 +22,8 @@ public:
  // Local rows have one owning thread each. Owner scopes may nest/reenter.
  struct Row {uint64_t generation=0,epoch=0,sequence=0,position=0,stage=0,detail=0;};
  std::array<Row,3> rows{};
- FaultStatus(const std::wstring& dir,const std::array<uint8_t,16>& session){
+ TerminalStatus terminal;
+ FaultStatus(const std::wstring& dir,const std::array<uint8_t,16>& session):terminal(dir,session){
   try{
    file=CreateFileW((dir+L"\\ap12.status").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,0,nullptr);
    // Legacy diagnostic clients predate this independently versioned extension.
