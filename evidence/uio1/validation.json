@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "local": [
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "passed",
+      "library_tests": 71,
+      "main_binary_tests": 11
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "passed on macOS",
+      "collected": 41,
+      "skipped_linux_only": 24
+    },
+    {
+      "command": "python3 -m unittest discover -s tools/uio1 -v",
+      "result": "passed",
+      "tests": 10
+    },
+    {
+      "command": "python3 tools/test_ap10_descriptor.py",
+      "result": "passed",
+      "tests": 8
+    },
+    {
+      "command": "uio1 project CLOCKED_REPORT / validate REPORT",
+      "result": "all three bounded reports projected and validated; private fields excluded"
+    }
+  ],
+  "pinned_runner_generated_fixture": {
+    "helper_source": "1e4b20eced6b164d7e16f5fe7960338dcb8537cf",
+    "exit": 0,
+    "hardware_mouse_accepted": 2,
+    "hardware_mouse_consumed_by_fixture": 2,
+    "received": 6,
+    "heartbeat_stall_ms": 852.1072,
+    "cleanup_positive": true,
+    "pointer_restore_failure_retained_separately": true
+  },
+  "hosted_at_live_helper_source": [
+    {
+      "workflow": "AP8 Windows host",
+      "run": 34696784042,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "AP12 registered owner",
+      "run": 34696784040,
+      "conclusion": "success",
+      "linux_runtime_tests": 41,
+      "xvfb_exact_window_fixture": "passed"
+    },
+    {
+      "workflow": "PX2 proof policy",
+      "run": 34696784041,
+      "conclusion": "success"
+    }
+  ],
+  "final_source_ci": "Exact final branch-head results are retained in PR #96 after this source/evidence commit. This file does not pretend the retained live helper was built from a later documentation/report head.",
+  "native_audio_tests": "No native/audio owner or profile changed; no new native/audio qualification claimed.",
+  "privacy": "No installer, vendor binary, credential, raw HWND/PID/session identity, private path, screenshot, preset or opaque state payload is committed."
+}

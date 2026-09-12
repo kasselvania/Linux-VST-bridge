@@ -1,0 +1,3500 @@
+{
+  "schema": 1,
+  "profile_fingerprint": "3126fea7ea72c02bae08fd21cef87e271e5575b09bb419bc1d650ab273e172ad",
+  "adapter": "xtest",
+  "diagnostic_enabled": true,
+  "capacity": 16384,
+  "dropped": 0,
+  "actions": [
+    {
+      "id": 1,
+      "kind": "host_parameter",
+      "witnesses": [
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            7673939281
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.10999999940395357,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            7791128547
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.21000000834465027,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            7922427574
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.36000001430511475,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            8031487279
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.5600000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            8152855597
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.8100000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            8268845459
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 1.0,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            9791096646
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.06000000238418579,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            10830660152
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.10999999940395357,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            10951390828
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.21000000834465027,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            11072826261
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.36000001430511475,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            11190641008
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.5600000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            11319320666
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.8100000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            6661101327,
+            11429261591
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 1.0,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            6668177723,
+            6674560485
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 162571
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            6873568882,
+            6879992726
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 193231
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            7065621774,
+            7072084034
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 90835
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            7266594075,
+            7273096533
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 76335
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            7469716161,
+            7476259247
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 82624
+        },
+        {
+          "kind": "first_pixel_change",
+          "linux_interval_ns": [
+            7590336509,
+            7697684130
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            7669869085,
+            7674375161
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 35843
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            7888058601,
+            7892521045
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 195059
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            8078904584,
+            8083328862
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 80542
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            8297687760,
+            8302068286
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 253807
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            8475649155,
+            8479994091
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 11247
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            8700435489,
+            8704748957
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 235925
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            8888320599,
+            8892671647
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 91886
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            9096374691,
+            9100767355
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 149014
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            9288369390,
+            9292800456
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 45600
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            9487490776,
+            9491961670
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 13796
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            9689888228,
+            9693318925
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 7352
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            9906616599,
+            9910003954
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 151131
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            10110273963,
+            10113620590
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 165515
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            10305420976,
+            10308728577
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 92778
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            10503045236,
+            10506313317
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 45937
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            10724811236,
+            10728056717
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 239762
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            10919479267,
+            10922763686
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 164064
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            11116098603,
+            11119422350
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 108200
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            11321625148,
+            11324990005
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 140229
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            11516348074,
+            11519751879
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 61457
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            11720254142,
+            11722671379
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 58412
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            11923730487,
+            11926107034
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 69126
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            12127477560,
+            12129813361
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 82857
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            12332341945,
+            12334636776
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 108702
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            12546163725,
+            12548415796
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 223459
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            12735360542,
+            12737574779
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 87644
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "parameter_drag",
+      "witnesses": [
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            12913080706
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.06000000238418579,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            12744796405,
+            12956743978
+          ],
+          "target_alias": 1,
+          "message": 4,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            1023,
+            21
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            12744796405,
+            12956798079
+          ],
+          "target_alias": 1,
+          "message": 6,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            1124,
+            586
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            12744796405,
+            12990262568
+          ],
+          "target_alias": 1,
+          "message": 6,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            1124,
+            580
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            12744796405,
+            13023833689
+          ],
+          "target_alias": 1,
+          "message": 6,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            1124,
+            574
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            12744796405,
+            13086511802
+          ],
+          "target_alias": 1,
+          "message": 6,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            1124,
+            568
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            12744796405,
+            13149018000
+          ],
+          "target_alias": 1,
+          "message": 6,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            1124,
+            562
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            12744796405,
+            13215329740
+          ],
+          "target_alias": 1,
+          "message": 6,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            1124,
+            556
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            12744796405,
+            13277035177
+          ],
+          "target_alias": 1,
+          "message": 5,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            1124,
+            556
+          ],
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            13953497507
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.10999999940395357,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            14069616383
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.21000000834465027,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            14190927898
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.36000001430511475,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            14326624199
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.5600000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            14428296227
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.8100000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            14549631913
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 1.0,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            16069499396
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.06000000238418579,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            17107999468
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.10999999940395357,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            17228492626
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.21000000834465027,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            17311364616
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.36000001430511475,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            17432433850
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.5600000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            17553371180
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.8100000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            12744796405,
+            17708913346
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 1.0,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            12745140985,
+            12745259758
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            12932306881,
+            12940296043
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 60220
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            12952810692,
+            12952874944
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            12954163149,
+            12954706523
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13007854830,
+            13008964718
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13008039549,
+            13009149399
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": -1
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13008356981,
+            13009466767
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13008594404,
+            13009704144
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 1
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            13021994040,
+            13022055881
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13057584955,
+            13058698393
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13057725841,
+            13058839307
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": -1
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13057798834,
+            13058912314
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13057923421,
+            13059036927
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 1
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            13084744144,
+            13084961100
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13121067985,
+            13128774892
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13121205498,
+            13128912379
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": -1
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13121271705,
+            13128978572
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13121376616,
+            13129083461
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 1
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            13144785256,
+            13152487421
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 160854
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            13147654893,
+            13147706455
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "first_pixel_change",
+          "linux_interval_ns": [
+            13157327083,
+            13221913387
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13167286755,
+            13174991722
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13167420741,
+            13175125736
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": -1
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13167484735,
+            13175189742
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13167593024,
+            13175298053
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 1
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            13213952333,
+            13214005325
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13236933801,
+            13239125858
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13237045690,
+            13239237769
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": -1
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            13237119682,
+            13239311777
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            13237206774,
+            13239398885
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 1
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            13274511919,
+            13274645873
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            13354877734,
+            13355996370
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 170383
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            13546931026,
+            13548088078
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 66521
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            13756503467,
+            13757702437
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 137315
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            13963119003,
+            13964359301
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 180776
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            14169263787,
+            14170545317
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 219096
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            14366542189,
+            14368938138
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 181360
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            14574385271,
+            14576739656
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 235577
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            14773576489,
+            14775891038
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 201419
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            14961902019,
+            14964178908
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 61657
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            15165186046,
+            15167422281
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 69763
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            15366614281,
+            15368845046
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 60803
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            15571432697,
+            15573704430
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 81214
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            15785065731,
+            15787380196
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 195469
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            15984709965,
+            15987064362
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 166070
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            16185388395,
+            16187782932
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 149510
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            16386408436,
+            16393036685
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 169039
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            16583877081,
+            16590465840
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 119242
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            16792563248,
+            16799110273
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 181449
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            16995733263,
+            17002239658
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 189901
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            17197095197,
+            17203561324
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 189715
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            17403340268,
+            17409807053
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 239519
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            17587514748,
+            17594018373
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 56913
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            17818113986,
+            17824663735
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 337900
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            18010449764,
+            18018065492
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 251249
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            18190138932,
+            18197718724
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 24771
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "kind": "page_click",
+      "witnesses": [
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            18357697490,
+            18359800616
+          ],
+          "target_alias": 1,
+          "message": 6,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            886,
+            22
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            18357697490,
+            18563922322
+          ],
+          "target_alias": 1,
+          "message": 4,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            886,
+            22
+          ],
+          "result": null
+        },
+        {
+          "kind": "x11_received",
+          "linux_interval_ns": [
+            18357697490,
+            18657207250
+          ],
+          "target_alias": 1,
+          "message": 5,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": [
+            886,
+            22
+          ],
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            19191446379
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.06000000238418579,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            20233531451
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.10999999940395357,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            20347450748
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.21000000834465027,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            20473504550
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.36000001430511475,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            20589863802
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.5600000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            20708867305
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.8100000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            20831598787
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 1.0,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            22348313926
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.06000000238418579,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            23348817651
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.10999999940395357,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            23472639077
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.21000000834465027,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            23602111524
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.36000001430511475,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            23712211374
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.5600000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            23829232619
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.8100000023841858,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            18357697490,
+            23950130167
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 1.0,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            18358123652,
+            18358198324
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            18396067172,
+            18403620284
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            18396173561,
+            18403726695
+          ],
+          "target_alias": 3,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": -1
+        },
+        {
+          "kind": "dispatch_entered",
+          "linux_interval_ns": [
+            18396250654,
+            18403803802
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 0
+        },
+        {
+          "kind": "dispatch_returned",
+          "linux_interval_ns": [
+            18396336445,
+            18403889611
+          ],
+          "target_alias": 2,
+          "message": 132,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 1
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            18396733605,
+            18404286851
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 65870
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            18560717226,
+            18560789378
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            18607025673,
+            18612535048
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 127015
+        },
+        {
+          "kind": "input_issued",
+          "linux_interval_ns": [
+            18654960339,
+            18655097243
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": null,
+          "value": null,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            18815325019,
+            18818700220
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 164343
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            19015092240,
+            19018507399
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 137927
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            19212918455,
+            19216373184
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 94361
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            19422171728,
+            19425668311
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 161183
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            19623492194,
+            19627029045
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 152999
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            19831956474,
+            19834306430
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 202475
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            20042706147,
+            20045013957
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 279358
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            20232268001,
+            20234537903
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 151376
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            20438116184,
+            20440344920
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 186403
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            20639004471,
+            20641193033
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 171550
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            20844288126,
+            20846508378
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 209745
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            21045640389,
+            21047900915
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 200280
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            21240356416,
+            21242655888
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 122431
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            21439219927,
+            21441559177
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 86991
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            21643468100,
+            21645848204
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 105529
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            21841933223,
+            21851863054
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 134375
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            22051298757,
+            22061186720
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 202390
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            22234208247,
+            22244059630
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 6975
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            22445171741,
+            22454980936
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 93503
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            22647234245,
+            22657003032
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 88911
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            22859588735,
+            22869387342
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 188651
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            23064320360,
+            23074159917
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 212634
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            23269205569,
+            23279086108
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 236110
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            23461591329,
+            23471510348
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 136648
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            23657862500,
+            23667820777
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 77436
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            23857319088,
+            23867578777
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 57046
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            24059137368,
+            24069356697
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 51584
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            24266357988,
+            24276535877
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 100066
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            24485758926,
+            24495892939
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 269290
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            24665279276,
+            24675377389
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 42146
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "kind": "idle",
+      "witnesses": [
+        {
+          "kind": "host_value",
+          "linux_interval_ns": [
+            24740953033,
+            25481318754
+          ],
+          "target_alias": 1,
+          "message": null,
+          "parameter": 1,
+          "value": 0.06000000238418579,
+          "focus_alias": null,
+          "active_alias": null,
+          "capture_alias": null,
+          "client_coordinates": null,
+          "result": null
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            24867578700,
+            24877686565
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 38637
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            25089410515,
+            25099562750
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 224877
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            25291263828,
+            25301456437
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 216844
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            25476532199,
+            25486761866
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 46845
+        },
+        {
+          "kind": "heartbeat_acknowledged",
+          "linux_interval_ns": [
+            25692200230,
+            25702473035
+          ],
+          "target_alias": 0,
+          "message": 34113,
+          "parameter": null,
+          "value": null,
+          "focus_alias": 2,
+          "active_alias": 1,
+          "capture_alias": 0,
+          "client_coordinates": [
+            0,
+            0
+          ],
+          "result": 178540
+        }
+      ]
+    }
+  ],
+  "brackets": [
+    {
+      "linux_before_ns": 4661091715,
+      "linux_after_ns": 4667553070,
+      "windows_qpc": 211334,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 6662072133,
+      "linux_after_ns": 6668453675,
+      "windows_qpc": 20226032,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 8666727160,
+      "linux_after_ns": 8671033886,
+      "windows_qpc": 40247837,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 10670436973,
+      "linux_after_ns": 10673671580,
+      "windows_qpc": 60276662,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 12746853291,
+      "linux_after_ns": 12749065230,
+      "windows_qpc": 81021602,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 12956808430,
+      "linux_after_ns": 12964792694,
+      "windows_qpc": 83178028,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 13023846429,
+      "linux_after_ns": 13024953119,
+      "windows_qpc": 83785616,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 13086522702,
+      "linux_after_ns": 13096269504,
+      "windows_qpc": 84494035,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 13149029080,
+      "linux_after_ns": 13156730397,
+      "windows_qpc": 85102961,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 13215340860,
+      "linux_after_ns": 13217528599,
+      "windows_qpc": 85710322,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 13277045817,
+      "linux_after_ns": 13278148887,
+      "windows_qpc": 86317302,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 15279585784,
+      "linux_after_ns": 15281799143,
+      "windows_qpc": 106356009,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 17298582544,
+      "linux_after_ns": 17305028377,
+      "windows_qpc": 126579154,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 18359814897,
+      "linux_after_ns": 18367360759,
+      "windows_qpc": 137204762,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 18563936482,
+      "linux_after_ns": 18569437239,
+      "windows_qpc": 139227955,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 18657223930,
+      "linux_after_ns": 18660567509,
+      "windows_qpc": 140140026,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 20662436013,
+      "linux_after_ns": 20664619891,
+      "windows_qpc": 160181436,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 22678871508,
+      "linux_after_ns": 22688633969,
+      "windows_qpc": 180414294,
+      "frequency": 10000000
+    },
+    {
+      "linux_before_ns": 24742060653,
+      "linux_after_ns": 24752143412,
+      "windows_qpc": 201054494,
+      "frequency": 10000000
+    }
+  ]
+}
