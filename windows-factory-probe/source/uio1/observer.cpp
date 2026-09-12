@@ -22,7 +22,15 @@ BOOL CALLBACK window(HWND w,LPARAM l){auto&c=*reinterpret_cast<Census*>(l);DWORD
 BOOL CALLBACK top(HWND w,LPARAM l){auto&c=*reinterpret_cast<Census*>(l);DWORD pid=0;GetWindowThreadProcessId(w,&pid);if(pid==c.pid){window(w,l);EnumChildWindows(w,window,l);}return c.count<128;}
 void census(DWORD pid){HANDLE p=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);check(p!=nullptr,"census process");auto born=start(p);CloseHandle(p);printf("{\"type\":\"process\",\"pid\":%lu,\"start\":%llu}\n",pid,born);
   Census c{pid};EnumWindows(top,reinterpret_cast<LPARAM>(&c));
-  HANDLE s=CreateToolhelp32Snapshot(TH32CS_SNAPMODULE,pid);check(s!=INVALID_HANDLE_VALUE,"module census");
+  HANDLE s=CreateToolhelp32Snapshot(TH32CS_SNAPMODULE,pid);
+  if(s==INVALID_HANDLE_VALUE){
+    // Wine may refuse remote module enumeration even when the exact window and
+    // process identity are readable. Keep that boundary explicit; Linux can
+    // independently classify allowlisted renderer basenames from /proc/maps.
+    printf("{\"type\":\"module_census_unavailable\",\"error\":%lu}\n",GetLastError());
+    printf("{\"type\":\"census_end\",\"window_capacity\":128,\"window_bound_reached\":%s,\"module_capacity\":512,\"module_bound_reached\":false,\"module_complete\":false}\n",c.count==128?"true":"false");
+    return;
+  }
   MODULEENTRY32W m{};m.dwSize=sizeof(m);unsigned n=0;
   if(Module32FirstW(s,&m))do{
     // Closed renderer labels, never arbitrary module paths or vendor strings.

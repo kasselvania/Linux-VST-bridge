@@ -72,6 +72,7 @@ class X11:
         bind(self.t,'XTestQueryExtension',I,[P,C.POINTER(I),C.POINTER(I),C.POINTER(I),C.POINTER(I)])
         bind(self.t,'XTestFakeMotionEvent',I,[P,I,I,I,U]);bind(self.t,'XTestFakeButtonEvent',I,[P,C.c_uint,I,U]);bind(self.t,'XTestFakeKeyEvent',I,[P,C.c_uint,I,U])
         bind(self.c,'XCompositeQueryExtension',I,[P,C.POINTER(I),C.POINTER(I)]);bind(self.c,'XCompositeNameWindowPixmap',U,[P,U])
+        self.capture_backend=None
         self.display=self.x.XOpenDisplay(None)
         if not self.display:raise RuntimeError('X11 display unavailable; native Wayland needs portal consent')
         self.root=self.x.XDefaultRootWindow(self.display);self.buttons=set();self.keys=set();self.pixmap=0;self.errors=[]
@@ -145,19 +146,29 @@ class X11:
         if rect[2:]!=self.initial[2:]:
             if self.pixmap:self.x.XFreePixmap(self.display,self.pixmap)
             self.pixmap=0;self.initial=rect
-        if not self.pixmap:
+        if not self.pixmap and self.capture_backend!='direct_drawable':
             a,b=I(),I()
             if not self.c.XCompositeQueryExtension(self.display,C.byref(a),C.byref(b)):raise RuntimeError('XComposite unavailable')
-            self.pixmap=self.c.XCompositeNameWindowPixmap(self.display,self.window);self.sync()
-            if not self.pixmap:raise RuntimeError('exact window is not redirected; no whole-screen fallback')
-        before=time.monotonic_ns();p=self.x.XGetImage(self.display,self.pixmap,0,0,rect[2],rect[3],U(-1).value,2)
+            self.pixmap=self.c.XCompositeNameWindowPixmap(self.display,self.window)
+            self.x.XSync(self.display,0)
+            if self.errors==[(8,142,6)] or (len(self.errors)==1 and self.errors[0][0]==8 and self.errors[0][2]==6):
+                # XWayland may have no XComposite redirection. Do not redirect
+                # it (that would change the renderer). Read only its own drawable
+                # while foreground; occluded/minimized frames are not evidence.
+                self.errors=[];self.pixmap=0;self.capture_backend='direct_drawable'
+            else:
+                self.sync();self.capture_backend='xcomposite_pixmap'
+                if not self.pixmap:raise RuntimeError('exact pixmap unavailable')
+        if self.capture_backend=='direct_drawable' and self.property(self.root,'_NET_ACTIVE_WINDOW')!=[self.window]:
+            raise RuntimeError('direct drawable is not foreground; occlusion not qualified')
+        before=time.monotonic_ns();p=self.x.XGetImage(self.display,self.pixmap or self.window,0,0,rect[2],rect[3],U(-1).value,2)
         self.sync()
         if not p:raise RuntimeError('exact pixmap capture failed')
         try:
             a=p.contents
             if a.bits_per_pixel!=32 or a.byte_order!=0 or (a.red_mask,a.green_mask,a.blue_mask)!=(0xff0000,0xff00,0xff) or a.bytes_per_line>4096*4:raise RuntimeError('unsupported pixel format')
             pixels=C.string_at(a.data,a.bytes_per_line*a.height)
-            return dict(interval_ns=[before,time.monotonic_ns()],width=a.width,height=a.height,stride=a.bytes_per_line),pixels
+            return dict(interval_ns=[before,time.monotonic_ns()],width=a.width,height=a.height,stride=a.bytes_per_line,capture_backend=self.capture_backend),pixels
         finally:self.x.XDestroyImage(p)
     def close(self):
         # Never release a key/button we did not press. Up remains necessary even
