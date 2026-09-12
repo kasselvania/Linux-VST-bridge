@@ -155,15 +155,8 @@ fn candidate_identity(p: &Profile, c: &Profile, r: &Revision, seal: &Seal) -> Re
 pub fn prepare(m: &Manager) -> Result<AcceptedSoftware> {
     let seal: Seal = serde_json::from_slice(REVIEW)?;
     verify_seal(&seal)?;
-    require(
-        digest(&m.root.join("software.json"))? == seal.prior_software_sha256,
-        "acceptance_prior_software_identity",
-    )?;
     let sw: Software = read_json(&m.root.join("software.json"))?;
-    require(
-        sw.manager.sha256 == seal.prior_manager_sha256,
-        "acceptance_prior_software_identity",
-    )?;
+    verify_prior_software(m, &seal, &sw)?;
     for a in [
         &sw.manager,
         &sw.supervisor,
@@ -229,6 +222,38 @@ pub fn prepare(m: &Manager) -> Result<AcceptedSoftware> {
     require(next.is_none(), "acceptance_history_identity")?;
     Ok(result)
 }
+
+// Setup may complete before the first ordinary inspection/publication. Permit
+// an installation repair from this same immutable acceptance receipt, still
+// subject to every exact inactive-candidate/history/artifact check below.
+// This does not admit another review, candidate, or already-active publication.
+fn verify_prior_software(m: &Manager, seal: &Seal, sw: &Software) -> Result<()> {
+    if digest(&m.root.join("software.json"))? == seal.prior_software_sha256 {
+        return require(
+            sw.manager.sha256 == seal.prior_manager_sha256,
+            "acceptance_prior_software_identity",
+        );
+    }
+    sw.manager.verify()?;
+    let receipt = sw.manager.path.with_file_name("acceptance-review.json");
+    for path in [&sw.manager.path, &receipt] {
+        require(
+            path.starts_with(m.root.join("software"))
+                && path.canonicalize()? == *path
+                && file(path)?.metadata()?.mode() & 0o222 == 0,
+            "acceptance_prior_software_identity",
+        )?;
+    }
+    require(
+        fs::read(receipt)? == REVIEW,
+        "acceptance_prior_software_identity",
+    )?;
+    let catalogue = sw.catalogue(m)?;
+    require(
+        catalogue.schema == 2 && catalogue.natives.len() == 3 && catalogue.hosts.len() == 1,
+        "acceptance_catalogue_identity",
+    )
+}
 fn prepare_selected(
     m: &Manager,
     seal: &Seal,
@@ -272,6 +297,17 @@ fn prepare_selected(
     derived.native = r.registration.native.clone();
     require(derived == r.registration, "acceptance_artifact_identity")?;
     let mut catalogue = sw.catalogue(m)?;
+    if catalogue.natives.len() == baseline.len() + 1 && catalogue.hosts.len() == 1 {
+        // Exact already-installed acceptance artifacts can be recopied to a new
+        // immutable software revision. All unrelated entries remain refused.
+        catalogue.native(p)?;
+        let host = catalogue.host(p, &sw.host, &sw.source_sha256)?;
+        require(host == catalogue.hosts[0], "acceptance_catalogue_identity")?;
+        catalogue
+            .natives
+            .retain(|n| n.class.class_id != p.class.class_id);
+        catalogue.hosts.clear();
+    }
     require(
         catalogue.natives.len() == baseline.len() && catalogue.hosts.is_empty(),
         "acceptance_catalogue_identity",
@@ -743,5 +779,51 @@ mod tests {
         private_dir(&lease).unwrap();
         fs::write(lease.join("unknown.json"), b"{}").unwrap();
         assert!(prepare_selected(&f.m, &seal, &p, &c, &baseline, &sw).is_err());
+    }
+
+    #[test]
+    fn same_acceptance_installation_retry_requires_exact_receipt_and_artifacts() {
+        let (f, seal, p, c, baseline, mut sw) = accepted_fixture();
+        let installed = prepare_selected(&f.m, &seal, &p, &c, &baseline, &sw).unwrap();
+        let manager = f.m.root.join("software/retry/linux-vst-bridge");
+        private_dir(manager.parent().unwrap()).unwrap();
+        fs::write(&manager, b"accepted manager").unwrap();
+        fs::set_permissions(&manager, fs::Permissions::from_mode(0o500)).unwrap();
+        sw.manager = Artifact {
+            sha256: digest(&manager).unwrap(),
+            path: manager,
+        };
+        let path = sw.manager.path.with_file_name("native-catalogue.json");
+        atomic_json(&path, &installed.catalogue).unwrap();
+        sw.native_catalogue = Some(Artifact {
+            sha256: digest(&path).unwrap(),
+            path,
+        });
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert!(verify_prior_software(&f.m, &seal, &sw).is_err());
+        let receipt = sw.manager.path.with_file_name("acceptance-review.json");
+        fs::write(&receipt, REVIEW).unwrap();
+        fs::set_permissions(&receipt, fs::Permissions::from_mode(0o400)).unwrap();
+        verify_prior_software(&f.m, &seal, &sw).unwrap();
+        let before = snapshot(&f.outer);
+        let retry = prepare_selected(&f.m, &seal, &p, &c, &baseline, &sw).unwrap();
+        assert_eq!(retry.catalogue, installed.catalogue);
+        assert_eq!(snapshot(&f.outer), before);
+        for field in 0..3 {
+            let mut wrong = installed.catalogue.clone();
+            match field {
+                0 => wrong.natives[2].descriptor_sha256 = "ab".repeat(32),
+                1 => wrong.hosts[0].host.sha256 = "ab".repeat(32),
+                _ => wrong.hosts[0].source_manifest.sha256 = "ab".repeat(32),
+            }
+            let a = sw.native_catalogue.as_mut().unwrap();
+            atomic_json(&a.path, &wrong).unwrap();
+            a.sha256 = digest(&a.path).unwrap();
+            assert!(prepare_selected(&f.m, &seal, &p, &c, &baseline, &sw).is_err());
+        }
+        fs::set_permissions(&receipt, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&receipt, b"another review").unwrap();
+        fs::set_permissions(&receipt, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(verify_prior_software(&f.m, &seal, &sw).is_err());
     }
 }

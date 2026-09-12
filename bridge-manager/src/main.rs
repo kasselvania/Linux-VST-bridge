@@ -260,6 +260,12 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
     }
     let id = hex(&sha2::Sha256::digest(identity.as_bytes()));
     let dest = m.root.join("software").join(&id);
+    catalogue::verify_host_path(&dest.join("host.exe"))?;
+    if let Some(c) = &catalogue {
+        for h in &c.hosts {
+            catalogue::verify_host_path(&dest.join("hosts").join(h.directory_name()).join("host.exe"))?;
+        }
+    }
     if let Ok(old) = read_json::<Software>(&m.root.join("software.json")) {
         if old.manager.path != dest.join("linux-vst-bridge") {
             let running = Command::new("systemctl")
@@ -291,7 +297,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         }
         if let Some(mut c) = catalogue.clone() {
             for h in &mut c.hosts {
-                let relative = PathBuf::from("hosts").join(format!("{}-{}", h.host.sha256, h.source_manifest.sha256));
+                let relative = PathBuf::from("hosts").join(h.directory_name());
                 private_dir(&stage.join(&relative))?;
                 for (name, a) in [("host.exe", &mut h.host), ("host-source-manifest.json", &mut h.source_manifest)] {
                     a.verify()?;
@@ -356,7 +362,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
     }
     if let Some(mut expected) = catalogue.clone() {
         for h in &mut expected.hosts {
-            let dir = dest.join("hosts").join(format!("{}-{}", h.host.sha256, h.source_manifest.sha256));
+            let dir = dest.join("hosts").join(h.directory_name());
             h.host.path = dir.join("host.exe");
             h.source_manifest.path = dir.join("host-source-manifest.json");
         }

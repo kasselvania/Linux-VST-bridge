@@ -8,10 +8,26 @@ pub struct HostArtifact {
     pub source_manifest: Artifact,
 }
 impl HostArtifact {
+    /// One digest for the pair avoids two SHA-256 path components exceeding
+    /// the pinned Windows launcher's executable-path extent.
+    pub fn directory_name(&self) -> String {
+        hex(&sha2::Sha256::digest(
+            format!("{}{}", self.host.sha256, self.source_manifest.sha256).as_bytes(),
+        ))
+    }
     fn matches(&self, p: &Profile) -> bool {
         self.host.sha256 == p.requirements.host_sha256
             && self.source_manifest.sha256 == p.requirements.host_source_sha256
     }
+}
+pub fn verify_host_path(path: &Path) -> Result<()> {
+    // The supervisor renders product-software paths as Z:\... . The leading
+    // Linux slash becomes that drive root, adding two UTF-16 code units.
+    require(
+        path.to_str()
+            .is_some_and(|p| p.encode_utf16().count() + 2 < 260),
+        "host_executable_path_extent",
+    )
 }
 
 /// Existing immutable software record, shared by setup and ordinary admission.
@@ -278,4 +294,34 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
         environments,
         hosts,
     })
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+    #[test]
+    fn supplemental_host_pair_has_one_digest_and_launch_extent_is_checked() {
+        let mut h = HostArtifact {
+            host: Artifact {
+                path: "host.exe".into(),
+                sha256: "ab".repeat(32),
+            },
+            source_manifest: Artifact {
+                path: "manifest.json".into(),
+                sha256: "cd".repeat(32),
+            },
+        };
+        let key = h.directory_name();
+        assert!(valid_hex(&key, 64));
+        assert_eq!(key, h.directory_name());
+        h.source_manifest.sha256 = "ef".repeat(32);
+        assert_ne!(key, h.directory_name());
+        h.source_manifest.sha256 = "cd".repeat(32);
+        h.host.sha256 = "ef".repeat(32);
+        assert_ne!(key, h.directory_name());
+        assert!(verify_host_path(Path::new(&"x".repeat(257))).is_ok());
+        assert!(verify_host_path(Path::new(&"x".repeat(258))).is_err());
+        assert!(verify_host_path(Path::new(&"x".repeat(267))).is_err());
+        assert!(verify_host_path(Path::new(&"😀".repeat(129))).is_err());
+    }
 }
