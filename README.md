@@ -43,7 +43,7 @@ The result also covers typed over-capacity refusal before partial ownership, exa
 
 One historical Bitwig quit left the frontend/audio-engine alive after all bridge owners had retired. It remains retained and unexplained; it did not recur in the focused matrix or two complete repetitions of the triggering sequence. No causal repair is claimed. SteamOS `foreground_booster` was identified as the writer of quit-time CPUWeight overrides; that is a controlled-performance confound, not a product requirement to disable normal SteamOS behavior.
 
-Revision 10 is the accepted ordinary AP17 source generation. Revision 9 and 8 remain candidate history; revision 7 is its immediate rollback generation and revision 3 remains earlier retained ancestry. The Deck was deliberately left on revision 7 after the final investigation. AP18 may activate revision 10 once through the existing bounded transition without replaying AP17.
+Revision 10 is the accepted ordinary AP17 source generation. Revision 9 and 8 remain candidate history; revision 7 is its immediate rollback generation and revision 3 remains earlier retained ancestry. AP18 activated the accepted ordinary revision-10 publications without replaying AP17; their exact revision-7 parents and revision-3 ancestry remain retained.
 
 ## Current exact fixture
 
@@ -54,6 +54,7 @@ The accepted claims remain deliberately narrow:
 - exact pinned Proton-SLR runner and Arturia environment;
 - Pure LoFi 1.0.0.6121;
 - Efx FRAGMENTS 1.0.0.2925;
+- Pigments 7.0.1.6772, one instance and its sole stereo auxiliary input;
 - 48 kHz, float32, bounded main stereo/event behavior;
 - exact reviewed Windows host and Linux native artifacts.
 
@@ -74,11 +75,14 @@ FRAGMENTS' Advanced panel is accessible and rendering response has improved mate
 AP18 is tracked in [#94](https://github.com/kasselvania/Linux-VST-bridge/issues/94) from integrated AP17 main.
 
 ASC is installed and the operator installed and authorized Pigments through its
-real UI. Exact Pigments 7.0.1.6772 candidate revision 10 now passes the bounded
-LC1 same-session routing check, note audio, preset/control automation recall,
-sibling independence and process-scoped retirement. It remains a ReviewCandidate,
-restored inactive pending independent review. LoFi and FRAGMENTS ordinary
-revision 10 remain active and unchanged. See the [LC1 result](evidence/ap18/lc1/live-completion.json).
+real UI. Independent review **5185372983** accepted exact Pigments 7.0.1.6772
+revision 10, including LC1 routing, note audio, preset/control automation recall,
+sibling independence and process-scoped retirement. Revision 10 remains immutable
+ReviewCandidate history. New root revision 11 is VerifiedExactFixture with the
+same technical content; its ordinary installation transition is the only remaining
+AP18 task. LoFi and FRAGMENTS ordinary revision 10 remain unchanged. See the
+[accepted result](evidence/ap18/lc1/live-completion.json) and
+[acceptance authority](evidence/ap18/acceptance/review.json).
 
 ```text
 official ASC installer

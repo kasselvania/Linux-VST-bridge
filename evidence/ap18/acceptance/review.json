@@ -1,0 +1,289 @@
+{
+  "schema": 1,
+  "review": 5185372983,
+  "head": "f8d0dbfb481324e84e8b337014b66947978b146c",
+  "tree": "89fb026133ef585a9fcd7475ed4aec919c1236c7",
+  "product_source": "1aa6933a7444abf8aa36b7f82fe29da656c81e53",
+  "candidate_profile_sha256": "e20f493395dca7274cfa00151f1ebdd17ea737a55b7413ded71e2f2fa0ce448a",
+  "candidate": {
+    "id": "ac56409aa91d41aa15ab85e18e1d75ff",
+    "sha256": "058bbca35dfb922fa0a81e257d2fee037e3b8f69e4c99b167fc97ac6b3daaaf6"
+  },
+  "transaction": "458d13e20a81fc83db7535aa93ce34bd",
+  "prior_software_sha256": "facf49cdbf745c7b26d271b5f7660be5304147f976d3b4549d0ed6ed980579db",
+  "prior_manager_sha256": "a40e285613ba5a61e66d4c5909eee8ecfc603526c5ebb78902004a19c29b2cf5",
+  "baseline": [
+    {
+      "class_id": "417274754156495350724C4650726F63",
+      "revision": {
+        "id": "51f241c4da508aa1fbbc9d6d172eb123",
+        "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+      },
+      "profile_sha256": "1e610039d189538dd434e7251b41cd739a5c76e5568dba3c689a867422b1b6f4"
+    },
+    {
+      "class_id": "41727475415649536772616E50726F63",
+      "revision": {
+        "id": "e340c6f8ad5ca494d2fb477214c9937e",
+        "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+      },
+      "profile_sha256": "de9d8b475253d32f0e692c8c46d6d1a5e431e20ec5b49f699ff78bbf7057700c"
+    }
+  ],
+  "history": [
+    {
+      "reference": {
+        "id": "ac56409aa91d41aa15ab85e18e1d75ff",
+        "sha256": "058bbca35dfb922fa0a81e257d2fee037e3b8f69e4c99b167fc97ac6b3daaaf6"
+      },
+      "transaction": "458d13e20a81fc83db7535aa93ce34bd",
+      "profile_revision": 10,
+      "profile_sha256": "e20f493395dca7274cfa00151f1ebdd17ea737a55b7413ded71e2f2fa0ce448a",
+      "parent": {
+        "id": "d61b81be9a5529b50d262b3f9c768f0d",
+        "sha256": "cf69d3c52854a91432ed43d879a987865daf491de6e838ebd8653c2e473d624c"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "d61b81be9a5529b50d262b3f9c768f0d",
+        "sha256": "cf69d3c52854a91432ed43d879a987865daf491de6e838ebd8653c2e473d624c"
+      },
+      "transaction": "b6318464bbbf8818609aae1524143039",
+      "profile_revision": 9,
+      "profile_sha256": "13f6ec3d3230a5bc96a2089cfcb040c386cdd6acd258e5ce099f094c4102123c",
+      "parent": {
+        "id": "eb73a1dc6cc442e484433de536929c76",
+        "sha256": "a8b5e8a5497e7d4763119780a731684b2e779ffaf6a834699894695cb3346cf8"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "eb73a1dc6cc442e484433de536929c76",
+        "sha256": "a8b5e8a5497e7d4763119780a731684b2e779ffaf6a834699894695cb3346cf8"
+      },
+      "transaction": "9e8e1f02d2625a84b2380c8f707f88c9",
+      "profile_revision": 8,
+      "profile_sha256": "bd52a44bd7e786776361a172a99599c9082233caf4643a293cd1ebc194e0acc4",
+      "parent": {
+        "id": "9019b5ab5b30ab940fd5cf00cc069bf5",
+        "sha256": "33cacbca131749035b983e45e1147342e2de485673515f80f0f1799bd70e5d2f"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "9019b5ab5b30ab940fd5cf00cc069bf5",
+        "sha256": "33cacbca131749035b983e45e1147342e2de485673515f80f0f1799bd70e5d2f"
+      },
+      "transaction": "7e57adae6b962b6a3af7f65506741fd8",
+      "profile_revision": 7,
+      "profile_sha256": "e16221395dcf6cb8c45521ad12528f1e5b910c5a1b5c6d7cdc5f1091498dcc04",
+      "parent": {
+        "id": "a677095ee086bff53ea1fcb247d66129",
+        "sha256": "3071d0d05bfba753725680aeb9fc649b986b4f11d3023b6bdb49857bf349a0ed"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "a677095ee086bff53ea1fcb247d66129",
+        "sha256": "3071d0d05bfba753725680aeb9fc649b986b4f11d3023b6bdb49857bf349a0ed"
+      },
+      "transaction": "d8f750f3db5be3386f953238650e60be",
+      "profile_revision": 6,
+      "profile_sha256": "aa7149b1bc5ac0dadf20931644b1541f55dcc799e0f85fef5bfde7d677c9086c",
+      "parent": {
+        "id": "b3543246b076568e6fa2f1cea1b03a97",
+        "sha256": "d1677e4072ebc695b6460c25a561147ad0bd75895a67e56f13afe79bce8b6393"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "b3543246b076568e6fa2f1cea1b03a97",
+        "sha256": "d1677e4072ebc695b6460c25a561147ad0bd75895a67e56f13afe79bce8b6393"
+      },
+      "transaction": "270631e610e313660e585ed62be3902d",
+      "profile_revision": 5,
+      "profile_sha256": "5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4",
+      "parent": {
+        "id": "9dc61a4faaf61ce845b01592697656b0",
+        "sha256": "f506ecb6aebb7d5d826cdd4aaa625710e08e67d61012ef410bc2f1ffdbcd73a7"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "9dc61a4faaf61ce845b01592697656b0",
+        "sha256": "f506ecb6aebb7d5d826cdd4aaa625710e08e67d61012ef410bc2f1ffdbcd73a7"
+      },
+      "transaction": "468f1cfa6d3c86d9d6db80b3d2273b81",
+      "profile_revision": 5,
+      "profile_sha256": "5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4",
+      "parent": {
+        "id": "62f060e2a92e92cc8dccfb60fbc05112",
+        "sha256": "35a4b5fe04834b4f328b48dae1df6242de795e385db400ea8ed25572021d0488"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "62f060e2a92e92cc8dccfb60fbc05112",
+        "sha256": "35a4b5fe04834b4f328b48dae1df6242de795e385db400ea8ed25572021d0488"
+      },
+      "transaction": "6aacd9cab0282ef1e21dc004b226dbd0",
+      "profile_revision": 5,
+      "profile_sha256": "5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4",
+      "parent": {
+        "id": "b4ca93f8c90cf1caa8fabdb007081bc2",
+        "sha256": "2158e68b0bcd724567cf8069c3fe317cf4f8539729fab17e984844265d76a6c3"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "b4ca93f8c90cf1caa8fabdb007081bc2",
+        "sha256": "2158e68b0bcd724567cf8069c3fe317cf4f8539729fab17e984844265d76a6c3"
+      },
+      "transaction": "aa878b217dd97bfe4820bca9d941812b",
+      "profile_revision": 4,
+      "profile_sha256": "a1aba3dbf61abd2b44e2093f6afe06859ce7d39e61acd00a2ec943391ed09202",
+      "parent": {
+        "id": "a1555c06a657ea6055c510346cefa0d8",
+        "sha256": "5d739f88a0789e8f58f3cadf262316fdb62753c49147573cfd52f8a4c56acaaa"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "a1555c06a657ea6055c510346cefa0d8",
+        "sha256": "5d739f88a0789e8f58f3cadf262316fdb62753c49147573cfd52f8a4c56acaaa"
+      },
+      "transaction": "2618dc1c2701a8d9787c6db4ff22d25a",
+      "profile_revision": 3,
+      "profile_sha256": "8ace368513dc54a89c2cc70dea5e50974dde6c268a03614b87d3de0d30723a3a",
+      "parent": {
+        "id": "cf312ef1b9571da3b0e0a5a1f9946bb0",
+        "sha256": "9d62a4bf67eb1941f9eb0547a599c5c5b3fde03a95e60adc90657f7acfb22991"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "cf312ef1b9571da3b0e0a5a1f9946bb0",
+        "sha256": "9d62a4bf67eb1941f9eb0547a599c5c5b3fde03a95e60adc90657f7acfb22991"
+      },
+      "transaction": "c8cda809e8ec04cec2a02041baceeb0c",
+      "profile_revision": 2,
+      "profile_sha256": "3478d9dbd29add4c969ce6eef2684e754e247a74eab4eea04414882171ab1250",
+      "parent": {
+        "id": "85d810d257a8a26f1393ba4528f3e079",
+        "sha256": "99178c05f871761836cd04111b03c64fc9d4ed04803c26fb0442ccf586bab3c3"
+      },
+      "qualification": "ap18_pigments"
+    },
+    {
+      "reference": {
+        "id": "85d810d257a8a26f1393ba4528f3e079",
+        "sha256": "99178c05f871761836cd04111b03c64fc9d4ed04803c26fb0442ccf586bab3c3"
+      },
+      "transaction": "5bd4533fc0d3440f6102f5827afec434",
+      "profile_revision": 1,
+      "profile_sha256": "b256ec061f87a53d5943ba6f398629a841a32f4e23c2446743469a217025b06f",
+      "parent": null,
+      "qualification": "ap18_pigments"
+    }
+  ],
+  "profiles": [
+    {
+      "revision": 1,
+      "path": "compatibility/ap18/revision-1/arturia-pigments.json",
+      "sha256": "681dae01625f2d4c07a106a92c5c605396b666c6cd7160fe8402efb3bf7fe3fd",
+      "fingerprint": "b256ec061f87a53d5943ba6f398629a841a32f4e23c2446743469a217025b06f"
+    },
+    {
+      "revision": 2,
+      "path": "compatibility/ap18/revision-2/arturia-pigments.json",
+      "sha256": "e6cf278f2cf444e9a0b68dc048622ca9076783e768f1917f7ffae6c44f58f795",
+      "fingerprint": "3478d9dbd29add4c969ce6eef2684e754e247a74eab4eea04414882171ab1250"
+    },
+    {
+      "revision": 3,
+      "path": "compatibility/ap18/revision-3/arturia-pigments.json",
+      "sha256": "ad1e73d42d0049d52b02a44b9b0737c50f57749e5cec530f5f387a580647f675",
+      "fingerprint": "8ace368513dc54a89c2cc70dea5e50974dde6c268a03614b87d3de0d30723a3a"
+    },
+    {
+      "revision": 4,
+      "path": "compatibility/ap18/revision-4/arturia-pigments.json",
+      "sha256": "64e9773239ec910dcefd8ddfc0a15d36d8bca1689b9998c07ffc74da5583b00b",
+      "fingerprint": "a1aba3dbf61abd2b44e2093f6afe06859ce7d39e61acd00a2ec943391ed09202"
+    },
+    {
+      "revision": 5,
+      "path": "compatibility/ap18/revision-5/arturia-pigments.json",
+      "sha256": "dde2e25eb108c98d80926621f8fe9501d87a1ced93bc59bf917278f664c016e9",
+      "fingerprint": "5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4"
+    },
+    {
+      "revision": 6,
+      "path": "compatibility/ap18/revision-6/arturia-pigments.json",
+      "sha256": "ca00ca5373f76d10a3d4b60421eecbfa57e60e19e1e06e3b9a4332b20b900879",
+      "fingerprint": "aa7149b1bc5ac0dadf20931644b1541f55dcc799e0f85fef5bfde7d677c9086c"
+    },
+    {
+      "revision": 7,
+      "path": "compatibility/ap18/revision-7/arturia-pigments.json",
+      "sha256": "e7c0eba8db18b8a05a4acdc996bb369f11f38ae2e2706eb50a5581dfc6254d8d",
+      "fingerprint": "e16221395dcf6cb8c45521ad12528f1e5b910c5a1b5c6d7cdc5f1091498dcc04"
+    },
+    {
+      "revision": 8,
+      "path": "compatibility/ap18/revision-8/arturia-pigments.json",
+      "sha256": "bbb68e8a5cf0d401fc39ab33ff4e39bd71385d3bc5bf9a557f5b23af1e4a439b",
+      "fingerprint": "bd52a44bd7e786776361a172a99599c9082233caf4643a293cd1ebc194e0acc4"
+    },
+    {
+      "revision": 9,
+      "path": "compatibility/ap18/revision-9/arturia-pigments.json",
+      "sha256": "a7ee1933ef287c730c496e88ab66e17c4948b5386e24b88606c8296d2d925dad",
+      "fingerprint": "13f6ec3d3230a5bc96a2089cfcb040c386cdd6acd258e5ce099f094c4102123c"
+    },
+    {
+      "revision": 10,
+      "path": "compatibility/ap18/arturia-pigments.json",
+      "sha256": "94614dad9edce91a04b3564c829aa736221c1e63da390427f90e7155ab57e4dd",
+      "fingerprint": "e20f493395dca7274cfa00151f1ebdd17ea737a55b7413ded71e2f2fa0ce448a"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "evidence/ap18/lc1/artifacts.json",
+      "sha256": "74a4c59b3d701eaee14412301b77ce0976989768d5671d09868d86b14b73787b"
+    },
+    {
+      "path": "evidence/ap18/lc1/regression-before.json",
+      "sha256": "8dddf93a8426ee8e71b9cd04de3622d172d5ac250c5cdbb7ee98ab6732e2a8ed"
+    },
+    {
+      "path": "evidence/ap18/lc1/regression-after.json",
+      "sha256": "21adf138d29b7bc4ee769b5cbc179e7e0a89264b7c3196106fc69a6cb8526a14"
+    },
+    {
+      "path": "evidence/ap18/lc1/live-completion.json",
+      "sha256": "a6d0f372deb4ad07c48c2fb6dfe2bbf8d2c5c3de70d2012a75911de0e3dc2161"
+    },
+    {
+      "path": "evidence/ap18/lc1/installed-final.json",
+      "sha256": "38fceec7a5c3cae40f80f0efb2a76edf8caef28a456f65319e1c5de044393957"
+    },
+    {
+      "path": "evidence/ap18/lc1/validation.json",
+      "sha256": "fc94aaf7559091ee032f3c631937e87fa723403dbce45bea5517d7688b3856d3"
+    }
+  ],
+  "disposition": "AP18_IMPLEMENTATION_ACCEPTED; revision 10 technical content selected for new immutable verified revision 11. Review is COMMENTED because the reviewer account is the PR author, not a formal GitHub approval."
+}

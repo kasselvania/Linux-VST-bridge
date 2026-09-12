@@ -103,3 +103,18 @@ EXACT_PRODUCT_PACKAGE`, `qualify-pigments publish`, and `qualify-pigments restor
 use a compiled exact candidate; they accept no caller-authored registration or
 profile. The sealed package path supplies bytes for verification, never policy.
 The candidate remains unverified and cannot use ordinary managed activation.
+
+## Accepted Pigments software
+
+`linux-vst-bridge accept-pigments` is the argument-free, exact-review AP18
+software transition. Close devices and stop the service first. It requires the
+retained accepted revision-10 candidate inactive, exact prior software and
+completed evidence, and unchanged LoFi/FRAGMENTS baseline. It installs immutable
+software using the existing command-pointer law; `managed preview` and
+`managed publish` then select ordinary Pigments revision 11. The candidate
+remains historical provenance, never ordinary Activation authority.
+
+Catalogue schema 2 adds exact supplemental host/manifest artifacts. Each profile
+selects its exact host, so Pigments does not replace the Windows host used by
+LoFi, FRAGMENTS or the environment keeper. No command accepts an arbitrary host
+path, review ID, profile or hash as acceptance authority.

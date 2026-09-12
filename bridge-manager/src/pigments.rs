@@ -136,7 +136,10 @@ fn current_baseline(
     ))
 }
 fn baseline(m: &Manager, p: &Profile) -> Result<Environment> {
-    let (observed, environment) = current_baseline(m, p, &installed_profiles()?)?;
+    baseline_for(m, p, &ap17_profiles()?)
+}
+pub(crate) fn baseline_for(m: &Manager, p: &Profile, policies: &[Profile]) -> Result<Environment> {
+    let (observed, environment) = current_baseline(m, p, policies)?;
     let path = directory(m, p)?.join("baseline.json");
     require(
         file(&path)?.metadata()?.mode() & 0o222 == 0,
@@ -173,9 +176,9 @@ fn bytes(p: &Profile) -> [(String, String); 3] {
     ]
 }
 pub fn stage(m: &Manager, package: &Path) -> Result<()> {
-    stage_exact(m, package, &candidate()?, &installed_profiles()?)
+    stage_exact(m, package, &candidate()?, &ap17_profiles()?)
 }
-fn stage_exact(m: &Manager, package: &Path, p: &Profile, policies: &[Profile]) -> Result<()> {
+pub(crate) fn stage_exact(m: &Manager, package: &Path, p: &Profile, policies: &[Profile]) -> Result<()> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     let (receipt, environment) = current_baseline(m, p, policies)?;
@@ -314,7 +317,7 @@ pub(crate) fn served(
 ) -> Result<()> {
     let p = candidate()?;
     baseline(m, &p)?;
-    let policies = installed_profiles()?;
+    let policies = ap17_profiles()?;
     require(
         policies.iter().all(|x| {
             x.requirements.host_sha256 == installed.sha256
@@ -364,13 +367,13 @@ fn restore_selected(m: &Manager, p: &Profile) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::{
         observation::{derive, Census},
         test_fixture::{inspection_report, prepared, snapshot, Fixture},
     };
-    fn fixture() -> (Fixture, Profile, Vec<Profile>, PathBuf) {
+    pub(crate) fn fixture() -> (Fixture, Profile, Vec<Profile>, PathBuf) {
         let (f, mut p, c, n) = prepared();
         p.revision = 10;
         let mut policies = Vec::new();
@@ -694,7 +697,7 @@ mod tests {
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());
         assert_eq!(p.capabilities.accessibility, Accessibility::WindowsDefault);
-        assert!(installed_profiles()
+        assert!(ap17_profiles()
             .unwrap()
             .iter()
             .all(|x| x.revision == 10 && x.class.class_id != p.class.class_id));

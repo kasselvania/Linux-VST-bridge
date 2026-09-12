@@ -23,18 +23,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Software {
-    manager: Artifact,
-    supervisor: Artifact,
-    ownership: Artifact,
-    host: Artifact,
-    source_manifest: Artifact,
-    source_sha256: String,
-    #[serde(default)]
-    native_catalogue: Option<Artifact>,
-}
+use catalogue::Software;
 #[derive(Serialize, Deserialize)]
 struct SessionSpec {
     registration: HostBinding,
@@ -173,10 +162,16 @@ fn systemd(s: &str) -> String {
     )
 }
 fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
-    setup_selected(m, package, false)
+    setup_selected(m, package, Acceptance::Editor)
 }
-fn setup_selected(m: &Manager, package: Option<&Path>, capacity_acceptance: bool) -> Result<()> {
-    let review = if capacity_acceptance { acceptance::CAPACITY_REVIEW } else { acceptance::REVIEW };
+#[derive(Clone, Copy)]
+enum Acceptance { Editor, Capacity, Pigments }
+fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -> Result<()> {
+    let review = match acceptance {
+        Acceptance::Editor => acceptance::REVIEW,
+        Acceptance::Capacity => acceptance::CAPACITY_REVIEW,
+        Acceptance::Pigments => acceptance::pigments::REVIEW,
+    };
     let _lock = m.lock("setup.lock")?;
     let _registry = m.lock("registry.lock")?;
     // A stopped prior service may leave a positively retired keeper lease.
@@ -209,7 +204,11 @@ fn setup_selected(m: &Manager, package: Option<&Path>, capacity_acceptance: bool
             read_json::<String>(&package.join("host-source.json"))?,
         )
     } else {
-        let accepted = if capacity_acceptance { acceptance::prepare_capacity(m)? } else { acceptance::prepare(m)? };
+        let accepted = match acceptance {
+            Acceptance::Editor => acceptance::prepare(m)?,
+            Acceptance::Capacity => acceptance::prepare_capacity(m)?,
+            Acceptance::Pigments => acceptance::pigments::prepare(m)?,
+        };
         let old = software(m)?;
         for artifact in [&old.supervisor, &old.ownership] {
             require(
@@ -291,6 +290,21 @@ fn setup_selected(m: &Manager, package: Option<&Path>, capacity_acceptance: bool
             fs::File::open(to)?.sync_all()?;
         }
         if let Some(mut c) = catalogue.clone() {
+            for h in &mut c.hosts {
+                let relative = PathBuf::from("hosts").join(format!("{}-{}", h.host.sha256, h.source_manifest.sha256));
+                private_dir(&stage.join(&relative))?;
+                for (name, a) in [("host.exe", &mut h.host), ("host-source-manifest.json", &mut h.source_manifest)] {
+                    a.verify()?;
+                    let to = stage.join(&relative).join(name);
+                    fs::copy(&a.path, &to)?;
+                    require(digest(&to)? == a.sha256, "acceptance_artifact_identity")?;
+                    fs::set_permissions(&to, fs::Permissions::from_mode(0o400))?;
+                    fs::File::open(&to)?.sync_all()?;
+                    a.path = dest.join(&relative).join(name);
+                }
+                fs::File::open(stage.join(&relative))?.sync_all()?;
+            }
+            if !c.hosts.is_empty() { fs::File::open(stage.join("hosts"))?.sync_all()?; }
             private_dir(&stage.join("proxies"))?;
             for n in &mut c.natives {
                 let name = format!("{}.so", n.artifact.sha256);
@@ -341,6 +355,11 @@ fn setup_selected(m: &Manager, package: Option<&Path>, capacity_acceptance: bool
         )?;
     }
     if let Some(mut expected) = catalogue.clone() {
+        for h in &mut expected.hosts {
+            let dir = dest.join("hosts").join(format!("{}-{}", h.host.sha256, h.source_manifest.sha256));
+            h.host.path = dir.join("host.exe");
+            h.source_manifest.path = dir.join("host-source-manifest.json");
+        }
         for n in &mut expected.natives {
             n.artifact.path = dest
                 .join("proxies")
@@ -849,6 +868,9 @@ fn environment_import(m: &Manager, path: &Path) -> Result<()> {
     Ok(())
 }
 fn inspection_binding(m: &Manager, request: InspectionRequest) -> Result<HostBinding> {
+    inspection_binding_for(m, request, true)
+}
+fn inspection_binding_for(m: &Manager, request: InspectionRequest, ordinary: bool) -> Result<HostBinding> {
     require(
         valid_hex(&request.class_id, 32),
         "inspection class ID syntax",
@@ -864,14 +886,26 @@ fn inspection_binding(m: &Manager, request: InspectionRequest) -> Result<HostBin
     )?;
     request.module.verify()?;
     let sw = software(m)?;
+    let mut host = sw.host.clone();
+    let mut source = sw.source_sha256.clone();
+    if ordinary {
+        if let Some(p) = profiles::installed_profiles()?.iter().find(|p| p.class.class_id == request.class_id) {
+            require(p.module_sha256 == request.module.sha256 && p.capabilities.compatibility() == request.compatibility,
+                "installed_host_mismatch")?;
+            p.verify_environment(&environment, &p.requirements.environment_family)?;
+            let selected = catalogue::current_host(m, &sw.host, &sw.source_sha256, p)?;
+            host = selected.host;
+            source = selected.source_manifest.sha256;
+        }
+    }
     let r = HostBinding {
         metadata: ClassSelection {
             class_id: request.class_id,
         },
         environment,
         module: request.module,
-        host: sw.host.clone(),
-        host_source_sha256: sw.source_sha256.clone(),
+        host,
+        host_source_sha256: source,
         compatibility: request.compatibility,
     };
     Ok(r)
@@ -884,7 +918,7 @@ fn qualification_binding(
     purpose: publication::Qualification,
 ) -> Result<HostBinding> {
     if purpose == publication::Qualification::Ap18Pigments {
-        let requested = inspection_binding(m, request)?;
+        let requested = inspection_binding_for(m, request, false)?;
         let r = pigments::binding(m)?;
         require(requested.metadata.class_id == r.metadata.class_id
             && requested.environment == r.environment && requested.module == r.module
@@ -892,7 +926,7 @@ fn qualification_binding(
         return Ok(r.into());
     }
     let candidates = qualification::installed_for(m, purpose)?;
-    let r = inspection_binding(m, request)?;
+    let r = inspection_binding_for(m, request, false)?;
     let matching: Vec<_> = candidates
         .iter()
         .filter(|c| c.profile.class.class_id == r.metadata.class_id)
@@ -973,6 +1007,7 @@ fn main() -> Result<()> {
   Some("setup") if args.len()==2=>setup(&m,Some(Path::new(&args[1]))),
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
   Some("accept-capacity") if args.len()==1=>managed_cli::run_capacity_acceptance(&m),
+  Some("accept-pigments") if args.len()==1=>managed_cli::run_pigments_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),

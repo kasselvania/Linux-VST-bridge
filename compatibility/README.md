@@ -98,3 +98,37 @@ activation. Revision 2 retains the exact census and Windows artifact and binds
 the corrected native advertisement. Both remain ReviewCandidate; the sealed
 replacement route requires the prior candidate inactive and preserves LoFi and
 FRAGMENTS ordinary revision 10.
+
+## AP18 ordinary Pigments revision 11 — review 5185372983
+
+Independent review selected head `f8d0dbfb481324e84e8b337014b66947978b146c`,
+tree `89fb026133ef585a9fcd7475ed4aec919c1236c7`, and the accepted revision-10
+technical/artifact contract. Root `arturia-pigments.json` is a new immutable
+revision-11 VerifiedExactFixture profile. `ap18/arturia-pigments.json` stays
+revision 10 ReviewCandidate; all ten candidate profiles and prior publications
+remain unchanged. Only revision, claim, evidence additions and removal of
+`pigments_under_qualification` / `returned_result_diagnosis` differ.
+
+The no-argument `accept-pigments` command requires the exact prior software,
+inactive accepted candidate and its completed transactions, unchanged ordinary
+LoFi/FRAGMENTS baseline, current module/environment/runner/native/descriptor/host
+identities, independent review and evidence. It reuses retained immutable bytes,
+not caller-supplied paths or hashes. Existing software setup installs the current
+manager with unchanged runtime helpers and a schema-2 native catalogue. The
+catalogue adds the exact Pigments host/manifest; the default host and ordinary
+LoFi/FRAGMENTS artifacts stay unchanged. Inspection, publication and service
+readback select the same host from each exact profile.
+
+Ordinary `managed publish` produces revision 11 with no qualification marker and
+revision 10 as retained candidate provenance. That one sealed predecessor
+transition does not change ReviewCandidate/Activation refusal. Candidate
+publication, profile and transaction records remain immutable. Ordinary repeated
+publication is idempotent; unpublish/reconcile use the existing physical law.
+
+The acceptance smoke is restricted to one ordinary Pigments load, existing C3
+material, direct editor and normal retirement. Accepted routing/automation/state/
+sibling results are reused. This is one exact fixture, not broad Pigments support.
+Process-scoped vendor retirement is explicit and is not clean SDK destruction.
+Short delivery gaps, unqualified256, detached focus refusal, exact operator
+artifacts and sole stereo auxiliary input remain limitations. 512 remains
+selected/supported/recommended; 256 remains unqualified.

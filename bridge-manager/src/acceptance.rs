@@ -1,6 +1,7 @@
 //! Sealed AP15 and AP17 independent-review transitions. No caller-selected profile, artifact,
 //! review or publication can grant acceptance authority.
 use crate::{catalogue::*, observation::*, profiles::*, publication::*, *};
+pub mod pigments;
 
 pub const REVIEW: &[u8] = include_bytes!("../../evidence/ap15/acceptance/review.json");
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -241,6 +242,7 @@ pub(crate) fn prepare_selected_for(
         schema: 1,
         natives,
         environments,
+        hosts: Vec::new(),
     };
     catalogue.validate(&m.root)?;
     Ok(AcceptedSoftware {
@@ -342,7 +344,7 @@ pub fn prepare_capacity(m: &Manager) -> Result<AcceptedSoftware> {
         old["manager"]["sha256"].as_str() == Some(&seal.prior_manager_sha256),
         "acceptance_prior_software_identity",
     )?;
-    let profiles = installed_profiles()?;
+    let profiles = ap17_profiles()?;
     let candidates = qualification::candidates_for(Qualification::Ap17Capacity)?;
     require(
         profiles.len() == 2 && candidates.len() == 2,

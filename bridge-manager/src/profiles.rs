@@ -275,6 +275,18 @@ pub fn validate_set(profiles: &[Profile]) -> Result<()> {
 }
 
 pub fn installed_profiles() -> Result<Vec<Profile>> {
+    let mut result = ap17_profiles()?;
+    result.push(pigments_verified()?);
+    validate_set(&result)?;
+    Ok(result)
+}
+
+pub fn pigments_verified() -> Result<Profile> {
+    Profile::parse(include_bytes!("../../compatibility/arturia-pigments.json"))
+}
+
+/// The accepted AP17 two-product envelope and AP18 qualification baseline.
+pub fn ap17_profiles() -> Result<Vec<Profile>> {
     let result = [
         include_bytes!("../../compatibility/arturia-pure-lofi.json").as_slice(),
         include_bytes!("../../compatibility/arturia-efx-fragments.json").as_slice(),

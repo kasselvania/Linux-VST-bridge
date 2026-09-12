@@ -63,22 +63,7 @@ impl Plan {
     }
 }
 fn catalogue(m: &Manager, sw: &Software) -> Result<Catalogue> {
-    let a = sw
-        .native_catalogue
-        .as_ref()
-        .ok_or("native_catalogue_absent_run_product_setup")?;
-    require(
-        a.path.parent() == sw.manager.path.parent(),
-        "catalogue_software_binding",
-    )?;
-    a.verify()?;
-    require(
-        file(&a.path)?.metadata()?.len() <= 512 * 1024,
-        "catalogue_size",
-    )?;
-    let c: Catalogue = read_json(&a.path)?;
-    c.validate(&m.root)?;
-    Ok(c)
+    sw.catalogue(m)
 }
 fn environment(c: &Catalogue, index: Option<&str>) -> Result<EnvironmentBinding> {
     let index = if let Some(index) = index {
@@ -244,11 +229,7 @@ fn plans(
                 .collect();
             require(policy.len() == 1, "profile_ambiguous")?;
             let policy = policy[0];
-            require(
-                sw.host.sha256 == policy.requirements.host_sha256
-                    && sw.source_sha256 == policy.requirements.host_source_sha256,
-                "installed_host_mismatch",
-            )?;
+            let host = catalogue.host(policy, &sw.host, &sw.source_sha256)?;
             let native = catalogue.native(policy)?;
             let cache = m
                 .root
@@ -257,7 +238,7 @@ fn plans(
             let saved = read_json::<Census>(&cache).ok().filter(|c| {
                 c.module == module
                     && c.environment == environment
-                    && c.verify_current(&m.root, &sw.host, &sw.source_sha256, now().unwrap_or(0))
+                    && c.verify_current(&m.root, &host.host, &host.source_manifest.sha256, now().unwrap_or(0))
                         .is_ok()
             });
             let census = if let Some(saved) = saved {
@@ -275,12 +256,12 @@ fn plans(
                     environment.clone(),
                     module.clone(),
                     stamp,
-                    sw.host.clone(),
-                    sw.source_sha256.clone(),
+                    host.host.clone(),
+                    host.source_manifest.sha256.clone(),
                     report,
                     &class,
                 )?;
-                census.verify_current(&m.root, &sw.host, &sw.source_sha256, now()?)?;
+                census.verify_current(&m.root, &host.host, &host.source_manifest.sha256, now()?)?;
                 private_dir(&m.root.join("censuses/current"))?;
                 atomic_json(
                     &m.root.join("censuses").join(format!("{}.json", census.id)),
@@ -327,8 +308,8 @@ fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_j
                 if args[0]=="publish"{
                     // Validate all selected plans before the first class changes.
                     { let _lock=m.lock("registry.lock")?;for p in &plans{m.require_inactive(Some(&p.registration.key()))?;} }
-                    for p in &plans{p.census.verify_current(&m.root,&sw.host,&sw.source_sha256,now()?)?;p.registration.verify(&m.root)?;}
-                    for p in plans{m.managed_publish(&p.profile,&p.census,p.registration,&sw.host,&sw.source_sha256,None)?;}
+                    for p in &plans{p.census.verify_current(&m.root,&p.census.host,&p.census.host_source_sha256,now()?)?;p.registration.verify(&m.root)?;}
+                    for p in plans{m.managed_publish(&p.profile,&p.census,p.registration,&p.census.host,&p.census.host_source_sha256,None)?;}
                     status(m)
                 }else{Ok(serde_json::json!({"schema":1,"matches":views}))}
             },
@@ -338,7 +319,7 @@ fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_j
                 let key=product(m,&args[1])?;
                 let sw=software(m)?;let c=catalogue(m,&sw)?;
                 let selected=plans(m,&sw,&c,environment(&c,None)?,profiles,SelectionPurpose::Activation,InspectionRoute::Current)?.into_iter().find(|p|p.registration.key()==key).ok_or("profile_no_match")?;
-                let error=m.managed_publish(&selected.profile,&selected.census,selected.registration,&sw.host,&sw.source_sha256,
+                let error=m.managed_publish(&selected.profile,&selected.census,selected.registration,&selected.census.host,&selected.census.host_source_sha256,
                     Some(linux_vst_bridge::publication::Boundary::CandidateReady)).err().ok_or("fault_not_reached")?;
                 require(error.to_string()=="injected_CandidateReady","fault_not_reached")?;
                 Ok(serde_json::json!({"schema":1,"injected":"candidate_ready_before_activation","reconcile_required":true,"status":status(m)?}))
@@ -453,7 +434,10 @@ pub(super) fn run_acceptance(m: &Manager) -> Result<()> {
     render(setup(m, None).and_then(|()| acceptance_receipt(m)))
 }
 pub(super) fn run_capacity_acceptance(m: &Manager) -> Result<()> {
-    render(setup_selected(m, None, true).and_then(|()| acceptance_receipt(m)))
+    render(setup_selected(m, None, Acceptance::Capacity).and_then(|()| acceptance_receipt(m)))
+}
+pub(super) fn run_pigments_acceptance(m: &Manager) -> Result<()> {
+    render(setup_selected(m, None, Acceptance::Pigments).and_then(|()| acceptance_receipt(m)))
 }
 fn acceptance_receipt(m: &Manager) -> Result<serde_json::Value> {
     Ok(serde_json::json!({"schema": 1, "software_installed": true,
@@ -520,6 +504,7 @@ mod tests {
                 schema: 1,
                 natives: vec![n],
                 environments: vec![c.environment.clone()],
+                hosts: Vec::new(),
             },
         )
         .unwrap();

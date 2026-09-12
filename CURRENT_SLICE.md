@@ -2,7 +2,7 @@
 
 ## Authority and basis
 
-AP18 is the active implementation slice.
+AP18 implementation is independently accepted at `f8d0dbfb481324e84e8b337014b66947978b146c` (review `5185372983`). The only current work is the immutable ordinary revision-11 transition described below. The installation and diagnostic instructions retained later in this document are historical scope, not authorization to repeat those campaigns.
 
 - Integrated AP17 main: `2329706a6e797137e68d719edbbbe5cc1e0cdbf1`
 - Active issue: [#94 — AP18: Arturia Software Center to Pigments vendor pathway](https://github.com/kasselvania/Linux-VST-bridge/issues/94)
@@ -17,6 +17,31 @@ AP17 is accepted and integrated. Its exact Steam Deck / Bitwig / Arturia envelop
 Revision 10 is the accepted ordinary AP17 profile generation in source. The Deck was deliberately left on exact revision 7 after the final investigation. Activate revision 10 once through the existing bounded transition and verify physical readback before ASC work; this is installation housekeeping, not authority to replay AP17.
 
 The repository remains publicly readable but proprietary. Preserve [COPYRIGHT.md](COPYRIGHT.md), [CONTRIBUTING.md](CONTRIBUTING.md), and the all-rights-reserved README notice.
+
+## Current cut — ordinary Pigments acceptance
+
+Create root `compatibility/arturia-pigments.json` revision 11 as
+`verified_exact_fixture`. Preserve exact revision-10 technical/artifact content
+and revisions 1–10 byte-for-byte. Remove only `pigments_under_qualification` and
+`returned_result_diagnosis`; retain genuine limits and process-scoped retirement.
+
+The argument-free `accept-pigments` operation binds review 5185372983, the reviewed
+head/tree, exact prior installed software, candidate fingerprint/publications/
+transactions and completed evidence. It copies accepted immutable artifacts
+through existing software setup. Catalogue schema 2 supports the separately
+profile-bound Pigments host while keeping the LoFi/FRAGMENTS and keeper host
+unchanged. Normal `managed publish` creates revision 11 without a qualification
+marker, retaining candidate revision 10 as its exact immediate provenance parent.
+Candidate claims remain ineligible for ordinary activation.
+
+Perform only one ordinary-load/C3-audio/editor/retirement smoke. No LC1, routing,
+state, automation, sibling, capacity, reboot or performance campaign is repeated.
+On success leave revision 11 ordinarily active, LoFi/FRAGMENTS revision 10
+unchanged, zero DSP leases/pending transactions/stale transports, service and
+keeper active and tracing off. Return PR #95 ready, open and unmerged for exact
+head review. 512 remains recommended; 256 remains unqualified.
+
+## Historical installation and qualification scope
 
 ## Private installer handoff
 
