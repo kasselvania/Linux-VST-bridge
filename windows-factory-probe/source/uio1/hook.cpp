@@ -35,10 +35,10 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
   }
   const auto began=now();
   const bool heartbeat=source==1&&msg==pulse&&uint64_t(lp)==h.nonce;
-  if(heartbeat){
-    uio1::atom(h.pong_qpc).store(began,std::memory_order_relaxed);
-    uio1::atom(h.pong).store(uint64_t(wp),std::memory_order_release);
-  }
+  // Retain this request's start before acknowledging it. Early acknowledgement
+  // would allow the helper to replace ping_qpc while this callback is recording
+  // the old pulse, incorrectly turning a long stall into near-zero latency.
+  const auto sent=heartbeat?uio1::atom(h.ping_qpc).load(std::memory_order_acquire):0;
   DWORD pid=0;
   bool same=hwnd && GetWindowThreadProcessId(hwnd,&pid)==h.tid && pid==h.pid;
   auto root=reinterpret_cast<HWND>(h.root);
@@ -55,7 +55,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
     }
     if(msg==WM_KEYDOWN||msg==WM_KEYUP||msg==WM_SYSKEYDOWN||msg==WM_SYSKEYUP)r.key_class=uio1::key_class(wp);
     if(msg==WM_NCHITTEST&&source==3)r.result=result;
-    if(heartbeat)r.result=int64_t(began-uio1::atom(h.ping_qpc).load());
+    if(heartbeat)r.result=int64_t(began-sent);
     r.message_time=message_time;r.cost_ticks=now()-began;
     uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),r);
   }else uio1::atom(h.filtered).fetch_add(1,std::memory_order_relaxed);
@@ -63,6 +63,10 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
   uio1::atom(h.hook_calls).fetch_add(1,std::memory_order_relaxed);
   uio1::atom(h.hook_ticks).fetch_add(cost,std::memory_order_relaxed);
   if(cost>uio1::atom(h.max_hook_ticks).load())uio1::atom(h.max_hook_ticks).store(cost);
+  if(heartbeat){
+    uio1::atom(h.pong_qpc).store(began,std::memory_order_relaxed);
+    uio1::atom(h.pong).store(uint64_t(wp),std::memory_order_release);
+  }
   inside=false;
 }
 }
