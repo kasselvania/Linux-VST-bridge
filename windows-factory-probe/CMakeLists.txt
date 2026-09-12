@@ -111,3 +111,17 @@ target_compile_definitions(ap18-lc1-session PRIVATE LVB_LC1_TEST UNICODE _UNICOD
 target_compile_options(ap18-lc1-session PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
 target_link_libraries(ap18-lc1-session PRIVATE sdk sdk_hosting ws2_32 user32 ole32)
 set_target_properties(ap18-lc1-session PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# Separate development observers. Never linked into the product Windows host.
+add_library(uio1-hook SHARED source/uio1/hook.cpp)
+add_executable(uio1-observer source/uio1/observer.cpp)
+add_executable(uio1-tests ../tools/uio1/windows.cpp)
+foreach(target uio1-hook uio1-observer uio1-tests)
+  target_include_directories(${target} PRIVATE source)
+  target_compile_definitions(${target} PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+  target_compile_options(${target} PRIVATE /W4 /permissive- /EHsc /UNDEBUG)
+  target_link_options(${target} PRIVATE /Brepro /INCREMENTAL:NO)
+  target_link_libraries(${target} PRIVATE user32)
+  set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+endforeach()
+add_dependencies(uio1-tests uio1-hook uio1-observer)
