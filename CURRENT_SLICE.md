@@ -398,3 +398,24 @@ route. One functional audio/close/reopen/retirement check follows generated test
 no pre-repair live observation or broad campaign. The operator identifies the
 CPUWeight foreground override as SteamOS foreground-booster behavior; it does
 not block this functional check.
+
+### Revision 7 close/reopen passed; quiescent final release failed
+
+Revision 7 is built and all four hosted lanes passed at 31e9753. The one
+functional check produced nonzero local audio before close, while hidden, and
+after one Bitwig reopen. The same processing session and vendor X11 target
+survived; logical editor epoch advanced 1→2. No Collector rejection occurred.
+
+Normal quit then completed setProcessing(false), worker join and setActive(false)
+before final controller unbinding reached editor stage 215. Vendor view release
+still did not complete; outer launcher exit was 5. Processing overlap therefore
+is not a sufficient explanation for this remaining release failure. Cleanup was
+positive, but SDK final retirement was not successful. No further live attempt,
+sidechain, automation or save/recall campaign was run. Stop at this exact failure
+under the current operator instruction.
+
+Pigments is restored inactive; LoFi/FRAGMENTS revision 10 physical publications
+and protected original projects are unchanged. Service/keeper active, zero DSP
+leases, no pending/stale sessions, Bitwig/debugger absent, tracing off, effective
+CPUWeight 100. 512 recommended and 256 unqualified. See
+`evidence/ap18/pigments/retained-editor-live.json`. PR #95 remains draft/unmerged.

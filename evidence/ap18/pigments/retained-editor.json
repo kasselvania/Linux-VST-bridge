@@ -78,14 +78,34 @@
     ],
     "native_backend": "63 passed",
     "linux_ctest": "7/7 passed",
-    "linux_runtime": "37 passed, no skips"
+    "linux_runtime": "37 passed, no skips",
+    "manager": "61 library + 11 binary tests passed",
+    "manager_clippy": "all targets, -D warnings passed"
   },
-  "live": "pending one bounded functional check",
+  "live": "Close/hide/reopen and continued local audio passed; final release after worker join/deactivation exited abnormally. See retained-editor-live.json.",
   "limits": [
     "MIDI-output correction unchanged",
     "No result capacities or wire-layout changes",
     "No auxiliary-input routing changes",
     "512 remains recommended; 256 unqualified",
     "Candidate remains engineering-only and will be restored inactive"
-  ]
+  ],
+  "profile_sha256": "e16221395dcf6cb8c45521ad12528f1e5b910c5a1b5c6d7cdc5f1091498dcc04",
+  "software": {
+    "source": "31e9753f9d93ab0149aea66d33164af238ea32d3",
+    "files": {
+      "linux-vst-bridge": "9efb9b7a7526414a25607e51283490ab1cb13c915dfeee13a06a9efe09ba8a53",
+      "session.py": "e7ef29328e63389e4311c88e0e1bd843c86a4e7d260a07e3f0ef351a8f6ac543",
+      "ownership.py": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+      "pigments-package/host.exe": "17899614beb3c4e20cf8aac2304d6e341632cf48e14c0909e1e1640cfd29d703",
+      "pigments-package/host-source-manifest.json": "c50a8e508b2737ad550f8c93d9f02bf129fdeb2c9c3cd3a14cdf471f8d6bdc10"
+    }
+  },
+  "hosted_final_profile_head": {
+    "head": "31e9753f9d93ab0149aea66d33164af238ea32d3",
+    "host": "SUCCESS",
+    "native-results": "SUCCESS",
+    "manager": "SUCCESS",
+    "PX2 proof policy core": "SUCCESS"
+  }
 }
