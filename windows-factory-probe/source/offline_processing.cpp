@@ -138,7 +138,12 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     AP10Results::RejectionRecord first_rejection{};
     uint64_t rejected_generation=0,rejected_epoch=0,rejected_sequence=0,rejected_position=0,rejected_callback=0;
     uint32_t rejected_input_notes=0,rejected_input_parameters=0;
-    do {
+    // An activated component need not enter processing. A DAW may deactivate
+    // it again while negotiating routing. Select the exact pending command on
+    // the owner before creating a worker; only Start belongs to that worker.
+    const bool processing_requested=!sustained||external->next_transition()==10;
+    if(!processing_requested)external->lifecycle_request(14);
+    if(processing_requested) do {
     joined=false;restart=false;
     try {
         std::atomic<bool> worker_done{false};
@@ -309,7 +314,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             ",\"input_bits\":["+bits(block.input[0])+","+bits(block.input[1])+"]"+
             ",\"output_bits\":["+bits(block.output[0])+","+bits(block.output[1])+"]");
     }
-    return {ok && joined && !worker_exception, true, ok && stopped && joined && !worker_exception && !active};
+    return {ok && (!processing_requested || joined) && !worker_exception, true, ok && stopped && joined && !worker_exception && !active};
     }
 }
 }

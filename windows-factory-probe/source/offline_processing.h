@@ -36,7 +36,7 @@ public:
     virtual uint32_t process_mode() const {return 0;}
     virtual bool activation_again() {return false;}
 
-    // Owner-thread selection after a stopped interval; the chosen frame stays
+    // Owner-thread selection after activation or a stopped interval; the frame stays
     // pending until the corresponding lifecycle_request consumes it.
     virtual uint16_t next_transition() { return 14; }
     virtual uint32_t lifecycle_request(uint16_t) { return 256; }

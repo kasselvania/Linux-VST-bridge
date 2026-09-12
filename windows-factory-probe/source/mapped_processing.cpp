@@ -336,9 +336,13 @@ uint16_t MappedSession::next_transition(){auto&x=*impl_;try{
  }catch(const std::exception&e){x.error(e);throw;}}
 
 uint32_t MappedSession::lifecycle_request(uint16_t kind){auto&x=*impl_;try{
- require(x.hosted&&!x.state.failed&&!x.state.outstanding,"lifecycle ownership");auto f=x.has_pending?std::move(x.pending):x.receive();x.has_pending=false;
+ require(x.hosted&&!x.state.failed&&!x.state.outstanding,"lifecycle ownership");
 #ifdef LVB_LC1_TEST
- x.events.lifecycle("lc1_receive",",\"expected_kind\":"+std::to_string(kind)+",\"actual_kind\":"+std::to_string(f.kind)+",\"expected_sequence\":"+std::to_string(x.state.next)+",\"actual_sequence\":"+std::to_string(f.sequence)+",\"expected_epoch\":"+std::to_string(kind==Start?x.timeline.epoch+1:x.timeline.epoch)+",\"actual_epoch\":"+std::to_string(f.payload.size()==8?get(f.payload.data(),8):0)+",\"session_match\":"+(f.session==x.state.session?"true":"false")+",\"running\":"+(x.timeline.running?"true":"false")+",\"active\":"+(x.active?"true":"false"));
+ const bool was_pending=x.has_pending;const auto pending_kind=x.pending.kind;const auto pending_sequence=x.pending.sequence;
+#endif
+ auto f=x.has_pending?std::move(x.pending):x.receive();x.has_pending=false;
+#ifdef LVB_LC1_TEST
+ x.events.lifecycle("lc1_receive",",\"expected_kind\":"+std::to_string(kind)+",\"actual_kind\":"+std::to_string(f.kind)+",\"expected_sequence\":"+std::to_string(x.state.next)+",\"actual_sequence\":"+std::to_string(f.sequence)+",\"expected_epoch\":"+(kind==Start?std::to_string(x.timeline.epoch+1):"null")+",\"actual_epoch\":"+(f.kind==Start&&f.payload.size()==8?std::to_string(get(f.payload.data(),8)):"null")+",\"session_match\":"+(f.session==x.state.session?"true":"false")+",\"pending_kind\":"+(was_pending?std::to_string(pending_kind):"null")+",\"pending_sequence\":"+(was_pending?std::to_string(pending_sequence):"null")+",\"running\":"+(x.timeline.running?"true":"false")+",\"active\":"+(x.active?"true":"false"));
 #endif
  require(f.kind==kind&&f.session==x.state.session&&f.sequence==x.state.next,"lifecycle correlation");
  if(kind==Activate){require(f.payload.size()==(x.sustained?8:4),"activation extent");if(x.sustained){auto mode=uint32_t(get(f.payload.data()+4,4));if(x.performance)require(x.configured&&mode==x.mode,"activation mode differs from setup");else {require(mode<=(x.stateful?1u:0u),"processing mode required");x.mode=mode;}}auto n=get(f.payload.data(),4);require(n>=1&&n<=capacity,"activation maximum");if(x.performance)require(x.configured&&n==x.maximum&&x.mode==get(f.payload.data()+4,4),"activation differs from setup");x.active=true;x.audio_active.store(true);return uint32_t(n);}

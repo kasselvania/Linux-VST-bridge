@@ -468,3 +468,22 @@ SteamOS-owned CPUWeight read back 10000 after the run (100 before); it was not
 manually changed and this is not performance evidence. 512 remains recommended;
 256 unqualified. PR #95 remains draft; the remaining AP18 checks stopped at this
 new material failure.
+
+## LC1: same-session processing reconfiguration
+
+The operator selected a generic lifecycle correction. The paired real Rust
+queued worker / Windows MappedSession SDK fixture shows that the exact requested
+two-interval sequence already succeeds at sequence 104687, with epoch 2 starting
+at position zero. The retained live fault additionally records native worker
+operation 14 (Deactivate). Adding Activate → Deactivate before Start reproduces
+that exact failure: Windows expects Start 10 but receives Deactivate 14 at the
+correct session and sequence, then processes zero blocks.
+
+The focused correction selects Start or Deactivate on the Windows owner after
+activation, before creating a processing worker. No sequence reset, epoch
+relaxation, retry, payload change or product-name dispatch is involved. The
+paired regression must pass with and without this intermediate activation, and
+normal hosted validation must pass before Pigments revision 10 is generated or
+published. Revision 9 and prior history remain immutable. Pigments has not been
+run or republished during LC1 fixture development; the remaining AP18 live
+qualification remains pending.
