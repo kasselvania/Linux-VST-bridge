@@ -133,6 +133,32 @@ struct InspectionRequest {
     class_id: String,
     compatibility: Compatibility,
 }
+// One decoder owns both admission and dispatch; a new exact route cannot be
+// dispatched in a match arm that an earlier greeting filter never admits.
+fn inspection_purpose(greeting: &[u8]) -> Option<Option<publication::Qualification>> {
+    use publication::Qualification::*;
+    Some(match greeting {
+        b"LVI1\n" => None,
+        b"LVQ1\n" => Some(Ap15Editor),
+        b"LVQ2\n" => Some(Ap17Capacity),
+        b"LVQ3\n" => Some(Ap18Pigments),
+        b"LVQ4\n" => Some(Uir1Input),
+        b"LVQ5\n" => Some(If1Failure),
+        _ => return None,
+    })
+}
+#[test]
+fn exact_inspection_greetings_share_admission_and_dispatch() {
+    use publication::Qualification::*;
+    assert_eq!(inspection_purpose(b"LVI1\n"), Some(None));
+    for (bytes, purpose) in [(b"LVQ1\n", Ap15Editor), (b"LVQ2\n", Ap17Capacity),
+        (b"LVQ3\n", Ap18Pigments), (b"LVQ4\n", Uir1Input), (b"LVQ5\n", If1Failure)] {
+        assert_eq!(inspection_purpose(bytes), Some(Some(purpose)));
+    }
+    for invalid in [b"LVQ6\n".as_slice(), b"LVQ5", b"lvq5\n", b"LVQ5\nextra"] {
+        assert_eq!(inspection_purpose(invalid), None);
+    }
+}
 fn software(m: &Manager) -> Result<Software> {
     let s: Software = read_json(&m.root.join("software.json"))?;
     for a in [
@@ -682,20 +708,16 @@ fn serve(m: Manager) -> Result<()> {
                     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
                     peer.write_all(&bytes)?;return Ok(());
                 }
-                if matches!(&greeting[..5],b"LVI1\n"|b"LVQ1\n"|b"LVQ2\n"|b"LVQ3\n"|b"LVQ4\n") {
+                if let Some(purpose) = inspection_purpose(&greeting[..5]) {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
                     let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
                     m.require_inactive(None)?;
                     let request=serde_json::from_slice(&bytes)?;
-                    let r=match &greeting[..5] {
-                        b"LVQ1\n"=>qualification_binding(&m,request,publication::Qualification::Ap15Editor)?,
-                        b"LVQ4\n"=>qualification_binding(&m,request,publication::Qualification::Uir1Input)?,
-                        b"LVQ5\n"=>qualification_binding(&m,request,publication::Qualification::If1Failure)?,
-                        b"LVQ3\n"=>qualification_binding(&m,request,publication::Qualification::Ap18Pigments)?,
-                        b"LVQ2\n"=>qualification_binding(&m,request,publication::Qualification::Ap17Capacity)?,
-                        _=>inspection_binding(&m,request)?,
+                    let r = match purpose {
+                        Some(purpose) => qualification_binding(&m, request, purpose)?,
+                        None => inspection_binding(&m, request)?,
                     };
                     ensure_keeper(&m,&s,&r,&keepers)?;
                     let (mut job,path)=spec(&m,r,true,false,false)?;
