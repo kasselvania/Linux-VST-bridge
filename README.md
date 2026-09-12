@@ -119,8 +119,12 @@ UI is claimed. The exact records and limits
 are retained in [evidence/uio1](evidence/uio1/).
 
 [UIR1](docs/UIR1.md) begins with a generated pinned-Proton idle/loaded queue
-comparison on an isolated XWayland display. No further Pigments session or
-operator desktop control precedes that differential. See
+comparison on an isolated XWayland display. It reproduced at least 4.963 seconds
+of hardware-input retrieval delay under finite posted traffic while heartbeats
+remained within 6.11 ms; idle input remained prompt. This selects generic pump
+fairness for repair without claiming Pigments generated the same traffic. No
+product repair is installed, and no further Pigments session or operator desktop
+control was used. See
 [CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
 
 ## Architecture

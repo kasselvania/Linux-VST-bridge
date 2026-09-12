@@ -77,7 +77,7 @@ fn project(raw: &Value) -> Result<Value> {
                 "win32_retrieval_interval_ns":[retrieved[0].checked_sub(origin).ok_or("time order")?,retrieved[1].checked_sub(origin).ok_or("time order")?],
                 "x11_to_retrieval_lower_bound_ns":retrieved[0].saturating_sub(observed),
                 "issued_to_retrieval_upper_bound_ns":retrieved[1].checked_sub(before).ok_or("time order")?,
-                "target":"generated_child","active":"generated_parent","client":[wr[0]["x"],wr[0]["y"]],
+                "target":"generated_child","active":"generated_parent","client":[wr[0]["x"].as_i64().ok_or("client x")?,wr[0]["y"].as_i64().ok_or("client y")?],
                 "focus_is_child":n(wr[0],"focus")? == child,"hook_consumed":false}));
         }
         let heartbeat = win
@@ -118,15 +118,49 @@ fn project(raw: &Value) -> Result<Value> {
     {
         return Err("observer custody incomplete".into());
     }
+    let mut progress = Vec::new();
+    if raw.get("traffic_samples").is_some() {
+        if n(raw, "traffic_sample_overflow")? != 0 {
+            return Err("traffic observation overflow".into());
+        }
+        let samples = rows(raw, "traffic_samples", 1200)?;
+        for (label, row) in [
+            (
+                "first_all_sends_complete",
+                samples
+                    .iter()
+                    .find(|r| r["phase"].as_u64().unwrap_or(0) >= 2 && r["sent"] == 64),
+            ),
+            (
+                "last_before_loaded_down",
+                samples
+                    .iter()
+                    .rev()
+                    .find(|r| r["phase"].as_u64().unwrap_or(0) >= 2 && r["down"] == 1),
+            ),
+            (
+                "first_loaded_down",
+                samples
+                    .iter()
+                    .find(|r| r["phase"].as_u64().unwrap_or(0) >= 2 && r["down"] == 2),
+            ),
+        ] {
+            let r = row.ok_or("missing traffic transition sample")?;
+            progress.push(json!({"observation":label,"linux_observed_ns":n(r,"observed_ns")?.checked_sub(origin).ok_or("traffic time order")?,
+                "phase":n(r,"phase")?,"posted_submitted":n(r,"submitted")?,"posted_handled":n(r,"posted")?,"sent_handled":n(r,"sent")?,
+                "down_handled":n(r,"down")?,"up_handled":n(r,"up")?}));
+        }
+    }
     Ok(
         json!({"schema":1,"fixture":"generated_parent_child_no_vendor","actions":actions,
         "clock_domains":["linux_monotonic_ns","windows_qpc","x11_server_ms"],
         "clock_law":"UIO1 Bracket::project: measured round trip, 100ppm drift, 10s maximum distance",
         "input_boundary":"exact X11 receipt to first observable Win32 hardware-mouse retrieval; no internal admission timestamp",
         "traffic":{"submitted":final_status["submitted"],"handled":final_status["posted"],"sent_handled":64,"send_failures":0,"maximum_posted":4096,"admission_limit_seconds":6,"posted_chains":4,"synthetic_handler_sleep_ms":1},
-        "observer":{"records":observer["committed"],"dropped":0,"closed":1,"detached":1},
-        "xrecord":{"records":x11.len(),"dropped":0,"unparsed":raw["xrecord_status"]["unparsed"]},
+        "observer":{"records":n(observer,"committed")?,"dropped":0,"closed":1,"detached":1},
+        "xrecord":{"records":x11.len(),"dropped":0,"unparsed":n(&raw["xrecord_status"],"unparsed")?},
         "exact_three_mouse_pairs":true,"windows_destroyed":true,
+        "bounded_traffic_progress":progress,
         "nonclaims":["no vendor workload equivalence","no physical-compositor equivalence","no product repair","no audio or rendering result"]}),
     )
 }

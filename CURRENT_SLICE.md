@@ -45,3 +45,17 @@ must retire the scratch runner, observers and compositor; no held synthetic
 input or transient unit. Existing product sessions, service and keeper remain
 untouched. One UIR1 PR, unmerged for review. 512 remains recommended; 256 remains
 unqualified. No audio, renderer, general Wine or product performance claim.
+
+## Completed first differential
+
+The generated idle/loaded/idle comparison passed with exact cleanup. Idle mouse
+retrieval upper bounds were at most 4.126 ms; loaded Down was delayed at least
+4.962809666 seconds after X11 receipt while heartbeat latency stayed at most
+6.1079 ms. All 4096 posts and 64 sends completed. This selects generic
+message-pump fairness for the next repair, without proving the specific internal
+traffic of Pigments. No vendor session or operator desktop input was used.
+
+See [docs/UIR1.md](docs/UIR1.md) and [evidence/uir1](evidence/uir1/). The generated
+fixture and owner-selection result are complete; production pump repair remains
+separate, unimplemented work. Accepted products and publications are unchanged.
+Disposition: `UIR1_GENERATED_RETRIEVAL_STARVATION_REPRODUCED`.

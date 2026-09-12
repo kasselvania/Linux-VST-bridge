@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "windows_build_and_sdk_workflow": {
+    "run": 34701612094,
+    "source_head": "8d9cec90d31b254e0718070e5eeb6ef205bd9fcc",
+    "result": "passed",
+    "uir1_self_test": {
+      "submitted": 325,
+      "handled": 325,
+      "sent": 64,
+      "exact_cleanup": true
+    },
+    "uio1_fixture": "passed"
+  },
+  "local": [
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "71 library and 11 binary tests passed"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --example uir1_report --locked",
+      "result": "2 passed"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "41 collected; 17 passed; 24 Linux-only skipped on macOS"
+    },
+    {
+      "command": "python3 -m unittest discover -s tools/uio1 -v",
+      "result": "10 passed"
+    },
+    {
+      "command": "python3 -m unittest discover -s tools/uir1 -v",
+      "result": "2 passed on macOS and on Deck"
+    },
+    {
+      "command": "cargo run --manifest-path bridge-manager/Cargo.toml --locked --example uir1_report -- PRIVATE_RECORD",
+      "result": "bounded report generated; exact child receipt, three input pairs, overflow/cleanup and UIO1 clock checks passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "hosted_source_checkpoint": [
+    {
+      "run": 34701612153,
+      "workflow": "AP12 registered owner",
+      "result": "passed; full Linux runtime suite and Xvfb fixture included"
+    },
+    {
+      "run": 34701612123,
+      "workflow": "PX2 proof policy",
+      "result": "passed"
+    }
+  ],
+  "final_head_workflows": "Exact final-head results retained in PR #97 body; no extra evidence-only commit to trigger another full matrix.",
+  "native_audio_lane": "not run: no native/audio owner or artifact changed",
+  "actual_pinned_proton_differential": "one complete A/B/idle interval after two separately retained startup failures; positive cleanup"
+}

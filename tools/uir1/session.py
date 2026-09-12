@@ -33,19 +33,27 @@ def run(root, package):
         os.chmod(target / name, 0o500)
     base = [runner['entry_point'], '--verb=run', '--', runner['proton']]
     report = {'schema': 1, 'display': {k: env.get(k) for k in ('DISPLAY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR')},
-              'clock_brackets': [], 'win32': [], 'xrecord': [], 'actions': [], 'snapshots': []}
+              'clock_brackets': [], 'win32': [], 'xrecord': [], 'actions': [], 'snapshots': [],
+              'traffic_samples': [], 'traffic_sample_overflow': 0}
     handles = []; status = observer = x = record = None
-    def helper(name, args, seconds, label, first=False):
-        h = Helper(ownership, [*base, 'run' if first else 'runinprefix',
-                   str(target / name) if first else 'C:\\uir1\\' + name, *args],
+    def helper(name, args, seconds, label):
+        h = Helper(ownership, [*base, 'runinprefix', 'C:\\uir1\\' + name, *args],
                    env, target, root / (label + '.log'), seconds)
         handles.append(h); return h
     def snap(): return {k: status.read(v) for k, v in FIELDS.items()}
+    next_sample = 0
     def tick():
+        nonlocal next_sample
         for h in handles:
             if not h.closed: h.poll()
         if record: record.poll()
         if observer: report['win32'].extend(observer.take())
+        now = time.monotonic_ns()
+        if status and now >= next_sample:
+            next_sample = now + 50_000_000
+            if len(report['traffic_samples']) < 1200:
+                report['traffic_samples'].append(dict(observed_ns=now, **snap()))
+            else: report['traffic_sample_overflow'] += 1
     def wait(test, seconds):
         end = time.monotonic() + seconds
         while not test():
@@ -64,7 +72,14 @@ def run(root, package):
         interval(.08)
         report['actions'].append(dict(action=action, up=x.button(False)))
     try:
-        fixture = helper('uir1-input-fixture.exe', ['C:\\uir1\\fixture.status'], 150, 'fixture', first=True)
+        # Pinned Proton source: getcompatpath performs init_session(True) and
+        # setup_prefix, then winepath; unlike 'run' it does not launch steam.exe.
+        init = Helper(ownership, [*base, 'getcompatpath', str(target)], env, target, root / 'initialize.log', 50)
+        handles.append(init)
+        report['initialization'] = init.finish()
+        if report['initialization']['exit'] != 0 or report['initialization']['overflow']:
+            raise RuntimeError('scratch prefix initialization failed')
+        fixture = helper('uir1-input-fixture.exe', ['C:\\uir1\\fixture.status'], 60, 'fixture')
         wait(lambda: (target / 'fixture.status').exists() and (target / 'fixture.status').stat().st_size == 4096, 100)
         status = Mapping(target / 'fixture.status', 4096)
         wait(lambda: status.read(56) == 1, 5)
