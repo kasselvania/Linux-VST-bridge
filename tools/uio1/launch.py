@@ -113,7 +113,12 @@ class Context:
 
     def census(self,output):
         snap=self.fault.snapshot();owner=snap.get('owner') or {}
-        if not snap.get('editor',{}).get('open') or owner.get('stage')!=25:raise RuntimeError('live editor owner absent')
+        # Scope exit publishes stage 0 while retaining this UI owner's identity.
+        # A healthy idle editor is not required to be caught inside PeekMessage.
+        if (not snap.get('editor',{}).get('open') or snap.get('editor',{}).get('failure')
+            or snap.get('terminal_instance') or owner.get('stage') not in (0,25)
+            or not owner.get('process_id') or not owner.get('thread_id')):
+            raise RuntimeError('live editor owner absent')
         h=self.helper('uio1-observer.exe',['census',owner['process_id']],output,10)
         result=h.finish()
         if result['exit']!=0 or result['overflow']:raise RuntimeError('census incomplete')

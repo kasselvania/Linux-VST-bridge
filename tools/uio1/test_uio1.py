@@ -45,6 +45,28 @@ class Tests(unittest.TestCase):
             self.assertEqual(r['after'],{'terminal':{'class':1}})
             cap.gui.close.assert_called_once();cap.x.close.assert_called_once();cap.c.fault.close.assert_called_once()
 
+    def test_census_accepts_complete_idle_ui_owner_without_guessing_process(self):
+        from launch import Context
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            out=pathlib.Path(directory)/'census.log'
+            out.write_text('{"type":"process","pid":42,"start":99}\n')
+            c=Context.__new__(Context);c.helper=Mock(return_value=SimpleNamespace(finish=lambda:{'exit':0,'overflow':0}))
+            for stage in (0,25):
+                snap={'editor':{'open':1,'failure':0},'owner':{'stage':stage,'process_id':42,'thread_id':43},'terminal_instance':None}
+                c.fault=SimpleNamespace(snapshot=lambda:snap)
+                self.assertEqual(c.census(out)[0],{'type':'process','pid':42,'start':99})
+                self.assertEqual(c.helper.call_args.args[1],['census',42])
+            for bad in ({'stage':22,'process_id':42,'thread_id':43},{'stage':0,'process_id':0,'thread_id':43}):
+                snap['owner']=bad
+                with self.assertRaisesRegex(RuntimeError,'live editor owner absent'):c.census(out)
+            snap['owner']={'stage':0,'process_id':42,'thread_id':43};snap['terminal_instance']={'class':1}
+            with self.assertRaisesRegex(RuntimeError,'live editor owner absent'):c.census(out)
+            snap['terminal_instance']=None;snap['editor']['open']=0
+            with self.assertRaisesRegex(RuntimeError,'live editor owner absent'):c.census(out)
+
     def test_coordinates_follow_exact_current_window(self):
         self.assertEqual(normalized((100,200,401,301),(.5,.5)),(300,350))
         self.assertEqual(normalized((-100,0,101,101),(1,1)),(0,100))
