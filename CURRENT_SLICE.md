@@ -2,7 +2,7 @@
 
 ## Authority and basis
 
-AP18 implementation is independently accepted at `f8d0dbfb481324e84e8b337014b66947978b146c` (review `5185372983`). The only current work is the immutable ordinary revision-11 transition described below. The installation and diagnostic instructions retained later in this document are historical scope, not authorization to repeat those campaigns.
+AP18 implementation is independently accepted at `f8d0dbfb481324e84e8b337014b66947978b146c` (review `5185372983`). The immutable ordinary revision-11 transition and its one smoke are complete; the PR is awaiting exact-head merge review. The installation and diagnostic instructions retained later in this document are historical scope, not authorization to repeat those campaigns.
 
 - Integrated AP17 main: `2329706a6e797137e68d719edbbbe5cc1e0cdbf1`
 - Active issue: [#94 — AP18: Arturia Software Center to Pigments vendor pathway](https://github.com/kasselvania/Linux-VST-bridge/issues/94)
@@ -18,7 +18,7 @@ Revision 10 is the accepted ordinary AP17 profile generation in source. The Deck
 
 The repository remains publicly readable but proprietary. Preserve [COPYRIGHT.md](COPYRIGHT.md), [CONTRIBUTING.md](CONTRIBUTING.md), and the all-rights-reserved README notice.
 
-## Current cut — ordinary Pigments acceptance
+## Completed current cut — ordinary Pigments acceptance
 
 Create root `compatibility/arturia-pigments.json` revision 11 as
 `verified_exact_fixture`. Preserve exact revision-10 technical/artifact content
@@ -34,12 +34,15 @@ unchanged. Normal `managed publish` creates revision 11 without a qualification
 marker, retaining candidate revision 10 as its exact immediate provenance parent.
 Candidate claims remain ineligible for ordinary activation.
 
-Perform only one ordinary-load/C3-audio/editor/retirement smoke. No LC1, routing,
-state, automation, sibling, capacity, reboot or performance campaign is repeated.
-On success leave revision 11 ordinarily active, LoFi/FRAGMENTS revision 10
-unchanged, zero DSP leases/pending transactions/stale transports, service and
-keeper active and tracing off. Return PR #95 ready, open and unmerged for exact
-head review. 512 remains recommended; 256 remains unqualified.
+The single ordinary-load/C3-audio/editor/retirement smoke passed. Revision 11
+remains physically active with candidate revision 10 as its exact provenance
+parent. LoFi/FRAGMENTS revision 10 and all protected project hashes are unchanged.
+Final state: service/keeper active, zero DSP leases/pending transactions/stale
+transports, Bitwig/debuggers absent, tracing off, CPUWeight unset/effective 100.
+512 remains recommended; 256 remains unqualified. See
+`evidence/ap18/acceptance/` for exact artifacts, publication, smoke and validation.
+Return the same PR ready, open and unmerged for exact-head review; do not repeat
+AP18 qualification or broaden the compatibility claim.
 
 ## Historical installation and qualification scope
 

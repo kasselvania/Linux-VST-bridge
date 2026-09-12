@@ -79,10 +79,12 @@ real UI. Independent review **5185372983** accepted exact Pigments 7.0.1.6772
 revision 10, including LC1 routing, note audio, preset/control automation recall,
 sibling independence and process-scoped retirement. Revision 10 remains immutable
 ReviewCandidate history. New root revision 11 is VerifiedExactFixture with the
-same technical content; its ordinary installation transition is the only remaining
-AP18 task. LoFi and FRAGMENTS ordinary revision 10 remain unchanged. See the
-[accepted result](evidence/ap18/lc1/live-completion.json) and
-[acceptance authority](evidence/ap18/acceptance/review.json).
+same technical content and is now ordinarily installed and active. The single
+ordinary-load/C3/editor/quit smoke passed with nonzero output and positive
+process-scoped retirement. LoFi and FRAGMENTS ordinary revision 10 remain unchanged.
+See the [accepted result](evidence/ap18/lc1/live-completion.json),
+[ordinary smoke](evidence/ap18/acceptance/ordinary-smoke.json), and
+[final installation](evidence/ap18/acceptance/installed-final.json).
 
 ```text
 official ASC installer

@@ -1,0 +1,69 @@
+{
+  "schema": "ap18-ordinary-acceptance-transition-v1",
+  "source": "11ddb9a2884fe3b4d443cdba17adbfee0ff0d0fd",
+  "authority": {
+    "command": "accept-pigments",
+    "caller_arguments": 0,
+    "review": 5185372983,
+    "exact_candidate_required": {
+      "id": "ac56409aa91d41aa15ab85e18e1d75ff",
+      "sha256": "058bbca35dfb922fa0a81e257d2fee037e3b8f69e4c99b167fc97ac6b3daaaf6"
+    },
+    "fingerprint": "e20f493395dca7274cfa00151f1ebdd17ea737a55b7413ded71e2f2fa0ce448a",
+    "transaction": "458d13e20a81fc83db7535aa93ce34bd",
+    "history_and_evidence_verified": true,
+    "inactive_candidate_required": true,
+    "zero_dsp_and_no_pending_required": true,
+    "ordinary_candidates_still_refused": true
+  },
+  "first_installation": {
+    "source": "784904ec3c442cd659fb96451a3d84aa4b250e98",
+    "software_record_sha256": "9095d335702e18fbac800bd7f8ac124344189699b464ab2d1f82783d0604e4ca",
+    "result": "software_installed; ordinary preview refused before any publication",
+    "supplemental_host_path_characters": 267,
+    "host_records": 0,
+    "outer_exit": 0,
+    "cleanup_confirmed": true,
+    "stderr_bytes": 529,
+    "contents_not_exported": true
+  },
+  "packaging_correction": {
+    "host_directory": "SHA256(host_digest concatenated with source_manifest_digest), one 64-character directory",
+    "corrected_host_path_characters": 202,
+    "guard": "Windows Z: executable path must fit below 260 UTF-16 code units before any software mutation",
+    "retry": "Same sealed acceptance receipt and exact artifact set only, with revision 10 still inactive and all original candidate/history/baseline checks; creates new immutable software",
+    "old_software_immutable": true,
+    "artifact_bytes_unchanged": true,
+    "corrected_ordinary_inspection": "passed"
+  },
+  "ordinary_commands": [
+    {
+      "command": "linux-vst-bridge managed preview",
+      "exit": 0,
+      "elapsed_ns": 21138997797
+    },
+    {
+      "command": "linux-vst-bridge managed publish",
+      "exit": 0,
+      "elapsed_ns": 2271372345
+    },
+    {
+      "command": "linux-vst-bridge managed status",
+      "exit": 0,
+      "elapsed_ns": 324910836
+    }
+  ],
+  "publication": {
+    "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+    "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+  },
+  "parent": {
+    "id": "ac56409aa91d41aa15ab85e18e1d75ff",
+    "sha256": "058bbca35dfb922fa0a81e257d2fee037e3b8f69e4c99b167fc97ac6b3daaaf6"
+  },
+  "profile_fingerprint": "3126fea7ea72c02bae08fd21cef87e271e5575b09bb419bc1d650ab273e172ad",
+  "qualification": null,
+  "baseline_registry_entries_unchanged": true,
+  "no_new_qualification_campaign": true,
+  "candidate_history_retained": true
+}

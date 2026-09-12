@@ -1,0 +1,81 @@
+{
+  "schema": "ap18-ordinary-acceptance-validation-v1",
+  "final_product_source": "11ddb9a2884fe3b4d443cdba17adbfee0ff0d0fd",
+  "local": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "result": "63 passed, 1 external LC1 integration test ignored by default; accepted two-ended LC1 evidence reused; owner unchanged"
+    },
+    {
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml --locked",
+      "result": "11 passed"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "67 library + 11 binary on macOS; exact cross-built Linux binaries 67 library + 14 binary passed"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "macOS 41 total, 24 Linux-specific skips; Linux all 41 passed"
+    }
+  ],
+  "linux_cmake": {
+    "commands": [
+      "cmake -S <SOURCE> -B <SOURCE>/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DAP2_BUILD_ONLY=ON -DAP10_RESULTS_TESTS=ON -DAP11_PANEL_TESTS=ON -DVST3_SDK_ROOT=<PINNED_SDK> -DAP2_RUST_LIBRARY=<SOURCE>/libap2_backend.a -DAP8_DESCRIPTOR=<SOURCE>/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h",
+      "cmake --build <SOURCE>/build --target ap10-result-lifetime ap10-results-tests ap11-native-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit CommercialInstrumentBridge ap18-auxiliary-input -j 4",
+      "ctest --test-dir <SOURCE>/build/native-vst3-proxy --verbose"
+    ],
+    "result": "7/7 CTest passed; callback audit passed; reference products built only, not installed",
+    "context": "pinned SDK / Freedesktop SDK 25.08; exercised unchanged native-facing fixtures during ordinary catalogue transition"
+  },
+  "focused_new_regressions": [
+    "revision 11 normalizes only accepted revision 10 claim/revision/evidence/removed limitations",
+    "all ten candidate byte hashes and fingerprints remain exact; candidate Activation refused",
+    "exact review/head/tree/candidate/history/evidence/artifact/environment/runner/descriptor/class/parent checks",
+    "active/unresolved lease, pending transaction and foreign link refuse before mutation",
+    "supplemental exact host authority is distinct from default host; ordinary publication/current-host serving uses the selected pair",
+    "existing publication idempotence and candidate refusal retained",
+    "host path extent checked before installation, pair digest changes with either identity",
+    "same acceptance pre-publication software retry requires immutable matching receipt and exact existing artifact set; no mutation on drift"
+  ],
+  "build": {
+    "command": "RUSTC=<PINNED_RUSTC_1.95> CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=<EXISTING_ZIG_LINKER> cargo +1.95.0 build --manifest-path bridge-manager/Cargo.toml --locked --release --target x86_64-unknown-linux-gnu",
+    "result": "passed",
+    "manager_sha256": "91ca5640145b1f800cfba40301e58732ceb79e4088a445e0c5b905808144c272",
+    "windows_and_native_artifacts": "reused exact accepted bytes; their source/build inputs unchanged"
+  },
+  "hosted": {
+    "required": [
+      "AP8 Windows host",
+      "AP10 native result lifetime",
+      "AP12 registered owner",
+      "PX2 proof policy"
+    ],
+    "final_head_results": "Recorded on PR #95 and its exact-head GitHub checks after this evidence commit is pushed. No result is asserted before execution.",
+    "accepted_windows_build_reused": 34671854278
+  },
+  "execution_limitations": [
+    "Initial restricted macOS socket-test runs could not execute; authorized reruns passed without source change.",
+    "The first software installation used an overlong supplemental host path; normal inspection refused and no publication occurred. The focused packaging repair and successful retry are retained in transition.json.",
+    "One SSH reauthentication interruption occurred in the same smoke session; the operator authorized Moonlight input and later restored SSH. No extra smoke was run."
+  ],
+  "live": [
+    "ordinary-smoke.json",
+    "installed-final.json"
+  ],
+  "claims_excluded": [
+    "clean Pigments SDK destruction",
+    "gap-free playback or performance improvement",
+    "multiple Pigments instances",
+    "arbitrary multibus",
+    "256 qualification"
+  ]
+}

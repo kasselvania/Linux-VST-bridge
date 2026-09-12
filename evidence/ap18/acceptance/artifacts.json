@@ -1,0 +1,206 @@
+{
+  "schema": "ap18-ordinary-acceptance-artifacts-v1",
+  "product_source": "11ddb9a2884fe3b4d443cdba17adbfee0ff0d0fd",
+  "source_parent": "784904ec3c442cd659fb96451a3d84aa4b250e98",
+  "source_tree": "5313b9dd2b9b09f4eddaf8f4e11879bf3a9c7c7f",
+  "review": 5185372983,
+  "reviewed_head": "f8d0dbfb481324e84e8b337014b66947978b146c",
+  "reviewed_tree": "89fb026133ef585a9fcd7475ed4aec919c1236c7",
+  "profile": {
+    "path": "compatibility/arturia-pigments.json",
+    "revision": 11,
+    "claim": "verified_exact_fixture",
+    "fingerprint": "3126fea7ea72c02bae08fd21cef87e271e5575b09bb419bc1d650ab273e172ad",
+    "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "class": {
+      "class_id": "41727475415649534B61743150726F63",
+      "name": "Pigments",
+      "vendor": "Arturia",
+      "version": "7.0.1.6772",
+      "subcategories": "Instrument|Synth",
+      "metadata_tier": "factory_3_unicode"
+    },
+    "requirements": {
+      "runner": {
+        "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+        "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+        "proton_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+        "entry_point_sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+        "file_sha256": [
+          "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9",
+          "153ef8ca2f0e5bcd56f3ce3bafec0af7327a115125d022f160b0f008e1f14eb9",
+          "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b",
+          "5335cec8099762150f1d247d6a780030e7c4343eb7f75d9422d23ecf4a519da0",
+          "583c789cedd0443d36020aecf3ff0fa444ec663a0dc3f6be5381af55458dae58",
+          "69b0eb75577a430db0efc30b6aa10b6891cbe58cbe40aa54f59645570b7adfa0",
+          "71697ce829ea0394d52c6dbcf5f452b1bf3ef7d4942465206ae36e2f8f2ff681",
+          "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+          "7a6de49c00d8ed2ba55c6967d3643c5ef729f5e562fb51e47e4f41c6cdb5c92a",
+          "85597f4c274a7c4a6815805d65265b60e6d393a8bec858ffb032a162c40ec5e4",
+          "87fd5d88a7f9439bd344d5984c0237d3ae90d9de0228d65c25c8a484dbd073b1",
+          "90a40fe7b030ef94b138687ef4f0e45d1f716f70a83e5a55b36d382fbefa4faf",
+          "9211c921bdb343ce1f5987d959b1ca443137a40c4ed44a486a9bd6b7718c0016",
+          "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b",
+          "9517868f66bb33c72a49a6e40c082aae4990ecfd0cac73ca40d7f42186f23ced",
+          "967bff17693c5b4c7a359a40204125439109bc8c3aa8ba38a556dbef415c070a",
+          "ae2550cd7c6c675128cffe938764f2f797eb7163ca6ca9bddf0014d7fb984b4b",
+          "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+          "bb81d44a687cc6f4ea7ae05fa9f0502f35c48e462051809dce3b2a58492e3498",
+          "c13c7c7e4ac94d30d976747edffed32099ad4b87f3efea09a7e79d401193011a",
+          "c50e07ad2bc2245c30037034f940581ad18b15d084b0702b33242fff7015ee34",
+          "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+          "d5069c037c53f204a9d7d0ecb501b430e57dc2d702d49c9cccd57d569ca87eec",
+          "e1428cb8edd77303e5c7f4024da07212c5b88816bd8c9097ea1763474b93e501",
+          "e1c2598db7ae7adfa780b51ee24f391ac0fa11f4049f49aaead0319f8c84d27f",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e4829d4e560bd13d378d47592a15d5c7eb1b9a702279eeea9b2f0fc6e60e0b31",
+          "e805dfb4c12973ea54d6161360d91e1e1ee9aba151b77b8f5b6a06910c86cecd",
+          "ef61e9bce47d60d02707661d116c8048ffa39291b84acee687a1ed4e430af6be",
+          "f96a2ac1fcb00f0317a48eaddeedfb8f170d42a6d5714b46a21dbde876649500",
+          "fa0f6586b7ada3d0fd5b96a518a3bcb672810a605d7a543bec30a221d1018d7d"
+        ]
+      },
+      "environment_family": "arturia_persistent_v1",
+      "environment_revision": 1,
+      "host_sha256": "5a781f7d77a2e7499d2d07b7e92b8d29976f72e71f8f0f96e8e3f1878051125e",
+      "host_source_sha256": "f37577944dce23724760d71278187b9c116947798220469a30ff62e12bf65233",
+      "native_sha256": "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
+      "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
+      "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
+    },
+    "capabilities": {
+      "vendor_retirement": "process_scoped_vendor_retirement",
+      "editor_lifetime": "retain_editor_view_until_instance_retirement",
+      "event_output": "reported_zero_event_channels_unspecified",
+      "accessibility": "windows_default",
+      "editor": "detached_direct_vendor_lifecycle",
+      "state": "concurrent_read_only_capture_v12",
+      "precision": "float32_only",
+      "performance": "frames512_recommended256_unqualified"
+    },
+    "limitations": [
+      "short_delivery_gaps",
+      "unqualified256",
+      "detached_focus_refusal",
+      "exact_operator_artifact_only",
+      "sole_stereo_auxiliary_input_only"
+    ]
+  },
+  "candidate_history": [
+    {
+      "revision": 1,
+      "path": "compatibility/ap18/revision-1/arturia-pigments.json",
+      "sha256": "681dae01625f2d4c07a106a92c5c605396b666c6cd7160fe8402efb3bf7fe3fd",
+      "fingerprint": "b256ec061f87a53d5943ba6f398629a841a32f4e23c2446743469a217025b06f"
+    },
+    {
+      "revision": 2,
+      "path": "compatibility/ap18/revision-2/arturia-pigments.json",
+      "sha256": "e6cf278f2cf444e9a0b68dc048622ca9076783e768f1917f7ffae6c44f58f795",
+      "fingerprint": "3478d9dbd29add4c969ce6eef2684e754e247a74eab4eea04414882171ab1250"
+    },
+    {
+      "revision": 3,
+      "path": "compatibility/ap18/revision-3/arturia-pigments.json",
+      "sha256": "ad1e73d42d0049d52b02a44b9b0737c50f57749e5cec530f5f387a580647f675",
+      "fingerprint": "8ace368513dc54a89c2cc70dea5e50974dde6c268a03614b87d3de0d30723a3a"
+    },
+    {
+      "revision": 4,
+      "path": "compatibility/ap18/revision-4/arturia-pigments.json",
+      "sha256": "64e9773239ec910dcefd8ddfc0a15d36d8bca1689b9998c07ffc74da5583b00b",
+      "fingerprint": "a1aba3dbf61abd2b44e2093f6afe06859ce7d39e61acd00a2ec943391ed09202"
+    },
+    {
+      "revision": 5,
+      "path": "compatibility/ap18/revision-5/arturia-pigments.json",
+      "sha256": "dde2e25eb108c98d80926621f8fe9501d87a1ced93bc59bf917278f664c016e9",
+      "fingerprint": "5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4"
+    },
+    {
+      "revision": 6,
+      "path": "compatibility/ap18/revision-6/arturia-pigments.json",
+      "sha256": "ca00ca5373f76d10a3d4b60421eecbfa57e60e19e1e06e3b9a4332b20b900879",
+      "fingerprint": "aa7149b1bc5ac0dadf20931644b1541f55dcc799e0f85fef5bfde7d677c9086c"
+    },
+    {
+      "revision": 7,
+      "path": "compatibility/ap18/revision-7/arturia-pigments.json",
+      "sha256": "e7c0eba8db18b8a05a4acdc996bb369f11f38ae2e2706eb50a5581dfc6254d8d",
+      "fingerprint": "e16221395dcf6cb8c45521ad12528f1e5b910c5a1b5c6d7cdc5f1091498dcc04"
+    },
+    {
+      "revision": 8,
+      "path": "compatibility/ap18/revision-8/arturia-pigments.json",
+      "sha256": "bbb68e8a5cf0d401fc39ab33ff4e39bd71385d3bc5bf9a557f5b23af1e4a439b",
+      "fingerprint": "bd52a44bd7e786776361a172a99599c9082233caf4643a293cd1ebc194e0acc4"
+    },
+    {
+      "revision": 9,
+      "path": "compatibility/ap18/revision-9/arturia-pigments.json",
+      "sha256": "a7ee1933ef287c730c496e88ab66e17c4948b5386e24b88606c8296d2d925dad",
+      "fingerprint": "13f6ec3d3230a5bc96a2089cfcb040c386cdd6acd258e5ce099f094c4102123c"
+    },
+    {
+      "revision": 10,
+      "path": "compatibility/ap18/arturia-pigments.json",
+      "sha256": "94614dad9edce91a04b3564c829aa736221c1e63da390427f90e7155ab57e4dd",
+      "fingerprint": "e20f493395dca7274cfa00151f1ebdd17ea737a55b7413ded71e2f2fa0ce448a"
+    }
+  ],
+  "installed_software": {
+    "revision": "029dd27dd2968f280634040be82eb87fd3d9ad19b89a7607ac0e90683de66135",
+    "record_sha256": "214eb4d7c29369433f7870b9e80e0e167a59ef16ea1bb76c7cac92b33b78221f",
+    "artifacts": {
+      "manager": "91ca5640145b1f800cfba40301e58732ceb79e4088a445e0c5b905808144c272",
+      "supervisor": "77f530db96d8f5852e3aa3330105cbe5dc4ab5941471c46cc21b610b0b6428d5",
+      "ownership": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "2968c3297a4bf63b62d83978feac7561cc8419c29c64b1e0e7107cf050a43267"
+    },
+    "catalogue_schema": 2,
+    "native_count": 3,
+    "supplemental_host_count": 1
+  },
+  "accepted_windows_provenance": {
+    "production_source": "c7a58b63a65a7fdc7564cf6c29be272960d9871a",
+    "github_build_commit": "9abe3466fed71d153a19c7df804bdb341817e9f8",
+    "common_tree": "ac450c126ae4db5d980c49d8a28857bd719d99e4",
+    "workflow_run": 34671854278,
+    "artifact_id": 10290733513,
+    "zip_sha256": "f948eb277f00898211478b27bdd2684865712aef7cf73fd818ed9562ab11be09",
+    "reused_without_rebuild": true,
+    "source_manifest_unchanged": true
+  },
+  "accepted_native_provenance": {
+    "source": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
+    "input_archive_sha256": "58d046ec38633de2bb20496f4953fd67a4d2a030f10ff845ac02832b3fe28853",
+    "reused_without_rebuild": true
+  },
+  "unchanged": {
+    "pigments_revisions_1_through_10_byte_identical": true,
+    "lofi_fragments_root_profiles_byte_identical": true,
+    "runtime_helpers": true,
+    "windows_native_delivery_editor_state_owners": true
+  },
+  "changed_source_paths": [
+    "CURRENT_SLICE.md",
+    "README.md",
+    "bridge-manager/README.md",
+    "bridge-manager/src/acceptance.rs",
+    "bridge-manager/src/acceptance/pigments.rs",
+    "bridge-manager/src/capacity.rs",
+    "bridge-manager/src/catalogue.rs",
+    "bridge-manager/src/main.rs",
+    "bridge-manager/src/managed_cli.rs",
+    "bridge-manager/src/managed_tests.rs",
+    "bridge-manager/src/pigments.rs",
+    "bridge-manager/src/profiles.rs",
+    "bridge-manager/src/publication.rs",
+    "compatibility/README.md",
+    "compatibility/arturia-pigments.json",
+    "docs/AP18.md",
+    "evidence/ap18/acceptance/review.json"
+  ]
+}

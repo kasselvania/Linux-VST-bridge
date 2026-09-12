@@ -118,3 +118,13 @@ Catalogue schema 2 adds exact supplemental host/manifest artifacts. Each profile
 selects its exact host, so Pigments does not replace the Windows host used by
 LoFi, FRAGMENTS or the environment keeper. No command accepts an arbitrary host
 path, review ID, profile or hash as acceptance authority.
+
+The AP18 acceptance setup uses a single content digest for each supplemental
+host/source-manifest directory and refuses executable paths outside the pinned
+Windows launch extent before copying software. Before ordinary publication, a
+software installation retry is permitted only from the same immutable compiled
+AP18 review receipt and exact retained artifact set, with the accepted candidate
+still inactive and all original history, baseline and inactivity checks intact.
+It does not accept another candidate, review, path or hash. The ordinary revision-11
+installation and one audio/editor/retirement smoke are retained under
+`evidence/ap18/acceptance/`; candidate history remains nonactivating.
