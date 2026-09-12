@@ -57,10 +57,10 @@ fn project(raw: &Value) -> Result<Value> {
     if raw["completed"] != true {
         return Err("incomplete generated differential".into());
     }
-    let fair = if raw["schema"] == 2 {
-        fairness(raw)?
-    } else {
-        Value::Null
+    let fair = match n(raw, "schema")? {
+        1 => Value::Null,
+        2 => fairness(raw)?,
+        _ => return Err("unsupported report schema".into()),
     };
     let brackets: Vec<Bracket> = serde_json::from_value(raw["clock_brackets"].clone())?;
     if brackets.is_empty() || brackets.len() > 8 {
@@ -246,7 +246,7 @@ mod tests {
                 }
             }
         }
-        json!({"completed":true,"identity":{"frequency":1_000_000_000u64,"root":1,"child":2},
+        json!({"schema":1,"completed":true,"identity":{"frequency":1_000_000_000u64,"root":1,"child":2},
             "clock_brackets":[{"linux_before_ns":1_000_000_000u64,"linux_after_ns":1_000_010_000u64,"windows_qpc":1_000_000_000u64,"frequency":1_000_000_000u64}],
             "actions":input,"win32":win,"xrecord":xr,"xrecord_status":{"dropped":0,"unparsed":0},
             "final_status":{"error":0,"finished":1,"submitted":4000,"posted":4000,"send_failures":0,"sent":64,"down":3,"up":3},
@@ -283,6 +283,92 @@ mod tests {
         let mut r = raw;
         r["final_status"]["loaded_up_qpc"] = json!(9);
         assert!(fairness(&r).is_err());
+    }
+    fn repaired_fixture() -> Value {
+        let mut raw = fixture();
+        raw["schema"] = json!(2);
+        raw["final_status"]["submitted"] = json!(4096);
+        raw["final_status"].as_object_mut().unwrap().extend(
+            json!({"posted":4096,"loaded_down_posts":150,"loaded_up_posts":205,
+                "loaded_down_chains":4,"loaded_up_chains":4,"loaded_down_qpc":10,"loaded_up_qpc":20,
+                "loaded_paints":200,"loaded_timers":30,"quit_preserved":1,"bound_preserved":1})
+            .as_object()
+            .unwrap()
+            .clone(),
+        );
+        raw["sustained_input"] = json!({"motions_issued":400,"before":{"posted":205,"moves":3},
+            "after":{"posted":700,"moves":200,"phase":2}});
+        raw
+    }
+    #[test]
+    fn only_explicit_supported_report_schemas_are_readable() {
+        assert!(project(&fixture()).unwrap()["fairness"].is_null());
+        assert!(project(&repaired_fixture()).unwrap()["fairness"].is_object());
+        let mut missing = fixture();
+        missing.as_object_mut().unwrap().remove("schema");
+        assert!(project(&missing).is_err());
+        for schema in [
+            json!(null),
+            json!(true),
+            json!("1"),
+            json!(1.0),
+            json!(1.5),
+            json!(-1),
+            json!(0),
+            json!(3),
+            json!(99),
+        ] {
+            let mut raw = fixture();
+            raw["schema"] = schema;
+            assert!(project(&raw).is_err(), "accepted schema {}", raw["schema"]);
+        }
+    }
+    #[test]
+    fn schema_two_requires_every_fairness_field() {
+        for (section, keys) in [
+            (
+                "final_status",
+                vec![
+                    "posted",
+                    "loaded_down_posts",
+                    "loaded_up_posts",
+                    "loaded_down_chains",
+                    "loaded_up_chains",
+                    "loaded_down_qpc",
+                    "loaded_up_qpc",
+                    "loaded_paints",
+                    "loaded_timers",
+                    "quit_preserved",
+                    "bound_preserved",
+                ],
+            ),
+            ("sustained_input", vec!["motions_issued", "before", "after"]),
+        ] {
+            for key in keys {
+                let mut raw = repaired_fixture();
+                raw[section].as_object_mut().unwrap().remove(key);
+                assert!(project(&raw).is_err(), "accepted missing {section}.{key}");
+            }
+        }
+        for (section, keys) in [
+            ("before", vec!["posted", "moves"]),
+            ("after", vec!["posted", "moves", "phase"]),
+        ] {
+            for key in keys {
+                let mut raw = repaired_fixture();
+                raw["sustained_input"][section]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(key);
+                assert!(
+                    project(&raw).is_err(),
+                    "accepted missing sustained_input.{section}.{key}"
+                );
+            }
+        }
+        let mut legacy = fixture();
+        legacy["schema"] = json!(2);
+        assert!(project(&legacy).is_err());
     }
     #[test]
     fn conservative_retrieval_boundary_and_private_projection() {

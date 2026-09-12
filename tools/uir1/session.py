@@ -25,6 +25,20 @@ FIELDS = dict(pid=16, start=24, root=32, child=40, frequency=48, ready=56, comma
               moves=272, quit_preserved=280, bound_preserved=288)
 
 
+def finish_helper(report, key, helper):
+    # finish() returns failed exit/overflow/containment as data. Retain that
+    # data first, but never let it authorize a completed diagnostic session.
+    result = helper.finish()
+    report[key] = result
+    cleanup = result.get('cleanup', {})
+    if (type(result.get('exit')) is not int or result['exit'] != 0 or
+        type(result.get('overflow')) is not int or result['overflow'] != 0 or
+        not isinstance(cleanup, dict) or
+        cleanup.get('owned_descendants_zero') is not True or
+        cleanup.get('process_group_empty') is not True):
+        raise RuntimeError(key + ': helper exit, output or cleanup incomplete')
+
+
 def run(root, package):
     os.umask(0o077)
     env = runner_environment(root, os.environ)
@@ -80,9 +94,7 @@ def run(root, package):
         # setup_prefix, then winepath; unlike 'run' it does not launch steam.exe.
         init = Helper(ownership, [*base, 'getcompatpath', str(target)], env, target, root / 'initialize.log', 50)
         handles.append(init)
-        report['initialization'] = init.finish()
-        if report['initialization']['exit'] != 0 or report['initialization']['overflow']:
-            raise RuntimeError('scratch prefix initialization failed')
+        finish_helper(report, 'initialization', init)
         fixture = helper('uir1-input-fixture.exe', ['C:\\uir1\\fixture.status'], 60, 'fixture')
         wait(lambda: (target / 'fixture.status').exists() and (target / 'fixture.status').stat().st_size == 4096, 100)
         status = Mapping(target / 'fixture.status', 4096)
@@ -91,7 +103,7 @@ def run(root, package):
         identity = snap(); report['identity'] = identity
         census = helper('uio1-observer.exe', ['census', str(identity['pid'])], 10, 'census')
         wait(lambda: census.process.poll() is not None, 10)
-        report['census_cleanup'] = census.finish()
+        finish_helper(report, 'census_cleanup', census)
         rows = [json.loads(line) for line in (root / 'census.log').read_text().splitlines() if line.startswith('{')]
         report['census'] = rows
         matches = [r for r in rows if r.get('type') == 'x11_binding' and r['hwnd'] == identity['root']]
@@ -140,10 +152,10 @@ def run(root, package):
         report['xrecord_status'] = dict(dropped=record.dropped, unparsed=record.unparsed)
         observer.stop(); wait(lambda: observer.status()['closed'] != 0, 3)
         report['observer_status'] = observer.status()
-        report['observer_cleanup'] = obshelper.finish()
+        finish_helper(report, 'observer_cleanup', obshelper)
         status.write(64, 3); wait(lambda: status.read(168) == 1, 3)
         report['final_status'] = snap()
-        report['fixture_cleanup'] = fixture.finish()
+        finish_helper(report, 'fixture_cleanup', fixture)
         report['completed'] = True
     except BaseException as error:
         report['completed'] = False; report['error'] = type(error).__name__ + ': ' + str(error)
@@ -159,10 +171,12 @@ def run(root, package):
             report['observer_status_final'] = observer.status(); observer.close()
         if status:
             status.write(64, 3); report['last_status'] = snap(); status.close()
-        for h in reversed(handles):
+        for i, h in enumerate(reversed(handles)):
             if not h.closed:
-                try: h.finish()
-                except Exception as e: report.setdefault('cleanup_errors', []).append(type(e).__name__)
+                try: finish_helper(report, 'remaining_helper_' + str(i), h)
+                except Exception as e:
+                    report['completed'] = False
+                    report.setdefault('cleanup_errors', []).append(type(e).__name__ + ': ' + str(e))
         private_json(root / 'result-private.json', report)
     return 0 if report['completed'] else 1
 
