@@ -281,6 +281,11 @@ pub fn installed_profiles() -> Result<Vec<Profile>> {
     Ok(result)
 }
 
+/// Immutable AP18 ordinary profile and UIR1 rollback parent.
+pub fn pigments_eleven() -> Result<Profile> {
+    Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))
+}
+
 pub fn pigments_verified() -> Result<Profile> {
     Profile::parse(include_bytes!("../../compatibility/arturia-pigments.json"))
 }

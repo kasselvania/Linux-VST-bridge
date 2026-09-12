@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "review": 5187281110,
+  "head": "9f745d75b44b63dd0c095061f1f273189c7a19f8",
+  "tree": "d991280785278e193ed7187fcc45e7dbbb4cd98a",
+  "candidate": {
+    "id": "886e48242434864def572a4f5620a9f9",
+    "sha256": "2702476adbbe9cf39ffa6416f6a4a1a47eded31d5019260aaca6715ead0b93fd"
+  },
+  "candidate_fingerprint": "b8d6289d5a50a941deec82b0c3ac644b4c905da684fce8a861f4e847019d11c6",
+  "transaction": "91f284dc87d74ffec529e13888b74df4",
+  "parent": {
+    "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+    "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+  },
+  "prior_software_sha256": "6de8201add6caef28d0d65aafec9bfcd7e93cc589067724efa3eb74db95d56b9",
+  "prior_manager_sha256": "57b89a29ada6e09ab0a7d514976c9271ba2f4ca6f344c71b4ebcc63912ad7f0c",
+  "baseline": [
+    [
+      "417274754156495350724C4650726F63",
+      {
+        "id": "51f241c4da508aa1fbbc9d6d172eb123",
+        "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+      }
+    ],
+    [
+      "41727475415649536772616E50726F63",
+      {
+        "id": "e340c6f8ad5ca494d2fb477214c9937e",
+        "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+      }
+    ]
+  ],
+  "history": [
+    {
+      "path": "compatibility/ap18/revision-11/arturia-pigments.json",
+      "sha256": "e3d2d6b5cf81b736f3a934bb64f018b62db98dc6eb3833f71ab63f7c12f5fabe"
+    },
+    {
+      "path": "compatibility/uir1/arturia-pigments.json",
+      "sha256": "d4e142f9175d1182d0512720996b6d3a4b966c10bf183d28023ffd0d0e83b56f"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "evidence/uir1/differential.json",
+      "sha256": "ab91775646f088bf22142a890d2a0240509b96fd7b29fb1e8ed89c534f5b6faf"
+    },
+    {
+      "path": "evidence/uir1/repair/differential-after.json",
+      "sha256": "c8eb660ef95eea1328a8bca76d4774a13a1269606c77f5364c6ac7807df1fbab"
+    },
+    {
+      "path": "evidence/uir1/repair/product.json",
+      "sha256": "58a3f78d159cb2c2195e6ec800854308b8abd72220eab1fbe1030563a485e395"
+    },
+    {
+      "path": "evidence/uir1/repair/artifacts.json",
+      "sha256": "0299770fcad422c35083565fd768f405a119d77e2d5389dcda95292418f3d281"
+    },
+    {
+      "path": "evidence/uir1/repair/installed-final.json",
+      "sha256": "51e367247d82b40887d2a48e38e92f3467d64c2c45fb98f7660683d10ee5d216"
+    }
+  ],
+  "disposition": "UIR1_GENERIC_PUMP_REPAIR_ACCEPTED_ORDINARY_REVISION_13_AUTHORIZED"
+}

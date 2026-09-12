@@ -25,7 +25,7 @@ fn capacity_candidates() -> Result<Vec<Profile>> {
 }
 pub fn uir1_candidate() -> Result<Profile> {
     let p = Profile::parse(include_bytes!("../../compatibility/uir1/arturia-pigments.json"))?;
-    let ordinary = Profile::parse(include_bytes!("../../compatibility/arturia-pigments.json"))?;
+    let ordinary = Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))?;
     let mut same = p.clone();
     same.revision = ordinary.revision; same.claim = ordinary.claim.clone();
     same.evidence = ordinary.evidence.clone();
@@ -132,7 +132,7 @@ pub(crate) fn stage_selected(m: &Manager, package: &Path, policies: &[Profile]) 
     stage_selected_for(m, package, policies, Qualification::Ap15Editor)
 }
 fn uir1_ordinary_parent(m: &Manager) -> Result<()> {
-    let p = crate::profiles::pigments_verified()?;
+    let p = crate::profiles::pigments_eleven()?;
     let db = m.registry()?;
     let e = db.classes.get(&p.class.class_id).ok_or("qualification_verified_parent_required")?;
     let reference = e.managed_revision.as_ref().ok_or("qualification_verified_parent_required")?;
@@ -288,7 +288,7 @@ impl Manager {
             .ok_or("qualification_verified_parent_required")?;
         let prior = self.load_revision(&r.class_id, parent)?;
         if purpose == Qualification::Uir1Input {
-            require(prior.profile == crate::profiles::pigments_verified()?, "qualification_verified_parent_mismatch")?;
+            require(prior.profile == crate::profiles::pigments_eleven()?, "qualification_verified_parent_mismatch")?;
         }
         let mut prior_db = self.registry()?;
         let entry = prior_db

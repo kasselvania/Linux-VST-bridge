@@ -2,6 +2,7 @@
 //! review or publication can grant acceptance authority.
 use crate::{catalogue::*, observation::*, profiles::*, publication::*, *};
 pub mod pigments;
+pub mod uir1;
 
 pub const REVIEW: &[u8] = include_bytes!("../../evidence/ap15/acceptance/review.json");
 #[derive(Clone, Debug, Serialize, Deserialize)]

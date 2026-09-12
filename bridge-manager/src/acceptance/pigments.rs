@@ -181,7 +181,7 @@ pub fn prepare(m: &Manager) -> Result<AcceptedSoftware> {
             "active_lease_unresolved",
         )?;
     }
-    let p = pigments_verified()?;
+    let p = pigments_eleven()?;
     let c = crate::pigments::candidate()?;
     let result = prepare_selected(m, &seal, &p, &c, &ap17_profiles()?, &sw)?;
     let db = m.registry()?;
@@ -338,7 +338,7 @@ fn prepare_selected(
 /// publication itself still enters through managed_publish/Activation, carries
 /// no qualification marker, and uses the existing immutable transaction.
 pub(crate) fn accepted_predecessor(m: &Manager, p: &Profile, r: &Revision) -> Result<bool> {
-    if *p != pigments_verified()? || r.profile != crate::pigments::candidate()? {
+    if *p != pigments_eleven()? || r.profile != crate::pigments::candidate()? {
         return Ok(false);
     }
     let seal: Seal = serde_json::from_slice(REVIEW)?;
@@ -365,7 +365,7 @@ mod tests {
     fn revision_eleven_is_only_the_accepted_normalization_and_history_is_immutable() {
         let seal: Seal = serde_json::from_slice(REVIEW).unwrap();
         verify_seal(&seal).unwrap();
-        let p = pigments_verified().unwrap();
+        let p = pigments_eleven().unwrap();
         let c = crate::pigments::candidate().unwrap();
         normalized(&p, &c).unwrap();
         assert_eq!(p.revision, 11);
@@ -387,7 +387,7 @@ mod tests {
         );
         assert_eq!(
             installed_profiles().unwrap(),
-            [ap17_profiles().unwrap(), vec![p.clone()]].concat()
+            [ap17_profiles().unwrap(), vec![pigments_verified().unwrap()]].concat()
         );
         println!(
             "AP18 ordinary revision 11 fingerprint {}",

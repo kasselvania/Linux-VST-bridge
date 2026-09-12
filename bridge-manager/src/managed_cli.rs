@@ -442,6 +442,9 @@ pub(super) fn run_capacity_acceptance(m: &Manager) -> Result<()> {
 pub(super) fn run_pigments_acceptance(m: &Manager) -> Result<()> {
     render(setup_selected(m, None, Acceptance::Pigments).and_then(|()| acceptance_receipt(m)))
 }
+pub(super) fn run_ui_acceptance(m: &Manager) -> Result<()> {
+    render(setup_selected(m, None, Acceptance::Uir1).and_then(|()| acceptance_receipt(m)))
+}
 fn acceptance_receipt(m: &Manager) -> Result<serde_json::Value> {
     Ok(serde_json::json!({"schema": 1, "software_installed": true,
         "software": software(m)?, "publication_command": "managed publish",

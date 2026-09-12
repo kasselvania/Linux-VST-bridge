@@ -1967,7 +1967,7 @@ fn capacity_verified_ten_preserves_candidate_bytes_and_technical_contract() {
 #[test]
 fn uir1_host_only_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
     let sealed = qualification::uir1_candidate().unwrap();
-    let ordinary = pigments_verified().unwrap();
+    let ordinary = pigments_eleven().unwrap();
     assert_eq!(sealed.revision, 12);
     assert_eq!(ordinary.revision, 11);
     assert_eq!(sealed.claim, Claim::ReviewCandidate);

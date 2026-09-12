@@ -125,8 +125,11 @@ remain active, with all posts and sends completing. One automatic Pigments
 Macro 1 drag and Synth-to-Play click succeeded with first mouse-hook bounds
 below 77 ms and local pixel changes within 112 ms. This is an exact diagnostic
 confirmation, not a universal latency or audio-performance claim. The
-revision-12 engineering candidate is inactive after exact ordinary revision-11
-restoration; LoFi/FRAGMENTS remain unchanged. PR #97 remains draft for review. See
+revision-12 engineering candidate is independently accepted at review 5187281110.
+The new ordinary revision-13 profile retains its exact technical and artifact
+content. The sealed `accept-ui` setup transition retains ordinary revision 11
+for rollback and uses normal managed publication. Its narrow ordinary smoke is
+pending; LoFi/FRAGMENTS remain unchanged. PR #97 remains draft until it passes. See
 [CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
 
 ## Architecture

@@ -165,12 +165,13 @@ fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
     setup_selected(m, package, Acceptance::Editor)
 }
 #[derive(Clone, Copy)]
-enum Acceptance { Editor, Capacity, Pigments }
+enum Acceptance { Editor, Capacity, Pigments, Uir1 }
 fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -> Result<()> {
     let review = match acceptance {
         Acceptance::Editor => acceptance::REVIEW,
         Acceptance::Capacity => acceptance::CAPACITY_REVIEW,
         Acceptance::Pigments => acceptance::pigments::REVIEW,
+        Acceptance::Uir1 => acceptance::uir1::REVIEW,
     };
     let _lock = m.lock("setup.lock")?;
     let _registry = m.lock("registry.lock")?;
@@ -208,6 +209,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
             Acceptance::Editor => acceptance::prepare(m)?,
             Acceptance::Capacity => acceptance::prepare_capacity(m)?,
             Acceptance::Pigments => acceptance::pigments::prepare(m)?,
+            Acceptance::Uir1 => acceptance::uir1::prepare(m)?,
         };
         let old = software(m)?;
         for artifact in [&old.supervisor, &old.ownership] {
@@ -1015,6 +1017,7 @@ fn main() -> Result<()> {
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
   Some("accept-capacity") if args.len()==1=>managed_cli::run_capacity_acceptance(&m),
   Some("accept-pigments") if args.len()==1=>managed_cli::run_pigments_acceptance(&m),
+  Some("accept-ui") if args.len()==1=>managed_cli::run_ui_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),

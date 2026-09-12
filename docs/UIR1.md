@@ -211,3 +211,32 @@ including Windows SDK/editor fixtures and native result-lifetime coverage.
 Exact final-head checks are in PR #97. Baseline evidence is unchanged; the first
 4091-post repair attempt remains classified incomplete. PR #97 stays draft,
 open and unmerged for independent review.
+
+
+## UIR1 accepted ordinary revision 13
+
+Review 5187281110 selected head `9f745d75b44b63dd0c095061f1f273189c7a19f8`
+and tree `d991280785278e193ed7187fcc45e7dbbb4cd98a`. Root Pigments revision 13
+is a new `verified_exact_fixture` profile, equal to candidate 12 except for
+revision, claim and accepted evidence. Its fingerprint is
+`a74dd61397dcdc9bfcf4a1f39de74eb00f1ca48e3a634b3c03eddc1a416dbfc7`.
+Revisions 1–12 remain immutable. Historical ordinary 11 is retained at
+`compatibility/ap18/revision-11/arturia-pigments.json`; UIR1 candidate 12 remains
+at `compatibility/uir1/arturia-pigments.json` and cannot ordinary-activate.
+
+The no-argument `accept-ui` command uses existing atomic software setup. It
+requires the exact restored ordinary-11 publication, completed candidate-12
+publication/transaction, review and evidence identities, exact installed
+software, inactive DSP and no pending transaction. It adds the accepted host
+and source manifest to the immutable ordinary catalogue, retaining the old
+host for rollback. No artifact is downloaded or rebuilt by acceptance.
+Normal `managed preview` / `managed publish` creates ordinary 13 without a
+qualification marker, with exact ordinary 11 as immediate rollback parent.
+The immutable acceptance receipt retains candidate 12 as review provenance.
+LoFi and FRAGMENTS 10, all native artifacts and the default host remain unchanged.
+
+Only an ordinary load/editor/normal-quit smoke remains. The accepted drag,
+page, fairness, audio and historical campaigns are not repeated. Process-scoped
+vendor retirement remains explicit; no clean SDK destruction, universal UI
+latency, renderer or audio-performance claim is added. 512 remains recommended;
+256 remains unqualified.

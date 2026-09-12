@@ -84,3 +84,13 @@ pending; do not ordinarily activate the candidate or merge this PR here.
 
 See [docs/UIR1.md](docs/UIR1.md) and [repair evidence](evidence/uir1/repair/).
 Disposition: `UIR1_BOUNDED_PUMP_FAIRNESS_GENERATED_AND_PIGMENTS_CONFIRMED`.
+
+## Accepted repair: ordinary transition authorized
+
+Review 5187281110 accepts exact head `9f745d75b44b63dd0c095061f1f273189c7a19f8`
+and tree `d991280785278e193ed7187fcc45e7dbbb4cd98a`. The only remaining work
+is immutable Pigments 13 ordinary authority from candidate 12, using existing
+setup/catalogue/publication owners and exact ordinary-11 parent. Preserve all
+technical constraints, prior profiles, artifacts and evidence. No new pump,
+renderer, audio or input testing. One ordinary load/editor/normal-quit smoke;
+leave 13 active on success and return the same PR for final merge review.

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 13,
+  "revision": 11,
   "claim": "verified_exact_fixture",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
@@ -56,8 +56,8 @@
     },
     "environment_family": "arturia_persistent_v1",
     "environment_revision": 1,
-    "host_sha256": "50c09be65eb2d2930f744afc16212f953c0b948f47132fa6cac1c90bbb91773d",
-    "host_source_sha256": "a829ccf933af39d4ab7ed36aea8258309143ba5daf3b10e1a15fa09560644e6c",
+    "host_sha256": "5a781f7d77a2e7499d2d07b7e92b8d29976f72e71f8f0f96e8e3f1878051125e",
+    "host_source_sha256": "f37577944dce23724760d71278187b9c116947798220469a30ff62e12bf65233",
     "native_sha256": "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
     "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
     "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
@@ -94,7 +94,6 @@
     "evidence/ap18/lc1/live-completion.json",
     "evidence/ap18/lc1/installed-final.json",
     "evidence/ap18/lc1/validation.json",
-    "evidence/uir1/acceptance/review.json",
-    "docs/UIR1.md"
+    "evidence/ap18/acceptance/review.json"
   ]
 }
