@@ -130,9 +130,13 @@ class X11:
         self.sync()
         if not down:self.buttons.remove(button)
         return dict(kind='button_down' if down else 'button_up',interval_ns=[before,time.monotonic_ns()],pointer=self.pointer())
-    def key(self, down, keycode):
-        # Harness callers use navigation keys only; no text/login automation.
-        if not 8<=keycode<=255:raise ValueError('X11 keycode')
+    def key(self, down, name):
+        # A closed non-text vocabulary. Keycodes are resolved on this server.
+        symbols={'space':0x20,'escape':0xff1b,'left':0xff51,'right':0xff53}
+        if name not in symbols:raise ValueError('unsupported diagnostic key')
+        self.x.XKeysymToKeycode.argtypes=[P,U];self.x.XKeysymToKeycode.restype=C.c_ubyte
+        keycode=self.x.XKeysymToKeycode(self.display,symbols[name])
+        if not 8<=keycode<=255:raise RuntimeError('key unavailable')
         if down:
             self.check_identity();p=self.pointer()
             if p['mask']&0x1fff or p['active']!=[self.window]:raise RuntimeError('shared input/focus changed')
@@ -141,6 +145,22 @@ class X11:
         if not self.t.XTestFakeKeyEvent(self.display,keycode,int(down),0):raise RuntimeError('XTEST key refused')
         self.sync()
         if not down:self.keys.remove(keycode)
+    def activate(self):
+        # Normal application-origin EWMH request, not synthetic pointer/key
+        # input or forced XSetInputFocus. Refusal is a reported outcome.
+        class Client(C.Structure):
+            _fields_=[('type',I),('serial',U),('send_event',I),('display',P),('window',U),('message',U),('format',I),('data',C.c_long*5)]
+        class Event(C.Union):_fields_=[('client',Client),('pad',C.c_long*24)]
+        self.check_identity();e=Event();e.client.type=33;e.client.display=self.display;e.client.window=self.window
+        e.client.message=self.x.XInternAtom(self.display,b'_NET_ACTIVE_WINDOW',0);e.client.format=32;e.client.data[0]=1
+        self.x.XSendEvent.argtypes=[P,U,I,C.c_long,C.POINTER(Event)]
+        before=time.monotonic_ns()
+        if not self.x.XSendEvent(self.display,self.root,0,(1<<19)|(1<<20),C.byref(e)):raise RuntimeError('activation request refused')
+        self.sync();deadline=time.monotonic()+.75
+        while self.property(self.root,'_NET_ACTIVE_WINDOW')!=[self.window]:
+            if time.monotonic()>deadline:raise RuntimeError('window manager refused activation')
+            time.sleep(.01)
+        return dict(kind='activation',interval_ns=[before,time.monotonic_ns()])
     def capture(self):
         rect=self.check_identity()
         if rect[2:]!=self.initial[2:]:

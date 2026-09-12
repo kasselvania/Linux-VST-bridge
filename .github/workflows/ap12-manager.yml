@@ -23,3 +23,5 @@ jobs:
       - run: python3 -m unittest discover -s bridge-manager/runtime -v
       - run: python3 tools/test_ap10_descriptor.py
       - run: python3 -m unittest discover -s tools/uio1 -v
+      - run: sudo apt-get install -y xvfb libxtst6 libxcomposite1
+      - run: UIO1_XVFB_FIXTURE=1 xvfb-run -a python3 tools/uio1/x11_fixture.py

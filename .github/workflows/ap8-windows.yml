@@ -15,7 +15,7 @@ on:
       - 'tools/ap13-tests/**'
       - 'tools/ap14-tests/**'
       - 'tools/ap18-tests/**'
-      - 'tools/uio1/**'
+      - 'tools/uio1/windows.cpp'
       - 'native-vst3-proxy/include/ap11*'
       - 'native-vst3-proxy/include/ap18_bus_support.h'
 permissions:
