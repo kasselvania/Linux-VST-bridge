@@ -2,7 +2,9 @@
 // heartbeat. Caller enforces a three-second containment deadline and the exact
 // profile's accessibility posture. No account text, values or UIA names read.
 #include <windows.h>
+#include <ole2.h>
 #include <uiautomation.h>
+#include <cstdint>
 #include <cstdio>
 #include <array>
 #include <cstdlib>
