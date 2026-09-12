@@ -73,7 +73,12 @@ FRAGMENTS' Advanced panel is accessible and rendering response has improved mate
 
 AP18 is tracked in [#94](https://github.com/kasselvania/Linux-VST-bridge/issues/94) from integrated AP17 main.
 
-The operator has placed unopened Windows Arturia Software Center installer file(s) in the Steam Deck user's Downloads directory. AP18 will admit one exact installer privately, install and own ASC in the existing managed Arturia environment, let the user perform the real Arturia sign-in/activation flow, install Pigments through ASC, automatically discover the exact Pigments VST3 class and resources, build a native candidate, and qualify Pigments in Bitwig.
+ASC is installed and the operator installed and authorized Pigments through its
+real UI. Exact Pigments 7.0.1.6772 candidate revision 10 now passes the bounded
+LC1 same-session routing check, note audio, preset/control automation recall,
+sibling independence and process-scoped retirement. It remains a ReviewCandidate,
+restored inactive pending independent review. LoFi and FRAGMENTS ordinary
+revision 10 remain active and unchanged. See the [LC1 result](evidence/ap18/lc1/live-completion.json).
 
 ```text
 official ASC installer
@@ -85,7 +90,11 @@ official ASC installer
 → editor, preset, notes, automation, state, save/reopen and cleanup
 ```
 
-The normal ASC UI is attempted first. A minimal bridge-manager frontend is introduced only if a demonstrated launch, focus, lifecycle, rescan, or status gap blocks the real workflow. It will not reproduce Arturia's account, licensing, catalogue, or download services.
+The manager owns ASC launch/status and exact discovery; Arturia's real UI owns
+account, licensing, catalogue and download operations. Pigments uses a retained
+editor view and explicit process-scoped final retirement, not clean SDK object
+destruction. Residual delivery gaps remain #90. 512 added frames remain
+recommended; 256 and multi-instance Pigments capacity remain unqualified.
 
 Read [CURRENT_SLICE.md](CURRENT_SLICE.md) and [docs/AP18.md](docs/AP18.md) for active authority and implementation boundaries.
 

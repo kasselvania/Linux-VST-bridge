@@ -479,11 +479,37 @@ operation 14 (Deactivate). Adding Activate → Deactivate before Start reproduce
 that exact failure: Windows expects Start 10 but receives Deactivate 14 at the
 correct session and sequence, then processes zero blocks.
 
-The focused correction selects Start or Deactivate on the Windows owner after
-activation, before creating a processing worker. No sequence reset, epoch
-relaxation, retry, payload change or product-name dispatch is involved. The
-paired regression must pass with and without this intermediate activation, and
-normal hosted validation must pass before Pigments revision 10 is generated or
-published. Revision 9 and prior history remain immutable. Pigments has not been
-run or republished during LC1 fixture development; the remaining AP18 live
-qualification remains pending.
+The correction selects Start or Deactivate on the Windows owner after activation,
+before creating a processing worker. No sequence reset, epoch relaxation, retry,
+payload change or product-name dispatch is involved. The paired regressions pass
+with and without the intermediate activation; wrong sequence/epoch refusals
+remain intact. All four hosted lanes passed on the candidate-binding source
+`1aa6933a7444abf8aa36b7f82fe29da656c81e53` before the live check.
+
+Pigments revision 10 now has a successful same-session route/unroute result.
+No input → Audio 2 (PRE) → No input produced matching native/Windows identities,
+stereo hashes and silence flags. Processing continued through epochs 1, 2 and 3,
+including two activation-only intervals. C3 note output remained nonzero.
+The factory Krog Keys preset, a real vendor gesture, recorded Macro 1 automation,
+protected save/Applications relaunch and recall, and one ordinary FRAGMENTS
+sibling were checked. Removing Pigments retained the same FRAGMENTS session and
+editor. Both normal quits completed, and Pigments committed process-scoped
+retirement before positive cohort/transport cleanup. This is not clean SDK
+destruction or a complete-state byte-equality claim.
+
+See `evidence/ap18/lc1/live-completion.json`, `artifacts.json`, `validation.json`
+and `installed-final.json`. The first session retained 3 gap groups / 199168
+missing and expired frames; recall and FRAGMENTS each retained 1 / 512. Residual
+delivery remains #90. The live Test Tone had equal L/R: distinct channel-order
+proof remains the generated auxiliary-input fixture. No new capacity or timing
+qualification is claimed.
+
+Pigments is restored inactive pending independent review. Revisions 1–9 remain
+byte-identical; revision 10 remains ReviewCandidate and cannot ordinary-activate.
+LoFi/FRAGMENTS ordinary revision-10 targets and prior ancestry are unchanged.
+The protected completion project is saved; original projects are unchanged.
+Service/keeper are active, DSP leases/pending transactions/stale transports are
+zero, tracing is off, and Bitwig/debuggers/owned temporary units are absent.
+SteamOS-owned CPUWeight read back 10000 without manual adjustment. 512 remains
+selected/supported/recommended; 256 unqualified. PR #95 remains draft/open/unmerged
+for the AP18 handoff; this is implementation evidence, not independent acceptance.

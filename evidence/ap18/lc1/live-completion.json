@@ -1,0 +1,623 @@
+{
+  "schema": "ap18-lc1-live-v1",
+  "source": "1aa6933a7444abf8aa36b7f82fe29da656c81e53",
+  "disposition": "LC1_ROUTE_UNROUTE_AND_REMAINING_MUSICAL_CHECKS_PASSED",
+  "fixture": {
+    "os": "SteamOS 3.8.16",
+    "host": "Bitwig Studio 6.1 Flatpak",
+    "launch": "Applications desktop entry via gio, both launches",
+    "project_alias": "AP18 LC1 Completion, protected copy of AP18 Result Diagnostic",
+    "notes": "existing C3 loop",
+    "tempo": 110,
+    "sample_rate": 48000,
+    "precision": "float32",
+    "host_maximum": 512,
+    "windows_transport_chunks": 256,
+    "bridge_added_frames": 512,
+    "vendor_reported_latency": 48,
+    "native_callback_note": "Native final frames/blocks = 512 in both Pigments sessions; transport witnesses are 256-frame chunks, not claims that host callbacks are 256.",
+    "editor": "existing retained logical hide/reopen; real factory browser and Play page used",
+    "scheduling": "SteamOS-owned CPUWeight 10000 observed before and after; no manual change. Functional evidence, not normal-weight timing qualification.",
+    "control": "SSH and exact-window XSendEvent; no Mac input/focus, global modifiers, XTest or debugger",
+    "tracing": "Existing bounded worker observations enabled for first session only; disabled before recall/sibling session; no new callback instrumentation.",
+    "workload_bound": "One route and one unroute, one protected save/relaunch, one sibling insertion/removal. Reported block totals include stopped playback and UI work; not an endurance test."
+  },
+  "input": {
+    "sequence": [
+      "No input",
+      "Audio 2 (PRE) selected once",
+      "No input selected once"
+    ],
+    "source": "Bitwig built-in Test Tone, 1 kHz, displayed -42 dB; Audio 2 muted after removal",
+    "native": [
+      {
+        "event": "ap18_input_observation",
+        "retained": 3,
+        "overflow": 0,
+        "capacity": 32,
+        "collection": "native_transport_worker",
+        "hash": "fnv1a64_f32le_per_channel"
+      },
+      {
+        "event": "ap18_input",
+        "epoch": 1,
+        "request_sequence": 3,
+        "position": 0,
+        "frames": 256,
+        "silence": 3,
+        "hash": [
+          5897611217847481125,
+          5897611217847481125
+        ],
+        "peak": [
+          0,
+          0
+        ]
+      },
+      {
+        "event": "ap18_input",
+        "epoch": 1,
+        "request_sequence": 39223,
+        "position": 10040320,
+        "frames": 256,
+        "silence": 0,
+        "hash": [
+          9949028264607037333,
+          9949028264607037333
+        ],
+        "peak": [
+          0.024978988,
+          0.024978988
+        ]
+      },
+      {
+        "event": "ap18_input",
+        "epoch": 2,
+        "request_sequence": 51393,
+        "position": 3114496,
+        "frames": 256,
+        "silence": 3,
+        "hash": [
+          5897611217847481125,
+          5897611217847481125
+        ],
+        "peak": [
+          0,
+          0
+        ]
+      }
+    ],
+    "windows": [
+      {
+        "retained": 3,
+        "overflow": 0,
+        "capacity": 32,
+        "collection": "windows_transport_worker",
+        "hash": "fnv1a64_f32le_per_channel",
+        "event": "ap18_input_observation"
+      },
+      {
+        "epoch": 1,
+        "request_sequence": 3,
+        "position": 0,
+        "frames": 256,
+        "silence": 3,
+        "hash": [
+          5897611217847481125,
+          5897611217847481125
+        ],
+        "peak": [
+          0.0,
+          0.0
+        ],
+        "event": "ap18_input"
+      },
+      {
+        "epoch": 1,
+        "request_sequence": 39223,
+        "position": 10040320,
+        "frames": 256,
+        "silence": 0,
+        "hash": [
+          9949028264607037333,
+          9949028264607037333
+        ],
+        "peak": [
+          0.024979,
+          0.024979
+        ],
+        "event": "ap18_input"
+      },
+      {
+        "epoch": 2,
+        "request_sequence": 51393,
+        "position": 3114496,
+        "frames": 256,
+        "silence": 3,
+        "hash": [
+          5897611217847481125,
+          5897611217847481125
+        ],
+        "peak": [
+          0.0,
+          0.0
+        ],
+        "event": "ap18_input"
+      }
+    ],
+    "exact_two_sided_identity_hash_silence_match": true,
+    "peak_note": "Same underlying samples proven by exact per-channel hashes; native and Windows JSON decimal peak precision differs.",
+    "transition_note": "First changed input arrives before the following processing reconfiguration. Nonzero witness is epoch1; return-to-zero is epoch2. Subsequent healthy processing reaches epochs2 and3 in the same session.",
+    "live_stereo_limit": "The built-in source supplied equal L/R; live test proves both transported lanes and zero/nonzero transitions. Distinct L/R ordering remains covered by the accepted generated auxiliary-input fixture, not inferred from equal live hashes."
+  },
+  "audio": {
+    "before_route": {
+      "source": "Deck local default sink monitor",
+      "rate": 48000,
+      "channels": 2,
+      "samples": 573440,
+      "nonzero": 279006,
+      "rms": 0.03043662194949464,
+      "peak": 0.06250286847352982,
+      "raw_audio_retained": false,
+      "capture_error": false
+    },
+    "after_unroute": {
+      "source": "Deck local default sink monitor",
+      "rate": 48000,
+      "channels": 2,
+      "samples": 573440,
+      "nonzero": 573440,
+      "rms": 0.050071438928888816,
+      "peak": 0.119289331138134,
+      "raw_audio_retained": false,
+      "capture_error": false
+    },
+    "recalled_project": {
+      "source": "Deck local default sink monitor",
+      "rate": 48000,
+      "channels": 2,
+      "samples": 573440,
+      "nonzero": 572416,
+      "rms": 0.010284280945960834,
+      "peak": 0.03806665912270546,
+      "raw_audio_retained": false,
+      "capture_error": false
+    },
+    "with_fragments": {
+      "source": "Deck local default sink monitor",
+      "rate": 48000,
+      "channels": 2,
+      "samples": 573440,
+      "nonzero": 572416,
+      "rms": 0.008181646277353757,
+      "peak": 0.04983226954936981,
+      "raw_audio_retained": false,
+      "capture_error": false
+    },
+    "claim": "Nonzero Deck-local output, not Moonlight audio or a loudness/performance comparison."
+  },
+  "preset_state_automation": {
+    "factory_preset": "Krog Keys",
+    "real_vendor_control": "LoFi / Macro 1 / parameter 1",
+    "vendor_begin_value_end": [
+      {
+        "index": 8901,
+        "kind": 101,
+        "id": 1,
+        "revision": 0,
+        "value": 0.0,
+        "native": 2,
+        "epoch": 2
+      },
+      {
+        "index": 8902,
+        "kind": 102,
+        "id": 1,
+        "revision": 184,
+        "value": 0.06000000238418579,
+        "native": 2,
+        "epoch": 2
+      },
+      {
+        "index": 8903,
+        "kind": 103,
+        "id": 1,
+        "revision": 0,
+        "value": 0.0,
+        "native": 2,
+        "epoch": 2
+      }
+    ],
+    "host_recording": "Recorded bounded Macro 1 automation in the C3 clip using the native host parameter; vendor Begin/Value/End is independently retained above.",
+    "reopened_automation_one_cycle": [
+      {
+        "index": 493,
+        "kind": 3,
+        "id": 1,
+        "revision": 982,
+        "value": 0.06000000238418579,
+        "native": 0,
+        "epoch": 0
+      },
+      {
+        "index": 494,
+        "kind": 3,
+        "id": 1,
+        "revision": 984,
+        "value": 0.10999999940395355,
+        "native": 0,
+        "epoch": 0
+      },
+      {
+        "index": 495,
+        "kind": 3,
+        "id": 1,
+        "revision": 986,
+        "value": 0.21000000834465027,
+        "native": 0,
+        "epoch": 0
+      },
+      {
+        "index": 496,
+        "kind": 3,
+        "id": 1,
+        "revision": 988,
+        "value": 0.36000001430511475,
+        "native": 0,
+        "epoch": 0
+      },
+      {
+        "index": 497,
+        "kind": 3,
+        "id": 1,
+        "revision": 990,
+        "value": 0.5600000023841858,
+        "native": 0,
+        "epoch": 0
+      },
+      {
+        "index": 498,
+        "kind": 3,
+        "id": 1,
+        "revision": 992,
+        "value": 0.8100000023841858,
+        "native": 0,
+        "epoch": 0
+      },
+      {
+        "index": 499,
+        "kind": 3,
+        "id": 1,
+        "revision": 994,
+        "value": 1.0,
+        "native": 0,
+        "epoch": 0
+      }
+    ],
+    "replay_custody": {
+      "produced": 500,
+      "consumed": 500,
+      "state": "all commands consumed at stopped readback"
+    },
+    "settled_visible_values": {
+      "Bitwig_Macro_1": 1.0,
+      "Pigments_LoFi": 1.0,
+      "last_command": 1.0
+    },
+    "save": "Explicit Save succeeded, no state-save warning; normal quit, Applications relaunch and protected project reopen.",
+    "restored": "Pigments device, Krog Keys preset identity, recorded parameter sequence, settled visible control and nonzero note audio.",
+    "opaque_state_claim": "Existing opaque set/get path used; no byte-identical complete-state claim or payload retained.",
+    "comparison_correction": "An initial visual comparison crossed automation phases (.06 versus 1.0). Existing consumed command history and stopped matching readback resolved it; no recall failure or source repair was inferred.",
+    "ui_notes": [
+      "A first launch helper timed out at the project-location dialog; the existing launch completed after choosing its containing folder, without launching a duplicate.",
+      "Background text entry was unreliable while a vendor window was foreground; normal editor close restored it. No focus takeover.",
+      "Initial automation UI attempts did not establish recorded playback; only the later retained command sequence, saved project and recalled cycle support that claim."
+    ]
+  },
+  "sessions": [
+    {
+      "alias": "pigments-lc1-routing-save",
+      "native_final": [
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 646,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 2,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 62971904,
+          "blocks": 122992,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 3,
+          "successful_silent_frames": 1536,
+          "priming_frames": 1536,
+          "underrun_frames": 199168,
+          "underrun_gaps": 3,
+          "underrun_callbacks": 389,
+          "expired_output_frames": 199168,
+          "delivered_frames": 62771200,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows_intervals": [
+        {
+          "event": "lifecycle",
+          "sequence": 242,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 39224,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 253,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 0,
+          "intervals": 0,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 270,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 12170,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 281,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 0,
+          "intervals": 0,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 308,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 194590,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        }
+      ],
+      "retirement": {
+        "raw_exit": -15,
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "retirement_disposition": "process_scoped_vendor_retirement"
+      },
+      "editor_final": {
+        "available": true,
+        "independently_sampled": true,
+        "closed": 1,
+        "failure": 0,
+        "open": 0,
+        "view_stage": 217,
+        "open_stage": 100,
+        "exception_code": 0
+      },
+      "collector_rejection": null,
+      "retirement_ready": {
+        "schema": 1,
+        "state": "process_scoped_retirement_ready",
+        "milestones": 127,
+        "generation": 1,
+        "epoch": 3,
+        "sequence": 245989,
+        "position": 49815040
+      }
+    },
+    {
+      "alias": "pigments-lc1-recall",
+      "native_final": [
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 256,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 32501248,
+          "blocks": 63479,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 512,
+          "delivered_frames": 32500224,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows_intervals": [
+        {
+          "event": "lifecycle",
+          "sequence": 248,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 126958,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        }
+      ],
+      "retirement": {
+        "raw_exit": -15,
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "retirement_disposition": "process_scoped_vendor_retirement"
+      },
+      "editor_final": {
+        "available": true,
+        "independently_sampled": true,
+        "closed": 1,
+        "failure": 0,
+        "open": 0,
+        "view_stage": 217,
+        "open_stage": 100,
+        "exception_code": 0
+      },
+      "collector_rejection": null,
+      "retirement_ready": {
+        "schema": 1,
+        "state": "process_scoped_retirement_ready",
+        "milestones": 127,
+        "generation": 1,
+        "epoch": 1,
+        "sequence": 126963,
+        "position": 32501248
+      }
+    },
+    {
+      "alias": "ordinary-fragments-sibling",
+      "native_final": [
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 15673856,
+          "blocks": 30613,
+          "callback_rejections": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 512,
+          "delivered_frames": 15672832,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "windows_intervals": [
+        {
+          "event": "lifecycle",
+          "sequence": 177,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 61226,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        }
+      ],
+      "retirement": {
+        "raw_exit": -15,
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "retirement_disposition": null
+      },
+      "editor_final": {
+        "available": true,
+        "independently_sampled": true,
+        "closed": 1,
+        "failure": 0,
+        "open": 0,
+        "view_stage": 217,
+        "open_stage": 100,
+        "exception_code": 0
+      },
+      "collector_rejection": null
+    }
+  ],
+  "sibling": {
+    "ordinary_profile_revision": 10,
+    "simultaneous_real_editors": 2,
+    "separate_exact_windows_and_process_owners": true,
+    "pigments_removed_normally_via_device_menu": true,
+    "same_fragments_session_survived": true,
+    "dsp_before": 2,
+    "dsp_after_positive_pigments_retirement": 1,
+    "fragments_editor_remained_open": true,
+    "fragments_processing_after_removal": {
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 53770,
+      "position": 13764352,
+      "stage": 3,
+      "detail": 0,
+      "gaps": 1,
+      "missing_frames": 512,
+      "expired_frames": 512
+    },
+    "final_bitwig_quit": "Normal quit, No to temporary sibling/removal edits; protected saved Pigments copy unchanged.",
+    "final_bitwig_processes": []
+  },
+  "limits": [
+    "Process-scoped Pigments retirement is not clean SDK destruction.",
+    "Residual startup and reconfiguration missing/expired frames remain issue #90; no gap count hidden or performance guarantee.",
+    "One Pigments instance and one ordinary FRAGMENTS sibling only; no new capacity qualification.",
+    "No general sidechain/multibus, all-preset, all-engine, MPE, float64, or 256-frame claim.",
+    "Ordinary LoFi/FRAGMENTS binaries and publications unchanged; no repeat of their historical campaigns.",
+    "Independent AP18 review and any later immutable verified profile remain outstanding."
+  ]
+}
