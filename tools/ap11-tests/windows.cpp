@@ -390,7 +390,7 @@ void terminal_child(const char* path,int mode) {
  std::set_terminate([]{ExitProcess(93);});
  HostApplication host;auto* c=new Controller;check(c->initialize(&host)==kResultOk,"IF1 child controller");
  Mapping native{std::filesystem::path(path)};GuiChannel channel(native.dir.wstring(),native.id);
- FaultStatus fault(native.dir.wstring(),native.id);auto* editor=new EditorSession(channel,*c,nullptr,true);editor->fault_status(&fault);
+ FaultStatus fault(std::filesystem::path(path).wstring(),native.id);auto* editor=new EditorSession(channel,*c,nullptr,true);editor->fault_status(&fault);
  native.command(AP11::Open);editor->service(true);native.drain();
  check(editor->is_open(),"IF1 child editor attached");
  if(mode==20)c->stats.refuse=true; // persistent removed() refusal
@@ -411,7 +411,7 @@ void terminal_editor_regression() {
   check(CreateProcessW(exe,command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&startup,&child)!=0,"IF1 child");
   check(WaitForSingleObject(child.hProcess,5000)==WAIT_OBJECT_0,"IF1 child terminal");DWORD code=0;GetExitCodeProcess(child.hProcess,&code);
   auto commit=InterlockedCompareExchange64(reinterpret_cast<volatile LONG64*>(p+64),0,0);
-  if(mode==20){check(code==93&&commit==2,"fatal editor custody survives terminate");check(linux_vst_bridge::ap1::get(p+384+14*8,8)==2&&linux_vst_bridge::ap1::get(p+384+15*8,8)==AP11::Removal,"exact fatal editor class/detail");check(linux_vst_bridge::ap1::get(p+384+5*8,8)==104687,"exact terminal sequence");}
+  if(mode==20){if(code!=93||commit!=2)std::cerr<<"IF1 child exit="<<code<<" commit="<<commit<<"\n";check(code==93&&commit==2,"fatal editor custody survives terminate");check(linux_vst_bridge::ap1::get(p+384+14*8,8)==2&&linux_vst_bridge::ap1::get(p+384+15*8,8)==AP11::Removal,"exact fatal editor class/detail");check(linux_vst_bridge::ap1::get(p+384+5*8,8)==104687,"exact terminal sequence");}
   else check(code==0&&commit==0,"ordinary close never fabricates failure");
   CloseHandle(child.hThread);CloseHandle(child.hProcess);UnmapViewOfFile(p);CloseHandle(mapping);CloseHandle(f);std::filesystem::remove_all(dir);
  }
