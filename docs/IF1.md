@@ -60,7 +60,7 @@ unexpected exit or fatal editor/controller result is terminal_instance_failure,
 not clean SDK destruction. The supervisor retains exact process containment,
 transport retirement and lease receipt ownership.
 
-## Verification boundary
+## Revision-14 verification boundary (retained checkpoint)
 
 Generated tests cover interrupted custody, first-write retention, actual native
 worker peer loss and query after unlink, processor/controller notification,
@@ -81,7 +81,7 @@ Service and keeper are active with zero DSP leases, pending transactions or
 stale transports. See `evidence/if1/live-check.json`, `installed-final.json` and
 `validation.json`. IF1 is not claimed fully qualified and remains draft.
 
-## Engineering publication
+## Revision-14 engineering publication (retained checkpoint)
 
 Pigments revision 14 is the exact IF1 native/Windows candidate. `qualify-failure` uses the existing sealed publication and rollback owners with `if1_failure`; its immediate physical parent must be ordinary revision 11. Revisions 12 and 13 remain inactive immutable history. Ordinary activation and older acceptance commands cannot promote this candidate. `uio1 admit-if1` permits observation only of its exact physical candidate publication.
 
@@ -122,8 +122,39 @@ for both and proves neither file replaces the other. A process-exit regression
 also preserves collected records and releases diagnostic mappings when the
 target disappears during finalization. No pixel comparison spans a resize.
 
-The next product check is one automatic top-left-menu/resize operation. It must
-retain either working resize plus normal cleanup, or terminal failure custody,
-host/native failure presentation and positive cleanup. No repeated sequence,
-manual desktop takeover or product promotion is authorized. Ordinary 11 is
-restored afterward pending independent product review.
+### Revision-15 single-check result
+
+The automatic menu action reached the vendor child with correct client
+coordinates and child focus. The menu has separate owned popup windows. A
+root-window capture cannot establish their resize choices, and the existing
+direct-drawable guard refused capturing a popup that was not itself the active
+top-level window. The harness reached its 60-second plan bound without a resize
+command. Command/frame namespaces remained separate. Its unit exited zero,
+but `actions_completed` was absent and the retained failure is explicit; the
+unit result is not test success. No menu click was repeated.
+
+After collection had ended and a healthy pre-cleanup snapshot was retained, one
+Escape dismissed the menu. The outer launcher subsequently exited 5. The first
+complete IF1 record was native transport failure 3 at generation 1 / epoch 1 /
+request 120858 / completed position 30938624, with confirmed snapshot 3. The
+worker reported `InvalidData: delivery endpoint disconnected`. The final
+Windows delivery row remained at process stage 3; no matching return, join or
+normal seven-milestone retirement was retained. No Collector rejection was
+present. These facts do not identify the exact Windows exit cause.
+
+Bitwig showed “Plug-in crashed.” Its native plug-in-host also exited 255 before
+normal application quit. A single editor action did not display the native
+terminal failure view. Therefore the live crash screen does not independently
+prove AP10.instance_failed delivery, exact-once kReloadComponent, or the native
+failure-view path. The accepted generated regressions remain the evidence for
+those source laws. This check does not complete product acceptance or qualify
+resize.
+
+Supervisor cohort containment and transport cleanup were positive. Bitwig quit
+normally afterward, with engine exit zero. Exact ordinary Pigments 11 was
+restored; 12–15 remain inactive. LoFi/FRAGMENTS 10, protected project hashes and
+authorization were preserved. Service/keeper remain active; DSP leases,
+transactions, stale transports, debugger processes and diagnostic units are
+absent. Tracing is off. SteamOS retained effective CPUWeight 10000; there is no
+performance comparison. See the new bounded `evidence/if1/revision-15/` records;
+all earlier evidence and profile/artifact history are unchanged.

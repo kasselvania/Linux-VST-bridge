@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "source": "438aaf3eb45efd92239b23f839391214adf2bbf7",
+  "manager_source": "620c3433dbf8ee11001451acf1eb95e6d1370b24",
+  "local": {
+    "manager": {
+      "library": 75,
+      "binary": 12
+    },
+    "manager_clippy": "strict all-targets passed",
+    "runtime_macos": {
+      "collected": 45,
+      "passed": 17,
+      "linux_only_skipped": 28
+    },
+    "uio1": {
+      "passed": 13
+    },
+    "proof_policy": {
+      "passed": 78
+    }
+  },
+  "hosted": [
+    {
+      "name": "AP8 Windows host",
+      "run": 34722988723,
+      "head": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+      "conclusion": "success"
+    },
+    {
+      "name": "AP12 registered owner",
+      "run": 34723390556,
+      "head": "620c3433dbf8ee11001451acf1eb95e6d1370b24",
+      "conclusion": "success"
+    }
+  ],
+  "native_source_validation": {
+    "accepted_head": "f7f0997b5e5d1ac7c691a20b192ccc90e30c88d2",
+    "merged_head": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+    "identical_tree": "df97dc484f60f3aa171d0a1b23c429ebae047cc0",
+    "basis": "Accepted AP10/native/SDK/strict Clippy and concurrency fixtures retained at identical source tree; no native or Windows source changed in this continuation.",
+    "new_native_build": "passed; exact merged-source receipt in artifacts.json"
+  },
+  "final_harness_ci": "Final documentation/evidence head AP12 result is retained in the PR handoff; no product rebuild is implied.",
+  "retained_preparation_failures": [
+    "The first post-setup staging precheck required an already-running keeper; it stopped before staging while DSP and transactions were zero.",
+    "An initial publication attempt before staged-package completion refused the absent package; ordinary 11 remained active. Staging completed before the successful second publication.",
+    "Healthy UI scope zero was rejected by the old diagnostic census; source-owned scope semantics and a regression now admit idle zero and pumping 25 with exact process/thread identity. No menu had been sent before the correction.",
+    "The single menu check then hit the separate-popup capture guard and its 60-second action-plan bound. No resize or menu retry was dispatched.",
+    "PX2 workflow has no workflow_dispatch trigger; no trigger was changed. Merged-source PX2 and 78 focused local tests are retained."
+  ],
+  "product_acceptance": false,
+  "additional_live_test": false
+}
