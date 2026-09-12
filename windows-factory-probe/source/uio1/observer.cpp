@@ -17,7 +17,7 @@ BOOL CALLBACK window(HWND w,LPARAM l){auto&c=*reinterpret_cast<Census*>(l);DWORD
   if(pid!=c.pid)return TRUE;if(c.count>=128)return FALSE;
   RECT r{};GetWindowRect(w,&r);wchar_t cls[128]{};GetClassNameW(w,cls,128);
   uint64_t hash=1469598103934665603ULL;for(auto ch:cls){if(!ch)break;hash=(hash^uint16_t(ch))*1099511628211ULL;}
-  printf("{\"type\":\"window\",\"hwnd\":%llu,\"parent\":%llu,\"tid\":%lu,\"class_hash\":%llu,\"visible\":%u,\"enabled\":%u,\"minimized\":%u,\"dpi\":%u,\"rect\":[%ld,%ld,%ld,%ld]}\n",uint64_t(w),uint64_t(GetParent(w)),tid,hash,unsigned(IsWindowVisible(w)!=0),unsigned(IsWindowEnabled(w)!=0),unsigned(IsIconic(w)!=0),GetDpiForWindow(w),r.left,r.top,r.right,r.bottom);++c.count;return TRUE;
+  printf("{\"type\":\"window\",\"hwnd\":%llu,\"parent\":%llu,\"tid\":%lu,\"class_hash\":%llu,\"visible\":%u,\"enabled\":%u,\"minimized\":%u,\"dpi\":%u,\"rect\":[%ld,%ld,%ld,%ld]}\n",uint64_t(w),uint64_t(GetParent(w)),tid,hash,unsigned(IsWindowVisible(w)!=0),unsigned(IsWindowEnabled(w)!=0),unsigned(IsIconic(w)!=0),GetDpiForWindow(w),r.left,r.top,r.right,r.bottom);printf("{\"type\":\"x11_binding\",\"hwnd\":%llu,\"xid\":%llu}\n",uint64_t(w),uint64_t(GetPropW(w,L"__wine_x11_whole_window")));++c.count;return TRUE;
 }
 BOOL CALLBACK top(HWND w,LPARAM l){auto&c=*reinterpret_cast<Census*>(l);DWORD pid=0;GetWindowThreadProcessId(w,&pid);if(pid==c.pid){window(w,l);EnumChildWindows(w,window,l);}return c.count<128;}
 void census(DWORD pid){HANDLE p=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);check(p!=nullptr,"census process");auto born=start(p);CloseHandle(p);printf("{\"type\":\"process\",\"pid\":%lu,\"start\":%llu}\n",pid,born);

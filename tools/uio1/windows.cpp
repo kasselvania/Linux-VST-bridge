@@ -43,6 +43,7 @@ int main(){
   const auto count=uio1::atom(shared->committed).load();auto*r=reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(shared)+uio1::header_bytes);
   unsigned get=0,enter=0,leave=0;bool slow=false;
   for(uint64_t i=0;i<count;++i){assert(r[i].commit==i+1&&r[i].hwnd!=uint64_t(foreign.load()));if(r[i].message==WM_LBUTTONDOWN){assert(r[i].hwnd==uint64_t(child.load())&&r[i].x==15&&r[i].y==19&&r[i].action==17);get+=r[i].source==1;enter+=r[i].source==2;leave+=r[i].source==3;}if(r[i].source==4&&r[i].result>int64_t(shared->frequency/5))slow=true;}
+  printf("UIO1 fixture counts get=%u enter=%u leave=%u slow=%u received=%u records=%llu\n",get,enter,leave,unsigned(slow),received.load(),count);fflush(stdout);
   assert(get==1&&enter==1&&leave==1&&slow&&received==4);
   PostMessageW(child,WM_LBUTTONDOWN,0,0);Sleep(100);assert(received==5&&uio1::atom(shared->committed).load()==count);
   DWORD tid=GetWindowThreadProcessId(parent,nullptr);PostThreadMessageW(tid,WM_QUIT,0,0);ui.join();
