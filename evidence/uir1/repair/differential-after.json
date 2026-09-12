@@ -1,0 +1,226 @@
+{
+  "actions": [
+    {
+      "condition": "idle",
+      "events": [
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "down",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 12058136,
+          "issued_to_retrieval_upper_bound_ns": 3742934,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            6378643,
+            15801070
+          ],
+          "x11_observed_no_later_than_ns": 16655312,
+          "x11_to_retrieval_lower_bound_ns": 0
+        },
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "up",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 94297559,
+          "issued_to_retrieval_upper_bound_ns": 3914452,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            97059717,
+            98212011
+          ],
+          "x11_observed_no_later_than_ns": 98716652,
+          "x11_to_retrieval_lower_bound_ns": 0
+        }
+      ],
+      "id": 1,
+      "max_heartbeat_ns": 6396100
+    },
+    {
+      "condition": "bounded_posted_and_sent",
+      "events": [
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "down",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 750430938,
+          "issued_to_retrieval_upper_bound_ns": 7357767,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            756671823,
+            757788705
+          ],
+          "x11_observed_no_later_than_ns": 756812377,
+          "x11_to_retrieval_lower_bound_ns": 0
+        },
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "up",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 838544041,
+          "issued_to_retrieval_upper_bound_ns": 5506190,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            842916097,
+            844050231
+          ],
+          "x11_observed_no_later_than_ns": 845457500,
+          "x11_to_retrieval_lower_bound_ns": 0
+        }
+      ],
+      "id": 2,
+      "max_heartbeat_ns": 10358100
+    },
+    {
+      "condition": "idle_after_load",
+      "events": [
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "down",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 6547991971,
+          "issued_to_retrieval_upper_bound_ns": 1546547,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            6545383256,
+            6549538518
+          ],
+          "x11_observed_no_later_than_ns": 6554433362,
+          "x11_to_retrieval_lower_bound_ns": 0
+        },
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "up",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 6636176785,
+          "issued_to_retrieval_upper_bound_ns": 4482345,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            6636485644,
+            6640659130
+          ],
+          "x11_observed_no_later_than_ns": 6642639236,
+          "x11_to_retrieval_lower_bound_ns": 0
+        }
+      ],
+      "id": 3,
+      "max_heartbeat_ns": 4148800
+    }
+  ],
+  "bounded_traffic_progress": [
+    {
+      "down_handled": 2,
+      "linux_observed_ns": 1159317938,
+      "observation": "first_all_sends_complete",
+      "phase": 2,
+      "posted_handled": 400,
+      "posted_submitted": 404,
+      "sent_handled": 64,
+      "up_handled": 2
+    },
+    {
+      "down_handled": 1,
+      "linux_observed_ns": 721919623,
+      "observation": "last_before_loaded_down",
+      "phase": 2,
+      "posted_handled": 134,
+      "posted_submitted": 138,
+      "sent_handled": 21,
+      "up_handled": 1
+    },
+    {
+      "down_handled": 2,
+      "linux_observed_ns": 778900392,
+      "observation": "first_loaded_down",
+      "phase": 2,
+      "posted_handled": 173,
+      "posted_submitted": 177,
+      "sent_handled": 26,
+      "up_handled": 1
+    }
+  ],
+  "clock_domains": [
+    "linux_monotonic_ns",
+    "windows_qpc",
+    "x11_server_ms"
+  ],
+  "clock_law": "UIO1 Bracket::project: measured round trip, 100ppm drift, 10s maximum distance",
+  "exact_three_mouse_pairs": true,
+  "fairness": {
+    "down_active_chains": 4,
+    "down_precedes_up": true,
+    "loaded_down_before_posts": 159,
+    "loaded_up_before_posts": 218,
+    "paint_during_load": 35,
+    "peek_call_ceiling": 162,
+    "queued_dispatch_ceiling": 128,
+    "quit_preserved": true,
+    "sustained_input": {
+      "chains_still_active": true,
+      "motions_issued": 400,
+      "moves_handled": 394,
+      "posts_completed": 2109
+    },
+    "timer_during_load": 34,
+    "up_active_chains": 4
+  },
+  "fixture": "generated_parent_child_no_vendor",
+  "input_boundary": "exact X11 receipt to first observable Win32 hardware-mouse retrieval; no internal admission timestamp",
+  "nonclaims": [
+    "no vendor workload equivalence",
+    "no physical-compositor equivalence",
+    "no audio or rendering result"
+  ],
+  "observer": {
+    "closed": 1,
+    "detached": 1,
+    "dropped": 0,
+    "records": 2223
+  },
+  "schema": 1,
+  "traffic": {
+    "admission_limit_seconds": 6,
+    "handled": 4096,
+    "maximum_posted": 4096,
+    "posted_chains": 4,
+    "send_failures": 0,
+    "sent_handled": 64,
+    "submitted": 4096,
+    "synthetic_handler_sleep_ms": 1
+  },
+  "windows_destroyed": true,
+  "xrecord": {
+    "dropped": 0,
+    "records": 408,
+    "unparsed": 0
+  }
+}

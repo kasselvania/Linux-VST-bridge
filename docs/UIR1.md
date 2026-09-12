@@ -114,3 +114,34 @@ by the ordinary product, which was not stopped. All ordinary publication and
 artifact readbacks before/after are identical, and the protected project matches
 its retained hash. CPUWeight 10000 remained under SteamOS foreground-booster
 ownership; no scheduling setting was changed or performance benefit claimed.
+
+
+## Bounded pump repair (review 5186994847)
+
+`VendorView::pump` now offers `PM_QS_INPUT` retrieval after at most four
+ordinary unfiltered retrievals. Paint and timer filters each receive one
+opportunity per turn. The turn retains its 128 queued-message ceiling and has
+at most 162 PeekMessage calls. User32 still owns sent calls; a vendor handler
+can exceed a wall-time budget, so this is a fairness rule, not a UI deadline.
+No message is dropped, collapsed, sent directly to a window procedure, or
+special-cased by vendor. The audio path is unchanged.
+
+The first implementation serviced paint/timers each round. It retrieved loaded
+Down/Up promptly, but only 4091 posts admitted within the unchanged six-second
+fixture bound; it is retained as an incomplete result. Servicing paint/timer
+once per turn then passed the same workload: Down/Up at 159/218 handled posts
+with all four chains active; all 4096 posts and 64 sends completed. Conservative
+issued-to-retrieval upper bounds were 7.358/5.507 ms under load. During 400
+additional bounded XTEST motions, 2109 posts progressed and 394 motion messages
+were retrieved. OS motion coalescing is not a bridge dropped-message claim.
+Paint/timer, quit-code preservation, dispatch-bound and positive cleanup checks
+passed. See [repair evidence](../evidence/uir1/repair/differential-after.json).
+
+One host-only Pigments revision-12 ReviewCandidate uses the sealed `uir1_input`
+qualification selector and exact ordinary revision-11 parent. Stage, supervised
+inspection, physical publication, serving and rollback reuse the existing
+owners. The native, module, descriptor, runner and every technical capability
+are unchanged. `qualify-ui stage PACKAGE`, `qualify-ui publish` and
+`qualify-ui restore` cannot select caller-supplied profiles or binaries. Ordinary
+UIO1 admission remains verified-only; `uio1 admit-uir1` independently admits only
+the compiled active engineering candidate. Product confirmation remains pending.

@@ -140,6 +140,7 @@ enum InspectionRoute {
     Ap15Editor,
     Ap17Capacity,
     Ap18Pigments,
+    Uir1Input,
 }
 fn inspect_through_owner(
     m: &Manager,
@@ -156,6 +157,7 @@ fn inspect_through_owner(
         InspectionRoute::Ap15Editor => b"LVQ1\n",
         InspectionRoute::Ap17Capacity => b"LVQ2\n",
         InspectionRoute::Ap18Pigments => b"LVQ3\n",
+        InspectionRoute::Uir1Input => b"LVQ4\n",
     })?;
     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
     peer.write_all(&bytes)?;
@@ -397,6 +399,7 @@ fn execute_qualification_for(
                         publication::Qualification::Ap15Editor => InspectionRoute::Ap15Editor,
                         publication::Qualification::Ap17Capacity => InspectionRoute::Ap17Capacity,
                         publication::Qualification::Ap18Pigments => InspectionRoute::Ap18Pigments,
+                        publication::Qualification::Uir1Input => InspectionRoute::Uir1Input,
                     },
                 )?);
             }
@@ -448,6 +451,11 @@ fn acceptance_receipt(m: &Manager) -> Result<serde_json::Value> {
 pub(super) fn run_pigments_qualification(m: &Manager, args: &[String]) -> Result<()> {
     if args == ["restore"] { return render(pigments::restore(m).and_then(|()| status(m))); }
     render(execute_qualification_for(m, args, publication::Qualification::Ap18Pigments))
+}
+
+/// One compiled UIR1 host candidate; ordinary managed activation stays verified-only.
+pub(super) fn run_ui_qualification(m: &Manager, args: &[String]) -> Result<()> {
+    render(execute_qualification_for(m, args, publication::Qualification::Uir1Input))
 }
 
 #[cfg(test)]

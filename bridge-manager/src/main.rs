@@ -680,7 +680,7 @@ fn serve(m: Manager) -> Result<()> {
                     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
                     peer.write_all(&bytes)?;return Ok(());
                 }
-                if matches!(&greeting[..5],b"LVI1\n"|b"LVQ1\n"|b"LVQ2\n"|b"LVQ3\n") {
+                if matches!(&greeting[..5],b"LVI1\n"|b"LVQ1\n"|b"LVQ2\n"|b"LVQ3\n"|b"LVQ4\n") {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
@@ -689,6 +689,7 @@ fn serve(m: Manager) -> Result<()> {
                     let request=serde_json::from_slice(&bytes)?;
                     let r=match &greeting[..5] {
                         b"LVQ1\n"=>qualification_binding(&m,request,publication::Qualification::Ap15Editor)?,
+                        b"LVQ4\n"=>qualification_binding(&m,request,publication::Qualification::Uir1Input)?,
                         b"LVQ3\n"=>qualification_binding(&m,request,publication::Qualification::Ap18Pigments)?,
                         b"LVQ2\n"=>qualification_binding(&m,request,publication::Qualification::Ap17Capacity)?,
                         _=>inspection_binding(&m,request)?,
@@ -1018,6 +1019,7 @@ fn main() -> Result<()> {
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
+  Some("qualify-ui")=>managed_cli::run_ui_qualification(&m,&args[1..]),
   Some("qualify-pigments")=>managed_cli::run_pigments_qualification(&m,&args[1..]),
   Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),
