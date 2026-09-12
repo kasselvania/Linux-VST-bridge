@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "disposition": "UIR1_PIGMENTS_DRAG_AND_PAGE_CONFIRMED",
+  "private_capture_sha256": "dfb39a34bc2e7a8bc0941246877738879a1eec50bbc78dee8aea25417323f8a9",
+  "fixture": {
+    "product": "Pigments 7.0.1.6772",
+    "profile_revision": 12,
+    "profile_fingerprint": "b8d6289d5a50a941deec82b0c3ac644b4c905da684fce8a861f4e847019d11c6",
+    "claim": "review_candidate",
+    "qualification": "uir1_input",
+    "system": "Steam Deck / SteamOS 3.8.16 / Bitwig 6.1 Flatpak / pinned Proton-SLR",
+    "project": "protected copy of the prior UIO1/AP18 project",
+    "window_dimensions": [
+      1280,
+      724
+    ],
+    "initial_page": "Synth",
+    "final_page": "Play",
+    "parameter": 1,
+    "transport": "stopped; existing note/automation project loaded, no playback or audio requalification",
+    "cpuweight": "ordinary SteamOS foreground-booster ownership; no setting modified",
+    "product_heavy_trace": false,
+    "uio1_diagnostic": true
+  },
+  "actions": [
+    {
+      "id": 2,
+      "action": "Macro 1 upward drag",
+      "events": [
+        {
+          "event": "button_down",
+          "issued_interval_ns": [
+            8241643068,
+            8241705920
+          ],
+          "mouse_hook_interval_ns": [
+            8298183412,
+            8303695188
+          ],
+          "retrieval_interval_ns": [
+            8299037898,
+            8304549502
+          ],
+          "issued_to_mouse_hook_upper_bound_ns": 62052120,
+          "issued_to_peek_retrieval_upper_bound_ns": 62906434,
+          "client": [
+            1124,
+            586
+          ],
+          "target": "vendor_child",
+          "focus": "vendor_child",
+          "active": "editor_parent",
+          "capture": "none",
+          "hit_test": "HTCLIENT",
+          "downstream_hook_consumed": false
+        },
+        {
+          "event": "button_up",
+          "issued_interval_ns": [
+            8567175157,
+            8567285159
+          ],
+          "mouse_hook_interval_ns": [
+            8581360227,
+            8586815373
+          ],
+          "retrieval_interval_ns": [
+            8581439735,
+            8586894865
+          ],
+          "issued_to_mouse_hook_upper_bound_ns": 19640216,
+          "issued_to_peek_retrieval_upper_bound_ns": 19719708,
+          "client": [
+            1124,
+            556
+          ],
+          "target": "vendor_child",
+          "focus": "vendor_child",
+          "active": "editor_parent",
+          "capture": "vendor_child",
+          "hit_test": "HTCLIENT",
+          "downstream_hook_consumed": false
+        }
+      ],
+      "first_relevant_region_change_after_down_upper_bound_ns": 110885159,
+      "region_index": 0,
+      "region_initial_hash": "a6974e5d0b6b39fe59eacb8670545ed875a0c178a77886b1030c591b1841a908",
+      "region_final_hash": "c38105926f75bd457f660cd2a60a2c0eb6c905fa8c791a22ed97c5f301ed9c57",
+      "max_heartbeat_ms": 158.9604,
+      "gesture": [
+        {
+          "kind": 101,
+          "parameter": 1,
+          "value": 0.0,
+          "native_view": 1,
+          "editor_epoch": 1
+        },
+        {
+          "kind": 102,
+          "parameter": 1,
+          "value": 0.1080000028014183,
+          "native_view": 1,
+          "editor_epoch": 1
+        },
+        {
+          "kind": 102,
+          "parameter": 1,
+          "value": 0.13199999928474426,
+          "native_view": 1,
+          "editor_epoch": 1
+        },
+        {
+          "kind": 102,
+          "parameter": 1,
+          "value": 0.15600000321865082,
+          "native_view": 1,
+          "editor_epoch": 1
+        },
+        {
+          "kind": 102,
+          "parameter": 1,
+          "value": 0.18000000715255737,
+          "native_view": 1,
+          "editor_epoch": 1
+        },
+        {
+          "kind": 103,
+          "parameter": 1,
+          "value": 0.0,
+          "native_view": 1,
+          "editor_epoch": 1
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "action": "Synth to Play page click",
+      "events": [
+        {
+          "event": "button_down",
+          "issued_interval_ns": [
+            13861324843,
+            13861405905
+          ],
+          "mouse_hook_interval_ns": [
+            13865552288,
+            13869082711
+          ],
+          "retrieval_interval_ns": [
+            13866506284,
+            13870036515
+          ],
+          "issued_to_mouse_hook_upper_bound_ns": 7757868,
+          "issued_to_peek_retrieval_upper_bound_ns": 8711672,
+          "client": [
+            886,
+            22
+          ],
+          "target": "vendor_child",
+          "focus": "vendor_child",
+          "active": "editor_parent",
+          "capture": "none",
+          "hit_test": "HTCLIENT",
+          "downstream_hook_consumed": false
+        },
+        {
+          "event": "button_up",
+          "issued_interval_ns": [
+            13953665107,
+            13953872891
+          ],
+          "mouse_hook_interval_ns": [
+            14026589190,
+            14030087409
+          ],
+          "retrieval_interval_ns": [
+            14026891720,
+            14030389879
+          ],
+          "issued_to_mouse_hook_upper_bound_ns": 76422302,
+          "issued_to_peek_retrieval_upper_bound_ns": 76724772,
+          "client": [
+            886,
+            22
+          ],
+          "target": "vendor_child",
+          "focus": "vendor_child",
+          "active": "editor_parent",
+          "capture": "vendor_child",
+          "hit_test": "HTCLIENT",
+          "downstream_hook_consumed": false
+        }
+      ],
+      "first_relevant_region_change_after_down_upper_bound_ns": 111411777,
+      "region_index": 2,
+      "region_initial_hash": "44949a807e30375bb90ea754e13c22ebbac5693ab0ed5ab71d8c7b01295441ba",
+      "region_final_hash": "10dde938e51ca0df17e2dd068892341ef3d8b660f816b0d2dfebdb046c48a968",
+      "max_heartbeat_ms": 137.0134,
+      "gesture": []
+    }
+  ],
+  "page_semantics": {
+    "method": "private before/after exact-window capture inspected",
+    "final_play_tab_selected": true,
+    "page_layout_changed": true,
+    "commercial_pixels_committed": false,
+    "navigation_hover_is_not_page_completion": true,
+    "stable_page_hash_not_required": "Play visualizer continues animating; no full-frame stabilization claim"
+  },
+  "record_counts": {
+    "win32": 230,
+    "gui": 6,
+    "frames": 157,
+    "x11": 12
+  },
+  "observer_capacity": 16384,
+  "frame_capacity": 600,
+  "all_overflow_counts_zero": true,
+  "helper_cleanup_positive": true,
+  "collector_rejection": null,
+  "limits": [
+    "One automatic drag and one page click; no repetition after success.",
+    "Diagnostic-on bounds include cross-clock uncertainty; no universal UI deadline or renderer/audio improvement claim.",
+    "The generated traffic is not asserted to equal vendor internals.",
+    "A pointer motion needed the existing one identical bounded reissue before exact pointer settlement; no extra click.",
+    "Only the exact calibrated Macro 1 and Play tab were exercised; no page matrix or broad interaction qualification.",
+    "Maximum heartbeat remained 158.9604 ms during the drag; this is not a claim that all UI latency is eliminated."
+  ]
+}

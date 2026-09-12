@@ -118,13 +118,15 @@ interaction remain unresolved. No renderer fix or universally responsive plug-in
 UI is claimed. The exact records and limits
 are retained in [evidence/uio1](evidence/uio1/).
 
-[UIR1](docs/UIR1.md) begins with a generated pinned-Proton idle/loaded queue
-comparison on an isolated XWayland display. It reproduced at least 4.963 seconds
-of hardware-input retrieval delay under finite posted traffic while heartbeats
-remained within 6.11 ms; idle input remained prompt. This selects generic pump
-fairness for repair without claiming Pigments generated the same traffic. No
-product repair is installed, and no further Pigments session or operator desktop
-control was used. See
+[UIR1](docs/UIR1.md) reproduced at least 4.963 seconds of input-retrieval delay
+under finite posted traffic, then repaired bounded fairness in the generic
+Windows editor pump. The same fixture now handles Down/Up while posted chains
+remain active, with all posts and sends completing. One automatic Pigments
+Macro 1 drag and Synth-to-Play click succeeded with first mouse-hook bounds
+below 77 ms and local pixel changes within 112 ms. This is an exact diagnostic
+confirmation, not a universal latency or audio-performance claim. The
+revision-12 engineering candidate is inactive after exact ordinary revision-11
+restoration; LoFi/FRAGMENTS remain unchanged. PR #97 remains draft for review. See
 [CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
 
 ## Architecture

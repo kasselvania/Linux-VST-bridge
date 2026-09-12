@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "product_manager_source": "d752707f30c165562c706d9f34e5b8b9debaabf2",
+  "local": [
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "passed",
+      "library": 72,
+      "binary": 11
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --example uir1_report --locked",
+      "result": "passed",
+      "tests": 3
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "passed on macOS; Linux coverage in AP12",
+      "collected": 41,
+      "passed": 17,
+      "platform_skips": 24
+    },
+    {
+      "command": "python3 -m unittest discover -s tools/uio1 -v",
+      "result": "passed",
+      "tests": 10
+    },
+    {
+      "command": "python3 -m unittest discover -s tools/uir1 -v",
+      "result": "passed",
+      "tests": 2
+    },
+    {
+      "command": "uio1 project CLOCKED_REPORT / validate REPORT",
+      "result": "product report projected and validated; action 1 explicitly idle, not a host parameter update"
+    },
+    {
+      "command": "cargo build --manifest-path bridge-manager/Cargo.toml --locked --release --target x86_64-unknown-linux-gnu --bins",
+      "result": "passed with pinned local Rustup compiler and existing Zig glibc 2.35 linker route"
+    }
+  ],
+  "hosted_at_manager_source": [
+    {
+      "workflow": "AP8 Windows host",
+      "run": 34704577474,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "AP10 native result lifetime",
+      "run": 34704577521,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "AP12 registered owner",
+      "run": 34704577433,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "PX2 proof policy",
+      "run": 34704577563,
+      "conclusion": "success"
+    }
+  ],
+  "windows_live_source_run": 34703923732,
+  "pinned_runner_generated_result": "differential-after.json",
+  "real_product_result": "product.json",
+  "preservation": "No native/audio, protocol, SDK retirement or vendor files changed; hosted AP10 and Windows SDK/editor/result suites passed.",
+  "final_head_ci": "Exact final evidence-head checks are recorded in PR #97; retained live artifacts retain their true earlier source identities."
+}

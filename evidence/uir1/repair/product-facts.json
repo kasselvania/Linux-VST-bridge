@@ -1,0 +1,392 @@
+{
+  "schema": 1,
+  "clock_domains": [
+    "linux_monotonic_ns",
+    "windows_qpc",
+    "x11_server_ms"
+  ],
+  "clock_projection": "Rust measured round-trip bracket plus 100 ppm drift allowance within 10 seconds",
+  "gui_times": "conservative action-to-poll interval; production GUI messages have no event timestamp",
+  "region_limit": "Macro 1 region calibrated and privately verified on Synth; navigation hover changes are not page completion. Final Play page separately confirmed from private local capture.",
+  "x11_times": "server timestamps retained privately; public intervals end at Linux observation",
+  "window_count": 7,
+  "same_ui_thread": true,
+  "renderer_modules": [
+    "gdi32.dll",
+    "opengl32.dll",
+    "uiautomationcore.dll"
+  ],
+  "renderer_presentation_api": "not measured; loaded OpenGL is a path indicator",
+  "observer_status": {
+    "committed": 230,
+    "dropped": 0,
+    "ready": 1,
+    "closed": 1,
+    "hook_calls": 2294,
+    "hook_ticks": 54849,
+    "max_hook_ticks": 582,
+    "filtered": 2064,
+    "heartbeat_errors": 0,
+    "scope_errors": 0,
+    "unhook_errors": 0,
+    "detached": 1
+  },
+  "frequency": 10000000,
+  "x11_records": 12,
+  "x11_dropped": 0,
+  "x11_unparsed": 0,
+  "gui_dropped": [
+    0,
+    0
+  ],
+  "frame_dropped": 0,
+  "capture": {
+    "frames": 157,
+    "interval_ms": 100,
+    "maximum_cpu_ms": 18.019679,
+    "mean_cpu_ms": 13.062543515923567,
+    "backend": [
+      "direct_drawable"
+    ]
+  },
+  "cpu_context": {
+    "measure": "whole Windows-process CPU, all threads; not UI-thread CPU",
+    "trace_off": {
+      "elapsed_ms": 2063.726701,
+      "cpu_ms": 740.0,
+      "cores": 0.35857461147419634,
+      "clock_tick_ms": 10.0
+    },
+    "diagnostic_idle_including_helper_startup": {
+      "elapsed_ms": 4772.908607,
+      "cpu_ms": 1860.0,
+      "cores": 0.3896994795316432,
+      "clock_tick_ms": 10.0
+    },
+    "total_python_cpu_ms": 4941.321547,
+    "causal_overhead_estimate": false
+  },
+  "actions": [
+    {
+      "id": 1,
+      "message_counts": [
+        {
+          "source": 4,
+          "message": 34113,
+          "count": 5
+        }
+      ],
+      "max_heartbeat_ms": 17.5184,
+      "mouse_chain_consumed": 0,
+      "gesture_begin": 0,
+      "gesture_end": 0,
+      "host_parameter_values": [],
+      "regions": [
+        {
+          "index": 0,
+          "distinct_hashes": 1,
+          "first_hash": "a6974e5d0b6b39fe59eacb8670545ed875a0c178a77886b1030c591b1841a908",
+          "last_hash": "a6974e5d0b6b39fe59eacb8670545ed875a0c178a77886b1030c591b1841a908"
+        },
+        {
+          "index": 1,
+          "distinct_hashes": 1,
+          "first_hash": "d1b67990f911a746241313014f0a3a29f214ef7804a94223dc21f6dfe4cfe1bf",
+          "last_hash": "d1b67990f911a746241313014f0a3a29f214ef7804a94223dc21f6dfe4cfe1bf"
+        },
+        {
+          "index": 2,
+          "distinct_hashes": 1,
+          "first_hash": "44949a807e30375bb90ea754e13c22ebbac5693ab0ed5ab71d8c7b01295441ba",
+          "last_hash": "44949a807e30375bb90ea754e13c22ebbac5693ab0ed5ab71d8c7b01295441ba"
+        }
+      ],
+      "frame_sample_change": {
+        "maximum_percent": 0.12362637362637363,
+        "frames_with_change": 10,
+        "sample_step_pixels": 8
+      }
+    },
+    {
+      "id": 2,
+      "message_counts": [
+        {
+          "source": 1,
+          "message": 512,
+          "count": 5
+        },
+        {
+          "source": 1,
+          "message": 513,
+          "count": 1
+        },
+        {
+          "source": 1,
+          "message": 514,
+          "count": 1
+        },
+        {
+          "source": 2,
+          "message": 33,
+          "count": 2
+        },
+        {
+          "source": 2,
+          "message": 132,
+          "count": 22
+        },
+        {
+          "source": 2,
+          "message": 533,
+          "count": 1
+        },
+        {
+          "source": 3,
+          "message": 33,
+          "count": 2
+        },
+        {
+          "source": 3,
+          "message": 132,
+          "count": 22
+        },
+        {
+          "source": 3,
+          "message": 533,
+          "count": 1
+        },
+        {
+          "source": 4,
+          "message": 34113,
+          "count": 28
+        },
+        {
+          "source": 5,
+          "message": 512,
+          "count": 5
+        },
+        {
+          "source": 5,
+          "message": 513,
+          "count": 1
+        },
+        {
+          "source": 5,
+          "message": 514,
+          "count": 1
+        },
+        {
+          "source": 6,
+          "message": 512,
+          "count": 5
+        },
+        {
+          "source": 6,
+          "message": 513,
+          "count": 1
+        },
+        {
+          "source": 6,
+          "message": 514,
+          "count": 1
+        }
+      ],
+      "max_heartbeat_ms": 158.9604,
+      "mouse_chain_consumed": 0,
+      "gesture_begin": 1,
+      "gesture_end": 1,
+      "host_parameter_values": [],
+      "regions": [
+        {
+          "index": 0,
+          "distinct_hashes": 4,
+          "first_hash": "a6974e5d0b6b39fe59eacb8670545ed875a0c178a77886b1030c591b1841a908",
+          "last_hash": "c38105926f75bd457f660cd2a60a2c0eb6c905fa8c791a22ed97c5f301ed9c57"
+        },
+        {
+          "index": 1,
+          "distinct_hashes": 1,
+          "first_hash": "d1b67990f911a746241313014f0a3a29f214ef7804a94223dc21f6dfe4cfe1bf",
+          "last_hash": "d1b67990f911a746241313014f0a3a29f214ef7804a94223dc21f6dfe4cfe1bf"
+        },
+        {
+          "index": 2,
+          "distinct_hashes": 1,
+          "first_hash": "44949a807e30375bb90ea754e13c22ebbac5693ab0ed5ab71d8c7b01295441ba",
+          "last_hash": "44949a807e30375bb90ea754e13c22ebbac5693ab0ed5ab71d8c7b01295441ba"
+        }
+      ],
+      "frame_sample_change": {
+        "maximum_percent": 0.3914835164835165,
+        "frames_with_change": 54,
+        "sample_step_pixels": 8
+      }
+    },
+    {
+      "id": 3,
+      "message_counts": [
+        {
+          "source": 1,
+          "message": 512,
+          "count": 2
+        },
+        {
+          "source": 1,
+          "message": 513,
+          "count": 1
+        },
+        {
+          "source": 1,
+          "message": 514,
+          "count": 1
+        },
+        {
+          "source": 2,
+          "message": 33,
+          "count": 2
+        },
+        {
+          "source": 2,
+          "message": 132,
+          "count": 30
+        },
+        {
+          "source": 2,
+          "message": 533,
+          "count": 1
+        },
+        {
+          "source": 3,
+          "message": 33,
+          "count": 2
+        },
+        {
+          "source": 3,
+          "message": 132,
+          "count": 30
+        },
+        {
+          "source": 3,
+          "message": 533,
+          "count": 1
+        },
+        {
+          "source": 4,
+          "message": 34113,
+          "count": 32
+        },
+        {
+          "source": 5,
+          "message": 512,
+          "count": 2
+        },
+        {
+          "source": 5,
+          "message": 513,
+          "count": 1
+        },
+        {
+          "source": 5,
+          "message": 514,
+          "count": 1
+        },
+        {
+          "source": 6,
+          "message": 512,
+          "count": 2
+        },
+        {
+          "source": 6,
+          "message": 513,
+          "count": 1
+        },
+        {
+          "source": 6,
+          "message": 514,
+          "count": 1
+        }
+      ],
+      "max_heartbeat_ms": 137.0134,
+      "mouse_chain_consumed": 0,
+      "gesture_begin": 0,
+      "gesture_end": 0,
+      "host_parameter_values": [],
+      "regions": [
+        {
+          "index": 0,
+          "distinct_hashes": 61,
+          "first_hash": "c38105926f75bd457f660cd2a60a2c0eb6c905fa8c791a22ed97c5f301ed9c57",
+          "last_hash": "4d0ce13860bb29b4c9838a1ba442cc070865495897ba36717cec92ff099b7127"
+        },
+        {
+          "index": 1,
+          "distinct_hashes": 3,
+          "first_hash": "d1b67990f911a746241313014f0a3a29f214ef7804a94223dc21f6dfe4cfe1bf",
+          "last_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e"
+        },
+        {
+          "index": 2,
+          "distinct_hashes": 60,
+          "first_hash": "44949a807e30375bb90ea754e13c22ebbac5693ab0ed5ab71d8c7b01295441ba",
+          "last_hash": "10dde938e51ca0df17e2dd068892341ef3d8b660f816b0d2dfebdb046c48a968"
+        }
+      ],
+      "frame_sample_change": {
+        "maximum_percent": 88.9217032967033,
+        "frames_with_change": 62,
+        "sample_step_pixels": 8
+      }
+    },
+    {
+      "id": 4,
+      "message_counts": [
+        {
+          "source": 4,
+          "message": 34113,
+          "count": 5
+        }
+      ],
+      "max_heartbeat_ms": 23.8753,
+      "mouse_chain_consumed": 0,
+      "gesture_begin": 0,
+      "gesture_end": 0,
+      "host_parameter_values": [],
+      "regions": [
+        {
+          "index": 0,
+          "distinct_hashes": 10,
+          "first_hash": "3a429ccd229f9f4722d191529ef40905a7738bb2a3da55f33b929f3ed36115a7",
+          "last_hash": "99ea9210a59047fef6f93cf174c42b46390061b9bc6029d76c2f3023cd5e04a6"
+        },
+        {
+          "index": 1,
+          "distinct_hashes": 1,
+          "first_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e",
+          "last_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e"
+        },
+        {
+          "index": 2,
+          "distinct_hashes": 10,
+          "first_hash": "e476222ad0b674197fb2dd05a6d0f842c8eb904c0a8226ea296faa8f35ed483d",
+          "last_hash": "def2bf56a15c0aa1b5f411cb861fb3009cfe7be4dca1a27d564d5c4eb211f510"
+        }
+      ],
+      "frame_sample_change": {
+        "maximum_percent": 51.23626373626374,
+        "frames_with_change": 10,
+        "sample_step_pixels": 8
+      }
+    }
+  ],
+  "helper_cleanup": {
+    "exit": 0,
+    "kept": 529,
+    "overflow": 0,
+    "stderr_bytes": 529,
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    }
+  },
+  "scope": "One drag and page click after an idle bracket; no host parameter update, audio or renderer campaign"
+}
