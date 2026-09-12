@@ -8,6 +8,7 @@
 #include "delivery_trace.h"
 #include "fault_status.h"
 #include "result_status.h"
+#include "process_retirement.h"
 #include "delivery_mailbox.h"
 #include "process_context.h"
 #include "controller_updates.h"
@@ -80,7 +81,7 @@ struct Socket {
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
 }
 struct MappedSession::Impl {
- EventWriter& events;DeliveryTrace diagnostic;InputObservation input_observation;std::array<uint64_t,15> completion_trace{};std::unique_ptr<FaultStatus> fault;std::unique_ptr<ResultStatus> result_status;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
+ EventWriter& events;DeliveryTrace diagnostic;InputObservation input_observation;std::array<uint64_t,15> completion_trace{};std::unique_ptr<FaultStatus> fault;std::unique_ptr<ResultStatus> result_status;std::unique_ptr<RetirementStatus> retirement;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
  BusLayout buses;
  std::unique_ptr<GuiChannel> gui;std::unique_ptr<EditorSession> editor;std::wstring editor_title;
  std::atomic<bool> can_notify{false},audio_active{false};
@@ -223,6 +224,7 @@ MappedSession::MappedSession(const std::wstring& directory,const std::string& se
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   x.result_status=std::make_unique<ResultStatus>(directory,x.state.session);
+  if(RetirementStatus::selected())x.retirement=std::make_unique<RetirementStatus>(directory,x.state.session);
   x.fault=std::make_unique<FaultStatus>(directory,x.state.session);x.fault->stage(2,20);
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
   LARGE_INTEGER size{};require(GetFileSizeEx(config.value,&size)&&size.QuadPart==52,"control configuration length");std::array<uint8_t,52>b{};DWORD read=0;require(ReadFile(config.value,b.data(),DWORD(b.size()),&read,nullptr)&&read==b.size(),"control configuration read");
@@ -285,6 +287,20 @@ Steinberg::tresult MappedSession::request_restart(int32_t flags){auto&x=*impl_;
  if((flags&10)&&!x.can_notify.load())return Steinberg::kNotImplemented;
  if((flags&20)&&(!x.editor||x.editor->restart(flags&20)!=Steinberg::kResultOk))return Steinberg::kNotImplemented;
  x.requested_restart.fetch_or(uint32_t(flags&10));return Steinberg::kResultOk;
+}
+void MappedSession::retire_vendor_process(bool quiescent){auto& x=*impl_;
+ if(!x.retirement)return;
+ try{
+  require(std::this_thread::get_id()==x.owner,"process retirement owner thread");
+  bool no_pending=false;
+  {std::lock_guard lock(x.mutex);
+   no_pending=x.closed&&!x.active&&!x.audio_active.load()&&!x.timeline.running&&!x.state.outstanding&&!x.state.failed&&!x.has_pending
+     &&(!x.waiting||x.serviced)&&!x.capture_active.load()&&!x.state_error&&!x.capture_failed.load();}
+  complete_process_retirement(quiescent,no_pending,x.editor.get(),*x.retirement,x.timeline.epoch,x.state.next,x.timeline.position,
+    x.fault?x.fault->rows[1].generation:0,[&]{finish(true);});
+  Sleep(5000); // bounded final-owner wait, never the processing callback
+ }catch(...){ExitProcess(92);}
+ ExitProcess(92); // supervisor absent: fail closed, never run vendor destructors
 }
 void MappedSession::service_owner(){auto& x=*impl_;
  x.update_controller();if(x.editor)x.editor->service();

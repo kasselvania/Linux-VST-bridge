@@ -309,7 +309,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             ",\"input_bits\":["+bits(block.input[0])+","+bits(block.input[1])+"]"+
             ",\"output_bits\":["+bits(block.output[0])+","+bits(block.output[1])+"]");
     }
-    return {ok && joined && !worker_exception, true};
+    return {ok && joined && !worker_exception, true, ok && stopped && joined && !worker_exception && !active};
     }
 }
 }

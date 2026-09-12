@@ -52,7 +52,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
     IConnectionPoint *cp=nullptr,*cc=nullptr;
     bool initialized=false,controller_initialized=false,connected_pc=false,connected_cp=false,handler_set=false;
-    int primary=0;
+    int primary=0;bool retirement_ready=false;
     auto step=[&](const char* name){events.lifecycle("ap8_call",",\"operation\":"+quoted(name));};
     auto ok=[&](tresult result,const char* name){
         events.lifecycle("ap8_result",",\"operation\":"+quoted(name)+",\"result\":"+std::to_string(result));
@@ -189,10 +189,14 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             HostCallbackSink calls(&events,GetCurrentThreadId());
             auto result=run_offline_processing(*component,*audio,calls,events,external);
             if(!result.quiescent)ExitProcess(92); // outer owner contains; no release of live processing objects
+            // Policy-selected process retirement never unwinds vendor objects,
+            // including on an incomplete processing result.
+            retirement_ready=result.success && result.retirement_ready;
             if(!result.success)throw std::runtime_error("commercial processing failed");
         }
         }
     } catch(const std::exception& e){primary=90;events.lifecycle("ap8_failure",",\"reason\":"+quoted(e.what()));}
+    if(external)external->retire_vendor_process(retirement_ready);
     // A crashing/hung vendor call is contained by the existing outer process owner.
     // Ordinary failures retain the first operation and still unwind every lease.
     auto cleanup=[&](const char* name,auto call){step(name);try{ok(call(),name);}catch(...){if(!primary)primary=91;}};

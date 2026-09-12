@@ -837,3 +837,56 @@ os._exit(86)
             self.assertEqual(result['fault_status']['before_containment']['result_status']['rejection']['reason'],'ValueAboveOne')
             self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
             self.assertFalse(directory.exists())
+
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux retirement authority and process containment')
+class ProcessRetirementTests(unittest.TestCase):
+    def test_status_is_session_bound_complete_first_write_and_not_a_crash_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='28'*16
+            session.RetirementStatus.create(root,sid)
+            with self.assertRaisesRegex(RuntimeError,'identity/version'):session.RetirementStatus(root,'29'*16)
+            reader=session.RetirementStatus(root,sid)
+            try:
+                self.assertIsNone(reader.snapshot())
+                with (root/'ap18.retirement').open('r+b') as f:
+                    f.seek(192);f.write(session.struct.pack('<8Q',127,1,20,256,1,0,0,0))
+                self.assertIsNone(reader.snapshot())
+                with (root/'ap18.retirement').open('r+b') as f:f.seek(64);f.write(session.struct.pack('<Q',1))
+                first=reader.snapshot();self.assertEqual(first['session'],sid)
+                self.assertEqual(first['state'],'process_scoped_retirement_ready')
+                with (root/'ap18.retirement').open('r+b') as f:f.seek(128);f.write(b'\xff'*64)
+                self.assertEqual(reader.snapshot(),first)
+                with (root/'ap18.retirement').open('r+b') as f:f.seek(192);f.write(session.struct.pack('<Q',126))
+                with self.assertRaisesRegex(RuntimeError,'incomplete'):reader.snapshot()
+            finally:reader.close()
+
+    def test_supervisor_contains_ready_cohort_once_not_unrelated_sibling(self):
+        for mode in ('ready','missing','incomplete'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
+                root=pathlib.Path(tmp);sid='28'*16
+                directory=root/'compatdata/pfx/drive_c/bridge/sessions'/sid;directory.mkdir(parents=True,mode=0o700)
+                artifact=root/'host';artifact.write_bytes(b'fixture')
+                binding={'path':str(artifact),'sha256':hashlib.sha256(b'fixture').hexdigest()}
+                spec={'registration':{'host':binding,'module':binding,'environment':{'root':str(root),'runner':{'files':[]}}},'session':sid,'directory':str(directory),'report':str(root/'report.json'),'inspect':False}
+                program=r'''
+import os,sys,mmap,ctypes,time
+f=open(sys.argv[1],'r+b');m=mmap.mmap(f.fileno(),256);a=ctypes.addressof(ctypes.c_char.from_buffer(m))
+l=ctypes.CDLL('libatomic.so.1');s=getattr(l,'__atomic_store_8');s.argtypes=[ctypes.c_void_p,ctypes.c_uint64,ctypes.c_int]
+if sys.argv[2]=='missing':os._exit(86)
+for i,v in enumerate([127 if sys.argv[2]=='ready' else 126,1,20,256,1,0,0,0]):s(a+192+i*8,v,5)
+s(a+64,1,5)
+time.sleep(30)
+'''
+                sibling=subprocess.Popen(['/bin/sleep','30'],start_new_session=True)
+                cleanup=session.cleanup_process;retire=session.retire_directories
+                try:
+                    env=dict(os.environ,LVB_VENDOR_RETIREMENT='process_scoped_vendor_retirement')
+                    with patch.object(session,'command',return_value=([sys.executable,'-c',program,str(directory/'ap18.retirement'),mode],b'')),patch.object(session,'environment',return_value=env),patch.object(session,'cleanup_process',wraps=cleanup) as cleaned,patch.object(session,'retire_directories',wraps=retire) as retired:
+                        outcome=session.run(spec)
+                    self.assertEqual(cleaned.call_count,1);self.assertEqual(retired.call_count,1)
+                    self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+                    self.assertFalse(directory.exists());self.assertIsNone(sibling.poll())
+                    if mode=='ready':
+                        self.assertIsNone(outcome['error']);self.assertEqual(outcome['vendor_retirement']['milestones'],127);self.assertEqual(outcome['retirement_disposition'],'process_scoped_vendor_retirement')
+                    else:self.assertIsNotNone(outcome['error']);self.assertIsNone(outcome['vendor_retirement'])
+                finally:sibling.terminate();sibling.wait(timeout=3)

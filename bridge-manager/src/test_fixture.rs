@@ -127,6 +127,7 @@ pub(crate) fn prepared() -> (Fixture, Profile, Census, NativeArtifact) {
         },
         capabilities: Capabilities {
             editor_lifetime: None,
+            vendor_retirement: None,
             event_output: None,
             accessibility: Accessibility::DisabledForVendorProcess,
             editor: Editor::DetachedOwnerThreadWithNativePanel,

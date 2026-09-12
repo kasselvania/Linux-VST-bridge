@@ -54,6 +54,7 @@ closed_enum!(State {
     ConcurrentReadOnlyCaptureV12
 });
 closed_enum!(Precision { Float32Only });
+closed_enum!(VendorRetirement { ProcessScopedVendorRetirement });
 closed_enum!(EditorLifetime { RetainEditorViewUntilInstanceRetirement });
 closed_enum!(EventOutputPolicy { ReportedZeroEventChannelsUnspecified });
 closed_enum!(PerformancePolicy {
@@ -78,6 +79,8 @@ closed_enum!(Limitation {
 #[serde(deny_unknown_fields)]
 pub struct Capabilities {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vendor_retirement: Option<VendorRetirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub editor_lifetime: Option<EditorLifetime>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_output: Option<EventOutputPolicy>,
@@ -93,6 +96,7 @@ impl Capabilities {
             disable_windows_accessibility: self.accessibility == Accessibility::DisabledForVendorProcess,
             event_output: self.event_output.clone(),
             editor_lifetime: self.editor_lifetime.clone(),
+            vendor_retirement: self.vendor_retirement.clone(),
         }
     }
 }
@@ -158,6 +162,9 @@ impl Profile {
     }
     pub fn validate(&self) -> Result<()> {
         require(self.schema == 1, "profile_schema")?;
+        require(self.capabilities.vendor_retirement.is_none()
+            || self.capabilities.editor_lifetime == Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement),
+            "profile_retirement_requires_retained_view")?;
         require(
             text(&self.id, 96)
                 && self.id.as_bytes()[0].is_ascii_alphanumeric()
@@ -327,6 +334,10 @@ mod event_policy_tests {
         let mut corrected=original.clone();
         corrected.capabilities.event_output=Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified);
         corrected.capabilities.editor_lifetime=Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement);
+        corrected.capabilities.vendor_retirement=Some(VendorRetirement::ProcessScopedVendorRetirement);
+        assert_eq!(corrected.capabilities.compatibility().vendor_retirement,corrected.capabilities.vendor_retirement);
+        let mut wrong=corrected.clone();wrong.capabilities.editor_lifetime=None;
+        assert!(wrong.validate().is_err());
         assert_eq!(corrected.capabilities.compatibility().editor_lifetime,corrected.capabilities.editor_lifetime);
         assert_eq!(corrected.capabilities.compatibility().event_output,corrected.capabilities.event_output);
         assert!(Profile::parse(&serde_json::to_vec(&corrected).unwrap()).is_ok());

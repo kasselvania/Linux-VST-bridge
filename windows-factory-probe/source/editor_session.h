@@ -322,7 +322,11 @@ public:
   // Called by bind_controller(nullptr) only after the processing owner reports
   // quiescence (joined, setProcessing(false), setActive(false)).
   bool retire() { return close(AP11::ClosedByDaw, true); }
-  bool close(uint32_t reason = AP11::ClosedByDaw, bool final = false) {
+  bool retire_process_scoped() {
+    ap1::require(retain_view_, "process retirement requires retained editor");
+    return close(AP11::ClosedByDaw, true, true);
+  }
+  bool close(uint32_t reason = AP11::ClosedByDaw, bool final = false, bool process_scoped = false) {
     lifecycle_ = AP11::Closing;
     focus_pending_ = false;
     focus_result_ = AP11::FocusCancelled;
@@ -346,11 +350,11 @@ public:
     if (editor_handler_ && (!retain_view_ || final)) editor_handler_->retire();
     // Hidden editor callbacks are rejected by lifecycle; the installed handler
     // still suppresses synchronous host-originated parameter echoes.
-    if (retain_view_ && !(final ? view_.close(true) : view_.hide())) {
+    if (retain_view_ && !(final ? (process_scoped ? view_.detach_for_process_retirement() : view_.close(true)) : view_.hide())) {
       lifecycle_ = AP11::EditorFailed;
       return false;
     }
-    if (editor_handler_ && (!retain_view_ || final)) {
+    if (editor_handler_ && (!retain_view_ || final) && !process_scoped) {
       if (controller_.setComponentHandler(instance_handler_) != Steinberg::kResultOk) {
         lifecycle_ = AP11::EditorFailed; return false;
       }

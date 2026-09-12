@@ -31,6 +31,7 @@ public:
     virtual bool stateful() const { return false; }
     virtual void bind_component(Steinberg::Vst::IComponent*) {}
     virtual void service_owner() {}
+    virtual void retire_vendor_process(bool) {}
     virtual bool initial_transition() {return true;}
     virtual uint32_t process_mode() const {return 0;}
     virtual bool activation_again() {return false;}
@@ -48,7 +49,7 @@ public:
     virtual bool next(ExternalBlock&, float* left, float* right) = 0;
     virtual void done(const float* left, const float* right, uint64_t silence, uint64_t process_ns = 0, const ap10_results_t* results = nullptr) = 0;
 };
-struct OfflineResult { bool success; bool quiescent; };
+struct OfflineResult { bool success; bool quiescent; bool retirement_ready = false; };
 OfflineResult run_offline_processing(Steinberg::Vst::IComponent& component,
     Steinberg::Vst::IAudioProcessor& processor, HostCallbackSink& callbacks, EventWriter& events, ExternalProcessing* external = nullptr);
 }

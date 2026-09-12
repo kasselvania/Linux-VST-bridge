@@ -47,6 +47,10 @@ def environment(reg):
     if lifetime is not None:
         if lifetime!='retain_editor_view_until_instance_retirement':raise RuntimeError('unsupported editor lifetime')
         env['LVB_EDITOR_LIFETIME']=lifetime
+    retirement=reg['compatibility'].get('vendor_retirement')
+    if retirement is not None:
+        if retirement!='process_scoped_vendor_retirement' or lifetime!='retain_editor_view_until_instance_retirement':raise RuntimeError('unsupported vendor retirement')
+        env['LVB_VENDOR_RETIREMENT']=retirement
     return env
 
 def command(spec):
@@ -230,6 +234,45 @@ class ResultStatus:
     def close(self):
         if self.map is not None:self.map.close();self.map=None
 
+class RetirementStatus:
+    """LVRT v1: required, session-bound final process retirement authority.
+
+    Header is immutable; eight atomic scalar words occupy an inactive slot.
+    Commit one authorizes containment only after all seven milestones. A
+    partial write or an ordinary host exit is never positive retirement.
+    """
+    fields=('milestones','epoch','sequence','position','generation','reserved0','reserved1','reserved2')
+    @staticmethod
+    def header(sid):return b'LVRT'+struct.pack('<III',1,256,8)+bytes.fromhex(sid)
+    @classmethod
+    def create(cls,directory,sid):
+        fd=os.open(directory/'ap18.retirement',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'wb') as f:f.write(cls.header(sid)+bytes(224))
+    def __init__(self,directory,sid):
+        self.map=None;self.sid=sid
+        fd=os.open(directory/'ap18.retirement',os.O_RDWR|os.O_NOFOLLOW)
+        try:
+            st=os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=256 or st.st_mode&0o077:raise RuntimeError('retirement status ownership/extent')
+            self.map=mmap.mmap(fd,256,access=mmap.ACCESS_WRITE)
+        finally:os.close(fd)
+        if self.map[:32]!=self.header(sid):
+            self.close();raise RuntimeError('retirement status identity/version')
+        lib=ctypes.CDLL('libatomic.so.1');self.load=getattr(lib,'__atomic_load_8')
+        self.load.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load.restype=ctypes.c_uint64
+        self.address=ctypes.addressof(ctypes.c_char.from_buffer(self.map))
+    def word(self,at):return self.load(self.address+at,5)
+    def snapshot(self):
+        commit=self.word(64)
+        if not commit:return None
+        if commit!=1:raise RuntimeError('retirement status commit')
+        row=dict(zip(self.fields,(self.word(192+i*8) for i in range(8))))
+        if self.word(64)!=commit:raise RuntimeError('retirement status changed')
+        if row['milestones']!=127 or any(row[k] for k in ('reserved0','reserved1','reserved2')):raise RuntimeError('retirement status incomplete')
+        return dict(session=self.sid,schema=1,state='process_scoped_retirement_ready',**row)
+    def close(self):
+        if self.map is not None:self.map.close();self.map=None
+
 class FaultStatus:
     """Atomic, bounded read of AP12 status; independent of either Windows thread.
 
@@ -387,6 +430,10 @@ def run(spec,peer=None):
             time.sleep(.02)
     if not spec['inspect'] and not spec.get('vendor_access'):ResultStatus.create(directory,sid)
     visibility=FaultStatus(directory,sid) if not spec['inspect'] and not spec.get('vendor_access') else None
+    retirement=None;retirement_ready=None
+    if env.get('LVB_VENDOR_RETIREMENT'):
+        if spec['inspect'] or spec.get('vendor_access'):raise RuntimeError('process retirement requires DSP instance')
+        RetirementStatus.create(directory,sid);retirement=RetirementStatus(directory,sid)
     root=subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
     sel=selectors.DefaultSelector()
@@ -423,7 +470,15 @@ def run(spec,peer=None):
                     if env.get('LVB_AP10_TRACE')=='1':visibility.suspect['threads']=fault_threads(owned)
                     try:atomic(report.with_suffix('.fault.json'),{'session':sid,'early_pending':visibility.suspect})
                     except OSError:pass # final outcome also retains this bounded witness
+            if retirement:
+                ready=retirement.snapshot()
+                if ready is not None:
+                    # Outer exit before the supervisor accepted custody remains
+                    # abnormal; a committed row does not reclassify a crash.
+                    if root.poll() is not None:raise RuntimeError('Windows exited before process retirement containment')
+                    retirement_ready=ready;break
             if native_stopped():
+                if retirement:failure='Windows retirement status absent'
                 if spec.get('vendor_access'):
                     (directory/'vendor.stop').write_text(sid+'\n')
                     end=time.monotonic()+10
@@ -457,6 +512,9 @@ def run(spec,peer=None):
                 break
     except Exception as e:failure=f'{type(e).__name__}: {e}'
     finally:
+        if retirement:
+            retirement.close()
+            if retirement_ready is None and failure is None:failure='Windows retirement status absent'
         fault=None;fault_reporting_error=None
         if visibility:
             try:
@@ -470,7 +528,7 @@ def run(spec,peer=None):
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        outcome={'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
@@ -497,6 +555,10 @@ def run(spec,peer=None):
             if outcome['transport_retired'] and peer is not None:
                 try:peer.settimeout(5);peer.sendall(b'R')
                 except OSError:pass
+        try:atomic(report,outcome)
+        except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
+    if retirement_ready is not None and clean and outcome.get('transport_retired') and not failure:
+        outcome['retirement_disposition']='process_scoped_vendor_retirement'
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     # Minimal ownership receipt is independent of the rich report, with a

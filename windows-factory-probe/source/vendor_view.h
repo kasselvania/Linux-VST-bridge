@@ -462,7 +462,10 @@ public:
       return false;
     }
   }
-  bool close(bool frame_first = false) {
+  // Final process-scoped retirement retains the vendor reference until the
+  // supervisor reclaims the process. It must never unwind through close().
+  bool detach_for_process_retirement() { return close(true, true); }
+  bool close(bool frame_first = false, bool process_scoped = false) {
     stage(200);
     if (owner_ != std::this_thread::get_id()) {
       error_ = AP11::WrongThread;
@@ -472,6 +475,9 @@ public:
       stage(211);
       error_ = AP11::Removal;
       return false;
+    }
+    if (process_scoped && (window_lost_ || (window_ && !IsWindow(window_)))) {
+      error_ = AP11::WindowLost; return false;
     }
     closing_ = true;
     close_requested_ = false;
@@ -493,7 +499,7 @@ public:
         attached_ = false;
         ++closes;
       }
-      if (view_) {
+      if (view_ && !process_scoped) {
         stage(214);
         if (!frame_first && view_->setFrame(nullptr) != Steinberg::kResultOk) {
           error_ = AP11::Removal;
@@ -511,12 +517,15 @@ public:
           // WM_NCDESTROY is authoritative if a hook caused destruction but
           // returned failure; otherwise retain exact ownership for retry.
           if (window_) { error_ = AP11::Removal; closing_ = false; return false; }
+        } else if (process_scoped && IsWindow(w)) {
+          error_ = AP11::Removal; closing_ = false; return false;
         } else if (window_ == w) {
           // Successful Win32 destruction is positive even on an implementation
           // which delivered no callback. The HWND is no longer externally live.
           window_ = nullptr;
         }
       }
+      if (process_scoped && window_) { error_ = AP11::Removal; closing_ = false; return false; }
       if (error_ == AP11::Removal) error_ = 0;
       closing_ = false;
       hidden_ = false;

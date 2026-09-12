@@ -419,3 +419,21 @@ and protected original projects are unchanged. Service/keeper active, zero DSP
 leases, no pending/stale sessions, Bitwig/debugger absent, tracing off, effective
 CPUWeight 100. 512 recommended and 256 unqualified. See
 `evidence/ap18/pigments/retained-editor-live.json`. PR #95 remains draft/unmerged.
+
+## AP18 process-scoped final retirement (review 5184501713)
+
+Revision 7's ordinary hide/reopen and continued audio are accepted. Its final
+view release failed after successful processing stop/join, deactivation, frame
+detachment and removal. Do not repeat that release probe.
+
+The next exact Pigments candidate uses a closed `process_scoped_vendor_retirement`
+policy. The Windows owner detaches the retained view and destroys its parent
+only after successful processing quiescence and no pending state. It then
+acknowledges the existing endpoint and commits the session-bound LVRT v1 record.
+It does not release vendor objects or unwind their destructors. The existing
+Linux supervisor contains the exact cohort and reports process-scoped retirement
+only after positive physical cleanup; this is not clean SDK destruction.
+
+Revisions 1–7 remain immutable. Revision 8 artifact binding and the one live
+load/audio/hide/reopen/retirement check are pending. Pigments remains inactive;
+LoFi and FRAGMENTS ordinary revision 10 are unchanged. PR #95 remains draft.
