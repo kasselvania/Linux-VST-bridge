@@ -7,6 +7,7 @@ mod gui;
 mod instances;
 mod mailbox;
 mod observer;
+mod input_observation;
 mod performance;
 mod preview;
 mod process_results;
@@ -217,7 +218,9 @@ impl Session {
             {
                 Ok(reply)
             }
-            Ok(_) => {
+            Ok(_reply) => {
+                #[cfg(test)]
+                eprintln!("LC1 response expected_kind={} actual_kind={} expected_sequence={} actual_sequence={} expected_epoch={:?} actual_epoch={:?} session_match={} native_next={} phase={}",kind+1,_reply.kind,f.sequence,_reply.sequence,matches!(kind,10|12).then(||f.payload.get(..8).map(ap1_native_client::get)).flatten(),matches!(_reply.kind,11|13).then(||_reply.payload.get(..8).map(ap1_native_client::get)).flatten(),_reply.session==f.session,self.state.next,self.phase);
                 self.phase = ERROR;
                 self.state.failed();
                 Err(invalid("wrong lifecycle response"))

@@ -1,12 +1,14 @@
 #include <string_view>
 #include <windows.h>
 #include "offline_processing.h"
+#include "result_status.h"
 #include "../../native-vst3-proxy/include/ap10_sdk_results.h"
 #include "component_instance_session.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include "pluginterfaces/vst/vstspeaker.h"
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <bit>
@@ -28,7 +30,8 @@ struct Block {
     std::array<float*, 2> in{}, out{};
     AudioBusBuffers input_bus{}, output_bus{};
     std::array<AudioBusBuffers,8> all_inputs{};
-    std::array<std::array<float*,2>,8> inactive_channels{};
+    std::array<float,capacity+2> silent_input{};
+    std::array<float*,2> silent_channels{silent_input.data()+1,silent_input.data()+1};
     ParameterChanges parameters{2};
     Changes commercial_parameters;Notes notes;ExternalBlock request{};
     AP10Results::Collector returned;
@@ -64,9 +67,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     // All buffers and SDK parameter queues are allocated/populated on the owner
     // thread before activation. Each process call receives a separate block.
     for (int b=0;b<3;++b) {
-        auto& block=blocks[b]; block.gain=b==0?0.5:0.25;
+        auto& block=blocks[b];block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard); block.gain=b==0?0.5:0.25;
         block.returned.buses=uint32_t(layout.counts[3]);
-        size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput)block.returned.channels[event_out++]=layout.buses[i].info.channelCount;
+        size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput){block.returned.channels[event_out]=layout.buses[i].effective_channels;block.returned.bus_active[event_out++]=layout.buses[i].active?1:0;}
         for (int ch=0;ch<2;++ch) {
             block.input[ch].front()=block.input[ch][frames+1]=std::bit_cast<float>(guard);
             block.output[ch].fill(std::bit_cast<float>(sentinel));
@@ -89,7 +92,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         block.output_bus.silenceFlags=0;
         block.data.processMode=sustained?kRealtime:kOffline;block.data.symbolicSampleSize=kSample32;
         block.data.numSamples=frames;block.data.numInputs=inputs;block.data.numOutputs=1;
-        for(int i=0;i<inputs;++i){block.all_inputs[i].numChannels=2;block.all_inputs[i].channelBuffers32=i==0?block.in.data():block.inactive_channels[i].data();block.all_inputs[i].silenceFlags=i==0?block.input_bus.silenceFlags:3;}
+        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),block.input_bus.silenceFlags);
         block.data.inputs=inputs?block.all_inputs.data():nullptr;block.data.outputs=&block.output_bus;
         block.data.inputParameterChanges=&block.parameters;
     }
@@ -132,7 +135,15 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     uint64_t processed=0,intervals=0;
     bool restart=false;
     std::exception_ptr primary_error;
-    do {
+    AP10Results::RejectionRecord first_rejection{};
+    uint64_t rejected_generation=0,rejected_epoch=0,rejected_sequence=0,rejected_position=0,rejected_callback=0;
+    uint32_t rejected_input_notes=0,rejected_input_parameters=0;
+    // An activated component need not enter processing. A DAW may deactivate
+    // it again while negotiating routing. Select the exact pending command on
+    // the owner before creating a worker; only Start belongs to that worker.
+    const bool processing_requested=!sustained||external->next_transition()==10;
+    if(!processing_requested)external->lifecycle_request(14);
+    if(processing_requested) do {
     joined=false;restart=false;
     try {
         std::atomic<bool> worker_done{false};
@@ -151,6 +162,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                 if (started) for(uint64_t b=0;sustained||b<uint64_t(external?65:3);++b) {
                     auto& block=blocks[external?0:b];
                     if (external) {
+                        block.silent_input.fill(0.f);
+                        block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard);
                         for(int ch=0;ch<2;++ch) {
                             block.input[ch].fill(0.f);block.output[ch].fill(std::bit_cast<float>(sentinel));
                             block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
@@ -161,7 +174,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
                         block.input_before=block.input;
                         block.gain=request.gain;block.data.numSamples=request.frames;
-                        block.input_bus.silenceFlags=request.silence;block.all_inputs[0].silenceFlags=request.silence;block.output_bus.silenceFlags=0;
+                        block.input_bus.silenceFlags=request.silence;
+                        layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),request.silence);block.output_bus.silenceFlags=0;
                         block.parameters.clearQueue();int32 parameter=0,point=0;
                         if(request.gain_present)block.parameters.addParameterData(0,parameter)->addPoint(0,request.gain,point);
                         if(!stateful)block.parameters.addParameterData(2,parameter)->addPoint(0,0.,point);
@@ -181,12 +195,23 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     if(external)external->before_process();
                     const auto process_start=std::chrono::steady_clock::now();
                     block.result=processor.process(block.data);
+                    // Custody immediately after the vendor call, before any throw/teardown.
+                    if(block.returned.failed&&first_rejection.reason==AP10Results::Rejection::None){
+                        first_rejection=block.returned.rejection;rejected_callback=processed+1;
+                        rejected_generation=block.request.generation;rejected_epoch=block.request.epoch;
+                        rejected_sequence=block.request.sequence;rejected_position=block.request.position;
+                        for(size_t i=0;i<block.request.event_count;++i){if(block.request.events[i].kind==2)++rejected_input_parameters;else ++rejected_input_notes;}
+                        if(external&&external->result_status())external->result_status()->publish(first_rejection,rejected_generation,rejected_epoch,rejected_sequence,rejected_position,rejected_callback,rejected_input_notes,rejected_input_parameters);
+                    }
                     const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     if(external)external->after_process();
                     if(!sustained)events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
                         ",\"result\":"+std::to_string(block.result));
                     if(block.result!=kResultOk) {ok=false;if(sustained)throw std::runtime_error("Windows processor returned failure");break;}
                     if(block.returned.failed)throw std::runtime_error("malformed or oversized process results");
+                    if(std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
+                       std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;}))
+                        throw std::runtime_error("AP18 inactive input modified");
                     ++processed;
                     if(external) {
                         for(int ch=0;ch<2;++ch) {
@@ -217,6 +242,41 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
         ",\"processing_stopped\":"+(stopped?"true":"false")+
         ",\"worker_exception\":"+(worker_exception?"true":"false"));
+    if(first_rejection.reason!=AP10Results::Rejection::None){
+        // This branch is on the owner after worker.join(): no process-call I/O.
+        const auto& r=first_rejection;
+        static constexpr const char* names[]={"None","EventCapacity","NegativeBus","UndeclaredBus","BusStorage","NegativeEventOffset","EventExtent","NonFinitePPQ","UnsupportedEvent","InvalidEventField","EventChannel","EventPayload","PayloadCapacity","NullPayload","PayloadAlignment","QueueCapacity","PointCapacity","NegativePointOffset","PointExtent","NonFiniteValue","ValueBelowZero","ValueAboveOne"};
+        std::string detail=",\"schema\":1,\"reason\":\""+std::string(names[static_cast<uint32_t>(r.reason)])+"\"";
+        detail+=",\"frames\":"+std::to_string(r.frames);
+        detail+=",\"events\":"+std::to_string(r.events);
+        detail+=",\"points\":"+std::to_string(r.points);
+        detail+=",\"queues\":"+std::to_string(r.queues);
+        detail+=",\"bytes\":"+std::to_string(r.bytes);
+        detail+=",\"event_type\":"+std::to_string(r.event_type);
+        detail+=",\"bus\":"+std::to_string(r.bus);
+        detail+=",\"offset\":"+std::to_string(r.offset);
+        detail+=",\"channel\":"+std::to_string(r.channel);
+        detail+=",\"declared_channels\":"+std::to_string(r.declared_channels);
+        detail+=",\"event_bus_active\":"+std::to_string(r.event_bus_active);
+        detail+=",\"flags\":"+std::to_string(r.flags);
+        detail+=",\"declared_buses\":"+std::to_string(r.declared_buses);
+        detail+=",\"payload_type\":"+std::to_string(r.payload_type);
+        detail+=",\"payload_size\":"+std::to_string(r.payload_size);
+        detail+=",\"parameter_id\":"+std::to_string(r.parameter_id);
+        detail+=",\"ppq_bits\":"+std::to_string(r.ppq_bits);
+        detail+=",\"value_bits\":"+std::to_string(r.value_bits);
+        detail+=",\"field_a\":"+std::to_string(r.field_a);
+        detail+=",\"field_b\":"+std::to_string(r.field_b);
+        detail+=",\"extra_bits\":"+std::to_string(r.extra_bits);
+        detail+=",\"generation\":"+std::to_string(rejected_generation);
+        detail+=",\"epoch\":"+std::to_string(rejected_epoch);
+        detail+=",\"request_sequence\":"+std::to_string(rejected_sequence);
+        detail+=",\"position\":"+std::to_string(rejected_position);
+        detail+=",\"callback\":"+std::to_string(rejected_callback);
+        detail+=",\"input_notes\":"+std::to_string(rejected_input_notes);
+        detail+=",\"input_parameters\":"+std::to_string(rejected_input_parameters);
+        events.lifecycle("ap18_result_rejection",detail);
+    }
     if (!stopped) return {false,false};
     if(hosted&&ok) {
         external->lifecycle_ack(13);
@@ -254,7 +314,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             ",\"input_bits\":["+bits(block.input[0])+","+bits(block.input[1])+"]"+
             ",\"output_bits\":["+bits(block.output[0])+","+bits(block.output[1])+"]");
     }
-    return {ok && joined && !worker_exception, true};
+    return {ok && (!processing_requested || joined) && !worker_exception, true, ok && stopped && joined && !worker_exception && !active};
     }
 }
 }

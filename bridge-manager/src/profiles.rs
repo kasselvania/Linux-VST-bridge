@@ -43,6 +43,7 @@ closed_enum!(Family {
     ArturiaPersistentV1
 });
 closed_enum!(Accessibility {
+    WindowsDefault,
     DisabledForVendorProcess
 });
 closed_enum!(Editor {
@@ -53,6 +54,9 @@ closed_enum!(State {
     ConcurrentReadOnlyCaptureV12
 });
 closed_enum!(Precision { Float32Only });
+closed_enum!(VendorRetirement { ProcessScopedVendorRetirement });
+closed_enum!(EditorLifetime { RetainEditorViewUntilInstanceRetirement });
+closed_enum!(EventOutputPolicy { ReportedZeroEventChannelsUnspecified });
 closed_enum!(PerformancePolicy {
     Frames512Recommended256Unqualified
 });
@@ -64,12 +68,22 @@ closed_enum!(Limitation {
     FragmentsAdvancedRedraw,
     ExactOperatorArtifactOnly,
     CapacityUnderQualification,
-    DirectEditorUnderQualification
+    DirectEditorUnderQualification,
+    PigmentsUnderQualification,
+    AuxiliaryInputInactive,
+    SoleStereoAuxiliaryInputOnly,
+    ReturnedResultDiagnosis
 });
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Capabilities {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vendor_retirement: Option<VendorRetirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub editor_lifetime: Option<EditorLifetime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_output: Option<EventOutputPolicy>,
     pub accessibility: Accessibility,
     pub editor: Editor,
     pub state: State,
@@ -78,10 +92,11 @@ pub struct Capabilities {
 }
 impl Capabilities {
     pub fn compatibility(&self) -> Compatibility {
-        match self.accessibility {
-            Accessibility::DisabledForVendorProcess => Compatibility {
-                disable_windows_accessibility: true,
-            },
+        Compatibility {
+            disable_windows_accessibility: self.accessibility == Accessibility::DisabledForVendorProcess,
+            event_output: self.event_output.clone(),
+            editor_lifetime: self.editor_lifetime.clone(),
+            vendor_retirement: self.vendor_retirement.clone(),
         }
     }
 }
@@ -147,6 +162,9 @@ impl Profile {
     }
     pub fn validate(&self) -> Result<()> {
         require(self.schema == 1, "profile_schema")?;
+        require(self.capabilities.vendor_retirement.is_none()
+            || self.capabilities.editor_lifetime == Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement),
+            "profile_retirement_requires_retained_view")?;
         require(
             text(&self.id, 96)
                 && self.id.as_bytes()[0].is_ascii_alphanumeric()
@@ -257,6 +275,18 @@ pub fn validate_set(profiles: &[Profile]) -> Result<()> {
 }
 
 pub fn installed_profiles() -> Result<Vec<Profile>> {
+    let mut result = ap17_profiles()?;
+    result.push(pigments_verified()?);
+    validate_set(&result)?;
+    Ok(result)
+}
+
+pub fn pigments_verified() -> Result<Profile> {
+    Profile::parse(include_bytes!("../../compatibility/arturia-pigments.json"))
+}
+
+/// The accepted AP17 two-product envelope and AP18 qualification baseline.
+pub fn ap17_profiles() -> Result<Vec<Profile>> {
     let result = [
         include_bytes!("../../compatibility/arturia-pure-lofi.json").as_slice(),
         include_bytes!("../../compatibility/arturia-efx-fragments.json").as_slice(),
@@ -302,4 +332,33 @@ pub fn external_ids(class_id: &str) -> Result<[String; 2]> {
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
         hex(&bytes)
     }))
+}
+
+#[cfg(test)]
+mod event_policy_tests {
+    use super::*;
+    #[test]
+    fn policy_is_closed_optional_and_preserves_old_fingerprints() {
+        let original=Profile::parse(include_bytes!("../../compatibility/ap18/revision-5/arturia-pigments.json")).unwrap();
+        let bytes=serde_json::to_vec(&original).unwrap();
+        assert!(!String::from_utf8(bytes).unwrap().contains("event_output"));
+        assert_eq!(original.fingerprint().unwrap(),"5775b0f11dc60fa3d14da31edc35354a1445013dac56456685fb2bebf0e261b4");
+        let mut corrected=original.clone();
+        corrected.capabilities.event_output=Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified);
+        corrected.capabilities.editor_lifetime=Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement);
+        corrected.capabilities.vendor_retirement=Some(VendorRetirement::ProcessScopedVendorRetirement);
+        assert_eq!(corrected.capabilities.compatibility().vendor_retirement,corrected.capabilities.vendor_retirement);
+        let mut wrong=corrected.clone();wrong.capabilities.editor_lifetime=None;
+        assert!(wrong.validate().is_err());
+        assert_eq!(corrected.capabilities.compatibility().editor_lifetime,corrected.capabilities.editor_lifetime);
+        assert_eq!(corrected.capabilities.compatibility().event_output,corrected.capabilities.event_output);
+        assert!(Profile::parse(&serde_json::to_vec(&corrected).unwrap()).is_ok());
+        assert!(corrected.claim.require(SelectionPurpose::Activation).is_err());
+        let mut retirement=serde_json::to_value(&corrected).unwrap();retirement["capabilities"]["vendor_retirement"]=serde_json::json!("all_processes");
+        assert!(Profile::parse(&serde_json::to_vec(&retirement).unwrap()).is_err());
+        let mut bad=serde_json::to_value(&corrected).unwrap();bad["capabilities"]["editor_lifetime"]=serde_json::json!("retain_everything");
+        assert!(Profile::parse(&serde_json::to_vec(&bad).unwrap()).is_err());
+        let mut value=serde_json::to_value(corrected).unwrap();value["capabilities"]["event_output"]=serde_json::json!("all_zero_buses");
+        assert!(Profile::parse(&serde_json::to_vec(&value).unwrap()).is_err());
+    }
 }

@@ -1,0 +1,107 @@
+{
+  "schema": "ap18-lc1-validation-v1",
+  "candidate_source": "1aa6933a7444abf8aa36b7f82fe29da656c81e53",
+  "production_source": "c7a58b63a65a7fdc7564cf6c29be272960d9871a",
+  "local_and_generated": [
+    {
+      "command": "RUST_TEST_THREADS=4 cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "result": "63 passed, 1 external integration test ignored in default suite; paired test separately executed below"
+    },
+    {
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml --locked",
+      "result": "11 passed"
+    },
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "61 library + 11 binary passed, including final revision-10 binding"
+    },
+    {
+      "command": "cargo clippy --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "result": "macOS: 41 total, 24 Linux-specific skips; Linux: all 41 passed"
+    },
+    {
+      "command": "LVB_LC1_DIRECTORY=<EMPTY_TEST_DIR> LVB_LC1_LAUNCHER=<EXACT_FIXTURE_LAUNCHER> <LINUX_BACKEND_TEST_BINARY> queued::lc1_tests::same_session_reconfiguration_two_ended --exact --ignored --nocapture",
+      "result": "passed for requested sequence; passed with LVB_LC1_PRESTART_DEACTIVATE=1; passed expected refusal with LVB_LC1_BAD_DEACTIVATE_SEQUENCE=1; real pinned-runner Windows fixture, separate empty test prefix"
+    },
+    {
+      "command": "c++ -std=c++20 -Wall -Wextra -Werror -I windows-factory-probe/source tools/ap1-tests/codec.cpp -o <TEST_OUTPUT>/lc1-codec-tests; run lc1-codec-tests with tools/ap1-tests/golden.txt hex argument and compare exact stdout",
+      "result": "passed exact timeline and stale/wrong epoch rejection"
+    },
+    {
+      "command": "cmake -S <SOURCE> -B <SOURCE>/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DAP2_BUILD_ONLY=ON -DAP10_RESULTS_TESTS=ON -DAP11_PANEL_TESTS=ON -DVST3_SDK_ROOT=<PINNED_SDK> -DAP2_RUST_LIBRARY=<SOURCE>/libap2_backend.a -DAP8_DESCRIPTOR=<SOURCE>/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h",
+      "exit": 0,
+      "result": "passed; Linux Freedesktop SDK25.08, pinned VST3 SDK; seven CTest fixtures and callback audit; build-only product was not installed"
+    },
+    {
+      "command": "cmake --build <SOURCE>/build --target ap10-result-lifetime ap10-results-tests ap11-native-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit CommercialInstrumentBridge ap18-auxiliary-input -j 4",
+      "exit": 0,
+      "result": "passed; Linux Freedesktop SDK25.08, pinned VST3 SDK; seven CTest fixtures and callback audit; build-only product was not installed"
+    },
+    {
+      "command": "ctest --test-dir <SOURCE>/build/native-vst3-proxy --verbose",
+      "exit": 0,
+      "result": "passed; Linux Freedesktop SDK25.08, pinned VST3 SDK; seven CTest fixtures and callback audit; build-only product was not installed"
+    }
+  ],
+  "paired_test_evidence": [
+    "regression-before.json",
+    "regression-after.json"
+  ],
+  "initial_tool_failures": [
+    "Restricted macOS sandbox denied test sockets; authorized rerun passed. This was an execution restriction, not a product regression.",
+    "Paired harness setup failures and old-source pass/failure are retained in regression-before.json; only the activation-without-Start extension failed before the production repair.",
+    "Handoff command transcription omitted the codec include path and golden argument; corrected invocation above was rerun and passed. No production source changed."
+  ],
+  "hosted": [
+    {
+      "lane": "AP8 Windows host",
+      "run": 34672294696,
+      "head": "1aa6933a7444abf8aa36b7f82fe29da656c81e53",
+      "conclusion": "success"
+    },
+    {
+      "lane": "AP10 native result lifetime",
+      "run": 34672294686,
+      "head": "1aa6933a7444abf8aa36b7f82fe29da656c81e53",
+      "conclusion": "success"
+    },
+    {
+      "lane": "AP12 registered owner",
+      "run": 34672294687,
+      "head": "1aa6933a7444abf8aa36b7f82fe29da656c81e53",
+      "conclusion": "success"
+    },
+    {
+      "lane": "PX2 proof policy",
+      "run": 34672294729,
+      "head": "1aa6933a7444abf8aa36b7f82fe29da656c81e53",
+      "conclusion": "success"
+    }
+  ],
+  "artifact_build": {
+    "run": 34671854278,
+    "source": "c7a58b63a65a7fdc7564cf6c29be272960d9871a",
+    "reused_on_later_candidate_head": true,
+    "source_build_inputs_unchanged": true
+  },
+  "final_evidence_note": "The later handoff commit changes documentation/evidence only; no claim that it built the retained Windows bytes. No manual rerun of unrelated matrices for evidence-only edits.",
+  "live": [
+    "live-completion.json",
+    "installed-final.json"
+  ],
+  "not_claimed": [
+    "complete universal AP18 compatibility",
+    "new LoFi/FRAGMENTS build or publication",
+    "gap-free audio",
+    "clean Pigments SDK release/destruction",
+    "256-frame qualification"
+  ]
+}

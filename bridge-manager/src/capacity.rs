@@ -60,11 +60,23 @@ pub fn fixture_limits() -> Limits {
     }
 }
 
+/// Single additional AP18 class; the accepted AP17 two-class table is intact.
+/// Successful capacity reservation still requires exact retained publication
+/// and host admission before a processing instance can be exposed.
+pub fn service_limits() -> Result<Limits> {
+    let mut limits = fixture_limits();
+    limits.classes.push(ClassLimit { class_id: crate::profiles::pigments_verified()?.class.class_id, dsp: 1 });
+    Ok(limits)
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Status {
     pub schema: u32,
     pub limits: Limits,
+    pub engineering_classes: Vec<ClassLimit>,
+    #[serde(default)]
+    pub verified_additional_classes: Vec<ClassLimit>,
     pub current_workers: usize,
     pub dsp: usize,
     pub available_dsp: usize,
@@ -99,7 +111,12 @@ pub struct Envelope {
 pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Result<Status> {
     limits.verify()?;
     let _lock = m.lock("registry.lock")?;
-    let verified = verified_envelope(m, &limits)?;
+    let extended = limits == service_limits()?;
+    let ordinary_limits = fixture_limits();
+    let verified = verified_envelope(m, if extended { &ordinary_limits } else { &limits })?;
+    let additional_verified = extended && verified_additional(m)?;
+    let engineering_classes = if extended && !additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
+    let verified_additional_classes = if additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     let owners = owners(m)?;
     let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();
     let maintenance = owners
@@ -134,6 +151,8 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
             )
         },
         limits,
+        engineering_classes,
+        verified_additional_classes,
         current_workers: workers,
         dsp,
         per_class,
@@ -158,7 +177,21 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
 /// Caller holds registry.lock. Read physical revision authority, never infer it
 /// from the manager version or from a retained candidate's mere presence.
 fn verified_envelope(m: &Manager, limits: &Limits) -> Result<bool> {
-    verified_envelope_for(m, limits, &crate::profiles::installed_profiles()?)
+    verified_envelope_for(m, limits, &crate::profiles::ap17_profiles()?)
+}
+fn verified_additional(m: &Manager) -> Result<bool> {
+    let p = crate::profiles::pigments_verified()?;
+    let db = m.registry()?;
+    let Some(e) = db.classes.get(&p.class.class_id) else { return Ok(false); };
+    let Some(reference) = &e.managed_revision else { return Ok(false); };
+    let r = m.load_revision(&p.class.class_id, reference)?;
+    if r.profile != p || r.qualification.is_some() || e.publication != Publication::Published
+        || r.registration != e.registration || m.publication_pending(&p.class.class_id)?
+        || crate::publication::physical(&m.link(&p.class.class_id))? != Some(r.target.clone()) {
+        return Ok(false);
+    }
+    m.verify_completed_publication(&r, reference)?;
+    Ok(true)
 }
 pub(crate) fn verified_envelope_for(
     m: &Manager,
@@ -200,7 +233,7 @@ impl Limits {
                 && self.service_workers <= 16
                 && self.maintenance == 1
                 && self.native_image_hard == 4
-                && (1..=2).contains(&self.classes.len()),
+                && ((1..=2).contains(&self.classes.len()) || *self == service_limits()?),
             "capacity_policy_invalid",
         )?;
         let mut ids = std::collections::BTreeSet::new();

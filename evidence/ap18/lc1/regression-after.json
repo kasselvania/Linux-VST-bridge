@@ -1,0 +1,634 @@
+{
+  "schema": "ap18-lc1-after-v1",
+  "production_source": "c7a58b63a65a7fdc7564cf6c29be272960d9871a",
+  "owner": "windows-factory-probe/source/offline_processing.cpp; selection through existing MappedSession::next_transition/pending frame",
+  "law": "Select Start or Deactivate after Activate before spawning processing worker; exact kind/session/sequence/epoch validation unchanged",
+  "windows_workflow": 34671854278,
+  "windows_fixture_sha256": "40641de40909eca0269e9d768e5588d89510f01eb3a161629a68d3bf8e6c2a0c",
+  "host_sha256": "5a781f7d77a2e7499d2d07b7e92b8d29976f72e71f8f0f96e8e3f1878051125e",
+  "host_source_manifest_sha256": "f37577944dce23724760d71278187b9c116947798220469a30ff62e12bf65233",
+  "build_commit": "9abe3466fed71d153a19c7df804bdb341817e9f8",
+  "common_tree": "ac450c126ae4db5d980c49d8a28857bd719d99e4",
+  "native_artifact": "unchanged accepted revision-6 native; only cfg(test) diagnostics and tests changed in Rust",
+  "runs": [
+    {
+      "shape": "requested_two_intervals",
+      "test_exit": 0,
+      "Windows_rows": [
+        {
+          "event": "lifecycle",
+          "sequence": 5,
+          "state": "lc1_receive",
+          "expected_kind": 8,
+          "actual_kind": 8,
+          "expected_sequence": 104684,
+          "actual_sequence": 104684,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 8,
+          "pending_sequence": 104684,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 8,
+          "state": "ap2_lifecycle_ack",
+          "kind": 9,
+          "next_sequence": 104684
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 10,
+          "state": "lc1_receive",
+          "expected_kind": 10,
+          "actual_kind": 10,
+          "expected_sequence": 104684,
+          "actual_sequence": 104684,
+          "expected_epoch": 1,
+          "actual_epoch": 1,
+          "session_match": true,
+          "pending_kind": 10,
+          "pending_sequence": 104684,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 13,
+          "state": "ap2_lifecycle_ack",
+          "kind": 11,
+          "next_sequence": 104684
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 17,
+          "state": "ap2_lifecycle_ack",
+          "kind": 13,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 18,
+          "state": "lc1_receive",
+          "expected_kind": 14,
+          "actual_kind": 14,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 14,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 19,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 3,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 22,
+          "state": "ap2_lifecycle_ack",
+          "kind": 15,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 27,
+          "state": "lc1_receive",
+          "expected_kind": 8,
+          "actual_kind": 8,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 8,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 30,
+          "state": "ap2_lifecycle_ack",
+          "kind": 9,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 32,
+          "state": "lc1_receive",
+          "expected_kind": 10,
+          "actual_kind": 10,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": 2,
+          "actual_epoch": 2,
+          "session_match": true,
+          "pending_kind": 10,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 35,
+          "state": "ap2_lifecycle_ack",
+          "kind": 11,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 39,
+          "state": "ap2_lifecycle_ack",
+          "kind": 13,
+          "next_sequence": 104688
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 40,
+          "state": "lc1_receive",
+          "expected_kind": 14,
+          "actual_kind": 14,
+          "expected_sequence": 104688,
+          "actual_sequence": 104688,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 14,
+          "pending_sequence": 104688,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 41,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 1,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 44,
+          "state": "ap2_lifecycle_ack",
+          "kind": 15,
+          "next_sequence": 104688
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 45,
+          "state": "lc1_receive",
+          "expected_kind": 5,
+          "actual_kind": 5,
+          "expected_sequence": 104688,
+          "actual_sequence": 104688,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 5,
+          "pending_sequence": 104688,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 46,
+          "state": "ap1_endpoint_closed",
+          "mapping_unmapped": true,
+          "instance_count": 1
+        }
+      ]
+    },
+    {
+      "shape": "activation_then_deactivation_before_start",
+      "test_exit": 0,
+      "Windows_rows": [
+        {
+          "event": "lifecycle",
+          "sequence": 5,
+          "state": "lc1_receive",
+          "expected_kind": 8,
+          "actual_kind": 8,
+          "expected_sequence": 104684,
+          "actual_sequence": 104684,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 8,
+          "pending_sequence": 104684,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 8,
+          "state": "ap2_lifecycle_ack",
+          "kind": 9,
+          "next_sequence": 104684
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 10,
+          "state": "lc1_receive",
+          "expected_kind": 10,
+          "actual_kind": 10,
+          "expected_sequence": 104684,
+          "actual_sequence": 104684,
+          "expected_epoch": 1,
+          "actual_epoch": 1,
+          "session_match": true,
+          "pending_kind": 10,
+          "pending_sequence": 104684,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 13,
+          "state": "ap2_lifecycle_ack",
+          "kind": 11,
+          "next_sequence": 104684
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 17,
+          "state": "ap2_lifecycle_ack",
+          "kind": 13,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 18,
+          "state": "lc1_receive",
+          "expected_kind": 14,
+          "actual_kind": 14,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 14,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 19,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 3,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 22,
+          "state": "ap2_lifecycle_ack",
+          "kind": 15,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 27,
+          "state": "lc1_receive",
+          "expected_kind": 8,
+          "actual_kind": 8,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 8,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 30,
+          "state": "ap2_lifecycle_ack",
+          "kind": 9,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 31,
+          "state": "lc1_receive",
+          "expected_kind": 14,
+          "actual_kind": 14,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 14,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 32,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 0,
+          "intervals": 0,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 35,
+          "state": "ap2_lifecycle_ack",
+          "kind": 15,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 38,
+          "state": "lc1_receive",
+          "expected_kind": 8,
+          "actual_kind": 8,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 8,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 41,
+          "state": "ap2_lifecycle_ack",
+          "kind": 9,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 43,
+          "state": "lc1_receive",
+          "expected_kind": 10,
+          "actual_kind": 10,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": 2,
+          "actual_epoch": 2,
+          "session_match": true,
+          "pending_kind": 10,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 46,
+          "state": "ap2_lifecycle_ack",
+          "kind": 11,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 50,
+          "state": "ap2_lifecycle_ack",
+          "kind": 13,
+          "next_sequence": 104688
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 51,
+          "state": "lc1_receive",
+          "expected_kind": 14,
+          "actual_kind": 14,
+          "expected_sequence": 104688,
+          "actual_sequence": 104688,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 14,
+          "pending_sequence": 104688,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 52,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 1,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 55,
+          "state": "ap2_lifecycle_ack",
+          "kind": 15,
+          "next_sequence": 104688
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 56,
+          "state": "lc1_receive",
+          "expected_kind": 5,
+          "actual_kind": 5,
+          "expected_sequence": 104688,
+          "actual_sequence": 104688,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 5,
+          "pending_sequence": 104688,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 57,
+          "state": "ap1_endpoint_closed",
+          "mapping_unmapped": true,
+          "instance_count": 1
+        }
+      ]
+    },
+    {
+      "shape": "wrong_deactivate_sequence",
+      "test_exit": 0,
+      "Windows_rows": [
+        {
+          "event": "lifecycle",
+          "sequence": 5,
+          "state": "lc1_receive",
+          "expected_kind": 8,
+          "actual_kind": 8,
+          "expected_sequence": 104684,
+          "actual_sequence": 104684,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 8,
+          "pending_sequence": 104684,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 8,
+          "state": "ap2_lifecycle_ack",
+          "kind": 9,
+          "next_sequence": 104684
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 10,
+          "state": "lc1_receive",
+          "expected_kind": 10,
+          "actual_kind": 10,
+          "expected_sequence": 104684,
+          "actual_sequence": 104684,
+          "expected_epoch": 1,
+          "actual_epoch": 1,
+          "session_match": true,
+          "pending_kind": 10,
+          "pending_sequence": 104684,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 13,
+          "state": "ap2_lifecycle_ack",
+          "kind": 11,
+          "next_sequence": 104684
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 17,
+          "state": "ap2_lifecycle_ack",
+          "kind": 13,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 18,
+          "state": "lc1_receive",
+          "expected_kind": 14,
+          "actual_kind": 14,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 14,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 19,
+          "state": "ap3_processing_summary",
+          "processed_blocks": 3,
+          "intervals": 1,
+          "process_mode": "kRealtime"
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 22,
+          "state": "ap2_lifecycle_ack",
+          "kind": 15,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 27,
+          "state": "lc1_receive",
+          "expected_kind": 8,
+          "actual_kind": 8,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 8,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": false
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 30,
+          "state": "ap2_lifecycle_ack",
+          "kind": 9,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 32,
+          "state": "lc1_receive",
+          "expected_kind": 10,
+          "actual_kind": 10,
+          "expected_sequence": 104687,
+          "actual_sequence": 104687,
+          "expected_epoch": 2,
+          "actual_epoch": 2,
+          "session_match": true,
+          "pending_kind": 10,
+          "pending_sequence": 104687,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 35,
+          "state": "ap2_lifecycle_ack",
+          "kind": 11,
+          "next_sequence": 104687
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 39,
+          "state": "ap2_lifecycle_ack",
+          "kind": 13,
+          "next_sequence": 104688
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 40,
+          "state": "lc1_receive",
+          "expected_kind": 14,
+          "actual_kind": 14,
+          "expected_sequence": 104688,
+          "actual_sequence": 104689,
+          "expected_epoch": null,
+          "actual_epoch": null,
+          "session_match": true,
+          "pending_kind": 14,
+          "pending_sequence": 104689,
+          "running": false,
+          "active": true
+        },
+        {
+          "event": "lifecycle",
+          "sequence": 41,
+          "state": "ap1_transport_error",
+          "detail": "lifecycle correlation"
+        }
+      ]
+    }
+  ],
+  "isolation": "Generated SDK component; empty fixture-only prefix; no vendor files, credentials, profile publication, Bitwig or editor. Each run is bounded in its own systemd cgroup.",
+  "limitations": [
+    "The requested sequence passed before repair; it is preserved, not falsely described as failing-before.",
+    "The additional transition reproduces the exact retained native operation and Windows failure shape. Live routing still must verify the product repair.",
+    "Fixture CPU/memory/time are not audio-performance measurements."
+  ]
+}

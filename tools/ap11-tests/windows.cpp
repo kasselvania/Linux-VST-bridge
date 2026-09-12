@@ -1,6 +1,11 @@
 // Pinned SDK objects driving production handler, editor lifecycle and GUI
 // mapping. This is deterministic instrumentation, not commercial evidence.
 #include "controller_updates.h"
+#include "process_retirement.h"
+#include "input_observation.h"
+#include "public.sdk/source/vst/vstaudioeffect.h"
+#include "component_instance_session.h"
+#include "linux_vst_bridge/wf0_probe/events.h"
 #include "editor_session.h"
 #include "public.sdk/source/common/pluginview.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
@@ -24,6 +29,8 @@ std::thread::id owner = std::this_thread::get_id();
 struct Stats {
   uint32_t created = 0, attached = 0, removed = 0, destroyed = 0, focus = 0,
            keys = 0, sizes = 0;
+  bool retained_test = false, processing = false, forbid_release = false, refuse_frame = false;
+  std::vector<int> retirement;
   bool refuse = false, refuse_attach = false, refuse_size = false, lost_parent = false,
        close_during_attach = false;
 };
@@ -36,6 +43,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
   ~View() override {
     check(!systemWindow, "view removed before release");
     check(std::this_thread::get_id() == owner, "view destruction owner");
+    if (stats.retained_test) { check(!stats.processing, "no release during processing"); stats.retirement.push_back(3); }
     ++stats.destroyed;
   }
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
@@ -49,12 +57,14 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return CPluginView::queryInterface(id, out);
   }
   uint32 PLUGIN_API addRef() override { return CPluginView::addRef(); }
-  uint32 PLUGIN_API release() override { return CPluginView::release(); }
+  uint32 PLUGIN_API release() override { if(stats.forbid_release)ExitProcess(87);return CPluginView::release(); }
   tresult PLUGIN_API isPlatformTypeSupported(FIDString type) override {
     return type && !std::strcmp(type, kPlatformTypeHWND) ? kResultOk
                                                          : kResultFalse;
   }
   tresult PLUGIN_API setFrame(IPlugFrame *frame) override {
+    if(!frame&&stats.refuse_frame)return kResultFalse;
+    if (!frame && stats.retained_test) { check(!stats.processing, "no frame detach during processing"); stats.retirement.push_back(1); }
     auto r = CPluginView::setFrame(frame);
     if (frame) {
       ViewRect same{};
@@ -76,6 +86,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return kResultOk;
   }
   tresult PLUGIN_API removed() override {
+    if (stats.retained_test) { check(!stats.processing, "no removal during processing"); stats.retirement.push_back(2); }
     check(std::this_thread::get_id() == owner && (stats.lost_parent || IsWindow(HWND(systemWindow))),
           "remove before destroying parent");
     if (stats.refuse)
@@ -160,8 +171,8 @@ struct Mapping {
   HANDLE file = INVALID_HANDLE_VALUE, map = nullptr;
   uint8_t *data = nullptr;
   std::array<uint8_t, 16> id{};
-  Mapping() {
-    dir = std::filesystem::temp_directory_path() /
+  explicit Mapping(std::filesystem::path base = {}) {
+    dir = (base.empty() ? std::filesystem::temp_directory_path() : base) /
           (L"ap11-sdk-" + std::to_wstring(GetCurrentProcessId()) + L"-" +
            std::to_wstring(GetTickCount64()));
     check(std::filesystem::create_directory(dir), "private fixture directory");
@@ -258,6 +269,120 @@ BOOL WINAPI controlledDestroy(HWND window) {
   if(destroyRefusals) { --destroyRefusals; SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
   lastDestroyed=window;
   return DestroyWindow(window);
+}
+Stats* retiring_stats = nullptr;
+BOOL WINAPI ordered_destroy(HWND w) {
+  check(retiring_stats && !retiring_stats->processing, "parent destruction after processing");
+  retiring_stats->retirement.push_back(4);
+  return DestroyWindow(w);
+}
+void retained_lifecycle() {
+  HostApplication host;
+  auto* c = new Controller;
+  check(c->initialize(&host) == kResultOk, "retained controller");
+  c->stats.retained_test = true;
+  {
+    Mapping native; GuiChannel channel(native.dir.wstring(),native.id);
+    EditorSession session(channel,*c,nullptr,true);
+    native.command(AP11::Open); session.service(true); native.drain();
+    const auto window = session.view().window();
+    const auto epoch = session.view().opens;
+    c->stats.processing = true;
+    check(session.edit(AP11::Begin,42,0)==kResultOk, "retained gesture begins");
+    native.close(); session.service(true); native.drain();
+    check(!session.is_open() && IsWindow(window) && !IsWindowVisible(window) &&
+          session.view().window()==window && c->stats.created==1 && c->stats.attached==1 &&
+          c->stats.retirement.empty() && session.ends==1,
+          "active close hides and ends gesture without SDK retirement");
+    check(session.host_value(42,.6,channel.revision()), "processing/controller remains usable hidden");
+    ++native.native_view; native.command(AP11::Open); session.service(true); native.drain();
+    check(session.is_open() && session.view().window()==window && IsWindowVisible(window) &&
+          session.view().opens==epoch+1 && c->stats.created==1 && c->stats.attached==1 &&
+          c->stats.retirement.empty(), "reopen reuses exact view/parent with fresh logical epoch");
+    SendMessageW(window,WM_CLOSE,0,0); session.service(true); native.drain();
+    check(!session.is_open() && c->stats.retirement.empty(), "vendor close also retains during processing");
+    c->stats.processing = false; // production owner reaches this only after stop/join/deactivate
+    retiring_stats=&c->stats;
+    const_cast<VendorView&>(session.view()).destruction(ordered_destroy);
+    check(session.retire(), "final retained retirement");
+    check(c->stats.retirement==std::vector<int>({1,2,3,4}), "frame removed release parent exact ordering");
+    check(session.retire() && c->stats.retirement.size()==4 && !IsWindow(window), "retirement exactly once");
+  }
+  {
+    Mapping native; GuiChannel channel(native.dir.wstring(),native.id);
+    EditorSession session(channel,*c,nullptr,true);
+    native.command(AP11::Open); session.service(true); native.drain();
+    native.close(); session.service(true); native.drain();
+    c->stats.lost_parent=true; DestroyWindow(session.view().window());
+    ++native.native_view; native.command(AP11::Open); session.service(true); native.drain();
+    check(!session.is_open() && channel.failure() && c->stats.created==2,
+          "destroyed retained parent refuses reopen without replacement");
+    check(session.retire(), "lost retained view cleaned only at retirement");
+  }
+  check(c->stats.created==c->stats.destroyed && c->stats.attached==c->stats.removed,
+        "retained references balanced");
+  c->terminate(); c->release(); retiring_stats=nullptr;
+}
+
+struct RetirementPlugin:AudioEffect {
+ std::atomic<unsigned> blocks{0};bool inactive=false,stopped=false;
+ tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"Aux",SpeakerArr::kStereo,kAux);addAudioOutput(u"Out",SpeakerArr::kStereo);return r;}
+ tresult PLUGIN_API process(ProcessData& d)override{for(int c=0;c<2;++c)for(int i=0;i<d.numSamples;++i)d.outputs[0].channelBuffers32[c][i]=0.f;++blocks;return kResultOk;}
+ tresult PLUGIN_API setProcessing(TBool on)override{stopped=!on;return kResultOk;}
+ tresult PLUGIN_API setActive(TBool on)override{inactive=!on;return AudioEffect::setActive(on);}
+};
+struct RetirementExternal:ExternalProcessing {
+ RetirementPlugin& p;Mapping& native;EditorSession& editor;Controller& c;std::atomic<unsigned> phase{0};HWND parent;uint32_t epoch;InputObservation input;uint64_t sequence=0;
+ RetirementExternal(RetirementPlugin& p,Mapping& n,EditorSession& e,Controller& c):p(p),native(n),editor(e),c(c),parent(e.view().window()),epoch(e.view().opens){}
+ bool commercial()const override{return true;}bool stateful()const override{return true;}
+ void ready()override{}
+ bool next(ExternalBlock& b,float* left,float* right)override{Sleep(1);if(phase.load()==2)return false;b.frames=16;b.silence=3;b.gain_present=false;std::fill_n(left,16,0.f);std::fill_n(right,16,0.f);++sequence;input.observe(1,sequence,(sequence-1)*16,16,3,left,right);return true;}
+ void done(const float*,const float*,uint64_t,uint64_t,const ap10_results_t*)override{}
+ void service_owner()override{
+  if(p.blocks.load()<2)return;
+  if(phase.load()==0){native.close();editor.service(true);native.drain();check(!editor.is_open()&&editor.view().window()==parent&&!IsWindowVisible(parent)&&c.stats.retirement.empty(),"processing close hides without release");phase=1;}
+  else if(phase.load()==1&&p.blocks.load()>3){++native.native_view;native.command(AP11::Open);editor.service(true);native.drain();check(editor.is_open()&&editor.view().window()==parent&&editor.view().opens==epoch+1&&c.stats.retirement.empty(),"processing reopen reuses view and advances epoch");phase=2;}
+ }
+};
+void retirement_child(const char* path,int mode){
+ HostApplication host;Controller* c=new Controller;check(c->initialize(&host)==kResultOk,"retirement controller");c->stats.retained_test=true;
+ Mapping native{std::filesystem::path(path)};GuiChannel channel(native.dir.wstring(),native.id);auto* editor=new EditorSession(channel,*c,nullptr,true);
+ native.command(AP11::Open);editor->service(true);native.drain();c->stats.processing=true;
+ RetirementPlugin plugin;check(plugin.initialize(&host)==kResultOk,"retirement processor");RetirementExternal external(plugin,native,*editor,*c);
+ linux_vst_bridge::wf0::EventWriter events(1048576);HostCallbackSink calls(&events,GetCurrentThreadId());
+ auto result=run_offline_processing(plugin,plugin,calls,events,&external);
+ check(result.success&&result.quiescent&&result.retirement_ready&&plugin.stopped&&plugin.inactive&&external.phase==2,"production processing stopped joined and deactivated");
+ c->stats.processing=false;c->stats.forbid_release=true;retiring_stats=&c->stats;
+ const_cast<VendorView&>(editor->view()).destruction(mode==5?controlledDestroy:ordered_destroy);if(mode==5)destroyRefusals=1;
+ if(mode==3)c->stats.refuse_frame=true;if(mode==4)c->stats.refuse=true;
+ RetirementStatus status(std::filesystem::path(path).wstring(),native.id);bool endpoint=false;
+ try{complete_process_retirement(mode!=1&&result.retirement_ready,mode!=2,editor,status,1,20,256,1,[&]{
+  check(plugin.stopped&&plugin.inactive&&result.quiescent,"input report only after worker joined");
+  check(external.input.count==1&&external.input.rows[0].silence==3,"worker retained exact silent input witness");
+  auto before=events.sequence();external.input.dump(events);
+  check(events.sequence()==before+2,"bounded input summary and row flushed before retirement commit");
+  endpoint=true;
+ });}
+ catch(...){check(mode!=0,"ordinary process retirement succeeds");check(!endpoint,"failed detach cannot close endpoint or commit");ExitProcess(0);}
+ check(mode==0&&endpoint&&!IsWindow(external.parent)&&c->stats.retirement==std::vector<int>({1,2,4})&&c->stats.destroyed==0,"exact detach parent destruction without vendor release");
+ Sleep(5000);ExitProcess(89); // parent must reclaim the owned child first
+}
+void process_retirement_regression(){
+ wchar_t exe[32768]{};check(GetModuleFileNameW(nullptr,exe,32768)!=0,"fixture path");
+ for(int mode=0;mode<6;++mode){
+  auto dir=std::filesystem::temp_directory_path()/(L"ap18-retire-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(mode));std::filesystem::create_directory(dir);
+  HANDLE f=CreateFileW((dir/L"ap18.retirement").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_NEW,0,nullptr);check(f!=INVALID_HANDLE_VALUE,"retirement file");
+  HANDLE mapping=CreateFileMappingW(f,nullptr,PAGE_READWRITE,0,256,nullptr);auto* p=static_cast<uint8_t*>(MapViewOfFile(mapping,FILE_MAP_ALL_ACCESS,0,0,256));check(p!=nullptr,"retirement mapping");memset(p,0,256);
+  memcpy(p,"LVRT",4);linux_vst_bridge::ap1::put(p+4,1,4);linux_vst_bridge::ap1::put(p+8,256,4);linux_vst_bridge::ap1::put(p+12,8,4);p[16]=19;
+  std::wstring command=L"\""+std::wstring(exe)+L"\" \""+dir.wstring()+L"\" "+std::to_wstring(mode);STARTUPINFOW si{};si.cb=sizeof(si);PROCESS_INFORMATION child{};
+  check(CreateProcessW(exe,command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&child)!=0,"retirement child");
+  auto commit=[&]{return InterlockedCompareExchange64(reinterpret_cast<volatile LONG64*>(p+64),0,0);};
+  for(unsigned n=0;n<400&&!commit()&&WaitForSingleObject(child.hProcess,0)==WAIT_TIMEOUT;++n)Sleep(5);
+  if(mode==0){check(commit()==1&&linux_vst_bridge::ap1::get(p+192,8)==127,"all retirement milestones externally committed");check(TerminateProcess(child.hProcess,0)!=0,"parent owns exact child containment");}
+  else check(commit()==0,"failed prerequisite never commits retirement");
+  check(WaitForSingleObject(child.hProcess,3000)==WAIT_OBJECT_0,"child absent");DWORD code=99;GetExitCodeProcess(child.hProcess,&code);check(code==0,"release bomb never called");
+  CloseHandle(child.hThread);CloseHandle(child.hProcess);UnmapViewOfFile(p);CloseHandle(mapping);CloseHandle(f);std::filesystem::remove_all(dir);
+ }
 }
 void lifecycle_faults() {
   HostApplication host;
@@ -359,14 +484,17 @@ void lifecycle_faults() {
   check(refused,"old mapped UI protocol refused before consuming payloads");
 }
 } // namespace
-int main() {
+int main(int argc,char** argv) {
   UiApartment apartment;
   APTTYPE type{};
   APTTYPEQUALIFIER qualifier{};
   check(CoGetApartmentType(&type, &qualifier) == S_OK &&
             (type == APTTYPE_STA || type == APTTYPE_MAINSTA),
         "controller and view own a Windows STA apartment");
+  if(argc==3)retirement_child(argv[1],std::stoi(argv[2]));
+  process_retirement_regression();
   lifecycle_faults();
+  retained_lifecycle();
   HostApplication host;
   auto *c = new Controller;
   check(c->initialize(&host) == kResultOk, "controller initialize");

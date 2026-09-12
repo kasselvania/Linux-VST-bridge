@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "source_commit": "87c0bdec5b79f6520f7d087dee646218422877d6",
+  "parent": "1286d13e8de441af86bb303e3064a400586efe8c",
+  "commands": [
+    {
+      "command": "cargo test --manifest-path bridge-manager/Cargo.toml --locked",
+      "result": "PASS: 54 library + 8 binary tests"
+    },
+    {
+      "command": "cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings",
+      "result": "PASS"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "platform": "macOS",
+      "result": "32 tests OK; 17 Linux-only skips"
+    },
+    {
+      "command": "python3 -m unittest discover -s bridge-manager/runtime -v",
+      "platform": "Linux / existing Deck fixture",
+      "result": "PASS: 32 tests, zero skips, 24.485 seconds"
+    },
+    {
+      "command": "cargo build --manifest-path bridge-manager/Cargo.toml --locked --release --target x86_64-unknown-linux-gnu",
+      "toolchain": "Existing stable Rust and zig-cc link route",
+      "result": "PASS"
+    }
+  ],
+  "tests_added": [
+    "Private stream byte/time capacity, attribution, 0600 permissions and overflow",
+    "Closed diagnostic launch modes; no caller executable or runner verb",
+    "Mapped image identity across path aliases; wrapper arguments do not identify executing main",
+    "Fast reparented Agent and unknown cgroup member prevent premature completion",
+    "Foreign same-user/session process never adopted",
+    "Normal main-plus-Agent retirement requires empty group",
+    "PIDFD cancellation rechecks PID/start and cgroup membership",
+    "Real Linux double-fork/outer-exit-5 through production owner; active grandchild retained, cancellation positive, unrelated sibling survives",
+    "Rust public status rejects private log/account fields"
+  ],
+  "fixture_limits": "Fake cgroup files support deterministic process tests; actual systemd ownership separately exercised by the Deck probes. Synthetic tests do not establish ASC library or Pigments usability.",
+  "production_owners_unchanged": [
+    "Windows host",
+    "VST3/native proxy",
+    "audio transport/callback",
+    "profiles/publications",
+    "vendor binaries",
+    "runner"
+  ],
+  "Windows_native_audio_replays": "Not run: owners unchanged",
+  "hosted": "Pending final source/evidence push; recorded in PR after completion",
+  "private_evidence": "Raw stdout/stderr, process IDs/start times, exact paths, IPC metadata and operation records retained privately; no contents committed"
+}

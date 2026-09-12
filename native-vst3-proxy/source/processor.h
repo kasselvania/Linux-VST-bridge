@@ -82,6 +82,7 @@ private:
   int eventOutputActive(int)const;
   bool notifications_=false;uint32_t vendor_latency_=0;
   std::array<bool,32> bus_active_{};
+  int stereo_input_ordinal_=-1; // SDK-selected input lane, never product-role dispatch.
   bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);
   // Written under busy_ by the callback, read only after quiescence at terminate.
   struct AdmissionFailure {

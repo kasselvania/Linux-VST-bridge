@@ -118,6 +118,12 @@ int main(int argc, char** argv) {
     auto stale=frame;stale.payload.resize(48);put(stale.payload.data()+32,1,8);
     bool stale_rejected=false;try{timeline.request_frame(stale);}catch(...){stale_rejected=true;}
     require(stale_rejected,"old activation accepted");
+    auto wrong_stop=stop;put(wrong_stop.payload.data(),1,8);
+    bool wrong_stop_rejected=false;try{timeline.stop(wrong_stop);}catch(...){wrong_stop_rejected=true;}
+    require(wrong_stop_rejected&&timeline.running&&timeline.epoch==2,"wrong stop epoch accepted");
+    put(stop.payload.data(),2,8);timeline.stop(stop);
+    bool duplicate_start_rejected=false;try{timeline.start(start);}catch(...){duplicate_start_rejected=true;}
+    require(duplicate_start_rejected&&!timeline.running&&timeline.epoch==2,"stale restart epoch accepted");
     Sequence bounded;bounded.session=frame.session;bounded.next=65;
     auto excess=frame;excess.sequence=65;
     bool bounded_rejected=false;try{bounded.begin(excess);}catch(...){bounded_rejected=true;}

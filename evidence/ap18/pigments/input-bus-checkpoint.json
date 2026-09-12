@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "claim": "source and deterministic input-path checkpoint; real Bitwig routing pending",
+  "source": "36c02af2425e0bebeb940d7372cf3e10ab1da6ad",
+  "stash": {
+    "commit": "5905ef6a66fb6c4df40b57f930cffb9bfc57ca2b",
+    "disposition": "retained; inspected; selected routing hunks reused with revised SDK tests and explicit Windows mapping; not applied wholesale"
+  },
+  "topology": {
+    "transport_lanes": 1,
+    "selection": "index-zero stereo main, otherwise sole stereo auxiliary with no main",
+    "source_authority": "DAW",
+    "protocol_layout_changed": false,
+    "additional_auxiliary_activation": "refused"
+  },
+  "history": {
+    "1": "681dae01625f2d4c07a106a92c5c605396b666c6cd7160fe8402efb3bf7fe3fd",
+    "2": "e6cf278f2cf444e9a0b68dc048622ca9076783e768f1917f7ffae6c44f58f795"
+  },
+  "native": {
+    "sha256": "f29f52f9d96649b1effbc5c1dd8c405074304ec2527d215c3794575e01ad122b",
+    "source_commit": "36c02af2425e0bebeb940d7372cf3e10ab1da6ad",
+    "input_archive_sha256": "dfeb2b27419e80444aec79311a4cedf2fe60dcda046540f82bf5ca74b4932423",
+    "descriptor_sha256": "07fb5e0b77bbc88b068a87e42eed43317b28d89d550842499eb888a5b2e1c305",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "tests": {
+    "linux_ctest": {
+      "passed": 7,
+      "failed": 0,
+      "scope": "native callback/SDK mapping, result lifetime, editor, state, activation and panel"
+    },
+    "backend": {
+      "passed": 63,
+      "failed": 0
+    },
+    "linux_runtime": {
+      "passed": 32,
+      "failed": 0
+    },
+    "runtime_macos": {
+      "passed": 15,
+      "skipped_linux_only": 17
+    },
+    "windows": "success, exact final Windows-owned source",
+    "manager": {
+      "lib": 60,
+      "bin": 11,
+      "failures": 0
+    },
+    "clippy": "manager and backend all-targets pass"
+  },
+  "input_observation": {
+    "optional": true,
+    "enabled_by": "existing trace-enable",
+    "collectors": [
+      "native transport worker before request",
+      "Windows transport worker after input copy"
+    ],
+    "capacity_per_side": 32,
+    "retention": "first nonempty request and changes between zero and nonzero input",
+    "overflow": "counted",
+    "channel_hash": "FNV-1a 64 over float32 little-endian bytes",
+    "raw_samples_retained": false,
+    "callback_work_added": false,
+    "dump": "after worker retirement"
+  },
+  "installed": {
+    "candidate_active": false,
+    "ordinary_profile_revisions": [
+      10,
+      10
+    ],
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "keeper_active": true,
+    "tracing": false,
+    "effective_cpuweight": 100,
+    "selected_frames": 512,
+    "frames256": "unqualified"
+  },
+  "pending": [
+    "Bitwig no-source/nonzero-source/source-removal proof",
+    "remaining AP18 musical/editor/state qualification"
+  ],
+  "windows": {
+    "run": 34642762129,
+    "result": "success",
+    "artifact_id": 10280029590,
+    "zip_sha256": "d759a10fad8d635897b1188f34640921fb03665214594cec94c02b332cd81ecb",
+    "build_commit": "e93f1db2637b7eaafbd7af010546770128af4cfd",
+    "source_head": "36c02af2425e0bebeb940d7372cf3e10ab1da6ad",
+    "common_tree": "c91e8a2210fad93bc24576790d3ebad22a894102",
+    "host_sha256": "87275b3f99ae253873ccbf6b8d0820012e84efd125bfde0a76e82917e8363dbd",
+    "source_manifest_sha256": "96d21911b137770b27192dcbe505f6ba5a06bba136ec2b5dd0a84f812384d2cb"
+  }
+}

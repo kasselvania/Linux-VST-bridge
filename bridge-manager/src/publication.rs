@@ -34,6 +34,7 @@ pub struct Revision {
 pub enum Qualification {
     Ap15Editor,
     Ap17Capacity,
+    Ap18Pigments,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -348,25 +349,23 @@ impl Manager {
         installed.verify()?;
         registration.host.verify()?;
         validate_set(current_profiles)?;
-        require(
-            current_profiles
+        let db = self.registry()?;
+        let retained = db.classes.get(&registration.key()).and_then(|e| e.managed_revision.as_ref());
+        if registration.key() == crate::pigments::candidate()?.class.class_id
+            && retained.map(|r| self.load_revision(&registration.key(), r))
+                .transpose()?.is_some_and(|r| r.profile.claim == Claim::ReviewCandidate) {
+            return crate::pigments::served(self, registration, installed, source);
+        }
+        let matching: Vec<_> = current_profiles
                 .iter()
                 .filter(|p| {
                     p.class.class_id == registration.key()
                         && p.claim.permits(SelectionPurpose::Activation)
                         && p.capabilities.state == State::ConcurrentReadOnlyCaptureV12
-                        && p.requirements.host_sha256 == installed.sha256
-                        && p.requirements.host_source_sha256 == source
                 })
-                .count()
-                == 1,
-            "installed_host_mismatch",
-        )?;
-        let db = self.registry()?;
-        let retained = db
-            .classes
-            .get(&registration.key())
-            .and_then(|e| e.managed_revision.as_ref());
+                .collect();
+        require(matching.len() == 1, "installed_host_mismatch")?;
+        let current = crate::catalogue::current_host(self, installed, source, matching[0])?;
         if let Some(reference) = retained {
             let revision = self.load_revision(&registration.key(), reference)?;
             require(
@@ -385,8 +384,8 @@ impl Manager {
             self.verify_retained_authority(&revision, &roster)?;
         } else {
             require(
-                registration.host.sha256 == installed.sha256
-                    && registration.host_source_sha256 == source,
+                registration.host.sha256 == current.host.sha256
+                    && registration.host_source_sha256 == current.source_manifest.sha256,
                 "installed_host_mismatch",
             )?;
         }
@@ -810,12 +809,21 @@ impl Manager {
         {
             let prior = self.load_revision(&key, current)?;
             require(
-                prior.qualification.is_none(),
+                prior.qualification.is_none()
+                    || (qualification.is_none() && db.classes[&key].publication == Publication::Removed
+                        && crate::acceptance::pigments::accepted_predecessor(self, profile, &prior)?)
+                    || (qualification == Some(Qualification::Ap18Pigments)
+                        && prior.qualification == qualification && crate::pigments::replacement_prior(&prior.profile, profile)?
+                        && db.classes[&key].publication == Publication::Removed),
                 "qualification_active_restore_first",
             )?;
         }
         if let Some(purpose) = qualification {
-            self.verify_qualification_parent_for(&db, profile, &registration, purpose)?;
+            if purpose == Qualification::Ap18Pigments {
+                crate::pigments::check_publication(self, profile, &registration)?;
+            } else {
+                self.verify_qualification_parent_for(&db, profile, &registration, purpose)?;
+            }
         }
         registration.verify(&self.root)?;
         require(

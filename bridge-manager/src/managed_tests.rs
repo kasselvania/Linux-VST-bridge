@@ -110,7 +110,7 @@ fn explicit_host_update_preserves_exact_prior_host_for_rollback_only() {
 #[test]
 fn shipped_profiles_are_closed_and_separate_from_local_bindings() {
     let p = installed_profiles().unwrap();
-    assert_eq!(p.len(), 2);
+    assert_eq!(p.len(), 3);
     for p in p {
         p.validate().unwrap();
         assert_eq!(p.claim, Claim::VerifiedExactFixture);
@@ -1948,7 +1948,7 @@ fn capacity_acceptance_mismatches_and_ownership_refuse_without_mutation() {
 }
 #[test]
 fn capacity_verified_ten_preserves_candidate_bytes_and_technical_contract() {
-    let current = installed_profiles().unwrap();
+    let current = ap17_profiles().unwrap();
     let candidates = qualification::candidates_for(Qualification::Ap17Capacity).unwrap();
     for (p,c) in current.iter().zip(&candidates) {
         assert_eq!(p.revision,10); assert_eq!(p.claim,Claim::VerifiedExactFixture);

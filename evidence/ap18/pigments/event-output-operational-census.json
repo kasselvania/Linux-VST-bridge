@@ -1,0 +1,261 @@
+{
+  "schema": 1,
+  "review": 5183863039,
+  "disposition": "OPERATIONAL_ZERO_CONFIRMED_NATIVE_SINK_PENDING",
+  "probe": {
+    "source": "5f3b794a633661163d6fc153ba57b5c7a8f74df3",
+    "build_commit": "8ac258a7681cc28306123806ab139020177aea1c",
+    "tree": "4df6b9fe894d1850973e5a943162bacee45e96ba",
+    "run": 34654443171,
+    "artifact": 10284923532,
+    "host_sha256": "787751c55675b556b5fdc77448a6e17bc371fff835fef58e6219eb1581592fbd",
+    "manifest_sha256": "721e263bcd0d0c37a5f57d1e83279f7df12b1f6dc23dba8ea02817b3088c0ee1",
+    "supervisor_sha256": "ca478b12c12e05df1205ea1a9b9ea82139af6cde28b28fb4ccfb9d965d854248",
+    "ownership_sha256": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff"
+  },
+  "fixture": {
+    "product": "Pigments 7.0.1.6772",
+    "class_id": "41727475415649534B61743150726F63",
+    "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "sample_rate": 48000,
+    "precision": "float32",
+    "maximum": 512,
+    "instance": "operational-census-one",
+    "processing_calls": 0,
+    "editor_created": false,
+    "state_capture": false
+  },
+  "snapshots": [
+    {
+      "stage": "initialized",
+      "count": 1,
+      "index": 0,
+      "result": 0,
+      "activated": false,
+      "media": 1,
+      "direction": 1,
+      "channels": 0,
+      "type": 0,
+      "flags": 1,
+      "name": "Midi Out",
+      "audio": [
+        [
+          0,
+          0,
+          0,
+          3
+        ],
+        [
+          1,
+          0,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "stage": "arrangements",
+      "count": 1,
+      "index": 0,
+      "result": 0,
+      "activated": false,
+      "media": 1,
+      "direction": 1,
+      "channels": 0,
+      "type": 0,
+      "flags": 1,
+      "name": "Midi Out",
+      "audio": [
+        [
+          0,
+          0,
+          0,
+          3
+        ],
+        [
+          1,
+          0,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "stage": "setup",
+      "count": 1,
+      "index": 0,
+      "result": 0,
+      "activated": false,
+      "media": 1,
+      "direction": 1,
+      "channels": 0,
+      "type": 0,
+      "flags": 1,
+      "name": "Midi Out",
+      "audio": [
+        [
+          0,
+          0,
+          0,
+          3
+        ],
+        [
+          1,
+          0,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "stage": "bus_active",
+      "count": 1,
+      "index": 0,
+      "result": 0,
+      "activated": true,
+      "media": 1,
+      "direction": 1,
+      "channels": 0,
+      "type": 0,
+      "flags": 1,
+      "name": "Midi Out",
+      "audio": [
+        [
+          0,
+          0,
+          0,
+          3
+        ],
+        [
+          1,
+          0,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "stage": "active",
+      "count": 1,
+      "index": 0,
+      "result": 0,
+      "activated": true,
+      "media": 1,
+      "direction": 1,
+      "channels": 0,
+      "type": 0,
+      "flags": 1,
+      "name": "Midi Out",
+      "audio": [
+        [
+          0,
+          0,
+          0,
+          3
+        ],
+        [
+          1,
+          0,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "stage": "processing",
+      "count": 1,
+      "index": 0,
+      "result": 0,
+      "activated": true,
+      "media": 1,
+      "direction": 1,
+      "channels": 0,
+      "type": 0,
+      "flags": 1,
+      "name": "Midi Out",
+      "audio": [
+        [
+          0,
+          0,
+          0,
+          3
+        ],
+        [
+          1,
+          0,
+          0,
+          3
+        ]
+      ]
+    }
+  ],
+  "lifecycle_results": [
+    {
+      "operation": "censusSetBusArrangements",
+      "result": 0
+    },
+    {
+      "operation": "censusSetupProcessing",
+      "result": 0
+    },
+    {
+      "operation": "censusActivateBuses",
+      "result": 0
+    },
+    {
+      "operation": "censusSetActive",
+      "result": 0
+    },
+    {
+      "operation": "censusSetProcessing",
+      "result": 0
+    },
+    {
+      "operation": "censusSetInactive",
+      "result": 0
+    },
+    {
+      "operation": "censusDeactivateBuses",
+      "result": 0
+    }
+  ],
+  "interpretation": {
+    "raw_initial_channels": 0,
+    "raw_operational_channels": 0,
+    "effective_compatibility_channels": null,
+    "normalization_enabled": false,
+    "case_a": false,
+    "case_b_or_c": "native Bitwig sink presence not yet observed",
+    "metadata_changes": false
+  },
+  "ownership": {
+    "supervisor_exit": 0,
+    "outer_launcher_exit": -15,
+    "windows_sdk_exit": 0,
+    "scanner_completed": true,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "lease_absent": true,
+    "software_and_registry_unchanged": true,
+    "publication_changes": 0
+  },
+  "validation": {
+    "windows_census_and_sdk_run": 34654443171,
+    "native_run": 34654443053,
+    "manager_run": 34654443157,
+    "px2_run": 34654442958,
+    "all_four_source_head_checks": "success",
+    "linux_runtime_tests": 36,
+    "linux_runtime_result": "passed",
+    "mac_runtime_tests": 36,
+    "mac_linux_only_skips": 20,
+    "manager_test": "passed",
+    "manager_all_targets_clippy": "passed"
+  },
+  "nonclaims": [
+    "No native Bitwig sink observation yet.",
+    "No compatibility normalization or revision-6 profile created.",
+    "No audio, returned-event acceptance or sidechain-routing result.",
+    "No installed product software changed."
+  ]
+}

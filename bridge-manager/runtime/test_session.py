@@ -17,6 +17,61 @@ import ownership
 import session
 
 
+class VendorOperationTests(unittest.TestCase):
+    def test_ASC_launch_uses_vendor_shortcut_working_directory(self):
+        root=pathlib.Path('/fixture/environment')
+        exe=root/'compatdata/pfx/drive_c/Program Files (x86)/Arturia/Arturia Software Center/Arturia Software Center.exe'
+        spec={'application':{'environment':{'root':str(root),'runner':{'entry_point':'/runner/entry','proton':'/runner/proton'}},'executable':{'path':str(exe)}}}
+        argv,cwd=session.vendor_launch(spec)
+        self.assertEqual(cwd,exe.parent)
+        self.assertEqual(argv,['/runner/entry','--verb=run','--','/runner/proton','runinprefix',r'C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe'])
+
+    def test_launcher_exit_does_not_complete_or_cancel_owned_helpers(self):
+        self.assertEqual(session.vendor_operation_state(None, 2), 'running')
+        self.assertEqual(session.vendor_operation_state(0, 1), 'unknown')
+        self.assertEqual(session.vendor_operation_state(1, 1), 'unknown')
+        self.assertEqual(session.vendor_operation_state(0, 0), 'completed')
+        self.assertEqual(session.vendor_operation_state(1, 0), 'failed')
+
+
+class BusCensusCommandTests(unittest.TestCase):
+    def test_event_policy_is_registered_not_ambient(self):
+        reg={'environment':{'root':'/fixture'},'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\nLVB_EVENT_OUTPUT_POLICY=reported_zero_event_channels_unspecified\n'):
+            self.assertNotIn('LVB_EVENT_OUTPUT_POLICY',session.environment(reg))
+            reg['compatibility']['event_output']='reported_zero_event_channels_unspecified'
+            self.assertEqual(session.environment(reg)['LVB_EVENT_OUTPUT_POLICY'],reg['compatibility']['event_output'])
+            self.assertNotIn('LVB_EDITOR_LIFETIME',session.environment(reg))
+            reg['compatibility']['editor_lifetime']='retain_editor_view_until_instance_retirement'
+            self.assertEqual(session.environment(reg)['LVB_EDITOR_LIFETIME'],reg['compatibility']['editor_lifetime'])
+            self.assertNotIn('LVB_VENDOR_RETIREMENT',session.environment(reg))
+            reg['compatibility']['vendor_retirement']='process_scoped_vendor_retirement'
+            self.assertEqual(session.environment(reg)['LVB_VENDOR_RETIREMENT'],'process_scoped_vendor_retirement')
+            reg['compatibility']['vendor_retirement']='all_vendor_processes'
+            with self.assertRaisesRegex(RuntimeError,'unsupported vendor retirement'):session.environment(reg)
+            del reg['compatibility']['vendor_retirement']
+            reg['compatibility']['editor_lifetime']='all_editors'
+            with self.assertRaisesRegex(RuntimeError,'unsupported editor lifetime'):session.environment(reg)
+            del reg['compatibility']['editor_lifetime']
+            reg['compatibility']['event_output']='all_zero_buses'
+            with self.assertRaisesRegex(RuntimeError,'unsupported event output policy'):session.environment(reg)
+
+    def test_probe_is_inspection_only_and_handshake_bound(self):
+        reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
+             'metadata':{'class_id':'A'*32},'host':{'path':'/fixture/compatdata/pfx/drive_c/host.exe','sha256':'1'*64},
+             'host_source_sha256':'2'*64,'module':{'path':'/fixture/compatdata/pfx/drive_c/plugin.vst3','sha256':'3'*64}}
+        spec={'registration':reg,'session':'4'*32,'inspect':True,'bus_lifecycle_probe':True}
+        argv,binding=session.command(spec)
+        self.assertEqual(argv[argv.index('--mode')+1],'ap18-bus-lifecycle')
+        self.assertIn(b'mode=ap18-bus-lifecycle\n',binding)
+        for key,value in [('inspect',False),('keeper',True),('vendor_access',True)]:
+            with self.assertRaisesRegex(RuntimeError,'isolated inspection'):
+                session.command(dict(spec,**{key:value}))
+        del spec['bus_lifecycle_probe']
+        argv,_=session.command(spec)
+        self.assertEqual(argv[argv.index('--mode')+1],'ap8-module-inspection')
+
+
 @unittest.skipUnless(sys.platform == "linux", "PID/start tracking uses Linux procfs")
 class OwnershipTests(unittest.TestCase):
     def test_subtree_tracking_covers_thread_children_and_reparented_descendants(self):
@@ -410,7 +465,7 @@ class MemoryTransportTests(unittest.TestCase):
     def test_windows_views_are_exact_memory_files_and_refuse_foreign_or_replaced_sources(self):
         with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
             spec,durable,directory=self.fixture(disk,memory)
-            names=('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery')
+            names=('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery','ap18.results')
             for name in names:(directory/name).write_bytes(name.encode());(directory/name).chmod(0o600)
             (durable/'owner.json').write_text('retained durable owner')
             with patch.object(session,'transport_root',return_value=pathlib.Path(memory)):
@@ -433,8 +488,15 @@ class MemoryTransportTests(unittest.TestCase):
                 self.assertFalse(directory.exists() or durable.exists())
 
     def test_production_gate_waits_for_exact_windows_views_and_closes_both_owners(self):
+        self.run_gate(False)
+
+    def test_retirement_custody_crosses_exact_tmpfs_windows_gate(self):
+        self.run_gate(True)
+
+    def run_gate(self,scoped):
         with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
             spec,durable,directory=self.fixture(disk,memory)
+            if scoped:spec['registration']['compatibility']={'vendor_retirement':'process_scoped_vendor_retirement'}
             for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
                 (directory/name).write_bytes(b'exact-'+name.encode());(directory/name).chmod(0o600)
             # Use the production command's binding and exact C: paths. The fake
@@ -453,13 +515,25 @@ while not (d/(sid+'.gate')).exists():
 assert (d/(sid+'.gate')).read_bytes()==(d/(sid+'.ready')).read_bytes()
 for n in ('ap1.control','ap1.audio','ap11.ui','ap12.status'):
  assert (d/n).is_symlink() and (d/n).read_bytes()==b'exact-'+n.encode()
-print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
+assert (d/'ap18.results').is_symlink() and (d/'ap18.results').read_bytes()[:4]==b'LVRS'
+import os
+if os.environ.get('LVB_VENDOR_RETIREMENT'):
+ import ctypes,mmap
+ assert (d/'ap18.retirement').is_symlink()
+ f=open(d/'ap18.retirement','r+b');m=mmap.mmap(f.fileno(),256)
+ assert m[:4]==b'LVRT' and m[16:32]==bytes.fromhex(sid)
+ a=ctypes.addressof(ctypes.c_char.from_buffer(m));lib=ctypes.CDLL('libatomic.so.1')
+ store=getattr(lib,'__atomic_store_8');store.argtypes=[ctypes.c_void_p,ctypes.c_uint64,ctypes.c_int]
+ for i,v in enumerate([127,1,20,256,1,0,0,0]):store(a+192+i*8,v,5)
+ store(a+64,1,5);time.sleep(30)
+else:print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
 """
             with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \
                  patch.object(session,'command',return_value=([sys.executable,'-c',program,str(durable),spec['session']],binding)), \
-                 patch.object(session,'environment',return_value=os.environ.copy()), \
+                 patch.object(session,'environment',return_value=dict(os.environ,LVB_VENDOR_RETIREMENT='process_scoped_vendor_retirement') if scoped else os.environ.copy()), \
                  patch.object(session,'FaultStatus',return_value=None):
                 outcome=session.run(spec)
+            if scoped:self.assertEqual(outcome['retirement_disposition'],'process_scoped_vendor_retirement')
             self.assertTrue(outcome['gated'])
             self.assertIsNone(outcome['error'])
             self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
@@ -537,5 +611,320 @@ print('{"event":"lifecycle","state":"scanner_completed"}',flush=True)
             finally:native.close();owner.close()
 
 
+class CompanionDiagnosticTests(unittest.TestCase):
+    def test_private_capture_capacity_time_and_separate_streams(self):
+        with tempfile.TemporaryDirectory() as temp:
+            p=pathlib.Path(temp);out=session.PrivateCapture(p/'stdout',capacity=4)
+            err=session.PrivateCapture(p/'stderr',capacity=3)
+            try:
+                out.write(b'abcdef');err.write(b'xyz!')
+                self.assertEqual((out.retained,out.discarded),(4,2))
+                self.assertEqual((err.retained,err.discarded),(3,1))
+                out.deadline=0;out.write(b'late')
+                self.assertEqual((out.retained,out.discarded),(4,6))
+                self.assertEqual((p/'stdout').read_bytes(),b'abcd')
+                self.assertEqual((p/'stderr').read_bytes(),b'xyz')
+                self.assertEqual((p/'stdout').stat().st_mode&0o777,0o600)
+            finally:out.close();err.close()
+
+    def test_wrapper_arguments_are_not_registered_image_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=pathlib.Path(temp);image=root/'agent.exe';image.write_bytes(b'exact image')
+            proc=root/'proc'/'123';proc.mkdir(parents=True)
+            (proc/'cmdline').write_bytes(str(image).encode()+b'\0')
+            (proc/'maps').write_text('')
+            artifact={'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()}
+            app={'executable':artifact,'helpers':[artifact,artifact],'environment':{'runner':{'files':[]}}}
+            class Scope:
+                proc_root=root/'proc'
+                def identity(self,pid):return None
+            record={'pid':123,'ppid':1}
+            self.assertEqual(session.vendor_process_metadata(Scope(),record,app)['registered_images'],[])
+            st=image.stat()
+            (proc/'maps').write_text(f'1000-2000 r--p 00000000 {os.major(st.st_dev):x}:{os.minor(st.st_dev):x} {st.st_ino} /container/alias/agent.exe\n')
+            self.assertEqual(len(session.vendor_process_metadata(Scope(),record,app)['registered_images']),3)
+
+    def test_diagnostic_modes_do_not_accept_arbitrary_executable_or_verb(self):
+        root=pathlib.Path('/fixture/environment')
+        app={'environment':{'root':str(root),'runner':{'entry_point':'/runner/entry','proton':'/runner/proton'}},
+             'executable':{'path':str(root/'compatdata/pfx/drive_c/ASC/main.exe')},
+             'helpers':[{'path':str(root/'compatdata/pfx/drive_c/ASC/agent.exe')}]}
+        for mode,verb,image in [('agent_probe','runinprefix','agent.exe'),('runinprefix_probe','runinprefix','main.exe'),('initialized_probe','run','main.exe'),('accessibility_probe','runinprefix','main.exe')]:
+            cmd,cwd=session.vendor_launch({'application':app,'mode':mode})
+            self.assertEqual(cmd[4],verb);self.assertTrue(cmd[-1].endswith(image))
+        for mode in ['normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe']:
+            self.assertEqual(session.vendor_compatibility(mode),{'disable_windows_accessibility':mode in ('normal','accessibility_probe')})
+        with self.assertRaises(RuntimeError):session.vendor_compatibility('global')
+        with self.assertRaises(RuntimeError):session.vendor_launch({'application':app,'mode':'arbitrary'})
+        env=session.vendor_diagnostic_environment({},pathlib.Path('/private/log'),True)
+        self.assertEqual(env['PROTON_LOG'],'0')
+        self.assertNotIn('+all',env['WINEDEBUG']);self.assertIn('trace+process',env['WINEDEBUG'])
+        self.assertIn('trace+unwind',env['WINEDEBUG']);self.assertIn('trace+loaddll',env['WINEDEBUG'])
+        self.assertEqual(session.vendor_diagnostic_environment({},pathlib.Path('/private/log'),False),{})
+
+
+class CgroupFixture:
+    group='/user.slice/linux-vst-bridge-vendor-arturia-software-center.service'
+    def __init__(self, path, supervisor=99999):
+        self.path=path;self.proc=path/'proc';self.cg=path/'cgroup';self.supervisor=supervisor
+        self.unit=self.cg/self.group.lstrip('/');self.unit.mkdir(parents=True)
+        self.record(supervisor,1,1);self.set_members([])
+    def record(self,pid,start,parent,group=None,state='S'):
+        p=self.proc/str(pid);p.mkdir(parents=True,exist_ok=True)
+        fields=['0']*50;fields[0]=state;fields[1]=str(parent);fields[19]=str(start)
+        (p/'stat').write_text(str(pid)+' (fixture) '+' '.join(fields))
+        (p/'cgroup').write_text('0::'+(self.group if group is None else group)+'\n')
+    def set_members(self,pids):
+        (self.unit/'cgroup.procs').write_text('\n'.join(map(str,[self.supervisor,*pids])))
+    def scope(self):
+        return ownership.CompanionCgroup(proc_root=self.proc,cgroup_root=self.cg,supervisor=self.supervisor)
+
+
+class CompanionCgroupTests(unittest.TestCase):
+    def test_fast_reparented_agent_and_unknown_handoff_keep_unit_alive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f=CgroupFixture(pathlib.Path(temp));scope=f.scope()
+            # The parent was never sampled. Both new processes have already
+            # been reparented by the time the outer launcher returns 5.
+            f.record(101,1001,1);f.record(102,1002,1)
+            f.set_members([101,102]);members=scope.members()
+            self.assertEqual([p['pid'] for p in members],[101,102])
+            self.assertEqual(session.vendor_operation_state(5,len(members)),'unknown')
+            f.set_members([102])
+            self.assertEqual(session.vendor_operation_state(0,len(scope.members())),'unknown')
+            f.set_members([])
+            self.assertEqual(session.vendor_operation_state(0,len(scope.members())),'completed')
+
+    def test_same_user_session_and_foreign_cgroup_never_authorize_adoption(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f=CgroupFixture(pathlib.Path(temp));scope=f.scope()
+            f.record(101,1001,1);f.record(102,1002,1,group='/user.slice/unrelated.service')
+            f.set_members([101,102])
+            self.assertEqual([p['pid'] for p in scope.members()],[101])
+            f.record(99999,1,1,group='/user.slice/unrelated.service')
+            with self.assertRaises(RuntimeError):f.scope()
+
+    def test_normal_main_and_agent_close_requires_empty_physical_group(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f=CgroupFixture(pathlib.Path(temp));scope=f.scope()
+            f.record(101,1001,1);f.record(102,1002,1);f.set_members([101,102])
+            self.assertEqual(session.vendor_operation_state(0,len(scope.members())),'unknown')
+            f.set_members([102]);self.assertEqual(session.vendor_operation_state(0,len(scope.members())),'unknown')
+            f.set_members([]);self.assertTrue(scope.cleanup(lambda:None,timeout=.1))
+
+    def test_cancel_signals_exact_members_with_pidfd_and_rechecks_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f=CgroupFixture(pathlib.Path(temp));scope=f.scope()
+            f.record(101,1001,1);f.record(102,1002,1,group='/user.slice/unrelated.service');f.set_members([101,102])
+            with patch.object(os,'pidfd_open',create=True,return_value=77) as opened, \
+                 patch.object(os,'close') as closed, patch.object(signal,'pidfd_send_signal',create=True) as sent:
+                scope.signal_members(signal.SIGTERM)
+                opened.assert_called_once_with(101);sent.assert_called_once_with(77,signal.SIGTERM);closed.assert_called_once_with(77)
+            def recycled(_):f.record(101,2002,1);return 78
+            with patch.object(os,'pidfd_open',create=True,side_effect=recycled), \
+                 patch.object(os,'close'),patch.object(signal,'pidfd_send_signal',create=True) as sent:
+                scope.signal_members(signal.SIGTERM);sent.assert_not_called()
+
+    @unittest.skipUnless(sys.platform=='linux','real subreaper and pidfd fixture')
+    def test_production_owner_survives_unsampled_double_fork_until_cancel(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=pathlib.Path(temp);env=root/'environment';env.mkdir();(env/'operation.lock').touch()
+            image=root/'image';image.write_bytes(b'exact fixture');artifact={'path':str(image),'sha256':hashlib.sha256(image.read_bytes()).hexdigest()}
+            app={'executable':artifact,'helpers':[artifact,artifact],
+                 'environment':{'root':str(env),'runner':{'files':[]}}}
+            pidfile=root/'handoff';report=root/'result.json';f=CgroupFixture(root/'kernel',os.getpid())
+            base_scope=f.scope()
+            class LiveFixture:
+                proc_root=f.proc;group=f.group
+                def identity(self,pid):return base_scope.identity(pid)
+                def members(self):
+                    ids=[]
+                    if pidfile.exists():
+                        for pid in json.loads(pidfile.read_text()):
+                            try:
+                                raw=(pathlib.Path('/proc')/str(pid)/'stat').read_text()
+                                p=f.proc/str(pid);p.mkdir(exist_ok=True);(p/'stat').write_text(raw);(p/'cgroup').write_text('0::'+f.group+'\n');ids.append(pid)
+                            except FileNotFoundError:pass
+                    f.set_members(ids);return base_scope.members()
+                def cleanup(self,reap):
+                    deadline=time.monotonic()+4
+                    while time.monotonic()<deadline:
+                        reap()
+                        if not [p for p in self.members() if p['state']!='Z']:return True
+                        base_scope.signal_members(signal.SIGTERM);time.sleep(.02)
+                    return False
+            code='''import os,sys,json,time
+middle=os.fork()
+if middle==0:
+ child=os.fork()
+ if child==0:
+  os.setsid();time.sleep(30);os._exit(0)
+ with open(sys.argv[1],'w') as f:json.dump([child],f)
+ os._exit(0)
+os.waitpid(middle,0)
+print('private stdout',flush=True)
+print('private stderr',file=sys.stderr,flush=True)
+os._exit(5)
+'''
+            observed=[];done=threading.Event();oldterm=signal.getsignal(signal.SIGTERM);oldint=signal.getsignal(signal.SIGINT)
+            sibling=subprocess.Popen(['/bin/sleep','30'],start_new_session=True)
+            def stop_after_handoff():
+                deadline=time.monotonic()+5
+                while time.monotonic()<deadline and not done.is_set():
+                    try:
+                        value=json.loads(report.read_text())
+                        if value['launcher_exit']==5 and value['owned_live']==1:
+                            observed.append(value);os.kill(os.getpid(),signal.SIGTERM);return
+                    except (FileNotFoundError,json.JSONDecodeError):pass
+                    time.sleep(.02)
+                if not done.is_set():os.kill(os.getpid(),signal.SIGTERM)
+            watcher=threading.Thread(target=stop_after_handoff);watcher.start()
+            try:
+                with patch.object(session,'CompanionCgroup',return_value=LiveFixture()), \
+                     patch.object(session,'vendor_launch',return_value=([sys.executable,'-c',code,str(pidfile)],root)), \
+                     patch.object(session,'environment',return_value=os.environ.copy()):
+                    self.assertTrue(session.vendor_application({'application':app,'report':str(report),'mode':'runinprefix_probe'}))
+                self.assertEqual(len(observed),1);self.assertEqual(observed[0]['state'],'unknown')
+                final=json.loads(report.read_text());self.assertEqual(final['state'],'cancelled');self.assertTrue(final['cleanup_confirmed'])
+                self.assertNotIn('private stdout',report.read_text());self.assertIsNone(sibling.poll())
+                logs=list(root.glob('private-diagnostic-*'));self.assertEqual(len(logs),1)
+                self.assertIn(b'private stdout',(logs[0]/'stdout.log').read_bytes())
+                self.assertIn(b'private stderr',(logs[0]/'stderr.log').read_bytes())
+            finally:
+                done.set();watcher.join(timeout=6);signal.signal(signal.SIGTERM,oldterm);signal.signal(signal.SIGINT,oldint)
+                sibling.terminate();sibling.wait(timeout=3)
+                session.ctypes.CDLL(None).prctl(36,0,0,0,0)
+
 if __name__ == '__main__':
     unittest.main()
+
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux atomic mapped-status reader')
+class ResultCustodyTests(unittest.TestCase):
+    def test_empty_interrupted_first_write_and_immutable_complete_slot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='18'*16
+            session.ResultStatus.create(root,sid)
+            with self.assertRaises(FileExistsError):session.ResultStatus.create(root,sid)
+            reader=session.ResultStatus(root,sid)
+            try:
+                self.assertIsNone(reader.snapshot()['rejection'])
+                # Independent child dies with only an inactive partial slot.
+                code="import os,mmap,struct,sys;f=open(sys.argv[1],'r+b');m=mmap.mmap(f.fileno(),1024);struct.pack_into('<Q',m,512,99);os._exit(7)"
+                p=subprocess.run([sys.executable,'-c',code,str(root/'ap18.results')])
+                self.assertEqual(p.returncode,7);self.assertIsNone(reader.snapshot()['rejection'])
+                row=[17,3,91,1440,1,1,0,21,256,0,0,1,0,0xffffffff,0xffffffff,0,0xffffffff,0xffffffff,0xffffffff,0,0,0,0,42,0,0x4000000000000000,0,0,0,1,0]
+                # The Windows full-path test writes the same explicit word layout.
+                with (root/'ap18.results').open('r+b') as f:
+                    f.seek(512);f.write(session.struct.pack('<31Q',*row));f.seek(64);f.write(session.struct.pack('<Q',1))
+                result=reader.snapshot()['rejection']
+                self.assertEqual(result['reason'],'ValueAboveOne');self.assertEqual(result['request_sequence'],91)
+                self.assertEqual(result['event_type'],-1);self.assertEqual(result['parameter_id'],42)
+                # Interrupted attempted replacement never commits over prior slot.
+                with (root/'ap18.results').open('r+b') as f:f.seek(128);f.write(b'\xff'*248)
+                self.assertEqual(reader.snapshot()['rejection'],result)
+                self.assertNotIn('payload',result)
+            finally:reader.close()
+    def test_version_identity_extent_and_permissions_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='18'*16;session.ResultStatus.create(root,sid)
+            with self.assertRaisesRegex(RuntimeError,'identity/version'):session.ResultStatus(root,'19'*16)
+            p=root/'ap18.results';p.chmod(0o644)
+            with self.assertRaisesRegex(RuntimeError,'ownership/extent'):session.ResultStatus(root,sid)
+            p.chmod(0o600)
+            with p.open('r+b') as f:f.seek(4);f.write(session.struct.pack('<I',2))
+            with self.assertRaisesRegex(RuntimeError,'identity/version'):session.ResultStatus(root,sid)
+    def test_supervisor_retains_rejection_before_abnormal_child_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='18'*16
+            directory=root/'compatdata/pfx/drive_c/bridge/sessions'/sid;directory.mkdir(parents=True,mode=0o700)
+            artifact=root/'host';artifact.write_bytes(b'fixture')
+            binding={'path':str(artifact),'sha256':hashlib.sha256(b'fixture').hexdigest()}
+            spec={'registration':{'host':binding,'module':binding,'environment':{'root':str(root),'runner':{'files':[]}}},'session':sid,'directory':str(directory),'report':str(root/'report.json'),'inspect':False}
+            program="""
+import os,sys,mmap,ctypes
+f=open(sys.argv[1],'r+b');m=mmap.mmap(f.fileno(),1024);a=ctypes.addressof(ctypes.c_char.from_buffer(m))
+l=ctypes.CDLL('libatomic.so.1');s=getattr(l,'__atomic_store_8');s.argtypes=[ctypes.c_void_p,ctypes.c_uint64,ctypes.c_int]
+row=[17,3,91,1440,1,0,0,21,256,0,0,1,0,0xffffffff,0xffffffff,0,0xffffffff,0xffffffff,0xffffffff,0,0,0,0,42,0,0x4000000000000000,0,0,0,1,0]
+for i,v in enumerate(row):s(a+512+i*8,v,5)
+s(a+64,1,5)
+os._exit(86)
+"""
+            cleanup=session.cleanup_process
+            def before_cleanup(child,owned):
+                saved=json.loads((root/'report.fault.json').read_text())
+                self.assertEqual(saved['before_containment']['result_status']['rejection']['request_sequence'],91)
+                self.assertTrue((directory/'ap18.results').exists())
+                return cleanup(child,owned)
+            with patch.object(session,'command',return_value=([sys.executable,'-c',program,str(directory/'ap18.results')],b'')),patch.object(session,'environment',return_value=os.environ.copy()),patch.object(session,'cleanup_process',side_effect=before_cleanup):
+                result=session.run(spec)
+            self.assertEqual(result['raw_exit'],86)
+            self.assertEqual(result['fault_status']['before_containment']['result_status']['rejection']['reason'],'ValueAboveOne')
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertFalse(directory.exists())
+
+@unittest.skipUnless(sys.platform.startswith('linux'),'Linux retirement authority and process containment')
+class ProcessRetirementTests(unittest.TestCase):
+    def test_status_is_session_bound_complete_first_write_and_not_a_crash_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);sid='28'*16
+            session.RetirementStatus.create(root,sid)
+            with self.assertRaisesRegex(RuntimeError,'identity/version'):session.RetirementStatus(root,'29'*16)
+            reader=session.RetirementStatus(root,sid)
+            try:
+                self.assertIsNone(reader.snapshot())
+                with (root/'ap18.retirement').open('r+b') as f:
+                    f.seek(192);f.write(session.struct.pack('<8Q',127,1,20,256,1,0,0,0))
+                self.assertIsNone(reader.snapshot())
+                with (root/'ap18.retirement').open('r+b') as f:f.seek(64);f.write(session.struct.pack('<Q',1))
+                first=reader.snapshot();self.assertEqual(first['session'],sid)
+                self.assertEqual(first['state'],'process_scoped_retirement_ready')
+                with (root/'ap18.retirement').open('r+b') as f:f.seek(128);f.write(b'\xff'*64)
+                self.assertEqual(reader.snapshot(),first)
+                with (root/'ap18.retirement').open('r+b') as f:f.seek(192);f.write(session.struct.pack('<Q',126))
+                with self.assertRaisesRegex(RuntimeError,'incomplete'):reader.snapshot()
+            finally:reader.close()
+
+    def test_supervisor_contains_ready_cohort_once_not_unrelated_sibling(self):
+        for mode in ('ready','missing','incomplete'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
+                root=pathlib.Path(tmp);sid='28'*16
+                directory=root/'compatdata/pfx/drive_c/bridge/sessions'/sid;directory.mkdir(parents=True,mode=0o700)
+                artifact=root/'host';artifact.write_bytes(b'fixture')
+                binding={'path':str(artifact),'sha256':hashlib.sha256(b'fixture').hexdigest()}
+                spec={'registration':{'host':binding,'module':binding,'environment':{'root':str(root),'runner':{'files':[]}}},'session':sid,'directory':str(directory),'report':str(root/'report.json'),'inspect':False}
+                program=r'''
+import os,sys,mmap,ctypes,time
+f=open(sys.argv[1],'r+b');m=mmap.mmap(f.fileno(),256);a=ctypes.addressof(ctypes.c_char.from_buffer(m))
+l=ctypes.CDLL('libatomic.so.1');s=getattr(l,'__atomic_store_8');s.argtypes=[ctypes.c_void_p,ctypes.c_uint64,ctypes.c_int]
+if sys.argv[2]=='missing':os._exit(86)
+for i,v in enumerate([127 if sys.argv[2]=='ready' else 126,1,20,256,1,0,0,0]):s(a+192+i*8,v,5)
+s(a+64,1,5)
+time.sleep(30)
+'''
+                sibling=subprocess.Popen(['/bin/sleep','30'],start_new_session=True)
+                cleanup=session.cleanup_process;retire=session.retire_directories
+                try:
+                    env=dict(os.environ,LVB_VENDOR_RETIREMENT='process_scoped_vendor_retirement')
+                    with patch.object(session,'command',return_value=([sys.executable,'-c',program,str(directory/'ap18.retirement'),mode],b'')),patch.object(session,'environment',return_value=env),patch.object(session,'cleanup_process',wraps=cleanup) as cleaned,patch.object(session,'retire_directories',wraps=retire) as retired:
+                        outcome=session.run(spec)
+                    self.assertEqual(cleaned.call_count,1);self.assertEqual(retired.call_count,1)
+                    self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+                    self.assertFalse(directory.exists());self.assertIsNone(sibling.poll())
+                    if mode=='ready':
+                        self.assertIsNone(outcome['error']);self.assertEqual(outcome['vendor_retirement']['milestones'],127);self.assertEqual(outcome['retirement_disposition'],'process_scoped_vendor_retirement')
+                    else:self.assertIsNotNone(outcome['error']);self.assertIsNone(outcome['vendor_retirement'])
+                finally:sibling.terminate();sibling.wait(timeout=3)
+
+    def test_non_dsp_routes_do_not_inherit_final_instance_retirement(self):
+        for route in ('inspect','vendor_access'):
+            with self.subTest(route=route),tempfile.TemporaryDirectory() as tmp:
+                root=pathlib.Path(tmp);sid='28'*16
+                directory=root/'compatdata/pfx/drive_c/bridge/sessions'/sid;directory.mkdir(parents=True,mode=0o700)
+                artifact=root/'host';artifact.write_bytes(b'fixture')
+                binding={'path':str(artifact),'sha256':hashlib.sha256(b'fixture').hexdigest()}
+                spec={'registration':{'host':binding,'module':binding,'environment':{'root':str(root),'runner':{'files':[]}}},'session':sid,'directory':str(directory),'report':str(root/'report.json'),'inspect':route=='inspect','vendor_access':route=='vendor_access'}
+                program="import os;assert 'LVB_VENDOR_RETIREMENT' not in os.environ;print('{\"event\":\"lifecycle\",\"state\":\"scanner_completed\"}',flush=True)"
+                with patch.object(session,'command',return_value=([sys.executable,'-c',program],b'')),patch.object(session,'environment',return_value=dict(os.environ,LVB_VENDOR_RETIREMENT='process_scoped_vendor_retirement')):
+                    outcome=session.run(spec)
+                self.assertIsNone(outcome['error']);self.assertIsNone(outcome['vendor_retirement'])
+                self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])

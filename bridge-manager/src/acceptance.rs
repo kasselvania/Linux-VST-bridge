@@ -1,6 +1,7 @@
 //! Sealed AP15 and AP17 independent-review transitions. No caller-selected profile, artifact,
 //! review or publication can grant acceptance authority.
 use crate::{catalogue::*, observation::*, profiles::*, publication::*, *};
+pub mod pigments;
 
 pub const REVIEW: &[u8] = include_bytes!("../../evidence/ap15/acceptance/review.json");
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -67,6 +68,7 @@ pub(crate) fn prepare_selected_for(
     purpose: Qualification,
 ) -> Result<AcceptedSoftware> {
     let (review_id, head, tree, revision, candidate_revision, limitation) = match purpose {
+        Qualification::Ap18Pigments => return Err("pigments_not_accepted".into()),
         Qualification::Ap15Editor => (
             5161767138,
             "a84761133f15897a9526269f2eeb35a268419c15",
@@ -166,6 +168,7 @@ pub(crate) fn prepare_selected_for(
         // Existing qualification law verifies the active physical parent and
         // all unchanged registration/environment/module/SDK constraints.
         let prior = match purpose {
+        Qualification::Ap18Pigments => return Err("pigments_not_accepted".into()),
             Qualification::Ap15Editor => {
                 m.verify_qualification_parent(&db, candidate, &retained.registration)?
             }
@@ -180,6 +183,7 @@ pub(crate) fn prepare_selected_for(
             "acceptance_parent_identity",
         )?;
         let exact = match purpose {
+        Qualification::Ap18Pigments => return Err("pigments_not_accepted".into()),
             Qualification::Ap15Editor => qualification::load(m, candidate.clone())?,
             Qualification::Ap17Capacity => qualification::load_for(m, candidate.clone(), purpose)?,
         };
@@ -238,6 +242,7 @@ pub(crate) fn prepare_selected_for(
         schema: 1,
         natives,
         environments,
+        hosts: Vec::new(),
     };
     catalogue.validate(&m.root)?;
     Ok(AcceptedSoftware {
@@ -339,7 +344,7 @@ pub fn prepare_capacity(m: &Manager) -> Result<AcceptedSoftware> {
         old["manager"]["sha256"].as_str() == Some(&seal.prior_manager_sha256),
         "acceptance_prior_software_identity",
     )?;
-    let profiles = installed_profiles()?;
+    let profiles = ap17_profiles()?;
     let candidates = qualification::candidates_for(Qualification::Ap17Capacity)?;
     require(
         profiles.len() == 2 && candidates.len() == 2,

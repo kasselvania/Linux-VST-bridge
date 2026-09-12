@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "source_commit": "498b708da3b82d904ce412e232344299bbb0ae7a",
+  "purpose": "Validate fault attribution before one further operator-owned ASC login",
+  "fixture": {
+    "source": "tools/ap18-tests/crash_capture.cpp",
+    "binary_sha256": "c2edd4b0601304e687d70fd6dfd2b0a60884f2e022d9406e9e732cbaa4f985ec",
+    "build": "zig c++ -target x86_64-windows-gnu -std=c++20 -fms-extensions -O0 -g tools/ap18-tests/crash_capture.cpp -o <PRIVATE>/fixture.exe",
+    "execution": "Exact pinned runner runinprefix under bounded private systemd diagnostic unit and exclusive environment lock; no ASC or account UI",
+    "exit": 0,
+    "unit_result": "success; collected",
+    "duration_seconds": 3.761,
+    "stderr_retained_bytes": 61160,
+    "discarded_bytes": 0,
+    "capture": {
+      "exception": "0xc0000005",
+      "loaded_base": "0x140000000",
+      "fault_PC": "0x140001006",
+      "fault_RVA": "0x1006",
+      "exported_fault_site_RVA": "0x1000",
+      "caller_PC": "0x14000101f",
+      "caller_RVA": "0x101f",
+      "exported_caller_RVA": "0x1010",
+      "next_frame_RVA": "0x104b"
+    },
+    "proof": "Installed loader/unwind channels resolve deliberate fault to ap18_fault_site + 6 and caller to ap18_fault_caller + 15. The access violation is deliberately caught and process exits 0.",
+    "limitation": "Proves this runner supplies module bases and frame RVAs, not that every vendor frame has symbols or that the ASC crash is fixed."
+  },
+  "diagnostics": {
+    "added_channels": [
+      "trace+loaddll",
+      "trace+unwind"
+    ],
+    "unchanged_bounds": "2 MiB per separate private stream; 600-second retention; drain and count overflow",
+    "no_debugger_or_memory_dump": true,
+    "no_function_arguments_or_locals_requested": true,
+    "public_content": "Known fixture addresses, symbols and counters only"
+  },
+  "validation": {
+    "manager": "54 library + 8 binary pass",
+    "manager_clippy_all_targets": "pass",
+    "Linux_runtime": "32 pass, no skips, 24.409 seconds",
+    "macOS_runtime": "32 OK, 17 Linux-only skips",
+    "Linux_release_build": "pass",
+    "Windows_host": "unchanged; accepted artifact reused",
+    "native_audio": "unchanged; not rerun"
+  },
+  "software_artifacts": {
+    "linux-vst-bridge": "d4e06c52d61a9198b7de913cd0aa814aa67a78268b6758aae8ce3961260d19e9",
+    "session.py": "fea6d325064f9f9a198fa090f5d2ada62e9006b90890ae17c93f9169cd8963d6",
+    "ownership.py": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+    "test_session.py": "c17c7860cfeab28a5417993492f46e2690145f16ecd1f7f7053262e8281bc2a3"
+  },
+  "next": "One newly authorized operator-owned ASC login, now launched with validated capture. Its result must be retained separately."
+}

@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "claim": "diagnostic custody validated; first exact live rejection retained; no validator repair",
+  "source": "9f5b8db975badd3151ddab418169e676f5a3eaaf",
+  "windows_build": "722e0ac10b09e1d465b3f06052facf607c6d8563",
+  "common_tree": "561d0f247e0946bf23d99bd8e1ac2bdbd579176c",
+  "windows_run": 34650773229,
+  "artifact": 10283872121,
+  "zip_sha256": "19f8d7e6e094f506998e743bc39191eeaeb1690bb4a52ecbbcc90dbc01448c84",
+  "host_sha256": "0dd32d2e3db161fa7042b40c574c96b730e8b45495e8faa0d105cf7766efc291",
+  "manifest_sha256": "e15a18af18ec39a49634b6d4576e007dc8ce3bc9abb27264a12b3ff3d509a902",
+  "native_reused": "f29f52f9d96649b1effbc5c1dd8c405074304ec2527d215c3794575e01ad122b",
+  "profile_revision": 5,
+  "claim_state": "review_candidate",
+  "profile_file_sha256": "dde2e25eb108c98d80926621f8fe9501d87a1ced93bc59bf917278f664c016e9",
+  "prior_revision4_file_sha256": "64e9773239ec910dcefd8ddfc0a15d36d8bca1689b9998c07ffc74da5583b00b",
+  "custody": {
+    "magic": "LVRS",
+    "version": 1,
+    "extent": 1024,
+    "session_bytes": 16,
+    "commit_offset": 64,
+    "slot_offsets": [
+      128,
+      512
+    ],
+    "slot_stride": 384,
+    "scalar_words": 31,
+    "writer": "Windows processing worker immediately after process returns",
+    "reader": "independent Linux supervisor before containment",
+    "publication": "SC atomic words, inactive complete slot before commit; first write only",
+    "empty": "No completed rejection observed; does not prove process returned before abrupt exit",
+    "no_audio_protocol_change": true,
+    "no_collector_semantic_or_capacity_change": true,
+    "no_payloads": true
+  },
+  "validation": {
+    "windows_parent_child": [
+      "successful process leaves empty",
+      "forced production collector rejection through run_offline_processing readable externally",
+      "persistent DestroyWindow failure and std::terminate preserve rejection",
+      "same teardown without rejection stays empty",
+      "persistent IPlugView removal refusal and std::terminate preserve rejection",
+      "later publisher cannot replace first record"
+    ],
+    "linux_runtime": "35 passed, including independent supervisor pre-containment persistence, interrupted slot, and Windows-visible gate alias",
+    "manager": "60 library + 11 binary passed",
+    "manager_clippy": "passed",
+    "hosted_source": {
+      "windows": 34650773229,
+      "native": 34650773196,
+      "manager": 34650773280,
+      "proof_policy": 34650773164
+    },
+    "final_source_head": "537794f185ca07a472252d845d61d9908d55ef74",
+    "final_source_workflows": {
+      "windows": 34651530250,
+      "native": 34651530269,
+      "manager": 34651530260,
+      "proof_policy": 34651530256
+    }
+  },
+  "live_attempt_bound": {
+    "completed_blocks": 30000,
+    "state": "Welcome",
+    "sidechain": "No input",
+    "notes": "one simple C3 loop",
+    "editor": "opened once, left open until outcome",
+    "stop": "first typed rejection, host exit, or bound",
+    "explicit_save": false
+  },
+  "live_result": "evidence/ap18/pigments/result-custody-live.json"
+}

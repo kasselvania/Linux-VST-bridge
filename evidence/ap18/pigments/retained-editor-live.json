@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "source_head": "31e9753f9d93ab0149aea66d33164af238ea32d3",
+  "profile_revision": 7,
+  "profile_sha256": "e16221395dcf6cb8c45521ad12528f1e5b910c5a1b5c6d7cdc5f1091498dcc04",
+  "publication": {
+    "id": "9019b5ab5b30ab940fd5cf00cc069bf5",
+    "profile_sha256": "e16221395dcf6cb8c45521ad12528f1e5b910c5a1b5c6d7cdc5f1091498dcc04",
+    "parent": {
+      "id": "a677095ee086bff53ea1fcb247d66129",
+      "sha256": "3071d0d05bfba753725680aeb9fc649b986b4f11d3023b6bdb49857bf349a0ed"
+    },
+    "qualification": "ap18_pigments"
+  },
+  "session_alias": "retained-editor-check",
+  "workload": {
+    "launch": "Applications desktop entry with protected copy of AP18 Result Diagnostic",
+    "note": "existing C3 clip, looped at 110 BPM",
+    "sidechain": "No routing/source changes",
+    "operator_input_taken": false,
+    "control": "scoped XSendEvent to observed Bitwig controls and normal WM_DELETE_WINDOW to the exact reported vendor X11 target; no global input or explicit focus operation",
+    "raw_audio_retained": false,
+    "purpose": "one close/reopen/final-retirement check; no block-count acceptance gate"
+  },
+  "close_reopen": {
+    "same_processing_session": true,
+    "generation": 1,
+    "epoch_before": 1,
+    "epoch_after": 2,
+    "native_view_before": 1,
+    "native_view_after": 2,
+    "same_vendor_x11_target": true,
+    "first_close": "normal WM_DELETE_WINDOW",
+    "hidden_stage": 218,
+    "hidden_open_flag": 0,
+    "hidden_failure_flag": 0,
+    "reopen_actions": 1,
+    "real_vendor_window_visible": true,
+    "visible_preset": "Welcome",
+    "reopen_stage": 100,
+    "processing_continued": true,
+    "local_audio": {
+      "open": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "samples": 573440,
+        "nonzero": 279038,
+        "rms": 0.030437537180701635,
+        "peak": 0.06250286847352982,
+        "raw_audio_retained": false,
+        "capture_error": false
+      },
+      "hidden": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "samples": 573440,
+        "nonzero": 319776,
+        "rms": 0.03252664557032721,
+        "peak": 0.06250286847352982,
+        "raw_audio_retained": false,
+        "capture_error": false
+      },
+      "open2": {
+        "source": "Deck local default sink monitor",
+        "rate": 48000,
+        "channels": 2,
+        "samples": 573440,
+        "nonzero": 263872,
+        "rms": 0.02950034857349642,
+        "peak": 0.06250286847352982,
+        "raw_audio_retained": false,
+        "capture_error": false
+      }
+    },
+    "listening": "No separate operator listening confirmation received for this interval; nonzero local monitor samples are the retained output evidence.",
+    "focus": "Initial foreground request was refused (FocusDenied); no universal focus success claimed."
+  },
+  "final_retirement": {
+    "normal_quit_requested": true,
+    "temporary_copy_edits_declined": true,
+    "set_processing_false_result": 0,
+    "processing_thread_joined": true,
+    "worker_exception": false,
+    "set_active_false_result": 0,
+    "ordered_event_sequences": {
+      "set_processing_false_completed": 241,
+      "thread_joined": 242,
+      "set_active_false_completed": 246
+    },
+    "processed_blocks": 48510,
+    "owner": {
+      "generation": 1,
+      "epoch": 0,
+      "request_sequence": 0,
+      "position": 0,
+      "stage": 24,
+      "detail": 2
+    },
+    "editor": {
+      "available": true,
+      "independently_sampled": true,
+      "closed": 1,
+      "failure": 0,
+      "open": 0,
+      "view_stage": 215,
+      "open_stage": 100,
+      "exception_code": 0
+    },
+    "native": {
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 48513,
+      "position": 12418304,
+      "stage": 3,
+      "detail": 0
+    },
+    "delivery": {
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 48514,
+      "position": 12418560,
+      "stage": 0,
+      "detail": 0
+    },
+    "collector_rejection": null,
+    "outer_launcher_exit": 5,
+    "exact_windows_exit_cause": "not established",
+    "boundary": "In final controller unbind, after successful processing stop/join/deactivation and before vendor view release completion. Frame detachment and removed returned; no DestroyWindow entry was recorded.",
+    "sdk_retirement_success": false,
+    "cleanup_confirmed": true,
+    "transport_retired": true
+  },
+  "classification": "Retaining the view fixes the demonstrated ordinary close/reopen path. The same release boundary still exits abnormally after processing is quiescent, so concurrent process() is not a sufficient explanation for the remaining release failure. Stop at this new quiescent-retirement result; no further live attempt or speculative repair.",
+  "final": {
+    "pigments": "inactive; revision 7 and all prior candidate artifacts/history retained",
+    "ordinary_revision10_physical_publications_unchanged": true,
+    "protected_original_project_hashes_unchanged": true,
+    "service": "active",
+    "keeper_count": 1,
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "stale_tmpfs_sessions": 0,
+    "bitwig_and_debugger_absent": true,
+    "tracing": false,
+    "effective_cpuweight": "100",
+    "512": "selected/supported/recommended",
+    "256": "unqualified"
+  },
+  "remaining": [
+    "quiescent vendor view release failure",
+    "real routed sidechain witness",
+    "preset/gesture/automation/save-reopen/sibling qualification"
+  ],
+  "nonclaims": [
+    "No clean SDK final retirement",
+    "No causal claim about Windows exception or launcher exit 5",
+    "No broad performance/reliability result",
+    "No ordinary Pigments activation authority"
+  ]
+}

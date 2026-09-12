@@ -6,7 +6,7 @@ callback work. The Rust manager supplies an exact verified registration.
 """
 import ctypes,mmap
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
-from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker
+from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -39,10 +39,26 @@ def environment(reg):
         if key in ('DISPLAY','XAUTHORITY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS'):env[key]=value
     if not env.get('DISPLAY'):raise RuntimeError('graphical user session is unavailable')
     if reg['compatibility']['disable_windows_accessibility']:env['WINEDLLOVERRIDES']='uiautomationcore='
+    policy=reg['compatibility'].get('event_output')
+    if policy is not None:
+        if policy!='reported_zero_event_channels_unspecified':raise RuntimeError('unsupported event output policy')
+        env['LVB_EVENT_OUTPUT_POLICY']=policy
+    lifetime=reg['compatibility'].get('editor_lifetime')
+    if lifetime is not None:
+        if lifetime!='retain_editor_view_until_instance_retirement':raise RuntimeError('unsupported editor lifetime')
+        env['LVB_EDITOR_LIFETIME']=lifetime
+    retirement=reg['compatibility'].get('vendor_retirement')
+    if retirement is not None:
+        if retirement!='process_scoped_vendor_retirement' or lifetime!='retain_editor_view_until_instance_retirement':raise RuntimeError('unsupported vendor retirement')
+        env['LVB_VENDOR_RETIREMENT']=retirement
     return env
 
 def command(spec):
     reg=spec['registration'];root=pathlib.Path(reg['environment']['root']);prefix=root/'compatdata/pfx';runner=reg['environment']['runner'];sid=spec['session'];mode='ap12-vendor-access' if spec.get('vendor_access') else 'ap8-module-inspection' if spec['inspect'] else 'ap9-commercial'
+    if spec.get('bus_lifecycle_probe'):
+        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access'):
+            raise RuntimeError('bus lifecycle probe requires isolated inspection')
+        mode='ap18-bus-lifecycle'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
     handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),
@@ -114,18 +130,19 @@ def transport_environment(spec,env):
         env['PRESSURE_VESSEL_FILESYSTEMS_RW']=str(validate_runtime())
 
 def windows_transport_views(spec):
-    """Keep the pinned host's closed C: handshake contract. Only these native-
+    """Keep the pinned host's closed C: handshake contract. Only these session-owner
     created files alias the exact RAM session. Publish before the Windows gate,
     never during processing; owner.json/handshake/receipts remain durable.
     """
     directory,durable=session_directories(spec)
     if directory==durable:return
     sources=[]
-    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery'):
+    for name in ('ap1.control','ap1.audio','ap11.ui','ap12.status','ap10.delivery','ap18.results','ap18.retirement'):
         source=directory/name;target=durable/name
         try:m=source.lstat()
         except FileNotFoundError:
-            if name=='ap10.delivery':continue # existing explicit socket diagnostic mode
+            if name=='ap18.retirement' and spec.get('registration',{}).get('compatibility',{}).get('vendor_retirement') is None:continue
+            if name in ('ap10.delivery','ap18.results'):continue # retained legacy diagnostic clients
             raise
         if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077:
             raise RuntimeError('transport file ownership/type')
@@ -163,6 +180,100 @@ def operation_lock_mode(spec):
         return fcntl.LOCK_SH
     return fcntl.LOCK_EX if spec['inspect'] and not spec.get('keeper') else fcntl.LOCK_SH
 
+class ResultStatus:
+    """LVRS v1 first-rejection custody, independently readable after host death.
+
+    Fixed 1024-byte file, two 384-byte slots and an atomic commit. No vendor
+    payloads. All concurrent words use libatomic, never Python memory copies.
+    """
+    fields=('generation','epoch','request_sequence','position','callback','input_notes','input_parameters',
+            'reason','frames','events','points','queues','bytes','event_type','bus','offset','channel',
+            'declared_channels','event_bus_active','flags','declared_buses','payload_type','payload_size',
+            'parameter_id','ppq_bits','value_bits','field_a','field_b','extra_bits','process_returned','reserved')
+    reasons=('None','EventCapacity','NegativeBus','UndeclaredBus','BusStorage','NegativeEventOffset',
+             'EventExtent','NonFinitePPQ','UnsupportedEvent','InvalidEventField','EventChannel','EventPayload',
+             'PayloadCapacity','NullPayload','PayloadAlignment','QueueCapacity','PointCapacity',
+             'NegativePointOffset','PointExtent','NonFiniteValue','ValueBelowZero','ValueAboveOne')
+    @staticmethod
+    def create(directory,sid):
+        header=b'LVRS'+struct.pack('<III',1,1024,31)+bytes.fromhex(sid)
+        fd=os.open(directory/'ap18.results',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'wb') as f:
+            f.write(header+bytes(1024-len(header)))
+    def __init__(self,directory,sid):
+        self.map=None;self.sid=sid;self.last=None
+        try:fd=os.open(directory/'ap18.results',os.O_RDWR|os.O_NOFOLLOW)
+        except FileNotFoundError:return
+        try:
+            st=os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=1024 or st.st_mode&0o077:raise RuntimeError('result status ownership/extent')
+            self.map=mmap.mmap(fd,1024,access=mmap.ACCESS_WRITE)
+        finally:os.close(fd)
+        if self.map[:32]!=b'LVRS'+struct.pack('<III',1,1024,31)+bytes.fromhex(sid):
+            self.close();raise RuntimeError('result status identity/version')
+        lib=ctypes.CDLL('libatomic.so.1');self.load=getattr(lib,'__atomic_load_8')
+        self.load.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load.restype=ctypes.c_uint64
+        self.address=ctypes.addressof(ctypes.c_char.from_buffer(self.map))
+    def word(self,at):return self.load(self.address+at,5)
+    def snapshot(self):
+        if self.map is None:return {'available':False}
+        for _ in range(3):
+            commit=self.word(64)
+            if not commit:return {'available':True,'schema':1,'rejection':None}
+            if commit!=1:raise RuntimeError('result status first-write counter')
+            row=dict(zip(self.fields,(self.word(128+(commit&1)*384+i*8) for i in range(31))))
+            if commit!=self.word(64):continue
+            if not 0<row['reason']<len(self.reasons) or row['process_returned']!=1 or row['reserved']:raise RuntimeError('result status malformed record')
+            for key in ('frames','event_type','bus','offset','channel','declared_channels','event_bus_active','field_a','field_b'):
+                v=row[key]
+                if v>0xffffffff:raise RuntimeError('result status scalar extent')
+                row[key]=v-(1<<32) if v&(1<<31) else v
+            row['reason_code']=row['reason'];row['reason']=self.reasons[row['reason']]
+            self.last={'available':True,'schema':1,'session':self.sid,'publication':commit,'rejection':row}
+            return self.last
+        return self.last or {'available':True,'schema':1,'incomplete':True}
+    def close(self):
+        if self.map is not None:self.map.close();self.map=None
+
+class RetirementStatus:
+    """LVRT v1: required, session-bound final process retirement authority.
+
+    Header is immutable; eight atomic scalar words occupy an inactive slot.
+    Commit one authorizes containment only after all seven milestones. A
+    partial write or an ordinary host exit is never positive retirement.
+    """
+    fields=('milestones','epoch','sequence','position','generation','reserved0','reserved1','reserved2')
+    @staticmethod
+    def header(sid):return b'LVRT'+struct.pack('<III',1,256,8)+bytes.fromhex(sid)
+    @classmethod
+    def create(cls,directory,sid):
+        fd=os.open(directory/'ap18.retirement',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'wb') as f:f.write(cls.header(sid)+bytes(224))
+    def __init__(self,directory,sid):
+        self.map=None;self.sid=sid
+        fd=os.open(directory/'ap18.retirement',os.O_RDWR|os.O_NOFOLLOW)
+        try:
+            st=os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.getuid() or st.st_size!=256 or st.st_mode&0o077:raise RuntimeError('retirement status ownership/extent')
+            self.map=mmap.mmap(fd,256,access=mmap.ACCESS_WRITE)
+        finally:os.close(fd)
+        if self.map[:32]!=self.header(sid):
+            self.close();raise RuntimeError('retirement status identity/version')
+        lib=ctypes.CDLL('libatomic.so.1');self.load=getattr(lib,'__atomic_load_8')
+        self.load.argtypes=[ctypes.c_void_p,ctypes.c_int];self.load.restype=ctypes.c_uint64
+        self.address=ctypes.addressof(ctypes.c_char.from_buffer(self.map))
+    def word(self,at):return self.load(self.address+at,5)
+    def snapshot(self):
+        commit=self.word(64)
+        if not commit:return None
+        if commit!=1:raise RuntimeError('retirement status commit')
+        row=dict(zip(self.fields,(self.word(192+i*8) for i in range(8))))
+        if self.word(64)!=commit:raise RuntimeError('retirement status changed')
+        if row['milestones']!=127 or any(row[k] for k in ('reserved0','reserved1','reserved2')):raise RuntimeError('retirement status incomplete')
+        return dict(session=self.sid,schema=1,state='process_scoped_retirement_ready',**row)
+    def close(self):
+        if self.map is not None:self.map.close();self.map=None
+
 class FaultStatus:
     """Atomic, bounded read of AP12 status; independent of either Windows thread.
 
@@ -174,7 +285,7 @@ class FaultStatus:
     """
     fields=('generation','epoch','request_sequence','position','stage','detail','ticks','frequency','thread_id','process_id')
     def __init__(self,directory,sid):
-        self.map=None;self.mailbox=None;self.gui=None;self.directory=directory;self.sid=sid;self.last=[None]*3;self.pending=None;self.suspect=None
+        self.result_status=ResultStatus(directory,sid);self.map=None;self.mailbox=None;self.gui=None;self.directory=directory;self.sid=sid;self.last=[None]*3;self.pending=None;self.suspect=None
         try:
             fd=os.open(directory/'ap12.status',os.O_RDWR|os.O_NOFOLLOW)
         except FileNotFoundError:return # legacy diagnostic clients
@@ -216,11 +327,12 @@ class FaultStatus:
                 return {**self.last[index],'current':True}
         return {**self.last[index],'current':False} if self.last[index] else {'current':False}
     def snapshot(self):
-        if self.map is None:return {'available':False}
+        if self.map is None:return {'available':False,'result_status':self.result_status.snapshot()}
         return {'available':True,'schema':self.version,'sample_monotonic_ns':time.monotonic_ns(),
                 'clock_domains':['linux_monotonic_ns','windows_qpc','windows_qpc'],
                 **{name:self.lane(i) for i,name in enumerate(('native','delivery','owner'))},
                 'editor':self.editor_snapshot(),
+                'result_status':self.result_status.snapshot(),
                 'mailbox_flags':None if self.mailbox is None else {
                     'request':self.load4(self.mailbox_address+64,5),
                     'reply':self.load4(self.mailbox_address+128,5),
@@ -264,6 +376,7 @@ class FaultStatus:
             # deadline or declare that this request necessarily fails later.
             self.suspect=self.snapshot();self.suspect['observed_pending_seconds']=now-self.pending[1]
     def close(self):
+        self.result_status.close()
         if self.gui is not None:self.gui.close();self.gui=None
         if self.mailbox is not None:self.mailbox.close();self.mailbox=None
         if self.map is not None:self.map.close();self.map=None
@@ -316,7 +429,13 @@ def run(spec,peer=None):
         while not (directory/'ap1.control').exists():
             if native_stopped() or time.monotonic()>=end:raise RuntimeError('native setup disconnected or timed out')
             time.sleep(.02)
+    if not spec['inspect'] and not spec.get('vendor_access'):ResultStatus.create(directory,sid)
     visibility=FaultStatus(directory,sid) if not spec['inspect'] and not spec.get('vendor_access') else None
+    retirement=None;retirement_ready=None
+    if spec['inspect'] or spec.get('vendor_access'):
+        env.pop('LVB_VENDOR_RETIREMENT',None) # companion/inspection ownership is distinct
+    elif env.get('LVB_VENDOR_RETIREMENT'):
+        RetirementStatus.create(directory,sid);retirement=RetirementStatus(directory,sid)
     root=subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
     sel=selectors.DefaultSelector()
@@ -353,7 +472,15 @@ def run(spec,peer=None):
                     if env.get('LVB_AP10_TRACE')=='1':visibility.suspect['threads']=fault_threads(owned)
                     try:atomic(report.with_suffix('.fault.json'),{'session':sid,'early_pending':visibility.suspect})
                     except OSError:pass # final outcome also retains this bounded witness
+            if retirement:
+                ready=retirement.snapshot()
+                if ready is not None:
+                    # Outer exit before the supervisor accepted custody remains
+                    # abnormal; a committed row does not reclassify a crash.
+                    if root.poll() is not None:raise RuntimeError('Windows exited before process retirement containment')
+                    retirement_ready=ready;break
             if native_stopped():
+                if retirement:failure='Windows retirement status absent'
                 if spec.get('vendor_access'):
                     (directory/'vendor.stop').write_text(sid+'\n')
                     end=time.monotonic()+10
@@ -387,6 +514,9 @@ def run(spec,peer=None):
                 break
     except Exception as e:failure=f'{type(e).__name__}: {e}'
     finally:
+        if retirement:
+            retirement.close()
+            if retirement_ready is None and failure is None:failure='Windows retirement status absent'
         fault=None;fault_reporting_error=None
         if visibility:
             try:
@@ -400,7 +530,7 @@ def run(spec,peer=None):
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        outcome={'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
@@ -427,6 +557,10 @@ def run(spec,peer=None):
             if outcome['transport_retired'] and peer is not None:
                 try:peer.settimeout(5);peer.sendall(b'R')
                 except OSError:pass
+        try:atomic(report,outcome)
+        except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
+    if retirement_ready is not None and clean and outcome.get('transport_retired') and not failure:
+        outcome['retirement_disposition']='process_scoped_vendor_retirement'
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     # Minimal ownership receipt is independent of the rich report, with a
@@ -504,9 +638,204 @@ def install(spec):
         lock.close()
     return code==0 and clean and failure is None
 
+def vendor_operation_state(launcher_exit, owned_live):
+    if launcher_exit is None:return 'running'
+    if owned_live:return 'unknown'
+    return 'completed' if launcher_exit==0 else 'failed'
+
+class PrivateCapture:
+    """Fixed byte/time retention; continue draining after capacity is exhausted."""
+    def __init__(self, path, capacity=2*1024*1024, seconds=600):
+        self.fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        self.capacity=capacity;self.deadline=time.monotonic()+seconds
+        self.retained=0;self.discarded=0
+    def write(self, data):
+        count=min(len(data),self.capacity-self.retained) if time.monotonic()<self.deadline else 0
+        view=memoryview(data)[:count]
+        while view:
+            written=os.write(self.fd,view);view=view[written:];self.retained+=written
+        self.discarded+=len(data)-count
+    def event(self, value):self.write((json.dumps(value,separators=(',',':'))+'\n').encode())
+    def close(self):os.close(self.fd)
+
+
+def vendor_launch(spec):
+    app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root']);runner=env['runner']
+    mode=spec.get('mode','normal')
+    if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe'):raise RuntimeError('vendor launch mode')
+    artifact=app['helpers'][0] if mode=='agent_probe' else app['executable']
+    executable=pathlib.Path(artifact['path'])
+    verb='run' if mode=='initialized_probe' else 'runinprefix'
+    argv=[runner['entry_point'],'--verb=run','--',runner['proton'],verb,windows(executable,directory/'compatdata/pfx')]
+    return argv,executable.parent
+
+
+def vendor_diagnostic_environment(env, directory, enabled):
+    result=env.copy()
+    if enabled:
+        # This pinned Proton opens/removes its own unbounded regular log file
+        # when PROTON_LOG=1. Keep its redirection off and collect the requested
+        # Wine channels through separate, bounded pipes in this private dir.
+        result.update(PROTON_LOG='0',PROTON_LOG_DIR=str(directory),
+                      WINEDEBUG='-all,+timestamp,+pid,+tid,trace+process,trace+seh,trace+unwind,trace+loaddll,err+module',
+                      DXVK_LOG_LEVEL='none',VKD3D_DEBUG='none')
+    return result
+
+
+def vendor_compatibility(mode):
+    # Exact registered ASC 2.12 operation tree: the observed UIAutomationCore
+    # null-provider crash requires this local selection. Diagnostic comparison
+    # modes retain default behavior; no global/prefix registry change.
+    if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe'):
+        raise RuntimeError('vendor launch mode')
+    return {'disable_windows_accessibility':mode in ('normal','accessibility_probe')}
+
+
+def vendor_process_metadata(scope, record, app):
+    root=scope.proc_root/str(record['pid']);roles=[];exe=None
+    try:exe=os.readlink(root/'exe')
+    except (FileNotFoundError,ProcessLookupError):pass
+    candidates=[('main',app['executable']),('agent',app['helpers'][0]),('updater',app['helpers'][1])]
+    # Arguments identify an intended launch, not the process running that PE.
+    # Match mapped file identity across container path aliases; never read or
+    # retain bootstrap arguments that could contain account or URL material.
+    try:
+        with (root/'maps').open(errors='replace') as f:maps=f.read(262144)
+    except (FileNotFoundError,ProcessLookupError):maps=''
+    mapped=set()
+    for line in maps.splitlines():
+        fields=line.split(None,5)
+        if len(fields)>=5:
+            try:
+                major,minor=fields[3].split(':');mapped.add((int(major,16),int(minor,16),int(fields[4])))
+            except ValueError:pass
+    for role,artifact in candidates:
+        path=artifact['path'];m=pathlib.Path(path).stat()
+        image_mapped=(os.major(m.st_dev),os.minor(m.st_dev),m.st_ino) in mapped
+        if exe==path or image_mapped:
+            roles.append({'role':role,'path':path,'sha256':artifact['sha256']})
+    if not roles:
+        for artifact in app['environment']['runner']['files']:
+            if exe==artifact['path']:
+                roles.append({'role':'runner_infrastructure','path':artifact['path'],'sha256':artifact['sha256']});break
+    parent=scope.identity(record['ppid'])
+    return {'executable':exe,'registered_images':roles,'parent_identity':
+            {'pid':parent['pid'],'start_ticks':parent['start_ticks']} if parent else None}
+
+
+def vendor_application(spec):
+    """Own every process in the dedicated unit until observed retirement.
+
+    Linux ancestry is not application-completion authority. Cgroup membership
+    survives rapid double-fork, Wine bootstrap and parent replacement. Unknown
+    members prevent unit exit just as known main/Agent processes do.
+    """
+    app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
+    report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
+    mode=spec.get('mode','normal');diagnostic=mode!='normal'
+    lock=(directory/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    logs=report.parent/('private-diagnostic-'+os.urandom(16).hex());logs.mkdir(mode=0o700)
+    captures={name:PrivateCapture(logs/(name+'.log')) for name in ('stdout','stderr','process')}
+    journal=captures['process'];sel=selectors.DefaultSelector();observed={};reaped={};last=0
+    def event(kind,**fields):journal.event(dict(event=kind,monotonic_ns=time.monotonic_ns(),**fields))
+    def cancel(*_):
+        nonlocal stop
+        stop=True
+    signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
+    def reap():
+        if child is not None:child.poll()
+        for _ in range(128):
+            try:info=os.waitid(os.P_ALL,0,os.WEXITED|os.WNOHANG|os.WNOWAIT)
+            except ChildProcessError:break
+            if info is None:break
+            identity=scope.identity(info.si_pid) if scope else None
+            pid,status=os.waitpid(info.si_pid,os.WNOHANG)
+            if not pid:break
+            code=os.waitstatus_to_exitcode(status)
+            if len(reaped)<4096:reaped[pid]=code
+            event('reaped',pid=pid,start_ticks=identity['start_ticks'] if identity else None,exit_status=code)
+    def drain(timeout):
+        for key,_ in sel.select(timeout):
+            data=os.read(key.fileobj.fileno(),16384)
+            if data:captures[key.data].write(data)
+            else:sel.unregister(key.fileobj)
+    def result(state,live):
+        return {'schema':3,'state':state,'launcher_exit':child.returncode if child else None,
+                'owned_live':live,'cleanup_confirmed':clean,'error':error,
+                'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
+                'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
+                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':vendor_compatibility(mode)['disable_windows_accessibility'],'account_posture':'unknown'}
+    try:
+        for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
+        scope=CompanionCgroup()
+        if scope.members():raise RuntimeError('companion cgroup not initially empty')
+        if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('companion subreaper unavailable')
+        reg={'environment':env,'compatibility':vendor_compatibility(mode)}
+        argv,cwd=vendor_launch(spec)
+        child=subprocess.Popen(argv,cwd=cwd,env=vendor_diagnostic_environment(environment(reg),logs,diagnostic),
+                stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        event('launcher_started',pid=child.pid,mode=mode,cgroup=scope.group)
+        for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:
+            os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
+        outer_recorded=False
+        while not stop:
+            members=scope.members();now=time.monotonic_ns()
+            for record in members:
+                key=(record['pid'],record['start_ticks'])
+                if key not in observed:
+                    if len(observed)>=4096:raise RuntimeError('companion lifetime process bound')
+                    observed[key]={'first_observed':now,'last_observed':now,'metadata':None}
+                item=observed[key];item['last_observed']=now
+                if item['metadata'] is None or now-item.get('metadata_time',0)>=1_000_000_000:
+                    metadata=vendor_process_metadata(scope,record,app);after=scope.identity(record['pid'])
+                    if after is None or after['start_ticks']!=record['start_ticks']:continue
+                    item['metadata_time']=now
+                    if metadata!=item['metadata']:
+                        item['metadata']=metadata
+                        event('process_observed',**record,**metadata,first_observed=item['first_observed'],last_observed=now)
+            present={(v['pid'],v['start_ticks']) for v in members}
+            for key,item in observed.items():
+                if key not in present and not item.get('retired'):
+                    item['retired']=True
+                    event('process_disappeared',pid=key[0],start_ticks=key[1],first_observed=item['first_observed'],last_observed=item['last_observed'],exit_status=reaped.get(key[0]))
+            reap()
+            if child.returncode is not None and not outer_recorded:
+                event('launcher_exit',exit_status=child.returncode);outer_recorded=True
+            live=[p for p in scope.members() if p['state']!='Z']
+            state=vendor_operation_state(child.returncode,len(live))
+            if state in ('completed','failed'):
+                # No member remains that could create a later handoff. A
+                # second ancestry sample or a fixed grace period is not proof.
+                for _ in range(64):drain(0)
+                clean=True
+                if state=='failed':error='vendor_application_launcher_failed_after_cgroup_empty'
+                event('cgroup_empty',launcher_exit=child.returncode)
+                break
+            if time.monotonic()-last>=1:
+                atomic(report,result(state,len(live)));last=time.monotonic()
+            drain(.1)
+    except Exception as exc:
+        error='vendor_application_observation_failed'
+        event('owner_error',error_type=type(exc).__name__)
+    finally:
+        if not clean and scope is not None:
+            try:clean=scope.cleanup(reap)
+            except Exception as exc:event('cleanup_error',error_type=type(exc).__name__)
+        if child is not None:
+            for _ in range(64):drain(0)
+            child.stdout.close();child.stderr.close()
+        sel.close()
+        state='cleanup_unconfirmed' if not clean else 'failed' if error else 'cancelled' if stop else 'completed'
+        event('operation_retired',state=state,cleanup_confirmed=clean)
+        atomic(report,result(state,0 if clean else None))
+        for capture in captures.values():capture.close()
+        lock.close()
+    return clean and error is None
+
 if __name__=='__main__':
     os.umask(0o077)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
+    if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
     operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
     # Standalone setup inspection is exclusive: it may start Wine services and

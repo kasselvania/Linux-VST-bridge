@@ -1,0 +1,248 @@
+{
+  "schema": "ap18-ordinary-pigments-smoke-v1",
+  "source": "11ddb9a2884fe3b4d443cdba17adbfee0ff0d0fd",
+  "result": "passed",
+  "session": "PIGMENTS_ORDINARY_SMOKE",
+  "publication": {
+    "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+    "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+  },
+  "profile_revision": 11,
+  "claim": "verified_exact_fixture",
+  "qualification": null,
+  "fixture": {
+    "os": "SteamOS 3.8.16",
+    "daw": "Bitwig Studio 6.1 Flatpak",
+    "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "sample_rate": 48000,
+    "precision": "float32",
+    "host_maximum": 512,
+    "added_bridge_frames": 512,
+    "project": "AP18 LC1 Completion",
+    "project_sha256": "917e54d01f562b05cca0e7761f85f1114e7b94b301dfdc85a66365edc33db3c8",
+    "material": "existing C3 clip; separate Audio 2 test-tone track muted",
+    "heavy_tracing": false,
+    "scheduler_changes": false
+  },
+  "sequence": [
+    "normally launched using installed Applications desktop entry with protected saved project",
+    "ordinary revision 11 admitted",
+    "C3 clip played; Pigments and master output meters active",
+    "real Pigments editor opened, Krog Keys displayed, keyboard and output meters active",
+    "File -> Quit -> No to temporary UI/transport edits",
+    "Bitwig main window disappeared; all Bitwig processes subsequently verified absent",
+    "exact session retirement and final installed state read over restored SSH"
+  ],
+  "input_control": {
+    "initial": "SSH background launch",
+    "ssh_interruption": "fresh Tailscale authentication expired before the background playback request reached the Deck",
+    "completion": "operator explicitly authorized Moonlight control; no window move/resize; no modifier shortcuts; normal visible clicks",
+    "ssh_restored_by_operator": true,
+    "moonlight_used_as_audio_measurement": false
+  },
+  "nonzero_output": {
+    "source": "existing bounded native returned-audio observer plus Bitwig/Pigments meters",
+    "first_window": {
+      "event": "ap8_returned_audio",
+      "epoch": 1,
+      "position": 8668800,
+      "samples": 8832,
+      "nonzero": 8734,
+      "rms": 0.059422596236257674,
+      "peak": 0.09376570582389832,
+      "unretained_window_samples": 15186688
+    },
+    "maximum_retained_peak": 0.11813291907310486,
+    "retained_windows": 32,
+    "raw_audio_retained": false,
+    "local_sink_monitor_capture": "not collected because SSH required fresh authorization; no rerun"
+  },
+  "native_counters_and_editor": [
+    {
+      "event": "ap11_editor_status",
+      "focus_result": 1,
+      "activation": 1,
+      "user_time": 0,
+      "view_epoch": 1,
+      "native_view": 1,
+      "lifecycle": 3,
+      "processing_generation": 1,
+      "focus_flags": 0,
+      "open": 1,
+      "result": 0
+    },
+    {
+      "event": "ap11_editor_status",
+      "focus_result": 3,
+      "activation": 1,
+      "user_time": 0,
+      "view_epoch": 1,
+      "native_view": 1,
+      "lifecycle": 5,
+      "processing_generation": 1,
+      "focus_flags": 6,
+      "open": 1,
+      "result": 0
+    },
+    {
+      "event": "ap10_process_results",
+      "stats_status": 0,
+      "events_delivered": 146,
+      "points_delivered": 0,
+      "late_events": 0,
+      "late_points": 0,
+      "host_unrequested_events": 0,
+      "host_unrequested_points": 0,
+      "rejected": 0,
+      "cleanup_sent": 0,
+      "cleanup_unavailable": 0,
+      "active_notes_unreleased": 0,
+      "discarded_on_reset": 0,
+      "pending_events": 0,
+      "pending_points": 0
+    },
+    {
+      "event": "ap3_proxy_stats",
+      "fault": 0,
+      "first_position": 18446744073709551615,
+      "processed": 64124,
+      "request_high": 4,
+      "result_high": 4,
+      "position": 16415744,
+      "epoch": 1
+    },
+    {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 512,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 16415744,
+      "blocks": 32062,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 1,
+      "successful_silent_frames": 512,
+      "priming_frames": 512,
+      "underrun_frames": 768,
+      "underrun_gaps": 2,
+      "underrun_callbacks": 2,
+      "expired_output_frames": 512,
+      "delivered_frames": 16414464,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    }
+  ],
+  "processing_retirement_records": [
+    {
+      "state": "ap4_state_result",
+      "sequence": 217,
+      "operation": "opaque",
+      "result": 0
+    },
+    {
+      "state": "ap4_state_result",
+      "sequence": 224,
+      "operation": "opaque",
+      "result": 0
+    },
+    {
+      "state": "ap4_state_result",
+      "sequence": 228,
+      "operation": "opaque",
+      "result": 0
+    },
+    {
+      "state": "ap2_lifecycle_ack",
+      "sequence": 235
+    },
+    {
+      "state": "ap2_lifecycle_ack",
+      "sequence": 239
+    },
+    {
+      "state": "ap4_state_result",
+      "sequence": 243,
+      "operation": "opaque",
+      "result": 0
+    },
+    {
+      "state": "ap0_call_completed",
+      "sequence": 245,
+      "operation": "set_processing_false",
+      "result": 0
+    },
+    {
+      "state": "ap0_thread_joined",
+      "sequence": 246,
+      "joined": true,
+      "worker_exception": false
+    },
+    {
+      "state": "ap2_lifecycle_ack",
+      "sequence": 247
+    },
+    {
+      "state": "ap3_processing_summary",
+      "sequence": 248,
+      "processed_blocks": 64124,
+      "intervals": 1
+    },
+    {
+      "state": "ap0_call_completed",
+      "sequence": 250,
+      "operation": "set_active_false",
+      "result": 0
+    },
+    {
+      "state": "ap2_lifecycle_ack",
+      "sequence": 251
+    }
+  ],
+  "retirement_ready": {
+    "session": "PIGMENTS_ORDINARY_SMOKE",
+    "schema": 1,
+    "state": "process_scoped_retirement_ready",
+    "milestones": 127,
+    "epoch": 1,
+    "sequence": 64129,
+    "position": 16415744,
+    "generation": 1
+  },
+  "editor_at_retirement": {
+    "available": true,
+    "independently_sampled": true,
+    "closed": 1,
+    "failure": 0,
+    "open": 0,
+    "view_stage": 217,
+    "open_stage": 100,
+    "exception_code": 0
+  },
+  "collector_rejection": null,
+  "outer_launcher_exit": -15,
+  "exit_before_containment": null,
+  "retirement_disposition": "process_scoped_vendor_retirement",
+  "clean_sdk_destruction_claimed": false,
+  "ownership": {
+    "cleanup_confirmed": true,
+    "transport_retired": true
+  },
+  "error_present": false,
+  "final_bitwig_processes": 0,
+  "final_dsp_leases": 0,
+  "final_pending_transactions": 0,
+  "final_stale_transports": 0,
+  "project_unchanged": true,
+  "residual_delivery": {
+    "gaps": 2,
+    "missing_frames": 768,
+    "expired_frames": 512,
+    "issue": 90,
+    "not_a_performance_comparison": true
+  },
+  "scope": "one ordinary-authority session only; routing, automation, save/recall, sibling, capacity and reboot qualification reused from accepted evidence, not repeated; idle time while access was restored is not a block-count campaign"
+}

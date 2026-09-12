@@ -63,6 +63,7 @@ pub fn refusal(e: &(dyn std::error::Error + Send + Sync + 'static)) -> Refusal {
         "qualification_verified_parent_required" | "qualification_parent_absent" => {
             RefusalCode::QualificationParentRequired
         }
+        s if s.starts_with("pigments_baseline_") => RefusalCode::QualificationParentRequired,
         "qualification_verified_parent_mismatch"
         | "qualification_exact_candidate_required"
         | "qualification_artifact_location_or_mutability"

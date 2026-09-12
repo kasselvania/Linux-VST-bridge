@@ -81,3 +81,93 @@ The sealed transition and ordinary publication ran on the Deck. Both revision-10
 The protected project remained byte-identical. After retaining the failure, a PID/start-time-bound SIGTERM closed only the stuck test application. Both discovery links were rolled back through normal managed rollback to their exact original revision-7 targets, with revision 3 retained. Revision 10 remains inactive immutable publication history. The new immutable manager/software remains installed and validates the retained revision-7 targets. Final state: service and keeper active, zero DSP leases, no pending transaction or stale transport session, no Bitwig/debugger process, tracing off, bridge CPUWeight unset/effective 100. Capacity readback conservatively returns `engineering_candidate` after restoration because revision 10 is not physically active.
 
 See `evidence/ap17/acceptance/transition.json`, `ordinary-smoke.json`, `installed-final.json` and `validation.json`. The first Bitwig scan also required refreshing the existing VST3 search location; monitoring was restored off, and the same locations remain (their display order changed). No vendor file, authorization or project was replaced. 512 remains selected/supported/recommended; 256 remains unqualified. Short delivery gaps (#72), FRAGMENTS rendering (#80), and the newly retained quit failure remain explicit. ASC/Pigments were not executed. PR #92 stays open and unmerged; `AP17_ACCEPTED_AND_ORDINARY_CAPACITY_PROFILE_READY` is **not** claimed.
+
+AP18 retains `ap18/arturia-pigments.json` as a new exact revision-1
+`review_candidate`, generated from the supervised installed Pigments census.
+Its `windows_default` accessibility posture is distinct from the reviewed
+LoFi/FRAGMENTS process-scoped disabling. The auxiliary input remains declared
+but inactive. `pigments_under_qualification` explicitly excludes ordinary
+activation and any claim of an already qualified Pigments musical workflow.
+The sealed `ap18_pigments` route binds its separate Windows host and native to
+exact existing revision-10 baseline publications; it never changes those
+profiles or treats an existing product's class as Pigments' parent.
+
+AP18 Pigments revision 1 is retained as failed native-activation history. Its
+auxiliary bus was incorrectly advertised as default-active despite unsupported
+activation. Revision 2 retains the exact census and Windows artifact and binds
+the corrected native advertisement. Both remain ReviewCandidate; the sealed
+replacement route requires the prior candidate inactive and preserves LoFi and
+FRAGMENTS ordinary revision 10.
+
+## AP18 ordinary Pigments revision 11 — review 5185372983
+
+Independent review selected head `f8d0dbfb481324e84e8b337014b66947978b146c`,
+tree `89fb026133ef585a9fcd7475ed4aec919c1236c7`, and the accepted revision-10
+technical/artifact contract. Root `arturia-pigments.json` is a new immutable
+revision-11 VerifiedExactFixture profile. `ap18/arturia-pigments.json` stays
+revision 10 ReviewCandidate; all ten candidate profiles and prior publications
+remain unchanged. Only revision, claim, evidence additions and removal of
+`pigments_under_qualification` / `returned_result_diagnosis` differ.
+
+The no-argument `accept-pigments` command requires the exact prior software,
+inactive accepted candidate and its completed transactions, unchanged ordinary
+LoFi/FRAGMENTS baseline, current module/environment/runner/native/descriptor/host
+identities, independent review and evidence. It reuses retained immutable bytes,
+not caller-supplied paths or hashes. Existing software setup installs the current
+manager with unchanged runtime helpers and a schema-2 native catalogue. The
+catalogue adds the exact Pigments host/manifest; the default host and ordinary
+LoFi/FRAGMENTS artifacts stay unchanged. Inspection, publication and service
+readback select the same host from each exact profile.
+
+Ordinary `managed publish` produces revision 11 with no qualification marker and
+revision 10 as retained candidate provenance. That one sealed predecessor
+transition does not change ReviewCandidate/Activation refusal. Candidate
+publication, profile and transaction records remain immutable. Ordinary repeated
+publication is idempotent; unpublish/reconcile use the existing physical law.
+
+The acceptance smoke is restricted to one ordinary Pigments load, existing C3
+material, direct editor and normal retirement. Accepted routing/automation/state/
+sibling results are reused. This is one exact fixture, not broad Pigments support.
+Process-scoped vendor retirement is explicit and is not clean SDK destruction.
+Short delivery gaps, unqualified256, detached focus refusal, exact operator
+artifacts and sole stereo auxiliary input remain limitations. 512 remains
+selected/supported/recommended; 256 remains unqualified.
+
+
+The ordinary transition completed with product source
+`11ddb9a2884fe3b4d443cdba17adbfee0ff0d0fd`. Profile fingerprint is
+`3126fea7ea72c02bae08fd21cef87e271e5575b09bb419bc1d650ab273e172ad`.
+Ordinary publication `bf9d2e4a96e4a7169f6a72bcf0937ebd` has no qualification
+marker and exact candidate parent `ac56409aa91d41aa15ab85e18e1d75ff`.
+
+The first software copy made the supplemental Windows-host path 267 characters;
+its inspection exited without a Windows record, and publication was never
+attempted. The correction uses one digest of the host/manifest pair and checks
+the Windows path extent before installation. A retry can only reuse the same
+sealed acceptance receipt with the exact candidate still inactive and every
+artifact/history/baseline condition intact. The old software remains immutable.
+The corrected 202-character executable path passed ordinary inspection.
+
+One normally Applications-launched `AP18 LC1 Completion` session admitted
+revision 11, played its C3 clip with nonzero returned audio, opened the real
+Pigments editor, and quit normally. It committed all seven retirement milestones
+(bitmask 127); the exact cohort, native endpoint, lease and tmpfs session retired. This is
+`process_scoped_vendor_retirement`, not clean SDK destruction. A Tailscale
+reauthentication pause required operator-authorized Moonlight input during this
+same session; SSH subsequently verified cleanup. No qualification was repeated.
+
+The smoke retained 2 gaps / 768 missing frames / 512 expired frames, fault 0,
+146 returned events delivered, zero rejected results and no unreleased notes.
+These are functional observations, not a performance comparison or a gap-free
+claim. Residual delivery remains issue #90. The native observation retained only
+bounded scalar audio facts; no audio, preset or state payload was committed.
+
+Revision 11 stays active. LoFi/FRAGMENTS revision 10 and their revision-7/revision-3
+ancestry are unchanged; all ten Pigments candidate profiles remain byte-identical.
+Service/keeper are active; zero DSP leases, pending transactions and stale tmpfs
+sessions; Bitwig/debuggers/owned temporary units absent; tracing off; CPUWeight
+unset/effective 100. All four original/protected project hashes are unchanged.
+See `evidence/ap18/acceptance/artifacts.json`, `transition.json`,
+`ordinary-smoke.json`, `installed-final.json` and `validation.json` for exact
+identities and checks. Only one Pigments instance and the declared topology are
+verified. 512 remains selected/supported/recommended; 256 remains unqualified.

@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "candidate_revision": 6,
+  "source_head": "27543277b734913cb17567db025635b03a2b1a77",
+  "session_alias": "r6-operator-audio-session",
+  "workload": {
+    "operator_started": true,
+    "automated_desktop_input": false,
+    "project": "operator-created unsaved project; not claimed as the controlled C3 fixture",
+    "audio": "Operator reported audible output, followed by slowdown and failures.",
+    "later_measurement": "Eight-second local monitor capture was silent after the DSP lease had already retired; it does not contradict earlier operator audio."
+  },
+  "result_custody": {
+    "available": true,
+    "schema": 1,
+    "rejection": null,
+    "post_join_rejection_event": false,
+    "processing_thread_joined_event": false
+  },
+  "last_native": {
+    "generation": 1,
+    "epoch": 1,
+    "request_sequence": 23136,
+    "position": 5920512,
+    "stage": 2,
+    "delivered_frames": 5920256,
+    "missing_frames": 0,
+    "expired_frames": 0,
+    "gap_groups": 0,
+    "priming_frames": 512,
+    "scope": "Last complete pre-containment scalar row, not a clean final summary or a claim of no audible slowdown."
+  },
+  "last_windows_delivery": {
+    "generation": 1,
+    "epoch": 1,
+    "request_sequence": 23136,
+    "position": 5920512,
+    "stage": 3,
+    "process_return_for_this_request": "not established"
+  },
+  "editor": {
+    "view_stage": 215,
+    "open_stage": 100,
+    "closed_flag": 1,
+    "open_flag": 1,
+    "failure_flag": 0,
+    "exception_code": 0,
+    "source_boundary": "IPlugView::removed and setFrame(nullptr) returned successfully; stage 215 precedes vendor view release. Completion of release and subsequent DestroyWindow are not recorded.",
+    "limitation": "Existing SEH wrapper covers attached/removed, not release; zero exception_code cannot exclude a release exception. Stage alone does not prove the cause of process exit."
+  },
+  "state": {
+    "last_three_capture_result_codes": [
+      0,
+      0,
+      0
+    ],
+    "last_three_capture_byte_counts": [
+      375950,
+      376422,
+      366832
+    ],
+    "scope": "Successful opaque captures only; not complete project-save or recall qualification."
+  },
+  "exit": {
+    "outer_launcher": 5,
+    "exact_windows_exit_cause": "unknown",
+    "cleanup_confirmed": true,
+    "transport_retired": true
+  },
+  "scheduling": {
+    "heavy_trace": false,
+    "readback_cpu_weight": 10000,
+    "writer": "unknown",
+    "performance_comparison_eligible": false,
+    "restored_cpu_weight": "unset/effective 100"
+  },
+  "classification": "Original EventChannel refusal was not recorded in this corrected audio-producing session. Editor-release boundary remains a separate unresolved host-exit observation; slowdown cause is not established.",
+  "validation": {
+    "source_head": "27543277b734913cb17567db025635b03a2b1a77",
+    "hosted": {
+      "host": "SUCCESS",
+      "native-results": "SUCCESS",
+      "manager": "SUCCESS",
+      "PX2 proof policy core": "SUCCESS"
+    }
+  },
+  "checkpoint": {
+    "dsp_leases": 0,
+    "service": "active",
+    "keeper": "active",
+    "pigments": "revision 6 restored inactive through qualify-pigments restore (exit 0), following operator-confirmed normal closure",
+    "lofi_fragments": "ordinary revision 10 unchanged",
+    "pr": "draft/open/unmerged",
+    "pending_transactions": 0,
+    "cleanup_unconfirmed": false,
+    "cpu_weight": "unset/effective 100",
+    "heavy_trace": false
+  },
+  "nonclaims": [
+    "No controlled C3 or 30000-block completion claim",
+    "No causal teardown repair yet",
+    "No installation or save-location defect inferred",
+    "No sidechain source-routing qualification",
+    "No AP18 completion"
+  ]
+}

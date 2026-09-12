@@ -6,11 +6,13 @@ pub mod catalogue;
 mod managed_tests;
 pub mod observation;
 pub mod profiles;
+pub mod pigments;
 pub mod publication;
 pub mod qualification;
 pub mod readback;
 #[cfg(test)]
 mod test_fixture;
+pub mod vendor_application;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -194,6 +196,12 @@ impl Metadata {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Compatibility {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vendor_retirement: Option<profiles::VendorRetirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub editor_lifetime: Option<profiles::EditorLifetime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_output: Option<profiles::EventOutputPolicy>,
     pub disable_windows_accessibility: bool,
 }
 /// Installed performance preference, independently versioned from vendor state

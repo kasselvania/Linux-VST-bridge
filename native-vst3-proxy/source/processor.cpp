@@ -1,4 +1,7 @@
 #include "processor.h"
+#ifdef AP8_PREVIEW
+#include "ap18_bus_support.h"
+#endif
 #include "../../vst-state/stream.h"
 #include "ap2_backend.h"
 #include "ap3_backend.h"
@@ -490,10 +493,16 @@ tresult PLUGIN_API Processor::initialize(FUnknown *context) {
     return result;
 #ifdef AP8_PREVIEW
   size_t ordinal=0;
+  const int audio_inputs=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kInput;});
   for(const auto& b:AP8::buses){
-    bool enabled=b.type==kMain&&(b.flags&BusInfo::kDefaultActive);
+    bool supported=AP18Buses::supported(b.media,b.direction,b.index,b.type,audio_inputs,b.channels,b.arrangement);
+    bool enabled=supported&&(b.flags&BusInfo::kDefaultActive);
+    if(b.media==kAudio&&b.direction==kInput&&b.index==0&&supported)stereo_input_ordinal_=int(ordinal);
     bus_active_[ordinal++]=enabled;
-    auto flags=b.flags;
+    // Preserve the observed descriptor; native default activation must describe
+    // what this proxy can actually activate. A sole stereo auxiliary input
+    // retains its role; additional auxiliaries remain visible but inactive.
+    auto flags=supported?b.flags:(b.flags&~uint32_t(BusInfo::kDefaultActive));
     const auto* name=reinterpret_cast<const TChar*>(b.name);
     if(b.media==kAudio){if(b.direction==kInput)addAudioInput(name,b.arrangement,b.type,flags);else addAudioOutput(name,b.arrangement,b.type,flags);}
     else {if(b.direction==kInput)addEventInput(name,b.channels,b.type,flags);else addEventOutput(name,b.channels,b.type,flags);}
@@ -521,7 +530,8 @@ tresult PLUGIN_API Processor::activateBus(MediaType media,BusDirection direction
 #ifdef AP8_PREVIEW
  size_t ordinal=0;for(const auto&b:AP8::buses){
   if(int(b.media)==media&&int(b.direction)==direction&&int(b.index)==index){
-   if(active&&b.type!=kMain){
+   if(active&&!AP18Buses::supported(b.media,b.direction,b.index,b.type,
+       std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& x){return x.media==kAudio&&x.direction==kInput;}),b.channels,b.arrangement)){
     // This owner-thread, inactive SDK operation is outside process().
     char text[256];auto n=std::snprintf(text,sizeof(text),
       "{\"event\":\"ap10_unsupported_bus_activation\",\"media\":%d,\"direction\":%d,\"index\":%d,\"active\":true}\n",media,direction,index);
@@ -726,7 +736,8 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
       d.numInputs != int(std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kInput;})))return reject();
   float silent_input[1024]{};float* in[2]={silent_input,silent_input};uint64_t input_flags=3;
-  if(AP8::effect){
+  const bool receive_input=stereo_input_ordinal_>=0&&bus_active_[size_t(stereo_input_ordinal_)];
+  if(receive_input){
     if(!d.inputs||d.inputs[0].numChannels!=2||!d.inputs[0].channelBuffers32||!d.inputs[0].channelBuffers32[0]||!d.inputs[0].channelBuffers32[1]||(d.inputs[0].silenceFlags&~uint64_t(3)))return reject();
     in[0]=d.inputs[0].channelBuffers32[0];in[1]=d.inputs[0].channelBuffers32[1];input_flags=d.inputs[0].silenceFlags;
     for(int i=1;i<d.numInputs;++i)if(d.inputs[i].numChannels!=2)return reject();
@@ -743,7 +754,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   auto **out = d.outputs[0].channelBuffers32;
 #ifdef AP8_PREVIEW
   if(overlap(out[0],out[1],d.numSamples))return reject();
-  if(AP8::effect&&(overlap(in[0],in[1],d.numSamples)||overlap(out[0],in[1],d.numSamples)||overlap(out[1],in[0],d.numSamples)||(in[0]!=out[0]&&overlap(in[0],out[0],d.numSamples))||(in[1]!=out[1]&&overlap(in[1],out[1],d.numSamples))))return reject();
+  if(receive_input&&(overlap(in[0],in[1],d.numSamples)||overlap(out[0],in[1],d.numSamples)||overlap(out[1],in[0],d.numSamples)||(in[0]!=out[0]&&overlap(in[0],out[0],d.numSamples))||(in[1]!=out[1]&&overlap(in[1],out[1],d.numSamples))))return reject();
 #else
   if (overlap(out[0], out[1], d.numSamples) ||
       overlap(in[0], in[1], d.numSamples) ||
@@ -754,7 +765,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     return reject();
   #endif
 #ifdef AP8_PREVIEW
-  if constexpr (AP8::effect) {
+  if (receive_input) {
 #endif
   const auto hints = inputSilence(in[0], in[1], d.numSamples, input_flags);
   if (hints.flags != input_flags) {

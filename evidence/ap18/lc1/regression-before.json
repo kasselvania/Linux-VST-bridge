@@ -1,0 +1,179 @@
+{
+  "schema": "ap18-lc1-before-v1",
+  "production_basis": "2fd8537bbfdb5d8ff7c77af3f78681fe1dfd4f4d",
+  "windows_fixture_source": "911f56dae221f7792a8a29809c798be362c26715",
+  "windows_fixture_sha256": "06a72a3b43e45ddcd3dafbc55202439100c098ddf63c1932044f3b49b5128cbf",
+  "windows_workflow": 34671233116,
+  "scope": "Generated SDK component, real queued native worker and real Windows MappedSession/run_offline_processing; isolated empty fixture environment, no vendor/Bitwig/publication",
+  "requested_sequence": {
+    "before_repair": "passed",
+    "start2_sequence": 104687,
+    "start2_epoch": 2,
+    "first_epoch2_position": 0,
+    "exact_results": 4,
+    "native_windows_exits": 0
+  },
+  "additional_boundary": {
+    "basis": "Retained live fault native worker_op=14 plus native Session::transition already permits phase9/Deactivate14",
+    "operation": "second activation followed by Deactivate before Start",
+    "before_repair": "failed",
+    "native_expected_kind": 15,
+    "native_actual_kind": 7,
+    "native_expected_sequence": 104687,
+    "native_actual_sequence": 104687,
+    "native_next": 104687,
+    "native_phase": 9,
+    "session_match": true,
+    "windows_expected_kind": 10,
+    "windows_actual_kind": 14,
+    "windows_next": 104687,
+    "windows_expected_epoch": 2,
+    "actual_epoch_payload": "absent",
+    "windows_active": true,
+    "windows_running": false,
+    "second_interval_processed": 0
+  },
+  "windows_rows": [
+    {
+      "event": "lifecycle",
+      "sequence": 5,
+      "state": "lc1_receive",
+      "expected_kind": 8,
+      "actual_kind": 8,
+      "expected_sequence": 104684,
+      "actual_sequence": 104684,
+      "expected_epoch": null,
+      "session_match": true,
+      "running": false,
+      "active": false,
+      "raw_first_payload_word": 256,
+      "actual_epoch": null
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 8,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 104684
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 10,
+      "state": "lc1_receive",
+      "expected_kind": 10,
+      "actual_kind": 10,
+      "expected_sequence": 104684,
+      "actual_sequence": 104684,
+      "expected_epoch": 1,
+      "actual_epoch": 1,
+      "session_match": true,
+      "running": false,
+      "active": true
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 13,
+      "state": "ap2_lifecycle_ack",
+      "kind": 11,
+      "next_sequence": 104684
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 17,
+      "state": "ap2_lifecycle_ack",
+      "kind": 13,
+      "next_sequence": 104687
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 18,
+      "state": "lc1_receive",
+      "expected_kind": 14,
+      "actual_kind": 14,
+      "expected_sequence": 104687,
+      "actual_sequence": 104687,
+      "expected_epoch": null,
+      "session_match": true,
+      "running": false,
+      "active": true,
+      "raw_first_payload_word": 0,
+      "actual_epoch": null
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 19,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 3,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 22,
+      "state": "ap2_lifecycle_ack",
+      "kind": 15,
+      "next_sequence": 104687
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 27,
+      "state": "lc1_receive",
+      "expected_kind": 8,
+      "actual_kind": 8,
+      "expected_sequence": 104687,
+      "actual_sequence": 104687,
+      "expected_epoch": null,
+      "session_match": true,
+      "running": false,
+      "active": false,
+      "raw_first_payload_word": 256,
+      "actual_epoch": null
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 30,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 104687
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 32,
+      "state": "lc1_receive",
+      "expected_kind": 10,
+      "actual_kind": 14,
+      "expected_sequence": 104687,
+      "actual_sequence": 104687,
+      "expected_epoch": 2,
+      "session_match": true,
+      "running": false,
+      "active": true,
+      "raw_first_payload_word": 0,
+      "actual_epoch": null
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 37,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 0,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 38,
+      "state": "ap3_processing_error",
+      "detail": "lifecycle correlation"
+    }
+  ],
+  "harness_development": [
+    "First run left fixture-only Ready barrier unread; fixed before lifecycle test.",
+    "Numeric gain incorrectly supplied for commercial request; changed to existing NaN no-legacy-gain sentinel. Both numeric-gain failures occurred before reconfiguration.",
+    "An attempted cmd redirection wrapper did not start the fixture; exact owned unit contained. The existing direct runinprefix route retained complete Windows output."
+  ],
+  "not_claimed": [
+    "Pigments live repair",
+    "timing/performance qualification",
+    "sequence counter defect"
+  ]
+}

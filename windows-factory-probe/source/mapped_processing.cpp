@@ -1,3 +1,4 @@
+#include "input_observation.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
@@ -6,6 +7,8 @@
 #include "ap8_state.h"
 #include "delivery_trace.h"
 #include "fault_status.h"
+#include "result_status.h"
+#include "process_retirement.h"
 #include "delivery_mailbox.h"
 #include "process_context.h"
 #include "controller_updates.h"
@@ -78,7 +81,7 @@ struct Socket {
 struct Handle{HANDLE value=INVALID_HANDLE_VALUE;~Handle(){if(value&&value!=INVALID_HANDLE_VALUE)CloseHandle(value);}};
 }
 struct MappedSession::Impl {
- EventWriter& events;DeliveryTrace diagnostic;std::array<uint64_t,15> completion_trace{};std::unique_ptr<FaultStatus> fault;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
+ EventWriter& events;DeliveryTrace diagnostic;InputObservation input_observation;std::array<uint64_t,15> completion_trace{};std::unique_ptr<FaultStatus> fault;std::unique_ptr<ResultStatus> result_status;std::unique_ptr<RetirementStatus> retirement;Socket socket;std::wstring directory;std::unique_ptr<DeliveryMailbox> mailbox;bool last_fast=false;Handle file,mapping;uint8_t* view=nullptr;Sequence state;Request current{};bool closed=false;bool winsock=false;bool hosted=false;bool stop_requested=false;bool sustained=false;Timeline timeline;Frame pending{};bool has_pending=false;
  BusLayout buses;
  std::unique_ptr<GuiChannel> gui;std::unique_ptr<EditorSession> editor;std::wstring editor_title;
  std::atomic<bool> can_notify{false},audio_active{false};
@@ -207,7 +210,7 @@ struct MappedSession::Impl {
   if(capture_failed.load(std::memory_order_acquire)){std::lock_guard lock(mutex);std::rethrow_exception(state_error);}
   if(processing&&mailbox){last_fast=mailbox->receive(f,socket.minor);if(!last_fast)f=socket.receive(true);}else f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
 
- ~Impl(){try{diagnostic.dump(events);}catch(...){}if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
+ ~Impl(){try{if(diagnostic.enabled)input_observation.dump(events);diagnostic.dump(events);}catch(...){}if(view)UnmapViewOfFile(view);if(socket.value!=INVALID_SOCKET){closesocket(socket.value);socket.value=INVALID_SOCKET;}if(winsock)WSACleanup();}
  void error(const std::exception& e){
   state.failed=true;
   if(capture_active.load()&&socket.value!=INVALID_SOCKET){shutdown(socket.value,SD_BOTH);return;}
@@ -220,6 +223,8 @@ MappedSession::MappedSession(const std::wstring& directory,const std::string& se
  auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?12:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
+  x.result_status=std::make_unique<ResultStatus>(directory,x.state.session);
+  if(RetirementStatus::selected())x.retirement=std::make_unique<RetirementStatus>(directory,x.state.session);
   x.fault=std::make_unique<FaultStatus>(directory,x.state.session);x.fault->stage(2,20);
   Handle config;config.value=CreateFileW((directory+L"\\ap1.control").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(config.value!=INVALID_HANDLE_VALUE,"control configuration open");
   LARGE_INTEGER size{};require(GetFileSizeEx(config.value,&size)&&size.QuadPart==52,"control configuration length");std::array<uint8_t,52>b{};DWORD read=0;require(ReadFile(config.value,b.data(),DWORD(b.size()),&read,nullptr)&&read==b.size(),"control configuration read");
@@ -256,7 +261,7 @@ void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool sepa
  auto&x=*impl_;
  FaultStatus::Scope activity(x.fault.get(),2,24,c?1:2);
  if(!c&&x.editor){
-  require(x.editor->close(),"vendor view refused removal");
+  require(x.editor->retire(),"vendor view refused removal");
   const auto&v=x.editor->view();
   x.events.lifecycle("ap11_editor_summary",",\"opens\":"+std::to_string(v.opens)+",\"closes\":"+std::to_string(v.closes)+",\"focuses\":"+std::to_string(v.focuses)+",\"removal_messages\":"+std::to_string(v.removal_messages)+",\"gestures\":"+std::to_string(x.editor->gestures)+",\"values\":"+std::to_string(x.editor->values)+",\"ends\":"+std::to_string(x.editor->ends)+",\"host_updates\":"+std::to_string(x.editor->host_updates)+",\"stale_updates\":"+std::to_string(x.editor->stale_updates)+",\"suppressed_echoes\":"+std::to_string(x.editor->suppressed_echoes)+",\"scale_supported\":"+(v.scale_supported?"true":"false")+",\"scale\":"+std::to_string(v.scale)+",\"failure\":"+std::to_string(x.gui->failure()));
   x.editor.reset();
@@ -283,6 +288,26 @@ Steinberg::tresult MappedSession::request_restart(int32_t flags){auto&x=*impl_;
  if((flags&20)&&(!x.editor||x.editor->restart(flags&20)!=Steinberg::kResultOk))return Steinberg::kNotImplemented;
  x.requested_restart.fetch_or(uint32_t(flags&10));return Steinberg::kResultOk;
 }
+void MappedSession::retire_vendor_process(bool quiescent){auto& x=*impl_;
+ if(!x.retirement)return;
+ try{
+  require(std::this_thread::get_id()==x.owner,"process retirement owner thread");
+  bool no_pending=false;
+  {std::lock_guard lock(x.mutex);
+   no_pending=x.closed&&!x.active&&!x.audio_active.load()&&!x.timeline.running&&!x.state.outstanding&&!x.state.failed&&!x.has_pending
+     &&(!x.waiting||x.serviced)&&!x.capture_active.load()&&!x.state_error&&!x.capture_failed.load();}
+  complete_process_retirement(quiescent,no_pending,x.editor.get(),*x.retirement,x.timeline.epoch,x.state.next,x.timeline.position,
+    x.fault?x.fault->rows[1].generation:0,[&]{
+      // This observer previously drained only in ~Impl. Process-scoped
+      // retirement never runs that destructor: drain bounded scalar witnesses
+      // here, after processing joined and before committing retirement custody.
+      if(x.diagnostic.enabled)x.input_observation.dump(x.events);
+      finish(true);
+    });
+  Sleep(5000); // bounded final-owner wait, never the processing callback
+ }catch(...){TerminateProcess(GetCurrentProcess(),92);std::terminate();}
+ TerminateProcess(GetCurrentProcess(),92);std::terminate(); // never enter DLL detach or vendor destructors
+}
 void MappedSession::service_owner(){auto& x=*impl_;
  x.update_controller();if(x.editor)x.editor->service();
  if(auto flags=x.requested_restart.exchange(0)){FaultStatus::Scope activity(x.fault.get(),2,24,flags);auto latency=x.processor->getLatencySamples(),tail=x.processor->getTailSamples();x.published_traits.store(uint64_t(latency)|(uint64_t(tail)<<32));x.published_restart.fetch_or(flags);}
@@ -294,6 +319,10 @@ void MappedSession::service_owner(){auto& x=*impl_;
   lock.lock();x.state_error=error;x.serviced=true;
   if(error&&concurrent){x.capture_failed.store(true,std::memory_order_release);shutdown(x.socket.value,SD_BOTH);}
   x.capture_active.store(false);x.condition.notify_all();}}
+
+#ifdef LVB_LC1_TEST
+void MappedSession::lc1_seed(){auto& x=*impl_;require(x.state.next==1&&!x.timeline.running&&!x.has_pending,"LC1 seed before lifecycle");x.state.next=104684;}
+#endif
 
 bool MappedSession::initial_transition(){auto&x=*impl_;if(!x.has_pending){x.pending=x.receive();x.has_pending=true;}
  require(x.pending.kind==Activate||x.pending.kind==Close,"initial activation or close");if(x.pending.kind==Close){lifecycle_request(Close);return false;}return true;}
@@ -307,7 +336,14 @@ uint16_t MappedSession::next_transition(){auto&x=*impl_;try{
  }catch(const std::exception&e){x.error(e);throw;}}
 
 uint32_t MappedSession::lifecycle_request(uint16_t kind){auto&x=*impl_;try{
- require(x.hosted&&!x.state.failed&&!x.state.outstanding,"lifecycle ownership");auto f=x.has_pending?std::move(x.pending):x.receive();x.has_pending=false;
+ require(x.hosted&&!x.state.failed&&!x.state.outstanding,"lifecycle ownership");
+#ifdef LVB_LC1_TEST
+ const bool was_pending=x.has_pending;const auto pending_kind=x.pending.kind;const auto pending_sequence=x.pending.sequence;
+#endif
+ auto f=x.has_pending?std::move(x.pending):x.receive();x.has_pending=false;
+#ifdef LVB_LC1_TEST
+ x.events.lifecycle("lc1_receive",",\"expected_kind\":"+std::to_string(kind)+",\"actual_kind\":"+std::to_string(f.kind)+",\"expected_sequence\":"+std::to_string(x.state.next)+",\"actual_sequence\":"+std::to_string(f.sequence)+",\"expected_epoch\":"+(kind==Start?std::to_string(x.timeline.epoch+1):"null")+",\"actual_epoch\":"+(f.kind==Start&&f.payload.size()==8?std::to_string(get(f.payload.data(),8)):"null")+",\"session_match\":"+(f.session==x.state.session?"true":"false")+",\"pending_kind\":"+(was_pending?std::to_string(pending_kind):"null")+",\"pending_sequence\":"+(was_pending?std::to_string(pending_sequence):"null")+",\"running\":"+(x.timeline.running?"true":"false")+",\"active\":"+(x.active?"true":"false"));
+#endif
  require(f.kind==kind&&f.session==x.state.session&&f.sequence==x.state.next,"lifecycle correlation");
  if(kind==Activate){require(f.payload.size()==(x.sustained?8:4),"activation extent");if(x.sustained){auto mode=uint32_t(get(f.payload.data()+4,4));if(x.performance)require(x.configured&&mode==x.mode,"activation mode differs from setup");else {require(mode<=(x.stateful?1u:0u),"processing mode required");x.mode=mode;}}auto n=get(f.payload.data(),4);require(n>=1&&n<=capacity,"activation maximum");if(x.performance)require(x.configured&&n==x.maximum&&x.mode==get(f.payload.data()+4,4),"activation differs from setup");x.active=true;x.audio_active.store(true);return uint32_t(n);}
  if(x.sustained&&kind==Start){x.timeline.start(f);return 0;}
@@ -322,6 +358,8 @@ void MappedSession::lifecycle_activity(bool owner,uint64_t stage){if(impl_->faul
 void MappedSession::ready(){auto&x=*impl_;x.socket.write(x.frame(Ready,0));}
 bool MappedSession::next(ExternalBlock& out,float* left,float* right){auto&x=*impl_;try{require(!x.controller_update_failed.load(),"controller automation update failed");x.diagnostic.current={};x.diagnostic.stamp(0);if(x.fault)x.fault->stage(1,1);auto f=x.receive(true);x.diagnostic.stamp(1);if(x.fault)x.fault->publish(1,{0,x.timeline.epoch,f.sequence,x.timeline.position,2,f.kind});if(x.hosted&&f.kind==Stop){require(!x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,"stop ownership");if(x.sustained)x.timeline.stop(f);else require(f.payload.empty(),"stop payload");x.stop_requested=true;return false;}if(f.kind==Close){require(!x.hosted,"AP2 requires stop before close");x.state.close(f);x.closed=true;return false;}x.current=x.state.begin(x.sustained?x.timeline.request_frame(f,x.commercial):f,x.sustained?UINT64_MAX-1:64,x.stateful);barrier();
  for(size_t ch=0;ch<2;++ch){auto base=x.view+input_offset+ch*stride;require(get(base,4)==guard&&get(base+stride-4,4)==guard,"input guard");std::memcpy(ch?right:left,base+4,x.current.frames*4);}
+ if(x.diagnostic.enabled)x.input_observation.observe(x.timeline.epoch,x.state.next,x.timeline.position,x.current.frames,x.current.silence,left,right);
+ out.generation=x.fault?x.fault->rows[1].generation:0;out.epoch=x.timeline.epoch;out.sequence=x.state.next;out.position=x.timeline.position;
  out.frames=int(x.current.frames);out.gain=x.current.gain;out.silence=x.current.silence;out.gain_present=x.current.gain_present;
  if(x.commercial){require(!x.current.gain_present,"commercial request carries legacy gain");out.event_count=decode_events(f.payload,out.events,x.current.frames,x.socket.minor>=10?104:x.socket.minor>=8?96:0);}
  out.gui_revision=x.socket.minor>=10?get(f.payload.data()+f.payload.size()-8,8):0;
@@ -342,6 +380,7 @@ static uint64_t thread_cpu_ticks(){FILETIME created{},exited{},kernel{},user{};
  if(!GetThreadTimes(GetCurrentThread(),&created,&exited,&kernel,&user))return UINT64_MAX;
  return (uint64_t(kernel.dwHighDateTime)<<32|kernel.dwLowDateTime)+(uint64_t(user.dwHighDateTime)<<32|user.dwLowDateTime);
 }
+ResultStatus* MappedSession::result_status(){return impl_->result_status.get();}
 void MappedSession::before_process(){auto&x=*impl_;x.diagnostic.stamp(3);if(x.diagnostic.enabled){x.completion_trace[8]=thread_cpu_ticks();auto ui=x.fault?x.fault->owner_activity():std::array<uint64_t,2>{};x.completion_trace[10]=ui[0];x.completion_trace[11]=ui[1];}if(x.fault)x.fault->stage(1,3);}
 void MappedSession::after_process(){auto&x=*impl_;x.diagnostic.stamp(4);if(x.diagnostic.enabled){x.completion_trace[9]=thread_cpu_ticks();auto ui=x.fault?x.fault->owner_activity():std::array<uint64_t,2>{};x.completion_trace[12]=ui[0];x.completion_trace[13]=ui[1];}if(x.fault)x.fault->stage(1,4);}
 void MappedSession::done(const float* left,const float* right,uint64_t silence,uint64_t process_ns,const ap10_results_t* results) {

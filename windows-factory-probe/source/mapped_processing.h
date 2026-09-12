@@ -23,6 +23,7 @@ public:
     bool stateful() const override;
     void bind_component(Steinberg::Vst::IComponent*) override;
     void service_owner() override;
+    void retire_vendor_process(bool) override;
     bool initial_transition() override;
     uint32_t process_mode() const override;
     bool activation_again() override;
@@ -30,12 +31,16 @@ public:
     uint32_t lifecycle_request(uint16_t) override;
     void lifecycle_ack(uint16_t) override;
     void lifecycle_activity(bool,uint64_t) override;
+    ResultStatus* result_status() override;
     void before_process() override;
     void after_process() override;
     void ready() override;
     bool next(ExternalBlock&,float*,float*) override;
     void done(const float*,const float*,uint64_t,uint64_t=0,const ap10_results_t* = nullptr) override;
     void finish(bool success);
+#ifdef LVB_LC1_TEST
+    void lc1_seed();
+#endif
 private:
     struct Impl;std::unique_ptr<Impl> impl_;
 };
