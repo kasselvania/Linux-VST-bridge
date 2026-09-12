@@ -1,7 +1,7 @@
 // Development-only generated HWND workload. Calls the actual production pump;
 // never loads a vendor module, opens an audio endpoint, or changes a product.
 #include "vendor_view.h"
-#include "uio1/record.h"
+#include <objbase.h>
 #include <array>
 #include <cassert>
 #include <cstdio>

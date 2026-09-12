@@ -6,10 +6,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 
 from isolation import compositor_environment
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "uio1"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bridge-manager/runtime"))
+import ownership
+from launch import Helper
 
 
 def main():
@@ -45,7 +48,9 @@ def main():
     env['UIR1_PACKAGE'] = str(a.package)
     # Parent systemd cgroup retains KWin, Xwayland, runner and all descendants.
     # No --replace, physical backend, user session bus or operator display.
-    return subprocess.call(command, env=env)
+    result = Helper(ownership, command, env, a.root, a.root / "compositor.log", 190).finish()
+    print(json.dumps({"compositor_exit": result["exit"], "overflow": result["overflow"], "cleanup": result["cleanup"]}))
+    return 0 if result["exit"] == 0 and result["overflow"] == 0 else 1
 
 if __name__ == '__main__':
     sys.exit(main())
