@@ -31,7 +31,7 @@ def class_bytes(x,window):
 def host_window(x):
     candidates=[]
     for w in x.property(x.root,'_NET_CLIENT_LIST'):
-        if class_bytes(x,w) in (b'bitwig-studio\x00BitwigStudio\x00',b'Bitwig Studio\x00Bitwig Studio\x00'):
+        if class_bytes(x,w) in (b'bitwig-studio\x00BitwigStudio\x00',b'Bitwig Studio\x00Bitwig Studio\x00',b'com.bitwig.BitwigStudio'):
             candidates.append(w)
     if len(candidates)!=1:raise RuntimeError('one exact Bitwig main window required')
     return candidates[0]
@@ -60,6 +60,8 @@ def renderer(pid):
 class Capture:
     def __init__(self,context,out,process,rows,snapshot):
         self.c=context;self.out=out;w,xid=selected_window(rows);self.w=w
+        for k in ('DISPLAY','XAUTHORITY'):
+            if k in context.env:os.environ[k]=context.env[k]
         self.x=X11(xid);pid=self.x.property(xid,'_NET_WM_PID')
         if len(pid)!=1:raise RuntimeError('exact Linux editor process absent')
         self.x.pid=pid[0];self.x.check_identity();self.pid=pid[0]
@@ -157,8 +159,20 @@ class Capture:
 if __name__=='__main__':
     c=Context(pathlib.Path(sys.argv[1]),sys.argv[2],pathlib.Path(__file__).parent/'package')
     if c.admission['profile_fingerprint']!=PROFILE:raise RuntimeError('fixture plan/profile mismatch')
-    out=c.package/'interaction-1';out.mkdir(mode=0o700)
+    mode=sys.argv[3] if len(sys.argv)==4 else 'run'
+    if mode not in ('prepare','run'):raise RuntimeError('unknown diagnostic mode')
+    out=c.package/('target' if mode=='prepare' else 'interaction-1');out.mkdir(mode=0o700)
     process,rows,snapshot=c.census(out/'census.log')
+    if mode=='prepare':
+        private_json(out/'identity.json',dict(process=process,rows=rows,snapshot=snapshot))
+        for k in ('DISPLAY','XAUTHORITY'):
+            if k in c.env:os.environ[k]=c.env[k]
+        w,xid=selected_window(rows)
+        with X11(xid) as x:
+            classes=[class_bytes(x,v).decode('ascii','replace') for v in x.property(x.root,'_NET_CLIENT_LIST')]
+            print(json.dumps(dict(geometry=x.geometry(),active=x.pointer()['active']==[xid],classes=classes,
+                visible_root_count=1,renderer_census_complete=not any(r['type']=='module_census_unavailable' for r in rows))))
+        c.fault.close();sys.exit(0)
     capture=Capture(c,out,process,rows,snapshot)
     signal.signal(signal.SIGTERM,lambda *_:setattr(capture,'stop_requested',True))
     signal.signal(signal.SIGINT,lambda *_:setattr(capture,'stop_requested',True))
