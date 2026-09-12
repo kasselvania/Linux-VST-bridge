@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "cases": [
+    {
+      "case": "posted versus sent message fixture",
+      "result": "WH_GETMESSAGE saw posted input but CALLWND hooks did not enter a posted WndProc; fixture corrected to distinguish retrieval and sent calls",
+      "workflow": 34679453067
+    },
+    {
+      "case": "UIA helper build",
+      "result": "missing COM interface includes; corrected source",
+      "workflow": 34679812379
+    },
+    {
+      "case": "heartbeat early acknowledgement",
+      "result": "helper replaced ping timestamp before old callback recorded it; negative/near-zero latency was a fixture failure, corrected by retaining start and publishing pong last",
+      "workflow": 34680008846
+    },
+    {
+      "case": "Wine module census",
+      "result": "remote Toolhelp module enumeration returned ERROR_ACCESS_DENIED 5; retain unavailable and use bounded allowlisted Linux module mappings without inventing full census"
+    },
+    {
+      "case": "XComposite named pixmap",
+      "result": "BadMatch; no redirect/rendering mutation; direct exact drawable capture is allowed only while target is foreground"
+    },
+    {
+      "case": "first XTEST drag",
+      "result": "motion request acknowledged before pointer moved; Down landed at prior client [1023,21], not intended [1124,586]; this drag is invalid control evidence"
+    },
+    {
+      "case": "settled XTEST drag",
+      "result": "one identical bounded motion reissue and exact pointer readback before Down; correct coordinates but same bounded missing Win32 input; interpreted before Moonlight comparison"
+    },
+    {
+      "case": "generated pinned-runner SendInput",
+      "result": "fixture passed accepted/consumed mouse-chain tests; restoration warp was not acknowledged; no additional click sent, no held input; restored editor activation was observed"
+    },
+    {
+      "case": "UIA optional census",
+      "result": "exit 3, zero nodes; initial ElementFromHandle or RawViewWalker lookup failed; no semantic or canvas-only claim; positive helper cleanup"
+    },
+    {
+      "case": "manual macro visual ROI",
+      "result": "comparison began on Play while fixed Macro ROI described FX; excluded from macro-redraw timing, navigation ROI retained"
+    },
+    {
+      "case": "page timing censoring",
+      "result": "page appeared after bounded capture; retain delayed observation, not permanent loss or a successful repair"
+    }
+  ]
+}

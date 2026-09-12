@@ -1,0 +1,365 @@
+{
+  "schema": 1,
+  "clock_domains": [
+    "linux_monotonic_ns",
+    "windows_qpc",
+    "x11_server_ms"
+  ],
+  "clock_projection": "Rust measured round-trip bracket plus 100 ppm drift allowance within 10 seconds",
+  "gui_times": "conservative action-to-poll interval; production GUI messages have no event timestamp",
+  "region_limit": "manual comparison started on Play: FX macro region is not a macro-latency witness",
+  "x11_times": "server timestamps retained privately; public intervals end at Linux observation",
+  "window_count": 7,
+  "same_ui_thread": true,
+  "renderer_modules": [
+    "gdi32.dll",
+    "opengl32.dll",
+    "uiautomationcore.dll"
+  ],
+  "renderer_presentation_api": "not measured; loaded OpenGL is a path indicator",
+  "observer_status": {
+    "committed": 377,
+    "dropped": 0,
+    "ready": 1,
+    "closed": 1,
+    "hook_calls": 6231,
+    "hook_ticks": 169122,
+    "max_hook_ticks": 3023,
+    "filtered": 5854,
+    "heartbeat_errors": 0,
+    "scope_errors": 0,
+    "unhook_errors": 0,
+    "detached": 1
+  },
+  "frequency": 10000000,
+  "x11_records": 7,
+  "x11_dropped": 0,
+  "x11_unparsed": 0,
+  "gui_dropped": [
+    0,
+    0
+  ],
+  "frame_dropped": 0,
+  "capture": {
+    "frames": 597,
+    "interval_ms": 100,
+    "maximum_cpu_ms": 18.792743,
+    "mean_cpu_ms": 14.53412302680067,
+    "backend": [
+      "direct_drawable"
+    ]
+  },
+  "cpu_context": {
+    "measure": "whole Windows-process CPU, all threads; not UI-thread CPU",
+    "trace_off": {
+      "elapsed_ms": 2052.987492,
+      "cpu_ms": 860.0,
+      "cores": 0.41890172412214577,
+      "clock_tick_ms": 10.0
+    },
+    "diagnostic_idle_including_helper_startup": {
+      "elapsed_ms": 4648.449859,
+      "cpu_ms": 2070.0,
+      "cores": 0.4453097404056564,
+      "clock_tick_ms": 10.0
+    },
+    "total_python_cpu_ms": 19100.38388,
+    "causal_overhead_estimate": false
+  },
+  "actions": [
+    {
+      "id": 1,
+      "message_counts": [
+        {
+          "source": 4,
+          "message": 34113,
+          "count": 73
+        }
+      ],
+      "max_heartbeat_ms": 35.0632,
+      "mouse_chain_consumed": 0,
+      "gesture_begin": 0,
+      "gesture_end": 0,
+      "host_parameter_values": [
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0,
+        0.06000000238418579,
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0,
+        0.06000000238418579,
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0,
+        0.06000000238418579,
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0,
+        0.06000000238418579,
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0
+      ],
+      "regions": [
+        {
+          "index": 0,
+          "distinct_hashes": 139,
+          "first_hash": "e5d6dee3c36a9fc16411a54d3211caf5fd7622a3f52f5326c2785696aa6da47c",
+          "last_hash": "3c8bf606709e9f404405c5ab257fecfac6a85f76f71a56f22d4b167b9b4e0240"
+        },
+        {
+          "index": 1,
+          "distinct_hashes": 1,
+          "first_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e",
+          "last_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e"
+        },
+        {
+          "index": 2,
+          "distinct_hashes": 142,
+          "first_hash": "b4ab06fafb9cd465749aa091379aea5b2025b97415393dfc19049d92779d242a",
+          "last_hash": "7617f6f240082864976188f893a3f5413f0f068d157e5b99a69dbe03d1dda0a4"
+        }
+      ],
+      "frame_sample_change": {
+        "maximum_percent": 56.71016483516483,
+        "frames_with_change": 142,
+        "sample_step_pixels": 8
+      }
+    },
+    {
+      "id": 2,
+      "message_counts": [
+        {
+          "source": 1,
+          "message": 512,
+          "count": 1
+        },
+        {
+          "source": 1,
+          "message": 513,
+          "count": 1
+        },
+        {
+          "source": 2,
+          "message": 33,
+          "count": 2
+        },
+        {
+          "source": 2,
+          "message": 132,
+          "count": 28
+        },
+        {
+          "source": 3,
+          "message": 33,
+          "count": 2
+        },
+        {
+          "source": 3,
+          "message": 132,
+          "count": 28
+        },
+        {
+          "source": 4,
+          "message": 34113,
+          "count": 107
+        },
+        {
+          "source": 5,
+          "message": 512,
+          "count": 1
+        },
+        {
+          "source": 5,
+          "message": 513,
+          "count": 1
+        },
+        {
+          "source": 6,
+          "message": 512,
+          "count": 1
+        },
+        {
+          "source": 6,
+          "message": 513,
+          "count": 1
+        }
+      ],
+      "max_heartbeat_ms": 136.7359,
+      "mouse_chain_consumed": 0,
+      "gesture_begin": 1,
+      "gesture_end": 0,
+      "host_parameter_values": [
+        0.06000000238418579,
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0,
+        0.06000000238418579,
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0,
+        0.06000000238418579,
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0,
+        0.06000000238418579,
+        0.10999999940395355,
+        0.21000000834465027,
+        0.36000001430511475,
+        0.5600000023841858,
+        0.8100000023841858,
+        1.0
+      ],
+      "regions": [
+        {
+          "index": 0,
+          "distinct_hashes": 203,
+          "first_hash": "e4a03fcf5dd68b7a7ea1efe30280077421f617d7b1e367982ae0cf3b72dfdb95",
+          "last_hash": "e2677ef66c96ebb2fff1709b89c8f7809d0c75cb151c731737cb46dc8d11df7c"
+        },
+        {
+          "index": 1,
+          "distinct_hashes": 1,
+          "first_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e",
+          "last_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e"
+        },
+        {
+          "index": 2,
+          "distinct_hashes": 207,
+          "first_hash": "8cf52585d8d377d35cb6802a90c5b7db6429cf7b6e514bce7ac2b20a50052004",
+          "last_hash": "6cc744f9fb1ab031026fc2d5eb151ac5e8c33228f85cae906ab3e04294e5267f"
+        }
+      ],
+      "frame_sample_change": {
+        "maximum_percent": 58.82554945054945,
+        "frames_with_change": 207,
+        "sample_step_pixels": 8
+      }
+    },
+    {
+      "id": 3,
+      "message_counts": [
+        {
+          "source": 2,
+          "message": 132,
+          "count": 2
+        },
+        {
+          "source": 3,
+          "message": 132,
+          "count": 2
+        },
+        {
+          "source": 4,
+          "message": 34113,
+          "count": 111
+        }
+      ],
+      "max_heartbeat_ms": 33.8546,
+      "mouse_chain_consumed": 0,
+      "gesture_begin": 0,
+      "gesture_end": 0,
+      "host_parameter_values": [],
+      "regions": [
+        {
+          "index": 0,
+          "distinct_hashes": 217,
+          "first_hash": "fe620f926f10d0208e7d505f29e12a0714f45bd89d421fb1f5ab1767cf899b11",
+          "last_hash": "b89dc3aee2d139564bd70886e0c6e3e46ab2eb4dc4b83a531f449ee89718b468"
+        },
+        {
+          "index": 1,
+          "distinct_hashes": 1,
+          "first_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e",
+          "last_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e"
+        },
+        {
+          "index": 2,
+          "distinct_hashes": 217,
+          "first_hash": "1c515a119a08774267dd6d84d945f2010097259bcf49fbfba2cd99a76cd03c80",
+          "last_hash": "b4895500ce6a448da4f1079ae87e2568d07569377e15b0898a1cdef18ac06fbb"
+        }
+      ],
+      "frame_sample_change": {
+        "maximum_percent": 55.625,
+        "frames_with_change": 217,
+        "sample_step_pixels": 8
+      }
+    },
+    {
+      "id": 4,
+      "message_counts": [
+        {
+          "source": 4,
+          "message": 34113,
+          "count": 6
+        }
+      ],
+      "max_heartbeat_ms": 22.985,
+      "mouse_chain_consumed": 0,
+      "gesture_begin": 0,
+      "gesture_end": 0,
+      "host_parameter_values": [],
+      "regions": [
+        {
+          "index": 0,
+          "distinct_hashes": 10,
+          "first_hash": "95350f26311a0c82783945cb77cce552a5ea0728ec6088bb53f72d388b64703d",
+          "last_hash": "0663ceb438db3f1d27732a734e3aacc732ce0712d2ca4d970624980d4963bc2d"
+        },
+        {
+          "index": 1,
+          "distinct_hashes": 1,
+          "first_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e",
+          "last_hash": "d87acf5795213298261b66f8b9561a11acc97aed7ad98b15b25e419a7afacb8e"
+        },
+        {
+          "index": 2,
+          "distinct_hashes": 10,
+          "first_hash": "ed00aaa8999234f2ce3ade904297cada878391ab02b8202d9ccee051b101a867",
+          "last_hash": "572a84a5704b301b516c16167abf5fe63fecbf803106932e81eaff9d46c9166f"
+        }
+      ],
+      "frame_sample_change": {
+        "maximum_percent": 51.52472527472528,
+        "frames_with_change": 10,
+        "sample_step_pixels": 8
+      }
+    }
+  ],
+  "helper_cleanup": {
+    "exit": 0,
+    "kept": 529,
+    "overflow": 0,
+    "stderr_bytes": 529,
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    }
+  }
+}

@@ -45,5 +45,64 @@ class Tests(unittest.TestCase):
         x=X11.__new__(X11);x.t=Fake();x.x=Fake();x.buttons={1};x.keys={24};x.display=1;x.pixmap=0;x.prior_handler=None
         x.close();self.assertEqual([c[0] for c in x.t.calls],['XTestFakeButtonEvent','XTestFakeKeyEvent'])
         self.assertEqual(x.buttons,set());self.assertEqual(x.keys,set())
+    def test_stale_pointer_acknowledgement_never_becomes_a_click(self):
+        x=X11.__new__(X11);x.expected_pointer=[110,220]
+        x.check_identity=lambda:(100,200,200,200)
+        x.pointer=lambda:dict(screen=[101,201],client=[1,1],active=[42],mask=0)
+        with self.assertRaisesRegex(RuntimeError,'not acknowledged'):x.button(True)
+    def test_diagnostic_keys_cannot_type_arbitrary_text(self):
+        x=X11.__new__(X11)
+        for key in ['A','password',42]:
+            with self.assertRaises(ValueError):x.key(True,key)
+    def test_helper_launch_cannot_select_an_arbitrary_executable(self):
+        from launch import Context
+        c=Context.__new__(Context)
+        with self.assertRaisesRegex(RuntimeError,'unknown diagnostic'):c.helper('unreviewed.exe',[],pathlib.Path('/tmp/unused'),1)
+        c.admission={'accessibility_probe_permitted':False}
+        with self.assertRaisesRegex(RuntimeError,'prohibits'):c.helper('uio1-accessibility.exe',[],pathlib.Path('/tmp/unused'),1)
+    def test_replaced_or_aliased_helper_bytes_refused(self):
+        from launch import sealed_bytes
+        import tempfile,hashlib
+        with tempfile.TemporaryDirectory() as directory:
+            p=pathlib.Path(directory)/'helper';p.write_bytes(b'exact');sha=hashlib.sha256(b'exact').hexdigest()
+            self.assertEqual(sealed_bytes(p,sha),b'exact')
+            p.write_bytes(b'changed')
+            with self.assertRaises(RuntimeError):sealed_bytes(p,sha)
+            link=p.with_name('alias');link.symlink_to(p)
+            with self.assertRaises(OSError):sealed_bytes(link,sha)
+
+    def test_public_projection_uses_aliases_and_closed_scalar_fields(self):
+        from report import project
+        import json
+        private='PRIVATE_ACCOUNT_PATH_PAYLOAD'
+        status=dict.fromkeys(('committed','dropped','ready','closed','hook_calls','hook_ticks',
+            'max_hook_ticks','filtered','heartbeat_errors','scope_errors','unhook_errors','detached'),0)
+        status['private']=private
+        sample=lambda at:dict(at=at,utime=at//10,stime=0,hz=100)
+        raw=dict(process_before=sample(100),process_trace_off_end=sample(200),
+            process_diagnostic_idle_end=sample(300),diagnostic_python_cpu_ns=10,
+            profile_fingerprint='a'*64,adapter='human',frequency=1000,
+            windows=[dict(type='window',hwnd=999,tid=222,name=private)],
+            inputs=[dict(kind='action_begin',action=2,interval_ns=[300,300])],
+            brackets=[dict(linux_before_ns=310,linux_after_ns=320,windows_qpc=10,frequency=1000)],
+            win32=[dict(action=2,source=1,qpc=10,hwnd=999,message=513,
+                focus=999,active=999,capture=0,x=1,y=2,result=0,text=private)],
+            gui=[],x11=[],renderer=['opengl32.dll'],observer_status=status,
+            x11_dropped=0,x11_unparsed=0,gui_dropped=[0,0],frame_dropped=0,frame_interval_ms=100,
+            helper_cleanup=dict(exit=0,kept=0,overflow=0,stderr_bytes=0,path=private,
+                cleanup=dict(owned_descendants_zero=True,process_group_empty=True,pid=999)),
+            frames=[dict(action=2,region_hashes=[str(i)*64]*3,cpu_ns=1,
+                interval_ns=[330+i,340+i],capture_backend='exact-window',changed_sample_percent=i,
+                pixels=private) for i in (0,1)])
+        projection,facts=project(raw)
+        output=json.dumps([projection,facts])
+        self.assertNotIn(private,output)
+        self.assertNotIn('999',output)
+        witness=projection['witnesses'][0]['witness']
+        self.assertEqual(witness['target_alias'],1)
+        self.assertEqual(witness['focus_alias'],1)
+        # This manual run starts on Play, so the FX Macro region cannot imply a
+        # control redraw even though unrelated pixels in that region changed.
+        self.assertFalse(any(w['witness']['kind']=='first_pixel_change' for w in projection['witnesses']))
 
 if __name__=='__main__':unittest.main()

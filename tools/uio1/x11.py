@@ -136,10 +136,16 @@ class X11:
     def settle_pointer(self,seconds=.75):
         # XWayland can acknowledge XTEST before the compositor applies motion.
         # Wait for readback; never turn a pending warp into a click elsewhere.
-        deadline=time.monotonic()+seconds
+        began=time.monotonic_ns();deadline=time.monotonic()+seconds;resent=False
         while self.pointer()['screen']!=self.expected_pointer:
             if time.monotonic()>deadline:raise RuntimeError('XWayland pointer did not settle')
+            if not resent and time.monotonic_ns()-began>100_000_000:
+                # One identical motion can drain a deferred XWayland warp. It
+                # never substitutes a click for acknowledgement, and is retained
+                # explicitly. If readback still differs, refuse the action.
+                self.t.XTestFakeMotionEvent(self.display,-1,*self.expected_pointer,0);resent=True
             self.sync();time.sleep(.005)
+        return dict(kind='motion_settled',interval_ns=[began,time.monotonic_ns()],motion_reissued=resent,pointer=self.pointer())
     def key(self, down, name):
         # A closed non-text vocabulary. Keycodes are resolved on this server.
         symbols={'space':0x20,'escape':0xff1b,'left':0xff51,'right':0xff53}

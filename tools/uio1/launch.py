@@ -11,6 +11,7 @@ import json
 import os
 import pathlib
 import selectors
+import stat
 import subprocess
 import sys
 import time
@@ -21,6 +22,18 @@ FILES={'uio1-observer.exe','uio1-hook.dll','uio1-accessibility.exe','uio1-tests.
 def digest(path):
     with open(path,'rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
+def sealed_bytes(path,expected):
+    # Diagnostic helpers are small. Refuse replacement, symlink and oversized
+    # inputs instead of reading unbounded bytes after an earlier hash check.
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+    with os.fdopen(fd,'rb') as f:
+        s=os.fstat(f.fileno())
+        if not stat.S_ISREG(s.st_mode) or s.st_uid!=os.getuid() or s.st_size>4*1024*1024:
+            raise RuntimeError('diagnostic artifact ownership/size')
+        data=f.read(4*1024*1024+1)
+    if len(data)!=s.st_size or hashlib.sha256(data).hexdigest()!=expected:raise RuntimeError('diagnostic artifact replaced')
+    return data
+
 def private_json(path,value):
     with os.fdopen(os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as f:
         json.dump(value,f,indent=2);f.write('\n')
@@ -30,7 +43,7 @@ def verified_package(source):
     if set(manifest['files'])!=FILES:raise RuntimeError('closed diagnostic file set')
     for name,sha in manifest['files'].items():
         p=source/name
-        if p.is_symlink() or not p.is_file() or digest(p)!=sha:raise RuntimeError('diagnostic artifact differs')
+        sealed_bytes(p,sha)
     return manifest
 
 class Context:
@@ -52,13 +65,13 @@ class Context:
         self.prefix=pathlib.Path(self.reg['environment']['root'])/'compatdata/pfx'
         self.manifest=verified_package(package)
         self.package=self.prefix/'drive_c/bridge/diagnostics'/('uio1-'+self.manifest['source_head'])
+        if self.package.resolve()!=self.package:raise RuntimeError('diagnostic directory alias')
         if self.package.exists():verified_package(self.package)
         else:
             self.package.mkdir(parents=True,mode=0o700)
             for name,sha in self.manifest['files'].items():
                 # Copy once into an owned immutable directory, then check bytes.
-                data=(package/name).read_bytes()
-                if hashlib.sha256(data).hexdigest()!=sha:raise RuntimeError('artifact replaced during copy')
+                data=sealed_bytes(package/name,sha)
                 with os.fdopen(os.open(self.package/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o500),'wb') as f:f.write(data)
             verified_package(self.package)
         self.session=self.resolve(class_id)

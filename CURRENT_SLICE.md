@@ -41,3 +41,18 @@ Pigments demonstration. Retain failures and limits. Preserve vendor authorizatio
 original/protected projects, LoFi/FRAGMENTS revision 10, Pigments revision 11,
 512 recommendation and 256 unqualified. Remove only owned diagnostics, leave
 service/keeper healthy and no owned input held. One UIO1 PR, open for review.
+
+## Completed result
+
+UIO1's bounded diagnostic result is complete; see [docs/UIO1.md](docs/UIO1.md).
+The initial stale-pointer failure, corrected XTEST record and interpreted
+Moonlight comparison are retained separately. The latter proves at least
+8.237 seconds of delay after X11 observation before Win32 mouse admission, with
+continuing UI heartbeats. No internal Wine function or renderer repair is claimed.
+The selected XWayland adapter is implemented; native Wayland remains an explicit
+portal/EIS boundary, and the optional UIA census was unavailable.
+
+All diagnostic helpers/hooks are retired. The pre-existing project and DSP
+session remain open with the editor logically closed; no saved project, accepted
+profile, publication or product artifact changed. The final-head validation and
+review disposition belong to PR #96, which remains open and unmerged.

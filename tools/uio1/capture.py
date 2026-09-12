@@ -69,12 +69,13 @@ class Capture:
         self.gui=GuiWitness(pathlib.Path(context.session['directory'])/'ap11.ui',context.session['session'])
         self.before=snapshot;self.action=0;self.frames=[];self.windows=[];self.gestures=[];self.inputs=[];self.brackets=[]
         self.frame_dropped=0;self.previous=None;self.cpu_start=time.process_time_ns();self.stop_requested=False
+        self.next_frame=0;self.next_clock=0
         self.result=dict(schema=1,profile_fingerprint=context.admission['profile_fingerprint'],session=context.session['session'],
             process=process,windows=rows,linux_pid=self.pid,renderer=renderer(self.pid),regions=REGIONS,
             process_before=process_sample(self.pid),before=snapshot,frame_capacity=600,frame_interval_ms=100)
         self.helper=None;self.observer=None;self.record=None
     def pump(self,seconds,frames=True):
-        deadline=time.monotonic()+seconds;next_frame=0;next_clock=0
+        deadline=time.monotonic()+seconds
         while time.monotonic()<deadline:
             if self.stop_requested:raise InterruptedError('operator/task cancellation')
             if self.helper:self.helper.poll()
@@ -82,15 +83,15 @@ class Capture:
             for r in self.gui.take():self.gestures.append(dict(r,action=self.action))
             if self.record:self.record.poll()
             now=time.monotonic()
-            if self.observer and now>=next_clock:
-                self.brackets.append(self.observer.clock());next_clock=now+2
-            if frames and now>=next_frame:
+            if self.observer and now>=self.next_clock:
+                self.brackets.append(self.observer.clock());self.next_clock=now+2
+            if frames and now>=self.next_frame:
                 before=time.process_time_ns();meta,pixels=self.x.capture()
                 summary,self.previous=summaries(pixels,meta['width'],meta['height'],meta['stride'],self.previous,REGIONS)
                 row=dict(meta,**summary,action=self.action,cpu_ns=time.process_time_ns()-before)
                 if len(self.frames)<600:self.frames.append(row)
                 else:self.frame_dropped+=1
-                next_frame=now+.1
+                self.next_frame=now+.1
             time.sleep(.005)
     def snapshot(self,label):
         meta,pixels=self.x.capture();private_json(self.out/(label+'.json'),meta)
@@ -99,7 +100,7 @@ class Capture:
         self.action=n;self.observer.action(n);self.record.action=n
         self.inputs.append(dict(kind='action_begin',action=n,interval_ns=[time.monotonic_ns()]*2))
     def add(self,row):self.inputs.append(dict(row,action=self.action))
-    def run(self):
+    def run(self,refine=False,manual=False):
         # Baseline is idle overhead context, not an audio-performance result.
         self.snapshot('before');self.pump(2,frames=False)
         self.result['process_trace_off_end']=process_sample(self.pid)
@@ -117,24 +118,40 @@ class Capture:
         self.record=Recorder(self.x);self.pump(2)
         self.result['process_diagnostic_idle_end']=process_sample(self.pid)
         self.mark(1)
+        if manual:
+            # Agent/operator/Moonlight input only. The mailbox selects one of
+            # four action labels; it cannot supply input, coordinates or code.
+            self.result['adapter']='human'
+            control=pathlib.Path('/tmp/uio1-manual-action')
+            private_json(control,1);self.pump(2);private_json(pathlib.Path('/tmp/uio1-manual-ready'),True)
+            end=time.monotonic()+65
+            while time.monotonic()<end:
+                value=json.loads(control.read_text())
+                if value not in (1,2,3,4):raise RuntimeError('manual action label')
+                if value!=self.action:
+                    self.mark(value)
+                    if value==4:self.pump(1);break
+                self.pump(.1)
+            else:raise TimeoutError('manual observation bound')
+            self.snapshot('page');return
         recent=[r for r in self.gestures if r['kind']==3 and r['parameter']==1]
-        if not recent:
+        if not recent and not refine:
             # Only normal Bitwig transport input; the native controller remains
             # the authority that generates parameter updates to the vendor.
             with X11(host_window(self.x)) as daw:
                 self.add(daw.activate());daw.key(True,'space');daw.key(False,'space')
                 self.add(dict(kind='bitwig_transport_space',interval_ns=[time.monotonic_ns()]*2))
             self.add(self.x.activate())
-        self.pump(6);self.snapshot('host-parameter')
-        if not any(r['action']==1 and r['kind']==3 and r['parameter']==1 for r in self.gestures):
+        self.pump(1 if refine else 6);self.snapshot('host-parameter')
+        if not refine and not any(r['action']==1 and r['kind']==3 and r['parameter']==1 for r in self.gestures):
             raise RuntimeError('no host-driven Macro 1 witness; interpret before continuing')
         self.mark(2)
-        self.add(self.x.move((1124/1279,586/723)));self.pump(.2);self.x.settle_pointer()
+        self.add(self.x.move((1124/1279,586/723)));self.pump(.2);self.add(self.x.settle_pointer())
         self.add(self.x.button(True))
         for y in (580,574,568,562,556):self.add(self.x.move((1124/1279,y/723)));self.pump(.06)
         self.add(self.x.button(False));self.pump(5);self.snapshot('drag')
         self.mark(3)
-        self.add(self.x.move((886/1279,22/723)));self.pump(.2);self.x.settle_pointer()
+        self.add(self.x.move((886/1279,22/723)));self.pump(.2);self.add(self.x.settle_pointer())
         self.add(self.x.button(True));self.pump(.09);self.add(self.x.button(False))
         self.pump(6);self.snapshot('page')
         self.mark(4);self.pump(1)
@@ -160,8 +177,8 @@ if __name__=='__main__':
     c=Context(pathlib.Path(sys.argv[1]),sys.argv[2],pathlib.Path(__file__).parent/'package')
     if c.admission['profile_fingerprint']!=PROFILE:raise RuntimeError('fixture plan/profile mismatch')
     mode=sys.argv[3] if len(sys.argv)==4 else 'run'
-    if mode not in ('prepare','run'):raise RuntimeError('unknown diagnostic mode')
-    out=c.package/('target' if mode=='prepare' else 'interaction-1');out.mkdir(mode=0o700)
+    if mode not in ('prepare','run','refine','manual'):raise RuntimeError('unknown diagnostic mode')
+    out=c.package/('target' if mode=='prepare' else 'interaction-manual' if mode=='manual' else 'interaction-2' if mode=='refine' else 'interaction-1');out.mkdir(mode=0o700)
     process,rows,snapshot=c.census(out/'census.log')
     if mode=='prepare':
         private_json(out/'identity.json',dict(process=process,rows=rows,snapshot=snapshot))
@@ -176,7 +193,7 @@ if __name__=='__main__':
     capture=Capture(c,out,process,rows,snapshot)
     signal.signal(signal.SIGTERM,lambda *_:setattr(capture,'stop_requested',True))
     signal.signal(signal.SIGINT,lambda *_:setattr(capture,'stop_requested',True))
-    try:capture.run()
+    try:capture.run(refine=mode=='refine',manual=mode=='manual')
     except BaseException as e:
         capture.result['failure_class']=type(e).__name__;capture.result['failure']=str(e);raise
     finally:capture.close()

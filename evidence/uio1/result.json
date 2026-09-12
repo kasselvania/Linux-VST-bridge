@@ -1,0 +1,170 @@
+{
+  "schema": 1,
+  "disposition": "UIO1_OBSERVABILITY_COMPLETE_INPUT_ADMISSION_DELAY_IDENTIFIED",
+  "fixture": {
+    "product": "Pigments 7.0.1.6772",
+    "profile_revision": 11,
+    "claim": "verified_exact_fixture",
+    "system": "Steam Deck / SteamOS 3.8.16",
+    "host": "Bitwig Studio 6.1 Flatpak",
+    "desktop": "Wayland with exact XWayland vendor window",
+    "window_dimensions": [
+      1280,
+      724
+    ],
+    "project": "existing protected AP18 project",
+    "processing": "pre-existing C3 loop and Macro 1 automation; no new DSP instance"
+  },
+  "runs": [
+    {
+      "id": "initial",
+      "private_capture_sha256": "c6b2c535a97d157a133a026cf0da49c846aa286fc62693f99c45296d9205e9be",
+      "windows_records": 129,
+      "gui_records": 57,
+      "x11_records": 11,
+      "frames": 207,
+      "facts": "initial-facts.json",
+      "waterfall": "initial-waterfall.json"
+    },
+    {
+      "id": "settled-xtest",
+      "private_capture_sha256": "2d8711e31c35443ecbad471c1ba894845af8810e2df566078243126fe479742f",
+      "windows_records": 104,
+      "gui_records": 44,
+      "x11_records": 11,
+      "frames": 158,
+      "facts": "settled-xtest-facts.json",
+      "waterfall": "settled-xtest-waterfall.json"
+    },
+    {
+      "id": "moonlight-comparison",
+      "private_capture_sha256": "98d6676862e6efe74c6f4aefda90cda47c8c56b4c2837caf1e1101f8196510e9",
+      "windows_records": 377,
+      "gui_records": 78,
+      "x11_records": 7,
+      "frames": 597,
+      "facts": "moonlight-comparison-facts.json",
+      "waterfall": "moonlight-comparison-waterfall.json"
+    }
+  ],
+  "finding": {
+    "boundary": "X11 delivery to Wine/Win32 hardware mouse admission, before WH_MOUSE and PeekMessage retrieval",
+    "classification": "input admission delay, not a demonstrated renderer defect",
+    "specific_internal_function": "not established",
+    "x11_button_down": {
+      "kind": "x11_received",
+      "linux_interval_ns": [
+        21455053066,
+        25995020139
+      ],
+      "target_alias": 1,
+      "message": 4,
+      "parameter": null,
+      "value": null,
+      "focus_alias": null,
+      "active_alias": null,
+      "capture_alias": null,
+      "client_coordinates": [
+        1014,
+        237
+      ],
+      "result": null
+    },
+    "win32_mouse_hook_down": {
+      "kind": "mouse_hook_entered",
+      "linux_interval_ns": [
+        34232377478,
+        34234657163
+      ],
+      "target_alias": 2,
+      "message": 513,
+      "parameter": null,
+      "value": null,
+      "focus_alias": 2,
+      "active_alias": 1,
+      "capture_alias": 0,
+      "client_coordinates": [
+        1014,
+        237
+      ],
+      "result": 1
+    },
+    "win32_retrieved_down": {
+      "kind": "win32_retrieved",
+      "linux_interval_ns": [
+        34233431784,
+        34235711257
+      ],
+      "target_alias": 2,
+      "message": 513,
+      "parameter": null,
+      "value": null,
+      "focus_alias": 2,
+      "active_alias": 1,
+      "capture_alias": 0,
+      "client_coordinates": [
+        1014,
+        237
+      ],
+      "result": 0
+    },
+    "vst_begin_observed": {
+      "kind": "gesture_begin",
+      "linux_interval_ns": [
+        21455053066,
+        34247930992
+      ],
+      "target_alias": 1,
+      "message": null,
+      "parameter": 1,
+      "value": 0.0,
+      "focus_alias": null,
+      "active_alias": null,
+      "capture_alias": null,
+      "client_coordinates": null,
+      "result": null
+    },
+    "minimum_x11_observed_to_win32_mouse_ns": 8237357339,
+    "clock_interpretation": "at least this much delay after X11 was observed; the actual X11 event occurred no later than that observation",
+    "observed_endpoint_difference_ns": [
+      8237357339,
+      8239637024
+    ],
+    "mouse_downstream_hook_chain_return": 0,
+    "target": "vendor child alias 2",
+    "hit_test": 1,
+    "focus_alias": 2,
+    "active_alias": 1,
+    "capture_alias_at_down": 0,
+    "x11_down_to_up_server_ms": 36,
+    "win32_up_during_bounded_record": false,
+    "ui_thread_max_heartbeat_ms_during_drag": 136.7359,
+    "vst_begin_parameter": 1,
+    "vst_value_or_end_during_record": false,
+    "after_observation": "retained GUI history later contained Value 0.6800000071525574 and End for the same logical view/epoch; editor closed normally",
+    "page_click": "correct X11 target and coordinates; no Win32 page button within observation; navigation hash unchanged; requested page appeared later outside bounded timing record",
+    "permanent_event_loss_claim": false,
+    "product_fix_claim": false
+  },
+  "interpretation": [
+    "X11 receipt excludes absence of Deck mouse input for these actions.",
+    "Correct client coordinates and HTCLIENT child selection exclude the original stale-warp harness error in the refined and human runs.",
+    "The delivered mouse-down reached the vendor child and downstream hook chain returned zero; our observer did not consume it.",
+    "Heartbeats continued while hardware input was delayed for seconds. This is not a continuous eight-second UI-thread deadlock.",
+    "The production pump uses unfiltered PeekMessage(nullptr, 0, 0, PM_REMOVE); no message filter was changed.",
+    "A Moonlight input comparison reproduced the delayed boundary, so the observation is not specific to XTEST injection.",
+    "Local exact-window page pixels also remained unchanged during the wait; Moonlight-only display latency does not explain this record.",
+    "Wine hardware-input/focus/queue admission and vendor interactions with that path remain candidates; no internal Wine function or rendering repair is selected."
+  ],
+  "limits": [
+    "Diagnostic-on observation is not product latency or audio performance qualification.",
+    "WH_GETMESSAGE records posted-message retrieval; WH_CALLWNDPROC/RET covers sent-message calls, not arbitrary posted WndProc execution time.",
+    "GUI events are observed at poll time, not synchronized vendor emission time.",
+    "Host parameter updates were already replaying. Their projection is instance-scoped; Begin/Value/End remain editor-scoped.",
+    "Macro visual region was calibrated on FX. The later human comparison began on Play, so it has no valid macro redraw-latency claim.",
+    "UIA returned no census because the bounded probe failed; this does not prove canvas-only semantics.",
+    "Only the X11/XWayland adapter is implemented and exercised. Native Wayland has a fail-closed portal/EIS boundary, not a completed injection backend.",
+    "Loaded OpenGL modules are observed; presenting API/thread, GPU frame time and compositor latency were not measured.",
+    "No general UI map, OCR, graphics optimization, raw keyboard text, account inspection or full AP18 campaign."
+  ]
+}

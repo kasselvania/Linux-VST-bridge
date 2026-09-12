@@ -70,7 +70,7 @@ Residual startup, queue/reply, editor/removal, and shutdown-window delivery clas
 
 FRAGMENTS' Advanced panel is accessible and rendering response has improved materially. Further frame-pacing polish is not a current functional blocker.
 
-## Active slice: AP18 — Arturia Software Center to Pigments
+## Accepted AP18 — Arturia Software Center to Pigments
 
 AP18 is tracked in [#94](https://github.com/kasselvania/Linux-VST-bridge/issues/94) from integrated AP17 main.
 
@@ -102,9 +102,20 @@ editor view and explicit process-scoped final retirement, not clean SDK object
 destruction. Residual delivery gaps remain #90. 512 added frames remain
 recommended; 256 and multi-instance Pigments capacity remain unqualified.
 
-Read [CURRENT_SLICE.md](CURRENT_SLICE.md) and [docs/AP18.md](docs/AP18.md) for active authority and implementation boundaries.
+Read [docs/AP18.md](docs/AP18.md) for the accepted implementation and its exact limits.
 
 Serum 2 remains the planned second-vendor generalization after the Arturia acquisition/install vertical.
+
+## Current slice: UIO1 — Editor observability
+
+[UIO1](docs/UIO1.md) adds bounded, development-only input, child-window, heartbeat,
+VST gesture and local-frame observations without replacing accepted product
+artifacts. The Pigments demonstration captured at least 8.237 seconds between
+X11 mouse receipt and Win32 mouse admission while the UI thread continued
+servicing heartbeats. This identifies the input boundary; it does not claim a
+renderer fix or universally responsive plug-in UI. The exact records and limits
+are retained in [evidence/uio1](evidence/uio1/). See
+[CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
 
 ## Architecture
 
