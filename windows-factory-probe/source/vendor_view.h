@@ -315,6 +315,7 @@ public:
     }
     close_requested_ = false;
     ShowWindow(window_, SW_HIDE);
+    if (!window_ || window_lost()) { error_ = AP11::WindowLost; return false; }
     if (IsWindowVisible(window_)) { error_ = AP11::Removal; return false; }
     hidden_ = true;
     focus_window = focus_keyboard = false;
