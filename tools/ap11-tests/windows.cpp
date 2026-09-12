@@ -24,6 +24,8 @@ std::thread::id owner = std::this_thread::get_id();
 struct Stats {
   uint32_t created = 0, attached = 0, removed = 0, destroyed = 0, focus = 0,
            keys = 0, sizes = 0;
+  bool retained_test = false, processing = false;
+  std::vector<int> retirement;
   bool refuse = false, refuse_attach = false, refuse_size = false, lost_parent = false,
        close_during_attach = false;
 };
@@ -36,6 +38,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
   ~View() override {
     check(!systemWindow, "view removed before release");
     check(std::this_thread::get_id() == owner, "view destruction owner");
+    if (stats.retained_test) { check(!stats.processing, "no release during processing"); stats.retirement.push_back(3); }
     ++stats.destroyed;
   }
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
@@ -55,6 +58,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
                                                          : kResultFalse;
   }
   tresult PLUGIN_API setFrame(IPlugFrame *frame) override {
+    if (!frame && stats.retained_test) { check(!stats.processing, "no frame detach during processing"); stats.retirement.push_back(1); }
     auto r = CPluginView::setFrame(frame);
     if (frame) {
       ViewRect same{};
@@ -76,6 +80,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
     return kResultOk;
   }
   tresult PLUGIN_API removed() override {
+    if (stats.retained_test) { check(!stats.processing, "no removal during processing"); stats.retirement.push_back(2); }
     check(std::this_thread::get_id() == owner && (stats.lost_parent || IsWindow(HWND(systemWindow))),
           "remove before destroying parent");
     if (stats.refuse)
@@ -259,6 +264,59 @@ BOOL WINAPI controlledDestroy(HWND window) {
   lastDestroyed=window;
   return DestroyWindow(window);
 }
+Stats* retiring_stats = nullptr;
+BOOL WINAPI ordered_destroy(HWND w) {
+  check(retiring_stats && !retiring_stats->processing, "parent destruction after processing");
+  retiring_stats->retirement.push_back(4);
+  return DestroyWindow(w);
+}
+void retained_lifecycle() {
+  HostApplication host;
+  auto* c = new Controller;
+  check(c->initialize(&host) == kResultOk, "retained controller");
+  c->stats.retained_test = true;
+  {
+    Mapping native; GuiChannel channel(native.dir.wstring(),native.id);
+    EditorSession session(channel,*c,nullptr,true);
+    native.command(AP11::Open); session.service(true); native.drain();
+    const auto window = session.view().window();
+    const auto epoch = session.view().opens;
+    c->stats.processing = true;
+    check(session.edit(AP11::Begin,42,0)==kResultOk, "retained gesture begins");
+    native.close(); session.service(true); native.drain();
+    check(!session.is_open() && IsWindow(window) && !IsWindowVisible(window) &&
+          session.view().window()==window && c->stats.created==1 && c->stats.attached==1 &&
+          c->stats.retirement.empty() && session.ends==1,
+          "active close hides and ends gesture without SDK retirement");
+    check(session.host_value(42,.6,channel.revision()), "processing/controller remains usable hidden");
+    ++native.native_view; native.command(AP11::Open); session.service(true); native.drain();
+    check(session.is_open() && session.view().window()==window && IsWindowVisible(window) &&
+          session.view().opens==epoch+1 && c->stats.created==1 && c->stats.attached==1 &&
+          c->stats.retirement.empty(), "reopen reuses exact view/parent with fresh logical epoch");
+    SendMessageW(window,WM_CLOSE,0,0); session.service(true); native.drain();
+    check(!session.is_open() && c->stats.retirement.empty(), "vendor close also retains during processing");
+    c->stats.processing = false; // production owner reaches this only after stop/join/deactivate
+    retiring_stats=&c->stats;
+    const_cast<VendorView&>(session.view()).destruction(ordered_destroy);
+    check(session.retire(), "final retained retirement");
+    check(c->stats.retirement==std::vector<int>({1,2,3,4}), "frame removed release parent exact ordering");
+    check(session.retire() && c->stats.retirement.size()==4 && !IsWindow(window), "retirement exactly once");
+  }
+  {
+    Mapping native; GuiChannel channel(native.dir.wstring(),native.id);
+    EditorSession session(channel,*c,nullptr,true);
+    native.command(AP11::Open); session.service(true); native.drain();
+    native.close(); session.service(true); native.drain();
+    c->stats.lost_parent=true; DestroyWindow(session.view().window());
+    ++native.native_view; native.command(AP11::Open); session.service(true); native.drain();
+    check(!session.is_open() && channel.failure() && c->stats.created==2,
+          "destroyed retained parent refuses reopen without replacement");
+    check(session.retire(), "lost retained view cleaned only at retirement");
+  }
+  check(c->stats.created==c->stats.destroyed && c->stats.attached==c->stats.removed,
+        "retained references balanced");
+  c->terminate(); c->release(); retiring_stats=nullptr;
+}
 void lifecycle_faults() {
   HostApplication host;
   auto *c=new Controller;
@@ -367,6 +425,7 @@ int main() {
             (type == APTTYPE_STA || type == APTTYPE_MAINSTA),
         "controller and view own a Windows STA apartment");
   lifecycle_faults();
+  retained_lifecycle();
   HostApplication host;
   auto *c = new Controller;
   check(c->initialize(&host) == kResultOk, "controller initialize");

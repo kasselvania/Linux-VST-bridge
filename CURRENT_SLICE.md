@@ -384,3 +384,17 @@ sequence or desktop input was used to obtain this evidence. After operator-confi
 Zero DSP leases, no pending transactions, service/keeper active and tracing off
 were confirmed. CPUWeight was again found at 10000, writer unknown, and restored
 to unset/effective 100; this interval is not performance-comparison evidence.
+
+### Pigments retained-view lifecycle repair authorized
+
+The operator accepted revision 6 MIDI output and selected a Pigments-only closed
+`retain_editor_view_until_instance_retirement` policy. Ordinary close must cancel
+focus, end gestures and hide the attached view/parent without SDK destruction;
+reopen reuses them with a fresh logical epoch. Final quiescent retirement alone
+performs setFrame(nullptr), removed, release, DestroyWindow, then handler restore.
+LoFi/FRAGMENTS keep existing behavior. Revision 6 is retained byte-identically;
+revision 7 will bind the new exact Windows artifact through the existing sealed
+route. One functional audio/close/reopen/retirement check follows generated tests;
+no pre-repair live observation or broad campaign. The operator identifies the
+CPUWeight foreground override as SteamOS foreground-booster behavior; it does
+not block this functional check.

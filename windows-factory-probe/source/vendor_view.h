@@ -20,6 +20,7 @@ class VendorView final : public Steinberg::IPlugFrame {
   HWND window_ = nullptr;
   bool attached_ = false, closing_ = false, close_requested_ = false;
   bool window_lost_ = false;
+  bool hidden_ = false;
   // Private Win32 edge seam; production always calls DestroyWindow. Fault
   // injection cannot change lifecycle ownership or bypass WM_NCDESTROY.
   BOOL (WINAPI *destroy_window_)(HWND) = DestroyWindow;
@@ -305,6 +306,21 @@ public:
     --resizing_;
     return result;
   }
+  bool retained_hidden() const { return hidden_; }
+  bool hide() {
+    if (owner_ != std::this_thread::get_id()) { error_ = AP11::WrongThread; return false; }
+    if (!view_ && !window_) return true;
+    if (!view_ || !window_ || !attached_ || window_lost() || closing_) {
+      error_ = AP11::WindowLost; return false;
+    }
+    close_requested_ = false;
+    ShowWindow(window_, SW_HIDE);
+    if (IsWindowVisible(window_)) { error_ = AP11::Removal; return false; }
+    hidden_ = true;
+    focus_window = focus_keyboard = false;
+    stage(218); // logical close; all SDK/platform ownership is retained
+    return true;
+  }
   bool open(Steinberg::Vst::IEditController &controller) {
     using namespace Steinberg;
     if (owner_ != std::this_thread::get_id()) {
@@ -312,8 +328,19 @@ public:
       return false;
     }
     if (window_ || view_) {
-      if (window_ && view_ && attached_ && !closing_ && !window_lost_ && error_ != AP11::Removal)
-        return true; // activation is a separate WM transaction
+      if (window_ && view_ && attached_ && !closing_ && !window_lost() && error_ != AP11::Removal) {
+        if (hidden_) {
+          if (opens == UINT32_MAX) { error_ = AP11::GenerationExhausted; return false; }
+          ShowWindow(window_, SW_SHOWNOACTIVATE);
+          if (!IsWindowVisible(window_)) { error_ = AP11::Removal; return false; }
+          hidden_ = false;
+          close_requested_ = false;
+          close_epoch_ = 0;
+          opening_epoch_ = ++opens;
+          stage(100);
+        }
+        return true;
+      } // activation is a separate WM transaction
       error_ = AP11::Removal;
       return false; // incomplete destruction still owns the old parent
     }
@@ -434,7 +461,7 @@ public:
       return false;
     }
   }
-  bool close() {
+  bool close(bool frame_first = false) {
     stage(200);
     if (owner_ != std::this_thread::get_id()) {
       error_ = AP11::WrongThread;
@@ -448,6 +475,12 @@ public:
     closing_ = true;
     close_requested_ = false;
     try {
+      if (frame_first && view_) {
+        stage(214);
+        if (view_->setFrame(nullptr) != Steinberg::kResultOk) {
+          error_ = AP11::Removal; closing_ = false; return false;
+        }
+      }
       if (view_ && attached_) {
         stage(212);
         if (remove_view(this) != Steinberg::kResultOk) {
@@ -461,7 +494,7 @@ public:
       }
       if (view_) {
         stage(214);
-        if (view_->setFrame(nullptr) != Steinberg::kResultOk) {
+        if (!frame_first && view_->setFrame(nullptr) != Steinberg::kResultOk) {
           error_ = AP11::Removal;
           closing_ = false;
           return false;
@@ -485,6 +518,7 @@ public:
       }
       if (error_ == AP11::Removal) error_ = 0;
       closing_ = false;
+      hidden_ = false;
       stage(217);
       return true;
     } catch (...) {
@@ -510,7 +544,7 @@ public:
   uint32_t pending_epoch() const { return uint32_t(opening_epoch_); }
   bool close_requested() const { return close_requested_ && close_epoch_ == opens; }
   bool window_lost() const { return window_lost_ || (window_ && !IsWindow(window_)); }
-  bool is_open() const { return attached_ && !window_lost(); }
+  bool is_open() const { return attached_ && !hidden_ && !window_lost(); }
   uint32_t error() const { return error_; }
   HWND window() const { return window_; }
   static bool pump() {

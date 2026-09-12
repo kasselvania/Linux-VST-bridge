@@ -41,6 +41,12 @@ class BusCensusCommandTests(unittest.TestCase):
             self.assertNotIn('LVB_EVENT_OUTPUT_POLICY',session.environment(reg))
             reg['compatibility']['event_output']='reported_zero_event_channels_unspecified'
             self.assertEqual(session.environment(reg)['LVB_EVENT_OUTPUT_POLICY'],reg['compatibility']['event_output'])
+            self.assertNotIn('LVB_EDITOR_LIFETIME',session.environment(reg))
+            reg['compatibility']['editor_lifetime']='retain_editor_view_until_instance_retirement'
+            self.assertEqual(session.environment(reg)['LVB_EDITOR_LIFETIME'],reg['compatibility']['editor_lifetime'])
+            reg['compatibility']['editor_lifetime']='all_editors'
+            with self.assertRaisesRegex(RuntimeError,'unsupported editor lifetime'):session.environment(reg)
+            del reg['compatibility']['editor_lifetime']
             reg['compatibility']['event_output']='all_zero_buses'
             with self.assertRaisesRegex(RuntimeError,'unsupported event output policy'):session.environment(reg)
 

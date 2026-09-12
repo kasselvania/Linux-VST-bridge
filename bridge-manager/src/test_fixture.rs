@@ -126,6 +126,7 @@ pub(crate) fn prepared() -> (Fixture, Profile, Census, NativeArtifact) {
             descriptor_sha256: "cd".repeat(32),
         },
         capabilities: Capabilities {
+            editor_lifetime: None,
             event_output: None,
             accessibility: Accessibility::DisabledForVendorProcess,
             editor: Editor::DetachedOwnerThreadWithNativePanel,

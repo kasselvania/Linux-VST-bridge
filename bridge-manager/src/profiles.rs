@@ -54,6 +54,7 @@ closed_enum!(State {
     ConcurrentReadOnlyCaptureV12
 });
 closed_enum!(Precision { Float32Only });
+closed_enum!(EditorLifetime { RetainEditorViewUntilInstanceRetirement });
 closed_enum!(EventOutputPolicy { ReportedZeroEventChannelsUnspecified });
 closed_enum!(PerformancePolicy {
     Frames512Recommended256Unqualified
@@ -77,6 +78,8 @@ closed_enum!(Limitation {
 #[serde(deny_unknown_fields)]
 pub struct Capabilities {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub editor_lifetime: Option<EditorLifetime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_output: Option<EventOutputPolicy>,
     pub accessibility: Accessibility,
     pub editor: Editor,
@@ -89,6 +92,7 @@ impl Capabilities {
         Compatibility {
             disable_windows_accessibility: self.accessibility == Accessibility::DisabledForVendorProcess,
             event_output: self.event_output.clone(),
+            editor_lifetime: self.editor_lifetime.clone(),
         }
     }
 }

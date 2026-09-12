@@ -259,7 +259,7 @@ void MappedSession::bind_controller(Steinberg::Vst::IEditController* c,bool sepa
  auto&x=*impl_;
  FaultStatus::Scope activity(x.fault.get(),2,24,c?1:2);
  if(!c&&x.editor){
-  require(x.editor->close(),"vendor view refused removal");
+  require(x.editor->retire(),"vendor view refused removal");
   const auto&v=x.editor->view();
   x.events.lifecycle("ap11_editor_summary",",\"opens\":"+std::to_string(v.opens)+",\"closes\":"+std::to_string(v.closes)+",\"focuses\":"+std::to_string(v.focuses)+",\"removal_messages\":"+std::to_string(v.removal_messages)+",\"gestures\":"+std::to_string(x.editor->gestures)+",\"values\":"+std::to_string(x.editor->values)+",\"ends\":"+std::to_string(x.editor->ends)+",\"host_updates\":"+std::to_string(x.editor->host_updates)+",\"stale_updates\":"+std::to_string(x.editor->stale_updates)+",\"suppressed_echoes\":"+std::to_string(x.editor->suppressed_echoes)+",\"scale_supported\":"+(v.scale_supported?"true":"false")+",\"scale\":"+std::to_string(v.scale)+",\"failure\":"+std::to_string(x.gui->failure()));
   x.editor.reset();

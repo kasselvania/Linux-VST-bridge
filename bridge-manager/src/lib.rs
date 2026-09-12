@@ -197,6 +197,8 @@ impl Metadata {
 #[serde(deny_unknown_fields)]
 pub struct Compatibility {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub editor_lifetime: Option<profiles::EditorLifetime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_output: Option<profiles::EventOutputPolicy>,
     pub disable_windows_accessibility: bool,
 }

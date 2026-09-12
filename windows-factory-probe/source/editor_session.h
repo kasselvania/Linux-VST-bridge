@@ -4,6 +4,7 @@
 #include "vendor_handler.h"
 #include <chrono>
 #include <vector>
+#include <cstdlib>
 namespace linux_vst_bridge::wf0 {
 class EditorSession : public VendorEditSink {
   using Clock = std::chrono::steady_clock;
@@ -20,6 +21,14 @@ class EditorSession : public VendorEditSink {
   std::vector<Parameter> parameters_;
   std::thread::id owner_ = std::this_thread::get_id();
   VendorView view_;
+  bool retain_view_ = false;
+  static bool retained_policy() {
+    const auto* p = std::getenv("LVB_EDITOR_LIFETIME");
+    if (!p) return false;
+    ap1::require(std::strcmp(p, "retain_editor_view_until_instance_retirement") == 0,
+                 "unsupported editor lifetime");
+    return true;
+  }
   Steinberg::IPtr<Steinberg::Vst::IComponentHandler> instance_handler_;
   VendorHandler *editor_handler_ = nullptr;
   uint64_t callback_native_ = 0, group_native_ = 0;
@@ -139,8 +148,8 @@ class EditorSession : public VendorEditSink {
 public:
   uint64_t gestures = 0, values = 0, ends = 0, host_updates = 0,
            stale_updates = 0, suppressed_echoes = 0;
-  EditorSession(GuiChannel &channel, Controller &controller, Steinberg::Vst::IComponentHandler *handler = nullptr)
-      : channel_(channel), controller_(controller), instance_handler_(handler) {
+  EditorSession(GuiChannel &channel, Controller &controller, Steinberg::Vst::IComponentHandler *handler = nullptr, bool retain = retained_policy())
+      : channel_(channel), controller_(controller), retain_view_(retain), instance_handler_(handler) {
     auto n = controller.getParameterCount();
     ap1::require(n >= 0 && n <= 8192, "GUI parameter bound");
     parameters_.reserve(size_t(n));
@@ -167,7 +176,7 @@ public:
     });
     channel_.ready();
   }
-  ~EditorSession() { if (!close()) std::terminate(); }
+  ~EditorSession() { if (!retire()) std::terminate(); }
   Steinberg::tresult scoped_edit(uint64_t native, uint32_t epoch, uint32_t kind, uint32_t id, double value) override {
     if (owner_ != std::this_thread::get_id() || !callback_owner(native, epoch)) return Steinberg::kNotImplemented;
     const auto prior_native = callback_native_; const auto prior_epoch = callback_epoch_;
@@ -302,11 +311,14 @@ public:
     refresh_flags_ = flags;
     refresh_revision_ = channel_.revision();
   }
-  bool close(uint32_t reason = AP11::ClosedByDaw) {
+  // Called by bind_controller(nullptr) only after the processing owner reports
+  // quiescence (joined, setProcessing(false), setActive(false)).
+  bool retire() { return close(AP11::ClosedByDaw, true); }
+  bool close(uint32_t reason = AP11::ClosedByDaw, bool final = false) {
     lifecycle_ = AP11::Closing;
     focus_pending_ = false;
     focus_result_ = AP11::FocusCancelled;
-    if (!view_.close()) {
+    if (!retain_view_ && !view_.close()) {
       lifecycle_ = AP11::EditorFailed;
       return false;
     }
@@ -323,8 +335,12 @@ public:
       group_ = false;
     }
     callback_native_ = 0; callback_epoch_ = 0;
-    if (editor_handler_) {
-      editor_handler_->retire(); // cached old handler references become inert
+    if (editor_handler_) editor_handler_->retire(); // cached callbacks become inert before hiding
+    if (retain_view_ && !(final ? view_.close(true) : view_.hide())) {
+      lifecycle_ = AP11::EditorFailed;
+      return false;
+    }
+    if (editor_handler_ && (!retain_view_ || final)) {
       if (controller_.setComponentHandler(instance_handler_) != Steinberg::kResultOk) {
         lifecycle_ = AP11::EditorFailed; return false;
       }
@@ -392,7 +408,7 @@ public:
             (m.native_view == last_open_.native_view &&
              m.activation <= last_open_.activation))
           continue;
-        if ((view_.window() || editor_handler_) && m.native_view != last_open_.native_view) {
+        if ((view_.window() || editor_handler_) && !(retain_view_ && view_.retained_hidden()) && m.native_view != last_open_.native_view) {
           // Replacement requires positive retirement of the existing owner.
           auto refused = m;
           refused.kind = AP11::EditorStatus;
@@ -414,10 +430,14 @@ public:
         }
         ++view_.focus_requests;
         bool handler_ready = true;
-        if (!editor_handler_) {
+        if (!editor_handler_ || (retain_view_ && view_.retained_hidden())) {
           if (view_.opens == UINT32_MAX) { channel_.fail(AP11::GenerationExhausted); break; }
-          editor_handler_ = new VendorHandler(*this, m.native_view, uint32_t(view_.opens + 1));
-          handler_ready = controller_.setComponentHandler(editor_handler_) == Steinberg::kResultOk;
+          auto* next = new VendorHandler(*this, m.native_view, uint32_t(view_.opens + 1));
+          handler_ready = controller_.setComponentHandler(next) == Steinberg::kResultOk;
+          if (handler_ready) {
+            if (editor_handler_) editor_handler_->release();
+            editor_handler_ = next;
+          } else { next->retire(); next->release(); }
         }
         if (!handler_ready || !view_.open(controller_)) {
           if (!handler_ready) channel_.fail(AP11::Controller);

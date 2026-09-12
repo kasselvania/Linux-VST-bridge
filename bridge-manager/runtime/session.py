@@ -43,6 +43,10 @@ def environment(reg):
     if policy is not None:
         if policy!='reported_zero_event_channels_unspecified':raise RuntimeError('unsupported event output policy')
         env['LVB_EVENT_OUTPUT_POLICY']=policy
+    lifetime=reg['compatibility'].get('editor_lifetime')
+    if lifetime is not None:
+        if lifetime!='retain_editor_view_until_instance_retirement':raise RuntimeError('unsupported editor lifetime')
+        env['LVB_EDITOR_LIFETIME']=lifetime
     return env
 
 def command(spec):
