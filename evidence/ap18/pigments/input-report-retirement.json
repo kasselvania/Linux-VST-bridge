@@ -1,19 +1,13 @@
 {
-  "schema": 1,
-  "id": "arturia-pigments",
-  "revision": 9,
+  "schema": "ap18-input-report-retirement-v1",
+  "source": "656c0dff72f6b515bd409a9a45b8bedefc7d5144",
+  "build": "78466f2125ea5d4f279c9536270c1dab5a2a5c35",
+  "tree": "a0684383f807ed660733428e9286052fca7d9f73",
+  "windows_run": 34666184236,
+  "artifact_id": 10289596609,
+  "zip_sha256": "d80aacc0bd0f8c5ab451243b97b7aadaf44d659e8432b3e7b35dfca9859a0c04",
+  "profile_revision": 9,
   "claim": "review_candidate",
-  "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
-  "factory_vendor": "Arturia",
-  "class": {
-    "class_id": "41727475415649534B61743150726F63",
-    "name": "Pigments",
-    "vendor": "Arturia",
-    "version": "7.0.1.6772",
-    "subcategories": "Instrument|Synth",
-    "metadata_tier": "factory_3_unicode"
-  },
-  "role": "instrument",
   "requirements": {
     "runner": {
       "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
@@ -62,34 +56,16 @@
     "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
     "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
   },
-  "capabilities": {
-    "vendor_retirement": "process_scoped_vendor_retirement",
-    "editor_lifetime": "retain_editor_view_until_instance_retirement",
-    "event_output": "reported_zero_event_channels_unspecified",
-    "accessibility": "windows_default",
-    "editor": "detached_direct_vendor_lifecycle",
-    "state": "concurrent_read_only_capture_v12",
-    "precision": "float32_only",
-    "performance": "frames512_recommended256_unqualified"
+  "prior_revision8_raw_sha256": "bbb68e8a5cf0d401fc39ab33ff4e39bd71385d3bc5bf9a557f5b23af1e4a439b",
+  "change": "Existing fixed Windows InputObservation dump after joined processing and editor detachment, before endpoint finish and retirement commit. No observer collection or capacity changes.",
+  "tests": {
+    "windows_host_editor_and_sdk": "passed",
+    "manager_library": 61,
+    "manager_binary": 11,
+    "manager_clippy": "passed",
+    "native_proxy": "unchanged, retained exact revision6 artifact",
+    "runtime_supervisor": "unchanged from passed revision8 Linux tests"
   },
-  "limitations": [
-    "short_delivery_gaps",
-    "unqualified256",
-    "detached_focus_refusal",
-    "exact_operator_artifact_only",
-    "pigments_under_qualification",
-    "sole_stereo_auxiliary_input_only",
-    "returned_result_diagnosis"
-  ],
-  "evidence": [
-    "docs/AP18.md",
-    "evidence/ap18/pigments/installed.json",
-    "evidence/ap18/pigments/census.json",
-    "evidence/ap18/pigments/native-activation.json",
-    "evidence/ap18/pigments/event-output-operational-census.json",
-    "evidence/ap18/pigments/event-output-correction.json",
-    "evidence/ap18/pigments/retained-editor.json",
-    "evidence/ap18/pigments/process-retirement.json",
-    "evidence/ap18/pigments/process-retirement-live.json"
-  ]
+  "live_remaining_checks": "not yet run",
+  "prior_passed_live": "evidence/ap18/pigments/process-retirement-live.json"
 }

@@ -17,14 +17,16 @@ pub(crate) fn replacement_prior(prior: &Profile, next: &Profile) -> Result<bool>
     let fifth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-5/arturia-pigments.json"))?;
     let sixth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-6/arturia-pigments.json"))?;
     let seventh = Profile::parse(include_bytes!("../../compatibility/ap18/revision-7/arturia-pigments.json"))?;
-    let eighth = candidate()?;
+    let eighth = Profile::parse(include_bytes!("../../compatibility/ap18/revision-8/arturia-pigments.json"))?;
+    let ninth = candidate()?;
     Ok((*prior == first && *next == second)
         || (*prior == second && *next == third)
         || (*prior == third && *next == fourth)
         || (*prior == fourth && *next == fifth && fifth.revision == 5)
         || (*prior == fifth && *next == sixth && sixth.revision == 6)
         || (*prior == sixth && *next == seventh && seventh.revision == 7)
-        || (*prior == seventh && *next == eighth && eighth.revision == 8))
+        || (*prior == seventh && *next == eighth && eighth.revision == 8)
+        || (*prior == eighth && *next == ninth && ninth.revision == 9))
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -51,7 +53,7 @@ fn current_baseline(
 ) -> Result<(Baseline, Environment)> {
     require(
         p.claim == Claim::ReviewCandidate
-            && p.revision == 8
+            && p.revision == 9
             && p.id == "arturia-pigments"
             && p.role == Role::Instrument
             && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
@@ -404,7 +406,7 @@ mod tests {
             policies.push(policy);
         }
         p.id = "arturia-pigments".into();
-        p.revision = 8;
+        p.revision = 9;
         p.claim = Claim::ReviewCandidate;
         p.class.class_id = "03".repeat(16);
         p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
@@ -555,7 +557,25 @@ mod tests {
         assert_eq!(crate::hex(&sha2::Sha256::digest(seventh_bytes)),"e7c0eba8db18b8a05a4acdc996bb369f11f38ae2e2706eb50a5581dfc6254d8d");
         let seventh=Profile::parse(seventh_bytes).unwrap();
         assert_eq!(seventh.fingerprint().unwrap(),"e16221395dcf6cb8c45521ad12528f1e5b910c5a1b5c6d7cdc5f1091498dcc04");
-        let eighth=candidate().unwrap();
+        let eighth_bytes=include_bytes!("../../compatibility/ap18/revision-8/arturia-pigments.json");
+        assert_eq!(crate::hex(&sha2::Sha256::digest(eighth_bytes)),"bbb68e8a5cf0d401fc39ab33ff4e39bd71385d3bc5bf9a557f5b23af1e4a439b");
+        let eighth=Profile::parse(eighth_bytes).unwrap();
+        let ninth=candidate().unwrap();
+        assert!(replacement_prior(&eighth,&ninth).unwrap());
+        assert!(!replacement_prior(&seventh,&ninth).unwrap());
+        assert!(!replacement_prior(&ninth,&eighth).unwrap());
+        assert!(ninth.claim.require(SelectionPurpose::Activation).is_err());
+        let mut report_normalized=ninth.clone();
+        report_normalized.revision=eighth.revision;
+        report_normalized.requirements.host_sha256=eighth.requirements.host_sha256.clone();
+        report_normalized.requirements.host_source_sha256=eighth.requirements.host_source_sha256.clone();
+        report_normalized.evidence=eighth.evidence.clone();
+        assert_eq!(report_normalized,eighth);
+        for change in 0..3 {
+            let mut wrong=ninth.clone();
+            match change {0=>wrong.module_sha256="00".repeat(32),1=>wrong.requirements.native_sha256="00".repeat(32),_=>wrong.requirements.host_sha256="00".repeat(32)}
+            assert!(!replacement_prior(&eighth,&wrong).unwrap());
+        }
         assert_eq!(eighth.fingerprint().unwrap(),"bd52a44bd7e786776361a172a99599c9082233caf4643a293cd1ebc194e0acc4");
         assert!(replacement_prior(&seventh,&eighth).unwrap());
         assert!(!replacement_prior(&sixth,&eighth).unwrap());
@@ -647,7 +667,7 @@ mod tests {
     #[test]
     fn compiled_candidate_is_new_identity_not_ordinary_or_ap17_policy() {
         let p = candidate().unwrap();
-        assert_eq!(p.revision, 8);
+        assert_eq!(p.revision, 9);
         assert_eq!(p.class.name, "Pigments");
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         assert!(p.claim.require(SelectionPurpose::Qualification).is_ok());
