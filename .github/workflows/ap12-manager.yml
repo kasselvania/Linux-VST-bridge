@@ -9,6 +9,7 @@ on:
       - '.github/workflows/ap12-manager.yml'
       - 'tools/ap8_descriptor.py'
       - 'tools/test_ap10_descriptor.py'
+      - 'tools/uio1/**'
 permissions:
   contents: read
 jobs:
@@ -21,3 +22,4 @@ jobs:
       - run: cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings
       - run: python3 -m unittest discover -s bridge-manager/runtime -v
       - run: python3 tools/test_ap10_descriptor.py
+      - run: python3 -m unittest discover -s tools/uio1 -v
