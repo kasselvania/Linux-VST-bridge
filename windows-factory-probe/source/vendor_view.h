@@ -558,17 +558,37 @@ public:
   uint32_t error() const { return error_; }
   HWND window() const { return window_; }
   static bool pump() {
-    MSG msg{};
-    for (unsigned i = 0;
-         i < 128 && PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE); ++i) {
+    // PeekMessage's unfiltered order puts posted work before hardware input.
+    // Give input a retrieval opportunity after at most four ordinary messages,
+    // and let paint/timers progress even under replenishing input or posts.
+    // At most 128 queued dispatches and 224 PeekMessage calls per turn. Sent
+    // calls still execute through User32; vendor handlers have no wall-time bound.
+    unsigned dispatched = 0;
+    bool quitting = false;
+    auto retrieve = [&](UINT flags, UINT first = 0, UINT last = 0) {
+      if (dispatched == 128 || quitting) return false;
+      MSG msg{};
+      if (!PeekMessageW(&msg, nullptr, first, last, PM_REMOVE | flags)) return false;
+      ++dispatched;
       if (msg.message == WM_QUIT) {
         PostQuitMessage(int(msg.wParam));
-        return false;
+        quitting = true;
+      } else {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
       }
-      TranslateMessage(&msg);
-      DispatchMessageW(&msg);
+      return true;
+    };
+    for (unsigned round = 0; round < 32 && dispatched < 128 && !quitting; ++round) {
+      const unsigned before = dispatched;
+      retrieve(PM_QS_INPUT);
+      for (unsigned ordinary = 0; ordinary < 4; ++ordinary)
+        if (!retrieve(0)) break;
+      retrieve(PM_QS_PAINT, WM_PAINT, WM_PAINT);
+      retrieve(PM_QS_POSTMESSAGE, WM_TIMER, WM_TIMER);
+      if (before == dispatched) break;
     }
-    return true;
+    return !quitting;
   }
 };
 } // namespace linux_vst_bridge::wf0

@@ -17,7 +17,10 @@ struct alignas(8) Status {
   uint64_t version, pid, start, root, child, frequency;
   volatile LONG64 ready, command, phase, phase_qpc, submitted, posted, sent,
       send_failures, down, up, down_qpc, up_qpc, turns, max_turn_qpc,
-      finished, error, active_chains;
+      finished, error, active_chains,
+      loaded_down_posts, loaded_up_posts, loaded_down_chains, loaded_up_chains,
+      loaded_down_qpc, loaded_up_qpc, paints, timers, loaded_paints, loaded_timers,
+      moves, quit_preserved, bound_preserved;
 };
 static_assert(sizeof(Status) <= 4096);
 Status *s;
@@ -37,14 +40,31 @@ LRESULT CALLBACK proc(HWND w, UINT msg, WPARAM wp, LPARAM lp) {
     // Explicit generated load, not a measured vendor cost. Four finite chains
     // keep posted work available; no message is discarded. One bounded Sleep
     // models synchronous handler elapsed work without burning a CPU core.
-    Sleep(1); InterlockedIncrement64(&s->posted);
+    Sleep(1); InterlockedIncrement64(&s->posted); InvalidateRect(child, nullptr, FALSE);
     if (!post_one()) InterlockedDecrement64(&s->active_chains);
     return 0;
   }
   if (msg == sent_message) { Sleep(1); InterlockedIncrement64(&s->sent); return 0; }
+  if (msg == WM_MOUSEMOVE) { InterlockedIncrement64(&s->moves); return 0; }
+  if (msg == WM_TIMER) {
+    InterlockedIncrement64(&s->timers);
+    if (load(s->active_chains)) InterlockedIncrement64(&s->loaded_timers);
+    return 0;
+  }
+  if (msg == WM_LBUTTONDOWN && load(s->down) == 1) {
+    put(s->loaded_down_posts, load(s->posted)); put(s->loaded_down_chains, load(s->active_chains));
+    put(s->loaded_down_qpc, qpc());
+  }
+  if (msg == WM_LBUTTONUP && load(s->up) == 1) {
+    put(s->loaded_up_posts, load(s->posted)); put(s->loaded_up_chains, load(s->active_chains));
+    put(s->loaded_up_qpc, qpc());
+  }
   if (msg == WM_LBUTTONDOWN) { InterlockedIncrement64(&s->down); put(s->down_qpc, qpc()); SetFocus(w); return 0; }
   if (msg == WM_LBUTTONUP) { InterlockedIncrement64(&s->up); put(s->up_qpc, qpc()); return 0; }
-  if (msg == WM_PAINT) { PAINTSTRUCT p{}; BeginPaint(w, &p); EndPaint(w, &p); return 0; }
+  if (msg == WM_PAINT) {
+    InterlockedIncrement64(&s->paints);
+    if (load(s->active_chains)) InterlockedIncrement64(&s->loaded_paints);
+    PAINTSTRUCT p{}; BeginPaint(w, &p); EndPaint(w, &p); return 0; }
   if (msg == WM_CLOSE) { put(s->command, 3); return 0; }
   return DefWindowProcW(w, msg, wp, lp);
 }
@@ -62,7 +82,7 @@ int wmain(int argc, wchar_t **argv) {
   if (!mapping) return 5;
   s = static_cast<Status *>(MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, 4096));
   if (!s) return 6;
-  std::memset(s, 0, sizeof(*s)); std::memcpy(s->magic, "UIR1", 4); s->version = 1;
+  std::memset(s, 0, sizeof(*s)); std::memcpy(s->magic, "UIR1", 4); s->version = 2;
   s->pid = GetCurrentProcessId(); FILETIME created{}, exit{}, kernel{}, user{};
   if (!GetProcessTimes(GetCurrentProcess(), &created, &exit, &kernel, &user)) return 7;
   s->start = (uint64_t(created.dwHighDateTime) << 32) | created.dwLowDateTime;
@@ -78,6 +98,22 @@ int wmain(int argc, wchar_t **argv) {
   if (!root || !child) return 9;
   s->root = reinterpret_cast<uintptr_t>(root); s->child = reinterpret_cast<uintptr_t>(child);
   ShowWindow(root, SW_SHOW); UpdateWindow(root); SetForegroundWindow(root); SetFocus(child);
+  if (!SetTimer(child, 1, 16, nullptr)) return 11;
+  // Production pump preserves WM_QUIT and its code even through filtered paths.
+  PostQuitMessage(73);
+  if (VendorView::pump()) return 12;
+  MSG quit{};
+  if (!PeekMessageW(&quit, nullptr, WM_QUIT, WM_QUIT, PM_REMOVE) ||
+      quit.message != WM_QUIT || quit.wParam != 73) return 13;
+  put(s->quit_preserved, 1);
+  // Actual queued sentinels prove the 128-dispatch ceiling without a mock pump.
+  for (unsigned i = 0; i < 256; ++i)
+    if (!PostThreadMessageW(GetCurrentThreadId(), WM_APP + 0x622, 0, 0)) return 14;
+  if (!VendorView::pump()) return 15;
+  unsigned remaining = 0;
+  while (PeekMessageW(&quit, nullptr, WM_APP + 0x622, WM_APP + 0x622, PM_REMOVE)) ++remaining;
+  if (remaining < 128 || remaining >= 256) return 16;
+  put(s->bound_preserved, 1);
   put(s->phase, 1); put(s->phase_qpc, qpc()); put(s->ready, 1);
   std::thread traffic;
   const auto deadline = GetTickCount64() + 60000;
@@ -118,12 +154,15 @@ int wmain(int argc, wchar_t **argv) {
   if (traffic.joinable()) traffic.join();
   const bool exact = load(s->submitted) == load(s->posted) && load(s->active_chains) == 0;
   if (!exact) put(s->error, 5);
+  KillTimer(child, 1);
   bool destroyed = DestroyWindow(root) != FALSE && !IsWindow(root) && !IsWindow(child);
   if (!destroyed) put(s->error, 6);
   const auto error = load(s->error);
   if (self_test) {
     assert(error == 0 && load(s->posted) > 0 && load(s->posted) <= posts);
     assert(load(s->sent) == sends && load(s->send_failures) == 0);
+    assert(load(s->loaded_paints) > 0 && load(s->loaded_timers) > 0);
+    assert(load(s->quit_preserved) == 1 && load(s->bound_preserved) == 1);
     std::printf("UIR1 production pump: submitted=%llu handled=%llu sent=%llu exact cleanup=%d\n",
         static_cast<unsigned long long>(load(s->submitted)), static_cast<unsigned long long>(load(s->posted)),
         static_cast<unsigned long long>(load(s->sent)), destroyed);

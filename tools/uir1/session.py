@@ -18,7 +18,11 @@ from isolation import runner_environment
 FIELDS = dict(pid=16, start=24, root=32, child=40, frequency=48, ready=56, command=64,
               phase=72, phase_qpc=80, submitted=88, posted=96, sent=104, send_failures=112,
               down=120, up=128, down_qpc=136, up_qpc=144, turns=152, max_turn_qpc=160,
-              finished=168, error=176, active_chains=184)
+              finished=168, error=176, active_chains=184,
+              loaded_down_posts=192, loaded_up_posts=200, loaded_down_chains=208,
+              loaded_up_chains=216, loaded_down_qpc=224, loaded_up_qpc=232,
+              paints=240, timers=248, loaded_paints=256, loaded_timers=264,
+              moves=272, quit_preserved=280, bound_preserved=288)
 
 
 def run(root, package):
@@ -32,7 +36,7 @@ def run(root, package):
         with open(target / name, 'xb') as f: f.write(sealed_bytes(package / name, sha))
         os.chmod(target / name, 0o500)
     base = [runner['entry_point'], '--verb=run', '--', runner['proton']]
-    report = {'schema': 1, 'display': {k: env.get(k) for k in ('DISPLAY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR')},
+    report = {'schema': 2, 'display': {k: env.get(k) for k in ('DISPLAY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR')},
               'clock_brackets': [], 'win32': [], 'xrecord': [], 'actions': [], 'snapshots': [],
               'traffic_samples': [], 'traffic_sample_overflow': 0}
     handles = []; status = observer = x = record = None
@@ -83,7 +87,7 @@ def run(root, package):
         wait(lambda: (target / 'fixture.status').exists() and (target / 'fixture.status').stat().st_size == 4096, 100)
         status = Mapping(target / 'fixture.status', 4096)
         wait(lambda: status.read(56) == 1, 5)
-        if status.map[:4] != b'UIR1' or status.read(8) != 1: raise RuntimeError('fixture status schema')
+        if status.map[:4] != b'UIR1' or status.read(8) != 2: raise RuntimeError('fixture status schema')
         identity = snap(); report['identity'] = identity
         census = helper('uio1-observer.exe', ['census', str(identity['pid'])], 10, 'census')
         wait(lambda: census.process.poll() is not None, 10)
@@ -110,6 +114,19 @@ def run(root, package):
         wait(lambda: status.read(72) == 2, 2)
         interval(.2)
         click(2)
+        wait(lambda: status.read(128) == 2, 3)
+        # Reverse fairness: bounded sustained server-level hardware motion while
+        # the same four posted chains continue. No extra clicks or key input.
+        sustained_before = snap()
+        for i in range(400):
+            x.move((.5 + (.025 if i % 2 else -.025), .5))
+            tick(); time.sleep(.002)
+        sustained_after = snap()
+        report['sustained_input'] = dict(motions_issued=400, before=sustained_before, after=sustained_after)
+        if (sustained_after['posted'] <= sustained_before['posted'] or
+            sustained_after['moves'] <= sustained_before['moves'] or
+            sustained_after['phase'] != 2):
+            raise RuntimeError('posted/input reverse progress absent during finite traffic')
         wait(lambda: status.read(72) == 3, 12)
         wait(lambda: status.read(128) == 2, 3)
         interval(.4); report['snapshots'].append(dict(condition='traffic_complete', **snap()))

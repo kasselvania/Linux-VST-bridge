@@ -14,10 +14,54 @@ fn rows<'a>(v: &'a Value, key: &str, bound: usize) -> Result<&'a [Value]> {
     }
     Ok(a)
 }
+fn fairness(raw: &Value) -> Result<Value> {
+    let f = &raw["final_status"];
+    for key in [
+        "loaded_down_chains",
+        "loaded_up_chains",
+        "loaded_paints",
+        "loaded_timers",
+    ] {
+        if n(f, key)? == 0 {
+            return Err("input/paint/timer waited for traffic exhaustion".into());
+        }
+    }
+    if n(f, "posted")? != 4096
+        || n(f, "loaded_down_posts")? >= 4096
+        || n(f, "loaded_up_posts")? >= 4096
+        || n(f, "loaded_down_qpc")? >= n(f, "loaded_up_qpc")?
+        || n(f, "quit_preserved")? != 1
+        || n(f, "bound_preserved")? != 1
+    {
+        return Err("bounded two-way fairness failed".into());
+    }
+    let sustained = &raw["sustained_input"];
+    let before = &sustained["before"];
+    let after = &sustained["after"];
+    if n(sustained, "motions_issued")? != 400
+        || n(after, "phase")? != 2
+        || n(after, "posted")? <= n(before, "posted")?
+        || n(after, "moves")? <= n(before, "moves")?
+    {
+        return Err("posted work did not progress under sustained hardware input".into());
+    }
+    Ok(json!({"loaded_down_before_posts":n(f,"loaded_down_posts")?,
+        "loaded_up_before_posts":n(f,"loaded_up_posts")?,
+        "down_active_chains":n(f,"loaded_down_chains")?,"up_active_chains":n(f,"loaded_up_chains")?,
+        "down_precedes_up":true,"paint_during_load":n(f,"loaded_paints")?,"timer_during_load":n(f,"loaded_timers")?,
+        "sustained_input":{"motions_issued":400,"moves_handled":n(after,"moves")?-n(before,"moves")?,
+            "posts_completed":n(after,"posted")?-n(before,"posted")?,"chains_still_active":true},
+        "quit_preserved":true,"queued_dispatch_ceiling":128,"peek_call_ceiling":224}))
+}
 fn project(raw: &Value) -> Result<Value> {
     if raw["completed"] != true {
         return Err("incomplete generated differential".into());
     }
+    let fair = if raw["schema"] == 2 {
+        fairness(raw)?
+    } else {
+        Value::Null
+    };
     let brackets: Vec<Bracket> = serde_json::from_value(raw["clock_brackets"].clone())?;
     if brackets.is_empty() || brackets.len() > 8 {
         return Err("clock bracket capacity".into());
@@ -160,8 +204,8 @@ fn project(raw: &Value) -> Result<Value> {
         "observer":{"records":n(observer,"committed")?,"dropped":0,"closed":1,"detached":1},
         "xrecord":{"records":x11.len(),"dropped":0,"unparsed":n(&raw["xrecord_status"],"unparsed")?},
         "exact_three_mouse_pairs":true,"windows_destroyed":true,
-        "bounded_traffic_progress":progress,
-        "nonclaims":["no vendor workload equivalence","no physical-compositor equivalence","no product repair","no audio or rendering result"]}),
+        "bounded_traffic_progress":progress,"fairness":fair,
+        "nonclaims":["no vendor workload equivalence","no physical-compositor equivalence","no audio or rendering result"]}),
     )
 }
 fn main() -> Result<()> {
@@ -207,6 +251,38 @@ mod tests {
             "actions":input,"win32":win,"xrecord":xr,"xrecord_status":{"dropped":0,"unparsed":0},
             "final_status":{"error":0,"finished":1,"submitted":4000,"posted":4000,"send_failures":0,"sent":64,"down":3,"up":3},
             "observer_status_final":{"dropped":0,"heartbeat_errors":0,"scope_errors":0,"unhook_errors":0,"closed":1,"detached":1,"committed":12}})
+    }
+    #[test]
+    fn structural_fairness_refuses_old_drain_order_and_reverse_starvation() {
+        let raw = json!({"final_status":{"posted":4096,"loaded_down_posts":150,"loaded_up_posts":205,
+            "loaded_down_chains":4,"loaded_up_chains":4,"loaded_down_qpc":10,"loaded_up_qpc":20,
+            "loaded_paints":200,"loaded_timers":30,"quit_preserved":1,"bound_preserved":1},
+            "sustained_input":{"motions_issued":400,"before":{"posted":205,"moves":3},
+                "after":{"posted":700,"moves":200,"phase":2}}});
+        assert!(fairness(&raw).is_ok());
+        for key in ["loaded_down_posts", "loaded_up_posts"] {
+            let mut r = raw.clone();
+            r["final_status"][key] = json!(4096);
+            assert!(fairness(&r).is_err());
+        }
+        for key in [
+            "loaded_down_chains",
+            "loaded_up_chains",
+            "loaded_paints",
+            "loaded_timers",
+            "quit_preserved",
+            "bound_preserved",
+        ] {
+            let mut r = raw.clone();
+            r["final_status"][key] = json!(0);
+            assert!(fairness(&r).is_err());
+        }
+        let mut r = raw.clone();
+        r["sustained_input"]["after"]["posted"] = json!(205);
+        assert!(fairness(&r).is_err());
+        let mut r = raw;
+        r["final_status"]["loaded_up_qpc"] = json!(9);
+        assert!(fairness(&r).is_err());
     }
     #[test]
     fn conservative_retrieval_boundary_and_private_projection() {

@@ -59,3 +59,19 @@ See [docs/UIR1.md](docs/UIR1.md) and [evidence/uir1](evidence/uir1/). The genera
 fixture and owner-selection result are complete; production pump repair remains
 separate, unimplemented work. Accepted products and publications are unchanged.
 Disposition: `UIR1_GENERATED_RETRIEVAL_STARVATION_REPRODUCED`.
+
+## Authorized repair after review 5186994847
+
+The baseline at `77fd8714105f303b202ce61ecff786b317da7a80` is accepted.
+Continue in PR #97: repair generic `VendorView::pump` with bounded input and
+ordinary-message fairness, preserving sent-message semantics and the 128 queued
+message limit. Explicit paint/timer opportunities prevent reverse starvation.
+Use the same generated 4096-post/64-send fixture and require Down and Up while
+chains remain active, plus progress under bounded sustained input, paint, timer
+and WM_QUIT checks. No further pre-repair differential.
+
+Only after that passes, build one exact Pigments engineering candidate and use
+UIO1 for one automatic page click and parameter drag. Ordinary Pigments revision
+11 remains the rollback authority; LoFi/FRAGMENTS remain unchanged. No operator
+desktop takeover, audio requalification or repeated page matrix. Keep PR draft
+and unmerged for review. Original baseline evidence remains unchanged.
