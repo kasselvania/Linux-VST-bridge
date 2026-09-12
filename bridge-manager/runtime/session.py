@@ -282,7 +282,7 @@ class TerminalStatus:
     another owner's first failure. Optional only for older immutable natives.
     """
     def __init__(self,directory,sid):
-        self.map=None;self.sid=sid;self.attempted=False
+        self.map=None;self.sid=sid;self.completed=False;self.pending=None
         try:fd=os.open(directory/'if1.terminal',os.O_RDWR|os.O_NOFOLLOW)
         except FileNotFoundError:return
         try:
@@ -299,19 +299,24 @@ class TerminalStatus:
         self.address=ctypes.addressof(ctypes.c_char.from_buffer(self.map))
     def word(self,o):return self.load(self.address+o,5)
     def root_exit(self,status,domain=4):
-        if self.map is None or self.attempted:return
-        self.attempted=True
-        if self.word(64):return
+        if self.map is None or self.completed:return True
+        # Preserve the first observed failure across bounded unstable reads.
+        # Only a complete competing record or a completed CAS ends custody.
+        if self.pending is None:self.pending=(status,domain)
+        if self.word(64):self.completed=True;return True
+        status,domain=self.pending
         for _ in range(3):
             c=self.word(1024)
-            if not c:return
+            if not c:return False
             base=1088+(c&1)*256
             row=[self.word(base+i*8) for i in range(24)]
             if self.word(1024)!=c:continue
             row[14:16]=[1,status&0xffffffffffffffff];row[18]=3;row[19]=domain
             for i,v in enumerate(row):self.store(self.address+640+i*8,v,5)
             expected=ctypes.c_uint64(0);self.cas(self.address+64,ctypes.byref(expected),3,False,5,5)
-            return
+            self.completed=True
+            return True
+        return False  # retry on the next owner call; never consume pending failure
     def snapshot(self):
         if self.map is None:return None
         c=self.word(64)

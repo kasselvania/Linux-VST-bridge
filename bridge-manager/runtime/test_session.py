@@ -959,6 +959,66 @@ class TerminalInstanceTests(unittest.TestCase):
                 self.assertIsNone(unrelated.poll())
             finally:unrelated.terminate();unrelated.wait(timeout=5)
 
+    def test_concurrent_progress_retry_keeps_first_pending_root_failure(self):
+        import queue
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);sid='31'*16;self.create(root,sid)
+            t=session.TerminalStatus(root,sid);request=queue.Queue();done=queue.Queue()
+            original=t.word;errors=[]
+            def progress():
+                try:
+                    for round in range(3):
+                        request.get(timeout=5)
+                        for step in (1,2):
+                            n=round*2+step;c=original(1024)
+                            row=[original(1088+(c&1)*256+i*8) for i in range(24)]
+                            row[5]=104687+n;row[6]=row[16]=n*256
+                            for i,v in enumerate(row):t.store(t.address+1088+((c+1)&1)*256+i*8,v,5)
+                            t.store(t.address+1024,c+1,5)
+                        done.put(True)
+                except BaseException as e:errors.append(e);done.put(False)
+            worker=threading.Thread(target=progress);worker.start();reads=0
+            def racing_word(offset):
+                nonlocal reads
+                if offset==1024:
+                    reads+=1
+                    if reads%2==0:
+                        request.put(True);self.assertTrue(done.get(timeout=5))
+                return original(offset)
+            try:
+                with patch.object(t,'word',side_effect=racing_word):
+                    self.assertFalse(t.root_exit(90))
+                worker.join(timeout=5);self.assertFalse(worker.is_alive());self.assertEqual(errors,[])
+                self.assertFalse(t.completed);self.assertEqual(original(64),0)
+                self.assertTrue(t.root_exit(99))
+                first=t.snapshot()
+                self.assertEqual((first['status'],first['sequence'],first['last_completed_position']),(90,104693,1536))
+                self.assertTrue(t.root_exit(100));self.assertEqual(first,t.snapshot())
+            finally:worker.join(timeout=5);t.close()
+
+    def test_competing_failure_wins_while_supervisor_reads_progress(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);sid='31'*16;self.create(root,sid)
+            t=session.TerminalStatus(root,sid);original=t.word;ready=threading.Event();done=threading.Event()
+            def editor_failure():
+                if not ready.wait(5):return
+                row=[original(1344+i*8) for i in range(24)]
+                row[14:16]=[2,93];row[18:20]=[2,2]
+                for i,v in enumerate(row):t.store(t.address+384+i*8,v,5)
+                expected=session.ctypes.c_uint64(0)
+                t.cas(t.address+64,session.ctypes.byref(expected),2,False,5,5);done.set()
+            worker=threading.Thread(target=editor_failure);worker.start()
+            def interleave(offset):
+                if offset==1024:
+                    ready.set();self.assertTrue(done.wait(5))
+                return original(offset)
+            try:
+                with patch.object(t,'word',side_effect=interleave):self.assertTrue(t.root_exit(90))
+                worker.join(timeout=5);self.assertFalse(worker.is_alive())
+                first=t.snapshot();self.assertEqual((first['failure_class'],first['status']),(2,93))
+                t.root_exit(99);self.assertEqual(first,t.snapshot())
+            finally:ready.set();worker.join(timeout=5);t.close()
+
     def test_first_custody_partial_write_and_identity(self):
         with tempfile.TemporaryDirectory() as d:
             root=pathlib.Path(d);sid='31'*16;self.create(root,sid)

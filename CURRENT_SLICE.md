@@ -10,22 +10,23 @@ IF1 continuation, PR #98, draft and unmerged. The operator acknowledged that sta
 A terminal Windows/editor/transport failure reaches the native processor and
 commercial controller exactly once, with session-bound durable scalar custody.
 The controller invalidates dead editor ownership, requests host reload once,
-and presents native failure/recovery status instead of forwarding into the dead
+and presents a native terminal failure view instead of forwarding into the dead
 instance. Current or explicitly recovered complete state remains the only state
 authority. Normal process-scoped retirement retains its seven milestones.
 
 Implement in the existing supervisor, Windows status/UI owner, queued backend,
-AP10.poll processor/controller path and existing recovery view. No audio callback
-allocation, I/O, locks, logging, waiting, or recovery policy. Add root-exit and
-editor-fatal deterministic fixtures, then one automatic UIO1 menu/resize check.
+AP10.poll processor/controller path and existing native view implementation. No audio callback
+allocation, I/O, locks, logging, waiting, or recovery policy. Retain root-exit and
+editor-fatal deterministic fixtures. The current review requires only custody
+repairs and concurrent producer regressions; no live check or resize repeat.
 Do not ask the operator to reproduce the incident or take desktop controls.
 
 ## Preserved result and installation
 
 Generic input fairness and its generated differential remain accepted unchanged.
-Do not repeat that differential. Preserve all Pigments revisions through 13 and
-LoFi/FRAGMENTS revision 10. New product bytes require an immutable candidate after
-13; no new ordinary authority before independent review.
+Do not repeat that differential. Preserve all Pigments revisions through 14 and
+LoFi/FRAGMENTS revision 10. Review repairs remain uninstalled source. Do not create another candidate or
+ordinary authority during this review.
 
 The two existing failures are retained independently in `evidence/if1/incident.json`.
 No new live attempt was made to obtain missing facts. After private custody of
@@ -36,14 +37,17 @@ history; revision 12 remains an inactive candidate. No retained artifact changed
 ## Completion and cleanup
 
 Prove first-failure custody survives abnormal process exit, exact-once host
-notification/reload, failure view ownership, no stale-state substitution, and
+notification/reload, terminal failure view ownership, no stale-state substitution, and
 positive removal/quit cleanup. A Windows exit without normal retirement custody
 is terminal failure, never clean SDK destruction or normal process retirement.
-After the one candidate check restore ordinary 11, retain evidence/artifacts,
+Keep ordinary 11 active and 12–14 inactive. Retain evidence/artifacts,
 zero DSP leases/transactions/stale transport, service/keeper healthy, tracing off.
 512 remains recommended; 256 unqualified. No audio-performance claim.
 
-Status: incident preserved and ordinary 11 restored; IF1 implementation pending.
+Status: IF1 review changes required. Suppress unchanged idle progress; retain
+retryable first failure across unstable context reads; prove concurrent
+progress/failure producers. Validate native backend, strict Clippy, AP8, AP10,
+AP12 and PX2. No product retest, acceptance, promotion or installation.
 
 ## Current checkpoint
 

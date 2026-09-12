@@ -465,13 +465,18 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     let mut input_observation = crate::input_observation::InputObservation::new(crate::observer::delivery_enabled());
     let mut previous_control = [0u64; 4];
     let mut deferred = None;
+    let mut terminal_context = None;
     if let Some(status) = &mut session.fault_status {
         status.generation = s.generation;
     }
     let run = (|| -> io::Result<()> {
         loop {
             if let Some(t) = &s.terminal {
-                t.progress([s.generation,session.epoch,session.state.next,session.position,u64::from(session.phase)],Some(session.position),None);
+                let context = [s.generation,session.epoch,session.state.next,session.position,u64::from(session.phase)];
+                if terminal_context != Some(context) {
+                    t.progress(context,Some(session.position),None);
+                    terminal_context = Some(context);
+                }
                 if t.read().is_some() { return Err(invalid("terminal instance failure")); }
             }
             crate::preview::check_owner(&mut session.owner)?;

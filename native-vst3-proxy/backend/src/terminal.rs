@@ -72,8 +72,10 @@ impl Status {
     ) {
         let [generation, epoch, sequence, position, phase] = context;
         let counter = self.word(1024).load(Ordering::SeqCst);
-        let next = counter.checked_add(1).expect("terminal progress exhausted");
-        let mut row = self.context().unwrap_or_default();
+        // This method has one progress writer. Its previous complete context
+        // cannot race itself; failure producers never write these slots.
+        let previous = self.context().unwrap_or_default();
+        let mut row = previous;
         row.words[0] = 1;
         row.words[1] = u64::from_le_bytes(self.session[..8].try_into().unwrap());
         row.words[2] = u64::from_le_bytes(self.session[8..].try_into().unwrap());
@@ -93,6 +95,10 @@ impl Status {
                 row.words[10 + i] = u64::from_le_bytes(b.try_into().unwrap());
             }
         }
+        if counter != 0 && row == previous {
+            return;
+        }
+        let next = counter.checked_add(1).expect("terminal progress exhausted");
         let at = 1088 + (next as usize & 1) * 256;
         for (i, v) in row.words.iter().enumerate() {
             self.word(at + i * 8).store(*v, Ordering::SeqCst);
@@ -100,6 +106,10 @@ impl Status {
         self.word(1024).store(next, Ordering::SeqCst);
     }
     pub fn context(&self) -> Option<Record> {
+        self.context_after_copy(|| {})
+    }
+    // Empty in production; tests force publication precisely during a read.
+    fn context_after_copy(&self, mut after_copy: impl FnMut()) -> Option<Record> {
         for _ in 0..3 {
             let c = self.word(1024).load(Ordering::SeqCst);
             if c == 0 {
@@ -109,6 +119,7 @@ impl Status {
             let r = Record {
                 words: std::array::from_fn(|i| self.word(at + i * 8).load(Ordering::SeqCst)),
             };
+            after_copy();
             if self.word(1024).load(Ordering::SeqCst) == c {
                 return Some(r);
             }
@@ -161,6 +172,87 @@ impl Drop for Status {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn fixture() -> (std::path::PathBuf, std::sync::Arc<Status>) {
+        let path = std::env::temp_dir().join(format!(
+            "if1-{}",
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+        ));
+        let status = std::sync::Arc::new(Status::create(&path, [17; 16]).unwrap());
+        (path, status)
+    }
+    #[test]
+    fn unchanged_idle_context_does_not_publish_but_confirmed_state_does() {
+        let (path, s) = fixture();
+        let initial: Vec<_> = (1024..BYTES)
+            .step_by(8)
+            .map(|i| s.word(i).load(Ordering::SeqCst))
+            .collect();
+        for _ in 0..1000 {
+            s.progress([1, 0, 1, 0, 0], Some(0), None);
+        }
+        assert_eq!(
+            initial,
+            (1024..BYTES)
+                .step_by(8)
+                .map(|i| s.word(i).load(Ordering::SeqCst))
+                .collect::<Vec<_>>()
+        );
+        s.progress([7, 2, 104687, 512, 11], Some(512), None);
+        assert_eq!(s.word(1024).load(Ordering::SeqCst), 2);
+        let snapshot = crate::recovery::Snapshot {
+            bytes: vec![],
+            revision: 9,
+            source: 1,
+            generation: 7,
+            through: 104687,
+            digest: [23; 32],
+        };
+        s.progress([7, 2, 104687, 512, 11], None, Some(&snapshot));
+        assert_eq!(s.word(1024).load(Ordering::SeqCst), 3);
+        for _ in 0..1000 {
+            s.progress([7, 2, 104687, 512, 11], Some(512), Some(&snapshot));
+        }
+        assert_eq!(s.word(1024).load(Ordering::SeqCst), 3);
+        assert_eq!(&s.context().unwrap().words[7..10], &[9, 7, 104687]);
+        drop(s);
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn concurrent_progress_read_exhaustion_is_retryable() {
+        use std::{sync::mpsc, time::Duration};
+        let (path, s) = fixture();
+        let (request, requests) = mpsc::channel();
+        let (done, completed) = mpsc::channel();
+        let writer = s.clone();
+        let task = std::thread::spawn(move || {
+            for round in 0..3 {
+                requests.recv_timeout(Duration::from_secs(5)).unwrap();
+                // Recycle both slots between copy and validation, not just one.
+                for step in 1..=2 {
+                    let n = round * 2 + step;
+                    writer.progress([7, 2, 104687 + n, n * 256, 11], Some(n * 256), None);
+                }
+                done.send(()).unwrap();
+            }
+        });
+        assert_eq!(
+            s.context_after_copy(|| {
+                request.send(()).unwrap();
+                completed.recv_timeout(Duration::from_secs(5)).unwrap();
+            }),
+            None
+        );
+        task.join().unwrap();
+        assert!(s.read().is_none());
+        s.fail_native(3);
+        let first = s.read().unwrap();
+        assert_eq!(&first.words[3..7], &[7, 2, 104693, 1536]);
+        assert_eq!(first.words[16], 1536);
+        s.fail_native(99);
+        assert_eq!(s.read(), Some(first));
+        drop(s);
+        std::fs::remove_file(path).unwrap();
+    }
     #[test]
     fn first_complete_survives_interrupted_other_producer() {
         let p = std::env::temp_dir().join(format!(

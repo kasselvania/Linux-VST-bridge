@@ -24,6 +24,9 @@ single atomic commit. The first complete publication wins; no writer reserves
 a global lock before copying. A killed writer cannot strand custody or replace
 a previous complete record. Two native-progress slots preserve the last complete
 context if a progress update is interrupted. Readers try at most three times.
+An unstable read is retryable, not a completed failure publication. Windows and
+supervisor producers keep their first pending status/domain until a stable
+copy is committed or another producer has committed first.
 
 The record contains schema/session, generation, processing epoch, request
 sequence, last completed end position, confirmed snapshot revision/generation/
@@ -33,7 +36,9 @@ bytes are included. Status domains distinguish native fault, GUI failure,
 Windows-host terminal status, outer launcher exit and Windows exception code.
 The first observer is identified; it is not automatically the ultimate cause.
 
-Only the native transport owner updates progress. Snapshot identity changes only
+Only the native transport owner updates progress. Unchanged idle turns do not
+publish, and identical complete context/state records do not advance the counter.
+A newly confirmed snapshot still publishes even when processing context is unchanged. Snapshot identity changes only
 when the existing complete-state store confirms a capture. No new lock, I/O,
 allocation, or observer call is added to the DAW callback or vendor process call.
 The native shared owner retains the mapped custody after physical unlink, so a
@@ -45,7 +50,7 @@ AP10.poll emits one AP10.instance_failed message for a terminal generation.
 The controller ends gestures/groups, cancels focus, retires the native editor
 identity, refuses dead-instance commands, retains a bounded failure description,
 and requests kReloadComponent once when a component handler exists. Reopening
-shows the native bridge failure view, not a new vendor request. The existing
+shows the native bridge terminal failure view, not a new vendor request. The existing
 snapshot identity can be displayed, but no state is silently substituted. The
 view directs the user to reload/remove or reopen a saved project; it does not
 invent a successful in-place recovery of opaque commercial state.
@@ -79,3 +84,21 @@ stale transports. See `evidence/if1/live-check.json`, `installed-final.json` and
 ## Engineering publication
 
 Pigments revision 14 is the exact IF1 native/Windows candidate. `qualify-failure` uses the existing sealed publication and rollback owners with `if1_failure`; its immediate physical parent must be ordinary revision 11. Revisions 12 and 13 remain inactive immutable history. Ordinary activation and older acceptance commands cannot promote this candidate. `uio1 admit-if1` permits observation only of its exact physical candidate publication.
+
+## Review-only custody repair
+
+Concurrent generated tests force progress to recycle both slots between context
+copy and commit validation on all three read attempts. They require no terminal
+publication from the unstable read, a successful later retry with the original
+failure status, coherent context and unchanged confirmed state identity. A
+competing failure producer cannot be overwritten. The idle regression requires
+byte-identical progress slots/counter across unchanged turns.
+
+The commercial surface is a **terminal failure view**. It reports failure and
+confirmed state identity; it is not an in-place recovery implementation. The
+existing reference-fixture recovery controls remain a separate mode.
+
+These review changes do not modify retained evidence, profiles, artifact identities
+or rollback records. They are not installed or product-retested. Ordinary
+Pigments 11 remains active; revisions 12–14 remain inactive. PR #98 stays draft
+and unmerged pending source rereview.

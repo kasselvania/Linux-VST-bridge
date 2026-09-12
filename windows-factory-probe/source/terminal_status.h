@@ -8,7 +8,8 @@ namespace linux_vst_bridge::wf0 {
 // Native and supervisor own separate slots. Commit follows complete scalar copy.
 class TerminalStatus {
  HANDLE file_=INVALID_HANDLE_VALUE,mapping_=nullptr;uint8_t* view_=nullptr;
- bool attempted_=false;
+ bool completed_=false,pending_=false;uint64_t status_=0,domain_=0;
+ friend struct TerminalStatusTestAccess;
  uint64_t load(size_t at)const{return uint64_t(InterlockedCompareExchange64(reinterpret_cast<volatile LONG64*>(view_+at),0,0));}
  void store(size_t at,uint64_t v){InterlockedExchange64(reinterpret_cast<volatile LONG64*>(view_+at),LONG64(v));}
 public:
@@ -25,14 +26,21 @@ public:
  ~TerminalStatus(){close();}
  TerminalStatus(const TerminalStatus&)=delete;
  void close(){if(view_)UnmapViewOfFile(view_);if(mapping_)CloseHandle(mapping_);if(file_!=INVALID_HANDLE_VALUE)CloseHandle(file_);view_=nullptr;mapping_=nullptr;file_=INVALID_HANDLE_VALUE;}
- void editor_fatal(uint64_t status,uint64_t domain=2){
-  if(!view_||attempted_)return;attempted_=true;
-  if(load(64))return;
+ bool editor_fatal(uint64_t status,uint64_t domain=2){
+  return editor_fatal_after_copy(status,domain,[]{});
+ }
+private:
+ template<class AfterCopy> bool editor_fatal_after_copy(uint64_t status,uint64_t domain,AfterCopy after_copy){
+  if(!view_||completed_)return true;
+  if(!pending_){status_=status;domain_=domain;pending_=true;}
+  if(load(64)){completed_=true;return true;}
   std::array<uint64_t,24> row{};bool complete=false;
-  for(unsigned attempt=0;attempt<3;++attempt){auto c=load(1024);if(!c)return;auto at=1088+(c&1)*256;for(size_t i=0;i<row.size();++i)row[i]=load(at+i*8);if(load(1024)==c){complete=true;break;}}
-  if(!complete)return;row[14]=2;row[15]=status;row[18]=2;row[19]=domain;
+  for(unsigned attempt=0;attempt<3;++attempt){auto c=load(1024);if(!c)return false;auto at=1088+(c&1)*256;for(size_t i=0;i<row.size();++i)row[i]=load(at+i*8);after_copy();if(load(1024)==c){complete=true;break;}}
+  if(!complete)return false; // a later owner call retries the same first failure
+  row[14]=2;row[15]=status_;row[18]=2;row[19]=domain_;
   for(size_t i=0;i<row.size();++i)store(384+i*8,row[i]);
   InterlockedCompareExchange64(reinterpret_cast<volatile LONG64*>(view_+64),2,0);
+  completed_=true;return true;
  }
 };
 }
