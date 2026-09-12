@@ -38,6 +38,9 @@ public:
     bool next(ExternalBlock&,float*,float*) override;
     void done(const float*,const float*,uint64_t,uint64_t=0,const ap10_results_t* = nullptr) override;
     void finish(bool success);
+#ifdef LVB_LC1_TEST
+    void lc1_seed();
+#endif
 private:
     struct Impl;std::unique_ptr<Impl> impl_;
 };

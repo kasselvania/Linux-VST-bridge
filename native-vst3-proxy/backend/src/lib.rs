@@ -218,7 +218,9 @@ impl Session {
             {
                 Ok(reply)
             }
-            Ok(_) => {
+            Ok(reply) => {
+                #[cfg(test)]
+                eprintln!("LC1 response expected_kind={} actual_kind={} expected_sequence={} actual_sequence={} expected_epoch={:?} actual_epoch={:?} session_match={} native_next={} phase={}",kind+1,reply.kind,f.sequence,reply.sequence,f.payload.get(..8).map(ap1_native_client::get),reply.payload.get(..8).map(ap1_native_client::get),reply.session==f.session,self.state.next,self.phase);
                 self.phase = ERROR;
                 self.state.failed();
                 Err(invalid("wrong lifecycle response"))

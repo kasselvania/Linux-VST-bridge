@@ -2900,3 +2900,7 @@ mod tests {
 #[cfg(test)]
 #[path = "capture_tests.rs"]
 mod capture_tests;
+
+#[cfg(test)]
+#[path = "lc1_tests.rs"]
+mod lc1_tests;
