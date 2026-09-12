@@ -72,7 +72,6 @@ public:
     finishGestures();
     auto r = EditController::setComponentHandler(handler);
     capabilities();
-    notifyReload();
     return r;
   }
   Steinberg::IPlugView *PLUGIN_API
@@ -156,7 +155,7 @@ public:
       status_=IF1::status(record);failure_=AP11::Closed;
       activation_.cancel();editor_.sessionRetired();pending_count_=0;
       if (pending_close_.native_view) {pending_close_={};release();}
-      finishGestures();notifyReload();return kResultOk;
+      finishGestures();return kResultOk;
     }
     if (terminal_failed_) return kResultFalse;
     if (!std::strcmp(id,"AP12.persistence")){
@@ -343,13 +342,10 @@ public:
 
 private:
   if1_terminal_t terminal_{};
-  bool terminal_failed_=false,reload_requested_=false;
-  void notifyReload() {
-    if(terminal_failed_ && componentHandler && !reload_requested_) {
-      reload_requested_=true;
-      componentHandler->restartComponent(Steinberg::Vst::kReloadComponent);
-    }
-  }
+  // Keep this controller alive to explain the contained Windows-peer failure.
+  // kReloadComponent requests full processor/controller unload; never issue it
+  // automatically from terminal notification or later handler installation.
+  bool terminal_failed_=false;
   AP15::EditorLifecycle editor_;
   Steinberg::Vst::IMessage *retirement_message_ = nullptr;
   ap11_gui_message_t pending_close_{};

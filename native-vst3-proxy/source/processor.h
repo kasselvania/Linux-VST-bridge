@@ -69,9 +69,12 @@ private:
     Stopped,
     Deactivated,
     Failed,
-    Terminated
+    Terminated,
+    ContainedTerminal
   };
   std::atomic<Phase> phase_{New};
+  std::atomic<bool> terminal_latched_{false};
+  bool terminal();
   bool stateSession();
 #ifdef AP8_PREVIEW
   AP10Results::Output returned_;
@@ -79,6 +82,8 @@ private:
   bool gui_consumer_=false; // UI-thread capability, withdrawn before peer retirement.
   Steinberg::tresult guiPoll(uint64_t generation,unsigned limit);
   bool deliverResults(Steinberg::Vst::ProcessData&);
+  Steinberg::tresult containedSilence(Steinberg::Vst::ProcessData&);
+  uint64_t contained_callbacks_=0, contained_frames_=0;
   int eventOutputActive(int)const;
   uint64_t terminal_notified_generation_=0;
   bool notifications_=false;uint32_t vendor_latency_=0;
