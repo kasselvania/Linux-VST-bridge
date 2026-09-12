@@ -209,8 +209,8 @@ Manager 72+11, report 3, strict Clippy, UIO1 10 and isolation 2 tests passed;
 Linux CI covered all 41 runtime tests. All four manager-source workflows passed,
 including Windows SDK/editor fixtures and native result-lifetime coverage.
 Exact final-head checks are in PR #97. Baseline evidence is unchanged; the first
-4091-post repair attempt remains classified incomplete. PR #97 stays draft,
-open and unmerged for independent review.
+4091-post repair attempt remains classified incomplete. This repair checkpoint
+remained draft until the acceptance transition recorded below.
 
 
 ## UIR1 accepted ordinary revision 13
@@ -235,8 +235,29 @@ qualification marker, with exact ordinary 11 as immediate rollback parent.
 The immutable acceptance receipt retains candidate 12 as review provenance.
 LoFi and FRAGMENTS 10, all native artifacts and the default host remain unchanged.
 
-Only an ordinary load/editor/normal-quit smoke remains. The accepted drag,
+The one ordinary load/editor/normal-quit smoke passed. The accepted drag,
 page, fairness, audio and historical campaigns are not repeated. Process-scoped
 vendor retirement remains explicit; no clean SDK destruction, universal UI
 latency, renderer or audio-performance claim is added. 512 remains recommended;
 256 remains unqualified.
+
+
+The ordinary transition is installed and verified. Publication
+`9ee2c2fc214dfa373f0dcb594831a426` has exact ordinary-11 parent
+`bf9d2e4a96e4a7169f6a72bcf0937ebd` and no qualification marker. Manager source
+`7c4da2f92af96f5a06c36f7f5be7e2df41eac415` created immutable software revision
+`35b58d63ad517675597c274b837ec1363dcca6c7ac0d9020558903c731b1c971`.
+The Windows host remains the accepted `50c09be6…91773d` artifact; no host/native
+rebuild was used for installation. Catalogue identity, complete artifact hashes,
+profiles, ancestry and physical readback are in `evidence/uir1/acceptance/`.
+
+One ordinary instance loaded the protected project and opened its editor. Normal
+quit, followed by declining temporary smoke edits, committed retirement mask 127,
+joined processing without exception, and retired the exact Windows cohort,
+transport and lease. Bitwig frontend/engine/plugin-host are absent. Revision 13
+remains active, candidate 12 inactive, service and keeper active, transactions
+and stale transports zero, tracing off. Project hashes remain unchanged.
+SteamOS retained CPUWeight 10000 after this functional smoke; the bridge did not
+modify scheduling and no timing/performance claim is made. One stopped/pre-note
+512-frame gap remains under issue #90. No drag/page or other qualification was
+repeated. Final-head hosted checks and merge-review status are recorded on PR #97.

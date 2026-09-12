@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "product_source": "7c4da2f92af96f5a06c36f7f5be7e2df41eac415",
+  "local": {
+    "manager_library": 74,
+    "manager_binary": 11,
+    "manager_strict_clippy": "passed",
+    "runtime": {
+      "total": 41,
+      "passed": 17,
+      "platform_skips": 24
+    },
+    "linux_manager_release_cross_build": "passed",
+    "immutable_profile_bytes": "revisions 1-12 preserved; historical root11 exact; LoFi/FRAGMENTS10 unchanged",
+    "acceptance_tests": [
+      "review/evidence/identity seal refusal",
+      "technical equality except revision/claim/evidence",
+      "inactive/pending/foreign link refusal before mutation",
+      "exact retained artifact catalogue plus rollback host",
+      "ordinary13 publication no qualification marker and exact11 parent",
+      "deterministic republication",
+      "exact11 rollback and service admission",
+      "existing all16 publication boundaries and UIR1 qualification suite"
+    ]
+  },
+  "source_workflows": {
+    "windows": {
+      "run": 34708245974,
+      "result": "success"
+    },
+    "native": {
+      "run": 34708246004,
+      "result": "success"
+    },
+    "manager": {
+      "run": 34708245979,
+      "result": "success"
+    },
+    "px2": {
+      "run": 34708245990,
+      "result": "success"
+    }
+  },
+  "artifact_reuse": "Windows/native sources and binary artifacts unchanged by acceptance; live host is retained accepted UIR1 artifact, not a newly downloaded final-head build.",
+  "final_head_workflows": "Record exact final head and its automatic workflow results in PR #97."
+}

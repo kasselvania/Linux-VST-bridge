@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "review": 5187281110,
+  "reviewed_head": "9f745d75b44b63dd0c095061f1f273189c7a19f8",
+  "reviewed_tree": "d991280785278e193ed7187fcc45e7dbbb4cd98a",
+  "manager_source": "7c4da2f92af96f5a06c36f7f5be7e2df41eac415",
+  "command": "accept-ui -> managed preview -> managed publish",
+  "software_setup": "existing atomic immutable setup",
+  "prior_software_revision": "b64deb95d22ad12b9b637d4e4a0d9ad6115ef704b67b140b2e2a5990f19cf124",
+  "prior_software_record_sha256": "6de8201add6caef28d0d65aafec9bfcd7e93cc589067724efa3eb74db95d56b9",
+  "new_software_revision": "35b58d63ad517675597c274b837ec1363dcca6c7ac0d9020558903c731b1c971",
+  "new_software_record_sha256": "714a3a48b195223ae5f513b980f88b71120c59b6211d6688e0d78edaa8d5add0",
+  "software_artifacts": {
+    "manager": {
+      "sha256": "ebe5246216c751018d1c72f4ddf5c96e83abb55456e840c8447b4db3d2b8943f",
+      "valid": true
+    },
+    "supervisor": {
+      "sha256": "77f530db96d8f5852e3aa3330105cbe5dc4ab5941471c46cc21b610b0b6428d5",
+      "valid": true
+    },
+    "ownership": {
+      "sha256": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+      "valid": true
+    },
+    "host": {
+      "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "valid": true
+    },
+    "source_manifest": {
+      "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "valid": true
+    },
+    "native_catalogue": {
+      "sha256": "80749d44d072fe1599454750f574a0b024a8439b15d3197784808c84ae514ce7",
+      "valid": true
+    }
+  },
+  "native_catalogue_sha256": "80749d44d072fe1599454750f574a0b024a8439b15d3197784808c84ae514ce7",
+  "catalogue": {
+    "native_count": 3,
+    "supplemental_hosts": 2,
+    "default_host_unchanged": true,
+    "old_pigments_host_retained": true,
+    "new_pigments_host_sha256": "50c09be65eb2d2930f744afc16212f953c0b948f47132fa6cac1c90bbb91773d",
+    "new_pigments_source_manifest_sha256": "a829ccf933af39d4ab7ed36aea8258309143ba5daf3b10e1a15fa09560644e6c"
+  },
+  "candidate_provenance": {
+    "revision": 12,
+    "claim": "review_candidate",
+    "fingerprint": "b8d6289d5a50a941deec82b0c3ac644b4c905da684fce8a861f4e847019d11c6",
+    "publication": {
+      "id": "886e48242434864def572a4f5620a9f9",
+      "sha256": "2702476adbbe9cf39ffa6416f6a4a1a47eded31d5019260aaca6715ead0b93fd"
+    },
+    "transaction": "91f284dc87d74ffec529e13888b74df4",
+    "inactive": true
+  },
+  "ordinary": {
+    "revision": 13,
+    "claim": "verified_exact_fixture",
+    "fingerprint": "a74dd61397dcdc9bfcf4a1f39de74eb00f1ca48e3a634b3c03eddc1a416dbfc7",
+    "publication": {
+      "id": "9ee2c2fc214dfa373f0dcb594831a426",
+      "sha256": "42e54aee39aeee914e7f0d1906afb7d750d07c5c8ad051462fcf088036953ef1"
+    },
+    "qualification": null,
+    "parent": {
+      "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+      "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+    }
+  },
+  "provenance_law": "Ordinary 11 is the physical immediate parent; candidate 12 is selected review provenance retained in the sealed immutable software receipt.",
+  "retained_profile_files": [
+    {
+      "path": "compatibility/ap18/arturia-pigments.json",
+      "sha256": "94614dad9edce91a04b3564c829aa736221c1e63da390427f90e7155ab57e4dd"
+    },
+    {
+      "path": "compatibility/ap18/revision-1/arturia-pigments.json",
+      "sha256": "681dae01625f2d4c07a106a92c5c605396b666c6cd7160fe8402efb3bf7fe3fd"
+    },
+    {
+      "path": "compatibility/ap18/revision-11/arturia-pigments.json",
+      "sha256": "e3d2d6b5cf81b736f3a934bb64f018b62db98dc6eb3833f71ab63f7c12f5fabe"
+    },
+    {
+      "path": "compatibility/ap18/revision-2/arturia-pigments.json",
+      "sha256": "e6cf278f2cf444e9a0b68dc048622ca9076783e768f1917f7ffae6c44f58f795"
+    },
+    {
+      "path": "compatibility/ap18/revision-3/arturia-pigments.json",
+      "sha256": "ad1e73d42d0049d52b02a44b9b0737c50f57749e5cec530f5f387a580647f675"
+    },
+    {
+      "path": "compatibility/ap18/revision-4/arturia-pigments.json",
+      "sha256": "64e9773239ec910dcefd8ddfc0a15d36d8bca1689b9998c07ffc74da5583b00b"
+    },
+    {
+      "path": "compatibility/ap18/revision-5/arturia-pigments.json",
+      "sha256": "dde2e25eb108c98d80926621f8fe9501d87a1ced93bc59bf917278f664c016e9"
+    },
+    {
+      "path": "compatibility/ap18/revision-6/arturia-pigments.json",
+      "sha256": "ca00ca5373f76d10a3d4b60421eecbfa57e60e19e1e06e3b9a4332b20b900879"
+    },
+    {
+      "path": "compatibility/ap18/revision-7/arturia-pigments.json",
+      "sha256": "e7c0eba8db18b8a05a4acdc996bb369f11f38ae2e2706eb50a5581dfc6254d8d"
+    },
+    {
+      "path": "compatibility/ap18/revision-8/arturia-pigments.json",
+      "sha256": "bbb68e8a5cf0d401fc39ab33ff4e39bd71385d3bc5bf9a557f5b23af1e4a439b"
+    },
+    {
+      "path": "compatibility/ap18/revision-9/arturia-pigments.json",
+      "sha256": "a7ee1933ef287c730c496e88ab66e17c4948b5386e24b88606c8296d2d925dad"
+    },
+    {
+      "path": "compatibility/uir1/arturia-pigments.json",
+      "sha256": "d4e142f9175d1182d0512720996b6d3a4b966c10bf183d28023ffd0d0e83b56f"
+    }
+  ],
+  "lofi_fragments_unchanged": true,
+  "host_rebuilt_for_acceptance": false,
+  "native_rebuilt": false,
+  "artifact_source": "Reused exact installed UIR1 qualification artifacts; host built from 14e9f913ff4aff441c466bdd3a04786f229fc405 via synthetic checkout 964642bc8567557c579cf5949922b4aaff5b072f. See repair/artifacts.json.",
+  "preflight_harness_note": "An initial no-session assertion also rejected the ordinary storage-v1 marker. Corrected before service stop or software mutation; no product change."
+}

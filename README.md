@@ -78,8 +78,9 @@ ASC is installed and the operator installed and authorized Pigments through its
 real UI. Independent review **5185372983** accepted exact Pigments 7.0.1.6772
 revision 10, including LC1 routing, note audio, preset/control automation recall,
 sibling independence and process-scoped retirement. Revision 10 remains immutable
-ReviewCandidate history. New root revision 11 is VerifiedExactFixture with the
-same technical content and is now ordinarily installed and active. The single
+ReviewCandidate history. Revision 11 became VerifiedExactFixture with the
+same technical content; UIR1 now installs ordinary revision 13 with the accepted
+pump repair and retains 11 as exact rollback. The original AP18 single
 ordinary-load/C3/editor/quit smoke passed with nonzero output and positive
 process-scoped retirement. LoFi and FRAGMENTS ordinary revision 10 remain unchanged.
 See the [accepted result](evidence/ap18/lc1/live-completion.json),
@@ -128,8 +129,10 @@ confirmation, not a universal latency or audio-performance claim. The
 revision-12 engineering candidate is independently accepted at review 5187281110.
 The new ordinary revision-13 profile retains its exact technical and artifact
 content. The sealed `accept-ui` setup transition retains ordinary revision 11
-for rollback and uses normal managed publication. Its narrow ordinary smoke is
-pending; LoFi/FRAGMENTS remain unchanged. PR #97 remains draft until it passes. See
+for rollback and uses normal managed publication. Ordinary revision 13 is now
+active; its one load/editor/normal-quit smoke passed with process-scoped retirement
+and zero remaining DSP owners. LoFi/FRAGMENTS remain unchanged. PR #97 is returned
+for final exact-head review, open and unmerged. See
 [CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
 
 ## Architecture

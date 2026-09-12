@@ -1,96 +1,83 @@
-# UIR1 — bounded Windows input/message fairness
+# UIR1 — ordinary publication of the accepted input-fairness repair
 
-Base: UIO1 merge `ddf256c60d3f770e3f2773724d260ed362a1267f`, tree
-`31afc83d0096d73aacbb636e1bd823919402605c`. Review 5186994847 accepted the
-UIR1 differential at `77fd8714105f303b202ce61ecff786b317da7a80` and selected
-the generic `VendorView::pump` owner. Continue in PR #97, draft and unmerged.
+Continue on `codex/uir1-xwayland-input-retrieval`, PR #97. Leave open and unmerged
+for exact-head merge review. The pump repair and product confirmation are accepted;
+no further differential, Pigments interaction, renderer or audio campaign is authorized.
 
-## One claim and completed result
+## Authority and completed claim
 
-The Windows editor pump gives hardware input regular retrieval opportunities
-while ordinary posted, sent, paint and timer work continues. The same generated
-pinned-Proton fixture now handles mouse Down/Up while all four posted chains
-remain active, and one automatic Pigments drag/page click confirms the repair
-in the exact product. This is bounded retrieval fairness, not a wall-time UI
-deadline or a Wine-contract violation.
+UIO1 basis: merge `ddf256c60d3f770e3f2773724d260ed362a1267f`, tree
+`31afc83d0096d73aacbb636e1bd823919402605c`.
+Review 5186994847 selected generic `VendorView::pump` fairness after the generated
+baseline. Review **5187281110** accepted repair head
+`9f745d75b44b63dd0c095061f1f273189c7a19f8`, tree
+`d991280785278e193ed7187fcc45e7dbbb4cd98a`, and authorized only ordinary acceptance.
 
-The accepted unfiltered baseline delayed loaded Down/Up at least 4.963/4.875
-seconds until the finite posted workload drained. The repaired pump handled
-them after 159/218 posts, with four chains still active. All 4096 posts and
-64 sends completed. Posted work advanced by 2109 messages under 400 additional
-bounded XTEST motions. Paint/timer, WM_QUIT, exact child/focus/coordinates,
-zero observation overflow and the 128-dispatch ceiling passed.
+The repaired pump supplies bounded input/posted/paint/timer retrieval fairness.
+The same generated fixture passes before/after and reverse-fairness criteria;
+one real Pigments drag and page click confirmed product relevance. Those results
+and their exact limits remain unchanged in `evidence/uir1/repair/`.
 
-The single Pigments confirmation produced Macro 1 Begin → four Values → End
-and changed Synth to Play. Conservative issued-to-first-mouse-hook upper bounds
-were 62.053/19.641 ms for drag Down/Up and 7.758/76.423 ms for page Down/Up.
-Relevant local pixel changes appeared within 112 ms of Down. No repeated page
-matrix, live pre-repair run, operator/Mac control, or audio campaign was used.
+The accepted candidate-12 technical/artifact contents now have new immutable
+ordinary **Pigments revision 13 / verified_exact_fixture** authority. Its one
+ordinary load/editor/normal-quit smoke passed. Revision 13 remains physically
+active, with no qualification marker and exact ordinary revision 11 as parent.
 
-## Owners and limits
+## Implementation and identity
 
-`VendorView::pump` interleaves `PM_QS_INPUT` with at most four ordinary unfiltered
-retrievals. Paint and timer each receive one filtered opportunity per turn.
-There are at most 128 queued dispatches and 162 PeekMessage calls per turn.
-User32 retains sent-message semantics. A vendor handler can exceed a wall-time
-budget. No message is discarded, collapsed, synthesized or sent directly to a
-window procedure. No vendor-name exception, audio callback or transport change.
+Acceptance manager source: `7c4da2f92af96f5a06c36f7f5be7e2df41eac415`.
+The no-argument `accept-ui` route composes existing immutable setup, catalogue
+and normal managed publication. It requires the compiled reviewed candidate,
+completed qualification transaction, exact active ordinary parent and siblings,
+review/head/tree/evidence, installed software and artifact identities, inactive
+DSP and no pending transaction. It retains the old host for exact rollback.
+No caller-supplied profile, hash, review, command or binary path is accepted.
 
-The generated comparison uses an isolated headless KWin/XWayland display,
-fresh unlicensed prefix, real parent/child HWND, and the actual production pump.
-Four chains admit at most 4096 posts within six seconds with an explicitly
-synthetic 1 ms handler wait; 64 sends each have a 500 ms bound. The workload is
-not asserted to equal Pigments internals. UIO1 supplies exact-window XTEST,
-X RECORD, Win32 hooks and conservative Linux/QPC brackets; no internal Wine
-admission timestamp is inferred. Private raw frames/identities stay out of Git.
+Revision-13 fingerprint:
+`a74dd61397dcdc9bfcf4a1f39de74eb00f1ca48e3a634b3c03eddc1a416dbfc7`.
+Ordinary publication: `9ee2c2fc214dfa373f0dcb594831a426`.
+Immediate parent: `bf9d2e4a96e4a7169f6a72bcf0937ebd` (ordinary 11).
+Candidate-12 publication `886e48242434864def572a4f5620a9f9` remains inactive
+review provenance, retained in the sealed software receipt. Revisions 1–12 are
+byte-for-byte immutable. Historical ordinary 11 has its own retained path.
+LoFi/FRAGMENTS 10 and all native/module/descriptor/external identities are unchanged.
 
-## Candidate and restoration
+The live Windows host remains `50c09be65eb2d2930f744afc16212f953c0b948f47132fa6cac1c90bbb91773d`,
+from pump source `14e9f913ff4aff441c466bdd3a04786f229fc405` and actual synthetic
+checkout `964642bc8567557c579cf5949922b4aaff5b072f`. It was neither rebuilt nor
+redownloaded for acceptance. Only the manager and immutable catalogue authority changed.
 
-Pump source: `14e9f913ff4aff441c466bdd3a04786f229fc405`. The retained Windows
-workflow checked out synthetic commit `964642bc8567557c579cf5949922b4aaff5b072f`,
-with the same tree. Manager/software source:
-`d752707f30c165562c706d9f34e5b8b9debaabf2`.
+## One ordinary smoke and final physical state
 
-One immutable Pigments revision-12 ReviewCandidate changes only the host/source
-binding relative to ordinary revision 11. `qualify-ui` uses the sealed
-`uir1_input` identity and existing stage/publication/rollback owners. The exact
-ordinary revision-11 parent is required. Ordinary activation and ordinary UIO1
-admission remain verified-only; the closed diagnostic selector admits only the
-compiled engineering candidate. Native/module/descriptor/capabilities and
-LoFi/FRAGMENTS publications are unchanged; no new acceptance mechanism.
+The saved protected UIR1 copy loaded one ordinary Pigments instance with the exact
+repaired host. Its normal editor action produced open=1, view stage 16 and one
+visible Pigments X11 window. Normal quit retired processing, committed all seven
+process-scoped milestones (mask 127), and positively removed the Windows cohort,
+transport and lease. Declining temporary smoke edits preserved project hashes.
+No clean SDK destruction is claimed. No drag/page, routing, state, sibling,
+capacity, reboot or performance qualification was repeated.
 
-After the check, Bitwig quit normally with process-scoped vendor retirement,
-positive transport/cohort cleanup and zero DSP leases. Exact ordinary Pigments
-11 is physically restored; candidate 12 remains inactive. LoFi/FRAGMENTS 10
-match the before readback. Original project bytes and a saved copy retaining
-pre-existing unsaved edits are preserved. Service/keeper active; no transaction,
-tmpfs session, helper, debugger, diagnostic unit or held input. Tracing off;
-CPUWeight unset/effective 100 after quit, without scheduler modification.
+Revision 13 active; candidate 12 inactive; ordinary 11 and prior ancestry retained.
+LoFi/FRAGMENTS publications unchanged. Service/keeper active; zero DSP leases,
+transactions and stale transports. Bitwig/frontend/engine/plugin-host, debugger
+and UIR1 helper/unit absent; no held input; tracing off. SteamOS retained
+CPUWeight 10000 after the functional smoke; no bridge scheduler change or
+performance improvement is claimed. One stopped/pre-note 512-frame gap remains.
 
 ## Validation and nonclaims
 
-Manager 72 library + 11 binary tests, report 3 tests, strict Clippy, UIO1 10
-tests, isolation 2 tests, Windows SDK/editor fixtures and all four source-head
-workflows passed. Runtime tests: 17 pass/24 platform skips on macOS, all 41
-covered by Linux CI. All 16 candidate publication/rollback boundaries remain
-covered. Final evidence-head checks and exact head/tree are recorded in PR #97.
+Manager: 74 library + 11 binary tests; strict Clippy passed. Runtime: 17 pass and
+24 expected macOS platform skips; Linux CI runs all 41. Focused tests prove exact
+review/evidence/identity refusal before mutation, technical normalization,
+verified-only activation, deterministic ordinary publication, exact11 rollback
+and retained-host service admission. Existing all-16 interruption and UIR1
+candidate-boundary tests remain passing. Linux manager cross-build passed.
+All four manager-source workflows passed; exact final-head runs are on PR #97.
 
-No generic Wine defect, universal latency, renderer improvement, audio
-requalification or synthetic/vendor workload equivalence is claimed. Diagnostic
-heartbeat reached 158.961 ms during the drag. One startup 512-frame gap remains
-in the whole stopped/pre-note session counters; residual delivery stays #90.
-512 remains selected/supported/recommended; 256 remains unqualified. Review is
-pending; do not ordinarily activate the candidate or merge this PR here.
+No universal latency, renderer optimization, Wine-contract violation, audio
+performance or expanded Pigments capacity claim. 512 remains selected/supported/
+recommended; 256 remains unqualified. Residual delivery stays issue #90.
 
-See [docs/UIR1.md](docs/UIR1.md) and [repair evidence](evidence/uir1/repair/).
-Disposition: `UIR1_BOUNDED_PUMP_FAIRNESS_GENERATED_AND_PIGMENTS_CONFIRMED`.
-
-## Accepted repair: ordinary transition authorized
-
-Review 5187281110 accepts exact head `9f745d75b44b63dd0c095061f1f273189c7a19f8`
-and tree `d991280785278e193ed7187fcc45e7dbbb4cd98a`. The only remaining work
-is immutable Pigments 13 ordinary authority from candidate 12, using existing
-setup/catalogue/publication owners and exact ordinary-11 parent. Preserve all
-technical constraints, prior profiles, artifacts and evidence. No new pump,
-renderer, audio or input testing. One ordinary load/editor/normal-quit smoke;
-leave 13 active on success and return the same PR for final merge review.
+See `docs/UIR1.md`, `evidence/uir1/acceptance/review.json`, `transition.json`,
+`ordinary-smoke.json`, `installed-final.json` and `validation.json`.
+Disposition: **UIR1_ACCEPTED_AND_ORDINARY_PIGMENTS_13_READY**.
