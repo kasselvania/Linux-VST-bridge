@@ -321,7 +321,7 @@ void terminal_instance_regression() {
   check(host.reload_calls==1&&host.gestures.back()==AP11::End,"IF1 completes gesture and asks reload once");
   check(c->panelClose(token)&&!c->panelOpen(token)&&commands.size()==count,"IF1 dead generation never forwarded");
   auto* view=c->createView(ViewType::kEditor);ViewRect rect{};
-  check(view&&view->getSize(&rect)==kResultOk&&rect.getWidth()==640,"IF1 native failure/recovery view instead of VendorPanel");view->release();
+  check(view&&view->getSize(&rect)==kResultOk&&rect.getWidth()==640,"IF1 terminal failure view instead of VendorPanel");view->release();
   for(unsigned i=0;i<4;++i){HostMessage poll;poll.setMessageID("AP10.poll");check(processor->notify(&poll)==kResultOk,"IF1 repeated bounded poll");}
   check(host.reload_calls==1&&commands.size()==count,"IF1 exact once and no late forwarding");
   check(c->setParamNormalized(0,.75)==kResultFalse,"IF1 refuses dead parameter forwarding");
