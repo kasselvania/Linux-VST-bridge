@@ -78,8 +78,9 @@ ASC is installed and the operator installed and authorized Pigments through its
 real UI. Independent review **5185372983** accepted exact Pigments 7.0.1.6772
 revision 10, including LC1 routing, note audio, preset/control automation recall,
 sibling independence and process-scoped retirement. Revision 10 remains immutable
-ReviewCandidate history. New root revision 11 is VerifiedExactFixture with the
-same technical content and is now ordinarily installed and active. The single
+ReviewCandidate history. Revision 11 became VerifiedExactFixture with the
+same technical content; UIR1 now installs ordinary revision 13 with the accepted
+pump repair and retains 11 as exact rollback. The original AP18 single
 ordinary-load/C3/editor/quit smoke passed with nonzero output and positive
 process-scoped retirement. LoFi and FRAGMENTS ordinary revision 10 remain unchanged.
 See the [accepted result](evidence/ap18/lc1/live-completion.json),
@@ -106,9 +107,9 @@ Read [docs/AP18.md](docs/AP18.md) for the accepted implementation and its exact 
 
 Serum 2 remains the planned second-vendor generalization after the Arturia acquisition/install vertical.
 
-## Current slice: UIO1 — Editor observability
+## Current slice: UIR1 — Input retrieval latency
 
-[UIO1](docs/UIO1.md) adds bounded, development-only input, child-window, heartbeat,
+[UIO1](docs/UIO1.md) is accepted and merged. It adds bounded, development-only input, child-window, heartbeat,
 VST gesture and local-frame observations without replacing accepted product
 artifacts. The Pigments demonstration captured at least 8.237 seconds between
 exact X11 delivery and first observable Win32 hardware-mouse retrieval while the
@@ -116,7 +117,22 @@ UI thread continued servicing heartbeats. Translation, queue admission or an
 already-admitted message waiting behind other traffic, focus/capture, and vendor
 interaction remain unresolved. No renderer fix or universally responsive plug-in
 UI is claimed. The exact records and limits
-are retained in [evidence/uio1](evidence/uio1/). See
+are retained in [evidence/uio1](evidence/uio1/).
+
+[UIR1](docs/UIR1.md) reproduced at least 4.963 seconds of input-retrieval delay
+under finite posted traffic, then repaired bounded fairness in the generic
+Windows editor pump. The same fixture now handles Down/Up while posted chains
+remain active, with all posts and sends completing. One automatic Pigments
+Macro 1 drag and Synth-to-Play click succeeded with first mouse-hook bounds
+below 77 ms and local pixel changes within 112 ms. This is an exact diagnostic
+confirmation, not a universal latency or audio-performance claim. The
+revision-12 engineering candidate is independently accepted at review 5187281110.
+The new ordinary revision-13 profile retains its exact technical and artifact
+content. The sealed `accept-ui` setup transition retains ordinary revision 11
+for rollback and uses normal managed publication. Ordinary revision 13 is now
+active; its one load/editor/normal-quit smoke passed with process-scoped retirement
+and zero remaining DSP owners. LoFi/FRAGMENTS remain unchanged. PR #97 is returned
+for final exact-head review, open and unmerged. See
 [CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
 
 ## Architecture

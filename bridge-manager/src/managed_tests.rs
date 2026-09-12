@@ -1963,3 +1963,66 @@ fn capacity_verified_ten_preserves_candidate_bytes_and_technical_contract() {
     assert_eq!(current[0].requirements.native_sha256,"ce7531e4c76e53e85abe1153354fac890a6ba641b3b6333f5891a25f49843d59");
     assert_eq!(current[1].requirements.native_sha256,"11615d88cb253e22ca6f6beecbe946bdb5efd46882d091b65f9c461cd6757428");
 }
+
+#[test]
+fn uir1_host_only_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
+    let sealed = qualification::uir1_candidate().unwrap();
+    let ordinary = pigments_eleven().unwrap();
+    assert_eq!(sealed.revision, 12);
+    assert_eq!(ordinary.revision, 11);
+    assert_eq!(sealed.claim, Claim::ReviewCandidate);
+    assert!(!sealed.claim.permits(SelectionPurpose::Activation));
+    assert_eq!(sealed.capabilities, ordinary.capabilities);
+    assert_eq!(sealed.requirements.native_sha256, ordinary.requirements.native_sha256);
+    assert_eq!(external_ids(&sealed.class.class_id).unwrap(), external_ids(&ordinary.class.class_id).unwrap());
+    assert_eq!(qualification::candidates_for(Qualification::Uir1Input).unwrap(), vec![sealed]);
+    for boundary in BOUNDARIES.into_iter().map(Some).chain([None]) {
+        let (f, mut p, c, n) = prepared();
+        p.revision = 11;
+        p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
+        let parent = publish(&f, &p, &c, &n, None).unwrap();
+        let prior = f.m.load_revision(&p.class.class_id, &parent).unwrap();
+        let untouched = snapshot(prior.target.parent().unwrap());
+        let mut candidate = p.clone();
+        candidate.revision = 12; candidate.claim = Claim::ReviewCandidate;
+        let package = f.outer.join("ui-package"); private_dir(&package).unwrap();
+        fs::write(package.join("host.exe"), b"bounded fair Windows pump").unwrap();
+        fs::write(package.join("host-source-manifest.json"), b"exact new source").unwrap();
+        fs::copy(&n.artifact.path, package.join(format!("{}.so", p.class.class_id))).unwrap();
+        candidate.requirements.host_sha256 = digest(&package.join("host.exe")).unwrap();
+        candidate.requirements.host_source_sha256 = digest(&package.join("host-source-manifest.json")).unwrap();
+        // Private synthetic seam, same stage/publication/rollback owners; the
+        // public route additionally requires the compiled real revision 11.
+        qualification::stage_selected_for(&f.m, &package, &[candidate.clone()], Qualification::Uir1Input).unwrap();
+        let staged = qualification::load_for(&f.m, candidate.clone(), Qualification::Uir1Input).unwrap();
+        let mut census = c.clone(); census.host = staged.host;
+        census.host_source_sha256 = staged.source_manifest.sha256;
+        census.report.path = f.outer.join("ui-inspection.json");
+        atomic_json(&census.report.path, &inspection_report(&census)).unwrap();
+        census.report.sha256 = digest(&census.report.path).unwrap();
+        let reg = derive_for(&candidate, &census, &staged.native, SelectionPurpose::Qualification).unwrap();
+        for mutation in 0..4 {
+            let mut wrong = candidate.clone();
+            match mutation {
+                0 => wrong.requirements.native_sha256 = "ab".repeat(32),
+                1 => wrong.capabilities.accessibility = Accessibility::WindowsDefault,
+                2 => wrong.requirements.runner.version.push_str(" changed"),
+                _ => wrong.revision = 13,
+            }
+            assert!(f.m.verify_qualification_parent_for(&f.m.registry().unwrap(), &wrong, &reg, Qualification::Uir1Input).is_err());
+        }
+        assert!(f.m.managed_publish(&candidate, &census, reg.clone(), &census.host, &census.host_source_sha256, None).is_err());
+        let result = f.m.publish_selected(&candidate, &census, reg, (&census.host, &census.host_source_sha256), Some(Qualification::Uir1Input), boundary);
+        if boundary.is_some() {
+            assert!(result.is_err()); f.m.reconcile().unwrap();
+        } else {
+            let active = f.m.load_revision(&p.class.class_id, &result.unwrap()).unwrap();
+            assert_eq!(active.parent, Some(parent.clone()));
+            assert_eq!(active.qualification, Some(Qualification::Uir1Input));
+            f.m.restore_editor_qualifications().unwrap();
+        }
+        assert_eq!(fs::read_link(f.m.link(&p.class.class_id)).unwrap(), prior.target);
+        assert_eq!(snapshot(prior.target.parent().unwrap()), untouched);
+        assert!(!f.m.publication_pending(&p.class.class_id).unwrap());
+    }
+}

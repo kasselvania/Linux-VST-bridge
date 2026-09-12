@@ -165,12 +165,13 @@ fn setup(m: &Manager, package: Option<&Path>) -> Result<()> {
     setup_selected(m, package, Acceptance::Editor)
 }
 #[derive(Clone, Copy)]
-enum Acceptance { Editor, Capacity, Pigments }
+enum Acceptance { Editor, Capacity, Pigments, Uir1 }
 fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -> Result<()> {
     let review = match acceptance {
         Acceptance::Editor => acceptance::REVIEW,
         Acceptance::Capacity => acceptance::CAPACITY_REVIEW,
         Acceptance::Pigments => acceptance::pigments::REVIEW,
+        Acceptance::Uir1 => acceptance::uir1::REVIEW,
     };
     let _lock = m.lock("setup.lock")?;
     let _registry = m.lock("registry.lock")?;
@@ -208,6 +209,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
             Acceptance::Editor => acceptance::prepare(m)?,
             Acceptance::Capacity => acceptance::prepare_capacity(m)?,
             Acceptance::Pigments => acceptance::pigments::prepare(m)?,
+            Acceptance::Uir1 => acceptance::uir1::prepare(m)?,
         };
         let old = software(m)?;
         for artifact in [&old.supervisor, &old.ownership] {
@@ -680,7 +682,7 @@ fn serve(m: Manager) -> Result<()> {
                     peer.write_all(&(bytes.len() as u32).to_le_bytes())?;
                     peer.write_all(&bytes)?;return Ok(());
                 }
-                if matches!(&greeting[..5],b"LVI1\n"|b"LVQ1\n"|b"LVQ2\n"|b"LVQ3\n") {
+                if matches!(&greeting[..5],b"LVI1\n"|b"LVQ1\n"|b"LVQ2\n"|b"LVQ3\n"|b"LVQ4\n") {
                     let mut size=[0;4];peer.read_exact(&mut size)?;
                     let size=u32::from_le_bytes(size) as usize;require(size<=65536,"inspection_request_bound")?;
                     let mut bytes=vec![0;size];peer.read_exact(&mut bytes)?;
@@ -689,6 +691,7 @@ fn serve(m: Manager) -> Result<()> {
                     let request=serde_json::from_slice(&bytes)?;
                     let r=match &greeting[..5] {
                         b"LVQ1\n"=>qualification_binding(&m,request,publication::Qualification::Ap15Editor)?,
+                        b"LVQ4\n"=>qualification_binding(&m,request,publication::Qualification::Uir1Input)?,
                         b"LVQ3\n"=>qualification_binding(&m,request,publication::Qualification::Ap18Pigments)?,
                         b"LVQ2\n"=>qualification_binding(&m,request,publication::Qualification::Ap17Capacity)?,
                         _=>inspection_binding(&m,request)?,
@@ -1014,10 +1017,12 @@ fn main() -> Result<()> {
   Some("accept-editor") if args.len()==1=>managed_cli::run_acceptance(&m),
   Some("accept-capacity") if args.len()==1=>managed_cli::run_capacity_acceptance(&m),
   Some("accept-pigments") if args.len()==1=>managed_cli::run_pigments_acceptance(&m),
+  Some("accept-ui") if args.len()==1=>managed_cli::run_ui_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
+  Some("qualify-ui")=>managed_cli::run_ui_qualification(&m,&args[1..]),
   Some("qualify-pigments")=>managed_cli::run_pigments_qualification(&m,&args[1..]),
   Some("qualify-capacity")=>managed_cli::run_capacity_qualification(&m,&args[1..]),
   Some("environment-create") if args.len()==2=>environment_create(&m,Path::new(&args[1])),

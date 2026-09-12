@@ -127,3 +127,13 @@ foreach(target uio1-hook uio1-observer uio1-accessibility uio1-tests)
 endforeach()
 target_link_libraries(uio1-accessibility PRIVATE ole32 oleaut32 uiautomationcore)
 add_dependencies(uio1-tests uio1-hook uio1-observer uio1-accessibility)
+
+# UIR1 uses the actual VendorView::pump with generated windows and finite traffic.
+# It is separate test instrumentation, never linked into a product host.
+add_executable(uir1-input-fixture ../tools/uir1/windows.cpp)
+target_include_directories(uir1-input-fixture PRIVATE source "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(uir1-input-fixture PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(uir1-input-fixture PRIVATE /W4 /permissive- /EHsc /UNDEBUG /Brepro)
+target_link_options(uir1-input-fixture PRIVATE /Brepro /INCREMENTAL:NO)
+target_link_libraries(uir1-input-fixture PRIVATE sdk sdk_hosting user32 ole32)
+set_target_properties(uir1-input-fixture PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

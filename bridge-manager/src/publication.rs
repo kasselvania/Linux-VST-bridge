@@ -35,6 +35,7 @@ pub enum Qualification {
     Ap15Editor,
     Ap17Capacity,
     Ap18Pigments,
+    Uir1Input,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -353,7 +354,7 @@ impl Manager {
         let retained = db.classes.get(&registration.key()).and_then(|e| e.managed_revision.as_ref());
         if registration.key() == crate::pigments::candidate()?.class.class_id
             && retained.map(|r| self.load_revision(&registration.key(), r))
-                .transpose()?.is_some_and(|r| r.profile.claim == Claim::ReviewCandidate) {
+                .transpose()?.is_some_and(|r| r.qualification == Some(Qualification::Ap18Pigments)) {
             return crate::pigments::served(self, registration, installed, source);
         }
         let matching: Vec<_> = current_profiles

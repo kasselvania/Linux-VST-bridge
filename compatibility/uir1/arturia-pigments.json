@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 13,
-  "claim": "verified_exact_fixture",
+  "revision": 12,
+  "claim": "review_candidate",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
   "class": {
@@ -94,7 +94,7 @@
     "evidence/ap18/lc1/live-completion.json",
     "evidence/ap18/lc1/installed-final.json",
     "evidence/ap18/lc1/validation.json",
-    "evidence/uir1/acceptance/review.json",
+    "evidence/ap18/acceptance/review.json",
     "docs/UIR1.md"
   ]
 }

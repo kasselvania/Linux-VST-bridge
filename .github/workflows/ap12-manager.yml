@@ -10,6 +10,7 @@ on:
       - 'tools/ap8_descriptor.py'
       - 'tools/test_ap10_descriptor.py'
       - 'tools/uio1/**'
+      - 'tools/uir1/**'
 permissions:
   contents: read
 jobs:
@@ -19,9 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - run: cargo test --manifest-path bridge-manager/Cargo.toml --locked
+      - run: cargo test --manifest-path bridge-manager/Cargo.toml --example uir1_report --locked
       - run: cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings
       - run: python3 -m unittest discover -s bridge-manager/runtime -v
       - run: python3 tools/test_ap10_descriptor.py
       - run: python3 -m unittest discover -s tools/uio1 -v
+      - run: python3 -m unittest discover -s tools/uir1 -v
       - run: sudo apt-get install -y xvfb libxtst6 libxcomposite1
       - run: UIO1_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio1/x11_fixture.py

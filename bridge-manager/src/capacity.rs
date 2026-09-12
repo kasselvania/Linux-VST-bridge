@@ -185,7 +185,7 @@ fn verified_additional(m: &Manager) -> Result<bool> {
     let Some(e) = db.classes.get(&p.class.class_id) else { return Ok(false); };
     let Some(reference) = &e.managed_revision else { return Ok(false); };
     let r = m.load_revision(&p.class.class_id, reference)?;
-    if r.profile != p || r.qualification.is_some() || e.publication != Publication::Published
+    if (r.profile != p && r.profile != crate::profiles::pigments_eleven()?) || r.qualification.is_some() || e.publication != Publication::Published
         || r.registration != e.registration || m.publication_pending(&p.class.class_id)?
         || crate::publication::physical(&m.link(&p.class.class_id))? != Some(r.target.clone()) {
         return Ok(false);

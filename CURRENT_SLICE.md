@@ -1,64 +1,83 @@
-# UIO1 — Cross-boundary editor observability
+# UIR1 — ordinary publication of the accepted input-fairness repair
 
-Base: AP18 merge `1fae92b31baa8dc8b1d444bdb5412124c6de6243`.
-The operator selected UIO1 after AP18 acceptance. AP18 is merged; its profiles,
-artifacts and retained results are immutable. This slice observes UI interaction,
-not audio reliability or another AP18 qualification campaign.
+Continue on `codex/uir1-xwayland-input-retrieval`, PR #97. Leave open and unmerged
+for exact-head merge review. The pump repair and product confirmation are accepted;
+no further differential, Pigments interaction, renderer or audio campaign is authorized.
 
-## Outcome
+## Authority and completed claim
 
-Follow one exact Pigments page click and parameter drag from desktop input to
-Win32 receipt, focus/capture, VST semantics where available, local pixels and UI
-service latency. Identify the observed delay boundary from a bounded
-three-action session: host-driven parameter update, same-control drag, page click.
-Interpret that record before another live session. No rendering repair without
-attribution. No universal plug-in UI automation claim.
+UIO1 basis: merge `ddf256c60d3f770e3f2773724d260ed362a1267f`, tree
+`31afc83d0096d73aacbb636e1bd823919402605c`.
+Review 5186994847 selected generic `VendorView::pump` fairness after the generated
+baseline. Review **5187281110** accepted repair head
+`9f745d75b44b63dd0c095061f1f273189c7a19f8`, tree
+`d991280785278e193ed7187fcc45e7dbbb4cd98a`, and authorized only ordinary acceptance.
 
-## Implementation boundary
+The repaired pump supplies bounded input/posted/paint/timer retrieval fairness.
+The same generated fixture passes before/after and reverse-fairness criteria;
+one real Pigments drag and page click confirmed product relevance. Those results
+and their exact limits remain unchanged in `evidence/uir1/repair/`.
 
-Use a separate, development-only Windows diagnostic helper and thread-scoped
-hooks on the exact registered editor UI thread. Do not replace the accepted host,
-native image, profile, publication or audio protocol. Rust owns diagnostic
-admission and public report meanings; narrow C++ owns Win32 hooks; Python follows
-the existing Linux tooling pattern for X11 capture and input. No audio callback
-instrumentation. The helper has a bounded lifetime, ring capacity, overflow and
-positive unhook/exit results. No global hooks, unrelated process adoption or raw
-keyboard text. Private frames/logs remain bounded; public reports contain aliases
-and scalar witnesses. Profile accessibility posture gates optional UIA probing.
+The accepted candidate-12 technical/artifact contents now have new immutable
+ordinary **Pigments revision 13 / verified_exact_fixture** authority. Its one
+ordinary load/editor/normal-quit smoke passed. Revision 13 remains physically
+active, with no qualification marker and exact ordinary revision 11 as parent.
 
-XTEST targets exact current XWayland/X11 geometry; native Wayland requires a
-RemoteDesktop portal grant and EIS, never an XTEST fallback. Input down-state is
-owned and released on cancellation. Local frame capture is independent of
-Moonlight. Cross-clock records retain brackets and uncertainty. Diagnostic
-latency is not a product performance result.
+## Implementation and identity
 
-## Verification and restoration
+Acceptance manager source: `7c4da2f92af96f5a06c36f7f5be7e2df41eac415`.
+The no-argument `accept-ui` route composes existing immutable setup, catalogue
+and normal managed publication. It requires the compiled reviewed candidate,
+completed qualification transaction, exact active ordinary parent and siblings,
+review/head/tree/evidence, installed software and artifact identities, inactive
+DSP and no pending transaction. It retains the old host for exact rollback.
+No caller-supplied profile, hash, review, command or binary path is accepted.
 
-Generated tests cover child-window scope, input/dispatch/heartbeat, ring overflow,
-unhook/cancellation, coordinate transforms, frame summaries, privacy and profile
-gating. Run affected Windows, manager and runtime lanes, then one bounded
-Pigments demonstration. Retain failures and limits. Preserve vendor authorization,
-original/protected projects, LoFi/FRAGMENTS revision 10, Pigments revision 11,
-512 recommendation and 256 unqualified. Remove only owned diagnostics, leave
-service/keeper healthy and no owned input held. One UIO1 PR, open for review.
+Revision-13 fingerprint:
+`a74dd61397dcdc9bfcf4a1f39de74eb00f1ca48e3a634b3c03eddc1a416dbfc7`.
+Ordinary publication: `9ee2c2fc214dfa373f0dcb594831a426`.
+Immediate parent: `bf9d2e4a96e4a7169f6a72bcf0937ebd` (ordinary 11).
+Candidate-12 publication `886e48242434864def572a4f5620a9f9` remains inactive
+review provenance, retained in the sealed software receipt. Revisions 1–12 are
+byte-for-byte immutable. Historical ordinary 11 has its own retained path.
+LoFi/FRAGMENTS 10 and all native/module/descriptor/external identities are unchanged.
 
-## Completed result
+The live Windows host remains `50c09be65eb2d2930f744afc16212f953c0b948f47132fa6cac1c90bbb91773d`,
+from pump source `14e9f913ff4aff441c466bdd3a04786f229fc405` and actual synthetic
+checkout `964642bc8567557c579cf5949922b4aaff5b072f`. It was neither rebuilt nor
+redownloaded for acceptance. Only the manager and immutable catalogue authority changed.
 
-UIO1's bounded diagnostic result is complete; see [docs/UIO1.md](docs/UIO1.md).
-The initial stale-pointer failure, corrected XTEST record and interpreted
-Moonlight comparison are retained separately. The latter proves at least
-8.237 seconds of delay after exact X11 delivery and before first observable Win32
-hardware-mouse retrieval, with continuing UI heartbeats. Review 5186685909 accepts
-that lower bound and the tooling. X11 reading/translation, Wine input admission,
-an already-admitted queued message, posted/sent-message priority or starvation,
-focus/capture processing, and vendor interaction remain unresolved internal
-owners. No queue-admission timestamp, internal cause or renderer repair is claimed.
-Disposition: `UIO1_OBSERVABILITY_COMPLETE_X11_TO_WIN32_RETRIEVAL_DELAY_IDENTIFIED`.
-This correction requires no additional UIO1 live testing.
-The selected XWayland adapter is implemented; native Wayland remains an explicit
-portal/EIS boundary, and the optional UIA census was unavailable.
+## One ordinary smoke and final physical state
 
-All diagnostic helpers/hooks are retired. The pre-existing project and DSP
-session remain open with the editor logically closed; no saved project, accepted
-profile, publication or product artifact changed. The final-head validation and
-review disposition belong to PR #96, which remains open and unmerged.
+The saved protected UIR1 copy loaded one ordinary Pigments instance with the exact
+repaired host. Its normal editor action produced open=1, view stage 16 and one
+visible Pigments X11 window. Normal quit retired processing, committed all seven
+process-scoped milestones (mask 127), and positively removed the Windows cohort,
+transport and lease. Declining temporary smoke edits preserved project hashes.
+No clean SDK destruction is claimed. No drag/page, routing, state, sibling,
+capacity, reboot or performance qualification was repeated.
+
+Revision 13 active; candidate 12 inactive; ordinary 11 and prior ancestry retained.
+LoFi/FRAGMENTS publications unchanged. Service/keeper active; zero DSP leases,
+transactions and stale transports. Bitwig/frontend/engine/plugin-host, debugger
+and UIR1 helper/unit absent; no held input; tracing off. SteamOS retained
+CPUWeight 10000 after the functional smoke; no bridge scheduler change or
+performance improvement is claimed. One stopped/pre-note 512-frame gap remains.
+
+## Validation and nonclaims
+
+Manager: 74 library + 11 binary tests; strict Clippy passed. Runtime: 17 pass and
+24 expected macOS platform skips; Linux CI runs all 41. Focused tests prove exact
+review/evidence/identity refusal before mutation, technical normalization,
+verified-only activation, deterministic ordinary publication, exact11 rollback
+and retained-host service admission. Existing all-16 interruption and UIR1
+candidate-boundary tests remain passing. Linux manager cross-build passed.
+All four manager-source workflows passed; exact final-head runs are on PR #97.
+
+No universal latency, renderer optimization, Wine-contract violation, audio
+performance or expanded Pigments capacity claim. 512 remains selected/supported/
+recommended; 256 remains unqualified. Residual delivery stays issue #90.
+
+See `docs/UIR1.md`, `evidence/uir1/acceptance/review.json`, `transition.json`,
+`ordinary-smoke.json`, `installed-final.json` and `validation.json`.
+Disposition: **UIR1_ACCEPTED_AND_ORDINARY_PIGMENTS_13_READY**.

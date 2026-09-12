@@ -1,0 +1,209 @@
+{
+  "actions": [
+    {
+      "condition": "idle",
+      "events": [
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "down",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 11609015,
+          "issued_to_retrieval_upper_bound_ns": 2909537,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            6152112,
+            14518552
+          ],
+          "x11_observed_no_later_than_ns": 16433960,
+          "x11_to_retrieval_lower_bound_ns": 0
+        },
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "up",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 93847417,
+          "issued_to_retrieval_upper_bound_ns": 1498122,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            94185158,
+            95345539
+          ],
+          "x11_observed_no_later_than_ns": 98409238,
+          "x11_to_retrieval_lower_bound_ns": 0
+        }
+      ],
+      "id": 1,
+      "max_heartbeat_ns": 4130800
+    },
+    {
+      "condition": "bounded_posted_and_sent",
+      "events": [
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "down",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 749542978,
+          "issued_to_retrieval_upper_bound_ns": 4978742206,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            5718854739,
+            5728285184
+          ],
+          "x11_observed_no_later_than_ns": 756045073,
+          "x11_to_retrieval_lower_bound_ns": 4962809666
+        },
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "up",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 839003388,
+          "issued_to_retrieval_upper_bound_ns": 4890676056,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            5720249279,
+            5729679444
+          ],
+          "x11_observed_no_later_than_ns": 845408212,
+          "x11_to_retrieval_lower_bound_ns": 4874841067
+        }
+      ],
+      "id": 2,
+      "max_heartbeat_ns": 6107900
+    },
+    {
+      "condition": "idle_after_load",
+      "events": [
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "down",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 6156508021,
+          "issued_to_retrieval_upper_bound_ns": 4125661,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            6151287441,
+            6160633682
+          ],
+          "x11_observed_no_later_than_ns": 6164445022,
+          "x11_to_retrieval_lower_bound_ns": 0
+        },
+        {
+          "active": "generated_parent",
+          "client": [
+            236,
+            166
+          ],
+          "event": "up",
+          "focus_is_child": true,
+          "hook_consumed": false,
+          "issued_ns": 6247116232,
+          "issued_to_retrieval_upper_bound_ns": 1792577,
+          "target": "generated_child",
+          "win32_retrieval_interval_ns": [
+            6239544914,
+            6248908809
+          ],
+          "x11_observed_no_later_than_ns": 6253475425,
+          "x11_to_retrieval_lower_bound_ns": 0
+        }
+      ],
+      "id": 3,
+      "max_heartbeat_ns": 3243500
+    }
+  ],
+  "bounded_traffic_progress": [
+    {
+      "down_handled": 1,
+      "linux_observed_ns": 1199928853,
+      "observation": "first_all_sends_complete",
+      "phase": 2,
+      "posted_handled": 474,
+      "posted_submitted": 478,
+      "sent_handled": 64,
+      "up_handled": 1
+    },
+    {
+      "down_handled": 1,
+      "linux_observed_ns": 5671788238,
+      "observation": "last_before_loaded_down",
+      "phase": 2,
+      "posted_handled": 4053,
+      "posted_submitted": 4057,
+      "sent_handled": 64,
+      "up_handled": 1
+    },
+    {
+      "down_handled": 2,
+      "linux_observed_ns": 5734958134,
+      "observation": "first_loaded_down",
+      "phase": 3,
+      "posted_handled": 4096,
+      "posted_submitted": 4096,
+      "sent_handled": 64,
+      "up_handled": 2
+    }
+  ],
+  "clock_domains": [
+    "linux_monotonic_ns",
+    "windows_qpc",
+    "x11_server_ms"
+  ],
+  "clock_law": "UIO1 Bracket::project: measured round trip, 100ppm drift, 10s maximum distance",
+  "exact_three_mouse_pairs": true,
+  "fixture": "generated_parent_child_no_vendor",
+  "input_boundary": "exact X11 receipt to first observable Win32 hardware-mouse retrieval; no internal admission timestamp",
+  "nonclaims": [
+    "no vendor workload equivalence",
+    "no physical-compositor equivalence",
+    "no product repair",
+    "no audio or rendering result"
+  ],
+  "observer": {
+    "closed": 1,
+    "detached": 1,
+    "dropped": 0,
+    "records": 83
+  },
+  "schema": 1,
+  "traffic": {
+    "admission_limit_seconds": 6,
+    "handled": 4096,
+    "maximum_posted": 4096,
+    "posted_chains": 4,
+    "send_failures": 0,
+    "sent_handled": 64,
+    "submitted": 4096,
+    "synthetic_handler_sleep_ms": 1
+  },
+  "windows_destroyed": true,
+  "xrecord": {
+    "dropped": 0,
+    "records": 7,
+    "unparsed": 0
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "disposition": "UIR1_BOUNDED_PUMP_FAIRNESS_GENERATED_AND_PIGMENTS_CONFIRMED",
+  "review": 5186994847,
+  "accepted_baseline_head": "77fd8714105f303b202ce61ecff786b317da7a80",
+  "production_owner": "windows-factory-probe/source/vendor_view.h::VendorView::pump",
+  "repair_source": "14e9f913ff4aff441c466bdd3a04786f229fc405",
+  "product_manager_source": "d752707f30c165562c706d9f34e5b8b9debaabf2",
+  "law": "After at most four ordinary messages, offer PM_QS_INPUT; paint and timer each once per turn; <=128 queued dispatches and <=162 PeekMessage calls; User32 owns sent calls.",
+  "baseline": {
+    "down_delay_lower_bound_ns": 4962809666,
+    "up_delay_lower_bound_ns": 4874841067,
+    "loaded_mouse_waited_until_posted_chains_drained": true
+  },
+  "repaired": {
+    "loaded_down_at_handled_posts": 159,
+    "loaded_up_at_handled_posts": 218,
+    "active_chains_at_both": 4,
+    "all_posts": 4096,
+    "all_sends": 64,
+    "send_failures": 0,
+    "posted_work_under_sustained_input": 2109,
+    "wm_quit_paint_timer_dispatch_bound": "passed"
+  },
+  "real_product": "One exact Pigments candidate drag and page click passed; first observable hardware-mouse hook bounds <=76.423 ms, corresponding Peek retrieval <=76.725 ms. Macro Begin/Value/End and private local Play-page transition confirmed.",
+  "restoration": "Exact ordinary Pigments 11 restored, candidate 12 inactive; LoFi/FRAGMENTS 10 physically unchanged; zero DSP; service and keeper active.",
+  "nonclaims": [
+    "No Wine-contract violation or internal Wine timestamp claim.",
+    "No equivalence between synthetic posted load and Pigments traffic.",
+    "No renderer, audio, matched scheduling/performance or universal latency claim.",
+    "No ordinary candidate activation or new acceptance authority.",
+    "512 remains recommended; 256 unqualified."
+  ],
+  "pr": "97 remains draft/open/unmerged for independent review"
+}

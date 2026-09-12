@@ -1,0 +1,32 @@
+{
+  "source_head": "14e9f913ff4aff441c466bdd3a04786f229fc405",
+  "github_build_commit": "964642bc8567557c579cf5949922b4aaff5b072f",
+  "common_tree": "ded40b04bb0fe260bf7d128459f4262cdf545cc7",
+  "workflow_run": 34703923732,
+  "artifact_id": 10301611698,
+  "zip_sha256": "2b99c5f12cea4e3d8c77edf54a30db3aa9bb59cc845621998ce2b72aa0da5d32",
+  "files": {
+    "uir1-input-fixture.exe": "5b94b0bd86d6945090c900d0b33800b6bf831dd0faf06c1eb0ff44fc589dff1a",
+    "uio1-observer.exe": "6dd965b28cca755567e7e443b7bca07532f747c5566495488a7f893654e43779",
+    "uio1-hook.dll": "36905754fabecb915f597200b773fe9be82386a97a09ccd590c37c630247bd14"
+  },
+  "windows_host_sha256": "50c09be65eb2d2930f744afc16212f953c0b948f47132fa6cac1c90bbb91773d",
+  "host_source_manifest_sha256": "a829ccf933af39d4ab7ed36aea8258309143ba5daf3b10e1a15fa09560644e6c",
+  "manager": {
+    "source": "d752707f30c165562c706d9f34e5b8b9debaabf2",
+    "files": {
+      "linux-vst-bridge": "57b89a29ada6e09ab0a7d514976c9271ba2f4ca6f344c71b4ebcc63912ad7f0c",
+      "uio1": "71b07f9c07da8edb5e911b3b8b9d54069cc4b4043012bc0f12e346eb7f18830e",
+      "session.py": "77f530db96d8f5852e3aa3330105cbe5dc4ab5941471c46cc21b610b0b6428d5",
+      "ownership.py": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff"
+    }
+  },
+  "candidate_profile": {
+    "path": "compatibility/uir1/arturia-pigments.json",
+    "revision": 12,
+    "fingerprint": "b8d6289d5a50a941deec82b0c3ac644b4c905da684fce8a861f4e847019d11c6",
+    "file_sha256": "d4e142f9175d1182d0512720996b6d3a4b966c10bf183d28023ffd0d0e83b56f"
+  },
+  "native_reused_from_ordinary_revision_11": true,
+  "source_provenance": "Retained Windows binary built at source head 14e9f913 with synthetic workflow checkout 964642bc; exact common tree above. Later manager/evidence heads do not relabel that checkout."
+}

@@ -47,9 +47,11 @@ def verified_package(source):
     return manifest
 
 class Context:
-    def __init__(self,admission_binary,class_id,package):
+    def __init__(self,admission_binary,class_id,package,uir1=False):
         os.umask(0o077)
-        self.admission=json.loads(subprocess.check_output([str(admission_binary),'admit',class_id],timeout=20))
+        command=['admit-uir1'] if uir1 else ['admit',class_id]
+        self.admission=json.loads(subprocess.check_output([str(admission_binary),*command],timeout=20))
+        if self.admission['registration']['metadata']['class_id']!=class_id:raise RuntimeError('admission class mismatch')
         if self.admission['schema']!=1:raise RuntimeError('admission schema')
         self.reg=self.admission['registration']
         self.root=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'

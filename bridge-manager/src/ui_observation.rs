@@ -13,20 +13,30 @@ pub struct Admission {
 }
 
 pub fn admit(m: &Manager, class: &str) -> Result<Admission> {
+    admit_selected(m, class, false)
+}
+/// The development experiment has its own exact compiled admission. It does
+/// not grant ordinary UIO1 or activation authority to arbitrary candidates.
+pub fn admit_uir1(m: &Manager) -> Result<Admission> {
+    admit_selected(m, &crate::qualification::uir1_candidate()?.class.class_id, true)
+}
+fn admit_selected(m: &Manager, class: &str, uir1: bool) -> Result<Admission> {
     let _lock = m.lock("registry.lock")?;
     let db = m.registry()?;
     let e = db.classes.get(class).ok_or("uio1_class_absent")?;
     let reference = e.managed_revision.as_ref().ok_or("uio1_profile_absent")?;
     let revision = m.load_revision(class, reference)?;
-    let installed = installed_profiles()?;
-    require(
-        installed.contains(&revision.profile),
-        "uio1_exact_installed_profile_required",
-    )?;
-    require(
-        revision.profile.claim == Claim::VerifiedExactFixture && revision.qualification.is_none(),
-        "uio1_ordinary_profile_required",
-    )?;
+    if uir1 {
+        let exact = crate::qualification::uir1_candidate()?;
+        require(revision.profile == exact && revision.qualification == Some(Qualification::Uir1Input),
+            "uio1_exact_uir1_qualification_required")?;
+        m.verify_retained_authority(&revision, &[exact])?;
+    } else {
+        let installed = installed_profiles()?;
+        require(installed.contains(&revision.profile), "uio1_exact_installed_profile_required")?;
+        require(revision.profile.claim == Claim::VerifiedExactFixture && revision.qualification.is_none(),
+            "uio1_ordinary_profile_required")?;
+    }
     require(
         e.publication == Publication::Published
             && !m.publication_pending(class)?

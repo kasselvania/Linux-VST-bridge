@@ -23,11 +23,25 @@ fn capacity_candidates() -> Result<Vec<Profile>> {
     validate_set(&result)?;
     Ok(result)
 }
+pub fn uir1_candidate() -> Result<Profile> {
+    let p = Profile::parse(include_bytes!("../../compatibility/uir1/arturia-pigments.json"))?;
+    let ordinary = Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))?;
+    let mut same = p.clone();
+    same.revision = ordinary.revision; same.claim = ordinary.claim.clone();
+    same.evidence = ordinary.evidence.clone();
+    same.requirements.host_sha256 = ordinary.requirements.host_sha256.clone();
+    same.requirements.host_source_sha256 = ordinary.requirements.host_source_sha256.clone();
+    require(p.revision == 12 && p.claim == Claim::ReviewCandidate && ordinary.revision == 11
+        && ordinary.claim == Claim::VerifiedExactFixture && same == ordinary,
+        "qualification_ui_contract")?;
+    Ok(p)
+}
 pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
     match purpose {
         Qualification::Ap15Editor => candidates(),
         Qualification::Ap17Capacity => capacity_candidates(),
         Qualification::Ap18Pigments => Ok(vec![crate::pigments::candidate()?]),
+        Qualification::Uir1Input => Ok(vec![uir1_candidate()?]),
     }
 }
 fn parent_revision(purpose: Qualification) -> u32 {
@@ -35,6 +49,7 @@ fn parent_revision(purpose: Qualification) -> u32 {
         Qualification::Ap15Editor => 3,
         Qualification::Ap17Capacity => 7,
         Qualification::Ap18Pigments => 10,
+        Qualification::Uir1Input => 11,
     }
 }
 #[derive(Clone)]
@@ -50,6 +65,7 @@ fn directory(m: &Manager, p: &Profile, purpose: Qualification) -> Result<PathBuf
             Qualification::Ap15Editor => "software/ap15-qualification",
             Qualification::Ap17Capacity => "software/ap17-qualification",
             Qualification::Ap18Pigments => "software/ap18-qualification",
+            Qualification::Uir1Input => "software/uir1-qualification",
         })
         .join(p.fingerprint()?))
 }
@@ -115,7 +131,16 @@ pub fn stage(m: &Manager, package: &Path) -> Result<()> {
 pub(crate) fn stage_selected(m: &Manager, package: &Path, policies: &[Profile]) -> Result<()> {
     stage_selected_for(m, package, policies, Qualification::Ap15Editor)
 }
+fn uir1_ordinary_parent(m: &Manager) -> Result<()> {
+    let p = crate::profiles::pigments_eleven()?;
+    let db = m.registry()?;
+    let e = db.classes.get(&p.class.class_id).ok_or("qualification_verified_parent_required")?;
+    let reference = e.managed_revision.as_ref().ok_or("qualification_verified_parent_required")?;
+    let prior = m.load_revision(&p.class.class_id, reference)?;
+    require(prior.profile == p && prior.qualification.is_none(), "qualification_verified_parent_mismatch")
+}
 pub fn stage_for(m: &Manager, package: &Path, purpose: Qualification) -> Result<()> {
+    if purpose == Qualification::Uir1Input { uir1_ordinary_parent(m)?; }
     if purpose == Qualification::Ap18Pigments { return crate::pigments::stage(m, package); }
     stage_selected_for(m, package, &candidates_for(purpose)?, purpose)
 }
@@ -262,6 +287,9 @@ impl Manager {
             .as_ref()
             .ok_or("qualification_verified_parent_required")?;
         let prior = self.load_revision(&r.class_id, parent)?;
+        if purpose == Qualification::Uir1Input {
+            require(prior.profile == crate::profiles::pigments_eleven()?, "qualification_verified_parent_mismatch")?;
+        }
         let mut prior_db = self.registry()?;
         let entry = prior_db
             .classes
@@ -295,6 +323,7 @@ impl Manager {
         r: &Registration,
         purpose: Qualification,
     ) -> Result<()> {
+        if purpose == Qualification::Uir1Input { uir1_ordinary_parent(self)?; }
         let candidates = installed_for(self, purpose)?;
         require(
             candidates.iter().any(|c| {
@@ -341,6 +370,7 @@ impl Manager {
                     Qualification::Ap15Editor => p.revision > 3,
                     Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
                     Qualification::Ap18Pigments => false,
+                    Qualification::Uir1Input => p.revision == 12,
                 }
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
@@ -359,6 +389,20 @@ impl Manager {
         let mut limitations = prior.profile.limitations.clone();
         match purpose {
             Qualification::Ap18Pigments => return Err("pigments_has_no_same_class_parent".into()),
+            Qualification::Uir1Input => {
+                // Only the Windows host changes. Full normalization prevents a
+                // UI experiment from smuggling another technical policy change.
+                let mut normalized = p.clone();
+                normalized.revision = prior.profile.revision;
+                normalized.claim = prior.profile.claim.clone();
+                normalized.evidence = prior.profile.evidence.clone();
+                normalized.requirements.host_sha256 = prior.profile.requirements.host_sha256.clone();
+                normalized.requirements.host_source_sha256 = prior.profile.requirements.host_source_sha256.clone();
+                require(normalized == prior.profile
+                    && p.requirements.host_sha256 != prior.profile.requirements.host_sha256
+                    && p.requirements.host_source_sha256 != prior.profile.requirements.host_source_sha256,
+                    "qualification_ui_contract")?;
+            }
             Qualification::Ap15Editor => {
                 capabilities.editor = Editor::DetachedOwnerThreadWithNativePanel;
                 limitations.push(Limitation::DirectEditorUnderQualification);
@@ -418,6 +462,7 @@ impl Manager {
         fail: Option<Boundary>,
         purpose: Qualification,
     ) -> Result<RevisionRef> {
+        if purpose == Qualification::Uir1Input { uir1_ordinary_parent(self)?; }
         let candidates = installed_for(self, purpose)?;
         let selected: Vec<_> = candidates
             .iter()

@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "session": "ordinary-smoke-1",
+  "profile": {
+    "revision": 13,
+    "claim": "verified_exact_fixture",
+    "fingerprint": "a74dd61397dcdc9bfcf4a1f39de74eb00f1ca48e3a634b3c03eddc1a416dbfc7"
+  },
+  "host_sha256": "50c09be65eb2d2930f744afc16212f953c0b948f47132fa6cac1c90bbb91773d",
+  "project": "protected UIR1 confirmation copy",
+  "project_sha256": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573",
+  "launch": "normal installed Applications desktop entry via gio launch",
+  "sequence": [
+    "load saved one-Pigments project",
+    "one normal Bitwig editor control",
+    "Ctrl+Q normal quit",
+    "No to save temporary smoke edits"
+  ],
+  "launch_harness_note": "Detached gio launch produced no Bitwig process; held the existing desktop-entry launcher for its bounded 15-second startup wait. Only one project/session admitted.",
+  "editor": {
+    "open": 1,
+    "view_stage": 16,
+    "failure": 0,
+    "visible_exact_pigments_x11_windows": 1,
+    "visual_interaction_requalification": false,
+    "capture_note": "An attempted private editor frame capture selected the main Bitwig window; it is not used as an editor-pixel witness. Open is established by the exact live editor status and visible Pigments window."
+  },
+  "processing_worker": {
+    "joined": true,
+    "processing_stopped": true,
+    "worker_exception": false
+  },
+  "retirement": {
+    "schema": 1,
+    "state": "process_scoped_retirement_ready",
+    "milestones": 127,
+    "epoch": 1,
+    "sequence": 8681,
+    "position": 2221056,
+    "generation": 1,
+    "session": "ordinary-smoke-1"
+  },
+  "retirement_disposition": "process_scoped_vendor_retirement",
+  "clean_sdk_destruction_claim": false,
+  "raw_owned_process_exit": -15,
+  "exit_interpretation": "Supervisor SIGTERM after current-session retirement-ready commit; positive owned cohort/transport retirement.",
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "cohort_absent": true,
+  "bitwig_frontend_engine_pluginhost_absent": true,
+  "result_rejection": null,
+  "native_lifecycle": {
+    "event": "ap3_proxy_lifecycle",
+    "phase": 6,
+    "requested_maximum": 512,
+    "requested_rate": 48000,
+    "requested_mode": 0,
+    "frames": 2221056,
+    "blocks": 4338,
+    "callback_rejections": 0,
+    "rejected_silent_frames": 0,
+    "discontinuities": 0,
+    "successful_silent_callbacks": 1,
+    "successful_silent_frames": 512,
+    "priming_frames": 512,
+    "underrun_frames": 512,
+    "underrun_gaps": 1,
+    "underrun_callbacks": 1,
+    "expired_output_frames": 512,
+    "delivered_frames": 2220032,
+    "zero_gain_blocks": 0,
+    "gain_min": 1,
+    "gain_max": 1,
+    "clean": true
+  },
+  "final_dsp_leases": 0,
+  "final_pending_transactions": 0,
+  "final_stale_transports": 0,
+  "protected_project_unchanged": true,
+  "no_drag_page_audio_routing_or_performance_requalification": true,
+  "cpuweight": {
+    "configured": "10000",
+    "effective": "10000",
+    "owner": "ordinary SteamOS foreground booster",
+    "modified_by_uir1": false,
+    "performance_claim": false
+  },
+  "limitations": [
+    "512 recommended; 256 unqualified",
+    "One stopped/pre-note startup gap: 512 missing and expired frames. Issue #90 remains.",
+    "Existing Pigments process-scoped retirement and exact-fixture limitations retained."
+  ]
+}

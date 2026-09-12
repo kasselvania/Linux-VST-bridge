@@ -99,7 +99,7 @@ the corrected native advertisement. Both remain ReviewCandidate; the sealed
 replacement route requires the prior candidate inactive and preserves LoFi and
 FRAGMENTS ordinary revision 10.
 
-## AP18 ordinary Pigments revision 11 — review 5185372983
+## Historical AP18 ordinary Pigments revision 11 — review 5185372983
 
 Independent review selected head `f8d0dbfb481324e84e8b337014b66947978b146c`,
 tree `89fb026133ef585a9fcd7475ed4aec919c1236c7`, and the accepted revision-10
@@ -171,3 +171,53 @@ See `evidence/ap18/acceptance/artifacts.json`, `transition.json`,
 `ordinary-smoke.json`, `installed-final.json` and `validation.json` for exact
 identities and checks. Only one Pigments instance and the declared topology are
 verified. 512 remains selected/supported/recommended; 256 remains unqualified.
+
+
+## UIR1 accepted ordinary revision 13
+
+Review 5187281110 selected head `9f745d75b44b63dd0c095061f1f273189c7a19f8`
+and tree `d991280785278e193ed7187fcc45e7dbbb4cd98a`. Root Pigments revision 13
+is a new `verified_exact_fixture` profile, equal to candidate 12 except for
+revision, claim and accepted evidence. Its fingerprint is
+`a74dd61397dcdc9bfcf4a1f39de74eb00f1ca48e3a634b3c03eddc1a416dbfc7`.
+Revisions 1–12 remain immutable. Historical ordinary 11 is retained at
+`compatibility/ap18/revision-11/arturia-pigments.json`; UIR1 candidate 12 remains
+at `compatibility/uir1/arturia-pigments.json` and cannot ordinary-activate.
+
+The no-argument `accept-ui` command uses existing atomic software setup. It
+requires the exact restored ordinary-11 publication, completed candidate-12
+publication/transaction, review and evidence identities, exact installed
+software, inactive DSP and no pending transaction. It adds the accepted host
+and source manifest to the immutable ordinary catalogue, retaining the old
+host for rollback. No artifact is downloaded or rebuilt by acceptance.
+Normal `managed preview` / `managed publish` creates ordinary 13 without a
+qualification marker, with exact ordinary 11 as immediate rollback parent.
+The immutable acceptance receipt retains candidate 12 as review provenance.
+LoFi and FRAGMENTS 10, all native artifacts and the default host remain unchanged.
+
+The one ordinary load/editor/normal-quit smoke passed. The accepted drag,
+page, fairness, audio and historical campaigns are not repeated. Process-scoped
+vendor retirement remains explicit; no clean SDK destruction, universal UI
+latency, renderer or audio-performance claim is added. 512 remains recommended;
+256 remains unqualified.
+
+
+The ordinary transition is installed and verified. Publication
+`9ee2c2fc214dfa373f0dcb594831a426` has exact ordinary-11 parent
+`bf9d2e4a96e4a7169f6a72bcf0937ebd` and no qualification marker. Manager source
+`7c4da2f92af96f5a06c36f7f5be7e2df41eac415` created immutable software revision
+`35b58d63ad517675597c274b837ec1363dcca6c7ac0d9020558903c731b1c971`.
+The Windows host remains the accepted `50c09be6…91773d` artifact; no host/native
+rebuild was used for installation. Catalogue identity, complete artifact hashes,
+profiles, ancestry and physical readback are in `evidence/uir1/acceptance/`.
+
+One ordinary instance loaded the protected project and opened its editor. Normal
+quit, followed by declining temporary smoke edits, committed retirement mask 127,
+joined processing without exception, and retired the exact Windows cohort,
+transport and lease. Bitwig frontend/engine/plugin-host are absent. Revision 13
+remains active, candidate 12 inactive, service and keeper active, transactions
+and stale transports zero, tracing off. Project hashes remain unchanged.
+SteamOS retained CPUWeight 10000 after this functional smoke; the bridge did not
+modify scheduling and no timing/performance claim is made. One stopped/pre-note
+512-frame gap remains under issue #90. No drag/page or other qualification was
+repeated. Final-head hosted checks and merge-review status are recorded on PR #97.

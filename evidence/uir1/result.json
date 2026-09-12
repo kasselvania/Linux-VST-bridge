@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "disposition": "UIR1_GENERATED_RETRIEVAL_STARVATION_REPRODUCED",
+  "uio1_review": 5186750570,
+  "base": "ddf256c60d3f770e3f2773724d260ed362a1267f",
+  "fixture": "headless KWin virtual output, Xwayland, generated parent/child, fresh unlicensed prefix, exact pinned runner",
+  "observer": "unchanged UIO1 XTEST/X RECORD/Win32 hooks",
+  "production_pump": "windows-factory-probe/source/vendor_view.h::VendorView::pump",
+  "pump_modified": false,
+  "selected_next_repair_owner": "generic hardware-input fairness under replenished posted-message traffic",
+  "pigments_internal_traffic_proven": false,
+  "internal_wine_admission_timestamp_observed": false,
+  "live_pigments_runs": 0,
+  "successful_generated_intervals": 1,
+  "source_boundaries_changed": [
+    "tools/uir1",
+    "bridge-manager/examples/uir1_report.rs",
+    "Windows fixture CMake target",
+    "affected CI paths"
+  ],
+  "failed_attempts": [
+    {
+      "stage": "Windows compilation",
+      "finding": "missing COM declarations in generated fixture",
+      "correction": "include objbase.h",
+      "input_result": false,
+      "workflow": 34701299735
+    },
+    {
+      "stage": "scratch runtime construction",
+      "finding": "cross-filesystem hard links fell back to an implicit runtime copy; bounded log reached capacity; exact overflow count unavailable",
+      "correction": "same-filesystem preflight; incomplete owned copy removed",
+      "input_result": false,
+      "containment": "exact owned cgroup stopped and absent"
+    },
+    {
+      "stage": "fresh prefix launcher",
+      "finding": "Proton run entered built-in steam.exe; Wine C++ runtime error window; fixture status absent",
+      "correction": "pinned-source-supported getcompatpath initialization then production runinprefix invocation",
+      "input_result": false,
+      "containment": "deadline; owned descendants zero and process group empty"
+    }
+  ],
+  "successful_cleanup": {
+    "fixture_exit": 0,
+    "observer_exit": 0,
+    "compositor_exit": 0,
+    "owned_descendants_zero": true,
+    "process_groups_empty": true,
+    "window_destruction_confirmed": true,
+    "hooks_unregistered": true,
+    "mapping_detached": true,
+    "held_input": false
+  },
+  "limits": [
+    "synthetic posted handler uses a bounded 1ms Sleep, not measured vendor cost",
+    "virtual compositor, not operator physical output",
+    "no new product artifacts or profile/publication changes",
+    "no audio/rendering/performance claim",
+    "the original UIO1 internal Wine owner remains incompletely observed"
+  ],
+  "evidence": [
+    "evidence/uir1/differential.json",
+    "evidence/uir1/artifacts.json",
+    "evidence/uir1/installed-preserved.json"
+  ]
+}
