@@ -178,7 +178,15 @@ public:
   }
   ~EditorSession() { if (!retire()) std::terminate(); }
   Steinberg::tresult scoped_edit(uint64_t native, uint32_t epoch, uint32_t kind, uint32_t id, double value) override {
-    if (owner_ != std::this_thread::get_id() || !callback_owner(native, epoch)) return Steinberg::kNotImplemented;
+    if (owner_ != std::this_thread::get_id()) return Steinberg::kNotImplemented;
+    // Synchronous host-value echoes belong to the processing instance even
+    // while its retained editor is hidden. Only its still-installed handler
+    // may suppress them; stale handlers are retired before replacement.
+    if (host_update_ && editor_handler_ && native == last_open_.native_view &&
+        epoch == view_.pending_epoch() &&
+        (kind == AP11::Begin || kind == AP11::Value || kind == AP11::End))
+      return edit(kind, id, value);
+    if (!callback_owner(native, epoch)) return Steinberg::kNotImplemented;
     const auto prior_native = callback_native_; const auto prior_epoch = callback_epoch_;
     callback_native_ = native; callback_epoch_ = epoch;
     const auto result = edit(kind, id, value);
@@ -335,7 +343,9 @@ public:
       group_ = false;
     }
     callback_native_ = 0; callback_epoch_ = 0;
-    if (editor_handler_) editor_handler_->retire(); // cached callbacks become inert before hiding
+    if (editor_handler_ && (!retain_view_ || final)) editor_handler_->retire();
+    // Hidden editor callbacks are rejected by lifecycle; the installed handler
+    // still suppresses synchronous host-originated parameter echoes.
     if (retain_view_ && !(final ? view_.close(true) : view_.hide())) {
       lifecycle_ = AP11::EditorFailed;
       return false;
@@ -435,7 +445,7 @@ public:
           auto* next = new VendorHandler(*this, m.native_view, uint32_t(view_.opens + 1));
           handler_ready = controller_.setComponentHandler(next) == Steinberg::kResultOk;
           if (handler_ready) {
-            if (editor_handler_) editor_handler_->release();
+            if (editor_handler_) { editor_handler_->retire(); editor_handler_->release(); }
             editor_handler_ = next;
           } else { next->retire(); next->release(); }
         }
