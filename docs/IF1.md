@@ -102,3 +102,28 @@ These review changes do not modify retained evidence, profiles, artifact identit
 or rollback records. They are not installed or product-retested. Ordinary
 Pigments 11 remains active; revisions 12–14 remain inactive. PR #98 stays draft
 and unmerged pending source rereview.
+
+## Corrected candidate after source acceptance
+
+Review 5188299869 accepted engineering source `f7f0997`; PR #98 merged it as
+`cf212582b916fd4c09b5584cb5c2fde2c3960cb7`. This is source acceptance only.
+Revision 14 remains unchanged and inactive because its binaries precede the
+final concurrent-custody corrections.
+
+Revision 15 binds newly built merged-source native and Windows artifacts while
+retaining the exact module, descriptor, runner, environment, external IDs and
+all technical policies/limitations. `qualify-failure` now selects only revision
+15 with exact ordinary 11 as parent. Earlier candidate and failed ordinary
+publications remain immutable history. See `evidence/if1/revision-15/artifacts.json`.
+
+The bounded diagnostic stores action commands under `commands/` and captured
+images/metadata under `snapshots/`. A regression uses the identical action label
+for both and proves neither file replaces the other. A process-exit regression
+also preserves collected records and releases diagnostic mappings when the
+target disappears during finalization. No pixel comparison spans a resize.
+
+The next product check is one automatic top-left-menu/resize operation. It must
+retain either working resize plus normal cleanup, or terminal failure custody,
+host/native failure presentation and positive cleanup. No repeated sequence,
+manual desktop takeover or product promotion is authorized. Ordinary 11 is
+restored afterward pending independent product review.

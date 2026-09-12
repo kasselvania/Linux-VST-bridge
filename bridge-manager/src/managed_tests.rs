@@ -2031,7 +2031,19 @@ fn uir1_host_only_candidate_retains_ordinary_eleven_and_all_rollback_boundaries(
 fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
     let sealed = qualification::if1_candidate().unwrap();
     let ordinary = pigments_eleven().unwrap();
-    assert_eq!(sealed.revision, 14);
+    assert_eq!(sealed.revision, 15);
+    let history = Profile::parse(include_bytes!("../../compatibility/if1/arturia-pigments.json")).unwrap();
+    assert_eq!(history.revision, 14);
+    assert_eq!(history.fingerprint().unwrap(), "f205fd398ec4ad086932c56f20bc556b14efed18c3e867bd3fd11acf7de79c1a");
+    let mut normalized = sealed.clone();
+    normalized.revision = history.revision;
+    normalized.evidence = history.evidence.clone();
+    normalized.requirements.host_sha256 = history.requirements.host_sha256.clone();
+    normalized.requirements.host_source_sha256 = history.requirements.host_source_sha256.clone();
+    normalized.requirements.native_sha256 = history.requirements.native_sha256.clone();
+    normalized.requirements.native_source_commit = history.requirements.native_source_commit.clone();
+    assert_eq!(normalized, history);
+    println!("IF1 revision15 fingerprint {}", sealed.fingerprint().unwrap());
     assert_eq!(ordinary.revision, 11);
     assert_eq!(sealed.claim, Claim::ReviewCandidate);
     assert!(!sealed.claim.permits(SelectionPurpose::Activation));
@@ -2047,7 +2059,7 @@ fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
         let prior = f.m.load_revision(&p.class.class_id, &parent).unwrap();
         let untouched = snapshot(prior.target.parent().unwrap());
         let mut candidate = p.clone();
-        candidate.revision = 14; candidate.claim = Claim::ReviewCandidate;
+        candidate.revision = 15; candidate.claim = Claim::ReviewCandidate;
         let package = f.outer.join("ui-package"); private_dir(&package).unwrap();
         fs::write(package.join("host.exe"), b"bounded fair Windows pump").unwrap();
         fs::write(package.join("host-source-manifest.json"), b"exact new source").unwrap();
@@ -2066,13 +2078,14 @@ fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
         atomic_json(&census.report.path, &inspection_report(&census)).unwrap();
         census.report.sha256 = digest(&census.report.path).unwrap();
         let reg = derive_for(&candidate, &census, &staged.native, SelectionPurpose::Qualification).unwrap();
-        for mutation in 0..4 {
+        for mutation in 0..5 {
             let mut wrong = candidate.clone();
             match mutation {
                 0 => wrong.requirements.descriptor_sha256 = "ab".repeat(32),
                 1 => wrong.capabilities.accessibility = Accessibility::WindowsDefault,
                 2 => wrong.requirements.runner.version.push_str(" changed"),
-                _ => wrong.revision = 13,
+                3 => wrong.revision = 13,
+                _ => wrong.revision = 14,
             }
             assert!(f.m.verify_qualification_parent_for(&f.m.registry().unwrap(), &wrong, &reg, Qualification::If1Failure).is_err());
         }
