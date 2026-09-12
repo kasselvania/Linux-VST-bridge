@@ -51,7 +51,7 @@ fn fairness(raw: &Value) -> Result<Value> {
         "down_precedes_up":true,"paint_during_load":n(f,"loaded_paints")?,"timer_during_load":n(f,"loaded_timers")?,
         "sustained_input":{"motions_issued":400,"moves_handled":n(after,"moves")?-n(before,"moves")?,
             "posts_completed":n(after,"posted")?-n(before,"posted")?,"chains_still_active":true},
-        "quit_preserved":true,"queued_dispatch_ceiling":128,"peek_call_ceiling":224}))
+        "quit_preserved":true,"queued_dispatch_ceiling":128,"peek_call_ceiling":162}))
 }
 fn project(raw: &Value) -> Result<Value> {
     if raw["completed"] != true {

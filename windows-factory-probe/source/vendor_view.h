@@ -560,8 +560,8 @@ public:
   static bool pump() {
     // PeekMessage's unfiltered order puts posted work before hardware input.
     // Give input a retrieval opportunity after at most four ordinary messages,
-    // and let paint/timers progress even under replenishing input or posts.
-    // At most 128 queued dispatches and 224 PeekMessage calls per turn. Sent
+    // and let paint/timers progress once per turn under replenishing input/posts.
+    // At most 128 queued dispatches and 162 PeekMessage calls per turn. Sent
     // calls still execute through User32; vendor handlers have no wall-time bound.
     unsigned dispatched = 0;
     bool quitting = false;
@@ -579,13 +579,13 @@ public:
       }
       return true;
     };
+    retrieve(PM_QS_PAINT, WM_PAINT, WM_PAINT);
+    retrieve(PM_QS_POSTMESSAGE, WM_TIMER, WM_TIMER);
     for (unsigned round = 0; round < 32 && dispatched < 128 && !quitting; ++round) {
       const unsigned before = dispatched;
       retrieve(PM_QS_INPUT);
       for (unsigned ordinary = 0; ordinary < 4; ++ordinary)
         if (!retrieve(0)) break;
-      retrieve(PM_QS_PAINT, WM_PAINT, WM_PAINT);
-      retrieve(PM_QS_POSTMESSAGE, WM_TIMER, WM_TIMER);
       if (before == dispatched) break;
     }
     return !quitting;

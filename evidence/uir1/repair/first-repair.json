@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "source": "8bfe0f201c26861b647866a5934c161ad056f9da",
+  "result": "INCOMPLETE_POST_ADMISSION_BOUND",
+  "traffic": {
+    "submitted": 4091,
+    "posted": 4091,
+    "sent": 64,
+    "send_failures": 0,
+    "loaded_down_posts": 142,
+    "loaded_up_posts": 194,
+    "loaded_down_chains": 4,
+    "loaded_up_chains": 4,
+    "paints": 999,
+    "timers": 767,
+    "loaded_paints": 996,
+    "loaded_timers": 374,
+    "quit_preserved": 1,
+    "bound_preserved": 1
+  },
+  "sustained_input": {
+    "issued": 400,
+    "posted_progress": 1979,
+    "retrieved_motion_progress": 394
+  },
+  "nonclaim": "All 4096 posts did not admit before unchanged 6s limit; no full pass. No posts were dropped. Repeated paint/timer opportunities reduced to once per production pump turn; input quota unchanged.",
+  "cleanup": {
+    "exit": 0,
+    "overflow": 0
+  },
+  "positive_owned_cleanup": true
+}
