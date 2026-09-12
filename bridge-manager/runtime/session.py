@@ -431,8 +431,9 @@ def run(spec,peer=None):
     if not spec['inspect'] and not spec.get('vendor_access'):ResultStatus.create(directory,sid)
     visibility=FaultStatus(directory,sid) if not spec['inspect'] and not spec.get('vendor_access') else None
     retirement=None;retirement_ready=None
-    if env.get('LVB_VENDOR_RETIREMENT'):
-        if spec['inspect'] or spec.get('vendor_access'):raise RuntimeError('process retirement requires DSP instance')
+    if spec['inspect'] or spec.get('vendor_access'):
+        env.pop('LVB_VENDOR_RETIREMENT',None) # companion/inspection ownership is distinct
+    elif env.get('LVB_VENDOR_RETIREMENT'):
         RetirementStatus.create(directory,sid);retirement=RetirementStatus(directory,sid)
     root=subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None

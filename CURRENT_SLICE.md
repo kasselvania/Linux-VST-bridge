@@ -434,6 +434,7 @@ It does not release vendor objects or unwind their destructors. The existing
 Linux supervisor contains the exact cohort and reports process-scoped retirement
 only after positive physical cleanup; this is not clean SDK destruction.
 
-Revisions 1–7 remain immutable. Revision 8 artifact binding and the one live
-load/audio/hide/reopen/retirement check are pending. Pigments remains inactive;
+Revisions 1–7 remain immutable. Revision 8 binds the tested Windows host and
+unchanged native proxy; generated lifecycle, manager and Linux supervision checks
+pass. The one live load/audio/hide/reopen/retirement check is pending. Pigments remains inactive;
 LoFi and FRAGMENTS ordinary revision 10 are unchanged. PR #95 remains draft.

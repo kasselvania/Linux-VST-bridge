@@ -1,19 +1,17 @@
 {
-  "schema": 1,
-  "id": "arturia-pigments",
-  "revision": 8,
+  "schema": "ap18-process-scoped-retirement-v1",
+  "review": 5184501713,
+  "state": "generated_checks_passed_live_pending",
+  "profile_revision": 8,
   "claim": "review_candidate",
-  "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
-  "factory_vendor": "Arturia",
-  "class": {
-    "class_id": "41727475415649534B61743150726F63",
-    "name": "Pigments",
-    "vendor": "Arturia",
-    "version": "7.0.1.6772",
-    "subcategories": "Instrument|Synth",
-    "metadata_tier": "factory_3_unicode"
-  },
-  "role": "instrument",
+  "profile_sha256": "bd52a44bd7e786776361a172a99599c9082233caf4643a293cd1ebc194e0acc4",
+  "retained_revision7_file_sha256": "e7c0eba8db18b8a05a4acdc996bb369f11f38ae2e2706eb50a5581dfc6254d8d",
+  "windows_source": "c8660ba8765dfd42ae80faabd4f670d195a779ad",
+  "windows_build_commit": "9d359c30131361989d83707b9cced2c73a080669",
+  "windows_source_tree": "f8a5d6aaad1c3e8a70e7134d616cd07f2ee59237",
+  "windows_run": 34664586766,
+  "windows_artifact": 10288860435,
+  "windows_zip_sha256": "86ffa9c0dd229cf75262b9bca9d45ad56ed13815c090d4851e56f366aa31d201",
   "requirements": {
     "runner": {
       "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
@@ -62,33 +60,53 @@
     "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
     "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
   },
-  "capabilities": {
-    "vendor_retirement": "process_scoped_vendor_retirement",
-    "editor_lifetime": "retain_editor_view_until_instance_retirement",
-    "event_output": "reported_zero_event_channels_unspecified",
-    "accessibility": "windows_default",
-    "editor": "detached_direct_vendor_lifecycle",
-    "state": "concurrent_read_only_capture_v12",
-    "precision": "float32_only",
-    "performance": "frames512_recommended256_unqualified"
+  "policy": "process_scoped_vendor_retirement",
+  "status": {
+    "magic": "LVRT",
+    "version": 1,
+    "extent": 256,
+    "identity": "exact session, generation, epoch, sequence, position",
+    "words": 8,
+    "writer": "UI/controller owner after successful processing stop/join/deactivation",
+    "publication": "complete inactive slot then first atomic commit",
+    "milestones": [
+      "processing_stopped",
+      "worker_joined_without_exception",
+      "component_inactive",
+      "frame_and_view_detached",
+      "owned_parent_destroyed",
+      "endpoint_close_acknowledged",
+      "no_pending_state_or_processing"
+    ],
+    "payloads": false
   },
-  "limitations": [
-    "short_delivery_gaps",
-    "unqualified256",
-    "detached_focus_refusal",
-    "exact_operator_artifact_only",
-    "pigments_under_qualification",
-    "sole_stereo_auxiliary_input_only",
-    "returned_result_diagnosis"
-  ],
-  "evidence": [
-    "docs/AP18.md",
-    "evidence/ap18/pigments/installed.json",
-    "evidence/ap18/pigments/census.json",
-    "evidence/ap18/pigments/native-activation.json",
-    "evidence/ap18/pigments/event-output-operational-census.json",
-    "evidence/ap18/pigments/event-output-correction.json",
-    "evidence/ap18/pigments/retained-editor.json",
-    "evidence/ap18/pigments/process-retirement.json"
+  "regression": {
+    "windows": "production run_offline_processing, retained EditorSession, complete_process_retirement and mapped publication; child reclaimed by parent",
+    "cases": [
+      "successful hide/reopen and final detach without release",
+      "processing not joined refused",
+      "pending state refused",
+      "setFrame refusal",
+      "removed refusal",
+      "DestroyWindow refusal"
+    ],
+    "release_bomb_never_called": true,
+    "default_sdk_release_tests_retained": true,
+    "linux": "production supervisor consumes typed record and contains only its cohort; missing/incomplete records remain failure; unrelated sibling survives; cleanup and transport retirement once",
+    "linux_runtime_tests": 40,
+    "manager_tests": {
+      "library": 61,
+      "binary": 11
+    },
+    "backend_tests": 63,
+    "client_tests": 11,
+    "native_cmake_ctest_exit": 0
+  },
+  "nonclaims": [
+    "not clean SDK object destruction",
+    "live revision8 check pending",
+    "Pigments remains engineering-only",
+    "no change to ordinary LoFi or FRAGMENTS revision10",
+    "512 recommended; 256 unqualified"
   ]
 }

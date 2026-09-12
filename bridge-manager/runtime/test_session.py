@@ -44,6 +44,12 @@ class BusCensusCommandTests(unittest.TestCase):
             self.assertNotIn('LVB_EDITOR_LIFETIME',session.environment(reg))
             reg['compatibility']['editor_lifetime']='retain_editor_view_until_instance_retirement'
             self.assertEqual(session.environment(reg)['LVB_EDITOR_LIFETIME'],reg['compatibility']['editor_lifetime'])
+            self.assertNotIn('LVB_VENDOR_RETIREMENT',session.environment(reg))
+            reg['compatibility']['vendor_retirement']='process_scoped_vendor_retirement'
+            self.assertEqual(session.environment(reg)['LVB_VENDOR_RETIREMENT'],'process_scoped_vendor_retirement')
+            reg['compatibility']['vendor_retirement']='all_vendor_processes'
+            with self.assertRaisesRegex(RuntimeError,'unsupported vendor retirement'):session.environment(reg)
+            del reg['compatibility']['vendor_retirement']
             reg['compatibility']['editor_lifetime']='all_editors'
             with self.assertRaisesRegex(RuntimeError,'unsupported editor lifetime'):session.environment(reg)
             del reg['compatibility']['editor_lifetime']
@@ -890,3 +896,17 @@ time.sleep(30)
                         self.assertIsNone(outcome['error']);self.assertEqual(outcome['vendor_retirement']['milestones'],127);self.assertEqual(outcome['retirement_disposition'],'process_scoped_vendor_retirement')
                     else:self.assertIsNotNone(outcome['error']);self.assertIsNone(outcome['vendor_retirement'])
                 finally:sibling.terminate();sibling.wait(timeout=3)
+
+    def test_non_dsp_routes_do_not_inherit_final_instance_retirement(self):
+        for route in ('inspect','vendor_access'):
+            with self.subTest(route=route),tempfile.TemporaryDirectory() as tmp:
+                root=pathlib.Path(tmp);sid='28'*16
+                directory=root/'compatdata/pfx/drive_c/bridge/sessions'/sid;directory.mkdir(parents=True,mode=0o700)
+                artifact=root/'host';artifact.write_bytes(b'fixture')
+                binding={'path':str(artifact),'sha256':hashlib.sha256(b'fixture').hexdigest()}
+                spec={'registration':{'host':binding,'module':binding,'environment':{'root':str(root),'runner':{'files':[]}}},'session':sid,'directory':str(directory),'report':str(root/'report.json'),'inspect':route=='inspect','vendor_access':route=='vendor_access'}
+                program="import os;assert 'LVB_VENDOR_RETIREMENT' not in os.environ;print('{\"event\":\"lifecycle\",\"state\":\"scanner_completed\"}',flush=True)"
+                with patch.object(session,'command',return_value=([sys.executable,'-c',program],b'')),patch.object(session,'environment',return_value=dict(os.environ,LVB_VENDOR_RETIREMENT='process_scoped_vendor_retirement')):
+                    outcome=session.run(spec)
+                self.assertIsNone(outcome['error']);self.assertIsNone(outcome['vendor_retirement'])
+                self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])

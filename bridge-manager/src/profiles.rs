@@ -342,6 +342,8 @@ mod event_policy_tests {
         assert_eq!(corrected.capabilities.compatibility().event_output,corrected.capabilities.event_output);
         assert!(Profile::parse(&serde_json::to_vec(&corrected).unwrap()).is_ok());
         assert!(corrected.claim.require(SelectionPurpose::Activation).is_err());
+        let mut retirement=serde_json::to_value(&corrected).unwrap();retirement["capabilities"]["vendor_retirement"]=serde_json::json!("all_processes");
+        assert!(Profile::parse(&serde_json::to_vec(&retirement).unwrap()).is_err());
         let mut bad=serde_json::to_value(&corrected).unwrap();bad["capabilities"]["editor_lifetime"]=serde_json::json!("retain_everything");
         assert!(Profile::parse(&serde_json::to_vec(&bad).unwrap()).is_err());
         let mut value=serde_json::to_value(corrected).unwrap();value["capabilities"]["event_output"]=serde_json::json!("all_zero_buses");
