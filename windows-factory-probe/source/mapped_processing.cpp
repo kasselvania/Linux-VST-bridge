@@ -299,8 +299,8 @@ void MappedSession::retire_vendor_process(bool quiescent){auto& x=*impl_;
   complete_process_retirement(quiescent,no_pending,x.editor.get(),*x.retirement,x.timeline.epoch,x.state.next,x.timeline.position,
     x.fault?x.fault->rows[1].generation:0,[&]{finish(true);});
   Sleep(5000); // bounded final-owner wait, never the processing callback
- }catch(...){ExitProcess(92);}
- ExitProcess(92); // supervisor absent: fail closed, never run vendor destructors
+ }catch(...){TerminateProcess(GetCurrentProcess(),92);std::terminate();}
+ TerminateProcess(GetCurrentProcess(),92);std::terminate(); // never enter DLL detach or vendor destructors
 }
 void MappedSession::service_owner(){auto& x=*impl_;
  x.update_controller();if(x.editor)x.editor->service();

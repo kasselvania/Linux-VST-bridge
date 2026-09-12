@@ -170,8 +170,8 @@ struct Mapping {
   HANDLE file = INVALID_HANDLE_VALUE, map = nullptr;
   uint8_t *data = nullptr;
   std::array<uint8_t, 16> id{};
-  Mapping() {
-    dir = std::filesystem::temp_directory_path() /
+  explicit Mapping(std::filesystem::path base = {}) {
+    dir = (base.empty() ? std::filesystem::temp_directory_path() : base) /
           (L"ap11-sdk-" + std::to_wstring(GetCurrentProcessId()) + L"-" +
            std::to_wstring(GetTickCount64()));
     check(std::filesystem::create_directory(dir), "private fixture directory");
@@ -345,7 +345,7 @@ struct RetirementExternal:ExternalProcessing {
 };
 void retirement_child(const char* path,int mode){
  HostApplication host;Controller* c=new Controller;check(c->initialize(&host)==kResultOk,"retirement controller");c->stats.retained_test=true;
- Mapping native;GuiChannel channel(native.dir.wstring(),native.id);auto* editor=new EditorSession(channel,*c,nullptr,true);
+ Mapping native{std::filesystem::path(path)};GuiChannel channel(native.dir.wstring(),native.id);auto* editor=new EditorSession(channel,*c,nullptr,true);
  native.command(AP11::Open);editor->service(true);native.drain();c->stats.processing=true;
  RetirementPlugin plugin;check(plugin.initialize(&host)==kResultOk,"retirement processor");RetirementExternal external(plugin,native,*editor,*c);
  linux_vst_bridge::wf0::EventWriter events(1048576);HostCallbackSink calls(&events,GetCurrentThreadId());

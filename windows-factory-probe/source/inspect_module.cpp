@@ -188,10 +188,11 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             external->bind_controller(controller,controller_initialized,&handler);
             HostCallbackSink calls(&events,GetCurrentThreadId());
             auto result=run_offline_processing(*component,*audio,calls,events,external);
-            if(!result.quiescent)ExitProcess(92); // outer owner contains; no release of live processing objects
             // Policy-selected process retirement never unwinds vendor objects,
             // including on an incomplete processing result.
             retirement_ready=result.success && result.retirement_ready;
+            external->retire_vendor_process(retirement_ready);
+            if(!result.quiescent)ExitProcess(92); // default policy containment remains unchanged
             if(!result.success)throw std::runtime_error("commercial processing failed");
         }
         }
