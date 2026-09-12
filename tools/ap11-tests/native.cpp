@@ -23,6 +23,7 @@ uint32_t gui_fault = 0, caps = 0, closes = 0, refused_sends = 0;
 uint64_t generation = 7, revision = 1;
 double dsp = .5;
 uint32_t save_code=0, state_calls=0;
+if1_terminal_t terminal_record{};
 std::thread::id owner = std::this_thread::get_id();
 struct Host final : HostApplication,
                     Linux::IRunLoop,
@@ -33,7 +34,7 @@ struct Host final : HostApplication,
   AP8::Controller *controller = nullptr;
   AP2::Processor *processor = nullptr;
   bool flush = true, reentrant = false;
-  uint32 dirty = 0, restarts = 0;
+  uint32 dirty = 0, restarts = 0, reload_calls = 0;
   unsigned refuse_allocations = 0;
   tresult PLUGIN_API createInstance(TUID cid, TUID iid, void **out) override {
     if (refuse_allocations) { --refuse_allocations; *out = nullptr; return kResultFalse; }
@@ -121,6 +122,7 @@ struct Host final : HostApplication,
   }
   tresult PLUGIN_API restartComponent(int32 flags) override {
     restarts |= flags;
+    if(flags & kReloadComponent) ++reload_calls;
     if (flags & kParamValuesChanged)
       audio(controller->getParamNormalized(0));
     return kResultOk;
@@ -170,6 +172,7 @@ uint32_t __wrap_ap3_close(uint64_t) {
   ++closes;
   return 0;
 }
+uint32_t __wrap_if1_terminal(uint64_t,if1_terminal_t* out){*out=terminal_record;return 0;}
 uint32_t __wrap_ap10_notices(uint64_t, uint32_t *p) {
   p[0] = 0;
   return 0;
@@ -292,6 +295,34 @@ void lifecycle_identity_regression() {
   owner.opened(open);
   check(!owner.close(b,close) && !owner.status(status) && owner.owner()==fresh,
         "retired session cannot close or update replacement");
+}
+void terminal_instance_regression() {
+ for(uint64_t failureClass : {1u,2u,3u}) {
+  events.clear();commands.clear();gui_fault=0;refused_sends=0;terminal_record={};
+  Host host;auto processor=std::make_unique<AP2::Processor>();auto* c=new AP8::Controller;
+  host.controller=c;host.processor=processor.get();auto* context=static_cast<IHostApplication*>(&host);
+  check(processor->initialize(context)==kResultOk&&c->initialize(context)==kResultOk,"IF1 initialize");
+  check(c->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"IF1 handler");
+  check(processor->connect(c)==kResultOk&&c->connect(processor.get())==kResultOk,"IF1 connection");
+  auto token=c->allocateEditorView();check(c->panelOpen(token),"IF1 initial vendor owner");
+  auto open=commands.back();open.kind=AP11::EditorStatus;open.count=1;open.view_epoch=1;open.lifecycle=AP11::Opened;
+  events.push_back(open);host.tick();auto begin=open;begin.kind=AP11::Begin;events.push_back(begin);host.tick();
+  terminal_record.words[0]=1;terminal_record.words[1]=123;terminal_record.words[2]=456;
+  terminal_record.words[3]=generation;terminal_record.words[4]=2;terminal_record.words[5]=104687;
+  terminal_record.words[6]=512;terminal_record.words[7]=9;terminal_record.words[14]=failureClass;
+  terminal_record.words[15]=90;terminal_record.words[18]=failureClass;terminal_record.words[19]=failureClass;
+  const auto count=commands.size();host.tick();
+  check(host.reload_calls==1&&host.gestures.back()==AP11::End,"IF1 completes gesture and asks reload once");
+  check(c->panelClose(token)&&!c->panelOpen(token)&&commands.size()==count,"IF1 dead generation never forwarded");
+  auto* view=c->createView(ViewType::kEditor);ViewRect rect{};
+  check(view&&view->getSize(&rect)==kResultOk&&rect.getWidth()==640,"IF1 native failure/recovery view instead of VendorPanel");view->release();
+  for(unsigned i=0;i<4;++i){HostMessage poll;poll.setMessageID("AP10.poll");check(processor->notify(&poll)==kResultOk,"IF1 repeated bounded poll");}
+  check(host.reload_calls==1&&commands.size()==count,"IF1 exact once and no late forwarding");
+  check(c->setParamNormalized(0,.75)==kResultFalse,"IF1 refuses dead parameter forwarding");
+  check(c->disconnect(processor.get())==kResultOk,"IF1 disconnect retires editor owner");
+  processor->disconnect(c);check(c->terminate()==kResultOk&&host.timers.empty(),"IF1 no retained timer");c->release();processor->terminate();
+ }
+ terminal_record={};
 }
 int main() {
   lifecycle_identity_regression();
@@ -517,6 +548,7 @@ int main() {
   c->release();
   processor->terminate();
   check(closes == 1, "only final teardown closes DSP");
+  terminal_instance_regression();
   std::cout << "AP11 production native SDK gestures, echo, refresh, zero-frame "
                "save, failure, lifetime PASS\n";
 }

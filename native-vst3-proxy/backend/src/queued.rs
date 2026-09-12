@@ -100,6 +100,7 @@ impl From<Item> for Completion {
     }
 }
 struct Shared {
+    terminal: Option<Arc<crate::terminal::Status>>,
     gui: Option<Arc<crate::gui::Gui>>,
     snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
     generation: u64,
@@ -141,6 +142,7 @@ impl Shared {
     fn new() -> Self {
         Self {
             gui: None,
+            terminal: None,
             snapshots: Arc::new(std::sync::Mutex::new(crate::recovery::Store::default())),
             generation: 1,
             identity: None,
@@ -468,6 +470,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     }
     let run = (|| -> io::Result<()> {
         loop {
+            if let Some(t) = &s.terminal {
+                t.progress([s.generation,session.epoch,session.state.next,session.position,u64::from(session.phase)],Some(session.position),None);
+                if t.read().is_some() { return Err(invalid("terminal instance failure")); }
+            }
             crate::preview::check_owner(&mut session.owner)?;
             if s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
                 return Err(invalid("queued session fault or cancelled"));
@@ -515,15 +521,11 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         let failed = result.as_ref().is_err_and(|e| !state::save_refused(e));
                         if let Ok(bytes) = &result {
                             if matches!(c.op, 16 | 18) {
-                                s.snapshots
-                                    .lock()
-                                    .map_err(|_| invalid("snapshot store poisoned"))?
-                                    .confirm(
-                                        bytes.clone(),
-                                        c.op,
-                                        s.generation,
-                                        c.barrier,
-                                    )?;
+                                let mut store=s.snapshots.lock().map_err(|_| invalid("snapshot store poisoned"))?;
+                                store.confirm(bytes.clone(),c.op,s.generation,c.barrier)?;
+                                if let Some(t)=&s.terminal {
+                                    t.progress([s.generation,session.epoch,session.state.next,session.position,u64::from(session.phase)],None,store.latest());
+                                }
                             }
                         } else if let Err(error) = &result {
                             if !state::save_refused(error) {
@@ -638,6 +640,11 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         }
     })();
     if let Err(ref error) = run {
+        // Ordinary Close returns Ok. Cancellation during teardown is not a
+        // new terminal incident unless the worker already holds a fault.
+        if !s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
+            if let Some(t) = &s.terminal { t.fail_native(match s.fault.load(Ordering::Acquire) {0=>WORKER, code=>code}); }
+        }
         s.fail(WORKER, session.position);
         if let Ok(mut d) = s.detail.lock() {
             if d.is_empty() {
@@ -768,6 +775,7 @@ pub(crate) unsafe fn open(
             session.identity = identity;
             let mut shared = Shared::new();
             shared.gui = session.gui.clone();
+            shared.terminal = session.fault_status.as_ref().map(|f| f.terminal.clone());
             shared.identity = identity;
             shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
             let shared = Arc::new(shared);
@@ -802,6 +810,17 @@ pub(crate) unsafe fn open(
             // This startup-only refusal creates no manager/session ownership.
             Err(e) => retain(&io::Error::other(e)),
         }
+    }) as u32
+}
+/// Bounded non-RT query. The Arc retains mapped custody after session unlink.
+#[no_mangle]
+pub unsafe extern "C" fn if1_terminal(id:u64,out:*mut crate::terminal::Record)->u32 {
+    crate::ffi(|| {
+        if out.is_null(){return 1;}
+        let Some(l)=INSTANCES.lease(id) else{return 1;};
+        *out=crate::terminal::Record::default();
+        if let Some(record)=l.shared.terminal.as_ref().and_then(|t|t.read()){*out=record;}
+        0
     }) as u32
 }
 #[repr(C)]
@@ -923,6 +942,7 @@ pub unsafe extern "C" fn ap6_recover(
             }
             let mut shared = Shared::new();
             shared.gui = session.gui.clone();
+            shared.terminal = session.fault_status.as_ref().map(|f| f.terminal.clone());
             shared.generation = l
                 .shared
                 .generation
@@ -2336,6 +2356,37 @@ mod tests {
         assert_eq!(reader.observation.comparison.samples, 0); // none checked
         drop(reader);
         std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn terminal_peer_exit_reaches_bounded_query_after_mapping_unlink() {
+        use ap1_native_client::{ClientState,Slot};
+        let dir=std::env::temp_dir().join(format!("if1-worker-{}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        std::fs::create_dir(&dir).unwrap();
+        let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let socket=std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (remote,_)=listener.accept().unwrap();drop(remote); // unexpected peer exit
+        let status=crate::fault_status::Status::create(&dir.join("ap12.status"),[31;16]).unwrap();
+        let terminal=status.terminal.clone();
+        let session=Session {
+            gui:None,gui_revision:0,mapping:Some(ap1_native_client::mapping::Mapping::new(&dir.join("ap1.audio")).unwrap()),
+            mailbox:None,mailbox_enabled:false,capture:None,fault_status:Some(status),notices:(0,0),returned:Default::default(),socket,
+            state:ClientState{session:[31;16],next:104687,slot:Slot::Writable},phase:11,max:CAP,minor:11,epoch:2,position:768,
+            witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None,
+        };
+        let mut shared=Shared::new();shared.generation=7;shared.terminal=Some(terminal.clone());
+        let shared=Arc::new(shared);shared.wanted.store(2,Ordering::Release);
+        let mut item=Item::control(AUDIO,2);item.n=256;item.position=768;item.data=[[0.;CAP];2];
+        assert!(shared.requests.push(item));
+        let peer=shared.clone();let thread=thread::spawn(move||worker(session,peer,None));
+        thread.join().unwrap();
+        assert_eq!(shared.fault.load(Ordering::Acquire),WORKER);
+        let id=INSTANCES.insert(||Ok::<_,()>(Live{shared,callback:UnsafeCell::new(Callback::new()),busy:AtomicBool::new(false),worker:None,report:None,max:CAP,recovery_blocked:false,installed_delay:None,minor:11,setup:None})).unwrap().unwrap();
+        std::fs::remove_dir_all(&dir).unwrap(); // the UI query outlives physical transport cleanup
+        let mut r=crate::terminal::Record::default();
+        unsafe{assert_eq!(if1_terminal(id,&mut r),0);}
+        assert_eq!(&r.words[3..7],&[7,2,104687,768]);assert_eq!(&r.words[14..16],&[3,WORKER]);
+        let first=r;terminal.fail_native(99);
+        unsafe{assert_eq!(if1_terminal(id,&mut r),0);assert_eq!(r,first);ap3_close(id);assert_ne!(if1_terminal(id,&mut r),0);}
     }
     #[test]
     fn correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling() {

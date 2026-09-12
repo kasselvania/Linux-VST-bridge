@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "operation": "ordinary managed rollback to exact retained Pigments 11",
+  "products": [
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-pigments",
+        "revision": 11
+      },
+      "active_revision": {
+        "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+        "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+      },
+      "publication_valid": true,
+      "installed_host_valid": true,
+      "native_artifact_valid": true,
+      "module_valid": true,
+      "runner_valid": true,
+      "environment_valid": true,
+      "recovery_pending": false,
+      "qualification": null,
+      "external_ids": [
+        "2a87961b6a485bdea59c9009fc661460",
+        "ce18a28bb102517c9e5db63bb7d72d9b"
+      ],
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      },
+      "recommended_frames": 512
+    },
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-pure-lofi",
+        "revision": 10
+      },
+      "active_revision": {
+        "id": "51f241c4da508aa1fbbc9d6d172eb123",
+        "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+      },
+      "publication_valid": true,
+      "installed_host_valid": true,
+      "native_artifact_valid": true,
+      "module_valid": true,
+      "runner_valid": true,
+      "environment_valid": true,
+      "recovery_pending": false,
+      "qualification": null,
+      "external_ids": [
+        "ac7f2418f2915958b5b67620593b9a2d",
+        "0c80f2acc39f5975a38d177102555683"
+      ],
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      },
+      "recommended_frames": 512
+    },
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-efx-fragments",
+        "revision": 10
+      },
+      "active_revision": {
+        "id": "e340c6f8ad5ca494d2fb477214c9937e",
+        "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+      },
+      "publication_valid": true,
+      "installed_host_valid": true,
+      "native_artifact_valid": true,
+      "module_valid": true,
+      "runner_valid": true,
+      "environment_valid": true,
+      "recovery_pending": false,
+      "qualification": null,
+      "external_ids": [
+        "96bd361810b3568a9671700732903d6e",
+        "d3181e9d37e75871ba5ffbcae0775861"
+      ],
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      },
+      "recommended_frames": 512
+    }
+  ],
+  "history": "Pigments 12 and 13 retained unchanged and inactive; 13 is failed ordinary history for this incident."
+}

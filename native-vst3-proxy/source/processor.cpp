@@ -369,6 +369,22 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
 #ifdef AP8_PREVIEW
   if(!std::strcmp(id,"AP10.capabilities")){int64 enabled=0;if(message->getAttributes()->getInt("notifications",enabled)!=kResultOk)return kResultFalse;notifications_=enabled==1;return kResultOk;}
   if(!std::strcmp(id,"AP10.poll")){
+    if1_terminal_t terminal{};
+    if (handle_ && !if1_terminal(handle_, &terminal) && IF1::valid(terminal)) {
+      if(terminal_notified_generation_ == terminal.words[3]) return kResultOk;
+      auto* failed = allocateMessage();
+      if (!failed) return kResultFalse;
+      failed->setMessageID("AP10.instance_failed");
+      if (failed->getAttributes()->setBinary("terminal", &terminal, sizeof(terminal)) != kResultOk) {
+        failed->release(); return kResultFalse;
+      }
+      // Set before the reentrant host/controller call. No repeated reload or
+      // vendor forwarding can be caused by recursive AP10.poll.
+      terminal_notified_generation_ = terminal.words[3];
+      const auto result = sendMessage(failed); failed->release();
+      if(result != kResultOk) terminal_notified_generation_ = 0; // retain pending delivery
+      return result;
+    }
     uint32_t notice[3]{};if(!handle_||ap10_notices(handle_,notice)||!notice[0])return kResultOk;
     if(notice[1]>UINT32_MAX-(latency_-vendor_latency_))return kResultFalse;
     latency_=latency_-vendor_latency_+notice[1];vendor_latency_=notice[1];tail_=notice[2];

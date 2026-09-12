@@ -7,6 +7,8 @@
 #include "editor_lifecycle.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "vendor_panel.h"
+#include "processor.h"
+#include "recovery_view.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -70,6 +72,7 @@ public:
     finishGestures();
     auto r = EditController::setComponentHandler(handler);
     capabilities();
+    notifyReload();
     return r;
   }
   Steinberg::IPlugView *PLUGIN_API
@@ -78,6 +81,7 @@ public:
         std::strcmp(name, Steinberg::Vst::ViewType::kEditor))
       return nullptr;
     try {
+      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7]);
       auto token = editor_.allocate();
       return token ? new AP11::VendorPanel(this, *this, token) : nullptr;
     } catch (...) {
@@ -141,6 +145,20 @@ public:
     if (!m || !m->getMessageID() || !onOwner())
       return kResultFalse;
     const char *id = m->getMessageID();
+    if (!std::strcmp(id,"AP10.instance_failed")) {
+      const void* data=nullptr; uint32 size=0;
+      if (m->getAttributes()->getBinary("terminal",data,size)!=kResultOk || size!=sizeof(if1_terminal_t) || !data) return kResultFalse;
+      if1_terminal_t record{};std::memcpy(&record,data,size);
+      if (!IF1::valid(record) || (generation_ && record.words[3]!=generation_)) return kResultFalse;
+      if (terminal_failed_) return std::memcmp(&terminal_,&record,sizeof(record))==0 ? kResultOk : kResultFalse;
+      Steinberg::IPtr<Controller> keep_alive(this);
+      terminal_=record;terminal_failed_=true; // before gesture/handler reentrancy
+      status_=IF1::status(record);failure_=AP11::Closed;
+      activation_.cancel();editor_.sessionRetired();pending_count_=0;
+      if (pending_close_.native_view) {pending_close_={};release();}
+      finishGestures();notifyReload();return kResultOk;
+    }
+    if (terminal_failed_) return kResultFalse;
     if (!std::strcmp(id,"AP12.persistence")){
       int64 available=0;if(m->getAttributes()->getInt("available",available)!=kResultOk||(available!=0&&available!=1))return kResultFalse;
       save_unavailable_=available==0;return kResultOk;
@@ -320,10 +338,18 @@ public:
   }
   uint64_t allocateEditorView() { return onOwner() ? editor_.allocate() : 0; }
   uint32_t panelState(uint64_t view) const override { return editor_.state(view); }
-  const char *panelStatus() const { return save_unavailable_ ? "Saving unavailable; vendor editor remains accessible" : status_; }
+  const char *panelStatus() const { if(terminal_failed_)return status_;return save_unavailable_ ? "Saving unavailable; vendor editor remains accessible" : status_; }
   bool readbackAvailable(uint32_t id) {auto* p=state(id);return p&&p->available;}
 
 private:
+  if1_terminal_t terminal_{};
+  bool terminal_failed_=false,reload_requested_=false;
+  void notifyReload() {
+    if(terminal_failed_ && componentHandler && !reload_requested_) {
+      reload_requested_=true;
+      componentHandler->restartComponent(Steinberg::Vst::kReloadComponent);
+    }
+  }
   AP15::EditorLifecycle editor_;
   Steinberg::Vst::IMessage *retirement_message_ = nullptr;
   ap11_gui_message_t pending_close_{};
@@ -523,11 +549,12 @@ private:
     }
   }
   void tick() {
-    if (!onOwner() || !connected_ || ticking_)
+    if (!onOwner() || !connected_ || ticking_ || terminal_failed_)
       return;
     ticking_ = true;
     retryClose();
     request("AP10.poll");
+    if (terminal_failed_) {ticking_=false;return;}
     if (!generation_)
       request("AP11.bind");
     else
@@ -568,6 +595,7 @@ private:
     }
   }
   Result command(const ap11_gui_message_t &event) {
+    if (terminal_failed_) return Steinberg::kResultFalse;
     if (!connected_)
       return Steinberg::kResultOk; // before connection, component state is
                                    // authoritative

@@ -1,0 +1,222 @@
+{
+  "schema": 1,
+  "basis_head": "828fad8854082da412b88614c9b38c8c082e013e",
+  "collection": "existing records only; no reproduction",
+  "sessions": [
+    {
+      "alias": "incident-A",
+      "outer_exit": 5,
+      "outer_exit_before_containment": 5,
+      "exact_windows_executable_exit": null,
+      "exact_windows_exit_limitation": "Not retained independently of outer launcher; numeric 5 is not attributed to a vendor SDK call.",
+      "supervisor_error": "Windows host exited without successful close",
+      "supervisor_FR": "F then R is required by the installed supervisor failure/positive-retirement path; individual sent bytes were not logged.",
+      "first_native_fault": {
+        "event": "ap5_worker_fault",
+        "generation": 1,
+        "fault": 3,
+        "first_position": 2682880,
+        "processed": 10480,
+        "request_high": 746,
+        "result_high": 38,
+        "detail": "InvalidData: delivery endpoint disconnected"
+      },
+      "later_native_state_request": {
+        "event": "ap4_native_error",
+        "operation": "get",
+        "stage": "failed_instance",
+        "fault": 3,
+        "first_position": 2682880,
+        "processed": 10480,
+        "callback_rejections": 2546,
+        "detail": "InvalidData: delivery endpoint disconnected"
+      },
+      "state_request_order": "The native report records the terminal worker fault before the failed getState request. The Bitwig frontend separately records a save warning. No unrecorded Windows exit timestamp is invented.",
+      "last_status": {
+        "native": {
+          "publication": 31442,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 10484,
+          "position": 2682880,
+          "stage": 2,
+          "detail": 0,
+          "frequency": 1000000000,
+          "admitted_frames": 2683392,
+          "missing_frames": 202752,
+          "gaps": 1,
+          "expired_frames": 202752,
+          "delivered_frames": 2480128,
+          "priming_frames": 512,
+          "current": true
+        },
+        "delivery": {
+          "publication": 62885,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 10483,
+          "position": 2682624,
+          "stage": 1,
+          "detail": 0,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 1169,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 25,
+          "detail": 0,
+          "frequency": 10000000,
+          "current": true
+        }
+      },
+      "editor": {
+        "available": true,
+        "independently_sampled": true,
+        "closed": 1,
+        "failure": 0,
+        "open": 1,
+        "view_stage": 16,
+        "open_stage": 100,
+        "exception_code": 0
+      },
+      "collector_rejection": null,
+      "last_windows_lifecycle": {
+        "event": "lifecycle",
+        "sequence": 239,
+        "state": "ap4_state_result",
+        "operation": "opaque",
+        "result": 0,
+        "bytes": 365600
+      },
+      "last_complete_state": {
+        "event": "lifecycle",
+        "sequence": 239,
+        "state": "ap4_state_result",
+        "operation": "opaque",
+        "result": 0,
+        "bytes": 365600
+      },
+      "state_identity_limitation": "Complete byte count/result retained; no confirmed snapshot revision or digest in this incident report. No opaque payload collected.",
+      "normal_retirement_ready": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "survival_limitation": "No at-failure process/window census was retained. Post-incident inventory has no Bitwig process and no DSP lease; this is not evidence of their earlier survival.",
+      "receipt_sha256": "9cb3cac6532d6b47e1453999c20b47a62f19b61fa26a10c629fff5ba1a888bcb",
+      "native_report_sha256": "77ebc24819d5cda9efbf1463e8e67439792cf2a89b607a8c466f246feca35657"
+    },
+    {
+      "alias": "incident-B",
+      "outer_exit": 5,
+      "outer_exit_before_containment": 5,
+      "exact_windows_executable_exit": null,
+      "exact_windows_exit_limitation": "Not retained independently of outer launcher; numeric 5 is not attributed to a vendor SDK call.",
+      "supervisor_error": "Windows host exited without successful close",
+      "supervisor_FR": "F then R is required by the installed supervisor failure/positive-retirement path; individual sent bytes were not logged.",
+      "first_native_fault": {
+        "event": "ap5_worker_fault",
+        "generation": 1,
+        "fault": 3,
+        "first_position": 2344448,
+        "processed": 9158,
+        "request_high": 750,
+        "result_high": 36,
+        "detail": "InvalidData: delivery endpoint disconnected"
+      },
+      "later_native_state_request": {
+        "event": "ap4_native_error",
+        "operation": "get",
+        "stage": "failed_instance",
+        "fault": 3,
+        "first_position": 2344448,
+        "processed": 9158,
+        "callback_rejections": 4538,
+        "detail": "InvalidData: delivery endpoint disconnected"
+      },
+      "state_request_order": "The native report records the terminal worker fault before the failed getState request. The Bitwig frontend separately records a save warning. No unrecorded Windows exit timestamp is invented.",
+      "last_status": {
+        "native": {
+          "publication": 27476,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 9161,
+          "position": 2344448,
+          "stage": 2,
+          "detail": 0,
+          "frequency": 1000000000,
+          "admitted_frames": 2344960,
+          "missing_frames": 204800,
+          "gaps": 1,
+          "expired_frames": 204800,
+          "delivered_frames": 2139648,
+          "priming_frames": 512,
+          "current": true
+        },
+        "delivery": {
+          "publication": 54951,
+          "generation": 1,
+          "epoch": 1,
+          "request_sequence": 9160,
+          "position": 2344192,
+          "stage": 1,
+          "detail": 0,
+          "frequency": 10000000,
+          "current": true
+        },
+        "owner": {
+          "publication": 5519,
+          "generation": 1,
+          "epoch": 0,
+          "request_sequence": 0,
+          "position": 0,
+          "stage": 25,
+          "detail": 0,
+          "frequency": 10000000,
+          "current": true
+        }
+      },
+      "editor": {
+        "available": true,
+        "independently_sampled": true,
+        "closed": 1,
+        "failure": 0,
+        "open": 1,
+        "view_stage": 16,
+        "open_stage": 100,
+        "exception_code": 0
+      },
+      "collector_rejection": null,
+      "last_windows_lifecycle": {
+        "event": "lifecycle",
+        "sequence": 235,
+        "state": "ap2_lifecycle_ack",
+        "kind": 11,
+        "next_sequence": 3
+      },
+      "last_complete_state": {
+        "event": "lifecycle",
+        "sequence": 224,
+        "state": "ap4_state_result",
+        "operation": "opaque",
+        "result": 0,
+        "bytes": 381222
+      },
+      "state_identity_limitation": "Complete byte count/result retained; no confirmed snapshot revision or digest in this incident report. No opaque payload collected.",
+      "normal_retirement_ready": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "survival_limitation": "No at-failure process/window census was retained. Post-incident inventory has no Bitwig process and no DSP lease; this is not evidence of their earlier survival.",
+      "receipt_sha256": "61207c7d15da18506e1baa88bb1fbd6f86b3f8c201971adb08c50b53a7397bde",
+      "native_report_sha256": "b860062a38e2f67f86718dc8857bd175988bb33f2badda14e9cbd922829bb4cd"
+    }
+  ],
+  "nonclaims": [
+    "No root-cause attribution to menu or resize from missing records",
+    "No installation or save-location defect inferred",
+    "No new Collector failure",
+    "Accepted input fairness is unchanged"
+  ]
+}

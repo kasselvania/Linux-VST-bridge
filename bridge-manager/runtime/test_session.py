@@ -5,6 +5,7 @@ import os
 import pathlib
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -928,3 +929,45 @@ time.sleep(30)
                     outcome=session.run(spec)
                 self.assertIsNone(outcome['error']);self.assertIsNone(outcome['vendor_retirement'])
                 self.assertTrue(outcome['cleanup_confirmed'] and outcome['transport_retired'])
+
+@unittest.skipUnless(sys.platform.startswith('linux'), 'Linux atomic custody/process fixture')
+class TerminalInstanceTests(unittest.TestCase):
+    @staticmethod
+    def create(root,sid):
+        data=bytearray(2048);data[:32]=b'LVIF'+struct.pack('<III',1,2048,0)+bytes.fromhex(sid)
+        row=[1,*struct.unpack('<QQ',bytes.fromhex(sid)),7,2,104687,512,9,7,104680,1,2,3,4,0,0,768,11,0,0,0,0,0,0]
+        struct.pack_into('<Q',data,1024,1);struct.pack_into('<24Q',data,1344,*row)
+        p=root/'if1.terminal';p.write_bytes(data);p.chmod(0o600)
+
+    def test_root_exit_through_actual_supervisor_cleanup(self):
+        # Real subprocess exit, actual run/containment/report/transport owner.
+        # Only runner launch and environment boundaries are replaced.
+        with tempfile.TemporaryDirectory(dir=pathlib.Path.cwd()) as disk, tempfile.TemporaryDirectory(dir='/dev/shm') as memory:
+            spec,durable,directory=MemoryTransportTests().fixture(disk,memory)
+            self.create(directory,spec['session'])
+            unrelated=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
+            try:
+                with patch.object(session,'transport_root',return_value=pathlib.Path(memory)), \
+                     patch.object(session,'command',return_value=([sys.executable,'-c','raise SystemExit(90)'],b'')), \
+                     patch.object(session,'environment',return_value=os.environ.copy()):
+                    result=session.run(spec)
+                self.assertEqual(result['retirement_disposition'],'terminal_instance_failure')
+                r=result['fault_status']['before_containment']['terminal_instance']
+                self.assertEqual((r['failure_class'],r['status'],r['generation'],r['epoch'],r['sequence']),(1,90,7,2,104687))
+                self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+                self.assertFalse(directory.exists() or durable.exists())
+                self.assertIsNone(unrelated.poll())
+            finally:unrelated.terminate();unrelated.wait(timeout=5)
+
+    def test_first_custody_partial_write_and_identity(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);sid='31'*16;self.create(root,sid)
+            t=session.TerminalStatus(root,sid)
+            self.assertIsNone(t.snapshot())
+            # An interrupted other producer never commits or locks the record.
+            t.store(t.address+384,999,5)
+            t.root_exit(90);first=t.snapshot();t.root_exit(12)
+            self.assertEqual(first,t.snapshot());self.assertEqual(first['state_revision'],9)
+            self.assertEqual(first['last_completed_position'],512)
+            t.close()
+            with self.assertRaisesRegex(RuntimeError,'session/version'):session.TerminalStatus(root,'32'*16)
