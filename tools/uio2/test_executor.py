@@ -42,7 +42,7 @@ class Tests(unittest.TestCase):
     def test_empty_result_status_is_not_terminal_failure(self):
         from product import Product
         from types import SimpleNamespace
-        p=Product.__new__(Product)
+        p=Product.__new__(Product);p.group=None;p.transaction=None
         s={'terminal_instance':None,'result_status':{'available':True,'rejection':None},'editor':{'failure':0,'closed':0}}
         p.c=SimpleNamespace(fault=SimpleNamespace(snapshot=lambda:s))
         self.assertFalse(p.terminal())
@@ -51,7 +51,7 @@ class Tests(unittest.TestCase):
     def test_unowned_popup_never_falls_back_to_underlying_editor_frame(self):
         from product import Product
         from copy import deepcopy
-        p=Product.__new__(Product);p.e=E;p.x=Mock();p.current=Mock(return_value=E)
+        p=Product.__new__(Product);p.group=None;p.transaction=None;p.e=E;p.x=Mock();p.current=Mock(return_value=E)
         g=graph();root=next(r for r in g['windows'] if r['hwnd']==E.hwnd)
         peer=next(r for r in g['windows'] if r['hwnd']!=E.hwnd)
         g['windows']=[root]
@@ -62,7 +62,7 @@ class Tests(unittest.TestCase):
             row=deepcopy(peer);row.update(hwnd=100+i,root=100+i,root_owner=100+i,owner=0,xid=200+i)
             g['windows'].append(row)
         p.fresh=Mock(return_value=g)
-        with self.assertRaisesRegex(RuntimeError,'owned popup absent or ambiguous'):p.frame()
+        with self.assertRaisesRegex(RuntimeError,'ownerless popup has no action transaction'):p.frame()
         p.x.capture.assert_not_called()
 
 if __name__=='__main__':unittest.main()

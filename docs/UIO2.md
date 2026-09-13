@@ -178,3 +178,32 @@ and tracing are off; no GUI executor, tunnel or UIO transient unit remains.
 512 is selected/recommended; 256 remains unqualified. PR #101 stays draft and
 unmerged for independent review. See [final readback](../evidence/uio2/installed-final.json)
 and [exact artifacts](../evidence/uio2/artifacts.json).
+
+## TSG1 implementation in progress
+
+Review 5191850998 accepts the first menu click and containment evidence, but does
+not accept completion of UIO2. The active cut adds action-bound ownerless surface
+groups and exact candidate17's process-local accessibility comparison. The prior
+five-surface observation and later quit incident remain unmodified.
+
+The development observer's `observe-surfaces` mode adds thread-scoped CBT and
+WinEvent lifecycle observation. Ordinary `observe` keeps UIO1's existing exact
+owner-chain message scope. Observation of a peer never authorizes its input.
+Graph schema2 adds extended style, class atom/hash, focus/capture, stacking peers
+and WindowFromPoint at the current pointer. Raw creation parameters stay distinct
+from stabilized census. X11 metadata retains exact parent/frame chains, viewable
+state, EWMH facts, bounding/input shapes and root stacking position.
+
+TSG1 requires a complete pre-graph, exact Down/Up receipts on both sides and a
+bounded two-second post interval. New/shown windows need create/show evidence;
+recycled handles and pre-existing moved peers are refused. Components use a
+maximum two-desktop-pixel edge gap, contiguous X stacking and one nonempty input
+shape member. Before Down, two complete snapshots, actual X pointer target and
+Win32 WindowFromPoint must agree. Missing or ambiguous input shape is a tool
+boundary, not permission to infer content from largest area. A nested menu
+invalidates the consumed group and requires a new capsule.
+
+Candidate17 reuses every candidate16 artifact. Only revision/evidence and the
+process-scoped accessibility policy/limitation change. This is an authorized
+comparison against the retained UIAutomationCore signature, not a root-cause or
+stability claim. No candidate17 product session has run yet.

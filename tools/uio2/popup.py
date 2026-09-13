@@ -128,6 +128,7 @@ class Capsule:
     maximum_actions: int = 1
     executor: str = 'luna-max'
     escalation_reason: str = ''
+    group_identity: str = ''
     forbidden: tuple = ('retry', 'relaunch', 'terminal', 'settings', 'project_change', 'verdict', 'unexpected_dialog')
     stop: tuple = ('terminal_record', 'identity_change', 'visibility_loss', 'held_input', 'unexpected_popup')
 
@@ -146,6 +147,8 @@ class Capsule:
         if (type(self.escalation_reason) is not str or (self.executor == 'luna-max' and self.escalation_reason) or
             (self.executor == 'astra' and (not 1 <= len(self.escalation_reason.strip()) <= 256 or any(ord(c)<32 for c in self.escalation_reason)))):
             raise RuntimeError('custodian escalation reason required')
+        if type(self.group_identity) is not str or (self.group_identity and (len(self.group_identity)!=64 or any(c not in '0123456789abcdef' for c in self.group_identity))):
+            raise RuntimeError('invalid group transaction identity')
         if self.target['pid'] != current.pid or self.target['tid'] != current.tid:
             raise RuntimeError('foreign capsule target')
         return hashlib.sha256(json.dumps(asdict(self), sort_keys=True).encode()).hexdigest()

@@ -1,4 +1,4 @@
-"""Bounded candidate-16 observer/capsule owner; no launch, publication or retry.
+"""Bounded candidate-17 observer/capsule owner; no launch, publication or retry.
 The custodian establishes Bitwig/project/editor/CA1 before starting this owner.
 """
 import argparse
@@ -18,18 +18,20 @@ from capture import selected_window
 from x11 import X11,summaries
 from xrecord import Recorder
 from popup import Editor,WindowGraph,bind,SIZE
-from desktop import PopupX11
+from desktop import PopupX11,SurfaceGraphX11,GroupX11
+from transient import Transaction,input_receipt,stable
 from executor import Surface
 
 CLASS='41727475415649534B61743150726F63'
-PROFILE='3199611a7578f751a17fe9e0d8f20aa12a27ec1b296f4de2630f7cb7738ab9dc'
+PROFILE='2fd865a9a91ae7fae7215a0f8e9c0d6fba717941be7ce6ed4a5a828f42ac5b66'
 
 class Product:
     def __init__(self,c,out):
         self.c=c;self.out=out;self.stopped=None;self.helper=self.observer=self.graph=self.gui=self.x=self.record=self.popup_x=self.popup_record=None
+        self.xgraph=None;self.transaction=None;self.group=None;self.action_receipts=[];self.xrecord_status=[]
         self.e=None;self.latest=None;self.previous=None;self.rows=[];self.gestures=[];self.inputs=[];self.clocks=[];self.frames=[];self.graphs=[];self.faults=[]
         self.began=time.monotonic();self.next_fault=0;self.next_clock=0;self.action=0
-        if c.admission['profile_fingerprint']!=PROFILE:raise RuntimeError('UIO2 requires unchanged candidate 16')
+        if c.admission['profile_fingerprint']!=PROFILE:raise RuntimeError('UIO2 requires exact candidate 17')
         request=c.session.get('crash_capture') or {}
         if request.get('session')!=c.session['session'] or request.get('software')!=c.software:
             raise RuntimeError('CA1 not bound to this session/software')
@@ -45,12 +47,12 @@ class Product:
         if not self.latest or self.latest['target']!=xid:raise RuntimeError('current native editor activation unavailable')
         self.e=Editor(c.session['session'],self.latest['native_view'],self.latest['activation'],snapshot['native']['generation'],
                       self.latest['editor_epoch'],process['pid'],process['start'],w['tid'],w['hwnd'],xid)
-        self.e.validate();self.x=X11(xid)
+        self.e.validate();self.x=X11(xid);self.xgraph=SurfaceGraphX11(xid)
         unix_pid=self.x.property(xid,'_NET_WM_PID')
         if len(unix_pid)!=1:raise RuntimeError('XWayland Unix process identity unavailable')
         self.x.pid=unix_pid[0];self.x.check_identity()
         path=out/'observer.status'
-        self.helper=c.helper('uio1-observer.exe',['observe',self.e.hwnd,self.e.start,175,c.runtime.windows(path,c.prefix)],out/'observer.log',180)
+        self.helper=c.helper('uio1-observer.exe',['observe-surfaces',self.e.hwnd,self.e.start,175,c.runtime.windows(path,c.prefix)],out/'observer.log',180)
         end=time.monotonic()+10
         while not Path(str(path)+'.windows').exists() or Path(str(path)+'.windows').stat().st_size!=SIZE:
             self.helper.poll()
@@ -108,7 +110,7 @@ class Product:
             self.faults.append(self.c.fault.snapshot());self.next_fault=time.monotonic()+.1
 
     def fresh(self):
-        self.current();g=self.graph.snapshot();self.current()
+        self.current();g=self.xgraph.enrich(self.graph.snapshot(),self.terminal());self.current()
         if len(self.graphs)>=128:raise RuntimeError('window graph retention bound')
         self.graphs.append(g)
         return g
@@ -120,11 +122,23 @@ class Product:
         # exact owner-chain binder below refuses it; no position/name inference.
         visible=[r for r in g['windows'] if r['hwnd']!=self.e.hwnd and r['root']==r['hwnd'] and r['visible']]
         if not visible:return next(r for r in g['windows'] if r['hwnd']==self.e.hwnd),self.x
-        row=bind(g,self.e,self.current())
-        if self.popup_x is None or self.popup_x.row!=row:
-            if self.popup_record:self.popup_record.close();self.inputs.extend(self.popup_record.records);self.popup_record=None
+        from popup import owned
+        rows={r['hwnd']:r for r in g['windows']}
+        canonical=[r for r in visible if owned(r,rows,self.e)]
+        if canonical:
+            row=bind(g,self.e,self.current());group=None
+        else:
+            if self.group is None:
+                if self.transaction is None:raise RuntimeError('ownerless popup has no action transaction')
+                self.group=self.transaction.bind()
+            self.group.revalidate(g,self.current(),self.rows);group=self.group;row=group.target
+        if self.popup_x is None or stable(self.popup_x.row)!=stable(row):
+            if self.popup_record:
+                self.popup_record.close();self.inputs.extend(self.popup_record.records)
+                self.xrecord_status.append(dict(dropped=self.popup_record.dropped,unparsed=self.popup_record.unparsed));self.popup_record=None
             if self.popup_x:self.popup_x.close();self.popup_x=None
-            self.popup_x=PopupX11(row,self.e,self.fresh,self.current,self.terminal)
+            self.popup_x=(GroupX11(group,self.e,self.fresh,self.current,self.terminal,lambda:self.rows,self.xgraph) if group else
+                          PopupX11(row,self.e,self.fresh,self.current,self.terminal))
             self.popup_record=Recorder(self.popup_x)
         return row,self.popup_x
 
@@ -140,32 +154,61 @@ class Product:
 
     def act(self,capsule,number):
         self.require_capture();self.current();g=self.fresh();row,x=self.target(g)
-        if row!=capsule.target:raise RuntimeError('capsule target changed')
+        if capsule.group_identity != (self.group.identity if self.group else ''):raise RuntimeError('capsule group transaction changed')
+        if stable(row)!=stable(capsule.target):raise RuntimeError('capsule target changed')
         if capsule.action=='open_menu' and row['hwnd']!=self.e.hwnd:raise RuntimeError('unexpected popup before menu action')
         if capsule.action in ('resize_window','resize_choice') and row['hwnd']==self.e.hwnd:raise RuntimeError('owned popup required')
+        if capsule.action=='dismiss_transient_group':
+            if self.group is None:raise RuntimeError('dismissal requires exact group authority')
+            group=self.group;group.revalidate(g,self.current(),self.rows)
+            self.action=number;self.observer.action(number)
+            # Existing XTEST non-text key owner; only the exact active editor or
+            # content window can receive this custodian-authorized Escape.
+            active=self.x.property(self.x.root,'_NET_ACTIVE_WINDOW')
+            keyowner=self.x if active==[self.e.xid] else x
+            keyowner.key(True,'escape')
+            try:self.tick()
+            finally:keyowner.key(False,'escape')
+            end=time.monotonic()+.5
+            while time.monotonic()<end:self.current();time.sleep(.005)
+            final=self.fresh();ids={r['hwnd'] for r in group.members}
+            if any(r['hwnd'] in ids and r['visible'] for r in final['windows']):raise RuntimeError('group dismissal incomplete; operator handling required')
+            self.group=None;self.transaction=None
+            private_json(self.out/'actions'/f'{number}.json',dict(kind='dismiss_transient_group',group=group.authority,after=final))
+            return dict(input_sent=True,all_members_hidden=True,technical_verdict='custodian_pending')
         rx,ry,w,h=x.geometry();px,py=capsule.point
         if not rx<=px<rx+w or not ry<=py<ry+h:raise RuntimeError('capsule point outside exact drawable')
+        prior_group=self.group
         self.action=number;self.observer.action(number);self.record.action=number
         if self.popup_record:self.popup_record.action=number
         self.clocks.append(self.observer.clock());before=self.c.fault.snapshot()
         motion=x.move(((px-rx)/(w-1),(py-ry)/(h-1)));settled=x.settle_pointer()
         # Revalidate after compositor motion acknowledgement and before Down.
         self.current();nowrow,_=self.target(self.fresh())
-        if nowrow!=row:raise RuntimeError('target changed before Down')
+        if stable(nowrow)!=stable(row):raise RuntimeError('target changed before Down')
+        if isinstance(x,GroupX11):x.verify_point(capsule.point)
         down=x.button(True)
         try:
             end=time.monotonic()+.06
             while time.monotonic()<end:self.tick();time.sleep(.005)
+            if prior_group:prior_group.revalidate(self.fresh(),self.current(),self.rows)
         finally:up=x.button(False) # release only our own input, even on terminal failure
-        end=time.monotonic()+.8;next_frame=time.monotonic()+.1;sampled=0
+        end=time.monotonic()+.3
         while time.monotonic()<end:
             self.current()
-            if capsule.action in ('resize_window','resize_choice') and sampled<3 and time.monotonic()>=next_frame:
-                # Three bounded local samples; a popup replacement is observed
-                # independently. No follow-up click is authorized by a frame.
-                self.frame();sampled+=1;next_frame=time.monotonic()+.1
             time.sleep(.005)
-        after=self.c.fault.snapshot();after_graph=self.fresh()
+        after=self.c.fault.snapshot();after_graph=self.fresh();self.tick()
+        all_x=self.inputs+(self.record.records if self.record else [])+(self.popup_record.records if self.popup_record else [])
+        # Recorder instances cover different exact windows; deduplicate the
+        # identical X-server observation if both connections saw the same event.
+        unique={json.dumps(r,sort_keys=True):r for r in all_x};all_x=list(unique.values())
+        receipt_evidence=input_receipt(number,all_x,self.rows,all(r.dropped==0 for r in (self.record,self.popup_record) if r))
+        self.action_receipts.append(receipt_evidence)
+        self.transaction=Transaction(self.e,number,g,receipt_evidence,after_graph,self.rows,prior_group)
+        self.group=None
+        # Binding is a custodian operation after this one input action. A new
+        # nested group never gains an automatic follow-up capsule.
+
         receipt=dict(action=number,kind=capsule.action,motion=motion,settlement=settled,down=down,up=up,before=before,after=after,windows=after_graph)
         private_json(self.out/'actions'/f'{number}.json',receipt)
         return dict(input_sent=True,technical_verdict='custodian_pending')
@@ -187,13 +230,13 @@ class Product:
             except Exception as e:errors.append(type(e).__name__)
         for record in (self.popup_record,self.record):
             if record:
-                record.poll();self.inputs.extend(record.records);record.close()
-        for obj in (self.popup_x,self.x,self.graph,self.observer,self.gui):
+                record.poll();self.inputs.extend(record.records);self.xrecord_status.append(dict(dropped=record.dropped,unparsed=record.unparsed));record.close()
+        for obj in (self.popup_x,self.x,self.xgraph,self.graph,self.observer,self.gui):
             if obj:obj.close()
         private_json(self.out/'result-private.json',dict(schema=1,editor=asdict(self.e) if self.e else None,stopped=self.stopped,
           win32=self.rows,xrecord=self.inputs,gestures=self.gestures,clocks=self.clocks,frames=self.frames,
-          graphs=self.graphs,faults=self.faults,final=final,observer_status=observer_status,helper_cleanup=cleanup,finalization_errors=errors,
-          sdk_resize_request_result='not exported by immutable candidate 16; Win32 sizing and existing view stages retained separately'))
+          graphs=self.graphs,action_receipts=self.action_receipts,xrecord_status=self.xrecord_status,group_authority=self.group.authority if self.group else None,faults=self.faults,final=final,observer_status=observer_status,helper_cleanup=cleanup,finalization_errors=errors,
+          sdk_resize_request_result='not exported by immutable candidate 16/17; Win32 sizing and existing view stages retained separately'))
         self.c.fault.close()
 
 if __name__=='__main__':

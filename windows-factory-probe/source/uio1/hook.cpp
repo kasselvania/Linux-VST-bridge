@@ -26,9 +26,9 @@ bool connect() {
   header=p;
   // Same process and exact UI thread. Callback refuses any fallback delivery on
   // another thread; the existing ring remains single-writer.
-  lifecycle_hook=SetWinEventHook(EVENT_OBJECT_CREATE,EVENT_OBJECT_LOCATIONCHANGE,self_module,lifecycle,
+  if(p->surface_mode)lifecycle_hook=SetWinEventHook(EVENT_OBJECT_CREATE,EVENT_OBJECT_LOCATIONCHANGE,self_module,lifecycle,
       p->pid,p->tid,WINEVENT_INCONTEXT);
-  if(!lifecycle_hook)uio1::atom(p->scope_errors).fetch_add(1);
+  if(p->surface_mode&&!lifecycle_hook)uio1::atom(p->scope_errors).fetch_add(1);
   uio1::atom(p->ready).store(1,std::memory_order_release);return true;
 }
 void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t result=0,uint32_t message_time=0) noexcept {
@@ -53,7 +53,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
   bool same=hwnd && GetWindowThreadProcessId(hwnd,&pid)==h.tid && pid==h.pid;
   auto root=reinterpret_cast<HWND>(h.root);
   // Observe exact-thread peers too; observation never authorizes their input.
-  bool scope=same; (void)root;
+  bool scope=same&&(h.surface_mode||hwnd==root||IsChild(root,hwnd)||GetAncestor(hwnd,GA_ROOTOWNER)==root);
   const auto action=uio1::atom(h.action).load(std::memory_order_acquire);
   if(heartbeat || (scope&&(uio1::selected(msg)||source==9||source==10)&&action)){
     uio1::Record r{};r.qpc=began;r.action=action;r.hwnd=uint64_t(hwnd);r.message=msg;r.source=heartbeat?4:source;
@@ -133,7 +133,7 @@ extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_mouse(int c,WPARAM w,LPAR
   return result;
 }
 extern "C" __declspec(dllexport) LRESULT CALLBACK uio2_cbt(int code,WPARAM w,LPARAM l){
-  if(code==HCBT_CREATEWND||code==HCBT_DESTROYWND||code==HCBT_ACTIVATE||code==HCBT_MOVESIZE||code==HCBT_SETFOCUS)
+  if(header&&header->surface_mode&&(code==HCBT_CREATEWND||code==HCBT_DESTROYWND||code==HCBT_ACTIVATE||code==HCBT_MOVESIZE||code==HCBT_SETFOCUS))
     observe(HWND(w),UINT(code),0,l,9);
   // Read-only: never block creation, modify CBT_CREATEWND, or override next result.
   return CallNextHookEx(nullptr,code,w,l);

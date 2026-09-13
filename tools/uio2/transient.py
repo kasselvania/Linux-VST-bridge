@@ -79,7 +79,7 @@ class Transaction:
                  (r['hwnd']==editor.hwnd or r['root']==editor.hwnd or r['root_owner']==editor.hwnd)}
         # A nested transaction may originate in an already admitted prior group.
         if prior_group is not None:
-            prior_group.revalidate(before,editor,lifecycle)
+            prior_group.revalidate(before,editor,[x for x in lifecycle if x['qpc']<=before['qpc']])
             allowed.update(r['hwnd'] for r in prior_group.members)
         if any(r['hwnd'] not in allowed for r in receipt['win32']):raise RuntimeError('foreign action input')
         self.receipt=receipt

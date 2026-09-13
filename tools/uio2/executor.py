@@ -102,11 +102,11 @@ document.getElementById('run').onclick=async()=>{document.getElementById('run').
         self.owner.current()
         path=self.directory/'capsules'/f'{self.next}.json'
         if self.permit is None and path.exists():
-            if self.next>4:raise RuntimeError('action capacity')
+            if self.next>6:raise RuntimeError('action capacity')
             self.permit=Permit(read_capsule(path))
         if not self.permit:return dict(action=None,waiting_for_custodian=True)
         c=self.permit.capsule;c.validate(self.owner.current(),time.monotonic_ns())
-        return dict(action=c.action,test_id=c.test_id,maximum_actions=1,executor=c.executor,escalation_reason=c.escalation_reason,
+        return dict(action=c.action,test_id=c.test_id,maximum_actions=1,executor=c.executor,escalation_reason=c.escalation_reason,group_identity=c.group_identity,
                     forbidden=c.forbidden,stop=c.stop,point=c.point,window=c.target['rect'])
 
     def execute(self,command):

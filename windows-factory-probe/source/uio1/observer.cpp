@@ -77,7 +77,7 @@ struct Owner {
     if(dll)FreeLibrary(dll);if(thread)CloseHandle(thread);if(process)CloseHandle(process);if(map)CloseHandle(map);if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);
   }
 };
-int observe(HWND root,uint64_t expected,unsigned seconds,const wchar_t* output){
+int observe(HWND root,uint64_t expected,unsigned seconds,const wchar_t* output,bool surfaces=false){
   check(seconds>=1&&seconds<=180,"duration bound");Owner o;DWORD pid=0;const auto tid=GetWindowThreadProcessId(root,&pid);check(pid&&tid&&IsWindow(root),"editor window");
   o.process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,pid);check(o.process&&start(o.process)==expected,"process replaced");
   o.thread=OpenThread(THREAD_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,tid);check(o.thread!=nullptr,"thread identity");
@@ -86,11 +86,11 @@ int observe(HWND root,uint64_t expected,unsigned seconds,const wchar_t* output){
   wchar_t name[96]{};swprintf_s(name,L"Local\\LVBUIO1-%lu-%lu",pid,tid);
   o.map=CreateFileMappingW(o.file,nullptr,PAGE_READWRITE,0,uio1::mapping_bytes,name);check(o.map&&GetLastError()!=ERROR_ALREADY_EXISTS,"observer already exists");
   o.h=static_cast<uio1::Header*>(MapViewOfFile(o.map,FILE_MAP_READ|FILE_MAP_WRITE,0,0,uio1::mapping_bytes));check(o.h!=nullptr,"mapping view");
-  auto&h=*o.h;memcpy(h.magic,"UIO1",4);h.version=1;h.bytes=uio1::mapping_bytes;h.record_size=uio1::record_bytes;h.pid=pid;h.tid=tid;h.start=expected;h.root=uint64_t(root);h.nonce=now()^uint64_t(GetCurrentProcessId());LARGE_INTEGER freq{};QueryPerformanceFrequency(&freq);h.frequency=uint64_t(freq.QuadPart);
+  auto&h=*o.h;memcpy(h.magic,"UIO1",4);h.version=1;h.bytes=uio1::mapping_bytes;h.record_size=uio1::record_bytes;h.pid=pid;h.tid=tid;h.start=expected;h.root=uint64_t(root);h.nonce=now()^uint64_t(GetCurrentProcessId());LARGE_INTEGER freq{};QueryPerformanceFrequency(&freq);h.frequency=uint64_t(freq.QuadPart);h.surface_mode=surfaces?1:0;
   wchar_t path[32768]{};check(GetModuleFileNameW(nullptr,path,32768)>0,"helper path");std::wstring dllpath(path);dllpath.resize(dllpath.find_last_of(L"\\/")+1);dllpath+=L"uio1-hook.dll";
   o.dll=LoadLibraryExW(dllpath.c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);check(o.dll!=nullptr,"exact adjacent hook library");
   const int kinds[]={WH_GETMESSAGE,WH_CALLWNDPROC,WH_CALLWNDPROCRET,WH_MOUSE,WH_CBT};const char* symbols[]={"uio1_get","uio1_call","uio1_return","uio1_mouse","uio2_cbt"};
-  for(unsigned i=0;i<5;++i){auto proc=reinterpret_cast<HOOKPROC>(GetProcAddress(o.dll,symbols[i]));check(proc!=nullptr,"hook export");o.hooks[i]=SetWindowsHookExW(kinds[i],proc,o.dll,tid);check(o.hooks[i]!=nullptr,"thread hook installation");}
+  for(unsigned i=0;i<(surfaces?5u:4u);++i){auto proc=reinterpret_cast<HOOKPROC>(GetProcAddress(o.dll,symbols[i]));check(proc!=nullptr,"hook export");o.hooks[i]=SetWindowsHookExW(kinds[i],proc,o.dll,tid);check(o.hooks[i]!=nullptr,"thread hook installation");}
   GraphOwner graph;graph.open(output,pid,tid,expected,root);
   const auto end=GetTickCount64()+seconds*1000ULL;uint64_t next=0;
   while(GetTickCount64()<end&&!uio1::atom(h.stop).load()&&WaitForSingleObject(o.process,0)==WAIT_TIMEOUT&&WaitForSingleObject(o.thread,0)==WAIT_TIMEOUT){
@@ -113,6 +113,7 @@ int observe(HWND root,uint64_t expected,unsigned seconds,const wchar_t* output){
 }
 int wmain(int argc,wchar_t**argv){try{
   if(argc==3&&wcscmp(argv[1],L"census")==0){census(DWORD(wcstoul(argv[2],nullptr,0)));return 0;}
+  if(argc==6&&wcscmp(argv[1],L"observe-surfaces")==0)return observe(reinterpret_cast<HWND>(_wcstoui64(argv[2],nullptr,0)),_wcstoui64(argv[3],nullptr,0),unsigned(wcstoul(argv[4],nullptr,10)),argv[5],true);
   if(argc==6&&wcscmp(argv[1],L"observe")==0)return observe(reinterpret_cast<HWND>(_wcstoui64(argv[2],nullptr,0)),_wcstoui64(argv[3],nullptr,0),unsigned(wcstoul(argv[4],nullptr,10)),argv[5]);
   return 64;
 }catch(const std::exception&e){fprintf(stderr,"uio1: %s (%lu)\n",e.what(),GetLastError());return 1;}}

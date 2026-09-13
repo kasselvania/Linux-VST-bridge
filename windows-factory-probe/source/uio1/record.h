@@ -27,6 +27,7 @@ struct Header {
   uint64_t clock_request,clock_response,clock_qpc;
   uint64_t ping_qpc;
   uint64_t detached;
+  uint64_t surface_mode; // opt-in development observer; ordinary UIO1 scope unchanged
 };
 static_assert(sizeof(Header)<header_bytes);
 inline std::atomic_ref<uint64_t> atom(uint64_t& x) {return std::atomic_ref<uint64_t>(x);}

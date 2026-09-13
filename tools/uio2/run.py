@@ -36,7 +36,7 @@ def main():
     files = json.loads(Path(__file__).with_name('package.json').read_text())['files']
     if json.loads((a.package / 'manifest.json').read_text()) != files:
         raise RuntimeError('package differs from source-owned build receipt')
-    if set(files) != {'uio2-popup-fixture.exe', 'uio1-observer.exe', 'uio1-hook.dll'}:
+    if set(files) != {'uio2-popup-fixture.exe', 'uio1-observer.exe', 'uio1-hook.dll', 'uio2-uia-disconnect.exe'}:
         raise RuntimeError('generated helper file set')
     for name, sha in files.items():
         sealed_bytes(a.package / name, sha)
