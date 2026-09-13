@@ -67,7 +67,7 @@ class Product:
 
     def require_capture(self):
         status=json.loads(self.capture_status.read_text())
-        if status.get('state')!='collecting' or status.get('capture_enabled') is not True or status.get('session')!=self.c.session['session']:
+        if status.get('state')!='collecting' or status.get('capture_enabled') is not True or status.get('error') is not None or status.get('session')!=self.c.session['session']:
             raise RuntimeError('CA1 capture not actively collecting exact session')
 
     def stop(self,reason):self.stopped=self.stopped or reason
@@ -154,8 +154,14 @@ class Product:
             end=time.monotonic()+.06
             while time.monotonic()<end:self.tick();time.sleep(.005)
         finally:up=x.button(False) # release only our own input, even on terminal failure
-        end=time.monotonic()+.8
-        while time.monotonic()<end:self.current();time.sleep(.005)
+        end=time.monotonic()+.8;next_frame=time.monotonic()+.1;sampled=0
+        while time.monotonic()<end:
+            self.current()
+            if capsule.action in ('resize_window','resize_choice') and sampled<3 and time.monotonic()>=next_frame:
+                # Three bounded local samples; a popup replacement is observed
+                # independently. No follow-up click is authorized by a frame.
+                self.frame();sampled+=1;next_frame=time.monotonic()+.1
+            time.sleep(.005)
         after=self.c.fault.snapshot();after_graph=self.fresh()
         receipt=dict(action=number,kind=capsule.action,motion=motion,settlement=settled,down=down,up=up,before=before,after=after,windows=after_graph)
         private_json(self.out/'actions'/f'{number}.json',receipt)

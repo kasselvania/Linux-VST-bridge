@@ -46,6 +46,14 @@ with PopupX11(r,e,lambda:g,lambda:e,lambda:False) as x:
     try:x.capture()
     except RuntimeError as err:assert 'terminal' in str(err)
     else:raise AssertionError('terminal interaction allowed')
+    x.terminal=lambda:False
+    # Redirect only this source-owned isolated fixture, never a vendor window.
+    x.c.XCompositeRedirectWindow.argtypes=[P,U,I]
+    x.c.XCompositeUnredirectWindow.argtypes=[P,U,I]
+    x.c.XCompositeRedirectWindow(x.display,popup,0);x.sync();x.capture_backend=None
+    redirected,raw=x.capture();assert redirected['capture_backend']=='xcomposite_pixmap'
+    assert redirected['effective_masks']==(0xff0000,0xff00,0xff)
+    x.c.XCompositeUnredirectWindow(x.display,popup,0);x.sync()
     rec.close()
 lib.XDestroyWindow.argtypes=[P,U];lib.XCloseDisplay.argtypes=[P]
 for w in (popup,foreign,editor):lib.XDestroyWindow(bootstrap,w)

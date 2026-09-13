@@ -6,16 +6,7 @@ whole-desktop image is read. Native Wayland-only surfaces are not supported.
 import ctypes as C
 import time
 from popup import bind
-from x11 import X11, U, I, P
-
-class Attributes(C.Structure):
-    _fields_ = [('x', I), ('y', I), ('width', I), ('height', I), ('border', I),
-                ('depth', I), ('visual', P), ('root', U), ('cls', I),
-                ('bit_gravity', I), ('win_gravity', I), ('backing_store', I),
-                ('backing_planes', U), ('backing_pixel', U), ('save_under', I),
-                ('colormap', U), ('installed', I), ('map_state', I),
-                ('all_events', C.c_long), ('your_events', C.c_long), ('do_not_propagate', C.c_long),
-                ('override_redirect', I), ('screen', P)]
+from x11 import X11, U, I, P, Attributes
 
 def overlaps(a, b):
     return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]

@@ -43,6 +43,17 @@ class Tests(unittest.TestCase):
         stack[-1]['visible']=False;unobscured(stack,91,[100,100,300,200])
         stack[1]['visible']=False
         with self.assertRaises(RuntimeError):unobscured(stack,91,[100,100,300,200])
+    def test_pixmap_masks_require_exact_source_visual(self):
+        import ctypes as C
+        from x11 import Visual,Attributes,validated_masks
+        v=Visual();v.cls=4;v.red_mask=0xff0000;v.green_mask=0xff00;v.blue_mask=0xff
+        a=Attributes();a.depth=24;a.visual=C.cast(C.pointer(v),C.c_void_p)
+        self.assertEqual(validated_masks((0,0,0),True,24,a),(0xff0000,0xff00,0xff))
+        for pixmap,depth,attrs in ((False,24,a),(True,32,a),(True,24,None)):
+            with self.assertRaises(RuntimeError):validated_masks((0,0,0),pixmap,depth,attrs)
+        v.cls=3
+        with self.assertRaises(RuntimeError):validated_masks((0,0,0),True,24,a)
+
     def capsule(self):return Capsule('generated-popup',E,bind(graph(),E,E),'resize_window',(200,150),100,1_000_000_000)
     def test_capsule_one_closed_action_not_retry_or_verdict(self):
         c=self.capsule();p=Permit(c);self.assertEqual(len(p.consume({'action':'resize_window'},E,101)),64)
