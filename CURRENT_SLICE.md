@@ -159,3 +159,11 @@ unqualified. A user-requested armed handoff is reported explicitly rather than
 misrepresented as idle cleanup. Finish this PR with code, focused proof, a
 sample sanitized report, exact installed/armed state, unresolved attribution and
 next evidence-backed repair direction. No ordinary Pigments acceptance is implied.
+
+## Implementation progress
+
+The CA1 implementation and bounded production collector are described in
+[`docs/CA1.md`](docs/CA1.md). The source-owned handled and fatal pinned-runner
+proofs pass, including an actual exception after first-N log saturation.
+The candidate-16 product session and final installed state will be retained
+separately; no cause is inferred for the historical waveform report.

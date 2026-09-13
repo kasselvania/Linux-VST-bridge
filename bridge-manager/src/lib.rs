@@ -2,6 +2,7 @@
 pub mod acceptance;
 pub mod capacity;
 pub mod catalogue;
+pub mod crash_capture;
 #[cfg(test)]
 mod managed_tests;
 pub mod observation;
