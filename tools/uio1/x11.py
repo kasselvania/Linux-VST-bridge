@@ -119,12 +119,17 @@ class X11:
         if not self.t.XTestFakeMotionEvent(self.display,-1,x,y,0):raise RuntimeError('XTEST motion refused')
         self.sync();self.expected_pointer=[x,y]
         return dict(kind='motion',interval_ns=[before,time.monotonic_ns()],target=[x,y],pointer=self.pointer())
+    def active_for_input(self, pointer):
+        return pointer['active']==[self.window]
+    def capture_ready(self):
+        if self.property(self.root,'_NET_ACTIVE_WINDOW')!=[self.window]:
+            raise RuntimeError('direct drawable is not foreground; occlusion not qualified')
     def button(self, down, button=1):
         if button not in (1,3):raise ValueError('only bounded primary/secondary buttons')
         if down:
             rect=self.check_identity();p=self.pointer()
             if self.expected_pointer is None or p['screen']!=self.expected_pointer:raise RuntimeError('pointer move not acknowledged at target')
-            if not 0<=p['client'][0]<rect[2] or not 0<=p['client'][1]<rect[3] or p['active']!=[self.window]:raise RuntimeError('target not active under pointer')
+            if not 0<=p['client'][0]<rect[2] or not 0<=p['client'][1]<rect[3] or not self.active_for_input(p):raise RuntimeError('target not active under pointer')
             if p['mask']&0x1fff:raise RuntimeError('operator key/button held; refuse shared input')
             self.buttons.add(button) # retain ownership before sending, for failure cleanup
         elif button not in self.buttons:raise RuntimeError('not our held button')
@@ -195,8 +200,7 @@ class X11:
             else:
                 self.sync();self.capture_backend='xcomposite_pixmap'
                 if not self.pixmap:raise RuntimeError('exact pixmap unavailable')
-        if self.capture_backend=='direct_drawable' and self.property(self.root,'_NET_ACTIVE_WINDOW')!=[self.window]:
-            raise RuntimeError('direct drawable is not foreground; occlusion not qualified')
+        if self.capture_backend=='direct_drawable':self.capture_ready()
         before=time.monotonic_ns();p=self.x.XGetImage(self.display,self.pixmap or self.window,0,0,rect[2],rect[3],U(-1).value,2)
         self.sync()
         if not p:raise RuntimeError('exact pixmap capture failed')

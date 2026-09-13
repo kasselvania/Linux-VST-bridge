@@ -53,6 +53,14 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
       else{r.x=p.x;r.y=p.y;ClientToScreen(hwnd,&p);r.screen_x=p.x;r.screen_y=p.y;}
       r.buttons=uint32_t(wp)&0xffff;
     }
+    // Fixed sizing facts at ordinary User32 call/return boundaries. Do not
+    // retain WINDOWPOS pointers or pretend these are an SDK return value.
+    if((msg==WM_WINDOWPOSCHANGING||msg==WM_WINDOWPOSCHANGED)&&source>=2&&source<=3&&lp){
+      const auto* p=reinterpret_cast<const WINDOWPOS*>(lp);
+      r.x=p->cx;r.y=p->cy;r.screen_x=p->x;r.screen_y=p->y;r.buttons=p->flags;
+      if(source==3)r.result=result;
+    }
+    if(msg==WM_SIZE){r.x=LOWORD(lp);r.y=HIWORD(lp);r.buttons=uint32_t(wp);}
     if(msg==WM_KEYDOWN||msg==WM_KEYUP||msg==WM_SYSKEYDOWN||msg==WM_SYSKEYUP)r.key_class=uio1::key_class(wp);
     if(msg==WM_NCHITTEST){
       r.screen_x=short(LOWORD(lp));r.screen_y=short(HIWORD(lp));

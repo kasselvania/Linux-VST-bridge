@@ -1,4 +1,5 @@
 #include "record.h"
+#include "window_graph.h"
 #include <windows.h>
 #include <tlhelp32.h>
 #include <cstdio>
@@ -39,6 +40,25 @@ void census(DWORD pid){HANDLE p=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FA
   }while(++n<512&&Module32NextW(s,&m));CloseHandle(s);
   printf("{\"type\":\"census_end\",\"window_capacity\":128,\"window_bound_reached\":%s,\"module_capacity\":512,\"module_bound_reached\":%s}\n",c.count==128?"true":"false",n==512?"true":"false");
 }
+struct GraphOwner {
+  HANDLE file=INVALID_HANDLE_VALUE,map=nullptr;uio2::Graph* graph=nullptr;
+  ~GraphOwner(){if(graph)UnmapViewOfFile(graph);if(map)CloseHandle(map);if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);}
+  void open(const wchar_t* output,DWORD pid,DWORD tid,uint64_t born,HWND root){
+    const auto path=std::wstring(output)+L".windows";
+    file=CreateFileW(path.c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+    check(file!=INVALID_HANDLE_VALUE,"new window graph");
+    LARGE_INTEGER n{};n.QuadPart=sizeof(uio2::Graph);check(SetFilePointerEx(file,n,nullptr,FILE_BEGIN)&&SetEndOfFile(file),"graph extent");
+    map=CreateFileMappingW(file,nullptr,PAGE_READWRITE,0,sizeof(uio2::Graph),nullptr);check(map!=nullptr,"graph mapping");
+    graph=static_cast<uio2::Graph*>(MapViewOfFile(map,FILE_MAP_READ|FILE_MAP_WRITE,0,0,sizeof(uio2::Graph)));check(graph!=nullptr,"graph view");
+    memcpy(graph->magic,"UIO2",4);graph->version=1;graph->bytes=sizeof(uio2::Graph);graph->row_bytes=sizeof(uio2::Window);
+    graph->pid=pid;graph->tid=tid;graph->start=born;graph->root=uint64_t(root);
+  }
+  void tick(){const auto request=uio1::atom(graph->request).load(std::memory_order_acquire);
+    if(request!=uio1::atom(graph->response).load()){
+      uio2::publish(*graph);uio1::atom(graph->response).store(request,std::memory_order_release);
+    }
+  }
+};
 struct Owner {
   HANDLE file=INVALID_HANDLE_VALUE,map=nullptr,process=nullptr,thread=nullptr;
   HMODULE dll=nullptr;HHOOK hooks[4]{};uio1::Header* h=nullptr;
@@ -71,6 +91,7 @@ int observe(HWND root,uint64_t expected,unsigned seconds,const wchar_t* output){
   o.dll=LoadLibraryExW(dllpath.c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);check(o.dll!=nullptr,"exact adjacent hook library");
   const int kinds[]={WH_GETMESSAGE,WH_CALLWNDPROC,WH_CALLWNDPROCRET,WH_MOUSE};const char* symbols[]={"uio1_get","uio1_call","uio1_return","uio1_mouse"};
   for(unsigned i=0;i<4;++i){auto proc=reinterpret_cast<HOOKPROC>(GetProcAddress(o.dll,symbols[i]));check(proc!=nullptr,"hook export");o.hooks[i]=SetWindowsHookExW(kinds[i],proc,o.dll,tid);check(o.hooks[i]!=nullptr,"thread hook installation");}
+  GraphOwner graph;graph.open(output,pid,tid,expected,root);
   const auto end=GetTickCount64()+seconds*1000ULL;uint64_t next=0;
   while(GetTickCount64()<end&&!uio1::atom(h.stop).load()&&WaitForSingleObject(o.process,0)==WAIT_TIMEOUT&&WaitForSingleObject(o.thread,0)==WAIT_TIMEOUT){
     if(!IsWindow(root)||GetWindowThreadProcessId(root,nullptr)!=tid){uio1::atom(h.scope_errors).fetch_add(1);break;}
@@ -84,6 +105,7 @@ int observe(HWND root,uint64_t expected,unsigned seconds,const wchar_t* output){
     if(request!=uio1::atom(h.clock_response).load()){
       uio1::atom(h.clock_qpc).store(now(),std::memory_order_relaxed);uio1::atom(h.clock_response).store(request,std::memory_order_release);
     }
+    graph.tick();
     Sleep(10); // helper only; never the editor or audio callback
   }
   return 0;

@@ -82,7 +82,7 @@ class GuiWitness(Mapping):
                 activation,user_time,requestor,target,epoch,focus,focus_flags,native,lifecycle,reserved=struct.unpack('<Q6IQ2I',b)
                 if reserved:continue
                 rows.append(dict(lane=lane,queue_sequence=i,observed_ns=time.monotonic_ns(),kind=kind,
-                    parameter=parameter,value=value,revision=revision,native_view=native,editor_epoch=epoch,
+                    parameter=parameter,value=value,revision=revision,activation=activation,native_view=native,editor_epoch=epoch,
                     target=target,lifecycle=lifecycle,focus=focus,focus_flags=focus_flags))
             self.cursors[lane]=before
         return rows
