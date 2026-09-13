@@ -1,184 +1,333 @@
-# CA1 — per-instance crash attribution
+# UIO2 — owned popup control and Pigments resize qualification
 
 ## Selected outcome
 
-Give an ordinary plug-in-use failure an actionable, private incident report:
-which process failed, the available exception/signal/exit, faulting module and
-module-relative offset, available stack, relevant recent context, and the
-existing IF1/IF2 failure and cleanup facts. Do not stop at `endpoint disconnected`.
-The user also reported a crash when changing a wavetable waveform. That is an
-operator observation, not a captured cause or proof of a rendering/resource bug.
+Make editor-owned popup and menu windows first-class, exact UI targets under the
+current XWayland fixture, then use that capability for one bounded Pigments
+interaction:
 
-IF2 was accepted by review 5188874997 at
-`1cb75f16dd4249a6f51ef9f5438071b4fd5ddb66` and merged through PR #99 as
-`383185ccb3fc8ff63624f64a2f97f89c881e54e4`. Its controlled Windows-child failure
-proved native-host survival, terminal presentation, dead-forwarding refusal,
-and positive cleanup. Preserve that result; do not repeat its campaign.
+```text
+open the top-left menu
+→ identify the exact owned popup
+→ select Resize Window once
+→ retain the resize request, host response, actual geometry and local redraw
+```
 
-Continue on `codex/ca1-per-instance-crash-attribution` from that merge. The
-preparation changes only this file. Implement in this same branch and its draft
-PR; no separate planning review or closure PR is needed. Read AGENTS.md and the
-relevant source, not the entire historical corpus. Normal implementation,
-focused verification and in-scope debugging are authorized; use engineering
-judgment rather than a universal retry count.
+This is a product-facing UI boundary, not another crash-reproduction campaign or
+general screen-driving system.
+
+## Accepted basis and installed state
+
+CA1 was accepted at `792650e7614d75c99fb70a180f6ec0f1455536d2` and merged as
+`34fd77e0b1c1a1c41ba348638810a996348dd035`. The corrected crash reporter is
+installed and its late-fatal source fixture passed. Preserve:
+
+- UIO1 exact editor/input observation;
+- UIR1 generic Windows message-pump fairness;
+- IF1 durable terminal-failure custody;
+- IF2 native-host survival, contained silence and terminal failure view;
+- CA1 bounded exception/module/stack attribution;
+- ordinary Pigments revision 11 active;
+- candidate 16 inactive and immutable;
+- LoFi/FRAGMENTS revision 10 unchanged;
+- service/keeper health, projects and authorization;
+- 512 selected/recommended and 256 unqualified.
+
+The historical Pigments menu and waveform exits remain unattributed. Resize was
+never actually selected: the previous harness stopped when the menu appeared as
+a separate popup outside the main editor drawable. Do not call that a resize
+failure.
+
+Continue on `codex/uio2-owned-popup-resize` and draft PR #101 from the merged CA1
+basis. Read `AGENTS.md`, this file and only the relevant UIO1/UIR1/editor source.
+The goal is selected; continue directly with implementation and focused tests.
 
 ## Reuse the existing owners
 
-- `bridge-manager/runtime/session.py`: `run`, `FaultStatus`, `TerminalStatus`,
-  `vendor_diagnostic_environment`, `PrivateCapture`, process supervision and
-  receipt finalization. Extend this path; do not launch a second process owner.
-- `bridge-manager/runtime/ownership.py`: existing identity/containment helpers.
-  Borrow observation logic without changing cohort ownership or killing a keeper.
-- `bridge-manager/src/main.rs` and existing manager observation/CLI owners:
-  select, arm and report one admitted instance through canonical manager state.
-- `tools/ap18-tests/crash_capture.cpp` and the AP18 validated attribution work:
-  the existing fixture deliberately faults through known functions but catches
-  the exception and exits zero. It proves unwinding, NOT terminal-crash handling.
-- `docs/AP18.md`, sections "Validated attribution follow-up" and "Exact
-  attribution and scoped mitigation candidate", and
-  `evidence/ap18/post-login/uia-attribution.json`: actual ASC precedent.
-- IF1/IF2 terminal records, native reports, and optional existing UIO1 records:
-  correlate them; do not duplicate their ownership or add callback logging.
+- UIO1 Windows child census, exact UI-thread hooks, heartbeat, focus/capture facts
+  and local visual observation.
+- UIO1 XTEST/X RECORD input path, pointer settlement and held-input refusal.
+- UIR1's accepted production pump and fairness fixtures; do not reopen them.
+- `windows-factory-probe/source/vendor_view.h` and the existing VST3
+  `IPlugFrame::resizeView` / view-sizing path.
+- Current editor token, activation, generation and epoch ownership.
+- CA1 arming/reporting and IF1/IF2 terminal status.
+- Existing protected Pigments project and reversible candidate-16 route.
 
-The current plug-in supervisor keeps only the first 65,536 bytes of vendor
-stdout and stderr. ASC's PrivateCapture is also first-N/time-limited. Simply
-turning on Wine logs through either unchanged sink can lose a late crash.
-Separate the validated host protocol from diagnostic streams: observing extra
-logs must not consume, corrupt, reorder or relax protocol admission.
+Do not create a second editor owner, input injector, process supervisor or crash
+reporter.
+
+## Test custody and GUI executor split
+
+The implementation/coding agent is the **test custodian**. It owns:
+
+- exact source, artifacts, candidate and protected project;
+- setup, permissions and installed-state checks;
+- popup/editor/process identity;
+- the permitted interaction sequence and stop conditions;
+- UIO/CA1/process evidence;
+- cleanup, retry authority and the engineering verdict.
+
+Where model-routed GUI control is available, use **Luna** as the default bounded
+GUI executor. Use Luna at max reasoning for this owned-popup interaction. Use
+Astra only if Luna stops on a genuinely novel or consequential visual ambiguity;
+do not replay a useful session merely to change models.
+
+The executor receives one closed action capsule generated by the custodian. At
+minimum it contains:
+
+```text
+test ID
+exact editor identity and epoch
+expected popup owner relationship
+permitted actions
+forbidden actions
+machine stop conditions
+maximum action count
+time/observation bounds
+```
+
+The executor may report actions attempted, visible observations and the blocked
+step. It may not:
+
+- choose a new test;
+- declare technical pass/fail;
+- retry, relaunch or change candidate;
+- guess coordinates after identity/visibility failure;
+- dismiss an unexpected dialog;
+- save or modify a user project beyond the explicit capsule;
+- use a terminal or alter source/settings;
+- continue after CA1/IF1 terminal failure.
+
+Machine evidence from UIO, CA1 and bridge/process records is authoritative over
+the executor's narration. Only the custodian may authorize another action or
+launch.
 
 ## Implementation contract
 
-**Opt-in, exact-instance capture.** Provide a usable way to arm the next admitted
-instance, see whether capture is active, obtain its incident summary, and disarm.
-The CLI spelling and private types are the engineer's choice. Resolve installed
-or explicitly selected qualification identity, not an arbitrary executable or
-PID supplied as authority. Arm before launch so loaded bases and early module
-facts exist. Do not silently restart an already-running instance to enable it.
-Keep diagnostics off for unrelated instances, ASC, keeper and siblings. Disable
-capture on session completion/cancellation; an unused arm must be cancellable.
+### Exact owned-popup identity
 
-**Surviving bounded evidence.** Reuse the proven process/SEH/unwind/loader capture
-configuration through separate bounded private pipes; leave Proton's unbounded
-log redirection off. Retain module/load/unload identity separately from a recent
-context ring and reserve capacity for terminal exception/exit material. Preserve
-actual module bases and the matching binary identity, not preferred PE bases.
-Choose and document finite memory, disk, record, line-length, retention and
-final-drain limits. Continue draining after quota exhaustion; count dropped
-bytes/records and report incomplete attribution rather than blocking the child
-or allowing logging to exhaust storage. Do not stop all retention merely because
-a generic first fault arrived. Do not add a per-audio-block disk journal.
+Extend the UIO window graph so a transient popup can be bound to the current
+editor by closed facts such as:
 
-**One incident, separate facts.** Keep the original IF1 first-failure record
-immutable. Attach later attribution to the same session/incident. Distinguish
-Windows-host exit, outer Proton exit, native plug-in-host outcome, bridge-owned
-termination/timeout and ordinary retirement. Identify processes by PID plus
-start identity and actual mapped images. Preserve available exception code,
-thread, access kind, fault module/offset, stack, module identity and relevant
-recent bridge/loader messages. Resolve symbols against exact artifacts when
-available; proprietary frames may truthfully remain module plus offset.
-Do not obtain nonexistent child wait status by relabeling a launcher return.
-An unavailable native exit/stack is explicit; do not change system-wide core
-policy or attach a debugger to unrelated processes to fill it.
+```text
+Windows PID and start identity
+Windows UI thread
+HWND
+owner and root-owner HWND chain
+current native editor token
+activation, editor generation and epoch
+visibility/enabled state
+screen and client geometry
+XWayland XID and geometry where available
+```
 
-A first-chance/handled exception is not automatically fatal. A signal such as
-SIGKILL has no catchable Windows exception stack. A faulting DLL, the last
-missing-file message, or temporal proximity to a UI action is not automatically
-the cause. Separate observation, likely failure path and established cause.
-Keep original clock domains; do not subtract unsynchronized clocks.
+Window title, class name, product name, creation order, screen location or “most
+recent window” may be retained as observations but cannot independently select a
+target.
 
-**Practical report.** Produce a local readable summary and machine-readable
-record with incident ID, exact build/session, outcome, available attribution,
-limits/dropped-data counts, first-failure and cleanup facts, and optional user
-note such as "changed wavetable waveform". A note is not measured telemetry.
-Include a bounded relevant-error excerpt, not arbitrary filesystem/network
-tracing or an entire log as the only result. A sanitizer must explicitly select
-what is safe to share. Raw diagnostics are sensitive: private directories/files,
-no automatic upload, no public paths/PIDs, credentials, authorization payloads,
-proprietary binary/preset/state bytes, screenshots, arguments or locals.
+A popup belonging to another process/thread/editor epoch, an ambiguous set of
+plausible popups, or a popup that disappears during selection must fail closed.
 
-**Do not disturb the product.** Preserve IF2's native-host survival, successful
-contained-silence callbacks, truthful state-unavailable result, terminal view,
-local Note Off cleanup and positive ownership acknowledgement. Diagnostic I/O or
-parsing failure must not prevent containment/removal. Final capture is bounded,
-not a new indefinite wait. Normal launch with diagnostics off stays unchanged.
-Do not change graphics drivers, runner, DLL overrides, accessibility policy,
-resources, scheduling, protocol, musical behavior or saved projects on a theory.
-Full dumps, new debugger infrastructure, general UI automation, popup/resize
-qualification, recovery UI and second-vendor work are outside CA1.
+### Popup-local observation
 
-## Proportionate verification
+Observe the selected popup independently of the main editor drawable.
 
-Use the same production collector/finalizer for the proof, not only parser mocks.
-Reuse the AP18 fixture and known fault/caller symbols under the exact pinned
-runner; retain its handled/zero-exit case and add an unhandled-fault case so a
-terminal report proves process/thread/module-relative attribution and available
-call frames after the child exits. A small explicit-exit/normal-exit case must
-not invent an exception or crash. Existing failure cleanup tests supply their
-accepted proof; extend only where the collector changes it.
+Prefer exact-window capture where available. If XComposite is unavailable and a
+bounded screen-region observation is needed, prove at the sampling boundary:
 
-Focused tests cover a crash after early log capacity is exhausted, a malformed
-or oversized record, absent symbols/stack, a first-chance exception followed by
-normal continuation, finalization/write failure, identity mixing, and unrelated
-process safety. Preserve IF1 first-winner data when later details arrive.
-Use existing fixtures/retained safe examples; do not create a broad matrix.
-Run affected tests and Clippy plus applicable CI. Reuse accepted product binaries
-when their inputs are unchanged; no Windows/native rebuild for report-only edits.
+- exact popup rectangle;
+- popup visibility and enabled state;
+- stacking/topmost relationship at the target;
+- no foreign occluding window over the target region;
+- current owner/editor identity;
+- unchanged scale and geometry.
 
-After the generated end-to-end capture works, exercise the reporter on a
-protected, reversible candidate-16 Pigments session without mouse/focus takeover.
-The selected normal-use case may be a waveform change; the engineer may use
-existing permitted tooling, or leave a verified armed handoff for the user's
-ordinary interaction. Do not require popup capture or re-run menu/resize first.
-Do not modify user projects or dismiss a save/permission dialog without authority.
-Inspect an existing spontaneous incident if useful facts are already retained.
-If a natural crash occurs, finalize and interpret that incident before another
-launch. Do not make repeated blind attempts merely to obtain a crash. A healthy
-session is not proof that the historical crash is fixed.
+Private frames remain local. Public evidence should retain only bounded hashes,
+geometry, changed-region facts and scalar timing. Do not make OCR the primary
+selection mechanism.
 
-The reporter can be reviewed as ready when its real collector captures a known
-fatal failure and works in the plug-in launch path, even if a spontaneous
-Pigments crash does not recur. Report the two results separately: reporter
-readiness versus historical-crash attribution. No fabricated cause or indefinite
-stress run to manufacture completion. A real actionable Pigments report is the
-preferred diagnostic result, not a precondition for every source change.
+### Safe interaction
 
-## Installation and handoff
+Before each permitted click:
 
-The last verified baseline is ordinary Pigments 11 active; revisions 12–16
-inactive; LoFi/FRAGMENTS 10 unchanged. This preparation did not access the Deck.
-Candidate 16 already has accepted containment and the repaired input pump; reuse
-its exact host/native bytes for CA1 if they are unchanged. Diagnostic manager
-changes use existing immutable setup. No new Pigments revision just for logs.
-If host/native product bytes genuinely change, bind a new immutable candidate
-through the existing route without mutating prior history or promoting it.
+1. Revalidate editor and popup identity/epoch.
+2. Revalidate target rectangle inside the popup.
+3. Confirm pointer settlement.
+4. Confirm no operator button/modifier is held.
+5. Confirm the expected Bitwig/editor ownership is active.
+6. Confirm CA1/IF1 has no terminal record.
+7. Deliver normal desktop input through the accepted XTEST/XWayland path.
+8. Observe the corresponding X11 and Win32 receipt.
 
-Restore ordinary 11 after an agent-owned session, turn diagnostics off and leave
-no held input, owned helper, DSP lease, transaction or stale transport. Preserve
-projects, authorization and SteamOS policy; 512 remains recommended and 256 is
-unqualified. A user-requested armed handoff is reported explicitly rather than
-misrepresented as idle cleanup. Finish this PR with code, focused proof, a
-sample sanitized report, exact installed/armed state, unresolved attribution and
-next evidence-backed repair direction. No ordinary Pigments acceptance is implied.
+Do not call a vendor WndProc directly, synthesize `WM_COMMAND`, invoke an
+undocumented menu ID, or bypass the normal UI path.
 
-## Implementation result
+If selecting `Resize Window` opens a second expected owned popup rather than
+performing an immediate action, the custodian may prepare one new bounded capsule
+for that already-running session after exact identity is established. The GUI
+executor may not improvise that extension.
 
-CA1_REPORTER_READY_FOR_REVIEW. Implementation source
-`ffbe640a447f8767282966aad86017cb63cc847d` and the final installed reporter
-passed the focused exception/cleanup proof. [CA1](docs/CA1.md) and
-[evidence/ca1](evidence/ca1/) retain the source-owned fatal/handled distinction,
-one protected candidate-16 waveform interaction, the historical module-lookup
-correction, and final physical readback.
+### Resize waterfall
 
-The waveform selection completed and the session retired normally. This does
-not reproduce, attribute or repair the historical crash. Ordinary Pigments 11
-is restored; capture is off, with no user handoff armed. No product revision or
-ordinary promotion was created. PR #100 remains open for independent review.
+Correlate the one menu action across:
 
-Review 5189237865 requested two attribution-integrity repairs only. Source
-`63eb433ca6b108b9047dca8771efb0b25198faee` now expires an arm when installed
-software changes and requires observed device/inode identity before resolving
-non-registered mapped images. Focused Linux/manager regressions and the reused
-late-fatal pinned-runner fixture pass. [Integrity proof](evidence/ca1/integrity-review.json)
-is additive; earlier evidence and installed artifacts are unchanged. No new
-Pigments interaction or candidate was created. The repaired source is awaiting
-independent rereview; PR #100 remains draft, open and unmerged.
+```text
+popup target and input receipt
+menu dismissal or replacement
+plug-in resize request, if any
+requested ViewRect
+host accept/refuse result
+parent/client/vendor-child rectangles
+scale/work-area facts
+onSize / resulting view-size delivery
+first local visual change
+stable final geometry
+UI heartbeat and terminal status
+```
+
+Distinguish at least:
+
+- item never selected;
+- no resize request followed;
+- host refused the request;
+- parent resized but child did not;
+- geometry succeeded but redraw did not;
+- endpoint entered terminal failure;
+- successful resize and continued interaction.
+
+Do not infer success from the window merely looking different remotely.
+
+### CA1 integration
+
+Arm the installed CA1 reporter before the exact product session. If a terminal
+incident occurs at any step:
+
+- stop GUI actions immediately;
+- do not relaunch or repeat the menu sequence;
+- finalize and retain the incident;
+- verify IF2 containment and cleanup;
+- return the exact fault/module/RVA/stack posture for review.
+
+No speculative graphics, resource, DLL, Proton or Arturia repair is authorized
+without that evidence.
+
+## Generated verification
+
+Add a source-owned Windows/XWayland fixture with:
+
+- a normal parent and vendor child;
+- a transient owned popup on the same UI thread;
+- an unrelated lookalike popup;
+- a bounded action that triggers the production resize route;
+- deterministic before/after geometry and paint facts.
+
+Prove:
+
+- exact popup binding and XWayland geometry;
+- stale editor epoch refusal;
+- wrong process/thread/owner refusal;
+- ambiguous multiple-popup refusal;
+- popup closure between census and click refusal;
+- target-outside-popup refusal;
+- foreign occlusion refusal;
+- held-input refusal;
+- normal X11 → Win32 receipt;
+- no direct vendor message dispatch;
+- resize request/response and actual child geometry;
+- bounded capture and cleanup;
+- the action capsule cannot grant retry, arbitrary input or verdict authority.
+
+Run affected UIO1/UIR1/Windows and manager tests. Run AP8 when Windows fixture or
+observer source changes, AP12 for manager/tooling changes and PX2 policy. Do not
+run AP10 unless native/audio source changes.
+
+## One product check
+
+After generated verification passes:
+
+1. Keep ordinary Pigments 11 as rollback.
+2. Select existing candidate 16 reversibly; do not create revision 17 unless
+   product-bound native/Windows/profile bytes genuinely change.
+3. Arm CA1 for that exact instance.
+4. Launch Bitwig normally from Applications with a protected project copy.
+5. Open Pigments once.
+6. Have Luna-max execute the approved capsule:
+   - open the top-left menu;
+   - stop while tooling binds the exact owned popup;
+   - select `Resize Window` once after custodian authorization.
+7. Retain the resize waterfall and actual final geometry.
+8. If resize succeeds, exercise one already-known control once and close/reopen
+   the editor once on the same DSP instance.
+9. Remove Pigments or quit Bitwig normally.
+10. Confirm cleanup and restore ordinary Pigments 11 pending review.
+
+No manual Mac focus/input takeover, prolonged playback, repeated resize matrix,
+every-size campaign, preset/automation/state campaign or second attempt after a
+material failure.
+
+If Luna stops on a novel visual ambiguity, preserve the running state and exact
+blocker. The custodian may ask Astra to resolve only that bounded ambiguity; do
+not replay earlier successful actions. If the state cannot be safely continued,
+stop the session and report it rather than guessing.
+
+## Product outcomes
+
+### Successful resize
+
+Require exact popup selection, actual resize request/acceptance, correct parent
+and child geometry, local redraw, continued control response, same live DSP
+instance, no terminal incident and positive cleanup.
+
+Do not promote candidate 16 in this PR. Return it for independent product review;
+an ordinary acceptance transition is a separate bounded decision.
+
+### Attributed terminal failure
+
+Do not retry. Return the CA1 incident, IF1 first failure, IF2 containment,
+interaction waterfall and cleanup. The next repair is selected from that exact
+failure path.
+
+### Non-crashing refusal or tooling boundary
+
+Retain the exact owner: ambiguous popup, missing item, absent resize request,
+host refusal, incorrect geometry or missing repaint. An in-scope deterministic
+UIO2 tooling/source repair may be made and rechecked once after its generated
+regression passes. Do not broaden into a generic UI campaign.
+
+## Out of scope
+
+- a universal GUI crawler or AI screen agent;
+- OCR-first menu discovery;
+- arbitrary menus or every Pigments page;
+- graphics-driver or Proton migration;
+- DLL/accessibility/resource experiments;
+- historical crash reproduction loops;
+- residual audio delivery work;
+- capacity/lease maintenance;
+- in-place state recovery;
+- Serum authorization or qualification;
+- ordinary Pigments promotion.
+
+## Handoff
+
+Return this same draft PR with:
+
+- exact final source/head/tree;
+- popup identity and capture design;
+- generated fixture results;
+- exact Luna action capsule and executor receipt, without private screenshots;
+- resize waterfall or exact blocked/failure boundary;
+- CA1 incident posture;
+- validation and CI;
+- final installed state and cleanup;
+- explicit nonclaims.
+
+Leave ordinary Pigments 11 active, candidate 16 inactive unless a reviewed test
+is deliberately in progress, LoFi/FRAGMENTS unchanged, capture disarmed, service
+and keeper healthy, zero leases/transactions/stale transport, held input zero and
+no GUI executor session left running.
+
+UIO2 is complete when the owned-popup boundary is implemented and the one real
+resize action either succeeds with machine evidence or stops at one exact,
+actionable boundary without blind repetition.
