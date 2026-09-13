@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "source": "7d84916005304ac8bfefe23cea3fd4c792655136",
+  "scope": "isolated generated fixture after exact-Display Xlib error-routing repair; no product launch",
+  "completed": true,
+  "cases": [
+    {
+      "mode": 2,
+      "old_group_invalidated": true,
+      "resize": {
+        "request": 2,
+        "result": 0,
+        "on_size": 1,
+        "paints": 6,
+        "requested_width": 800,
+        "requested_height": 500,
+        "parent_width": 800,
+        "parent_height": 500,
+        "child_width": 800,
+        "child_height": 500,
+        "error": 0
+      }
+    },
+    {
+      "mode": 3,
+      "old_group_invalidated": true,
+      "resize": {
+        "request": 3,
+        "result": 0,
+        "on_size": 1,
+        "paints": 11,
+        "requested_width": 800,
+        "requested_height": 500,
+        "parent_width": 800,
+        "parent_height": 500,
+        "child_width": 800,
+        "child_height": 500,
+        "error": 0
+      }
+    },
+    {
+      "mode": 4,
+      "ambiguous_refused": true
+    },
+    {
+      "mode": 5,
+      "old_group_invalidated": true,
+      "nested_requires_new_capsule": true
+    },
+    {
+      "mode": 6,
+      "disappearance_before_down_refused": true
+    },
+    {
+      "mode": 7,
+      "changed_during_down_stopped": true,
+      "held_input_zero": true
+    },
+    {
+      "mode": 8,
+      "explicit_dismissal_all_members_absent": true
+    }
+  ],
+  "observer": {
+    "committed": 1158,
+    "dropped": 0,
+    "ready": 1,
+    "closed": 1,
+    "hook_calls": 2781,
+    "hook_ticks": 42931,
+    "max_hook_ticks": 1712,
+    "filtered": 1623,
+    "heartbeat_errors": 0,
+    "scope_errors": 0,
+    "unhook_errors": 0,
+    "detached": 1
+  },
+  "xrecord_status": {
+    "dropped": 0,
+    "unparsed": 1
+  },
+  "observer_cleanup": {
+    "exit": 0,
+    "kept": 667,
+    "overflow": 0,
+    "stderr_bytes": 667,
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    }
+  },
+  "fixture_cleanup": {
+    "exit": 0,
+    "kept": 531,
+    "overflow": 0,
+    "stderr_bytes": 490,
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    }
+  },
+  "canonical_resize": {
+    "request": 1,
+    "result": 0,
+    "on_size": 1,
+    "paints": 5,
+    "requested_width": 800,
+    "requested_height": 500,
+    "parent_width": 800,
+    "parent_height": 500,
+    "child_width": 800,
+    "child_height": 500,
+    "error": 0
+  },
+  "compositor": {
+    "exit": 0,
+    "overflow": 0,
+    "owned_descendants_zero": true,
+    "process_group_empty": true
+  },
+  "duration_seconds": 24.57,
+  "two_connection_readonly_real_capture": "both exact 1280x724 direct drawables captured without input",
+  "unit_tests": {
+    "uio1": 13,
+    "uio2": 24,
+    "uir1": 4
+  }
+}

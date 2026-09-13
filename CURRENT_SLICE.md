@@ -34,6 +34,19 @@ success. Stop at first terminal or exact tool boundary; no blind repeat, no
 candidate16 replay. Restore ordinary11, disarm capture, clean exact resources.
 No merge or promotion. Preserve the prior crash separately without causal claims.
 
+## Current TSG1 result
+
+Generated transient-group and scoped accessibility checks pass. Candidate17 was
+staged, loaded once and restored to ordinary11. Its editor opened; no menu action
+was executed because Luna's delegated browser capability was unavailable, even
+for a custodian-created hidden tab. This is an executor/tool boundary before
+popup selection, not a resize result or product completion. A multi-connection
+Xlib error-routing defect discovered before input was repaired and tested on the
+same running instance. Normal product retirement and final cleanup completed.
+See `evidence/uio2/tsg1/` and `docs/UIO2.md`. Keep PR #101 draft. Do not claim UIO2
+complete or promote candidate17. Restore delegated browser execution before any
+further product launch; no blind replay.
+
 ---
 ## Earlier UIO2 contract and retained boundary (historical)
 

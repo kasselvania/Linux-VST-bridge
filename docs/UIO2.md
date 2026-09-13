@@ -179,7 +179,7 @@ and tracing are off; no GUI executor, tunnel or UIO transient unit remains.
 unmerged for independent review. See [final readback](../evidence/uio2/installed-final.json)
 and [exact artifacts](../evidence/uio2/artifacts.json).
 
-## TSG1 implementation in progress
+## TSG1 generated result and delegated-executor boundary
 
 Review 5191850998 accepts the first menu click and containment evidence, but does
 not accept completion of UIO2. The active cut adds action-bound ownerless surface
@@ -206,4 +206,49 @@ invalidates the consumed group and requires a new capsule.
 Candidate17 reuses every candidate16 artifact. Only revision/evidence and the
 process-scoped accessibility policy/limitation change. This is an authorized
 comparison against the retained UIAutomationCore signature, not a root-cause or
-stability claim. The isolated generated canonical, ownerless, composite, ambiguity, nested, disappearance and Escape tests now pass; no candidate17 product session has run yet. See `evidence/uio2/tsg1/generated.json`.
+stability claim. The isolated generated canonical, ownerless, composite, ambiguity,
+nested, disappearance and Escape tests pass. See
+[generated facts](../evidence/uio2/tsg1/generated.json).
+
+One candidate17 instance was loaded from an Applications-launched protected
+project with CA1 armed. Its real editor opened. No menu action occurred: Luna's
+tool inventory exposed no browser, and an explicit attempt to access the
+custodian's hidden browser tab also returned browser unavailable. The custodian
+could access its own browser but did not substitute itself for the required
+executor. No popup was created, no group was bound and Resize Window was never
+selected. UIO2's real action remains incomplete.
+
+Before that executor boundary, an initial private executable permission error
+prevented observer launch; it was corrected without a product relaunch. A capture
+attempt then exposed Xlib's process-global error-handler ownership: the newer
+graph connection received the older capture connection's XComposite error. A
+Display-keyed dispatcher now retains errors on the exact connection, restores the
+prior handler after the last private connection closes, and handles arbitrary
+connection close order. The regression and two simultaneous real read-only
+captures passed. The repaired observer used the same still-running vendor
+instance. Private frame metadata now retains the group authority needed for the
+custodian to issue a second capsule; the executor still supplies no coordinates.
+
+The action capsule was never consumed. Both observation attempts and their
+cleanup are retained. The second observer was cancelled through its unit:
+its hook-detached marker was present, but the helper received SIGTERM before its
+closed marker. This is bounded cancelled cleanup, not a normal helper exit.
+The subsequent ordinary Bitwig quit completed all seven process-scoped vendor
+retirement milestones, transport/lease cleanup and native/Windows process exit.
+Temporary edits to the protected copy were declined; recorded project bytes are
+unchanged. CA1 finalized without a first terminal record. Its observed exception
+records remain classified as fatality unavailable and are not called crashes.
+
+Ordinary Pigments11 is restored, candidates12–17 inactive, sibling publications
+unchanged, service/keeper active, and all leases/transactions/transports/input,
+capture, helper units, tunnel and executor tabs are clear. CPUWeight is unset and
+effective100. No product byte was rebuilt or promoted. See the
+[exact bounded outcome](../evidence/uio2/tsg1/product-boundary.json).
+
+The next product action requires a functioning delegated browser route before
+launch, then the still-unperformed closed menu/resize test. The immutable host
+also does not export numeric live `resizeView` request/result fields; current
+live tooling retains Win32 geometry and view stages separately and must not
+substitute those for a raw SDK result. Generated SDK resize facts remain valid.
+No real ownerless-group, resize, accessibility-stability or performance success
+is claimed here.

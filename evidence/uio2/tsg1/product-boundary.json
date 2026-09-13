@@ -1,0 +1,220 @@
+{
+  "schema": 1,
+  "disposition": "TSG1_GENERATED_PASSED_PRODUCT_ACTION_BLOCKED_BY_DELEGATED_BROWSER_CAPABILITY",
+  "uio2_complete": false,
+  "implementation_head": "7d84916005304ac8bfefe23cea3fd4c792655136",
+  "manager_build_source": "7df2594a54c7ce160ab128968403a06cac9fda49",
+  "candidate": {
+    "revision": 17,
+    "claim": "review_candidate",
+    "fingerprint": "2fd865a9a91ae7fae7215a0f8e9c0d6fba717941be7ce6ed4a5a828f42ac5b66",
+    "prior_candidate16_fingerprint": "3199611a7578f751a17fe9e0d8f20aa12a27ec1b296f4de2630f7cb7738ab9dc",
+    "publication": {
+      "id": "0889215a6dcb3b6e54fd244536d53bb0",
+      "sha256": "61f6d0fb1a1ec3550f9d342f68fa56fbce7f4019ae6e2e535df5fd5fcbb25f41"
+    },
+    "ordinary11_parent": {
+      "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+      "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+    },
+    "policy": "disabled_for_vendor_process",
+    "added_limitation": "windows_accessibility_unavailable",
+    "all_product_artifacts_equal_candidate16": true,
+    "prior_profiles_immutable": true
+  },
+  "installed_software": {
+    "manager": "5204e0406087ccaa1d1c2a50e76a840d0a6654dc4938218fa9025dae6ba83a6d",
+    "supervisor": "6c19084b7c6c29d49e561b92237d026b26b41e2591d3e3456ce7f4fe9175db30",
+    "ownership": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "48b82ba474826d30442a5b8b63240869131879d157070b72efea0a69cce8f32e"
+  },
+  "software_revision": "e087a96673b80f5d08bd91051d035aea360af7a0d7f7008685e08154ce1f86b5",
+  "startup_and_tooling": [
+    {
+      "stage": "admission_binary_launch",
+      "result": "permission_denied_before_observer_or_input",
+      "repair": "private staged binary executable mode corrected"
+    },
+    {
+      "stage": "initial_editor_capture",
+      "result": "exact_pixmap_capture_failed_before_input",
+      "owner": "Xlib process-global error handler routed capture error to graph connection",
+      "repair": "exact Display-keyed error routing; two-connection regression and real read-only capture passed; same vendor instance retained"
+    },
+    {
+      "stage": "executor",
+      "result": "no delegated browser surface",
+      "root_browser_available": true,
+      "luna_browser_available": false,
+      "explicit_shared_tab_lookup": "browser unavailable",
+      "native_app_takeover": false,
+      "fallback_input_sent": false
+    }
+  ],
+  "capsule": {
+    "test_id": "uio2-pigments-1",
+    "editor": {
+      "session": "candidate17-instance-A",
+      "process": "windows-owner-A",
+      "thread": "ui-owner-A",
+      "root": "editor-A",
+      "native_view": 1,
+      "activation": 1,
+      "generation": 1,
+      "epoch": 1
+    },
+    "action": "open_menu",
+    "point": [
+      28,
+      44
+    ],
+    "target_geometry": [
+      0,
+      0,
+      1286,
+      749
+    ],
+    "maximum_actions": 1,
+    "executor": "luna-max",
+    "maximum_seconds": 120,
+    "forbidden": [
+      "retry",
+      "relaunch",
+      "terminal",
+      "settings",
+      "project_change",
+      "verdict",
+      "unexpected_dialog"
+    ],
+    "stop": [
+      "terminal_record",
+      "identity_change",
+      "visibility_loss",
+      "held_input",
+      "unexpected_popup"
+    ],
+    "private_exact_capsule_sha256": "9c31db2dbfc5a383bfdcee1e1dba385a9e9a6913926a4c80f0aa9e202113babe",
+    "consumed": false
+  },
+  "executor_receipt": {
+    "attempted": "open hidden capsule browser",
+    "result": "browser unavailable; shared parent tab unavailable",
+    "desktop_actions": 0,
+    "technical_verdict_authority": "custodian",
+    "retry_or_relaunch": false
+  },
+  "product": {
+    "applications_launch": true,
+    "protected_copy": true,
+    "instances": 1,
+    "editor_opened": true,
+    "menu_actions": 0,
+    "resize_selected": false,
+    "surface_group_observed": false,
+    "sdk_resize_request": null,
+    "resize_result": "not attempted",
+    "ca1_first_terminal": null,
+    "collector_rejection": null,
+    "no_crash_claim": true,
+    "observer_sessions": "initial capture refusal then repaired observation on same instance; no menu input in either"
+  },
+  "observer_cancellation": {
+    "cause": "custodian stop after delegated capability refusal",
+    "status": {
+      "committed": 501,
+      "dropped": 0,
+      "ready": 1,
+      "closed": 0,
+      "hook_calls": 20067,
+      "hook_ticks": 204205,
+      "max_hook_ticks": 2235,
+      "filtered": 19566,
+      "heartbeat_errors": 0,
+      "scope_errors": 0,
+      "unhook_errors": 0,
+      "detached": 1
+    },
+    "helper": {
+      "exit": -15,
+      "kept": 529,
+      "overflow": 0,
+      "stderr_bytes": 529,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    },
+    "finalization_errors": [],
+    "note": "helper received SIGTERM during unit cancellation; detached marker present but closed marker absent. Not a normal observer-exit claim. Exact helper and vendor cohorts absent at final readback."
+  },
+  "ca1": {
+    "state": "finalized",
+    "reporting_error": null,
+    "first_terminal": null,
+    "observed_exception_classifications": [
+      {
+        "code": 3221225477,
+        "classification": "observed_exception_fatality_unavailable"
+      },
+      {
+        "code": 3765269347,
+        "classification": "observed_exception_fatality_unavailable"
+      },
+      {
+        "code": 1073807366,
+        "classification": "observed_exception_fatality_unavailable"
+      },
+      {
+        "code": 3765269347,
+        "classification": "observed_exception_fatality_unavailable"
+      }
+    ],
+    "note": "Observed diagnostic exceptions are not classified as a terminal crash; session completed normal process-scoped retirement. No UIAutomationCore root-cause or Pigments stability claim."
+  },
+  "retirement": {
+    "disposition": "process_scoped_vendor_retirement",
+    "milestones": 127,
+    "generation": 1,
+    "epoch": 1,
+    "sequence": 71597,
+    "position": 18327552,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "sdk_clean_destruction_claim": false
+  },
+  "final": {
+    "pigments_ordinary_revision": 11,
+    "candidate17_active": false,
+    "candidates12_through17_inactive": true,
+    "lofi_fragments_unchanged": true,
+    "projects_unchanged": true,
+    "bitwig_absent": true,
+    "service": "active",
+    "keeper": "active",
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "capture_armed": false,
+    "tracing": false,
+    "held_input": 0,
+    "uio_units": 0,
+    "owned_helpers": 0,
+    "ssh_tunnel": 0,
+    "executor_tabs": 0,
+    "executor_running": false,
+    "cpuweight_override": "unset",
+    "cpuweight_effective": 100,
+    "recommended_frames": 512,
+    "frames256": "unqualified"
+  },
+  "nonclaims": [
+    "real transient group not exercised",
+    "Resize Window not selected",
+    "no Pigments stability or UIAutomationCore causality claim",
+    "no audio performance claim",
+    "no promotion",
+    "raw SDK resize request/result unavailable from unchanged candidate16/17 host; generated fixture covers numeric SDK result"
+  ]
+}
