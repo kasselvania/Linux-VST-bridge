@@ -126,6 +126,15 @@ pub fn claim(m: &Manager, reg: &Registration, session: &str) -> Result<Option<Ca
         fs::remove_file(root(m).join("next.json"))?;
         return Ok(None);
     }
+    let software: serde_json::Value = read_json(&m.root.join("software.json"))?;
+    if c.software != software {
+        atomic_json(
+            &c.directory.join("status.json"),
+            &serde_json::json!({"state":"stale_software","capture_enabled":false}),
+        )?;
+        fs::remove_file(root(m).join("next.json"))?;
+        return Ok(None);
+    }
     c.session = Some(session.into());
     atomic_json(&c.directory.join("request.json"), &c)?;
     atomic_json(
@@ -252,6 +261,34 @@ mod tests {
                 read_json(&incidents(&f.m).unwrap()[0].join("status.json")).unwrap();
             assert_eq!(status["state"], "stale_binding");
         }
+    }
+    #[test]
+    fn changed_software_disarms_capture_without_changing_ordinary_admission() {
+        let (f, a) = ready();
+        let reg = a.registration.clone();
+        let before = f.m.registry().unwrap();
+        arm_admitted(&f.m, a).unwrap();
+        atomic_json(
+            &f.m.root.join("software.json"),
+            &serde_json::json!({"fixture":true,"generation":2}),
+        )
+        .unwrap();
+        // The ordinary admission caller receives Ok(None), not an error or
+        // capture authority for the obsolete supervisor/software generation.
+        assert!(claim(&f.m, &reg, &"aa".repeat(16)).unwrap().is_none());
+        assert!(!root(&f.m).join("next.json").exists());
+        let directory = &incidents(&f.m).unwrap()[0];
+        let status: serde_json::Value = read_json(&directory.join("status.json")).unwrap();
+        assert_eq!(status["state"], "stale_software");
+        assert_eq!(status["capture_enabled"], false);
+        let retained: Capture = read_json(&directory.join("request.json")).unwrap();
+        assert_eq!(retained.software, serde_json::json!({"fixture":true}));
+        assert!(retained.session.is_none());
+        assert_eq!(
+            serde_json::to_value(f.m.registry().unwrap()).unwrap(),
+            serde_json::to_value(before).unwrap()
+        );
+        assert!(claim(&f.m, &reg, &"bb".repeat(16)).unwrap().is_none());
     }
     #[test]
     fn unused_arm_cancel_and_foreign_ids_have_no_launch_authority() {

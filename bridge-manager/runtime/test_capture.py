@@ -1,5 +1,6 @@
 """CA1 bounded reporter and production orchestration regressions."""
-import hashlib,json,os,pathlib,subprocess,sys,tempfile,unittest
+import hashlib,json,mmap,os,pathlib,struct,subprocess,sys,tempfile,unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 import session
 
@@ -102,6 +103,68 @@ class CaptureTests(unittest.TestCase):
 @unittest.skipUnless(sys.platform.startswith('linux'),'production procfs cleanup')
 class ProductionCaptureTests(unittest.TestCase):
     spec=CaptureTests.spec
+    line=CaptureTests.line
+    @staticmethod
+    def pe(name):
+        # Source-owned minimal PE with one exported code address. No binary
+        # fixture, proprietary module or external compiler is needed here.
+        b=bytearray(1536);b[:2]=b'MZ';struct.pack_into('<I',b,60,128)
+        b[128:132]=b'PE\0\0';struct.pack_into('<H',b,134,1);struct.pack_into('<H',b,148,240)
+        struct.pack_into('<H',b,152,0x20b);struct.pack_into('<I',b,208,8192)
+        struct.pack_into('<II',b,264,0x1100,80)
+        struct.pack_into('<IIII',b,400,1024,0x1000,1024,512)
+        struct.pack_into('<IIIII',b,788,1,1,0x1150,0x1160,0x1170)
+        struct.pack_into('<I',b,848,0x1000);struct.pack_into('<I',b,864,0x1180)
+        b[896:896+len(name)+1]=name.encode()+b'\0'
+        return b
+    def mapped_capture(self,p):
+        c=session.IncidentCapture(self.spec(p));image=p/'mapped.dll';image.write_bytes(self.pe('original_export'))
+        f=image.open('rb');mapping=mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ);f.close()
+        self.addCleanup(mapping.close)
+        ident=c.identity(os.getpid());key=(ident['pid'],ident['start_ticks'])
+        c.observe({key},SimpleNamespace(pid=os.getpid()))
+        row=next(x for x in c.processes[key]['mapped_files'] if x['path']==str(image))
+        meta=image.stat()
+        self.assertEqual(row['owner'],dict(pid=os.getpid(),start_ticks=ident['start_ticks']))
+        self.assertEqual((row['device_major'],row['device_minor'],row['inode']),
+                         (os.major(meta.st_dev),os.minor(meta.st_dev),meta.st_ino))
+        self.assertEqual(row['resolved_path'],str(image));self.assertFalse(row['deleted']);self.assertIsNone(row['unavailable'])
+        c.write('stderr',self.line(32,36,'loaddll','build_module',f'Loaded L"Z:{str(image).replace(chr(47),chr(92))}" at 140000000: native'))
+        return c,image
+    def test_mapped_file_hash_and_exports_use_one_verified_open_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            c,image=self.mapped_capture(pathlib.Path(d));digest=hashlib.sha256(image.read_bytes()).hexdigest()
+            opened=[];real_hash=hashlib.file_digest;real_pe=session.capture_pe
+            def hashed(f,algorithm):opened.append(f);return real_hash(f,algorithm)
+            def parsed(f):self.assertIs(f,opened[-1]);return real_pe(f)
+            with patch.object(session.hashlib,'file_digest',side_effect=hashed),patch.object(session,'capture_pe',side_effect=parsed):
+                c.finish({'raw_exit':0,'cleanup_confirmed':True,'transport_retired':True})
+            self.assertEqual(c.modules[0]['sha256'],digest)
+            self.assertEqual(c.frame(32,0x140001006)['symbol']['name'],'original_export')
+    def test_replaced_mapped_path_cannot_supply_replacement_hash_or_symbols(self):
+        with tempfile.TemporaryDirectory() as d:
+            c,image=self.mapped_capture(pathlib.Path(d))
+            replacement=image.with_suffix('.new');replacement.write_bytes(self.pe('replacement_export'));replacement.replace(image)
+            with patch.object(session,'capture_pe',side_effect=AssertionError('replacement must not be parsed')):
+                result=c.finish({'raw_exit':5,'cleanup_confirmed':True,'transport_retired':True})
+            self.assertIsNone(result['modules'][0]['sha256']);self.assertIsNone(c.frame(32,0x140001006)['symbol'])
+            self.assertEqual(result['modules'][0]['linux_path'],str(image))
+            self.assertEqual(result['modules'][0]['identity_unavailable'],'mapped file replaced/unverifiable')
+    def test_deleted_mapping_retains_identity_but_not_replacement_authority(self):
+        with tempfile.TemporaryDirectory() as d:
+            c,image=self.mapped_capture(pathlib.Path(d));old=image.stat().st_ino;image.unlink()
+            c.dirty=True;ident=c.identity(os.getpid());c.observe({(ident['pid'],ident['start_ticks'])},SimpleNamespace(pid=os.getpid()))
+            rows=c.processes[(ident['pid'],ident['start_ticks'])]['mapped_files']
+            self.assertTrue(any(x['path']==str(image) and x['deleted'] and x['inode']==old for x in rows))
+            image.write_bytes(self.pe('replacement_export'));c.resolve_modules()
+            self.assertIsNone(c.modules[0]['sha256']);self.assertIsNone(c.frame(32,0x140001006)['symbol'])
+            self.assertEqual(c.modules[0]['identity_unavailable'],'mapped file deleted/unverifiable')
+    def test_symlink_replacement_is_not_followed(self):
+        with tempfile.TemporaryDirectory() as d:
+            c,image=self.mapped_capture(pathlib.Path(d));other=image.with_suffix('.other');other.write_bytes(self.pe('replacement_export'))
+            image.unlink();image.symlink_to(other)
+            c.resolve_modules();self.assertIsNone(c.modules[0]['sha256']);self.assertIsNone(c.frame(32,0x140001006)['symbol'])
+            self.assertEqual(c.modules[0]['identity_unavailable'],'mapped file deleted/unverifiable')
     def run_child(self,fail_finalize=False,capture_on=True):
         with tempfile.TemporaryDirectory() as d:
             p=pathlib.Path(d);spec=self.spec(p);pathlib.Path(spec['directory']).mkdir(mode=0o700,parents=True)

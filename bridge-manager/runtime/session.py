@@ -473,49 +473,48 @@ class RecentCapture:
     def limits(self):return dict(capacity=self.capacity,record_capacity=self.records,retained_bytes=self.bytes,dropped_bytes=self.dropped_bytes,dropped_records=self.dropped_records)
 
 
-def capture_pe(path):
-    """Bounded PE image/export metadata, never preferred-base address authority."""
-    with open(path,'rb') as f:
-        size=os.fstat(f.fileno()).st_size
-        def at(offset,n):
-            if offset<0 or n>262144 or offset+n>size:raise ValueError('PE range')
-            f.seek(offset);b=f.read(n)
-            if len(b)!=n:raise ValueError('PE truncated')
-            return b
-        dos=at(0,64)
-        if dos[:2]!=b'MZ':raise ValueError('not PE')
-        pos=struct.unpack_from('<I',dos,60)[0];head=at(pos,24)
-        if head[:4]!=b'PE\0\0':raise ValueError('not PE')
-        count=struct.unpack_from('<H',head,6)[0];opt_size=struct.unpack_from('<H',head,20)[0]
-        if count>96 or opt_size>512:raise ValueError('PE metadata capacity')
-        opt=at(pos+24,opt_size);magic=struct.unpack_from('<H',opt)[0]
-        if magic not in (0x10b,0x20b):raise ValueError('PE optional header')
-        image_size=struct.unpack_from('<I',opt,56)[0];sections=at(pos+24+opt_size,count*40)
-        def rva(v,n):
-            for i in range(count):
-                vs,va,raw,off=struct.unpack_from('<IIII',sections,i*40+8)
-                if va<=v and v+n<=va+min(vs,raw):return at(off+v-va,n)
-            raise ValueError('PE RVA unmapped')
-        exports=[];directory=112 if magic==0x20b else 96
-        er,es=struct.unpack_from('<II',opt,directory)
-        if er and es:
-            eh=rva(er,40);nf,nn,af,an,ao=struct.unpack_from('<IIIII',eh,20)
-            if nf>8192 or nn>8192:raise ValueError('PE export capacity')
-            funcs=rva(af,nf*4);names=rva(an,nn*4);ordinals=rva(ao,nn*2)
-            for i in range(nn):
-                idx=struct.unpack_from('<H',ordinals,i*2)[0]
-                if idx>=nf:raise ValueError('PE ordinal')
-                nr=struct.unpack_from('<I',names,i*4)[0]
-                name=bytearray()
-                for j in range(128):
-                    c=rva(nr+j,1)
-                    if c==b'\0':break
-                    name.extend(c)
-                else:continue
-                address=struct.unpack_from('<I',funcs,idx*4)[0]
-                if er<=address<er+es:continue # forwarded export is not code
-                if name and all(32<=x<127 for x in name):exports.append((address,name.decode('ascii')))
-        return dict(size_of_image=image_size,exports=sorted(exports))
+def capture_pe(f):
+    """Parse the same opened file used for identity verification and hashing."""
+    size=os.fstat(f.fileno()).st_size
+    def at(offset,n):
+        if offset<0 or n>262144 or offset+n>size:raise ValueError('PE range')
+        f.seek(offset);b=f.read(n)
+        if len(b)!=n:raise ValueError('PE truncated')
+        return b
+    dos=at(0,64)
+    if dos[:2]!=b'MZ':raise ValueError('not PE')
+    pos=struct.unpack_from('<I',dos,60)[0];head=at(pos,24)
+    if head[:4]!=b'PE\0\0':raise ValueError('not PE')
+    count=struct.unpack_from('<H',head,6)[0];opt_size=struct.unpack_from('<H',head,20)[0]
+    if count>96 or opt_size>512:raise ValueError('PE metadata capacity')
+    opt=at(pos+24,opt_size);magic=struct.unpack_from('<H',opt)[0]
+    if magic not in (0x10b,0x20b):raise ValueError('PE optional header')
+    image_size=struct.unpack_from('<I',opt,56)[0];sections=at(pos+24+opt_size,count*40)
+    def rva(v,n):
+        for i in range(count):
+            vs,va,raw,off=struct.unpack_from('<IIII',sections,i*40+8)
+            if va<=v and v+n<=va+min(vs,raw):return at(off+v-va,n)
+        raise ValueError('PE RVA unmapped')
+    exports=[];directory=112 if magic==0x20b else 96
+    er,es=struct.unpack_from('<II',opt,directory)
+    if er and es:
+        eh=rva(er,40);nf,nn,af,an,ao=struct.unpack_from('<IIIII',eh,20)
+        if nf>8192 or nn>8192:raise ValueError('PE export capacity')
+        funcs=rva(af,nf*4);names=rva(an,nn*4);ordinals=rva(ao,nn*2)
+        for i in range(nn):
+            idx=struct.unpack_from('<H',ordinals,i*2)[0]
+            if idx>=nf:raise ValueError('PE ordinal')
+            nr=struct.unpack_from('<I',names,i*4)[0]
+            name=bytearray()
+            for j in range(128):
+                c=rva(nr+j,1)
+                if c==b'\0':break
+                name.extend(c)
+            else:continue
+            address=struct.unpack_from('<I',funcs,idx*4)[0]
+            if er<=address<er+es:continue # forwarded export is not code
+            if name and all(32<=x<127 for x in name):exports.append((address,name.decode('ascii')))
+    return dict(size_of_image=image_size,exports=sorted(exports))
 
 
 class IncidentCapture:
@@ -641,23 +640,34 @@ class IncidentCapture:
                 rec['executable']=os.readlink(f'/proc/{pid}/exe')
                 with open(f'/proc/{pid}/maps','rb') as f:data=f.read(4*1024*1024+1)
                 if len(data)>4*1024*1024:raise ValueError('maps capacity')
-                paths=set()
+                mapped={}
                 for l in data.decode(errors='replace').splitlines():
                     fields=l.split(None,5)
                     if len(fields)!=6 or not fields[5].startswith('/'):continue
                     path=re.sub(r'\\([0-7]{3})',lambda m:chr(int(m[1],8)),fields[5])
                     if len(path)>2048:continue
-                    paths.add(path)
-                    if len(paths)>1024:raise ValueError('mapped image capacity')
-                previous=rec.get('mapped_paths',[]);self.map_bytes-=sum(len(x.encode()) for x in previous)
-                retained=[]
-                # Aggregate map custody is separate from loaded PE identities.
-                # Overflow remains incomplete rather than defeating finalization.
-                for path in sorted(paths):
-                    n=len(path.encode())
+                    major,minor=(int(x,16) for x in fields[3].split(':'));inode=int(fields[4])
+                    deleted=path.endswith(' (deleted)')
+                    if deleted:path=path[:-10]
+                    resolved=None;unavailable=None
+                    if deleted:unavailable='mapped file deleted'
+                    elif not inode:unavailable='mapping has no file inode'
+                    else:
+                        try:resolved=str(pathlib.Path(path).resolve(strict=True))
+                        except (OSError,RuntimeError):unavailable='mapped file path unavailable'
+                    row=dict(path=path,resolved_path=resolved,device_major=major,device_minor=minor,inode=inode,
+                             deleted=deleted,unavailable=unavailable,owner=dict(pid=pid,start_ticks=start))
+                    mapped[json.dumps(row,sort_keys=True)]=row
+                    if len(mapped)>1024:raise ValueError('mapped image capacity')
+                # Retain observed identity history, including an old inode after
+                # unlink/replacement. Paths never substitute for mapped bytes.
+                retained=rec.setdefault('mapped_files',[])
+                previous={json.dumps(x,sort_keys=True) for x in retained}
+                for encoded,row in sorted(mapped.items()):
+                    if encoded in previous:continue
+                    n=len(encoded.encode())
                     if self.map_bytes+n>524288:self.counts['mapped_path_drops']+=1;continue
-                    retained.append(path);self.map_bytes+=n
-                rec['mapped_paths']=retained
+                    retained.append(row);self.map_bytes+=n
             except (OSError,ValueError) as err:rec['observation_error']=type(err).__name__
         self.dirty=False
     def retain_terminal(self,fault):
@@ -667,7 +677,11 @@ class IncidentCapture:
             self.first_terminal=json.loads(json.dumps(value))
     def resolve_modules(self):
         deadline=time.monotonic()+self.FINAL_SECONDS;hash_budget=512*1024*1024
-        paths=set(p for r in self.processes.values() for p in r.get('mapped_paths',[]))
+        observed={}
+        for r in self.processes.values():
+            for row in r.get('mapped_files',[]):
+                for path in {row['path'],row['resolved_path']}:
+                    if path is not None:observed.setdefault(path,[]).append(row)
         prefix=pathlib.Path(self.reg['environment']['root'])/'compatdata/pfx'
         known={a['path']:a['sha256'] for a in [self.reg['host'],self.reg['module'],*self.reg['environment']['runner']['files']]}
         self.host_pids=set()
@@ -675,25 +689,40 @@ class IncidentCapture:
             win=m['path'].replace('\\\\','\\')
             location=pathlib.Path(win[2:].replace('\\','/')) if win[:2].lower()=='z:' else prefix/'drive_c'/win[3:].replace('\\','/') if win[:3].lower()=='c:\\' else None
             if location is None:continue
-            try:location=str(location.resolve(strict=True))
-            except OSError:continue
-            if location==str(pathlib.Path(self.reg['host']['path']).resolve()):self.host_pids.add(m['windows_pid'])
-            # Only exact observed mapping paths or exact verified host/module may
-            # bind a binary. A basename match is never artifact authority.
-            if location not in paths and location not in known:
-                m['identity_unavailable']='no exact observed Linux mapping';continue
+            # Do not resolve a possibly replaced symlink before O_NOFOLLOW.
+            location=str(location)
+            if location==self.reg['host']['path']:self.host_pids.add(m['windows_pid'])
             m['linux_path']=location
-            if location not in self.images and time.monotonic()<deadline:
+            if location not in self.images:
+                info=dict(sha256=known.get(location),size_of_image=None,exports=[])
                 try:
-                    info=capture_pe(location);size=os.stat(location).st_size
-                    sha=known.get(location)
-                    if sha is None and size<=hash_budget:
-                        with open(location,'rb') as f:sha=hashlib.file_digest(f,'sha256').hexdigest()
-                        hash_budget-=size
-                    info['sha256']=sha;self.images[location]=info
-                except (OSError,ValueError,struct.error):self.images[location]=dict(sha256=known.get(location),size_of_image=None,exports=[])
+                    if time.monotonic()>=deadline:raise ValueError('module resolution deadline')
+                    rows=observed.get(location,[])
+                    if location not in known:
+                        if not rows:raise ValueError('no exact observed Linux mapping')
+                        if any(x['deleted'] or x['unavailable'] for x in rows):raise ValueError('mapped file deleted/unverifiable')
+                    # O_NONBLOCK prevents a replaced FIFO from blocking cleanup;
+                    # fstat refuses it before any read. Hash and parse one fd.
+                    with os.fdopen(os.open(location,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK),'rb') as f:
+                        before=os.fstat(f.fileno())
+                        if not stat.S_ISREG(before.st_mode):raise ValueError('mapped file is not regular')
+                        identity=(os.major(before.st_dev),os.minor(before.st_dev),before.st_ino)
+                        if location not in known and any(identity!=(x['device_major'],x['device_minor'],x['inode']) for x in rows):
+                            raise ValueError('mapped file replaced/unverifiable')
+                        if before.st_size>hash_budget:raise ValueError('module hashing capacity')
+                        sha=hashlib.file_digest(f,'sha256').hexdigest();hash_budget-=before.st_size
+                        if location in known and sha!=known[location]:raise ValueError('registered artifact unavailable/changed')
+                        parsed=capture_pe(f)
+                        after=os.fstat(f.fileno())
+                        def version(s):return (s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns)
+                        if version(before)!=version(after):raise ValueError('mapped file changed during read')
+                        info.update(parsed,sha256=sha)
+                except (OSError,ValueError,struct.error) as err:
+                    info['identity_unavailable']=str(err) if isinstance(err,ValueError) else 'mapped file deleted/unverifiable'
+                self.images[location]=info
             info=self.images.get(location,{})
             m['sha256']=info.get('sha256');m['size_of_image']=info.get('size_of_image')
+            if info.get('identity_unavailable'):m['identity_unavailable']=info['identity_unavailable']
         return deadline
     def frame(self,pid,ip,base=None,at=None):
         def current(m):
@@ -725,7 +754,7 @@ class IncidentCapture:
             e['belongs_to_selected_windows_host']=e['windows_pid'] in self.host_pids;exceptions.append(e)
         native_now=self.identity(self.native['pid']) if self.native else None
         native_same=bool(self.native and native_now and native_now['start_ticks']==self.native['start_ticks'])
-        linux_hosts=[r for r in self.processes.values() if self.reg['host']['path'] in r.get('mapped_paths',[])]
+        linux_hosts=[r for r in self.processes.values() if any(self.reg['host']['path'] in (x['path'],x['resolved_path']) for x in r.get('mapped_files',[]))]
         capture=dict(schema=1,incident=self.request['id'],session=self.sid,request=self.request,
             state='cancelled_capture' if (self.path/'cancel.json').exists() else 'finalized',
             retention=dict(stop_reason=self.stop_reason,elapsed_seconds=time.monotonic()-self.started),
@@ -735,7 +764,7 @@ class IncidentCapture:
             modules=self.modules,exceptions=exceptions,first_terminal=self.first_terminal,
             fault_status=outcome.get('fault_status'),cleanup={k:outcome.get(k) for k in ['cleanup_confirmed','transport_retired','retirement_disposition','vendor_retirement','error']},
             recent_context=self.context.value(),terminal_context=self.terminal.value(),
-            limits=dict(line_bytes=self.LINE,modules=self.MODULES,exceptions=self.EXCEPTIONS,frames_per_exception=self.FRAMES,processes=self.PROCESSES,retention_seconds=self.SECONDS,module_resolution_seconds=self.FINAL_SECONDS,mapped_path_bytes=524288,context=self.context.limits(),terminal=self.terminal.limits()),counts=self.counts,
+            limits=dict(line_bytes=self.LINE,modules=self.MODULES,exceptions=self.EXCEPTIONS,frames_per_exception=self.FRAMES,processes=self.PROCESSES,retention_seconds=self.SECONDS,module_resolution_seconds=self.FINAL_SECONDS,mapped_file_record_bytes=524288,context=self.context.limits(),terminal=self.terminal.limits()),counts=self.counts,
             interpretation='Exception/exit correlation is evidence of a failure path, not proof that the faulting module owns the underlying defect. Missing symbols and unavailable statuses remain explicit.',reporting_error=self.error)
         data=json.dumps(capture).encode()
         if len(data)>4*1024*1024:raise ValueError('incident JSON capacity')
