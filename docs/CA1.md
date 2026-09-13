@@ -24,8 +24,11 @@ is the existing sealed IF1/IF2 candidate-16 observation selection, for this
 engineering check only. Neither accepts a PID, executable, command or binary path.
 Arming takes effect only on the next matching DSP admission, never restarts an
 existing instance, and does not arm a keeper, scanner, ASC or sibling class.
-A changed registration or publication expires the arm. The request retains the
-exact profile fingerprint, publication, registration and installed software.
+A changed registration or publication expires the arm. Claim also compares the
+current installed software record with the armed snapshot. A mismatch records
+`stale_software`, disables capture and removes the unused arm; ordinary admission
+continues without diagnostics. The request retains the exact profile fingerprint,
+publication, registration and armed software snapshot.
 
 `summary` and `report` are **private**. `export` explicitly selects numeric failure
 facts, module hashes/offsets and cleanup/capacity facts; it excludes paths, process
@@ -49,7 +52,8 @@ The collector separates:
 
 - up to 1,024 loaded-module rows, with actual Wine load base and Windows process/thread;
 - 128 Linux PID/start identities from the existing ownership tracker, with an
-  aggregate 512 KiB allowance for actual mapped paths;
+  aggregate 512 KiB allowance for mapped-file records: path/resolved path,
+  device major/minor, inode, deleted/unavailable posture and owning PID/start;
 - a 128 KiB / 512-row recent-error tail;
 - a separate 256 KiB / 1,024-row exception/exit tail;
 - the latest 16 scalar exceptions, up to 64 unwind frames each, plus four reserved
@@ -98,6 +102,14 @@ Export symbols are labelled **nearest export; function extent unavailable**.
 The exact fixture has deliberate exported fault/caller functions; proprietary
 code may have only module SHA-256 plus relative offset. No vendor binary, state,
 preset, register contents, locals or arguments enter public evidence.
+
+Non-registered images require an observed mapping identity. The finalizer opens
+read-only with `O_NOFOLLOW`, requires a regular file and matching device/inode,
+then hashes and parses that same descriptor. Replacement, deletion, conflicting
+observations or an unverifiable path leave identity/symbols unavailable; the path
+is still retained privately. Observed identities survive later mapping changes
+within the same bounded allowance. Registered artifacts retain their verified
+hash authority; exports are parsed only from an opened file matching that hash.
 
 ## Focused proof
 
@@ -166,3 +178,20 @@ project hashes are unchanged. Service/keeper are active, capture is disarmed, an
 there are zero DSP leases, transactions, stale transports, held inputs or owned
 diagnostic helpers. The final service has CPUWeight unset; no override was written.
 No user interaction handoff is left armed. PR #100 stays open for independent review.
+
+## Integrity rereview — review 5189237865
+
+Source `63eb433ca6b108b9047dca8771efb0b25198faee` repairs the software claim
+and mapped-file identity boundaries. The software-replacement regression and
+real Linux mmap/replace, deleted-map, symlink and same-open-file regressions pass.
+Manager tests (79 library / 12 binary), strict Clippy and all 59 Linux runtime
+tests pass. The unchanged known-function fixture again passes through production
+`session.run` under the pinned runner after first-N saturation, retaining fault
+`ap18_fault_site + 6`, caller `ap18_fault_caller + 15`, separate Proton exit 5 and
+positive cleanup. See [integrity repair proof](../evidence/ca1/integrity-review.json).
+
+No Pigments interaction, product rebuild, new candidate or installation occurred
+for this rereview. Existing evidence and rollback records are unchanged. Installed
+software still belongs to `ffbe640a447f8767282966aad86017cb63cc847d`; these source
+repairs are not claimed as installed. Capture remains disarmed, ordinary Pigments
+11 remains active, and the historical waveform crash remains unattributed.

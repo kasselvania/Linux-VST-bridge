@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "review": 5189237865,
+  "reviewed_head": "38e09ed71dd69fade4beb91ff2ae3bb7a2c6142a",
+  "repair_source": "63eb433ca6b108b9047dca8771efb0b25198faee",
+  "repair_tree": "0b049a5ad5275b254f2eaac7434cac602a2ff2db",
+  "repairs": {
+    "claim": "Current software.json must equal the armed snapshot; stale_software disables capture, removes next.json, and returns normal admission without capture.",
+    "mapped_identity": "Retain path/resolved path, device major/minor, inode, deleted/unavailable posture and owning PID/start privately. Open read-only/non-following; fstat must match observed identity; hash and PE parse use the same fd.",
+    "unavailable": "Replacement, deleted/symlink/unverifiable or conflicting observations cannot supply a hash or export symbols for an observed non-registered image."
+  },
+  "regressions": [
+    "arm then replace software; stale capture refused, registry and ordinary admission unchanged",
+    "actual Linux mmap; retain exact owner/device/inode/resolved path",
+    "mapped A replaced by B; no B hash or symbols",
+    "deleted mapping retains original inode and refuses replacement",
+    "symlink replacement not followed",
+    "unchanged mapped PE hash and exports use one opened file",
+    "existing reporting-error cleanup and unrelated sibling preserved"
+  ],
+  "validation": {
+    "manager_library": 79,
+    "manager_binary": 12,
+    "strict_clippy": "passed --locked --all-targets -- -D warnings",
+    "linux_runtime": 59,
+    "linux_capture_subset": 14,
+    "hosted": "Applicable final-head AP12/PX2 results are linked in PR #100; Windows product/fixture inputs unchanged."
+  },
+  "fatal_fixture": {
+    "report": {
+      "schema": 1,
+      "outcome": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "outer_exit": 5,
+      "windows_self_exit_codes": [
+        3221225477
+      ],
+      "native_same_identity_at_finalization": false,
+      "first_terminal": null,
+      "exceptions": [
+        {
+          "code": 3221225477,
+          "classification": "exception_matching_self_exit_status",
+          "fault": {
+            "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+            "offset": 4102
+          },
+          "stack": [
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4102
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4127
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4730
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 5885
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 5996
+            },
+            {
+              "module_sha256": null,
+              "offset": null
+            },
+            {
+              "module_sha256": null,
+              "offset": null
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "received_bytes": 489061,
+        "excluded_bytes": 484657,
+        "oversized_lines": 0,
+        "malformed_lines": 16385,
+        "module_overflow": 0,
+        "exception_overwrite": 0,
+        "frame_overflow": 0,
+        "process_overflow": 0,
+        "mapped_path_drops": 0,
+        "incomplete_lines": 0,
+        "disabled_bytes": 0,
+        "final_drain_incomplete": false
+      },
+      "fixture_mode": "fatal-late",
+      "fixture_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "production_run": true
+    },
+    "fault_symbol": {
+      "name": "ap18_fault_site",
+      "export_rva": 4096,
+      "offset": 6
+    },
+    "caller_symbol": {
+      "name": "ap18_fault_caller",
+      "export_rva": 4112,
+      "offset": 15
+    },
+    "linux_host_mapped_file_records": 34,
+    "mapped_file_record_capacity_bytes": 524288,
+    "native_host": "not attached in this source-owned fixture; no native exit claim",
+    "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "fixture_rebuilt": false,
+    "supervisor_sha256": "6c19084b7c6c29d49e561b92237d026b26b41e2591d3e3456ce7f4fe9175db30",
+    "ownership_sha256": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b",
+    "fixture_driver_sha256": "804f365c1d11ce1aa052c34fc4af18be063c59c8833bedb2757bd6ab47057b7c"
+  },
+  "before_and_after_readback": {
+    "installed_source": "ffbe640a447f8767282966aad86017cb63cc847d",
+    "software_record_sha256": "8178c3e7c015017f7a156e411a5d1833eeb78ecef8b5c67fb0eb84579d8a31ca",
+    "software_unchanged": true,
+    "physical_products_unchanged": true,
+    "projects_unchanged": true,
+    "pigments_ordinary_revision": 11,
+    "candidate16_inactive": true,
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "bitwig_absent": true,
+    "capture_armed": false,
+    "service": "active",
+    "keepers": 1,
+    "tracing": false
+  },
+  "scope": {
+    "pigments_interactions": 0,
+    "new_candidate": false,
+    "installation": false,
+    "retained_evidence_modified": false,
+    "product_artifacts_rebuilt": false,
+    "historical_waveform_crash": "unattributed; no repair claim",
+    "raw_diagnostics": "private; no upload or raw paths/process identities in this record"
+  }
+}

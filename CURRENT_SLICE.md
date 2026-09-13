@@ -173,3 +173,12 @@ The waveform selection completed and the session retired normally. This does
 not reproduce, attribute or repair the historical crash. Ordinary Pigments 11
 is restored; capture is off, with no user handoff armed. No product revision or
 ordinary promotion was created. PR #100 remains open for independent review.
+
+Review 5189237865 requested two attribution-integrity repairs only. Source
+`63eb433ca6b108b9047dca8771efb0b25198faee` now expires an arm when installed
+software changes and requires observed device/inode identity before resolving
+non-registered mapped images. Focused Linux/manager regressions and the reused
+late-fatal pinned-runner fixture pass. [Integrity proof](evidence/ca1/integrity-review.json)
+is additive; earlier evidence and installed artifacts are unchanged. No new
+Pigments interaction or candidate was created. The repaired source is awaiting
+independent rereview; PR #100 remains draft, open and unmerged.
