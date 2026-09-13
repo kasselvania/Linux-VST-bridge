@@ -44,9 +44,23 @@ worker's unexpected peer EOF, preserve coherent custody after mapping unlink,
 and verify that contained calls do not advance position/epoch or publish new
 requests. Existing AP10/AP11/AP13 regressions remain applicable.
 
-Generated verification and the one controlled product check are in progress.
-No new live result, resize result, Windows exit cause or product acceptance is
-claimed here. Candidate 16 will retain the exact revision-15 Windows host,
-descriptor, module, runner, environment and compatibility policies, with the
-changed native artifact bound immutably. Ordinary Pigments 11 remains rollback;
-LoFi/FRAGMENTS 10 remain unchanged.
+Generated verification passed, including all four hosted lanes at `b3006a4`.
+The exact candidate-16 native artifact was built from `1da2983`; it reuses the
+revision-15 Windows host, descriptor, module, runner, environment and policies.
+The manager installed a new immutable software revision and published candidate
+16 with exact ordinary 11 as parent. See [artifacts](../evidence/if2/artifacts.json)
+and [validation](../evidence/if2/validation.json).
+
+The protected project loaded and its exact Windows, native and supervisor owners
+were resolved. The test paused before opening the editor or injecting the fault:
+private exact-window capture transfer required explicit approval at the tool
+boundary. No image was transferred, no signal was sent, and no menu or resize
+action occurred. One normal window-manager close completed. Ordinary Pigments
+11 was restored, LoFi/FRAGMENTS 10 remain unchanged, and all DSP leases,
+transactions and stale transports are absent. Service and keeper remain active.
+
+The [product check](../evidence/if2/product-check.json) remains pending. No live
+native-host-survival or terminal-view result, resize result, Windows exit cause
+or product acceptance is claimed. Candidate 16 is retained inactive, and PR #99
+remains draft. The [final readback](../evidence/if2/installed-final.json) retains
+exact publication, software and protected-project identities.

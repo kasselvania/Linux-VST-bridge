@@ -43,3 +43,14 @@ LoFi/FRAGMENTS 10 unchanged, protected projects and authorization intact,
 service/keeper healthy, zero DSP leases/transactions/stale transport and tracing
 off. Preserve SteamOS scheduling ownership. 512 remains recommended;
 256 remains unqualified. Keep the new PR draft and unmerged for product review.
+
+## Current checkpoint
+
+Implementation and generated validation are complete; all four hosted lanes
+passed at `b3006a4`. Candidate 16 was built, published reversibly and loaded in
+the protected project. The live failure check has not occurred: a tool approval
+requires explicit permission to transfer the private exact-window capture.
+No editor action, controlled signal or menu/resize attempt was sent. Normal
+close completed and ordinary 11 was restored with zero leases, transactions and
+stale transports. Continue the single controlled check after that approval;
+do not count the preflight as terminal-host-survival proof. PR #99 stays draft.

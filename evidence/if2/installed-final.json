@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "products": [
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-pigments",
+        "revision": 11
+      },
+      "active_revision": {
+        "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+        "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+      },
+      "qualification": null,
+      "publication_valid": true,
+      "environment_valid": true,
+      "module_valid": true,
+      "native_artifact_valid": true,
+      "installed_host_valid": true,
+      "external_ids": [
+        "2a87961b6a485bdea59c9009fc661460",
+        "ce18a28bb102517c9e5db63bb7d72d9b"
+      ]
+    },
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-pure-lofi",
+        "revision": 10
+      },
+      "active_revision": {
+        "id": "51f241c4da508aa1fbbc9d6d172eb123",
+        "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+      },
+      "qualification": null,
+      "publication_valid": true,
+      "environment_valid": true,
+      "module_valid": true,
+      "native_artifact_valid": true,
+      "installed_host_valid": true,
+      "external_ids": [
+        "ac7f2418f2915958b5b67620593b9a2d",
+        "0c80f2acc39f5975a38d177102555683"
+      ]
+    },
+    {
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-efx-fragments",
+        "revision": 10
+      },
+      "active_revision": {
+        "id": "e340c6f8ad5ca494d2fb477214c9937e",
+        "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+      },
+      "qualification": null,
+      "publication_valid": true,
+      "environment_valid": true,
+      "module_valid": true,
+      "native_artifact_valid": true,
+      "installed_host_valid": true,
+      "external_ids": [
+        "96bd361810b3568a9671700732903d6e",
+        "d3181e9d37e75871ba5ffbcae0775861"
+      ]
+    }
+  ],
+  "physical_targets_equal_baseline": true,
+  "candidate": {
+    "revision": 16,
+    "claim": "review_candidate",
+    "fingerprint": "3199611a7578f751a17fe9e0d8f20aa12a27ec1b296f4de2630f7cb7738ab9dc",
+    "publication": {
+      "id": "cb0db7bbf17f8da34ffa0c7b4f32898a",
+      "sha256": "8885dd3424da868ad877e141fc8242de7ead14019a7bc68fc165953e41bb7afe"
+    },
+    "parent": {
+      "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+      "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+    },
+    "qualification": "if1_failure",
+    "active": false
+  },
+  "retained_history": "Pigments revisions 1 through 15 unchanged; revisions 12 through 16 inactive",
+  "software": {
+    "source": "b3006a4a5ad5cf7247ef968b03143e648c40a220",
+    "revision": "cd4601e0b6fa8e9be3639ff5edc2ca2faae74dfe9b1642b924afdc6f39768659",
+    "record_sha256": "0e533bed34fbc8d875ad27839fc6f21ad95a4ed33c6acb0ec73948fb7313496c",
+    "artifacts": {
+      "manager": "00ff0079f33cac0da30519daf8d18e31512fa496ac25ea985a2bb0dce7b682b9",
+      "supervisor": "413343751c9c401c17b0feef57b75b04871c6779465eb6ef6dca0bd384db84a2",
+      "ownership": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "73937414246a67728bdf2f0b69cccdbc1d4188615ea76cc209396b10269fdce7"
+    },
+    "prior_revision": "79a01c58b92dd8f938a224d47e7a6f4dc87f7fc6f904cc1b2896a64ea1735db2",
+    "prior_record_sha256": "b8d7c78d06fde2d2a6de821a223d05646cc71bea8694b4fc766175548f2fe34c",
+    "prior_software_retained": true
+  },
+  "service": "active",
+  "keepers": 1,
+  "dsp_leases": 0,
+  "cleanup_unconfirmed": false,
+  "pending_transactions": 0,
+  "stale_tmpfs": 0,
+  "processes": {
+    "bitwig": 0,
+    "debuggers": 0,
+    "diagnostics": 0
+  },
+  "tracing": false,
+  "cpuweight": {
+    "configured": "10000",
+    "effective": "10000",
+    "changed_by_if2": false,
+    "ownership": "SteamOS; no performance claim"
+  },
+  "projects": {
+    "protected_original": "917e54d01f562b05cca0e7761f85f1114e7b94b301dfdc85a66365edc33db3c8",
+    "retained_uir1_copy": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573",
+    "if1_copy": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573",
+    "if2_copy": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573"
+  },
+  "vendor_authorization": "not inspected or changed",
+  "selected_supported_recommended_frames": 512,
+  "frames256": "unqualified"
+}
