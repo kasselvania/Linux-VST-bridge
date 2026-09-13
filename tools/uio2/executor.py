@@ -106,7 +106,7 @@ document.getElementById('run').onclick=async()=>{document.getElementById('run').
             self.permit=Permit(read_capsule(path))
         if not self.permit:return dict(action=None,waiting_for_custodian=True)
         c=self.permit.capsule;c.validate(self.owner.current(),time.monotonic_ns())
-        return dict(action=c.action,test_id=c.test_id,maximum_actions=1,executor='luna-max',
+        return dict(action=c.action,test_id=c.test_id,maximum_actions=1,executor=c.executor,escalation_reason=c.escalation_reason,
                     forbidden=c.forbidden,stop=c.stop,point=c.point,window=c.target['rect'])
 
     def execute(self,command):

@@ -7,10 +7,11 @@ namespace uio2 {
 constexpr uint32_t capacity = 128;
 struct Window {
   uint64_t hwnd{}, parent{}, owner{}, root{}, root_owner{}, xid{};
-  uint32_t pid{}, tid{}, visible{}, enabled{}, minimized{}, dpi{}, style{}, reserved{};
+  uint32_t pid{}, tid{}, visible{}, enabled{}, minimized{}, dpi{}, style{}, exstyle{};
   int32_t rect[4]{}, client[4]{}, work[4]{};
+  uint64_t class_atom{}, class_hash{}, focus{}, active{}, capture{}, previous{}, next{}, pointer_hwnd{};
 };
-static_assert(sizeof(Window) == 128);
+static_assert(sizeof(Window) == 192);
 struct alignas(8) Slot {
   uint64_t commit{}, qpc{};
   uint32_t count{}, incomplete{};
@@ -31,6 +32,16 @@ inline bool read_window(HWND w, Window& r) {
   r.xid=uint64_t(GetPropW(w,L"__wine_x11_whole_window"));
   r.visible=IsWindowVisible(w)!=0;r.enabled=IsWindowEnabled(w)!=0;r.minimized=IsIconic(w)!=0;
   r.dpi=GetDpiForWindow(w);r.style=uint32_t(GetWindowLongPtrW(w,GWL_STYLE));
+  r.exstyle=uint32_t(GetWindowLongPtrW(w,GWL_EXSTYLE));
+  r.class_atom=uint64_t(GetClassLongPtrW(w,GCW_ATOM));
+  wchar_t cls[128]{};const int length=GetClassNameW(w,cls,128);
+  if(length<=0||length==127)return false;
+  r.class_hash=1469598103934665603ULL;
+  for(int i=0;i<length;++i)r.class_hash=(r.class_hash^uint16_t(cls[i]))*1099511628211ULL;
+  GUITHREADINFO gui{sizeof(gui)};if(!GetGUIThreadInfo(r.tid,&gui))return false;
+  r.focus=uint64_t(gui.hwndFocus);r.active=uint64_t(gui.hwndActive);r.capture=uint64_t(gui.hwndCapture);
+  r.previous=uint64_t(GetWindow(w,GW_HWNDPREV));r.next=uint64_t(GetWindow(w,GW_HWNDNEXT));
+  POINT cursor{};if(GetCursorPos(&cursor))r.pointer_hwnd=uint64_t(WindowFromPoint(cursor));
   RECT a{},b{};POINT p{};MONITORINFO m{sizeof(m)};
   if(!r.tid||!GetWindowRect(w,&a)||!GetClientRect(w,&b)||!ClientToScreen(w,&p)||
      !GetMonitorInfoW(MonitorFromWindow(w,MONITOR_DEFAULTTONEAREST),&m))return false;

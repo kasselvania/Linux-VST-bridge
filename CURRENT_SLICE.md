@@ -1,3 +1,42 @@
+# UIO2 / TSG1 — generic transient surface groups
+
+Active cut authorized after review 5191850998 at `4fc291bd36e0d53f38d1cb66f3e7903bc27dd0c6`.
+Continue the same branch and draft PR #101. The earlier bounded result below is
+immutable history, not completion of the newly authorized cut.
+
+Implement a second, action-transaction-bound ownerless transient surface group
+route. Prefer canonical owner chains. Require exact pre/post Win32 and X11 graphs,
+editor/process/start/thread/epoch, bounded create/show lifecycle, one connected
+and uniquely stacked group and unique input-bearing member. Never authorize by
+name, largest/newest window, count, geometry or same thread alone. Revalidate at
+Down; release only owned input and stop if the group changes before Up. Nested
+menus require a new capsule. Dismiss a still-valid group through one separately
+issued capsule and prove every member absent before quit; otherwise leave it for
+explicit operator handling.
+
+Add immutable candidate 17, exactly candidate 16 except revision/evidence,
+process-scoped disabled Windows accessibility and its unavailable limitation.
+Reuse all native/Windows/module/descriptor/runner bytes. Preserve all prior
+profiles and ordinary Pigments 11. Existing process-local override only; no prefix
+registry mutation. Prove the account-free UIA comparison and unrelated-process
+scope. Luna-max remains default; Astra requires an explicit bounded custodian
+escalation reason and identical one-action limits.
+
+Generated tests cover canonical, single/group ownerless, unrelated/ambiguous,
+stale/replaced/disappearing, nested, transparent, input/cleanup and accessibility
+scope. Run affected UIO1/UIR1/UIO2/manager/CA1, Clippy, pinned-Proton fixtures,
+AP8/AP12/PX2; AP10 only if native/audio changes.
+
+Only after generated verification, run one protected candidate-17 session with
+CA1 armed: menu, exact group, Resize Window once (new capsule for a chooser),
+resize waterfall, one known control and same-instance editor close/reopen on
+success. Stop at first terminal or exact tool boundary; no blind repeat, no
+candidate16 replay. Restore ordinary11, disarm capture, clean exact resources.
+No merge or promotion. Preserve the prior crash separately without causal claims.
+
+---
+## Earlier UIO2 contract and retained boundary (historical)
+
 # UIO2 — owned popup control and Pigments resize qualification
 
 ## Selected outcome

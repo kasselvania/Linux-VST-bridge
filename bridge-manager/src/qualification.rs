@@ -36,7 +36,7 @@ pub fn uir1_candidate() -> Result<Profile> {
         "qualification_ui_contract")?;
     Ok(p)
 }
-pub fn if1_candidate() -> Result<Profile> {
+fn if2_candidate() -> Result<Profile> {
     let p = Profile::parse(include_bytes!("../../compatibility/if2/arturia-pigments.json"))?;
     let ordinary = Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))?;
     let mut same = p.clone();
@@ -49,6 +49,20 @@ pub fn if1_candidate() -> Result<Profile> {
     require(p.revision == 16 && p.claim == Claim::ReviewCandidate && ordinary.revision == 11
         && ordinary.claim == Claim::VerifiedExactFixture && same == ordinary,
         "qualification_failure_contract")?;
+    Ok(p)
+}
+pub fn if1_candidate() -> Result<Profile> {
+    let previous = if2_candidate()?;
+    let p = Profile::parse(include_bytes!("../../compatibility/uio2/arturia-pigments.json"))?;
+    let mut same = p.clone();
+    same.revision = previous.revision;
+    same.evidence = previous.evidence.clone();
+    same.capabilities.accessibility = previous.capabilities.accessibility.clone();
+    same.limitations.retain(|x| *x != Limitation::WindowsAccessibilityUnavailable);
+    require(p.revision == 17 && p.claim == Claim::ReviewCandidate
+        && p.capabilities.accessibility == Accessibility::DisabledForVendorProcess
+        && p.limitations.iter().filter(|x| **x == Limitation::WindowsAccessibilityUnavailable).count() == 1
+        && same == previous, "qualification_tsg_accessibility_contract")?;
     Ok(p)
 }
 pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
@@ -388,7 +402,7 @@ impl Manager {
                     Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
                     Qualification::Ap18Pigments => false,
                     Qualification::Uir1Input => p.revision == 12,
-                    Qualification::If1Failure => p.revision == 16,
+                    Qualification::If1Failure => p.revision == 17,
                 }
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
@@ -419,6 +433,11 @@ impl Manager {
                 if purpose == Qualification::If1Failure {
                     normalized.requirements.native_sha256 = prior.profile.requirements.native_sha256.clone();
                     normalized.requirements.native_source_commit = prior.profile.requirements.native_source_commit.clone();
+                    // TSG1 changes only the exact candidate's accessibility posture.
+                    normalized.capabilities.accessibility = prior.profile.capabilities.accessibility.clone();
+                    if !prior.profile.limitations.contains(&Limitation::WindowsAccessibilityUnavailable) {
+                        normalized.limitations.retain(|x| *x != Limitation::WindowsAccessibilityUnavailable);
+                    }
                 }
                 require(normalized == prior.profile
                     && p.requirements.host_sha256 != prior.profile.requirements.host_sha256

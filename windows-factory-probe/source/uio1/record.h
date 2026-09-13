@@ -41,7 +41,7 @@ inline bool append(Header& h, Record* slots, Record r) noexcept {
 inline bool selected(uint32_t m) noexcept {
   switch(m){case 0x200:case 0x201:case 0x202:case 0x204:case 0x205:case 0x20a:
     case 0x100:case 0x101:case 0x104:case 0x105:case 7:case 8:case 6:case 0x21:
-    case 0x215:case 0x46:case 0x47:case 5:case 0xf:case 0x113:case 0x2e0:case 0x84:return true;
+    case 0x18:case 2:case 0x82:case 0x215:case 0x46:case 0x47:case 5:case 0xf:case 0x113:case 0x2e0:case 0x84:return true;
     default:return false;}
 }
 // No typed characters or arbitrary WPARAM/LPARAM contents leave the hook.

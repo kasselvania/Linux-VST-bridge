@@ -151,3 +151,9 @@ target_compile_options(uio2-popup-fixture PRIVATE /W4 /permissive- /EHsc /UNDEBU
 target_link_options(uio2-popup-fixture PRIVATE /Brepro /INCREMENTAL:NO)
 target_link_libraries(uio2-popup-fixture PRIVATE sdk sdk_hosting user32 ole32)
 set_target_properties(uio2-popup-fixture PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# Account-free process-scoped accessibility comparison; no product host change.
+add_executable(uio2-uia-disconnect ../tools/ap18-tests/uia_disconnect.cpp)
+target_compile_options(uio2-uia-disconnect PRIVATE /W4 /EHsc /Brepro)
+target_link_options(uio2-uia-disconnect PRIVATE /Brepro /INCREMENTAL:NO)
+set_target_properties(uio2-uia-disconnect PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'uio1'))
 from observe import Mapping
 
 CAPACITY = 128
-ROW = 128
+ROW = 192
 SLOT = 32 + CAPACITY * ROW
 SIZE = 4096 + 2 * SLOT
 
@@ -43,7 +43,7 @@ class WindowGraph(Mapping):
         editor.validate()
         super().__init__(path, SIZE)
         h = struct.unpack_from('<4sIII7Q', self.map)
-        if h[:4] != (b'UIO2', 1, SIZE, ROW) or h[4:8] != (editor.pid, editor.tid, editor.start, editor.hwnd):
+        if h[:4] != (b'UIO2', 2, SIZE, ROW) or h[4:8] != (editor.pid, editor.tid, editor.start, editor.hwnd):
             self.close(); raise RuntimeError('window graph identity/schema mismatch')
         self.editor = editor
 
@@ -65,11 +65,12 @@ class WindowGraph(Mapping):
             if commit != n or count > CAPACITY or incomplete: raise RuntimeError('window graph incomplete')
             rows = []
             for i in range(count):
-                r = struct.unpack_from('<6Q8I12i', copy, 32 + i * ROW)
+                r = struct.unpack_from('<6Q8I12i8Q', copy, 32 + i * ROW)
                 keys = ('hwnd', 'parent', 'owner', 'root', 'root_owner', 'xid', 'pid', 'tid',
-                        'visible', 'enabled', 'minimized', 'dpi', 'style', 'reserved')
+                        'visible', 'enabled', 'minimized', 'dpi', 'style', 'exstyle')
                 row = dict(zip(keys, r[:14]))
                 row.update(rect=list(r[14:18]), client=list(r[18:22]), work=list(r[22:26]))
+                row.update(zip(('class_atom','class_hash','focus','active','capture','previous','next','pointer_hwnd'),r[26:34]))
                 rows.append(row)
             if len({r['hwnd'] for r in rows}) != len(rows): raise RuntimeError('duplicate window identity')
             return dict(editor=asdict(self.editor), windows=rows, qpc=qpc,
@@ -104,7 +105,7 @@ def bind(snapshot, editor, current, previous=None):
     r = candidates[0]
     if not r['xid'] or not r['dpi'] or r['rect'][2] <= r['rect'][0] or r['rect'][3] <= r['rect'][1]:
         raise RuntimeError('popup geometry/binding unavailable')
-    if previous is not None and r != previous: raise RuntimeError('popup changed or disappeared during selection')
+    if previous is not None and any(r.get(k)!=v for k,v in previous.items() if k not in ('focus','active','capture','pointer_hwnd','previous','next')): raise RuntimeError('popup changed or disappeared during selection')
     return dict(r)
 
 
@@ -126,14 +127,15 @@ class Capsule:
     expires_ns: int
     maximum_actions: int = 1
     executor: str = 'luna-max'
+    escalation_reason: str = ''
     forbidden: tuple = ('retry', 'relaunch', 'terminal', 'settings', 'project_change', 'verdict', 'unexpected_dialog')
     stop: tuple = ('terminal_record', 'identity_change', 'visibility_loss', 'held_input', 'unexpected_popup')
 
     def validate(self, current, now):
         self.editor.validate()
         if current != self.editor: raise RuntimeError('stale capsule editor')
-        if (self.action not in ('open_menu', 'resize_window', 'resize_choice', 'known_control') or
-            type(self.maximum_actions) is not int or self.maximum_actions != 1 or self.executor != 'luna-max' or
+        if (self.action not in ('open_menu', 'resize_window', 'resize_choice', 'known_control', 'dismiss_transient_group') or
+            type(self.maximum_actions) is not int or self.maximum_actions != 1 or self.executor not in ('luna-max', 'astra') or
             type(self.issued_ns) is not int or type(self.expires_ns) is not int or
             not isinstance(self.test_id,str) or not 1<=len(self.test_id)<=64 or not all(c.isascii() and (c.isalnum() or c in '_-') for c in self.test_id) or
             self.forbidden != Capsule.__dataclass_fields__['forbidden'].default or
@@ -141,6 +143,9 @@ class Capsule:
             not 0 <= now-self.issued_ns <= 120_000_000_000 or not self.issued_ns < self.expires_ns <= self.issued_ns+120_000_000_000 or
             now >= self.expires_ns or not inside(self.target['rect'], self.point)):
             raise RuntimeError('capsule authority/extent/expiry')
+        if (type(self.escalation_reason) is not str or (self.executor == 'luna-max' and self.escalation_reason) or
+            (self.executor == 'astra' and (not 1 <= len(self.escalation_reason.strip()) <= 256 or any(ord(c)<32 for c in self.escalation_reason)))):
+            raise RuntimeError('custodian escalation reason required')
         if self.target['pid'] != current.pid or self.target['tid'] != current.tid:
             raise RuntimeError('foreign capsule target')
         return hashlib.sha256(json.dumps(asdict(self), sort_keys=True).encode()).hexdigest()

@@ -2031,18 +2031,25 @@ fn uir1_host_only_candidate_retains_ordinary_eleven_and_all_rollback_boundaries(
 fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
     let sealed = qualification::if1_candidate().unwrap();
     let ordinary = pigments_eleven().unwrap();
-    assert_eq!(sealed.revision, 16);
+    assert_eq!(sealed.revision, 17);
+    let sixteen = Profile::parse(include_bytes!("../../compatibility/if2/arturia-pigments.json")).unwrap();
+    assert_eq!(sixteen.fingerprint().unwrap(), "3199611a7578f751a17fe9e0d8f20aa12a27ec1b296f4de2630f7cb7738ab9dc");
+    let mut previous = sealed.clone(); previous.revision=16;previous.evidence=sixteen.evidence.clone();
+    previous.capabilities.accessibility=Accessibility::WindowsDefault;
+    previous.limitations.retain(|x| *x != Limitation::WindowsAccessibilityUnavailable);
+    assert_eq!(previous,sixteen);
+    println!("UIO2 revision17 fingerprint {}",sealed.fingerprint().unwrap());
     let fifteen = Profile::parse(include_bytes!("../../compatibility/if1/revision-15/arturia-pigments.json")).unwrap();
     assert_eq!(fifteen.fingerprint().unwrap(), "d55500789b57d6a7d02b31ab12c7029b0f9c6d13ca22b8269d92f4627104243c");
-    let mut same=fifteen.clone();same.revision=16;same.evidence=sealed.evidence.clone();
+    let mut same=fifteen.clone();same.revision=16;same.evidence=sixteen.evidence.clone();
     same.requirements.native_sha256=sealed.requirements.native_sha256.clone();
     same.requirements.native_source_commit=sealed.requirements.native_source_commit.clone();
-    assert_eq!(same,sealed); // host, module, descriptor and every policy unchanged
+    assert_eq!(same,sixteen); // host, module, descriptor and every policy unchanged
 
     let history = Profile::parse(include_bytes!("../../compatibility/if1/arturia-pigments.json")).unwrap();
     assert_eq!(history.revision, 14);
     assert_eq!(history.fingerprint().unwrap(), "f205fd398ec4ad086932c56f20bc556b14efed18c3e867bd3fd11acf7de79c1a");
-    let mut normalized = sealed.clone();
+    let mut normalized = sixteen.clone();
     normalized.revision = history.revision;
     normalized.evidence = history.evidence.clone();
     normalized.requirements.host_sha256 = history.requirements.host_sha256.clone();
@@ -2050,11 +2057,11 @@ fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
     normalized.requirements.native_sha256 = history.requirements.native_sha256.clone();
     normalized.requirements.native_source_commit = history.requirements.native_source_commit.clone();
     assert_eq!(normalized, history);
-    println!("IF2 revision16 fingerprint {}", sealed.fingerprint().unwrap());
+    println!("IF2 retained revision16 fingerprint {}", sixteen.fingerprint().unwrap());
     assert_eq!(ordinary.revision, 11);
     assert_eq!(sealed.claim, Claim::ReviewCandidate);
     assert!(!sealed.claim.permits(SelectionPurpose::Activation));
-    assert_eq!(sealed.capabilities, ordinary.capabilities);
+    assert_eq!(sixteen.capabilities, ordinary.capabilities);
     assert_ne!(sealed.requirements.native_sha256, ordinary.requirements.native_sha256);
     assert_eq!(external_ids(&sealed.class.class_id).unwrap(), external_ids(&ordinary.class.class_id).unwrap());
     assert_eq!(qualification::candidates_for(Qualification::If1Failure).unwrap(), vec![sealed]);
@@ -2066,7 +2073,7 @@ fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
         let prior = f.m.load_revision(&p.class.class_id, &parent).unwrap();
         let untouched = snapshot(prior.target.parent().unwrap());
         let mut candidate = p.clone();
-        candidate.revision = 16; candidate.claim = Claim::ReviewCandidate;
+        candidate.revision = 17; candidate.claim = Claim::ReviewCandidate;
         let package = f.outer.join("ui-package"); private_dir(&package).unwrap();
         fs::write(package.join("host.exe"), b"bounded fair Windows pump").unwrap();
         fs::write(package.join("host-source-manifest.json"), b"exact new source").unwrap();
