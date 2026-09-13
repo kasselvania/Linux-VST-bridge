@@ -354,7 +354,7 @@ void contained_host_survival_regression() {
   terminal_record.words[3]=generation; terminal_record.words[4]=2; terminal_record.words[5]=104687;
   terminal_record.words[6]=512; terminal_record.words[7]=9;
   terminal_record.words[14]=1; terminal_record.words[15]=5;
-  terminal_record.words[18]=2; terminal_record.words[19]=2;
+  terminal_record.words[18]=3; terminal_record.words[19]=4;
   std::array<float,128> inputL{},inputR{},left{},right{};
   inputL.fill(.25f); inputR.fill(-.5f); left.fill(9.f); right.fill(9.f);
   float* in[]={inputL.data(),inputR.data()}; float* out[]={left.data(),right.data()};

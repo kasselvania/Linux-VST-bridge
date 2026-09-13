@@ -2479,7 +2479,7 @@ mod tests {
         use std::os::unix::fs::FileExt;
         // Simulate each external committed producer, then exercise the actual
         // public native ABI. Only the non-RT query reads the complete mapping.
-        for (class, producer, domain) in [(1u64,2u64,2u64),(2,3,3),(3,1,1)] {
+        for (class, producer, domain) in [(1u64,3u64,4u64),(2,2,2),(3,1,1)] {
             let path=std::env::temp_dir().join(format!("if2-custody-{}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
             let status=Arc::new(crate::terminal::Status::create(&path,[42;16]).unwrap());
             status.progress([7,2,104687,512,11],Some(512),None);
