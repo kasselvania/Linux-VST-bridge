@@ -2066,14 +2066,18 @@ fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
     assert_eq!(external_ids(&sealed.class.class_id).unwrap(), external_ids(&ordinary.class.class_id).unwrap());
     assert_eq!(qualification::candidates_for(Qualification::If1Failure).unwrap(), vec![sealed]);
     for boundary in BOUNDARIES.into_iter().map(Some).chain([None]) {
-        let (f, mut p, c, n) = prepared();
+        let (f, mut p, c, n) = prepared_accessibility(false);
         p.revision = 11;
+        p.capabilities.accessibility = Accessibility::WindowsDefault;
+        p.limitations.retain(|x| *x != Limitation::WindowsAccessibilityUnavailable);
         p.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
         let parent = publish(&f, &p, &c, &n, None).unwrap();
         let prior = f.m.load_revision(&p.class.class_id, &parent).unwrap();
         let untouched = snapshot(prior.target.parent().unwrap());
         let mut candidate = p.clone();
         candidate.revision = 17; candidate.claim = Claim::ReviewCandidate;
+        candidate.capabilities.accessibility=Accessibility::DisabledForVendorProcess;
+        candidate.limitations.push(Limitation::WindowsAccessibilityUnavailable);
         let package = f.outer.join("ui-package"); private_dir(&package).unwrap();
         fs::write(package.join("host.exe"), b"bounded fair Windows pump").unwrap();
         fs::write(package.join("host-source-manifest.json"), b"exact new source").unwrap();
