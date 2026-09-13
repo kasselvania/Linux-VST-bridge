@@ -41,7 +41,9 @@ class PopupX11(X11):
         self.x.XQueryTree.restype=I
         self.x.XGetWindowAttributes.argtypes=[P,U,C.POINTER(Attributes)]
         self.x.XGetWindowAttributes.restype=I
-        self.guard()
+        try:self.guard()
+        except BaseException:
+            self.close();raise
 
     def tree(self, window):
         root=U();parent=U();children=P();count=C.c_uint()
@@ -94,6 +96,17 @@ class PopupX11(X11):
     def active_for_input(self, pointer):
         self.guard()
         return pointer['active'] in ([self.editor.xid],[self.window])
+
+    def pointer_after_input(self, down):
+        if down:return self.pointer()
+        try:return self.pointer()
+        except RuntimeError:
+            # A successful menu action can destroy its popup synchronously on
+            # Up. The event receipt must then come from X RECORD/Win32 hooks,
+            # never from a guessed replacement target.
+            snapshot=self.fresh()
+            if any(r['hwnd']==self.row['hwnd'] for r in snapshot['windows']):raise
+            return dict(unavailable=True,reason='selected_popup_absent_after_up')
 
     def capture_ready(self):self.guard()
 

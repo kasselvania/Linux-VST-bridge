@@ -33,3 +33,4 @@ jobs:
       - run: python3 -m unittest discover -s tools/if2 -v
       - run: sudo apt-get install -y xvfb libxtst6 libxcomposite1
       - run: UIO1_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio1/x11_fixture.py
+      - run: UIO2_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio2/x11_fixture.py

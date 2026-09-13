@@ -124,6 +124,8 @@ class X11:
     def capture_ready(self):
         if self.property(self.root,'_NET_ACTIVE_WINDOW')!=[self.window]:
             raise RuntimeError('direct drawable is not foreground; occlusion not qualified')
+    def pointer_after_input(self, down):
+        return self.pointer()
     def button(self, down, button=1):
         if button not in (1,3):raise ValueError('only bounded primary/secondary buttons')
         if down:
@@ -137,7 +139,7 @@ class X11:
         if not self.t.XTestFakeButtonEvent(self.display,button,int(down),0):raise RuntimeError('XTEST button refused')
         self.sync()
         if not down:self.buttons.remove(button)
-        return dict(kind='button_down' if down else 'button_up',interval_ns=[before,time.monotonic_ns()],pointer=self.pointer())
+        return dict(kind='button_down' if down else 'button_up',interval_ns=[before,time.monotonic_ns()],pointer=self.pointer_after_input(down))
     def settle_pointer(self,seconds=.75):
         # XWayland can acknowledge XTEST before the compositor applies motion.
         # Wait for readback; never turn a pending warp into a click elsewhere.

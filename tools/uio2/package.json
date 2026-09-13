@@ -6,9 +6,8 @@
   "archive_sha256": "3815851da86c5f65a2e8e7cd57bb237d81026bbe6d854c7f2fec9d6731aa6b57",
   "schema": 1,
   "files": {
+    "uio2-popup-fixture.exe": "d3911842ba24e3015b38ebd4cfffc04805eaf47efe6565b4f82238a56a198b10",
     "uio1-observer.exe": "3abc4439b24a7bd0033f01a4bbc1c609391b6c8b9facd5cb20b5ea250339fb1c",
-    "uio1-hook.dll": "3738513ce2bf6699cd15cd776c2a1c61da9d8a6f97144516d6e2c0a0f67da7a9",
-    "uio1-accessibility.exe": "f3e6b61a0d949de0f656ec8e29cf183f9f380f207a7aef20fee4c36794ef122c",
-    "uio1-tests.exe": "6cd2e92c1b4839b9a5d234e44e664d6c6bac373dde1436823d9c85e284950b40"
+    "uio1-hook.dll": "3738513ce2bf6699cd15cd776c2a1c61da9d8a6f97144516d6e2c0a0f67da7a9"
   }
 }

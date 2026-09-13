@@ -133,7 +133,9 @@ class Capsule:
         self.editor.validate()
         if current != self.editor: raise RuntimeError('stale capsule editor')
         if (self.action not in ('open_menu', 'resize_window', 'resize_choice', 'known_control') or
-            self.maximum_actions != 1 or self.executor != 'luna-max' or
+            type(self.maximum_actions) is not int or self.maximum_actions != 1 or self.executor != 'luna-max' or
+            type(self.issued_ns) is not int or type(self.expires_ns) is not int or
+            not isinstance(self.test_id,str) or not 1<=len(self.test_id)<=64 or not all(c.isascii() and (c.isalnum() or c in '_-') for c in self.test_id) or
             self.forbidden != Capsule.__dataclass_fields__['forbidden'].default or
             self.stop != Capsule.__dataclass_fields__['stop'].default or
             not 0 <= now-self.issued_ns <= 120_000_000_000 or not self.issued_ns < self.expires_ns <= self.issued_ns+120_000_000_000 or
