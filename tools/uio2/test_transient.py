@@ -75,6 +75,27 @@ class Tests(unittest.TestCase):
         with self.assertRaises(RuntimeError):g.revalidate(b,E,[dict(action=2,hwnd=100,source=9,message=4,qpc=210)])
         for xid,hwnd in ((111,100),(110,101)):
             with self.assertRaises(RuntimeError):g.target_at((150,150),b,b,xid,hwnd)
+    def test_change_while_down_releases_only_owned_input(self):
+        from desktop import click_pair
+        class Target:
+            def __init__(self):self.calls=[]
+            def button(self,down):self.calls.append(down);return down
+        target=Target()
+        def changed():raise RuntimeError('group replaced')
+        with self.assertRaisesRegex(RuntimeError,'replaced'):click_pair(target,changed)
+        self.assertEqual(target.calls,[True,False])
+    def test_renderer_only_and_transparent_overlap(self):
+        a,r,b,l=fixture();b['windows'][2]['rect']=[95,95,305,205]
+        b['windows'][2]['client']=b['windows'][2]['rect'];b['x11']['111']['rect']=b['windows'][2]['rect']
+        g=Transaction(E,1,a,r,b,l).bind()
+        self.assertEqual(g.target_at((150,150),b,b,110,100)['hwnd'],100)
+        from desktop import unobscured
+        stack=[dict(xid=110,visible=True,rect=[100,100,300,200]),dict(xid=111,visible=True,rect=[95,95,305,205])]
+        unobscured(stack,110,[100,100,300,200],{111})
+        stack.append(dict(xid=999,visible=True,rect=[100,100,300,200]))
+        with self.assertRaises(RuntimeError):unobscured(stack,110,[100,100,300,200],{111})
+        b['x11']['110']['input_shape']=[]
+        with self.assertRaisesRegex(RuntimeError,'absent'):Transaction(E,1,a,r,b,l).bind()
     def test_astra_needs_closed_custodian_reason(self):
         a,r,b,l=fixture();t=Transaction(E,1,a,r,b,l).bind().target
         c=Capsule('tsg',E,t,'resize_window',(150,150),1,1000)

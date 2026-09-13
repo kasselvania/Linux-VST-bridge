@@ -19,7 +19,7 @@ from observe import Mapping,Observer
 from x11 import X11,summaries
 from xrecord import Recorder
 from popup import Editor,WindowGraph,bind,Capsule,Permit,SIZE
-from desktop import PopupX11,SurfaceGraphX11,GroupX11
+from desktop import PopupX11,SurfaceGraphX11,GroupX11,click_pair
 from transient import Transaction,input_receipt
 spec=importlib.util.spec_from_file_location('uir1_session',HERE.parent/'uir1/session.py')
 uir1=importlib.util.module_from_spec(spec);spec.loader.exec_module(uir1)
@@ -131,7 +131,7 @@ def run(root,package):
         def records():
             tick();return report['xrecord']+record.records
         ordinal=2
-        for mode in (2,3,4,5):
+        for mode in (2,3,4,5,6,7):
             if popup:popup.close();popup=None
             rotate(x);status.write(208,mode);x.activate();span(.1)
             before=fresh();ordinal+=1
@@ -154,6 +154,12 @@ def run(root,package):
                 report['transient_cases'].append(case);continue
             group=transaction.bind();case['authority']=group.authority
             if group.target['hwnd']!=status.read(56):raise RuntimeError('wrong input-bearing fixture member')
+            if mode==6:
+                status.write(216,1);wait(lambda:status.read(56)==0,2)
+                try:group.revalidate(fresh(),e,report['win32'])
+                except RuntimeError:case['disappearance_before_down_refused']=True
+                else:raise RuntimeError('disappeared popup admitted')
+                report['transient_cases'].append(case);continue
             popup=GroupX11(group,e,fresh,lambda:e,lambda:bool(status.read(192)),lambda:report['win32'],xgraph)
             meta,pixels=popup.capture();facts,_=summaries(pixels,meta['width'],meta['height'],meta['stride']);case['frame']=dict(meta=meta,facts=facts)
             rotate(popup);ordinal+=1;observer.action(ordinal);record.action=ordinal
@@ -161,9 +167,16 @@ def run(root,package):
             now=time.monotonic_ns();capsule=Capsule('tsg-generated',e,row,'resize_window',point,now,now+5_000_000_000,group_identity=group.identity)
             Permit(capsule).consume({'action':'resize_window'},e,time.monotonic_ns());case['capsule']=__import__('dataclasses').asdict(capsule)
             px,py,pw,ph=popup.geometry();popup.move(((point[0]-px)/(pw-1),(point[1]-py)/(ph-1)));popup.settle_pointer();popup.verify_point(point)
-            prior_request=status.read(88);down=popup.button(True)
-            try:span(.06);group.revalidate(fresh(),e,report['win32'])
-            finally:up=popup.button(False)
+            prior_request=status.read(88)
+            def held():
+                span(.06);group.revalidate(fresh(),e,report['win32'])
+            if mode==7:
+                try:click_pair(popup,held)
+                except RuntimeError:case['changed_during_down_stopped']=True
+                else:raise RuntimeError('destroy-on-down was not refused')
+                if popup.buttons:raise RuntimeError('owned input retained after disappearing surface')
+                case['held_input_zero']=True;report['transient_cases'].append(case);continue
+            down,up=click_pair(popup,held)
             span(.2);case['input']=dict(down=down,up=up)
             final=fresh();case['final']=final
             try:group.revalidate(final,e,report['win32'])

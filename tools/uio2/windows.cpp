@@ -29,7 +29,7 @@ struct View final:CPluginView {
     if(v){
       if(m==WM_NCHITTEST&&(GetWindowLongPtrW(w,GWL_EXSTYLE)&WS_EX_TRANSPARENT))return HTTRANSPARENT;
       if(m==WM_KEYDOWN&&a==VK_ESCAPE){v->dismiss();return 0;}
-      if(m==WM_LBUTTONDOWN){inc(120);return 0;}
+      if(m==WM_LBUTTONDOWN){inc(120);if(get(208)==7&&w==v->popup)v->dismiss();return 0;}
       if(m==WM_LBUTTONUP){inc(128);
         const int x=short(LOWORD(b)),y=short(HIWORD(b));
         if(w==v->child&&x>=0&&x<120&&y>=0&&y<50)v->menu();

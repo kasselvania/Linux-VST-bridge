@@ -18,7 +18,7 @@ from capture import selected_window
 from x11 import X11,summaries
 from xrecord import Recorder
 from popup import Editor,WindowGraph,bind,SIZE
-from desktop import PopupX11,SurfaceGraphX11,GroupX11
+from desktop import PopupX11,SurfaceGraphX11,GroupX11,click_pair
 from transient import Transaction,input_receipt,stable
 from executor import Surface
 
@@ -172,7 +172,7 @@ class Product:
             end=time.monotonic()+.5
             while time.monotonic()<end:self.current();time.sleep(.005)
             final=self.fresh();ids={r['hwnd'] for r in group.members}
-            if any(r['hwnd'] in ids and r['visible'] for r in final['windows']):raise RuntimeError('group dismissal incomplete; operator handling required')
+            if ({r['hwnd'] for r in final['windows'] if r['hwnd']!=self.e.hwnd and r['root']==r['hwnd'] and r['visible']} != group.baseline_peers-ids):raise RuntimeError('group dismissal incomplete; operator handling required')
             self.group=None;self.transaction=None
             private_json(self.out/'actions'/f'{number}.json',dict(kind='dismiss_transient_group',group=group.authority,after=final))
             return dict(input_sent=True,all_members_hidden=True,technical_verdict='custodian_pending')
@@ -187,12 +187,11 @@ class Product:
         self.current();nowrow,_=self.target(self.fresh())
         if stable(nowrow)!=stable(row):raise RuntimeError('target changed before Down')
         if isinstance(x,GroupX11):x.verify_point(capsule.point)
-        down=x.button(True)
-        try:
+        def held():
             end=time.monotonic()+.06
             while time.monotonic()<end:self.tick();time.sleep(.005)
             if prior_group:prior_group.revalidate(self.fresh(),self.current(),self.rows)
-        finally:up=x.button(False) # release only our own input, even on terminal failure
+        down,up=click_pair(x,held)
         end=time.monotonic()+.3
         while time.monotonic()<end:
             self.current()

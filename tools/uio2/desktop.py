@@ -12,12 +12,12 @@ def overlaps(a, b):
     return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
 
 
-def unobscured(stack, target, rect):
+def unobscured(stack, target, rect, transparent_members=()):
     matches = [i for i, row in enumerate(stack) if row['xid'] == target]
     if len(matches) != 1 or not stack[matches[0]]['visible']:
         raise RuntimeError('popup absent from mapped X11 stack')
     for row in stack[matches[0]+1:]:
-        if row['visible'] and overlaps(row['rect'], rect):
+        if row['visible'] and row['xid'] not in transparent_members and overlaps(row['rect'], rect):
             raise RuntimeError('foreign occlusion over popup')
 
 
@@ -190,10 +190,12 @@ class GroupX11(PopupX11):
         active=self.property(self.root,'_NET_ACTIVE_WINDOW');allowed=[self.editor.xid]+[r['xid'] for r in self.group.members]
         if len(active)!=1 or active[0] not in allowed:raise RuntimeError('group application not active')
         frame,stack=self.stack()
-        # Exact capture excludes foreign occlusion. An input-transparent group
-        # shadow may overlap, but cannot be ignored if it covers captured pixels:
-        # refuse direct drawable capture rather than claim unseen content.
-        unobscured(stack,frame,self.row['rect'])
+        # Capture is the exact content drawable, not a composited group image.
+        # Only verified same-group input-transparent frames may overlap; foreign
+        # surfaces always refuse. Their pixels are not called content pixels.
+        transparent={g['x11'][str(r['xid'])]['frame'] for r in self.group.members
+                     if not g['x11'][str(r['xid'])]['input_shape']}
+        unobscured(stack,frame,self.row['rect'],transparent)
         return dict(rect=list(geometry),frame=frame,stack_count=len(stack),active=active,sampled_ns=time.monotonic_ns(),group=self.group.identity)
     def active_for_input(self,pointer):
         self.guard();return pointer['active'] in [[self.editor.xid]]+[[r['xid']] for r in self.group.members]
@@ -207,3 +209,14 @@ class GroupX11(PopupX11):
             if target==self.root:break
         root=next(r for r in second['windows'] if r['hwnd']==self.row['hwnd'])
         return self.group.target_at(point,first,second,target,root['pointer_hwnd'])
+
+def click_pair(target, while_down):
+    """The only owned button is released even if an identity check fails mid-click.
+    A failure never authorizes a replacement target, retry or another Down.
+    """
+    down=None
+    try:
+        down=target.button(True);while_down()
+    finally:
+        if down is not None or 1 in getattr(target,'buttons',set()):target_up=target.button(False)
+    return down,target_up
