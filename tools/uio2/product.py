@@ -114,8 +114,11 @@ class Product:
         return g
 
     def target(self,g):
-        visible=[r for r in g['windows'] if r['hwnd']!=self.e.hwnd and r['root']==r['hwnd'] and
-                 r['root_owner']==self.e.hwnd and r['visible']]
+        # A same-process top-level window with no GW_OWNER is not an editor
+        # popup authority. It must nevertheless prevent falling back to an
+        # underlying editor drawable as if that were the visible menu. The
+        # exact owner-chain binder below refuses it; no position/name inference.
+        visible=[r for r in g['windows'] if r['hwnd']!=self.e.hwnd and r['root']==r['hwnd'] and r['visible']]
         if not visible:return next(r for r in g['windows'] if r['hwnd']==self.e.hwnd),self.x
         row=bind(g,self.e,self.current())
         if self.popup_x is None or self.popup_x.row!=row:

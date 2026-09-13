@@ -331,3 +331,22 @@ no GUI executor session left running.
 UIO2 is complete when the owned-popup boundary is implemented and the one real
 resize action either succeeds with machine evidence or stops at one exact,
 actionable boundary without blind repetition.
+
+
+## UIO2 retained implementation result
+
+The generated owned-popup/production-resize fixture passed under the pinned
+runner: exact input receipts, one accepted 800×500 resize, matching child geometry,
+repaint and positive cleanup. One Luna-max Pigments menu click then exposed five
+same-thread top-level windows with no owner chain to the editor. Resize Window
+was not selected. The underlying-editor capture fallback was corrected with a
+deterministic refusal regression; no product replay occurred.
+
+The subsequent normal Bitwig quit attempt produced a state-response timeout and
+a CA1-retained Windows UI-thread access violation. IF1 custody, IF2 native survival/
+contained silence and terminal cleanup were retained. The logged UIAutomationCore
+base/RVA is a lead with mapped identity unavailable, not a proven root cause.
+Ordinary 11 is restored, candidate 16 inactive, service/keeper healthy and all
+owned session/input/diagnostic resources cleaned. See `docs/UIO2.md` and
+`evidence/uio2/`. PR #101 remains draft/unmerged. No more live action is authorized
+by this completed bounded check.

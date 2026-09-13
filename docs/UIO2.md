@@ -71,22 +71,110 @@ file, process or command endpoint. Raw frames and identifiers never enter Git.
 
 ## Generated verification and current boundary
 
-`tools/uio2/windows.cpp` uses an actual SDK `CPluginView` and production
+`tools/uio2/windows.cpp` uses an actual SDK `CPluginView` and unchanged production
 `VendorView`. A normal child has a transient owned popup and an unrelated
 lookalike. Selecting its bounded menu region calls the real frame resize path;
-the view receives `onSize`, resizes its child and repaints. The Windows self-test
-passed in AP8 run 34773103847 at source 417b0a2. That is SDK fixture evidence,
-not yet the pinned-Proton/XWayland or Pigments result.
+the view receives `onSize`, resizes its child and repaints.
 
-The private KWin/XWayland runner uses the existing UIR1 isolation and helper
-cleanup owners, a fresh unlicensed scratch prefix and exact pinned runner. It
-records normal XTEST/X RECORD/Win32 receipts and exact before/after geometry.
-Unit checks cover stale/foreign/ambiguous/disappeared windows, occlusion,
-held input, interrupted graph publication and capsule refusal. A separate
-Xvfb test exercises real X server capture, popup input and foreign occlusion.
+The Windows SDK self-test and the isolated pinned-Proton/KWin/XWayland run passed.
+Normal XTEST input reached the selected popup at both X RECORD and Win32 hooks.
+The production frame accepted one 800×500 request; parent and vendor child both
+became 800×500, `onSize` advanced once, and paint count advanced from one to five.
+The unrelated lookalike was not selected, and selection after popup closure was
+refused. All helper and compositor cleanup was positive. The exact popup capture
+used XComposite. Pixmap `XGetImage` returned zero color masks; the adapter now
+resolves them through the exact source window's matching-depth TrueColor visual,
+never a guessed default visual. An Xvfb regression also exercises that case.
 
-The current implementation checkpoint has not run the UIO2 Pigments action.
-Deck execution awaits a fresh Tailscale SSH authorization. Ordinary Pigments 11,
-candidate 16 and all installed software/artifacts are untouched by this source
-checkpoint. The prior menu attempt never selected Resize Window and remains
-**not a resize failure**.
+The first read-only setup attempt could not admit ordinary Pigments 11 using the
+current compiled ordinary UIO1 profile; no fixture launched. The generated run
+instead used verified ordinary LoFi admission only to select the same runner.
+The first actual generated run stopped at the pixmap-mask refusal before resize;
+its positive cleanup is retained. These are setup/tool failures, not vendor
+failures. See [generated evidence](../evidence/uio2/generated.json).
+
+## One Pigments action and the exact boundary
+
+Candidate 16 was published reversibly, CA1 was armed for that exact instance and
+software, and Bitwig opened a new protected project copy through its normal
+Applications desktop entry. Luna at max reasoning executed one frozen
+`open_menu` capsule through a hidden browser surface. No Mac focus/input takeover
+occurred. X RECORD and Win32 hooks retained Down and Up at the intended vendor
+child and client coordinates. No terminal or collector record existed at the
+action's end.
+
+The new graph then showed five visible enabled top-level windows on the same
+Windows process and UI thread. Every one reported `GW_OWNER = 0` and
+`GA_ROOTOWNER = self`. None had the required owner chain to the editor. The menu
+and its surrounding windows therefore could not be admitted as an exact
+editor-owned target. Same process/thread, appearance and location do not repair
+that authority gap. No Resize Window item was selected.
+
+The executor's subsequent image showed the underlying editor, not the separate
+menu. The first product implementation incorrectly fell back to root capture
+when it found no owner-qualified popup. That image is retained as invalid for
+popup observation. The source now refuses a visible unbound top-level window
+instead of presenting the underlying drawable. A deterministic regression uses
+the observed five-unowned-window shape and proves that no root capture occurs.
+There was no live replay after this correction.
+
+The whole observation used 676 retained Win32 records, zero ring drops and
+positive hook/helper cleanup. The product owner did not persist the X RECORD
+drop/unparsed counters, so this run makes no zero-drop claim for that recorder.
+The exact required X11 receipts are retained. The generated recorder separately
+reported zero drops and one unparsed/non-target packet.
+
+See the [capsule, executor receipt and waterfall](../evidence/uio2/product-result.json).
+The capsule is public only as a redacted projection plus its exact private
+fingerprint. Raw screenshots, paths, process identities and session IDs stay
+private.
+
+## Subsequent quit incident
+
+After the observer stopped, the custodian requested normal Bitwig close with the
+menu still open. No Escape or resize action was sent. The native worker then
+reported `InvalidData: state response deadline`. CA1 retained an access violation
+on the Windows UI owner thread and a matching Windows self-exit status
+`0xC0000005`; the outer Proton launcher independently exited 5. There was no
+normal process-scoped retirement-ready record.
+
+The fault instruction and next unwind frame use RVAs `0x7988` and `0x2d11`
+relative to a base Wine had logged for builtin `UIAutomationCore.dll`. CA1 could
+not verify that file's mapped identity/extent, so its authoritative module/hash/
+symbol result remains unavailable. That logged base correspondence is a useful
+lead, not proof of the underlying defect or permission for an accessibility/DLL
+change. Forty stack frames were retained privately, including exact Pigments
+module-relative offsets. Earlier exceptions had been followed by continued
+processing; matching the final numeric code does not make those earlier events
+fatal.
+
+IF1 retained the first terminal context. IF2 acknowledged it in the controller,
+kept the native host alive at CA1 finalization and later reported 7,585 contained
+callbacks / 3,883,520 silent frames with no automatic reload. Bitwig truthfully
+reported a state-save warning. The custodian proceeded with quit without saving
+the protected project; native terminal cleanup completed. No failure view was
+reopened in this stopped test, and no successful normal SDK retirement is claimed.
+
+These remain separate observations: the missing popup owner chain stopped the
+resize test; the later state timeout and Windows access violation occurred during
+the quit attempt. Resize was never selected. No causal claim about resize, menu
+dismissal or quit is made. See [sanitized incident](../evidence/uio2/incident.json).
+
+## Final disposition
+
+`UIO2_GENERATED_OWNED_POPUP_PROVED_PRODUCT_OWNER_CHAIN_ABSENT_SUBSEQUENT_TERMINAL_INCIDENT`
+
+The bounded task is complete at an actionable boundary; Pigments resize remains
+unqualified. The next work must establish a real owner relationship for these
+unowned menu windows and independently interpret the captured exit path. This PR
+does not select an alternate identity rule or a speculative vendor repair.
+
+Ordinary Pigments 11 is physically restored. Candidate 16 is inactive and all
+product bytes/profiles are unchanged; no revision 17 was created. LoFi/FRAGMENTS
+10, the reporter software, original/protected project hashes and authorization
+are preserved. Bitwig and owned cohorts are absent; service/keeper are active;
+leases, pending transactions, stale transports and held input are zero. Capture
+and tracing are off; no GUI executor, tunnel or UIO transient unit remains.
+512 is selected/recommended; 256 remains unqualified. PR #101 stays draft and
+unmerged for independent review. See [final readback](../evidence/uio2/installed-final.json)
+and [exact artifacts](../evidence/uio2/artifacts.json).

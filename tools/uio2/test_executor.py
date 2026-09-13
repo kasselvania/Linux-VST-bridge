@@ -48,4 +48,21 @@ class Tests(unittest.TestCase):
         self.assertFalse(p.terminal())
         s['result_status']['rejection']={'reason':'EventChannel'};self.assertTrue(p.terminal())
 
+    def test_unowned_popup_never_falls_back_to_underlying_editor_frame(self):
+        from product import Product
+        from copy import deepcopy
+        p=Product.__new__(Product);p.e=E;p.x=Mock();p.current=Mock(return_value=E)
+        g=graph();root=next(r for r in g['windows'] if r['hwnd']==E.hwnd)
+        peer=next(r for r in g['windows'] if r['hwnd']!=E.hwnd)
+        g['windows']=[root]
+        self.assertEqual(p.target(g),(root,p.x))
+        # Observed Pigments shape: main menu plus four surrounding top levels,
+        # same PID/thread, but GW_OWNER=0 and GA_ROOTOWNER=self for all five.
+        for i in range(5):
+            row=deepcopy(peer);row.update(hwnd=100+i,root=100+i,root_owner=100+i,owner=0,xid=200+i)
+            g['windows'].append(row)
+        p.fresh=Mock(return_value=g)
+        with self.assertRaisesRegex(RuntimeError,'owned popup absent or ambiguous'):p.frame()
+        p.x.capture.assert_not_called()
+
 if __name__=='__main__':unittest.main()
