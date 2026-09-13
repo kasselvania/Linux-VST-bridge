@@ -17,7 +17,7 @@ from observe import Observer,GuiWitness
 from capture import selected_window
 from x11 import X11,summaries
 from xrecord import Recorder
-from popup import Editor,WindowGraph,bind,SIZE
+from popup import Editor,WindowGraph,bind,SIZE,SurfaceObserver
 from desktop import PopupX11,SurfaceGraphX11,GroupX11,click_pair
 from transient import Transaction,input_receipt,stable
 from executor import Surface
@@ -58,7 +58,7 @@ class Product:
             self.helper.poll()
             if time.monotonic()>end:raise RuntimeError('window observer startup bound')
             time.sleep(.01)
-        self.observer=Observer(path,self.e.pid,self.e.start,self.e.hwnd)
+        self.observer=SurfaceObserver(path,self.e.pid,self.e.start,self.e.hwnd)
         while not self.observer.status()['ready']:
             self.helper.poll()
             if time.monotonic()>end:raise RuntimeError('observer UI handshake bound')
@@ -230,7 +230,7 @@ class Product:
         for record in (self.popup_record,self.record):
             if record:
                 record.poll();self.inputs.extend(record.records);self.xrecord_status.append(dict(dropped=record.dropped,unparsed=record.unparsed));record.close()
-        for obj in (self.popup_x,self.x,self.xgraph,self.graph,self.observer,self.gui):
+        for obj in (self.popup_x,self.xgraph,self.x,self.graph,self.observer,self.gui):
             if obj:obj.close()
         private_json(self.out/'result-private.json',dict(schema=1,editor=asdict(self.e) if self.e else None,stopped=self.stopped,
           win32=self.rows,xrecord=self.inputs,gestures=self.gestures,clocks=self.clocks,frames=self.frames,

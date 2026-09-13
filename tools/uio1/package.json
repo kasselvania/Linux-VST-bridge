@@ -1,14 +1,14 @@
 {
-  "source_head": "417b0a2de7710985d7990c0b92c67feb015556a4",
-  "build_commit": "d27c15ea2188475be07262b99059d64378de2eeb",
-  "workflow": 34773103847,
-  "artifact": 10322418167,
-  "archive_sha256": "3815851da86c5f65a2e8e7cd57bb237d81026bbe6d854c7f2fec9d6731aa6b57",
   "schema": 1,
+  "source_head": "ed2fadc45f057d1a2f109bc3ab96a1d35566d762",
+  "build_commit": "e9db948cc3394262ce25943a6dfadd5087792a46",
+  "workflow": 34780980257,
+  "artifact": 10325531093,
+  "archive_sha256": "9f362d6319c2a69497d8600ddb71d6a0e246ccb1ae66b3570b073cc24c4bd121",
   "files": {
-    "uio1-observer.exe": "3abc4439b24a7bd0033f01a4bbc1c609391b6c8b9facd5cb20b5ea250339fb1c",
-    "uio1-hook.dll": "3738513ce2bf6699cd15cd776c2a1c61da9d8a6f97144516d6e2c0a0f67da7a9",
+    "uio1-observer.exe": "d1e0d9f6fec2b9138e3c347185794ad0ca41d5db523e8df43384cf958bc69a53",
+    "uio1-hook.dll": "173b62c68950da65ac0b948898c34565faeba64cb199a7f557f8bc725ec9ffe9",
     "uio1-accessibility.exe": "f3e6b61a0d949de0f656ec8e29cf183f9f380f207a7aef20fee4c36794ef122c",
-    "uio1-tests.exe": "6cd2e92c1b4839b9a5d234e44e664d6c6bac373dde1436823d9c85e284950b40"
+    "uio1-tests.exe": "4b3e478bdcb6464e2a8b3e91066f426774aaa330b212d66067b692b119cf42b3"
   }
 }

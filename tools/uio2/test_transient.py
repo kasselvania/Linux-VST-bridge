@@ -96,6 +96,22 @@ class Tests(unittest.TestCase):
         with self.assertRaises(RuntimeError):unobscured(stack,110,[100,100,300,200],{111})
         b['x11']['110']['input_shape']=[]
         with self.assertRaisesRegex(RuntimeError,'absent'):Transaction(E,1,a,r,b,l).bind()
+    def test_content_restack_within_group_keeps_identity_not_foreign_occlusion(self):
+        a,r,b,l=fixture();g=Transaction(E,1,a,r,b,l).bind();c=copy.deepcopy(b)
+        for i,n in enumerate((111,112,113,114,110)):c['x11'][str(n)]['stack_index']=i+1
+        self.assertEqual(g.revalidate(c,E)['hwnd'],100)
+        c['x11']['110']['stack_index']=9
+        with self.assertRaisesRegex(RuntimeError,'interleaves'):g.revalidate(c,E)
+    def test_surface_action_bound_does_not_widen_ordinary_observer(self):
+        from popup import SurfaceObserver
+        from observe import Observer
+        s=SurfaceObserver.__new__(SurfaceObserver);writes=[];s.read=lambda _:1;s.write=lambda a,v:writes.append((a,v))
+        s.action(16);self.assertEqual(writes,[(72,16)])
+        for n in (-1,17,True):
+            with self.assertRaises(ValueError):s.action(n)
+        with self.assertRaises(ValueError):Observer.action(s,5)
+        s.read=lambda _:0
+        with self.assertRaises(ValueError):s.action(1)
     def test_astra_needs_closed_custodian_reason(self):
         a,r,b,l=fixture();t=Transaction(E,1,a,r,b,l).bind().target
         c=Capsule('tsg',E,t,'resize_window',(150,150),1,1000)

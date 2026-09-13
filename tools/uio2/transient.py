@@ -146,12 +146,18 @@ class Group:
             if ev['qpc']>self.graph['qpc'] and ev['hwnd'] in ids and ((ev['source']==9 and ev['message'] in (3,4)) or
                 (ev['source']==10 and ev['message'] in (0x8000,0x8001,0x8003))):
                 raise RuntimeError('group lifetime ended or HWND recycled')
+        indices=sorted(xfact(graph,rows[n])['stack_index'] for n in ids)
+        if len(set(indices))!=len(indices) or indices!=list(range(indices[0],indices[-1]+1)):
+            raise RuntimeError('foreign stacking interleaves transient group')
+        # Hover/focus may restack the input member within its exact group. That
+        # is not new authority: membership, shapes and identities remain frozen,
+        # and the desktop owner still refuses every foreign occluding surface.
         for old in self.members:
             new=rows.get(old['hwnd'])
             if not new or stable(new)!=stable(old):raise RuntimeError('group member changed')
             a=xfact(self.graph,old);b=xfact(graph,new)
-            for key in ('xid','frame','parent_chain','rect','input_shape','bounding_shape','stack_index'):
-                if a[key]!=b[key]:raise RuntimeError('group X identity/geometry/stack changed')
+            for key in ('xid','frame','parent_chain','rect','input_shape','bounding_shape'):
+                if a[key]!=b[key]:raise RuntimeError('group X changed: '+key+' '+repr(a[key])+' -> '+repr(b[key]))
             if new['focus'] and new['focus'] not in ids and new['focus'] not in {r['hwnd'] for r in rows.values() if r['root']==self.editor.hwnd}:
                 raise RuntimeError('group focus left application')
             if new['capture'] and new['capture'] not in ids and new['capture']!=self.editor.hwnd:

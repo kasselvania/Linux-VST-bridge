@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "scope": "source-owned isolated pinned-Proton/XWayland fixture; no vendor module or operator display",
+  "completed": true,
+  "windows_helpers": {
+    "schema": 1,
+    "source_head": "ed2fadc45f057d1a2f109bc3ab96a1d35566d762",
+    "build_commit": "e9db948cc3394262ce25943a6dfadd5087792a46",
+    "workflow": 34780980257,
+    "artifact": 10325531093,
+    "archive_sha256": "9f362d6319c2a69497d8600ddb71d6a0e246ccb1ae66b3570b073cc24c4bd121",
+    "files": {
+      "uio2-popup-fixture.exe": "20432729b42381b685533214e600499d27e144d95e44b71e502d5bc6ad865994",
+      "uio1-observer.exe": "d1e0d9f6fec2b9138e3c347185794ad0ca41d5db523e8df43384cf958bc69a53",
+      "uio1-hook.dll": "173b62c68950da65ac0b948898c34565faeba64cb199a7f557f8bc725ec9ffe9",
+      "uio2-uia-disconnect.exe": "29dfffb4dbb4657fd96fccce60ea956d62ca10962e58c7da6b373041d289f944"
+    }
+  },
+  "canonical_resize": {
+    "request": 1,
+    "result": 0,
+    "on_size": 1,
+    "paints": 5,
+    "requested_width": 800,
+    "requested_height": 500,
+    "parent_width": 800,
+    "parent_height": 500,
+    "child_width": 800,
+    "child_height": 500
+  },
+  "observer": {
+    "committed": 1133,
+    "dropped": 0,
+    "ready": 1,
+    "closed": 1,
+    "hook_calls": 2636,
+    "hook_ticks": 37588,
+    "max_hook_ticks": 847,
+    "filtered": 1503,
+    "heartbeat_errors": 0,
+    "scope_errors": 0,
+    "unhook_errors": 0,
+    "detached": 1
+  },
+  "accessibility_comparison": [
+    {
+      "disabled": false,
+      "exit": 42,
+      "overflow": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    },
+    {
+      "disabled": true,
+      "exit": 0,
+      "overflow": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    }
+  ],
+  "cases": [
+    {
+      "mode": 2,
+      "old_group_invalidated": true,
+      "members": 1,
+      "input_bearing_members": 1,
+      "resize": {
+        "request": 2,
+        "result": 0,
+        "on_size": 1,
+        "parent_width": 800,
+        "parent_height": 500,
+        "child_width": 800,
+        "child_height": 500
+      }
+    },
+    {
+      "mode": 3,
+      "old_group_invalidated": true,
+      "members": 5,
+      "input_bearing_members": 1,
+      "resize": {
+        "request": 3,
+        "result": 0,
+        "on_size": 1,
+        "parent_width": 800,
+        "parent_height": 500,
+        "child_width": 800,
+        "child_height": 500
+      }
+    },
+    {
+      "mode": 4,
+      "ambiguous_refused": true
+    },
+    {
+      "mode": 5,
+      "old_group_invalidated": true,
+      "nested_requires_new_capsule": true,
+      "members": 1,
+      "input_bearing_members": 1
+    },
+    {
+      "mode": 6,
+      "disappearance_before_down_refused": true,
+      "members": 1,
+      "input_bearing_members": 1
+    },
+    {
+      "mode": 7,
+      "changed_during_down_stopped": true,
+      "held_input_zero": true,
+      "members": 1,
+      "input_bearing_members": 1
+    },
+    {
+      "mode": 8,
+      "members": 5,
+      "input_bearing_members": 1,
+      "all_members_absent": true,
+      "held_input_zero": true
+    }
+  ],
+  "attempts": [
+    {
+      "attempt": 1,
+      "result": "capture owner closed before its X RECORD dependent; corrected retirement order; outer cgroup cleaned",
+      "complete_report": false
+    },
+    {
+      "attempt": 2,
+      "result": "single ownerless passed; ordinary observer four-action bound refused next case; added opt-in surface-mode bound"
+    },
+    {
+      "attempts": [
+        3,
+        4
+      ],
+      "result": "five-surface group bound; hovering restacked content above transparent frames; absolute stack index guard refused; retain membership and contiguous interval instead"
+    },
+    {
+      "attempt": 5,
+      "result": "canonical and modes 2 through 7 passed"
+    },
+    {
+      "attempt": "final",
+      "result": "all modes plus explicit normal-path Escape and cleanup passed"
+    }
+  ],
+  "nonclaims": [
+    "no Pigments result",
+    "no universal transient model",
+    "no Windows product artifact replacement",
+    "no root-cause attribution"
+  ]
+}

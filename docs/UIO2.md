@@ -206,4 +206,4 @@ invalidates the consumed group and requires a new capsule.
 Candidate17 reuses every candidate16 artifact. Only revision/evidence and the
 process-scoped accessibility policy/limitation change. This is an authorized
 comparison against the retained UIAutomationCore signature, not a root-cause or
-stability claim. No candidate17 product session has run yet.
+stability claim. The isolated generated canonical, ownerless, composite, ambiguity, nested, disappearance and Escape tests now pass; no candidate17 product session has run yet. See `evidence/uio2/tsg1/generated.json`.

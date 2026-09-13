@@ -96,8 +96,8 @@ class PopupX11(X11):
             # Up. The event receipt must then come from X RECORD/Win32 hooks,
             # never from a guessed replacement target.
             snapshot=self.fresh()
-            if any(r['hwnd']==self.row['hwnd'] for r in snapshot['windows']):raise
-            return dict(unavailable=True,reason='selected_popup_absent_after_up')
+            if any(r['hwnd']==self.row['hwnd'] and r['visible'] for r in snapshot['windows']):raise
+            return dict(unavailable=True,reason='selected_popup_absent_or_hidden_after_up')
 
     def capture_ready(self):self.guard()
 

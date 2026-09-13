@@ -160,3 +160,12 @@ class Permit:
         self.used = True  # even a refused attempt cannot silently retry
         if command != {'action': self.capsule.action}: raise RuntimeError('arbitrary executor command refused')
         return self.capsule.validate(current, now)
+
+from observe import Observer
+class SurfaceObserver(Observer):
+    def action(self,value):
+        # TSG1's generated matrix and nested capsules have their own finite
+        # ordinal budget. Never widen ordinary UIO1's four-action contract.
+        if self.read(224)!=1 or type(value) is not int or not 0<=value<=16:
+            raise ValueError('surface observer mode/action capacity')
+        self.write(72,value)

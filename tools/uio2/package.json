@@ -1,13 +1,14 @@
 {
-  "source_head": "417b0a2de7710985d7990c0b92c67feb015556a4",
-  "build_commit": "d27c15ea2188475be07262b99059d64378de2eeb",
-  "workflow": 34773103847,
-  "artifact": 10322418167,
-  "archive_sha256": "3815851da86c5f65a2e8e7cd57bb237d81026bbe6d854c7f2fec9d6731aa6b57",
   "schema": 1,
+  "source_head": "ed2fadc45f057d1a2f109bc3ab96a1d35566d762",
+  "build_commit": "e9db948cc3394262ce25943a6dfadd5087792a46",
+  "workflow": 34780980257,
+  "artifact": 10325531093,
+  "archive_sha256": "9f362d6319c2a69497d8600ddb71d6a0e246ccb1ae66b3570b073cc24c4bd121",
   "files": {
-    "uio2-popup-fixture.exe": "d3911842ba24e3015b38ebd4cfffc04805eaf47efe6565b4f82238a56a198b10",
-    "uio1-observer.exe": "3abc4439b24a7bd0033f01a4bbc1c609391b6c8b9facd5cb20b5ea250339fb1c",
-    "uio1-hook.dll": "3738513ce2bf6699cd15cd776c2a1c61da9d8a6f97144516d6e2c0a0f67da7a9"
+    "uio2-popup-fixture.exe": "20432729b42381b685533214e600499d27e144d95e44b71e502d5bc6ad865994",
+    "uio1-observer.exe": "d1e0d9f6fec2b9138e3c347185794ad0ca41d5db523e8df43384cf958bc69a53",
+    "uio1-hook.dll": "173b62c68950da65ac0b948898c34565faeba64cb199a7f557f8bc725ec9ffe9",
+    "uio2-uia-disconnect.exe": "29dfffb4dbb4657fd96fccce60ea956d62ca10962e58c7da6b373041d289f944"
   }
 }

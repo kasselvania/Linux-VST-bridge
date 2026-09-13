@@ -18,7 +18,7 @@ from launch import Helper,private_json,sealed_bytes
 from observe import Mapping,Observer
 from x11 import X11,summaries
 from xrecord import Recorder
-from popup import Editor,WindowGraph,bind,Capsule,Permit,SIZE
+from popup import Editor,WindowGraph,bind,Capsule,Permit,SIZE,SurfaceObserver
 from desktop import PopupX11,SurfaceGraphX11,GroupX11,click_pair
 from transient import Transaction,input_receipt
 spec=importlib.util.spec_from_file_location('uir1_session',HERE.parent/'uir1/session.py')
@@ -90,7 +90,7 @@ def run(root,package):
         e=Editor('1'*32,1,1,1,1,initial['pid'],initial['start'],initial['tid'],initial['root'],bindings[0]['xid'])
         obs=helper('uio1-observer.exe',['observe-surfaces',e.hwnd,e.start,90,'C:\\uio2\\observe.status'],100,'observer')
         wait(lambda:(target/'observe.status.windows').exists() and (target/'observe.status.windows').stat().st_size==SIZE,10)
-        observer=Observer(target/'observe.status',e.pid,e.start,e.hwnd);wait(lambda:observer.status()['ready']==1,5)
+        observer=SurfaceObserver(target/'observe.status',e.pid,e.start,e.hwnd);wait(lambda:observer.status()['ready']==1,5)
         graph=WindowGraph(target/'observe.status.windows',e)
         x=X11(e.xid);x.activate();record=Recorder(x);xgraph=SurfaceGraphX11(e.xid)
         # Main client location is derived from the exact generated child row.
@@ -124,16 +124,21 @@ def run(root,package):
         for message in (0x201,0x202):
             if not any(r['message']==message and r['source']==5 and r['hwnd']==row['hwnd'] and r['action']==2 for r in report['win32']):raise RuntimeError('popup Win32 receipt missing')
         report['transient_cases']=[]
-        def fresh():return xgraph.enrich(graph.snapshot())
+        report['tsg_graphs']=[]
+        def fresh():
+            value=xgraph.enrich(graph.snapshot())
+            if len(report['tsg_graphs'])>=256:raise RuntimeError('generated graph bound')
+            report['tsg_graphs'].append(value);return value
         def rotate(target):
             nonlocal record
             record.close();report['xrecord'].extend(record.records);record=Recorder(target)
         def records():
             tick();return report['xrecord']+record.records
         ordinal=2
-        for mode in (2,3,4,5,6,7):
+        for mode in (2,3,4,5,6,7,8):
+            rotate(x) # retire X RECORD while its owning display is still open
             if popup:popup.close();popup=None
-            rotate(x);status.write(208,mode);x.activate();span(.1)
+            status.write(208,3 if mode==8 else mode);x.activate();span(.1)
             before=fresh();ordinal+=1
             child=next(r for r in before['windows'] if r['hwnd']==initial['child'])
             rx,ry,rw,rh=x.geometry();cx,cy=child['client'][:2]
@@ -142,6 +147,7 @@ def run(root,package):
             receipt=input_receipt(ordinal,records(),report['win32'],record.dropped==0)
             transaction=Transaction(e,ordinal,before,receipt,after_graph,report['win32'])
             case=dict(mode=mode,before=before,after=after_graph,receipt=receipt)
+            report['transient_cases'].append(case)
             if mode==4:
                 try:transaction.bind()
                 except RuntimeError as exc:
@@ -151,7 +157,7 @@ def run(root,package):
                 # Source fixture controller disposes its own deliberately
                 # ambiguous windows; no vendor or desktop dismissal is inferred.
                 status.write(216,1);wait(lambda:status.read(56)==0,2)
-                report['transient_cases'].append(case);continue
+                continue
             group=transaction.bind();case['authority']=group.authority
             if group.target['hwnd']!=status.read(56):raise RuntimeError('wrong input-bearing fixture member')
             if mode==6:
@@ -159,9 +165,23 @@ def run(root,package):
                 try:group.revalidate(fresh(),e,report['win32'])
                 except RuntimeError:case['disappearance_before_down_refused']=True
                 else:raise RuntimeError('disappeared popup admitted')
-                report['transient_cases'].append(case);continue
+                continue
             popup=GroupX11(group,e,fresh,lambda:e,lambda:bool(status.read(192)),lambda:report['win32'],xgraph)
             meta,pixels=popup.capture();facts,_=summaries(pixels,meta['width'],meta['height'],meta['stride']);case['frame']=dict(meta=meta,facts=facts)
+            if mode==8:
+                # Actual normal-path Escape under still-valid group authority.
+                # The source-owned child handles it, removing every surface.
+                group.revalidate(fresh(),e,report['win32']);ordinal+=1;observer.action(ordinal)
+                x.key(True,'escape')
+                try:span(.04)
+                finally:x.key(False,'escape')
+                wait(lambda:status.read(56)==0,2);span(.1);dismissed=fresh()
+                if any(r['visible'] and r['hwnd'] in {m['hwnd'] for m in group.members} for r in dismissed['windows']):raise RuntimeError('dismissal retained a group member')
+                if x.keys or x.buttons:raise RuntimeError('dismissal held input')
+                for msg in (0x100,0x101):
+                    if not any(r['message']==msg and r['source']==1 and r['action']==ordinal and r['key_class']==2 for r in report['win32']):raise RuntimeError('Escape receipt missing')
+                case['explicit_dismissal']=dict(all_members_absent=True,held_input_zero=True,final=dismissed)
+                continue
             rotate(popup);ordinal+=1;observer.action(ordinal);record.action=ordinal
             row=group.target;point=(row['client'][0]+100,row['client'][1]+40)
             now=time.monotonic_ns();capsule=Capsule('tsg-generated',e,row,'resize_window',point,now,now+5_000_000_000,group_identity=group.identity)
@@ -175,7 +195,7 @@ def run(root,package):
                 except RuntimeError:case['changed_during_down_stopped']=True
                 else:raise RuntimeError('destroy-on-down was not refused')
                 if popup.buttons:raise RuntimeError('owned input retained after disappearing surface')
-                case['held_input_zero']=True;report['transient_cases'].append(case);continue
+                case['held_input_zero']=True;continue
             down,up=click_pair(popup,held)
             span(.2);case['input']=dict(down=down,up=up)
             final=fresh();case['final']=final
@@ -193,7 +213,6 @@ def run(root,package):
             for message in (0x201,0x202):
                 if not any(r['message']==message and r['source']==5 and r['hwnd']==row['hwnd'] and r['action']==ordinal for r in report['win32']):raise RuntimeError('ownerless Win32 receipt missing')
             case['receipt']=input_receipt(ordinal,records(),report['win32'],record.dropped==0)
-            report['transient_cases'].append(case)
         observer.stop();wait(lambda:observer.status()['closed']!=0,3);report['observer_status']=observer.status()
         if any(report['observer_status'][k] for k in ('dropped','heartbeat_errors','scope_errors','unhook_errors')):raise RuntimeError('observer incomplete')
         finish(report,'observer_cleanup',obs);status.write(80,9);wait(lambda:status.read(184)==1,3);finish(report,'fixture_cleanup',fixture)
@@ -207,7 +226,7 @@ def run(root,package):
                 try:finish(report,'cleanup_'+str(i),h)
                 except BaseException as exc:report['completed']=False;report['cleanup_error']=str(exc)
         if record:record.close()
-        for obj in (popup,x,xgraph,graph,observer,status):
+        for obj in (popup,xgraph,x,graph,observer,status):
             if obj:obj.close()
         private_json(root/'result-private.json',report)
     return 0 if report['completed'] else 1
