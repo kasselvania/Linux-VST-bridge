@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "source": "ffbe640a447f8767282966aad86017cb63cc847d",
+  "local": {
+    "manager_library": 78,
+    "manager_binary": 12,
+    "strict_clippy": "passed --locked --all-targets -D warnings",
+    "linux_runtime": 55,
+    "mac_capture_tests": "8 passed, 2 Linux-only cases skipped",
+    "production_collector": "pinned-runner handled, normal, explicit exit and fatal-late passed; final installed fatal-late passed",
+    "retained_reprojection": "4 selected exception fault addresses resolved; original incident/first terminal preserved"
+  },
+  "hosted": [
+    {
+      "workflow": "AP8 Windows host",
+      "run": 34733424452,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "AP12 registered owner",
+      "run": 34733424447,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "PX2 proof policy",
+      "run": 34733424456,
+      "conclusion": "success"
+    }
+  ],
+  "unchanged_product_artifacts": "Candidate16 native/Windows/module/descriptor retained exactly; no new Pigments revision",
+  "native_audio_suites": "No native/audio/protocol owners changed; retained IF2 fixtures not repeated",
+  "public_privacy": "Whitelisted aliases, numeric facts and hashes only; raw exception logs/frames/process identities and UI captures remain private"
+}

@@ -216,5 +216,79 @@
     "SIGKILL is not exception-stack proof",
     "outer Proton status is not Windows or native wait status",
     "fixture exceptions do not attribute the historical Pigments crash"
-  ]
+  ],
+  "final_installed_fatal_late": {
+    "schema": 1,
+    "outcome": null,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "outer_exit": 5,
+    "windows_self_exit_codes": [
+      3221225477
+    ],
+    "native_same_identity_at_finalization": false,
+    "first_terminal": null,
+    "exceptions": [
+      {
+        "code": 3221225477,
+        "classification": "exception_matching_self_exit_status",
+        "fault": {
+          "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+          "offset": 4102
+        },
+        "stack": [
+          {
+            "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+            "offset": 4102
+          },
+          {
+            "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+            "offset": 4127
+          },
+          {
+            "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+            "offset": 4730
+          },
+          {
+            "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+            "offset": 5885
+          },
+          {
+            "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+            "offset": 5996
+          },
+          {
+            "module_sha256": "13f82daa75b0b0d0b6a16560103054fe4cd474627174f152776d7078eaa3906f",
+            "offset": 71241
+          },
+          {
+            "module_sha256": null,
+            "offset": null
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "received_bytes": 489061,
+      "excluded_bytes": 484657,
+      "oversized_lines": 0,
+      "malformed_lines": 16385,
+      "module_overflow": 0,
+      "exception_overwrite": 0,
+      "frame_overflow": 0,
+      "process_overflow": 0,
+      "mapped_path_drops": 0,
+      "incomplete_lines": 0,
+      "disabled_bytes": 0,
+      "final_drain_incomplete": false
+    },
+    "fixture_mode": "fatal-late",
+    "fixture_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+    "production_run": true,
+    "collector_source": "ffbe640a447f8767282966aad86017cb63cc847d",
+    "runtime_sha256": {
+      "session.py": "dadac2a0148074b048df65df5289e7268b803d2bed3fa6c9834c68c2524b6daa",
+      "ownership.py": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b"
+    }
+  }
 }

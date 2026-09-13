@@ -109,7 +109,7 @@ explicit exit, fatal and late-fatal modes. The fatal modes really fault through
 Fixture-only `SEM_NOGPFAULTERRORBOX` avoids launching a crash dialog/debugger.
 
 The final late-fatal fixture retains `0xc0000005`, fault RVA `0x1006`, caller RVA
-`0x101f`, and available subsequent frames after roughly 489 KiB of output exceeds
+`0x101f`, and available subsequent frames after more than 64 KiB of output exceeds
 the old 64 KiB retention. Windows status and outer Proton exit 5 remain distinct.
 The first fatal proof exposed signed-decimal exit parsing; it was corrected from
 that retained record, with a focused regression. No vendor retry selected that fix.
@@ -144,3 +144,25 @@ unload had invalidated all modules of that process, including unrelated images
 and earlier exception frames. The path/time-specific correction has generated
 coverage and a private reprojection of the already retained record. The original
 incident is preserved. No second Pigments run was needed to correct the reporter.
+
+## Review handoff
+
+Reporter source `ffbe640a447f8767282966aad86017cb63cc847d` passed AP8, AP12
+and PX2. The final installed reporter also passed the actual late-fatal fixture.
+See [reporter proof](../evidence/ca1/reporter-proof.json),
+[sanitized example](../evidence/ca1/sample-incident.md),
+[one candidate session](../evidence/ca1/candidate-session.json), and
+[final installed readback](../evidence/ca1/installed-final.json).
+
+CA1_REPORTER_READY_FOR_REVIEW. Historical-crash attribution remains unresolved.
+The next evidence-backed step is to arm capture before the next chosen normal-use
+session and inspect any naturally occurring incident before a subsequent launch.
+There is no evidence-backed graphics, resource, runner or scheduling repair to
+select from this healthy session. No indefinite reproduction campaign is needed.
+
+Ordinary Pigments 11 is physically restored; candidate 16 and every prior revision
+are retained inactive. LoFi/FRAGMENTS publications and four pre-existing protected
+project hashes are unchanged. Service/keeper are active, capture is disarmed, and
+there are zero DSP leases, transactions, stale transports, held inputs or owned
+diagnostic helpers. The final service has CPUWeight unset; no override was written.
+No user interaction handoff is left armed. PR #100 stays open for independent review.

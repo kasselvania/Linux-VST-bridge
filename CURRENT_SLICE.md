@@ -160,10 +160,16 @@ misrepresented as idle cleanup. Finish this PR with code, focused proof, a
 sample sanitized report, exact installed/armed state, unresolved attribution and
 next evidence-backed repair direction. No ordinary Pigments acceptance is implied.
 
-## Implementation progress
+## Implementation result
 
-The CA1 implementation and bounded production collector are described in
-[`docs/CA1.md`](docs/CA1.md). The source-owned handled and fatal pinned-runner
-proofs pass, including an actual exception after first-N log saturation.
-The candidate-16 product session and final installed state will be retained
-separately; no cause is inferred for the historical waveform report.
+CA1_REPORTER_READY_FOR_REVIEW. Implementation source
+`ffbe640a447f8767282966aad86017cb63cc847d` and the final installed reporter
+passed the focused exception/cleanup proof. [CA1](docs/CA1.md) and
+[evidence/ca1](evidence/ca1/) retain the source-owned fatal/handled distinction,
+one protected candidate-16 waveform interaction, the historical module-lookup
+correction, and final physical readback.
+
+The waveform selection completed and the session retired normally. This does
+not reproduce, attribute or repair the historical crash. Ordinary Pigments 11
+is restored; capture is off, with no user handoff armed. No product revision or
+ordinary promotion was created. PR #100 remains open for independent review.
