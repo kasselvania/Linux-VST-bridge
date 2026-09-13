@@ -54,6 +54,23 @@ class Tests(unittest.TestCase):
         v.cls=3
         with self.assertRaises(RuntimeError):validated_masks((0,0,0),True,24,a)
 
+    def test_multiple_x_connections_route_errors_and_close_in_either_order(self):
+        import ctypes as C
+        import x11
+        class Lib:
+            changes=[]
+            def XSetErrorHandler(self,h):self.changes.append(h);return None
+        lib=Lib();a=[];b=[]
+        x11._attach_errors(lib,101,a);x11._attach_errors(lib,202,b)
+        e=x11.XError();e.code=8;e.major=142;e.minor=6
+        x11._route_error(101,C.pointer(e))
+        self.assertEqual(a,[(8,142,6)]);self.assertEqual(b,[])
+        x11._detach_errors(lib,101)
+        x11._route_error(202,C.pointer(e));self.assertEqual(b,[(8,142,6)])
+        self.assertEqual(len(lib.changes),1)
+        x11._detach_errors(lib,202);self.assertEqual(len(lib.changes),2)
+        self.assertEqual(x11._ERROR_OWNERS,{})
+
     def capsule(self):return Capsule('generated-popup',E,bind(graph(),E,E),'resize_window',(200,150),100,1_000_000_000)
     def test_capsule_one_closed_action_not_retry_or_verdict(self):
         c=self.capsule();p=Permit(c);self.assertEqual(len(p.consume({'action':'resize_window'},E,101)),64)

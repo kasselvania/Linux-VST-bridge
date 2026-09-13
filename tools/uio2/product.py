@@ -146,7 +146,7 @@ class Product:
         self.current();g=self.fresh();row,x=self.target(g);meta,pixels=x.capture()
         if len(self.frames)>=24:raise RuntimeError('private frame capacity')
         facts,_=summaries(pixels,meta['width'],meta['height'],meta['stride'])
-        n=len(self.frames)+1;self.frames.append(dict(meta=meta,facts=facts,window=row,action=self.action))
+        n=len(self.frames)+1;self.frames.append(dict(meta=meta,facts=facts,window=row,action=self.action,group_identity=self.group.identity if self.group else '',group_authority=self.group.authority if self.group else None))
         folder=self.out/'frames';folder.mkdir(mode=0o700,exist_ok=True)
         private_json(folder/f'{n}.json',self.frames[-1])
         with os.fdopen(os.open(folder/f'{n}.bgra.z',os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'wb') as f:f.write(zlib.compress(pixels,3))

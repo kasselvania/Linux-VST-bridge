@@ -77,6 +77,36 @@ def summaries(pixels, width, height, stride, previous=None, regions=()):
                 changed_sample_percent=100*len(changed)/len(sampled),changed_sample_bounds=box,
                 spatial_step=8,region_hashes=hashes),sampled
 
+class XError(C.Structure):
+    _fields_=[('type',I),('display',P),('resource',U),('serial',U),('code',C.c_ubyte),('major',C.c_ubyte),('minor',C.c_ubyte)]
+
+# Xlib has one process-wide handler, not one handler per Display. Route by the
+# exact private connection so a graph connection cannot steal capture errors.
+_ERROR_TYPE=C.CFUNCTYPE(I,P,C.POINTER(XError))
+_ERROR_OWNERS={}
+_ERROR_PRIOR=None
+
+def _route_error(display,event):
+    owner=_ERROR_OWNERS.get(display)
+    if owner is not None:
+        e=event.contents;owner.append((e.code,e.major,e.minor));return 0
+    if _ERROR_PRIOR:return _ERROR_TYPE(_ERROR_PRIOR)(display,event)
+    return 0
+
+_ERROR_CALLBACK=_ERROR_TYPE(_route_error)
+
+def _attach_errors(lib,display,errors):
+    global _ERROR_PRIOR
+    if display in _ERROR_OWNERS or len(_ERROR_OWNERS)>=16:raise RuntimeError('X11 error-owner bound/identity')
+    if not _ERROR_OWNERS:_ERROR_PRIOR=lib.XSetErrorHandler(_ERROR_CALLBACK)
+    _ERROR_OWNERS[display]=errors
+
+def _detach_errors(lib,display):
+    global _ERROR_PRIOR
+    del _ERROR_OWNERS[display]
+    if not _ERROR_OWNERS:
+        lib.XSetErrorHandler(_ERROR_PRIOR);_ERROR_PRIOR=None
+
 class X11:
     def __init__(self, window, pid=None):
         self.x=C.CDLL(ctypes.util.find_library('X11'));self.t=C.CDLL(ctypes.util.find_library('Xtst'))
@@ -98,17 +128,20 @@ class X11:
         self.display=self.x.XOpenDisplay(None)
         if not self.display:raise RuntimeError('X11 display unavailable; native Wayland needs portal consent')
         self.root=self.x.XDefaultRootWindow(self.display);self.buttons=set();self.keys=set();self.pixmap=0;self.errors=[]
-        # Our private X connection only; never suppress the application error handler.
-        class Error(C.Structure):_fields_=[('type',I),('display',P),('resource',U),('serial',U),('code',C.c_ubyte),('major',C.c_ubyte),('minor',C.c_ubyte)]
-        self.error_callback=C.CFUNCTYPE(I,P,C.POINTER(Error))(lambda d,e:self.errors.append((e.contents.code,e.contents.major,e.contents.minor)) or 0)
-        self.x.XSetErrorHandler.argtypes=[P];self.x.XSetErrorHandler.restype=P;self.prior_handler=self.x.XSetErrorHandler(self.error_callback)
-        a,b,c,d=I(),I(),I(),I()
-        if not self.t.XTestQueryExtension(self.display,C.byref(a),C.byref(b),C.byref(c),C.byref(d)):raise RuntimeError('XTEST unavailable')
-        self.initial=self.geometry();self.check_identity()
+        self.x.XSetErrorHandler.argtypes=[P];self.x.XSetErrorHandler.restype=P
+        try:
+            _attach_errors(self.x,self.display,self.errors)
+            a,b,c,d=I(),I(),I(),I()
+            if not self.t.XTestQueryExtension(self.display,C.byref(a),C.byref(b),C.byref(c),C.byref(d)):raise RuntimeError('XTEST unavailable')
+            self.initial=self.geometry();self.check_identity()
+        except BaseException:
+            self.x.XCloseDisplay(self.display)
+            if self.display in _ERROR_OWNERS:_detach_errors(self.x,self.display)
+            raise
     def sync(self):
         self.x.XSync(self.display,0)
         if self.errors:
-            errors=self.errors;self.errors=[];raise RuntimeError(f'X11 operation refused: {errors}')
+            errors=list(self.errors);self.errors.clear();raise RuntimeError(f'X11 operation refused: {errors}')
     def property(self, window, name):
         atom=self.x.XInternAtom(self.display,name.encode(),1)
         if not atom:return []
@@ -219,7 +252,7 @@ class X11:
                 # XWayland may have no XComposite redirection. Do not redirect
                 # it (that would change the renderer). Read only its own drawable
                 # while foreground; occluded/minimized frames are not evidence.
-                self.errors=[];self.pixmap=0;self.capture_backend='direct_drawable'
+                self.errors.clear();self.pixmap=0;self.capture_backend='direct_drawable'
             else:
                 self.sync();self.capture_backend='xcomposite_pixmap'
                 if not self.pixmap:raise RuntimeError('exact pixmap unavailable')
@@ -246,6 +279,6 @@ class X11:
         for k in self.keys:self.t.XTestFakeKeyEvent(self.display,k,0,0)
         self.buttons.clear();self.keys.clear();self.x.XSync(self.display,0)
         if self.pixmap:self.x.XFreePixmap(self.display,self.pixmap)
-        self.x.XCloseDisplay(self.display);self.x.XSetErrorHandler(self.prior_handler)
+        self.x.XCloseDisplay(self.display);_detach_errors(self.x,self.display)
     def __enter__(self):return self
     def __exit__(self,*args):self.close()
