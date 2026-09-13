@@ -1,0 +1,166 @@
+{
+  "schema": 1,
+  "product_source": "ffbe640a447f8767282966aad86017cb63cc847d",
+  "software": {
+    "revision": "a31192fe41f3c400b48cdfe0bbf52aa9276ca007831d1dd1504e3ad85076e40d",
+    "artifacts": {
+      "manager": "7056cf5596d5af390827405d7165b4cc170ca73e26b9547dd9a585570efc46a5",
+      "supervisor": "dadac2a0148074b048df65df5289e7268b803d2bed3fa6c9834c68c2524b6daa",
+      "ownership": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "a675627019e50517eb4d0f9b6ba48ae259f468b789ed603478d19fa0f78050ef"
+    },
+    "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+  },
+  "software_record_sha256": "8178c3e7c015017f7a156e411a5d1833eeb78ecef8b5c67fb0eb84579d8a31ca",
+  "exact_prior_software": [
+    {
+      "revision": "cd4601e0b6fa8e9be3639ff5edc2ca2faae74dfe9b1642b924afdc6f39768659",
+      "artifacts": {
+        "manager": "00ff0079f33cac0da30519daf8d18e31512fa496ac25ea985a2bb0dce7b682b9",
+        "supervisor": "413343751c9c401c17b0feef57b75b04871c6779465eb6ef6dca0bd384db84a2",
+        "ownership": "cca318e0b58aa9fc163df88b9df9e4494f38cb73d411e170718860d643083dff",
+        "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+        "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+        "native_catalogue": "73937414246a67728bdf2f0b69cccdbc1d4188615ea76cc209396b10269fdce7"
+      },
+      "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+    },
+    {
+      "revision": "0dc8c8d904077e7767d0e290dbb2f3458e76d580f6490ea4cd16d957f4446905",
+      "artifacts": {
+        "manager": "b3e578d1794c7f0e6acbb6604555188652e1b0af243d8325b5100a451f91b025",
+        "supervisor": "fc627b370e4a07e60bd5aca380a74f5406e0cd4118259fbca2f820bc500fb31e",
+        "ownership": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b",
+        "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+        "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+        "native_catalogue": "f42945078d6745150dbd6f5bc0dc32be280b26539c29c245435ee3688f3e5ce3"
+      },
+      "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5"
+    }
+  ],
+  "installation": "existing immutable setup route; no product host/native replacement",
+  "build": {
+    "source": "ffbe640a447f8767282966aad86017cb63cc847d",
+    "artifacts": {
+      "ownership.py": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b",
+      "linux-vst-bridge": "7056cf5596d5af390827405d7165b4cc170ca73e26b9547dd9a585570efc46a5",
+      "session.py": "dadac2a0148074b048df65df5289e7268b803d2bed3fa6c9834c68c2524b6daa",
+      "uio1": "982c6a7a7619ea28f0a5cebec1511e9ab2b067dd6494c8924d8d3bb35074bc5c"
+    },
+    "target": "x86_64-unknown-linux-gnu",
+    "compiler": "Rust 1.95.0",
+    "linker": "Zig x86_64-linux-gnu.2.36",
+    "uio1": "unchanged IF2 development binary"
+  },
+  "products": [
+    {
+      "product": "arturia-pigments",
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-pigments",
+        "revision": 11
+      },
+      "active_revision": {
+        "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+        "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+      },
+      "qualification": null,
+      "physical_target_equals_original": true,
+      "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+      "external_ids": [
+        "2a87961b6a485bdea59c9009fc661460",
+        "ce18a28bb102517c9e5db63bb7d72d9b"
+      ],
+      "publication_valid": true,
+      "recommended_frames": 512,
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      }
+    },
+    {
+      "product": "arturia-pure-lofi",
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-pure-lofi",
+        "revision": 10
+      },
+      "active_revision": {
+        "id": "51f241c4da508aa1fbbc9d6d172eb123",
+        "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+      },
+      "qualification": null,
+      "physical_target_equals_original": true,
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "external_ids": [
+        "ac7f2418f2915958b5b67620593b9a2d",
+        "0c80f2acc39f5975a38d177102555683"
+      ],
+      "publication_valid": true,
+      "recommended_frames": 512,
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      }
+    },
+    {
+      "product": "arturia-efx-fragments",
+      "profile": {
+        "activation_permitted": true,
+        "claim": "verified_exact_fixture",
+        "id": "arturia-efx-fragments",
+        "revision": 10
+      },
+      "active_revision": {
+        "id": "e340c6f8ad5ca494d2fb477214c9937e",
+        "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+      },
+      "qualification": null,
+      "physical_target_equals_original": true,
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "external_ids": [
+        "96bd361810b3568a9671700732903d6e",
+        "d3181e9d37e75871ba5ffbcae0775861"
+      ],
+      "publication_valid": true,
+      "recommended_frames": 512,
+      "performance": {
+        "added_frames": 512,
+        "schema": 1
+      }
+    }
+  ],
+  "candidate16_inactive": true,
+  "candidate_revisions_preserved": true,
+  "profile_files_unchanged_from_preparation": true,
+  "service": "active",
+  "keeper": "active",
+  "dsp_leases": 0,
+  "pending_transactions": 0,
+  "stale_transports": 0,
+  "bitwig_absent": true,
+  "held_input_mask": 0,
+  "capture_armed": false,
+  "capture_enabled": false,
+  "user_handoff_armed": false,
+  "trace_enabled": false,
+  "owned_helpers": 0,
+  "temporary_units": 0,
+  "cpu_weight": "unset; effective default 100 after normal service setup; no scheduling override written",
+  "projects": {
+    "preexisting_count": 4,
+    "all_prior_hashes_unchanged": true,
+    "new_protected_copy_sha256": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573"
+  },
+  "authorization": "No account or authorization operation performed",
+  "nonclaims": [
+    "historical waveform crash not reproduced or attributed",
+    "no Pigments promotion",
+    "no graphics, timing, scheduling or delivery repair",
+    "512 remains recommended; 256 unqualified"
+  ]
+}

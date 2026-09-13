@@ -26,6 +26,8 @@ use std::{
 use catalogue::Software;
 #[derive(Serialize, Deserialize)]
 struct SessionSpec {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    crash_capture: Option<crash_capture::Capture>,
     registration: HostBinding,
     session: String,
     directory: PathBuf,
@@ -483,6 +485,7 @@ fn spec(
     let leases = m.root.join("runtime/leases");
     private_dir(&leases)?;
     let s = SessionSpec {
+        crash_capture: None,
         registration: r,
         session: sid.clone(),
         directory: directory.clone(),
@@ -766,6 +769,7 @@ fn serve(m: Manager) -> Result<()> {
                     let _reservation=capacity::reserve(&m,&limits,Some(&class),blocked.load(Ordering::Acquire))?;
                     let registration = m.resolve(&greeting[5..])?;
                     m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
+                    let full_registration = registration.clone();
                     let r: HostBinding = registration.into();
                     let performance = m.performance(&r.metadata.class_id)?;
                     require(version2 || performance.added_frames == 512,
@@ -779,6 +783,8 @@ fn serve(m: Manager) -> Result<()> {
                     job.directory = storage.directory.clone();
                     job.transport = Some(storage.identity.clone());
                     job.shared_runtime = true;
+                    job.crash_capture = crash_capture::claim(&m,&full_registration,&job.session)
+                        .unwrap_or_else(|e| { eprintln!("CA1 capture unavailable: {e}"); None });
                     atomic_json(&path, &job)?;
                     let admission = PendingAdmission::new(job.lease.clone(),blocked.clone());
                     atomic_json(&job.lease, &job.report)?;
@@ -1042,6 +1048,7 @@ fn main() -> Result<()> {
   Some("accept-pigments") if args.len()==1=>managed_cli::run_pigments_acceptance(&m),
   Some("accept-ui") if args.len()==1=>managed_cli::run_ui_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
+  Some("capture")=>crash_capture::run(&m,&args[1..]),
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),

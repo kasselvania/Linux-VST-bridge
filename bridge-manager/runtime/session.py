@@ -4,7 +4,7 @@
 No registration writes, checkout imports, scan guesses, global Wine overrides or
 callback work. The Rust manager supplies an exact verified registration.
 """
-import ctypes,mmap
+import ctypes,mmap,collections,re
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
 from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup
 
@@ -457,10 +457,356 @@ def fault_threads(owned):
             except (OSError,ValueError,IndexError):continue
     return result
 
+# CA1 is a supervisor-side observer. None of this code runs on an audio or
+# Windows vendor thread. Its errors never authorize or prevent cleanup.
+class RecentCapture:
+    """Record-bounded tail, unlike ASC's first-N PrivateCapture."""
+    def __init__(self, capacity, records):
+        self.capacity=capacity;self.records=records;self.rows=collections.deque();self.bytes=0;self.dropped_bytes=0;self.dropped_records=0
+    def write(self, data):
+        if len(data)>self.capacity:
+            self.dropped_bytes+=len(data);self.dropped_records+=1;return
+        while self.rows and (self.bytes+len(data)>self.capacity or len(self.rows)>=self.records):
+            old=self.rows.popleft();self.bytes-=len(old);self.dropped_bytes+=len(old);self.dropped_records+=1
+        self.rows.append(data);self.bytes+=len(data)
+    def value(self):return [x.decode('utf-8',errors='replace') for x in self.rows]
+    def limits(self):return dict(capacity=self.capacity,record_capacity=self.records,retained_bytes=self.bytes,dropped_bytes=self.dropped_bytes,dropped_records=self.dropped_records)
+
+
+def capture_pe(f):
+    """Parse the same opened file used for identity verification and hashing."""
+    size=os.fstat(f.fileno()).st_size
+    def at(offset,n):
+        if offset<0 or n>262144 or offset+n>size:raise ValueError('PE range')
+        f.seek(offset);b=f.read(n)
+        if len(b)!=n:raise ValueError('PE truncated')
+        return b
+    dos=at(0,64)
+    if dos[:2]!=b'MZ':raise ValueError('not PE')
+    pos=struct.unpack_from('<I',dos,60)[0];head=at(pos,24)
+    if head[:4]!=b'PE\0\0':raise ValueError('not PE')
+    count=struct.unpack_from('<H',head,6)[0];opt_size=struct.unpack_from('<H',head,20)[0]
+    if count>96 or opt_size>512:raise ValueError('PE metadata capacity')
+    opt=at(pos+24,opt_size);magic=struct.unpack_from('<H',opt)[0]
+    if magic not in (0x10b,0x20b):raise ValueError('PE optional header')
+    image_size=struct.unpack_from('<I',opt,56)[0];sections=at(pos+24+opt_size,count*40)
+    def rva(v,n):
+        for i in range(count):
+            vs,va,raw,off=struct.unpack_from('<IIII',sections,i*40+8)
+            if va<=v and v+n<=va+min(vs,raw):return at(off+v-va,n)
+        raise ValueError('PE RVA unmapped')
+    exports=[];directory=112 if magic==0x20b else 96
+    er,es=struct.unpack_from('<II',opt,directory)
+    if er and es:
+        eh=rva(er,40);nf,nn,af,an,ao=struct.unpack_from('<IIIII',eh,20)
+        if nf>8192 or nn>8192:raise ValueError('PE export capacity')
+        funcs=rva(af,nf*4);names=rva(an,nn*4);ordinals=rva(ao,nn*2)
+        for i in range(nn):
+            idx=struct.unpack_from('<H',ordinals,i*2)[0]
+            if idx>=nf:raise ValueError('PE ordinal')
+            nr=struct.unpack_from('<I',names,i*4)[0]
+            name=bytearray()
+            for j in range(128):
+                c=rva(nr+j,1)
+                if c==b'\0':break
+                name.extend(c)
+            else:continue
+            address=struct.unpack_from('<I',funcs,idx*4)[0]
+            if er<=address<er+es:continue # forwarded export is not code
+            if name and all(32<=x<127 for x in name):exports.append((address,name.decode('ascii')))
+    return dict(size_of_image=image_size,exports=sorted(exports))
+
+
+class IncidentCapture:
+    LINE=8192;MODULES=1024;EXCEPTIONS=16;FRAMES=64;PROCESSES=128;SECONDS=7200;FINAL_SECONDS=5
+    HEADER=re.compile(r'^(\d+\.\d+):([0-9a-fA-F]+):([0-9a-fA-F]+):(trace|warn|err):([a-z0-9_]+):([^ ]+) ?(.*)$')
+    def __init__(self, spec, peer=None):
+        self.request=spec['crash_capture'];self.path=pathlib.Path(self.request['directory']);self.sid=spec['session'];self.reg=spec['registration']
+        if self.request.get('schema')!=1 or self.request.get('session')!=self.sid or not re.fullmatch('[0-9a-f]{32}',self.request.get('id','')):raise ValueError('capture binding')
+        private_directory(self.path)
+        if self.path.name!=self.request['id']:raise ValueError('capture directory')
+        self.started=time.monotonic();self.active=True;self.finished=False;self.error=None;self.next_check=0;self.stop_reason=None
+        self.context=RecentCapture(131072,512);self.terminal=RecentCapture(262144,1024)
+        self.pending={};self.skipping={};self.modules=[];self.exceptions=collections.deque(maxlen=self.EXCEPTIONS);self.current={};self.exits={};self.fatal_reserved=[];self.processes={};self.images={};self.dirty=True
+        self.counts=dict(received_bytes=0,excluded_bytes=0,oversized_lines=0,malformed_lines=0,module_overflow=0,exception_overwrite=0,frame_overflow=0,process_overflow=0,mapped_path_drops=0,incomplete_lines=0,disabled_bytes=0,final_drain_incomplete=False)
+        self.native=None;self.launcher=None;self.first_terminal=None;self.map_bytes=0
+        if peer is not None:
+            try:
+                pid,uid,_=struct.unpack('3i',peer.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
+                if uid==os.getuid():self.native=self.identity(pid)
+            except (OSError,ValueError,AttributeError):pass
+        self.status('collecting')
+    def status(self,state):
+        atomic(self.path/'status.json',dict(schema=1,state=state,session=self.sid,capture_enabled=self.active,error=self.error,logging_in_child=not self.finished))
+    @staticmethod
+    def identity(pid):
+        p=pathlib.Path('/proc')/str(pid)
+        try:
+            raw=(p/'stat').read_text();fields=raw.rsplit(')',1)[1].split()
+            return dict(pid=pid,start_ticks=int(fields[19]),ppid=int(fields[1]),pgrp=int(fields[2]),session=int(fields[3]))
+        except (OSError,ValueError,IndexError):return None
+    def check(self):
+        if time.monotonic()<self.next_check:return
+        self.next_check=time.monotonic()+1
+        if self.active and ((self.path/'cancel.json').exists() or time.monotonic()-self.started>self.SECONDS):
+            self.active=False;self.stop_reason='disarmed' if (self.path/'cancel.json').exists() else 'retention_expired';self.status(self.stop_reason)
+    def write(self, stream, data):
+        self.counts['received_bytes']+=len(data)
+        if not self.active:self.counts['disabled_bytes']+=len(data);return
+        if stream not in ('stderr','vendor'):raise ValueError('capture stream')
+        # Parse bounded lines without retaining a giant unterminated record.
+        for fragment in data.splitlines(keepends=True):
+            if self.skipping.get(stream):
+                self.counts['excluded_bytes']+=len(fragment)
+                if fragment.endswith(b'\n'):self.skipping[stream]=False
+                continue
+            buf=self.pending.setdefault(stream,bytearray());buf.extend(fragment)
+            if len(buf)>self.LINE:
+                self.counts['oversized_lines']+=1;self.counts['excluded_bytes']+=len(buf);buf.clear();self.skipping[stream]=not fragment.endswith(b'\n');continue
+            if fragment.endswith(b'\n'):
+                line=bytes(buf);buf.clear();self.line(line)
+    def line(self,line):
+        text=line.decode('utf-8',errors='replace').rstrip('\r\n');m=self.HEADER.fullmatch(text)
+        if not m:
+            self.counts['excluded_bytes']+=len(line);self.counts['malformed_lines']+=1;return
+        timestamp,pid,tid,level,channel,func,body=m.groups();pid=int(pid,16);tid=int(tid,16)
+        when=dict(clock_domain='wine_trace_seconds',timestamp=timestamp,windows_pid=pid,windows_tid=tid)
+        load=re.fullmatch(r'Loaded L"(.{1,1024})" at ([0-9a-fA-F]+): (builtin|native)',body) if channel=='loaddll' else None
+        if load:
+            if len(self.modules)>=self.MODULES:self.counts['module_overflow']+=1;return
+            path,base,kind=load.groups();self.modules.append(dict(**when,path=path,base=int(base,16),kind=kind,unloaded=False));self.dirty=True;return
+        if channel=='loaddll' and ('Unload' in body or 'unload' in func):
+            self.context.write(line)
+            unloaded=re.fullmatch(r'Unloaded module L"(.{1,1024})" : (builtin|native)',body)
+            def windows_path(value):return value.replace('\\\\','\\').casefold()
+            for mod in self.modules:
+                if mod['windows_pid']!=pid or mod.get('unloaded_at'):continue
+                if unloaded:
+                    if windows_path(mod['path'])==windows_path(unloaded[1]):mod['unloaded_at']=timestamp
+                elif not mod.get('unload_uncertain_at'):
+                    mod['unload_uncertain_at']=timestamp
+            # Retain load history. An unrelated or later unload does not erase
+            # the actual image binding that existed at an earlier exception.
+            return
+        fault=re.search(r'code=([0-9a-fA-F]{8}) .*flags=([0-9a-fA-F]+) addr=([0-9a-fA-F]+)',body) if channel=='seh' and func=='dispatch_exception' else None
+        if fault:
+            if len(self.exceptions)==self.EXCEPTIONS:self.counts['exception_overwrite']+=1
+            e=dict(**when,code=int(fault[1],16),flags=int(fault[2],16),ip=int(fault[3],16),access=None,address=None,frames=[],unhandled_marker=False)
+            self.exceptions.append(e)
+            # Avoid references to evicted exception rows growing unbounded.
+            self.current={(x['windows_pid'],x['windows_tid']):x for x in self.exceptions}
+            self.terminal.write(line);return
+        e=self.current.get((pid,tid))
+        if channel=='seh' and func=='dispatch_exception' and e:
+            info=re.search(r'info\[([01])\]=([0-9a-fA-F]+)',body)
+            if info:
+                e['access' if info[1]=='0' else 'address']=int(info[2],16);self.terminal.write(line)
+            # No registers/arguments/locals retained for diagnosis.
+            return
+        frame=re.search(r'type 1 base ([0-9a-fA-F]+) rip ([0-9a-fA-F]+) rva ([0-9a-fA-F]+)',body) if channel=='unwind' and func=='RtlVirtualUnwind2' else None
+        if frame and e:
+            if len(e['frames'])<self.FRAMES:e['frames'].append(dict(base=int(frame[1],16),ip=int(frame[2],16),rva=int(frame[3],16)))
+            else:self.counts['frame_overflow']+=1
+            self.terminal.write(line);return
+        exit_match=re.search(r'handle (\(nil\)|0xffffffffffffffff|0xffffffff), exit_code (-?[0-9]+), process_exiting [01]',body) if channel=='process' and func=='NtTerminateProcess' else None
+        if exit_match:
+            code=int(exit_match[2],10)
+            if not -(1<<31)<=code<(1<<32):self.counts['malformed_lines']+=1;return
+            if pid in self.exits or len(self.exits)<self.PROCESSES:
+                self.exits[pid]=dict(**when,exit_code=code&0xffffffff,raw_signed_exit_code=code,source='Wine NtTerminateProcess self pseudo-handle')
+                if e and (code&0xffffffff)==e['code'] and e['code']>=0x80000000 and len(self.fatal_reserved)<4 and e not in self.fatal_reserved:
+                    self.fatal_reserved.append(json.loads(json.dumps(e)))
+            else:self.counts['process_overflow']+=1
+            self.terminal.write(line);return
+        if e and channel=='seh' and ('unhandled exception' in body.lower() or 'UnhandledExceptionFilter' in func):
+            e['unhandled_marker']=True;self.terminal.write(line);return
+        if (channel=='module' and level=='err') or (channel=='seh' and level in ('warn','err')):
+            self.context.write(line);return
+        self.counts['excluded_bytes']+=len(line)
+    def observe(self,owned,root):
+        self.check()
+        if self.launcher is None:self.launcher=self.identity(root.pid)
+        if not self.active:return
+        # Existing ProcessTracker supplies identities; no new ownership authority.
+        for pid,start in sorted(owned):
+            key=(pid,start)
+            if key in self.processes and not self.dirty:continue
+            ident=self.identity(pid)
+            if ident is None or ident['start_ticks']!=start:continue
+            if key not in self.processes and len(self.processes)>=self.PROCESSES:self.counts['process_overflow']+=1;continue
+            rec=self.processes.setdefault(key,dict(**ident,first_observed_monotonic_ns=time.monotonic_ns()))
+            rec['last_observed_monotonic_ns']=time.monotonic_ns()
+            try:
+                rec['executable']=os.readlink(f'/proc/{pid}/exe')
+                with open(f'/proc/{pid}/maps','rb') as f:data=f.read(4*1024*1024+1)
+                if len(data)>4*1024*1024:raise ValueError('maps capacity')
+                mapped={}
+                for l in data.decode(errors='replace').splitlines():
+                    fields=l.split(None,5)
+                    if len(fields)!=6 or not fields[5].startswith('/'):continue
+                    path=re.sub(r'\\([0-7]{3})',lambda m:chr(int(m[1],8)),fields[5])
+                    if len(path)>2048:continue
+                    major,minor=(int(x,16) for x in fields[3].split(':'));inode=int(fields[4])
+                    deleted=path.endswith(' (deleted)')
+                    if deleted:path=path[:-10]
+                    resolved=None;unavailable=None
+                    if deleted:unavailable='mapped file deleted'
+                    elif not inode:unavailable='mapping has no file inode'
+                    else:
+                        try:resolved=str(pathlib.Path(path).resolve(strict=True))
+                        except (OSError,RuntimeError):unavailable='mapped file path unavailable'
+                    row=dict(path=path,resolved_path=resolved,device_major=major,device_minor=minor,inode=inode,
+                             deleted=deleted,unavailable=unavailable,owner=dict(pid=pid,start_ticks=start))
+                    mapped[json.dumps(row,sort_keys=True)]=row
+                    if len(mapped)>1024:raise ValueError('mapped image capacity')
+                # Retain observed identity history, including an old inode after
+                # unlink/replacement. Paths never substitute for mapped bytes.
+                retained=rec.setdefault('mapped_files',[])
+                previous={json.dumps(x,sort_keys=True) for x in retained}
+                for encoded,row in sorted(mapped.items()):
+                    if encoded in previous:continue
+                    n=len(encoded.encode())
+                    if self.map_bytes+n>524288:self.counts['mapped_path_drops']+=1;continue
+                    retained.append(row);self.map_bytes+=n
+            except (OSError,ValueError) as err:rec['observation_error']=type(err).__name__
+        self.dirty=False
+    def retain_terminal(self,fault):
+        value=(fault or {}).get('before_containment',{}).get('terminal_instance')
+        if value is not None and self.first_terminal is None:
+            if value.get('session')!=self.sid:raise ValueError('terminal session mismatch')
+            self.first_terminal=json.loads(json.dumps(value))
+    def resolve_modules(self):
+        deadline=time.monotonic()+self.FINAL_SECONDS;hash_budget=512*1024*1024
+        observed={}
+        for r in self.processes.values():
+            for row in r.get('mapped_files',[]):
+                for path in {row['path'],row['resolved_path']}:
+                    if path is not None:observed.setdefault(path,[]).append(row)
+        prefix=pathlib.Path(self.reg['environment']['root'])/'compatdata/pfx'
+        known={a['path']:a['sha256'] for a in [self.reg['host'],self.reg['module'],*self.reg['environment']['runner']['files']]}
+        self.host_pids=set()
+        for m in self.modules:
+            win=m['path'].replace('\\\\','\\')
+            location=pathlib.Path(win[2:].replace('\\','/')) if win[:2].lower()=='z:' else prefix/'drive_c'/win[3:].replace('\\','/') if win[:3].lower()=='c:\\' else None
+            if location is None:continue
+            # Do not resolve a possibly replaced symlink before O_NOFOLLOW.
+            location=str(location)
+            if location==self.reg['host']['path']:self.host_pids.add(m['windows_pid'])
+            m['linux_path']=location
+            if location not in self.images:
+                info=dict(sha256=known.get(location),size_of_image=None,exports=[])
+                try:
+                    if time.monotonic()>=deadline:raise ValueError('module resolution deadline')
+                    rows=observed.get(location,[])
+                    if location not in known:
+                        if not rows:raise ValueError('no exact observed Linux mapping')
+                        if any(x['deleted'] or x['unavailable'] for x in rows):raise ValueError('mapped file deleted/unverifiable')
+                    # O_NONBLOCK prevents a replaced FIFO from blocking cleanup;
+                    # fstat refuses it before any read. Hash and parse one fd.
+                    with os.fdopen(os.open(location,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK),'rb') as f:
+                        before=os.fstat(f.fileno())
+                        if not stat.S_ISREG(before.st_mode):raise ValueError('mapped file is not regular')
+                        identity=(os.major(before.st_dev),os.minor(before.st_dev),before.st_ino)
+                        if location not in known and any(identity!=(x['device_major'],x['device_minor'],x['inode']) for x in rows):
+                            raise ValueError('mapped file replaced/unverifiable')
+                        if before.st_size>hash_budget:raise ValueError('module hashing capacity')
+                        sha=hashlib.file_digest(f,'sha256').hexdigest();hash_budget-=before.st_size
+                        if location in known and sha!=known[location]:raise ValueError('registered artifact unavailable/changed')
+                        parsed=capture_pe(f)
+                        after=os.fstat(f.fileno())
+                        def version(s):return (s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns)
+                        if version(before)!=version(after):raise ValueError('mapped file changed during read')
+                        info.update(parsed,sha256=sha)
+                except (OSError,ValueError,struct.error) as err:
+                    info['identity_unavailable']=str(err) if isinstance(err,ValueError) else 'mapped file deleted/unverifiable'
+                self.images[location]=info
+            info=self.images.get(location,{})
+            m['sha256']=info.get('sha256');m['size_of_image']=info.get('size_of_image')
+            if info.get('identity_unavailable'):m['identity_unavailable']=info['identity_unavailable']
+        return deadline
+    def frame(self,pid,ip,base=None,at=None):
+        def current(m):
+            if at is None:return not m.get('unloaded_at') and not m.get('unload_uncertain_at')
+            return float(m['timestamp'])<=float(at) and all(not m.get(k) or float(m[k])>float(at) for k in ('unloaded_at','unload_uncertain_at'))
+        choices=[m for m in self.modules if m['windows_pid']==pid and current(m) and m.get('size_of_image') and m['base']<=ip<m['base']+m['size_of_image'] and (base is None or base==m['base'])]
+        if len(choices)!=1:return dict(ip=ip,module=None,offset=None,symbol=None,unavailable='loaded module missing or ambiguous')
+        m=choices[0];offset=ip-m['base'];symbol=None
+        exports=self.images.get(m.get('linux_path'),{}).get('exports',[])
+        candidates=[x for x in exports if x[0]<=offset]
+        if candidates:
+            address,name=candidates[-1];symbol=dict(name=name,export_rva=address,offset=offset-address,kind='nearest export; function extent unavailable')
+        return dict(ip=ip,module=m['path'],module_sha256=m.get('sha256'),loaded_base=m['base'],offset=offset,symbol=symbol)
+    def finish(self,outcome):
+        self.finished=True;self.active=False
+        for b in self.pending.values():
+            if b:self.counts['incomplete_lines']+=1;self.counts['excluded_bytes']+=len(b)
+        self.retain_terminal(outcome.get('fault_status'));self.resolve_modules()
+        exceptions=[]
+        retained=list(self.exceptions)
+        for e in self.fatal_reserved:
+            if e not in retained:retained.append(e)
+        for old in retained:
+            e=dict(old);e['fault']=self.frame(e['windows_pid'],e['ip'],at=e['timestamp']);e['stack']=[self.frame(e['windows_pid'],x['ip'],x['base'],at=e['timestamp']) for x in e.pop('frames')]
+            exit_row=self.exits.get(e['windows_pid']);e['classification']='observed_exception_fatality_unavailable'
+            if exit_row and exit_row['exit_code']==0:e['classification']='exception_followed_by_normal_exit'
+            elif exit_row and exit_row['exit_code']==e['code'] and e['code']>=0x80000000:e['classification']='exception_matching_self_exit_status'
+            elif e['unhandled_marker']:e['classification']='unhandled_marker_observed_exit_correlation_unavailable'
+            e['belongs_to_selected_windows_host']=e['windows_pid'] in self.host_pids;exceptions.append(e)
+        native_now=self.identity(self.native['pid']) if self.native else None
+        native_same=bool(self.native and native_now and native_now['start_ticks']==self.native['start_ticks'])
+        linux_hosts=[r for r in self.processes.values() if any(self.reg['host']['path'] in (x['path'],x['resolved_path']) for x in r.get('mapped_files',[]))]
+        capture=dict(schema=1,incident=self.request['id'],session=self.sid,request=self.request,
+            state='cancelled_capture' if (self.path/'cancel.json').exists() else 'finalized',
+            retention=dict(stop_reason=self.stop_reason,elapsed_seconds=time.monotonic()-self.started),
+            processes=dict(proton_launcher=dict(identity=self.launcher,exit_before_cleanup=outcome.get('exit_before_cleanup'),exit_after_cleanup=outcome.get('raw_exit')),
+                windows_host=dict(windows_pids=sorted(self.host_pids),linux_identities=linux_hosts,exit_observations=[v for k,v in self.exits.items() if k in self.host_pids],unix_wait_status=None,unix_wait_status_unavailable='Windows child is not the supervisor Popen child'),
+                native_host=dict(identity=self.native,same_identity_at_finalization=native_same,exit_status=None,exit_status_unavailable='not a child of this supervisor; final native retirement may occur later')),
+            modules=self.modules,exceptions=exceptions,first_terminal=self.first_terminal,
+            fault_status=outcome.get('fault_status'),cleanup={k:outcome.get(k) for k in ['cleanup_confirmed','transport_retired','retirement_disposition','vendor_retirement','error']},
+            recent_context=self.context.value(),terminal_context=self.terminal.value(),
+            limits=dict(line_bytes=self.LINE,modules=self.MODULES,exceptions=self.EXCEPTIONS,frames_per_exception=self.FRAMES,processes=self.PROCESSES,retention_seconds=self.SECONDS,module_resolution_seconds=self.FINAL_SECONDS,mapped_file_record_bytes=524288,context=self.context.limits(),terminal=self.terminal.limits()),counts=self.counts,
+            interpretation='Exception/exit correlation is evidence of a failure path, not proof that the faulting module owns the underlying defect. Missing symbols and unavailable statuses remain explicit.',reporting_error=self.error)
+        data=json.dumps(capture).encode()
+        if len(data)>4*1024*1024:raise ValueError('incident JSON capacity')
+        atomic(self.path/'incident.json',capture)
+        lines=[f"Incident {self.request['id']}",f"Session {self.sid}",f"Outer Proton exit: {outcome.get('raw_exit')}; Windows status is recorded separately.",f"IF1 terminal: {self.first_terminal}",f"Cleanup: {capture['cleanup']}"]
+        for e in [x for x in exceptions if x['belongs_to_selected_windows_host']][-4:]:
+            lines.append(f"Windows process {e['windows_pid']:x}, thread {e['windows_tid']:x}: exception 0x{e['code']:08x}; {e['classification']}")
+            for frame in [e['fault'],*e['stack'][:8]]:lines.append(f"  {frame.get('module')} + {hex(frame['offset']) if frame.get('offset') is not None else 'unavailable'}; {frame.get('symbol')}")
+        if not any(e['belongs_to_selected_windows_host'] for e in exceptions):lines.append('No attributable Windows exception stack retained. SIGKILL/transport loss alone cannot supply one.')
+        lines.append(capture['interpretation']);lines.append('Recent allowlisted error context (private; a lead, not cause):');lines.extend(self.context.value()[-8:]);lines.append('Drops/incompleteness: '+json.dumps(self.counts))
+        text='';summary_dropped=0
+        for line in lines:
+            if len(text.encode())+len(line.encode())+1>65000:summary_dropped+=1;continue
+            text+=line+'\n'
+        text+=f'Summary lines omitted by capacity: {summary_dropped}; full bounded fields remain in incident.json.\n'
+        fd=os.open(self.path/'summary.txt',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'w') as f:f.write(text)
+        share=dict(schema=1,outcome=capture['cleanup']['retirement_disposition'],cleanup_confirmed=bool(outcome.get('cleanup_confirmed')),transport_retired=bool(outcome.get('transport_retired')),outer_exit=outcome.get('raw_exit'),windows_self_exit_codes=[v['exit_code'] for k,v in self.exits.items() if k in self.host_pids],native_same_identity_at_finalization=native_same,first_terminal={k:self.first_terminal[k] for k in ('generation','epoch','sequence','last_completed_position','state_revision','state_sha256','failure_class','status','producer','status_domain') if k in self.first_terminal} if self.first_terminal else None,exceptions=[],counts=self.counts)
+        for e in exceptions:
+            if e['belongs_to_selected_windows_host']:
+                share['exceptions'].append(dict(code=e['code'],classification=e['classification'],fault={k:e['fault'].get(k) for k in ['module_sha256','offset']},stack=[{k:x.get(k) for k in ['module_sha256','offset']} for x in e['stack']]))
+        atomic(self.path/'share.json',share);self.status(capture['state']);return capture
+
 def run(spec,peer=None):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg);transport_environment(spec,env);delivery_trace(spec,env);stop=False
+    capture=None;capture_error=None
+    if spec.get('crash_capture'):
+        try:
+            capture=IncidentCapture(spec,peer)
+            env=vendor_diagnostic_environment(env,capture.path,True)
+        except Exception as e:capture_error=type(e).__name__+': '+str(e)[:256]
+    def capture_call(method,*args):
+        nonlocal capture_error
+        if capture is None:return
+        try:return getattr(capture,method)(*args)
+        except Exception as e:
+            capture_error=type(e).__name__+': '+str(e)[:256]
+            capture.error=capture_error
+            if method!='finish':capture.active=False
+            return None
     def stopped(*_):
         nonlocal stop
         stop=True
@@ -504,7 +850,8 @@ def run(spec,peer=None):
         pending.extend(data)
         while b'\n' in pending:
             line,_,rest=pending.partition(b'\n');pending[:]=rest
-            if not line.startswith(b'{"event":'):retain('vendor',vendor,line+b'\n');continue
+            if not line.startswith(b'{"event":'):
+                retain('vendor',vendor,line+b'\n');capture_call('write','vendor',line+b'\n');continue
             protocol_bytes+=len(line)+1
             if protocol_bytes>1048576:raise RuntimeError('host protocol output capacity exceeded')
             record=json.loads(line);records.append(record);state=record.get('state')
@@ -516,12 +863,14 @@ def run(spec,peer=None):
             data=os.read(key.fileobj.fileno(),16384)
             if not data:sel.unregister(key.fileobj);continue
             if key.data=='stdout':feed(data)
-            else:retain('stderr',stderr,data)
+            else:
+                retain('stderr',stderr,data);capture_call('write','stderr',data)
     try:
         for stream,label in [(root.stdout,'stdout'),(root.stderr,'stderr')]:os.set_blocking(stream.fileno(),False);sel.register(stream,selectors.EVENT_READ,label)
         tracker=ProcessTracker(root.pid)
         while True:
             owned.update(tracker.update())
+            capture_call('observe',owned,root)
             pump(.05)
             if visibility:
                 was=visibility.suspect
@@ -583,10 +932,22 @@ def run(spec,peer=None):
                 if retirement_ready is None and root.poll() is not None:visibility.terminal.root_exit(root.returncode)
                 fault={'session':sid,'early_pending':visibility.suspect,'before_containment':visibility.snapshot()}
                 atomic(report.with_suffix('.fault.json'),fault)
+                capture_call('retain_terminal',fault)
             except Exception as e:fault_reporting_error=type(e).__name__+': '+str(e)[:256]
             finally:visibility.close()
         try:
-            cleanup=cleanup_process(root,sorted(owned));clean=all(cleanup.values())
+            def cleanup_drain():
+                nonlocal failure
+                try:pump(0)
+                except Exception as e:failure=failure or ('cleanup diagnostic drain: '+type(e).__name__)
+            cleanup=cleanup_process(root,sorted(owned),during_cleanup=cleanup_drain) if capture else cleanup_process(root,sorted(owned))
+            clean=all(cleanup.values())
+            if capture:
+                # The process owner is already retired. A closed or saturated
+                # logging stream cannot introduce an unbounded final wait.
+                end=time.monotonic()+.25
+                while sel.get_map() and time.monotonic()<end:cleanup_drain()
+                capture.counts['final_drain_incomplete']=bool(sel.get_map())
         except Exception as e:
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
         sel.close()
@@ -634,6 +995,16 @@ def run(spec,peer=None):
     receipt['reporting_error']=outcome.get('reporting_error')
     try:atomic(report.with_suffix('.ownership.json'),receipt)
     except OSError as e:outcome['ownership_reporting_error']=type(e).__name__+': '+str(e)[:256]
+    if capture:
+        capture_call('finish',outcome)
+    if spec.get('crash_capture'):
+        outcome['incident']={'id':spec['crash_capture'].get('id'),'reporting_error':capture_error}
+        if capture_error:
+            try:
+                atomic(pathlib.Path(spec['crash_capture']['directory'])/'status.json',{'state':'reporting_failed','capture_enabled':False,'error':capture_error,'cleanup_confirmed':clean,'transport_retired':outcome.get('transport_retired')})
+            except OSError:pass
+        try:atomic(report,outcome)
+        except OSError:pass
     return outcome
 
 def keep(spec):

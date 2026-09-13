@@ -12,6 +12,7 @@ on:
       - 'tools/uio1/**'
       - 'tools/uir1/**'
       - 'tools/if2/**'
+      - 'tools/ca1/**'
 permissions:
   contents: read
 jobs:

@@ -112,7 +112,7 @@ class ProcessTracker:
         return self.owned
 
 
-def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]]) -> dict[str, Any]:
+def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]], during_cleanup=None) -> dict[str, Any]:
     # Cleanup ownership is an observed PID/start identity or this root's
     # process group/session, never a stage-shaped string in another command.
     deadline = time.monotonic() + CLEANUP_SECONDS
@@ -125,6 +125,8 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]])
         except ProcessLookupError:
             pass
     while time.monotonic() < deadline - 3:
+        if during_cleanup is not None:
+            during_cleanup()
         live_owned = {
             (record["pid"], record["start_ticks"]) for record in process_identities()
         } & set(owned)

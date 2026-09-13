@@ -128,3 +128,13 @@ still inactive and all original history, baseline and inactivity checks intact.
 It does not accept another candidate, review, path or hash. The ordinary revision-11
 installation and one audio/editor/retirement smoke are retained under
 `evidence/ap18/acceptance/`; candidate history remains nonactivating.
+
+## Private per-instance incident capture (CA1)
+
+`capture arm SELECTION` arms the next exact ordinary admitted instance; `capture
+status`, `capture summary ID`, `capture report ID`, `capture export ID`, and
+`capture disarm` manage it without restarting devices. Raw reports are private;
+only `export` selects sanitized fields. The sealed engineering candidate uses
+`capture arm-failure`. See [CA1](../docs/CA1.md) for finite retention, exit
+classification, and the distinction between reporting readiness and a proven
+crash cause.

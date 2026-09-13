@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "incident": "source-fixture-late-fatal",
+  "kind": "explicitly_sanitized_example",
+  "source": "32908e0b3649669538095c333402a5e859687dcc",
+  "failed_process": "selected-windows-fixture",
+  "failing_thread": "windows-thread-1",
+  "windows_exception": {
+    "code": 3221225477,
+    "hex": "0xc0000005",
+    "classification": "exception_matching_self_exit_status"
+  },
+  "windows_self_exit_codes": [
+    3221225477
+  ],
+  "outer_proton_exit": 5,
+  "native_outcome": "unavailable; fixture has no native host",
+  "fault": {
+    "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+    "offset": 4102,
+    "symbol": "ap18_fault_site",
+    "offset_from_export": 6,
+    "symbol_scope": "source-owned export; function extent unavailable"
+  },
+  "caller": {
+    "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+    "offset": 4127,
+    "symbol": "ap18_fault_caller",
+    "offset_from_export": 15
+  },
+  "stack": [
+    {
+      "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "offset": 4102
+    },
+    {
+      "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "offset": 4127
+    },
+    {
+      "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "offset": 4730
+    },
+    {
+      "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "offset": 5885
+    },
+    {
+      "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "offset": 5996
+    },
+    {
+      "module_sha256": "13f82daa75b0b0d0b6a16560103054fe4cd474627174f152776d7078eaa3906f",
+      "offset": 71241
+    },
+    {
+      "module_sha256": null,
+      "offset": null
+    }
+  ],
+  "first_IF1_terminal": null,
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "capture": {
+    "received_bytes": 530495,
+    "excluded_bytes": 512735,
+    "oversized_lines": 0,
+    "malformed_lines": 16386,
+    "module_overflow": 0,
+    "exception_overwrite": 0,
+    "frame_overflow": 0,
+    "process_overflow": 0,
+    "mapped_path_drops": 0,
+    "incomplete_lines": 0,
+    "disabled_bytes": 0,
+    "final_drain_incomplete": false
+  },
+  "cause": "intentional null write in source-owned fixture; no vendor cause inferred"
+}
