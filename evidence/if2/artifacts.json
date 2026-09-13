@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "candidate": 16,
+  "claim": "review_candidate",
+  "profile_fingerprint": "3199611a7578f751a17fe9e0d8f20aa12a27ec1b296f4de2630f7cb7738ab9dc",
+  "native_source": "1da298386b773eaf4ba3dbce242cc146c2f6a285",
+  "native_source_tree": "4ba7e8b47dea9059cdab4a3713ce8542accf076b",
+  "native_sha256": "56987399359d05b4b113f1818c48e6c57142cc8bf073dae255606d1e663ecc38",
+  "native_build_input": "f8cc57dcdab595e552e1649e61442b177f2d7012e42fb32483d323c618aca3cb",
+  "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34",
+  "windows": {
+    "reused_unchanged": true,
+    "source": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+    "host_sha256": "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8",
+    "source_manifest_sha256": "aab9ed5088e7f2a6a52665fb67150ce3fbe1a52893f7eedb68a63c55c06da498",
+    "workflow_run": 34722988723,
+    "artifact_id": 10306608769,
+    "retained_package": "tools/if1/revision-15/package.json"
+  },
+  "preservation": {
+    "candidate_15_fingerprint": "d55500789b57d6a7d02b31ab12c7029b0f9c6d13ca22b8269d92f4627104243c",
+    "candidate_14_fingerprint": "f205fd398ec4ad086932c56f20bc556b14efed18c3e867bd3fd11acf7de79c1a",
+    "module_class_descriptor_environment_runner_external_ids_policies": "unchanged from candidate 15",
+    "ordinary_parent": 11,
+    "qualification": "if1_failure",
+    "ordinary_activation": "refused",
+    "lofi_fragments": "ordinary revision 10 unchanged"
+  },
+  "installation_and_product_result": "pending; artifact build is not product acceptance"
+}

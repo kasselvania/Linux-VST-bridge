@@ -94,8 +94,10 @@ class Capture:
                 self.next_frame=now+.1
             time.sleep(.005)
     def snapshot(self,label):
-        meta,pixels=self.x.capture();private_json(self.out/(label+'.json'),meta)
-        with os.fdopen(os.open(self.out/(label+'.bgra.z'),os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'wb') as f:f.write(zlib.compress(pixels,3))
+        if not label or pathlib.Path(label).name!=label or label in ('.','..'):raise ValueError('snapshot label')
+        frames=self.out/'snapshots';frames.mkdir(mode=0o700,exist_ok=True)
+        meta,pixels=self.x.capture();private_json(frames/(label+'.json'),meta)
+        with os.fdopen(os.open(frames/(label+'.bgra.z'),os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'wb') as f:f.write(zlib.compress(pixels,3))
     def mark(self,n):
         self.action=n;self.observer.action(n);self.record.action=n
         self.inputs.append(dict(kind='action_begin',action=n,interval_ns=[time.monotonic_ns()]*2))
@@ -165,13 +167,17 @@ class Capture:
                 self.windows.extend(self.observer.take());self.result['observer_status']=self.observer.status()
                 self.result['frequency']=self.observer.read(48);self.observer.close()
         finally:
-            self.result.update(frames=self.frames,win32=self.windows,gui=self.gestures,inputs=self.inputs,brackets=self.brackets,
-                x11=[] if not self.record else self.record.records,x11_dropped=0 if not self.record else self.record.dropped,
-                x11_unparsed=0 if not self.record else self.record.unparsed,gui_dropped=self.gui.dropped,
-                frame_dropped=self.frame_dropped,diagnostic_python_cpu_ns=time.process_time_ns()-self.cpu_start,
-                process_after=process_sample(self.pid),after=self.c.fault.snapshot())
-            private_json(self.out/'capture.json',self.result)
-            self.gui.close();self.x.close();self.c.fault.close()
+            try:
+                try:process_after=process_sample(self.pid)
+                except FileNotFoundError:process_after={'absent':True,'at':time.monotonic_ns()}
+                self.result.update(frames=self.frames,win32=self.windows,gui=self.gestures,inputs=self.inputs,brackets=self.brackets,
+                    x11=[] if not self.record else self.record.records,x11_dropped=0 if not self.record else self.record.dropped,
+                    x11_unparsed=0 if not self.record else self.record.unparsed,gui_dropped=self.gui.dropped,
+                    frame_dropped=self.frame_dropped,diagnostic_python_cpu_ns=time.process_time_ns()-self.cpu_start,
+                    process_after=process_after,after=self.c.fault.snapshot())
+                private_json(self.out/'capture.json',self.result)
+            finally:
+                self.gui.close();self.x.close();self.c.fault.close()
 
 if __name__=='__main__':
     c=Context(pathlib.Path(sys.argv[1]),sys.argv[2],pathlib.Path(__file__).parent/'package')

@@ -1,60 +1,75 @@
-# IF1 — terminal instance failure propagation
+# IF2 — contained terminal state and native-host survival
 
-Continue on `codex/uir1-xwayland-input-retrieval` from diagnostic head
-`828fad8854082da412b88614c9b38c8c082e013e`. PR #97 was already merged as
-`a1befbb3b28abd310a2baf4ace33d7fe9f6240cf` before this instruction; keep the
-IF1 continuation, PR #98, draft and unmerged. The operator acknowledged that state.
+Base: retained IF1 continuation `93c5478a7bf7ec35f1a6e416c0b44dcdc7a9b13e`,
+tree `38830918be3cd6f473419fc37e95a287c4afb74a`. IF1 source was accepted at
+`f7f0997b5e5d1ac7c691a20b192ccc90e30c88d2` and merged as
+`cf212582b916fd4c09b5584cb5c2fde2c3960cb7`. The operator selected IF2 and
+a new branch/PR based on the retained continuation.
 
-## Claim and scope
+## One claim
 
-A terminal Windows/editor/transport failure reaches the native processor and
-commercial controller exactly once, with session-bound durable scalar custody.
-The controller invalidates dead editor ownership, requests host reload once,
-and presents a native terminal failure view instead of forwarding into the dead
-instance. Current or explicitly recovered complete state remains the only state
-authority. Normal process-scoped retirement retains its seven milestones.
+After exact terminal Windows-peer custody, the native proxy remains alive to
+show its terminal failure view and own cleanup. Valid callbacks produce local
+deterministic silence and succeed. Malformed host callbacks remain refused.
+No automatic `kReloadComponent`, dead vendor forwarding, or stale state
+substitution is permitted. Ordinary retirement remains distinct from failure.
 
-Implement in the existing supervisor, Windows status/UI owner, queued backend,
-AP10.poll processor/controller path and existing native view implementation. No audio callback
-allocation, I/O, locks, logging, waiting, or recovery policy. Retain root-exit and
-editor-fatal deterministic fixtures. The current review requires only custody
-repairs and concurrent producer regressions; no live check or resize repeat.
-Do not ask the operator to reproduce the incident or take desktop controls.
+## Implementation and generated proof
 
-## Preserved result and installation
+Scope: native processor/controller SDK edges, queued backend, existing exact
+candidate/publication route and affected fixtures. Preserve the accepted IF1
+mapping, Windows host, input fairness, audio/event protocol and all profiles
+through Pigments 15. Build changed native bytes as candidate 16.
 
-Generic input fairness and its generated differential remain accepted unchanged.
-Do not repeat that differential. Preserve all Pigments revisions through 14 and
-LoFi/FRAGMENTS revision 10. Review repairs remain uninstalled source. Do not create another candidate or
-ordinary authority during this review.
+The host fixture must honor a reload request by unloading processor/controller.
+Prove the first terminal callback, subsequent silence, exact local Note Off
+cleanup, malformed-input refusal, retained view ownership, and positive
+containment cleanup. Existing lifetime, state, supervision and result tests
+remain applicable. No Windows rebuild unless Windows build inputs change.
 
-The two existing failures are retained independently in `evidence/if1/incident.json`.
-No new live attempt was made to obtain missing facts. After private custody of
-the reports, ordinary Pigments 11 was physically restored using managed rollback;
-see `evidence/if1/rollback.json`. Revision 13 remains inactive failed ordinary
-history; revision 12 remains an inactive candidate. No retained artifact changed.
+## One automatic product check
 
-## Completion and cleanup
+Keep ordinary Pigments 11 active during preparation. After generated validation
+and CI, select candidate 16 reversibly. Normally launch Bitwig, load/open one
+Pigments instance, terminate only its exact supervised Windows child, and verify
+terminal custody, the same native plug-in-host PID/start identity, the native
+terminal failure view, dead forwarding refusal, and normal removal/quit cleanup.
+No manual desktop takeover. No menu or resize action, repeated product campaign,
+UIO2 implementation, root-cause claim for prior Windows exits, in-place recovery,
+audio/performance claim, or candidate promotion.
 
-Prove first-failure custody survives abnormal process exit, exact-once host
-notification/reload, terminal failure view ownership, no stale-state substitution, and
-positive removal/quit cleanup. A Windows exit without normal retirement custody
-is terminal failure, never clean SDK destruction or normal process retirement.
-Keep ordinary 11 active and 12–14 inactive. Retain evidence/artifacts,
-zero DSP leases/transactions/stale transport, service/keeper healthy, tracing off.
-512 remains recommended; 256 unqualified. No audio-performance claim.
+Restore exact ordinary Pigments 11 afterward. Keep revisions 12–16 inactive,
+LoFi/FRAGMENTS 10 unchanged, protected projects and authorization intact,
+service/keeper healthy, zero DSP leases/transactions/stale transport and tracing
+off. Preserve SteamOS scheduling ownership. 512 remains recommended;
+256 remains unqualified. Keep the new PR draft and unmerged for product review.
 
-Status: IF1 review changes required. Suppress unchanged idle progress; retain
-retryable first failure across unstable context reads; prove concurrent
-progress/failure producers. Validate native backend, strict Clippy, AP8, AP10,
-AP12 and PX2. No product retest, acceptance, promotion or installation.
+## Current result
 
-## Current checkpoint
+Implementation, generated validation and the one controlled failure check are
+complete. All four hosted lanes passed at `b3006a4` and the documentation-only
+checkpoint `9624317`. The native product artifact remains from `1da2983`, with
+the unchanged merged IF1 Windows host.
 
-Source and generated IF1 regressions pass. Candidate 14 was exercised once; the
-menu click reached the vendor, but a private harness filename collision left
-resize incomplete. A subsequent endpoint exit committed terminal custody and
-Bitwig showed a crashed plug-in. Exact exit cause and live notification count
-remain unproved. No replay is authorized by this checkpoint. Ordinary 11 is
-restored, candidates/history retained, service/keeper active and DSP/transactions/
-stale transports zero. PR #98 remains draft; no acceptance claim.
+Candidate 16 survived one exact supervised Windows-child SIGKILL: the same
+native PID/start identity remained alive, the controller acknowledged exactly
+one terminal notification, and reopening displayed the native terminal failure
+view. Its exact rendered pixels matched the source-owned text, including
+confirmed snapshot revision 3. One later host Macro edit published no Windows
+GUI command. Final native counters retained 71,844 contained callbacks and
+36,784,128 silent frames separately from pre-terminal delivery gaps.
+
+Bitwig quit normally after declining the test-only edit and acknowledging its
+explicit current-state-unavailable warning. No stale state was substituted.
+The supervisor reported terminal-instance failure with positive cohort and
+transport cleanup; the native cleanup acknowledgement was positive. This is
+not normal SDK or process-scoped vendor retirement.
+
+Exact ordinary Pigments 11 is restored; candidate 16 and revisions 12–15 remain
+inactive. LoFi/FRAGMENTS 10, physical targets and protected project hashes are
+unchanged. Service/keeper are active, with zero DSP leases, pending transactions
+and stale transports; Bitwig and diagnostics are absent, tracing is off, and
+SteamOS CPUWeight remains untouched. See [live evidence](evidence/if2/live-check.json)
+and [completed readback](evidence/if2/installed-completed.json). Earlier preflight
+evidence remains unchanged. PR #99 stays draft and unmerged for independent
+product review. No additional IF2 live test or resize action is required here.

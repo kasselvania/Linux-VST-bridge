@@ -21,7 +21,7 @@ def git(*args):
 
 
 def material(windows_zip):
-    receipt = json.loads(Path(__file__).with_name('package.json').read_text())
+    receipt = json.loads((Path(__file__).parent/'revision-15/package.json').read_text())
     assert digest(windows_zip.read_bytes()) == receipt['zip_sha256'], 'archive mismatch'
     with zipfile.ZipFile(windows_zip) as z:
         build = z.read('SOURCE_COMMIT.txt').decode('utf-8-sig').strip()
@@ -56,8 +56,8 @@ def material(windows_zip):
 
 
 def assemble(windows_zip, native, output):
-    p = json.loads((ROOT/'compatibility/if1/arturia-pigments.json').read_text())
-    assert p['revision'] == 14 and p['claim'] == 'review_candidate'
+    p = json.loads((ROOT/'compatibility/if1/revision-15/arturia-pigments.json').read_text())
+    assert p['revision'] == 15 and p['claim'] == 'review_candidate'
     host, source = material(windows_zip)
     files = {'host.exe': host, 'host-source-manifest.json': source,
              p['class']['class_id']+'.so': native.read_bytes()}

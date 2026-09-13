@@ -3,6 +3,9 @@
 #include "ap4_backend.h"
 #include "commercial_controller.h"
 #include "processor.h"
+#include "contained_terminal.h"
+#include "../../vst-state/stream.h"
+#include "public.sdk/source/vst/hosting/eventlist.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include <deque>
@@ -150,6 +153,7 @@ void event(uint32_t kind, double value = 0) {
 }
 } // namespace
 extern "C" {
+uint32_t __wrap_if2_terminal_status(uint64_t){return IF1::valid(terminal_record) ? 1 : 0;}
 uint32_t __wrap_ap9_open(const uint8_t *, uint64_t *out) {
   *out = 1;
   return 0;
@@ -168,7 +172,7 @@ uint32_t __wrap_ap10_setup(uint64_t, uint32_t, uint32_t, double,
 uint32_t __wrap_ap4_activate(uint64_t, uint32_t, uint32_t) { return 0; }
 uint32_t __wrap_ap4_deactivate(uint64_t) { return 0; }
 uint32_t __wrap_ap3_transition(uint64_t, uint32_t) { return 0; }
-uint32_t __wrap_ap3_close(uint64_t) {
+uint32_t __wrap_if2_close(uint64_t) {
   ++closes;
   return 0;
 }
@@ -225,11 +229,12 @@ uint32_t __wrap_ap4_state(uint64_t, const uint8_t *, uint32_t, uint8_t *out,
   *n = 132;
   return 0;
 }
-uint32_t __wrap_ap13_process(uint64_t, uint32_t n, const ap8_event_t *e,
+uint32_t __wrap_if2_process(uint64_t, uint32_t n, const ap8_event_t *e,
                              uint32_t count, const ap10_context_t *, uint64_t,
                              const float *, const float *, float *, float *,
                              uint64_t *silence, ap7_delivery_t *delivery, uint64_t entered_ns) {
   check(entered_ns != 0, "native callback entry is propagated");
+  if(IF1::valid(terminal_record))return IF2::contained;
   check(n == 0, "stopped flush is zero frames");
   for (uint32_t i = 0; i < count; ++i)
     if (e[i].kind == 2) {
@@ -318,19 +323,81 @@ void terminal_instance_regression() {
     check(c->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"IF1 later handler");
     check(c->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"IF1 repeated handler");
   }
-  check(host.reload_calls==1&&host.gestures.back()==AP11::End,"IF1 completes gesture and asks reload once");
+  check(host.reload_calls==0&&host.gestures.back()==AP11::End,"IF2 completes gesture without requesting unload");
   check(c->panelClose(token)&&!c->panelOpen(token)&&commands.size()==count,"IF1 dead generation never forwarded");
   auto* view=c->createView(ViewType::kEditor);ViewRect rect{};
   check(view&&view->getSize(&rect)==kResultOk&&rect.getWidth()==640,"IF1 terminal failure view instead of VendorPanel");view->release();
   for(unsigned i=0;i<4;++i){HostMessage poll;poll.setMessageID("AP10.poll");check(processor->notify(&poll)==kResultOk,"IF1 repeated bounded poll");}
-  check(host.reload_calls==1&&commands.size()==count,"IF1 exact once and no late forwarding");
+  check(host.reload_calls==0&&commands.size()==count,"IF2 no unload and no late forwarding");
   check(c->setParamNormalized(0,.75)==kResultFalse,"IF1 refuses dead parameter forwarding");
   check(c->disconnect(processor.get())==kResultOk,"IF1 disconnect retires editor owner");
   processor->disconnect(c);check(c->terminate()==kResultOk&&host.timers.empty(),"IF1 no retained timer");c->release();processor->terminate();
  }
  terminal_record={};
 }
-int main() {
+// Model a host honoring kReloadComponent after the notification unwinds.
+// Counting restartComponent calls alone cannot prove survival of createView's owner.
+void contained_host_survival_regression() {
+  events.clear(); commands.clear(); gui_fault=0; terminal_record={};
+  Host host; auto processor=std::make_unique<AP2::Processor>();
+  auto* controller=new AP8::Controller;
+  host.processor=processor.get(); host.controller=controller;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor->initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"IF2 initialize");
+  check(controller->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"IF2 handler");
+  check(processor->connect(controller)==kResultOk && controller->connect(processor.get())==kResultOk,"IF2 connect");
+  auto token=controller->allocateEditorView(); check(controller->panelOpen(token),"IF2 initial editor");
+  auto* originalProcessor=processor.get(); auto* originalController=controller;
+  ProcessSetup setup{kRealtime,kSample32,128,48000};
+  check(processor->setupProcessing(setup)==kResultOk && processor->setActive(true)==kResultOk && processor->setProcessing(true)==kResultOk,"IF2 start");
+  terminal_record.words[0]=1; terminal_record.words[1]=123; terminal_record.words[2]=456;
+  terminal_record.words[3]=generation; terminal_record.words[4]=2; terminal_record.words[5]=104687;
+  terminal_record.words[6]=512; terminal_record.words[7]=9;
+  terminal_record.words[14]=1; terminal_record.words[15]=5;
+  terminal_record.words[18]=3; terminal_record.words[19]=4;
+  std::array<float,128> inputL{},inputR{},left{},right{};
+  inputL.fill(.25f); inputR.fill(-.5f); left.fill(9.f); right.fill(9.f);
+  float* in[]={inputL.data(),inputR.data()}; float* out[]={left.data(),right.data()};
+  AudioBusBuffers inputs{},outputs{}; inputs.numChannels=outputs.numChannels=2;
+  inputs.channelBuffers32=in; outputs.channelBuffers32=out;
+  ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;
+  data.numSamples=128;data.numInputs=data.numOutputs=1;data.inputs=&inputs;data.outputs=&outputs;
+  check(processor->process(data)==kResultOk,"IF2 first classified failure callback succeeds before UI notification");
+  check(outputs.silenceFlags==3 && std::all_of(left.begin(),left.end(),[](float v){return v==0;}) && std::all_of(right.begin(),right.end(),[](float v){return v==0;}),"IF2 deterministic stereo silence");
+  for(int i=0;i<1000;++i)check(processor->process(data)==kResultOk,"IF2 contained callbacks remain successful");
+  data.symbolicSampleSize=kSample64;check(processor->process(data)==kResultFalse,"IF2 malformed precision refused");data.symbolicSampleSize=kSample32;
+  out[1]=out[0];check(processor->process(data)==kResultFalse,"IF2 malformed output alias refused");out[1]=right.data();
+  outputs.channelBuffers32=nullptr;check(processor->process(data)==kResultFalse,"IF2 null output refused");outputs.channelBuffers32=out;
+  data.numSamples=129;check(processor->process(data)==kResultFalse,"IF2 malformed extent refused");data.numSamples=128;
+  check(processor->process(data)==kResultOk,"IF2 bad host call cannot erase contained state");
+  data.numSamples=data.numInputs=data.numOutputs=0;data.inputs=data.outputs=nullptr;
+  check(processor->process(data)==kResultOk,"IF2 zero-frame flush stays local");
+  host.tick();
+  if(host.restarts & kReloadComponent) {
+    processor->setProcessing(false); processor->setActive(false);
+    controller->disconnect(processor.get()); processor->disconnect(controller);
+    controller->terminate(); controller->release(); controller=nullptr; host.controller=nullptr;
+    processor->terminate(); processor.reset(); host.processor=nullptr;
+  }
+  check(processor.get()==originalProcessor && controller==originalController,
+        "IF2 terminal view owner survives a host that honors full unload");
+  auto* view=controller->createView(ViewType::kEditor); ViewRect size{};
+  check(view && view->getSize(&size)==kResultOk && size.getWidth()==640,"IF2 surviving native terminal view");
+  view->release();
+  check(controller->setParamNormalized(0,.75)==kResultFalse,"IF2 dead parameter refused");
+  const auto stateCount=state_calls;
+  LVBState::Stream stream;
+  check(processor->getState(&stream)==kResultFalse && processor->setState(&stream)==kResultFalse && state_calls==stateCount,"IF2 never silently substitutes stale state");
+  check(processor->setProcessing(false)==kResultOk && processor->setActive(false)==kResultOk,"IF2 local stop and deactivate");
+  check(processor->setActive(true)==kResultFalse && processor->setProcessing(true)==kResultFalse,"IF2 dead instance cannot restart");
+  controller->disconnect(processor.get()); processor->disconnect(controller);
+  check(controller->terminate()==kResultOk,"IF2 controller retirement");controller->release();
+  const auto beforeClose=closes;check(processor->terminate()==kResultOk && closes==beforeClose+1,"IF2 positive owner cleanup once");
+  check(host.timers.empty(),"IF2 no retained editor timer");
+  terminal_record={};
+}
+int main(int argc,char**) {
+  if(argc>1){contained_host_survival_regression();return 0;}
   lifecycle_identity_regression();
   Host host;
   auto processor = std::make_unique<AP2::Processor>();

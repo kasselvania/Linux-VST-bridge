@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "source": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+  "source_tree": "df97dc484f60f3aa171d0a1b23c429ebae047cc0",
+  "engineering_review": 5188299869,
+  "windows": {
+    "source_head": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+    "github_build_commit": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+    "common_tree": "df97dc484f60f3aa171d0a1b23c429ebae047cc0",
+    "workflow_run": 34722988723,
+    "artifact_id": 10306608769,
+    "zip_sha256": "f98c71ffeb20ae016659fe52babb7b0cc3f533bee55f32b08f7f1ee4984baa3b",
+    "files": {
+      "ap10-results-tests.exe": "24009bbc097280dd0714846cb4c995ea68083ec30cb28fb82814dcaa2a110e69",
+      "ap10-return-fixture.vst3": "71e6bdf2da358933a83960ac9c807ea1803a16a202cc1b991c0a10cbb41b3cb8",
+      "ap11-editor-tests.exe": "9e04b6dc344ec3d9e9c5fc63be8779c80331bc40d4e8d18cbcddd03cf3a90c59",
+      "ap11-state-tests.exe": "956857c86de46d55d7e9a65199abe8d634b1ed4c61d78a3fc0262fe7c4f9b227",
+      "ap12-fault-tests.exe": "06c4d736818697ee80d95a69893a789df9b8c690ed6ae10919058df8443b4384",
+      "ap12-path-tests.exe": "0a36241ac995bc3ac09e10f7fcf537f016e909e8df76ac7e1a031b1bea6be6d5",
+      "ap13-state-delivery-tests.exe": "3a90ebdb345986743bfa7a777bc570ae53131a44d7570e7764724ce89d42810e",
+      "ap14-environment-tests.exe": "747fcb59c1982860e8785d82103eec3ed1d296d67b3515a179def231e255e124",
+      "ap18-bus-census-tests.exe": "b052d08bdd3b159c135ab487e3880e188f730a2282b9c4fa7cc28609748fc379",
+      "ap18-lc1-session.exe": "0531ec6f074ce103288fac435f9ed273fa5db5a522c58ee652491e8f39bc4230",
+      "ap18-result-custody-tests.exe": "982528b8b5485261b2ee585b5e54bbbf3a69ed6a5ae1115ab69ec30f5da7920c",
+      "uio1-accessibility.exe": "f3e6b61a0d949de0f656ec8e29cf183f9f380f207a7aef20fee4c36794ef122c",
+      "uio1-hook.dll": "36905754fabecb915f597200b773fe9be82386a97a09ccd590c37c630247bd14",
+      "uio1-observer.exe": "6dd965b28cca755567e7e443b7bca07532f747c5566495488a7f893654e43779",
+      "uio1-tests.exe": "6cd2e92c1b4839b9a5d234e44e664d6c6bac373dde1436823d9c85e284950b40",
+      "uir1-input-fixture.exe": "5b94b0bd86d6945090c900d0b33800b6bf831dd0faf06c1eb0ff44fc589dff1a",
+      "wf0-factory-probe.exe": "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8",
+      "wf0-loader-adapter-tests.exe": "f3ec67016a521ebe8fff8b24386fd99bfd8a04e776fe52ef22693294557e322a"
+    }
+  },
+  "native": {
+    "returncode": 0,
+    "sha256": "6e36349cf02dc53c6b1678e8340a9188ee782e5a8bf25eb2a164d19a8009e7d6",
+    "source_commit": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+    "input_archive_sha256": "696f7ba6d6ec2de308a0b364677f70bf90d3f3f0ac816cc454f87937cd13f6a5",
+    "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "profile_requirements": {
+    "host_sha256": "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8",
+    "host_source_sha256": "aab9ed5088e7f2a6a52665fb67150ce3fbe1a52893f7eedb68a63c55c06da498",
+    "native_sha256": "6e36349cf02dc53c6b1678e8340a9188ee782e5a8bf25eb2a164d19a8009e7d6",
+    "native_source_commit": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+    "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
+  },
+  "claim": "review_candidate",
+  "revision": 15,
+  "ordinary_parent": 11,
+  "prior_revisions": "1-14 unchanged; never promoted",
+  "limitations": "Source/artifact preparation only; product result pending."
+}

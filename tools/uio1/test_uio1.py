@@ -9,6 +9,64 @@ from xrecord import pointer_packet
 from observe import Observer,CAPACITY,SIZE,HEADER,RECORD
 
 class Tests(unittest.TestCase):
+    def test_action_command_and_frame_metadata_have_separate_namespaces(self):
+        from capture import Capture
+        import tempfile,json,zlib
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            out=pathlib.Path(directory);command=out/'action-2.json'
+            original=b'{"kind":"move","point":[0.1,0.2]}'
+            command.write_bytes(original)
+            cap=Capture.__new__(Capture);cap.out=out
+            cap.x=SimpleNamespace(capture=lambda:({'width':1,'height':1},b'1234'))
+            cap.snapshot('action-2')
+            self.assertEqual(command.read_bytes(),original)
+            self.assertEqual(json.loads((out/'snapshots/action-2.json').read_text()),{'width':1,'height':1})
+            self.assertEqual(zlib.decompress((out/'snapshots/action-2.bgra.z').read_bytes()),b'1234')
+            with self.assertRaises(FileExistsError):cap.snapshot('action-2')
+            with self.assertRaises(ValueError):cap.snapshot('../action-2')
+            self.assertEqual(command.read_bytes(),original)
+
+    def test_capture_preserves_records_and_releases_views_after_process_exit(self):
+        from capture import Capture
+        from unittest.mock import Mock,patch
+        from types import SimpleNamespace
+        import tempfile,json,time
+        with tempfile.TemporaryDirectory() as directory:
+            cap=Capture.__new__(Capture);cap.out=pathlib.Path(directory)
+            cap.record=cap.observer=cap.helper=None;cap.result={};cap.pid=123
+            cap.frames=[];cap.windows=[{'message':513}];cap.gestures=[];cap.inputs=[];cap.brackets=[]
+            cap.frame_dropped=0;cap.cpu_start=time.process_time_ns()
+            cap.gui=SimpleNamespace(dropped=[0,0],close=Mock());cap.x=SimpleNamespace(close=Mock())
+            cap.c=SimpleNamespace(fault=SimpleNamespace(snapshot=lambda:{'terminal':{'class':1}},close=Mock()))
+            with patch('capture.process_sample',side_effect=FileNotFoundError):cap.close()
+            r=json.loads((cap.out/'capture.json').read_text())
+            self.assertTrue(r['process_after']['absent']);self.assertEqual(r['win32'],cap.windows)
+            self.assertEqual(r['after'],{'terminal':{'class':1}})
+            cap.gui.close.assert_called_once();cap.x.close.assert_called_once();cap.c.fault.close.assert_called_once()
+
+    def test_census_accepts_complete_idle_ui_owner_without_guessing_process(self):
+        from launch import Context
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            out=pathlib.Path(directory)/'census.log'
+            out.write_text('{"type":"process","pid":42,"start":99}\n')
+            c=Context.__new__(Context);c.helper=Mock(return_value=SimpleNamespace(finish=lambda:{'exit':0,'overflow':0}))
+            for stage in (0,25):
+                snap={'editor':{'open':1,'failure':0},'owner':{'stage':stage,'process_id':42,'thread_id':43},'terminal_instance':None}
+                c.fault=SimpleNamespace(snapshot=lambda:snap)
+                self.assertEqual(c.census(out)[0],{'type':'process','pid':42,'start':99})
+                self.assertEqual(c.helper.call_args.args[1],['census',42])
+            for bad in ({'stage':22,'process_id':42,'thread_id':43},{'stage':0,'process_id':0,'thread_id':43}):
+                snap['owner']=bad
+                with self.assertRaisesRegex(RuntimeError,'live editor owner absent'):c.census(out)
+            snap['owner']={'stage':0,'process_id':42,'thread_id':43};snap['terminal_instance']={'class':1}
+            with self.assertRaisesRegex(RuntimeError,'live editor owner absent'):c.census(out)
+            snap['terminal_instance']=None;snap['editor']['open']=0
+            with self.assertRaisesRegex(RuntimeError,'live editor owner absent'):c.census(out)
+
     def test_coordinates_follow_exact_current_window(self):
         self.assertEqual(normalized((100,200,401,301),(.5,.5)),(300,350))
         self.assertEqual(normalized((-100,0,101,101),(1,1)),(0,100))

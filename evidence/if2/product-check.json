@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "disposition": "IF2_SOURCE_VALIDATED_PRODUCT_CHECK_PENDING",
+  "candidate": 16,
+  "launch": "normal Applications desktop entry with protected project copy",
+  "loaded": true,
+  "exact_supervisor_windows_native_identities_resolved": true,
+  "terminal_at_preflight": false,
+  "editor_opened": false,
+  "controlled_signal_count": 0,
+  "menu_actions": 0,
+  "resize_actions": 0,
+  "stopped_before": "editor presentation and controlled child failure",
+  "reason": "Private exact-window image transfer required explicit operator approval at the tool boundary. No image was transferred. The fault was not injected.",
+  "cleanup": "One normal window-manager close request completed; ordinary 11 restored with zero DSP leases, pending transactions and stale transport.",
+  "live_claims_withheld": [
+    "native host survival after child failure",
+    "native terminal failure view",
+    "dead forwarding refusal after injected failure"
+  ],
+  "repeat_rule": "The controlled child-failure check has not occurred; no menu/resize test is authorized by this slice."
+}

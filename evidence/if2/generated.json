@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "slice": "IF2",
+  "base": "93c5478a7bf7ec35f1a6e416c0b44dcdc7a9b13e",
+  "before": {
+    "production": "IF1 retained continuation",
+    "fixture_sha256": "cb4b982b747cf8d51ad126ffd990d22e0f4758fb833b4a6b2ff9d597a2edfd07",
+    "exit": 1,
+    "assertion": "IF2 terminal view owner survives a host that honors full unload",
+    "host_actually_unloads_processor_and_controller": true
+  },
+  "after": {
+    "native_backend": {
+      "passed": 68,
+      "ignored": 1
+    },
+    "native_client": {
+      "passed": 11
+    },
+    "strict_backend_clippy": "passed",
+    "linux_sdk": {
+      "passed": 6,
+      "total": 6,
+      "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+      "runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+      "callback_audit": "zero allocation, blocking and I/O effects",
+      "optional_xvfb": "not available in Deck SDK; hosted lane pending"
+    }
+  },
+  "source_files_sha256": {
+    "native-vst3-proxy/backend/src/queued.rs": "c2234102763e1cbf7339fce35af88d6a5e540dc79d3ad84a119fb48160347639",
+    "native-vst3-proxy/source/processor.cpp": "8cc90158d3092e09e3e639074c20a5326f1d91ae04b08ec045a2e87c2ae9e9a2",
+    "native-vst3-proxy/source/processor.h": "1f8a2210d6e2937c2d1e2ffef878ed07d114880a0359204ea84fb287423c9144",
+    "native-vst3-proxy/source/commercial_controller.h": "2ff019bd22e5d8cb0e2b0c43b9a758fda445aa80d25dc6184db71b51c8d70e2b",
+    "native-vst3-proxy/source/contained_terminal.h": "565ddb4439606609ccc103405ab64c5b98d977b2f9f2855ebd039d6167003a22",
+    "tools/ap11-tests/native.cpp": "21c18dbf753d110d2238fa6da7619f498e18bfae46bd3fc28bf84e563e000ce0",
+    "native-vst3-proxy/tests/result_lifetime/main.cpp": "002de215acb76ed09f4a26c5a5da2f0e7c3468bf29a15774069a4cc807ff66f8"
+  },
+  "product_check": "not run",
+  "claims": [
+    "First classified terminal callback succeeds with exact stereo silence",
+    "Malformed host buffers and events remain refused",
+    "No automatic unload of the terminal view owner",
+    "Locally owned Note Off retains identity and is retried when sink is absent",
+    "No requests or timeline advancement after terminal containment",
+    "Positive cleanup requires existing supervisor acknowledgement"
+  ],
+  "nonclaims": [
+    "Pigments product acceptance",
+    "Resize behavior",
+    "Original Windows exit cause",
+    "In-place recovery",
+    "Audio or performance qualification"
+  ]
+}

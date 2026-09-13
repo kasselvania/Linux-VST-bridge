@@ -107,7 +107,7 @@ Read [docs/AP18.md](docs/AP18.md) for the accepted implementation and its exact 
 
 Serum 2 remains the planned second-vendor generalization after the Arturia acquisition/install vertical.
 
-## Current slice: UIR1 — Input retrieval latency
+## Current slice: IF2 — contained terminal state
 
 [UIO1](docs/UIO1.md) is accepted and merged. It adds bounded, development-only input, child-window, heartbeat,
 VST gesture and local-frame observations without replacing accepted product
@@ -128,12 +128,21 @@ below 77 ms and local pixel changes within 112 ms. This is an exact diagnostic
 confirmation, not a universal latency or audio-performance claim. The
 revision-12 engineering candidate is independently accepted at review 5187281110.
 The new ordinary revision-13 profile retains its exact technical and artifact
-content. The sealed `accept-ui` setup transition retains ordinary revision 11
-for rollback and uses normal managed publication. Ordinary revision 13 is now
-active; its one load/editor/normal-quit smoke passed with process-scoped retirement
-and zero remaining DSP owners. LoFi/FRAGMENTS remain unchanged. PR #97 is returned
-for final exact-head review, open and unmerged. See
-[CURRENT_SLICE.md](CURRENT_SLICE.md) for authority.
+content. Its narrow ordinary smoke passed. A later Windows endpoint exit led
+to restoring ordinary Pigments 11; revision 13 remains inactive failed ordinary
+history. The input-fairness repair remains accepted.
+
+[IF1](docs/IF1.md) source is accepted and merged. Candidate 15 proved terminal
+custody and Bitwig crash indication, but its native plug-in-host also exited.
+Resize was never selected. [IF2](docs/IF2.md) keeps the native processor and
+controller alive after classified Windows-peer loss, with validated local
+silence, a terminal failure view and positive cleanup. Generated tests and one
+controlled candidate-16 child-exit check passed: the same native host survived,
+the failure view appeared, dead forwarding stopped, and normal quit completed
+after the explicit state-unavailable warning. Ordinary Pigments 11 is restored;
+candidate 16 remains inactive pending review, and LoFi/FRAGMENTS 10 remain
+unchanged. No resize or in-place recovery result is claimed. See
+[CURRENT_SLICE.md](CURRENT_SLICE.md) for scope and nonclaims.
 
 ## Architecture
 

@@ -18,6 +18,7 @@ static bool input_enabled=true;
 static std::array<float,32> expected_left{},expected_right{};
 static uint64_t expected_silence=3;
 extern "C" {
+uint32_t __wrap_if2_terminal_status(uint64_t){return false ? 1 : 0;}
 uint32_t __wrap_ap9_open(const uint8_t*,uint64_t*h){*h=1;return 0;}
 uint32_t __wrap_ap5_report_path(uint64_t,uint8_t*p,uint32_t n){if(n)*p=0;return 0;}
 uint32_t __wrap_ap10_setup(uint64_t,uint32_t,uint32_t,double,const uint8_t*p,uint32_t n,uint32_t,uint32_t*t){
@@ -29,14 +30,14 @@ uint32_t __wrap_ap4_activate(uint64_t,uint32_t,uint32_t){++activations;return 0;
 uint32_t __wrap_ap4_deactivate(uint64_t){return 0;}
 uint32_t __wrap_ap3_transition(uint64_t,uint32_t){return 0;}
 uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t*p){static const ap10_results_t empty{};*p=empty;return 0;}
-uint32_t __wrap_ap13_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*,uint64_t silence,const float*l,const float*r,float*ol,float*orr,uint64_t*out,ap7_delivery_t*d,uint64_t entered){
+uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*,uint64_t silence,const float*l,const float*r,float*ol,float*orr,uint64_t*out,ap7_delivery_t*d,uint64_t entered){
  assert(entered&&count==2&&e[0].kind==0&&e[1].kind==2);
  assert(e[0].offset==(n?7u:0u)&&e[1].offset==(n?11u:0u));
  assert(n==0||n==32);
  if(n){assert(silence==expected_silence);for(unsigned i=0;i<n;++i){assert(l[i]==expected_left[i]);assert(r[i]==expected_right[i]);}}
  std::copy_n(l,n,ol);std::copy_n(r,n,orr);*out=silence;*d={};d->delivered_frames=n;++processes;return 0;
 }
-uint32_t __wrap_ap3_close(uint64_t){++closes;return 0;}
+uint32_t __wrap_if2_close(uint64_t){++closes;return 0;}
 }
 int main(){
  HostApplication host;auto*p=new AP2::Processor;assert(p->initialize(&host)==kResultOk);

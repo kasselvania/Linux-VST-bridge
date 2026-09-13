@@ -1,0 +1,287 @@
+{
+  "schema": 1,
+  "disposition": "IF1_R15_TERMINAL_CUSTODY_OBSERVED_PRODUCT_CHECK_INCOMPLETE",
+  "profile_revision": 15,
+  "profile_fingerprint": "d55500789b57d6a7d02b31ab12c7029b0f9c6d13ca22b8269d92f4627104243c",
+  "product_source": "cf212582b916fd4c09b5584cb5c2fde2c3960cb7",
+  "manager_source": "620c3433dbf8ee11001451acf1eb95e6d1370b24",
+  "diagnostic_source": "438aaf3eb45efd92239b23f839391214adf2bbf7",
+  "session": "if1-r15-A",
+  "fixture": {
+    "project": "protected IF1 copy of retained AP18 project",
+    "launch": "normal Applications desktop entry with protected project argument",
+    "adapter": "source-owned SSH/XTEST; no Mac input or focus",
+    "setup": {
+      "event": "ap9_setup",
+      "host_maximum": 512,
+      "transport_maximum": 256,
+      "sample_rate": 48000,
+      "bridge_frames": 512,
+      "vendor_frames": 48,
+      "total_frames": 560,
+      "vendor_precision_bits": 1
+    },
+    "musical_phase": "Bitwig transport stopped; no audio or performance qualification"
+  },
+  "actions": {
+    "editor_opened": true,
+    "initial_host_action": "The first host button showed the parameter panel; the separately identified editor-window button then opened the editor.",
+    "menu_click_count": 1,
+    "menu_down_up_win32": true,
+    "menu_client_coordinates": [
+      25,
+      22
+    ],
+    "menu_correct_vendor_child": true,
+    "resize_attempted": false,
+    "repeat_menu": false,
+    "cleanup_escape_count": 1,
+    "failed_device_editor_action_count": 1,
+    "reload_clicked": false,
+    "normal_quit_count": 1
+  },
+  "harness": {
+    "command_namespace": "commands/",
+    "frame_namespace": "snapshots/",
+    "collision_absent": true,
+    "capture_failure": "Exact popup drawable was not the active top-level editor; the existing occlusion guard refused its capture.",
+    "popup_dimensions": [
+      {
+        "dimensions": [
+          189,
+          254
+        ],
+        "visible": true,
+        "enabled": true,
+        "minimized": false,
+        "same_ui_thread": true
+      },
+      {
+        "dimensions": [
+          189,
+          12
+        ],
+        "visible": true,
+        "enabled": true,
+        "minimized": false,
+        "same_ui_thread": true
+      },
+      {
+        "dimensions": [
+          189,
+          12
+        ],
+        "visible": true,
+        "enabled": true,
+        "minimized": false,
+        "same_ui_thread": true
+      },
+      {
+        "dimensions": [
+          12,
+          278
+        ],
+        "visible": true,
+        "enabled": true,
+        "minimized": false,
+        "same_ui_thread": true
+      },
+      {
+        "dimensions": [
+          12,
+          278
+        ],
+        "visible": true,
+        "enabled": true,
+        "minimized": false,
+        "same_ui_thread": true
+      }
+    ],
+    "menu_choice_visibility": "not established by the root-window frame",
+    "failure": "bounded automatic plan wait",
+    "failure_class": "RuntimeError",
+    "actions_completed": false,
+    "unit_exit": 0,
+    "unit_exit_is_not_action_success": true,
+    "helper": {
+      "exit": 0,
+      "kept": 529,
+      "overflow": 0,
+      "stderr_bytes": 529,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    },
+    "observer": {
+      "committed": 494,
+      "dropped": 0,
+      "ready": 1,
+      "closed": 1,
+      "hook_calls": 13099,
+      "hook_ticks": 266516,
+      "max_hook_ticks": 686,
+      "filtered": 12605,
+      "heartbeat_errors": 0,
+      "scope_errors": 0,
+      "unhook_errors": 0,
+      "detached": 1
+    },
+    "x11_dropped": 0,
+    "x11_unparsed": 0,
+    "gui_dropped": [
+      0,
+      0
+    ],
+    "frame_dropped": 0,
+    "imagery_private": true
+  },
+  "before_cleanup": {
+    "terminal_record": null,
+    "collector_rejection": null,
+    "editor_open": true,
+    "source": "pre-quit snapshot after harness ended"
+  },
+  "subsequent_failure": {
+    "order": [
+      "One Escape dismissed the already-open menu; normal Bitwig activation followed.",
+      "Bitwig showed Plug-in crashed; the session lease was absent.",
+      "Retained terminal custody and supervisor results were read.",
+      "One editor action did not display a native terminal failure view; no reload was requested.",
+      "One normal Bitwig close request completed; engine exit zero and frontend absent."
+    ],
+    "outer_launcher_exit": 5,
+    "exact_windows_executable_exit": null,
+    "windows_exit_cause": "unresolved",
+    "bitwig_plugin_host_exit": 255,
+    "bitwig_plugin_host_wait_status": 65280,
+    "bitwig_plugin_host_exit_cause": "unresolved; no claim that the IF1 kReloadComponent request caused this exit",
+    "first_worker_fault": {
+      "event": "ap5_worker_fault",
+      "generation": 1,
+      "fault": 3,
+      "first_position": 30938624,
+      "processed": 120854,
+      "request_high": 41,
+      "result_high": 2,
+      "detail": "InvalidData: delivery endpoint disconnected"
+    },
+    "retirement_disposition": "terminal_instance_failure",
+    "normal_retirement_ready": null,
+    "last_status": {
+      "native": {
+        "publication": 362564,
+        "generation": 1,
+        "epoch": 1,
+        "request_sequence": 120858,
+        "position": 30938624,
+        "stage": 2,
+        "detail": 0,
+        "admitted_frames": 30939136,
+        "missing_frames": 0,
+        "gaps": 0,
+        "expired_frames": 0,
+        "delivered_frames": 30938624,
+        "priming_frames": 512,
+        "current": true
+      },
+      "delivery": {
+        "publication": 725129,
+        "generation": 1,
+        "epoch": 1,
+        "request_sequence": 120858,
+        "position": 30938624,
+        "stage": 3,
+        "detail": 0,
+        "current": true
+      },
+      "owner": {
+        "publication": 174903,
+        "generation": 1,
+        "epoch": 0,
+        "request_sequence": 0,
+        "position": 0,
+        "stage": 25,
+        "detail": 0,
+        "current": true
+      },
+      "editor": {
+        "available": true,
+        "independently_sampled": true,
+        "closed": 1,
+        "failure": 0,
+        "open": 1,
+        "view_stage": 16,
+        "open_stage": 100,
+        "exception_code": 0
+      },
+      "result_status": {
+        "available": true,
+        "schema": 1,
+        "rejection": null
+      },
+      "terminal_instance": {
+        "schema": 1,
+        "session": "if1-r15-A",
+        "generation": 1,
+        "epoch": 1,
+        "sequence": 120858,
+        "last_completed_position": 30938624,
+        "state_revision": 3,
+        "state_generation": 1,
+        "state_through": 0,
+        "state_sha256": "f03752c9a4a4bd04a39af4a5eaf52f2b19b127c04cda119049f4c3d35190a604",
+        "failure_class": 3,
+        "status": 3,
+        "position": 30938624,
+        "native_phase": 11,
+        "producer": 1,
+        "status_domain": 1
+      }
+    },
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "supervisor_F_R": "Failure and positive retirement follow the supervisor code path; exact peer-byte observation not separately retained."
+  },
+  "host_visible": {
+    "bitwig_crashed_plugin_status": true,
+    "native_terminal_failure_view_presented": false,
+    "live_notification_count": "not independently observed; native plug-in-host exit prevents attribution from the crash screen alone",
+    "dead_forwarding_refusal": "covered by accepted generated tests; not independently exercised after host exit here",
+    "bitwig_normal_quit": true,
+    "engine_exit": 0,
+    "no_new_save_requested": true,
+    "state_save_warning_observed": false
+  },
+  "retained_counters": {
+    "native_before_containment": {
+      "admitted_frames": 30939136,
+      "missing_frames": 0,
+      "gaps": 0,
+      "expired_frames": 0,
+      "delivered_frames": 30938624,
+      "priming_frames": 512
+    },
+    "worker_processed": 120854,
+    "terminal_gap_records_retained": 32,
+    "terminal_gap_trace_capacity": 32,
+    "terminal_gap_traces_unretained": 8,
+    "final_native_aggregate_summary": "absent after native plug-in-host exit; zero final gaps is not claimed"
+  },
+  "nonclaims": [
+    "Resize was not attempted or qualified.",
+    "Native terminal failure view and dead forwarding are not live-qualified by this run.",
+    "Bitwig crash indication alone does not establish AP10.instance_failed delivery or exact-once kReloadComponent.",
+    "No cause is assigned to Escape, menu handling, resize, UI rendering or final SDK destruction.",
+    "No clean SDK destruction or normal process-scoped retirement occurred.",
+    "No gap-free, audio, timing, performance, state-recovery or product-acceptance claim."
+  ],
+  "private_receipts": {
+    "live-exit-private.json": "6f4ff17d118ae6431221f424442fe119836994e048189fb88ac5e101dd1c251d",
+    "native-live.jsonl": "ba4194afbb87af7fa38679f93b3e7e8097c7f898d5aabf8b4b490a319becdc3e",
+    "menu-capture-private.json": "b42cb9f38c06ce2f7fca2d2cb426b0a4c3056b85f85a2e5241371dd320141fd4",
+    "menu-census-private.json": "fdc4d66458e7963a81c6543e14d6414fb21d1c7a7474c90e38d25c23a47dc08d",
+    "bitwig-tail-private.log": "f6d9ccd4c05a78f49beaa33c0da3c94b98fc1127452b96f7892ebfc0928bc75a",
+    "engine-tail-private.log": "26cca1535a3e70cac767616ebd7fe21ac2456a81b7cdabb4ff4a7e8ebb2f03d3"
+  }
+}

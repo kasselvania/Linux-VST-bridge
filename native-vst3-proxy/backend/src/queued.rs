@@ -101,6 +101,9 @@ impl From<Item> for Completion {
 }
 struct Shared {
     terminal: Option<Arc<crate::terminal::Status>>,
+    // Set only after a complete, session/generation-bound terminal record.
+    // The callback reads one atomic; it never reads the mapped custody record.
+    terminal_latched: AtomicBool,
     gui: Option<Arc<crate::gui::Gui>>,
     snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
     generation: u64,
@@ -143,6 +146,7 @@ impl Shared {
         Self {
             gui: None,
             terminal: None,
+            terminal_latched: AtomicBool::new(false),
             snapshots: Arc::new(std::sync::Mutex::new(crate::recovery::Store::default())),
             generation: 1,
             identity: None,
@@ -176,6 +180,12 @@ impl Shared {
             first_requests: std::array::from_fn(|_| AtomicU64::new(0)),
             first_results: std::array::from_fn(|_| AtomicU64::new(0)),
         }
+    }
+    fn terminal_record(&self) -> Option<crate::terminal::Record> {
+        let record = self.terminal.as_ref()?.read()?;
+        if record.words[3] != self.generation || self.generation == 0 { return None; }
+        self.terminal_latched.store(true, Ordering::Release);
+        Some(record)
     }
     fn fail(&self, code: u64, position: u64) {
         if self
@@ -298,7 +308,7 @@ impl Callback {
         if !self.running || request.n as usize > CAP {
             return Err(1);
         }
-        if s.fault.load(Ordering::Acquire) != 0 {
+        if s.fault.load(Ordering::Acquire) != 0 || s.terminal_latched.load(Ordering::Acquire) {
             return Err(2);
         }
         request.epoch = self.epoch;
@@ -650,6 +660,9 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         if !s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
             if let Some(t) = &s.terminal { t.fail_native(match s.fault.load(Ordering::Acquire) {0=>WORKER, code=>code}); }
         }
+        // Publish containment before exposing worker failure to the callback.
+        // Unclassified failures retain their existing error behavior.
+        s.terminal_record();
         s.fail(WORKER, session.position);
         if let Ok(mut d) = s.detail.lock() {
             if d.is_empty() {
@@ -817,6 +830,14 @@ pub(crate) unsafe fn open(
         }
     }) as u32
 }
+// RT-safe classification only. Zero means not latched, not proof of health.
+// Registry::lease uses one indexed slot, one fetch_add/fetch_sub, one pointer
+// load and an identity comparison, with no allocation, lock, wait or retry.
+// This query adds exactly one AtomicBool load and never reads the mapping.
+#[no_mangle]
+pub extern "C" fn if2_terminal_status(id: u64) -> u32 {
+    INSTANCES.lease(id).is_some_and(|l| l.shared.terminal_latched.load(Ordering::Acquire)) as u32
+}
 /// Bounded non-RT query. The Arc retains mapped custody after session unlink.
 #[no_mangle]
 pub unsafe extern "C" fn if1_terminal(id:u64,out:*mut crate::terminal::Record)->u32 {
@@ -824,7 +845,7 @@ pub unsafe extern "C" fn if1_terminal(id:u64,out:*mut crate::terminal::Record)->
         if out.is_null(){return 1;}
         let Some(l)=INSTANCES.lease(id) else{return 1;};
         *out=crate::terminal::Record::default();
-        if let Some(record)=l.shared.terminal.as_ref().and_then(|t|t.read()){*out=record;}
+        if let Some(record)=l.shared.terminal_record(){*out=record;}
         0
     }) as u32
 }
@@ -1297,6 +1318,7 @@ pub unsafe extern "C" fn ap7_process(
         crate::context::Context::default(),
         false,
         0,
+        false,
     )
 }
 // Mirrors the fixed C ABI and adds a borrowed bounded event span.
@@ -1316,6 +1338,7 @@ unsafe fn process_events(
     context: crate::context::Context,
     detailed: bool,
     entered_ns: u64,
+    contain_terminal: bool,
 ) -> u32 {
     let Some(l) = INSTANCES.lease(id) else {
         return 1;
@@ -1357,6 +1380,9 @@ unsafe fn process_events(
     }
     if context.chunk(n).is_none() {
         return if detailed { 0x105 } else { 1 };
+    }
+    if contain_terminal && l.shared.terminal_latched.load(Ordering::Acquire) {
+        return CONTAINED_TERMINAL;
     }
     {
         let callback = &mut *l.callback.get();
@@ -1403,7 +1429,9 @@ unsafe fn process_events(
                 total.delivered_frames += d.delivered_frames;
                 total.priming_frames += d.priming_frames;
             }
-            Err(code) => return code,
+            Err(code) => return if contain_terminal && l.shared.terminal_latched.load(Ordering::Acquire) {
+                CONTAINED_TERMINAL
+            } else { code },
         }
         offset += count;
         if offset == n {
@@ -1457,7 +1485,10 @@ pub unsafe extern "C" fn ap3_stats(id: u64, out: *mut Stats) -> u32 {
     0
 }
 #[no_mangle]
-pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
+pub unsafe extern "C" fn ap3_close(id: u64) -> u32 { close_instance(id, false) }
+#[no_mangle]
+pub unsafe extern "C" fn if2_close(id: u64) -> u32 { close_instance(id, true) }
+unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
     crate::ffi(|| {
         match INSTANCES.remove(id, |l| {
             let clean = matches!(l.shared.ack.load(Ordering::Acquire), 15 | 17)
@@ -1469,12 +1500,17 @@ pub unsafe extern "C" fn ap3_close(id: u64) -> u32 {
             } else {
                 l.shared.quit.store(true, Ordering::Release);
             }
+            let mut joined = true;
             if let Some(t) = l.worker.take() {
                 if t.join().is_err() {
+                    joined = false;
                     l.shared.fail(WORKER, u64::MAX);
                 }
             }
-            let ok = clean && l.shared.fault.load(Ordering::Acquire) == 0;
+            let contained = contain_terminal && joined && l.shared.terminal_record().is_some()
+                && l.shared.retired.load(Ordering::Acquire)
+                && !l.shared.pending_control.load(Ordering::Acquire);
+            let ok = contained || (clean && joined && l.shared.fault.load(Ordering::Acquire) == 0);
             if !ok {
                 if let Ok(d) = l.shared.detail.lock() {
                     if !d.is_empty() {
@@ -1654,6 +1690,7 @@ pub unsafe extern "C" fn ap8_process(
         crate::context::Context::default(),
         false,
         0,
+        false,
     )
 }
 
@@ -1674,6 +1711,8 @@ pub unsafe extern "C" fn ap10_process(
 ) -> u32 {
     ap13_process(id,n,events,count,context,flags,left,right,out_left,out_right,out_flags,delivery,0)
 }
+// Native C ABI extension; no Windows wire or packet layout change.
+const CONTAINED_TERMINAL: u32 = 0x106;
 #[no_mangle]
 pub unsafe extern "C" fn ap13_process(
     id: u64,
@@ -1689,6 +1728,43 @@ pub unsafe extern "C" fn ap13_process(
     out_flags: *mut u64,
     delivery: *mut Delivery,
     entered_ns: u64,
+) -> u32 {
+    process_current(id,n,events,count,context,flags,left,right,out_left,out_right,out_flags,delivery,entered_ns,false)
+}
+#[no_mangle]
+pub unsafe extern "C" fn if2_process(
+    id: u64,
+    n: u32,
+    events: *const Event,
+    count: u32,
+    context: *const crate::context::Context,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+    entered_ns: u64,
+) -> u32 {
+    process_current(id,n,events,count,context,flags,left,right,out_left,out_right,out_flags,delivery,entered_ns,true)
+}
+#[allow(clippy::too_many_arguments)]
+unsafe fn process_current(
+    id: u64,
+    n: u32,
+    events: *const Event,
+    count: u32,
+    context: *const crate::context::Context,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+    entered_ns: u64,
+    contain_terminal: bool,
 ) -> u32 {
     if count as usize > MAX_EVENTS || (count > 0 && events.is_null()) || context.is_null() {
         return 1;
@@ -1713,6 +1789,7 @@ pub unsafe extern "C" fn ap13_process(
         *context,
         true,
         entered_ns,
+        contain_terminal,
     )
 }
 
@@ -2385,13 +2462,78 @@ mod tests {
         let peer=shared.clone();let thread=thread::spawn(move||worker(session,peer,None));
         thread.join().unwrap();
         assert_eq!(shared.fault.load(Ordering::Acquire),WORKER);
+        assert!(shared.terminal_latched.load(Ordering::Acquire));
+        shared.state_capable.store(true,Ordering::Release);
         let id=INSTANCES.insert(||Ok::<_,()>(Live{shared,callback:UnsafeCell::new(Callback::new()),busy:AtomicBool::new(false),worker:None,report:None,max:CAP,recovery_blocked:false,installed_delay:None,minor:11,setup:None})).unwrap().unwrap();
         std::fs::remove_dir_all(&dir).unwrap(); // the UI query outlives physical transport cleanup
         let mut r=crate::terminal::Record::default();
+        let input=[0f32;256];let mut left=[0f32;256];let mut right=[0f32;256];let mut flags=0;let mut delivery=Delivery::default();
+        unsafe{assert_eq!(if2_process(id,256,std::ptr::null(),0,&crate::context::Context::default(),3,input.as_ptr(),input.as_ptr(),left.as_mut_ptr(),right.as_mut_ptr(),&mut flags,&mut delivery,1),CONTAINED_TERMINAL);}
         unsafe{assert_eq!(if1_terminal(id,&mut r),0);}
         assert_eq!(&r.words[3..7],&[7,2,104687,768]);assert_eq!(&r.words[14..16],&[3,WORKER]);
         let first=r;terminal.fail_native(99);
         unsafe{assert_eq!(if1_terminal(id,&mut r),0);assert_eq!(r,first);ap3_close(id);assert_ne!(if1_terminal(id,&mut r),0);}
+    }
+    #[test]
+    fn contained_terminal_keeps_validation_and_never_admits_more_work() {
+        use std::os::unix::fs::FileExt;
+        // Simulate each external committed producer, then exercise the actual
+        // public native ABI. Only the non-RT query reads the complete mapping.
+        for (class, producer, domain) in [(1u64,3u64,4u64),(2,2,2),(3,1,1)] {
+            let path=std::env::temp_dir().join(format!("if2-custody-{}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+            let status=Arc::new(crate::terminal::Status::create(&path,[42;16]).unwrap());
+            status.progress([7,2,104687,512,11],Some(512),None);
+            let mut record=status.context().unwrap();record.words[14]=class;record.words[15]=215;
+            record.words[18]=producer;record.words[19]=domain;
+            let file=std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+            let mut shared=Shared::new();shared.generation=7;shared.terminal=Some(status);
+            shared.identity=Some(state::Identity{class:[1;16],module:[2;32]});
+            shared.state_capable.store(true,Ordering::Release);
+            let shared=Arc::new(shared);
+            let mut callback=Callback::new();callback.running=true;callback.epoch=2;callback.position=512;
+            let id=INSTANCES.insert(||Ok::<_,()>(Live{shared:shared.clone(),callback:UnsafeCell::new(callback),busy:AtomicBool::new(false),worker:None,report:None,max:512,recovery_blocked:false,installed_delay:None,minor:11,setup:None})).unwrap().unwrap();
+            let input=[0f32;512];let mut left=[9f32;512];let mut right=[9f32;512];
+            let context=crate::context::Context::default();let mut flags=99;let mut delivery=Delivery::default();
+            // No complete custody: a local fault is not relabeled contained.
+            shared.fail(WORKER,512);
+            unsafe {assert_eq!(if2_process(id,256,std::ptr::null(),0,&context,3,input.as_ptr(),input.as_ptr(),left.as_mut_ptr(),right.as_mut_ptr(),&mut flags,&mut delivery,1),2);}
+            for (i,v) in record.words.iter().enumerate(){file.write_all_at(&v.to_le_bytes(),128+(producer-1)*256+i as u64*8).unwrap();}
+            file.write_all_at(&producer.to_le_bytes(),64).unwrap();
+            let mut read=crate::terminal::Record::default();
+            unsafe{assert_eq!(if1_terminal(id,&mut read),0);}assert_eq!(read,record);
+            let queued=shared.requests.published();
+            // The UI can see external custody before the worker sees EOF.
+            // A subblock admission must also honor the latch in that window.
+            shared.fault.store(0,Ordering::Release);
+            let lease=INSTANCES.lease(id).unwrap();let mut out=[[0f32;CAP];2];
+            unsafe{assert_eq!((*lease.callback.get()).process(&shared,Item::control(AUDIO,2),&mut out),Err(2));}
+            drop(lease);shared.fault.store(WORKER,Ordering::Release);
+            let call=|n,events:&[Event],ctx:&crate::context::Context,input_flags,left:&mut [f32;512],right:&mut [f32;512],flags:&mut u64,delivery:&mut Delivery|unsafe{
+                if2_process(id,n,events.as_ptr(),events.len() as u32,ctx,input_flags,input.as_ptr(),input.as_ptr(),left.as_mut_ptr(),right.as_mut_ptr(),flags,delivery,1)
+            };
+            for n in [0,1,64,256,512] {for _ in 0..1000 {assert_eq!(call(n,&[],&context,3,&mut left,&mut right,&mut flags,&mut delivery),CONTAINED_TERMINAL);}}
+            assert_eq!(shared.requests.published(),queued);
+            let lease=INSTANCES.lease(id).unwrap();unsafe{assert_eq!((*lease.callback.get()).position,512);assert_eq!((*lease.callback.get()).epoch,2);assert_eq!((*lease.callback.get()).host_call,1);}drop(lease);
+            assert!(left.iter().chain(&right).all(|x|*x==9.)); // SDK owner fills silence.
+            assert_eq!(flags,99);
+            let good=Event{offset:144,kind:0,id:17,channel:0,pitch:60,value:0.75,..Default::default()};
+            assert_eq!(call(256,&[good],&context,3,&mut left,&mut right,&mut flags,&mut delivery),CONTAINED_TERMINAL);
+            for bad in [Event{offset:256,..good},Event{channel:16,..good},Event{value:f64::NAN,..good},Event{value:1.1,..good}] {
+                assert_eq!(call(256,&[bad],&context,3,&mut left,&mut right,&mut flags,&mut delivery),0x102);
+            }
+            assert_eq!(call(513,&[],&context,3,&mut left,&mut right,&mut flags,&mut delivery),0x101);
+            let bad_context=crate::context::Context{present:1,rate:f64::NAN,..Default::default()};
+            assert_eq!(call(256,&[],&bad_context,3,&mut left,&mut right,&mut flags,&mut delivery),0x105);
+            unsafe {assert_eq!(if2_process(id,256,std::ptr::null(),0,&context,3,std::ptr::null(),input.as_ptr(),left.as_mut_ptr(),right.as_mut_ptr(),&mut flags,&mut delivery,1),0x101);}
+            // Old ABI keeps its old failure contract.
+            unsafe {assert_eq!(ap13_process(id,256,std::ptr::null(),0,&context,3,input.as_ptr(),input.as_ptr(),left.as_mut_ptr(),right.as_mut_ptr(),&mut flags,&mut delivery,1),2);}
+            assert_eq!(shared.requests.published(),queued);
+            // Custody alone cannot authorize positive containment cleanup.
+            if class==1 {unsafe{assert_eq!(if2_close(id),2);}}
+            else {shared.retired.store(true,Ordering::Release);unsafe{assert_eq!(if2_close(id),0);assert_ne!(if2_close(id),0);}}
+            unsafe {assert_ne!(if1_terminal(id,&mut read),0);}
+            std::fs::remove_file(path).unwrap();
+        }
     }
     #[test]
     fn correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling() {

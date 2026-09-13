@@ -9,6 +9,7 @@
 #include "input_silence.h"
 #ifdef AP8_PREVIEW
 #include "ap10_backend.h"
+#include "contained_terminal.h"
 #include "ap11_gui.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 #endif
@@ -151,8 +152,15 @@ bool overlap(const float *a, const float *b, int n) {
   return x < y + bytes && y < x + bytes;
 }
 } // namespace
+bool Processor::terminal() {
+#ifdef AP8_PREVIEW
+  if(!terminal_latched_.load(std::memory_order_acquire) && handle_ && if2_terminal_status(handle_)==1)
+    terminal_latched_.store(true,std::memory_order_release);
+#endif
+  return terminal_latched_.load(std::memory_order_acquire);
+}
 bool Processor::stateSession() {
-  if (!preview_)
+  if (!preview_ || terminal())
     return false;
   if (handle_)
     return true;
@@ -231,10 +239,10 @@ void Processor::stateFailure(const char *operation, const char *stage) {
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
-  if (phase_ == Failed)
+  if (phase_ == Failed || terminal())
     stateFailure("get", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
-      phase_ == Failed || phase_ == Terminated)
+      phase_ == Failed || phase_ == Terminated || terminal())
     return kResultFalse;
   try {
     if (!stateSession())
@@ -284,10 +292,10 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
 tresult PLUGIN_API Processor::setState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
-  if (phase_ == Failed)
+  if (phase_ == Failed || terminal())
     stateFailure("set", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
-      phase_ == Running || phase_ == Failed || phase_ == Terminated)
+      phase_ == Running || phase_ == Failed || phase_ == Terminated || terminal())
     return kResultFalse;
   try {
     std::vector<uint8_t> blob;
@@ -371,6 +379,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   if(!std::strcmp(id,"AP10.poll")){
     if1_terminal_t terminal{};
     if (handle_ && !if1_terminal(handle_, &terminal) && IF1::valid(terminal)) {
+      terminal_latched_.store(true,std::memory_order_release);
       if(terminal_notified_generation_ == terminal.words[3]) return kResultOk;
       auto* failed = allocateMessage();
       if (!failed) return kResultFalse;
@@ -378,11 +387,15 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
       if (failed->getAttributes()->setBinary("terminal", &terminal, sizeof(terminal)) != kResultOk) {
         failed->release(); return kResultFalse;
       }
-      // Set before the reentrant host/controller call. No repeated reload or
+      // Set before the reentrant host/controller call. No repeated notification or
       // vendor forwarding can be caused by recursive AP10.poll.
       terminal_notified_generation_ = terminal.words[3];
       const auto result = sendMessage(failed); failed->release();
       if(result != kResultOk) terminal_notified_generation_ = 0; // retain pending delivery
+      else {
+        char text[256];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"if2_terminal_notification\",\"generation\":%llu,\"epoch\":%llu,\"sequence\":%llu,\"failure_class\":%llu,\"controller_acknowledged\":true}\n",(unsigned long long)terminal.words[3],(unsigned long long)terminal.words[4],(unsigned long long)terminal.words[5],(unsigned long long)terminal.words[14]);
+        if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+      }
       return result;
     }
     uint32_t notice[3]{};if(!handle_||ap10_notices(handle_,notice)||!notice[0])return kResultOk;
@@ -390,6 +403,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
     latency_=latency_-vendor_latency_+notice[1];vendor_latency_=notice[1];tail_=notice[2];
     auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP10.restart");m->getAttributes()->setInt("flags",notice[0]);auto r=sendMessage(m);m->release();return r;
   }
+  if(terminal())return kResultFalse;
   if(!std::strcmp(id,"AP11.bind")){
     if(!stateSession())return kResultFalse;
     uint64_t generation=0;if(ap11_gui_generation(handle_,&generation))return kResultFalse;
@@ -581,6 +595,7 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
   requested_rate_ = setup.sampleRate;
   requested_mode_ = setup.processMode;
   if (!g.held || owner_ != std::this_thread::get_id() ||
+      terminal() ||
       (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
       (setup.processMode != kOffline &&
        !(preview_ && setup.processMode == kRealtime)) ||
@@ -613,6 +628,10 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
   Guard g(busy_);
   if (!g.held || owner_ != std::this_thread::get_id())
     return kResultFalse;
+  if (terminal()) {
+    if(active)return kResultFalse;
+    want_active_=false;phase_=ContainedTerminal;return kResultOk;
+  }
   if (!active && phase_ == Failed) {
     want_active_ = false;
     return kResultOk;
@@ -664,6 +683,10 @@ tresult PLUGIN_API Processor::setProcessing(TBool running) {
 #ifdef AP8_PREVIEW
   if(!running)returned_.release_requested=true;
 #endif
+  if (terminal()) {
+    if(running)return kResultFalse;
+    want_processing_=false;phase_=ContainedTerminal;return kResultOk;
+  }
   if (!running && phase_ == Failed) {
     want_processing_ = false;
     return kResultOk;
@@ -703,12 +726,12 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   if (!g.held) return reject();
 #ifdef AP8_PREVIEW
   returned_.beginCallback();
-  if(d.numSamples>=0&&returned_.release_requested){
+  if(!terminal()&&d.numSamples>=0&&returned_.release_requested){
     auto rejected=returned_.rejected;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
     if(returned_.rejected!=rejected){ap10_fail_results(handle_);phase_=Failed;return reject();}
   }
 #endif
-  if (phase_ != Running || d.processMode != process_mode_ ||
+  if ((phase_ != Running && !(terminal() && want_processing_ && want_active_)) || d.processMode != process_mode_ ||
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||
       d.numSamples > maximum_)
     return reject();
@@ -725,7 +748,9 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   if(d.numSamples==0){
     if(d.numInputs||d.numOutputs)return reject();
     float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};ap10_context_t context{};
-    if(ap13_process(handle_,0,events,event_count,&context,0,&dummy,&dummy,&dummy,&dummy,&flags,&delivery,entered_ns)||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}return kResultOk;
+    auto result=if2_process(handle_,0,events,event_count,&context,0,&dummy,&dummy,&dummy,&dummy,&flags,&delivery,entered_ns);
+    if(result==IF2::contained)return containedSilence(d);
+    if(result||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}return kResultOk;
   }
 #else
   bool changed = false;
@@ -812,7 +837,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #endif
   auto r =
 #ifdef AP8_PREVIEW
-      ap13_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery,entered_ns);
+      if2_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery,entered_ns);
 #else
       queued_
           ? static_cast<int32_t>(ap7_process(
@@ -827,6 +852,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   if (r) {
 #ifdef AP8_PREVIEW
+    if(r==IF2::contained)return containedSilence(d);
     returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
     if (!admission_failure_.code)
       admission_failure_ = {uint32_t(r), c.state, d.numSamples, input_flags,
@@ -861,6 +887,19 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   return kResultOk;
 }
 #ifdef AP8_PREVIEW
+tresult Processor::containedSilence(ProcessData& d) {
+  terminal_latched_.store(true,std::memory_order_release);phase_=ContainedTerminal;
+  returned_.release_requested=true;
+  // These are locally owned Note Offs, never a request to the dead endpoint.
+  returned_.release(d,[&](int bus){return eventOutputActive(bus);});
+  if(d.numSamples>0){
+    auto** out=d.outputs[0].channelBuffers32;
+    std::fill_n(out[0],d.numSamples,0.f);std::fill_n(out[1],d.numSamples,0.f);
+    d.outputs[0].silenceFlags=3;
+  }
+  ++contained_callbacks_;contained_frames_+=uint64_t(d.numSamples);
+  return kResultOk;
+}
 int Processor::eventOutputActive(int index)const{
  size_t i=0;for(const auto&b:AP8::buses){if(b.media==kEvent&&b.direction==kOutput&&int(b.index)==index)return bus_active_[i]?1:0;++i;}return -1;
 }
@@ -879,7 +918,8 @@ tresult PLUGIN_API Processor::terminate() {
       phase_ == Terminated)
     return kResultFalse;
   bool clean =
-      phase_ == Initialized || phase_ == Setup || phase_ == Deactivated;
+      phase_ == Initialized || phase_ == Setup || phase_ == Deactivated ||
+      (terminal() && !want_processing_ && !want_active_);
   if (input_hint_adjustments_) {
     char text[320];
     const auto n = std::snprintf(text, sizeof(text),
@@ -891,6 +931,10 @@ tresult PLUGIN_API Processor::terminate() {
       diagnostic_report(report_path_, text, static_cast<size_t>(n));
   }
 #ifdef AP8_PREVIEW
+  if(terminal()){
+    char text[256];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"if2_contained_terminal\",\"callbacks\":%llu,\"silent_frames\":%llu,\"automatic_reload\":false}\n",(unsigned long long)contained_callbacks_,(unsigned long long)contained_frames_);
+    if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+  }
   if(handle_){ap10_result_stats_t stats{};auto status=ap10_result_stats(handle_,&stats);char text[768];
    auto n=std::snprintf(text,sizeof(text),"{\"event\":\"ap10_process_results\",\"stats_status\":%u,\"events_delivered\":%llu,\"points_delivered\":%llu,\"late_events\":%llu,\"late_points\":%llu,\"host_unrequested_events\":%llu,\"host_unrequested_points\":%llu,\"rejected\":%llu,\"cleanup_sent\":%llu,\"cleanup_unavailable\":%llu,\"active_notes_unreleased\":%zu,\"discarded_on_reset\":%llu,\"pending_events\":%llu,\"pending_points\":%llu}\n",status,(unsigned long long)returned_.events,(unsigned long long)returned_.points,(unsigned long long)stats.late_events,(unsigned long long)stats.late_points,(unsigned long long)returned_.unrequested_events,(unsigned long long)returned_.unrequested_points,(unsigned long long)returned_.rejected,(unsigned long long)returned_.cleanup_sent,(unsigned long long)returned_.cleanup_unavailable,returned_.active_notes(),(unsigned long long)stats.discarded_on_reset,(unsigned long long)stats.pending_events,(unsigned long long)stats.pending_points);
    if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));}
@@ -936,7 +980,19 @@ tresult PLUGIN_API Processor::terminate() {
       }
     }
     clean =
-        (queued_ ? ap3_close(handle_) == 0 : ap2_close(handle_) == 0) && clean;
+        (queued_ ?
+#ifdef AP8_PREVIEW
+         if2_close(handle_) == 0
+#else
+         ap3_close(handle_) == 0
+#endif
+         : ap2_close(handle_) == 0) && clean;
+#ifdef AP8_PREVIEW
+    if(terminal()){
+      const char* text=clean ? "{\"event\":\"if2_terminal_cleanup\",\"confirmed\":true,\"normal_sdk_retirement\":false}\n" : "{\"event\":\"if2_terminal_cleanup\",\"confirmed\":false,\"normal_sdk_retirement\":false}\n";
+      diagnostic_report(report_path_,text,std::strlen(text));
+    }
+#endif
     if (!clean)
       report();
     handle_ = 0;

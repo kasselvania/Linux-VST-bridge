@@ -3,6 +3,7 @@
 // this test makes no new Windows, mailbox, musical or physical-latency claim.
 #include "processor.h"
 #include "ap10_backend.h"
+#include "contained_terminal.h"
 #include "ap4_backend.h"
 #include "public.sdk/source/vst/hosting/eventlist.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
@@ -18,7 +19,7 @@ void require(bool ok, const char* why) {
  if (!ok) { std::fprintf(stderr,"FAIL: %s\n",why); std::exit(1); }
 }
 uint32_t total=0, cursor=0, drains=0, failures=0, closes=0, seed=0;
-bool sysex_only=false, odd=false;
+bool sysex_only=false, odd=false, terminal_result=false, note_only=false;
 int32 frames=0;
 TChar character(uint32_t i, uint32_t j) {
  return TChar(0x100 + (seed*97+i*31+j)%0x7000);
@@ -31,6 +32,7 @@ Event makeEvent(uint32_t i, std::array<uint8_t,512>& bytes,
  text.back()=0;
  Event e{}; e.sampleOffset=frames ? int32(i%uint32_t(frames)) : 0;
  e.ppqPosition=7.25; e.flags=0xc001;
+ if(note_only){e.type=Event::kNoteOnEvent;e.noteOn={15,60,.25f,.75f,0,-1234};return e;}
  switch (sysex_only ? 0 : i%4) {
   case 0: e.type=Event::kDataEvent;
    e.data={odd ? 3u : 512u,DataEvent::kMidiSysEx,bytes.data()}; break;
@@ -77,6 +79,7 @@ void verify(EventList& sink, uint32_t count) {
 }
 
 extern "C" {
+uint32_t __wrap_if2_terminal_status(uint64_t){return terminal_result ? 1 : 0;}
 uint32_t __wrap_ap9_open(const uint8_t*,uint64_t* h) {*h=1;return 0;}
 uint32_t __wrap_ap5_report_path(uint64_t,uint8_t* p,uint32_t n) {if(n)*p=0;return 0;}
 uint32_t __wrap_ap10_setup(uint64_t,uint32_t,uint32_t,double,const uint8_t*,uint32_t,uint32_t,uint32_t* traits) {
@@ -85,12 +88,13 @@ uint32_t __wrap_ap10_setup(uint64_t,uint32_t,uint32_t,double,const uint8_t*,uint
 uint32_t __wrap_ap4_activate(uint64_t,uint32_t,uint32_t) {return 0;}
 uint32_t __wrap_ap4_deactivate(uint64_t) {return 0;}
 uint32_t __wrap_ap3_transition(uint64_t,uint32_t) {return 0;}
-uint32_t __wrap_ap3_close(uint64_t) {++closes;return 0;}
+uint32_t __wrap_if2_close(uint64_t) {++closes;return 0;}
 uint32_t __wrap_ap10_fail_results(uint64_t) {++failures;return 0;}
-uint32_t __wrap_ap13_process(uint64_t,uint32_t n,const ap8_event_t*,uint32_t,
+uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*,uint32_t,
  const ap10_context_t*,uint64_t,const float* l,const float* r,float* ol,float* or_,
  uint64_t* silence,ap7_delivery_t* delivery,uint64_t entered_ns) {
  require(entered_ns!=0,"native callback-entry clock");
+ if(terminal_result)return IF2::contained;
  frames=int32(n);cursor=drains=0;*silence=0;*delivery={};delivery->delivered_frames=n;
  std::copy_n(l,n,ol);std::copy_n(r,n,or_);return 0;
 }
@@ -153,5 +157,27 @@ int main() {
  require(status==kResultFalse && effects==0 && drains==old_drains,"latched failure");
  require(p->setProcessing(false)==kResultOk && p->setActive(false)==kResultOk,"stop failed instance");
  require(p->terminate()!=kResultOk && closes==1,"failed close remains explicit and releases owner");
- std::puts("Native callback payload lifetime and bounded failure PASS");
+ // Containment preserves local returned-note cleanup without consulting the
+ // dead Windows result source. First callback and sink-absent retry are audited.
+ p=std::make_unique<AP2::Processor>();
+ require(p->initialize(&host)==kResultOk && p->activateBus(kEvent,kOutput,0,true)==kResultOk,"IF2 note fixture initialize");
+ require(p->setupProcessing(setup)==kResultOk && p->setActive(true)==kResultOk && p->setProcessing(true)==kResultOk,"IF2 note fixture start");
+ total=1;note_only=true;terminal_result=false;sink.clear();
+ d.numSamples=128;d.numInputs=d.numOutputs=1;d.inputs=&input;d.outputs=&output;d.outputEvents=&sink;
+ begin();status=p->process(d);effects=end();
+ require(status==kResultOk && effects==0 && sink.getEventCount()==1,"IF2 initial returned Note On");
+ const auto completedDrains=drains;const auto completedFailures=failures;
+ terminal_result=true;sink.clear();d.outputEvents=nullptr;
+ begin();status=p->process(d);effects=end();
+ require(status==kResultOk && effects==0 && drains==completedDrains && failures==completedFailures,"IF2 first terminal callback is silent success without dead forwarding");
+ require(output.silenceFlags==3 && std::all_of(ol.begin(),ol.end(),[](float x){return x==0;}) && std::all_of(or_.begin(),or_.end(),[](float x){return x==0;}),"IF2 both outputs silent");
+ d.outputEvents=&sink;
+ begin();status=p->process(d);effects=end();
+ Event off{};require(status==kResultOk && effects==0 && sink.getEventCount()==1 && sink.getEvent(0,off)==kResultOk,"IF2 deferred local Note Off");
+ require(off.type==Event::kNoteOffEvent && off.busIndex==0 && off.noteOff.channel==15 && off.noteOff.pitch==60 && off.noteOff.noteId==-1234 && off.noteOff.tuning==.25f && off.sampleOffset==0 && off.flags==0xc001 && off.ppqPosition==7.25,"IF2 exact returned note identity and cleanup offset");
+ sink.clear();d.numSamples=d.numInputs=d.numOutputs=0;d.inputs=d.outputs=nullptr;
+ begin();status=p->process(d);effects=end();
+ require(status==kResultOk && effects==0 && sink.getEventCount()==0 && drains==completedDrains,"IF2 zero-frame terminal callback does not duplicate Note Off or drain results");
+ require(p->setProcessing(false)==kResultOk && p->setActive(false)==kResultOk && p->terminate()==kResultOk,"IF2 positive contained cleanup");
+ std::puts("Native callback payload lifetime, contained terminal silence and exact Note Off cleanup PASS");
 }

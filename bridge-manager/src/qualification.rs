@@ -37,7 +37,7 @@ pub fn uir1_candidate() -> Result<Profile> {
     Ok(p)
 }
 pub fn if1_candidate() -> Result<Profile> {
-    let p = Profile::parse(include_bytes!("../../compatibility/if1/arturia-pigments.json"))?;
+    let p = Profile::parse(include_bytes!("../../compatibility/if2/arturia-pigments.json"))?;
     let ordinary = Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))?;
     let mut same = p.clone();
     same.revision = ordinary.revision; same.claim = ordinary.claim.clone();
@@ -46,7 +46,7 @@ pub fn if1_candidate() -> Result<Profile> {
     same.requirements.host_source_sha256 = ordinary.requirements.host_source_sha256.clone();
     same.requirements.native_sha256 = ordinary.requirements.native_sha256.clone();
     same.requirements.native_source_commit = ordinary.requirements.native_source_commit.clone();
-    require(p.revision == 14 && p.claim == Claim::ReviewCandidate && ordinary.revision == 11
+    require(p.revision == 16 && p.claim == Claim::ReviewCandidate && ordinary.revision == 11
         && ordinary.claim == Claim::VerifiedExactFixture && same == ordinary,
         "qualification_failure_contract")?;
     Ok(p)
@@ -388,7 +388,7 @@ impl Manager {
                     Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
                     Qualification::Ap18Pigments => false,
                     Qualification::Uir1Input => p.revision == 12,
-                    Qualification::If1Failure => p.revision == 14,
+                    Qualification::If1Failure => p.revision == 16,
                 }
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
