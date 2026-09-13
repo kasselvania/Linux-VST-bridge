@@ -136,9 +136,12 @@ history. The input-fairness repair remains accepted.
 custody and Bitwig crash indication, but its native plug-in-host also exited.
 Resize was never selected. [IF2](docs/IF2.md) keeps the native processor and
 controller alive after classified Windows-peer loss, with validated local
-silence, a terminal failure view and positive cleanup. Generated tests pass;
-candidate 16 and its one controlled child-exit check are in preparation.
-Ordinary Pigments 11 remains active; LoFi/FRAGMENTS 10 remain unchanged. See
+silence, a terminal failure view and positive cleanup. Generated tests and one
+controlled candidate-16 child-exit check passed: the same native host survived,
+the failure view appeared, dead forwarding stopped, and normal quit completed
+after the explicit state-unavailable warning. Ordinary Pigments 11 is restored;
+candidate 16 remains inactive pending review, and LoFi/FRAGMENTS 10 remain
+unchanged. No resize or in-place recovery result is claimed. See
 [CURRENT_SLICE.md](CURRENT_SLICE.md) for scope and nonclaims.
 
 ## Architecture

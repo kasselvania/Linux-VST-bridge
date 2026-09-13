@@ -51,16 +51,64 @@ The manager installed a new immutable software revision and published candidate
 16 with exact ordinary 11 as parent. See [artifacts](../evidence/if2/artifacts.json)
 and [validation](../evidence/if2/validation.json).
 
-The protected project loaded and its exact Windows, native and supervisor owners
-were resolved. The test paused before opening the editor or injecting the fault:
-private exact-window capture transfer required explicit approval at the tool
-boundary. No image was transferred, no signal was sent, and no menu or resize
-action occurred. One normal window-manager close completed. Ordinary Pigments
-11 was restored, LoFi/FRAGMENTS 10 remain unchanged, and all DSP leases,
-transactions and stale transports are absent. Service and keeper remain active.
+An earlier no-fault [preflight](../evidence/if2/product-check.json) paused at a
+private capture approval boundary and restored ordinary 11. That original
+record and its [readback](../evidence/if2/installed-final.json) remain unchanged.
+After permission, the single [controlled failure check](../evidence/if2/live-check.json)
+completed on candidate 16. No menu or resize action was attempted.
 
-The [product check](../evidence/if2/product-check.json) remains pending. No live
-native-host-survival or terminal-view result, resize result, Windows exit cause
-or product acceptance is claimed. Candidate 16 is retained inactive, and PR #99
-remains draft. The [final readback](../evidence/if2/installed-final.json) retains
-exact publication, software and protected-project identities.
+## Controlled child failure
+
+The exact candidate was loaded through the normal Applications desktop entry in
+a protected project with transport stopped. Its real editor opened once. The
+source-owned helper verified profile, artifacts, session, supervisor ancestry,
+and fresh process identities before sending one pidfd-bound SIGKILL to the
+Windows child. It never signalled Bitwig or the native host.
+
+The first complete record retained generation 1, epoch 1, sequence 25,044,
+completed position 6,410,240 and confirmed snapshot revision 3. Native transport
+failure class/status 3 won first-complete custody. The last Windows delivery
+row was stage 3; no Collector rejection or normal vendor-retirement record was
+present. This run has a known injected cause. It does not explain the historical
+spontaneous Windows exits. The outer Proton launcher reported exit 1, which is
+distinct from the deliberately signalled Windows child.
+
+The same native PID/start identity survived custody, editor reopen and a later
+host edit. The controller acknowledged exactly one terminal notification and
+requested no automatic reload. Reopening displayed the 640×210 native terminal
+failure view. On-Deck RGB comparison against a pixmap rendered with the same
+source-owned text, colors, coordinates and font matched every byte, including
+the retained snapshot identity. Only hashes and bounded facts are public.
+
+A host Macro 1 edit changed its displayed value from 0.0600 to 0.1200 while the
+exact-session native-to-Windows GUI counter remained 5. No new vendor command
+was published. The live method return was not sampled; generated SDK tests
+separately establish refusal return codes. After failure, 71,844 callbacks
+produced 36,784,128 contained silent frames. These are terminal-silence counters,
+not an audio-performance result or a relabelling of delivery gaps.
+
+## Quit and restoration
+
+One normal window-manager close requested Bitwig quit. The test-only Macro edit
+was discarded with operator permission. Bitwig then warned that current
+Pigments state was unavailable; proceeding was acknowledged without saving or
+substituting the older confirmed snapshot. The frontend and native host exited
+normally. The supervisor retained `terminal_instance_failure`, positive cohort
+cleanup and transport retirement. Native `if2_terminal_cleanup` confirmed the
+retirement acknowledgement and explicitly reported `normal_sdk_retirement=false`.
+There was no forced native/Bitwig termination and no claim of in-place recovery.
+
+The final native row retains two delivery-gap groups, 11,264 underrun frames,
+512 expired frames and 6,409,728 delivered frames before contained terminal
+silence. Earlier fault-status counters cover a shorter interval and are retained
+separately. No musical, latency or performance comparison was made; SteamOS
+CPUWeight 10000 was unchanged.
+
+The [completed readback](../evidence/if2/installed-completed.json) proves exact
+ordinary Pigments 11 restored, candidate 16 inactive, LoFi/FRAGMENTS 10 and
+protected projects unchanged. Service/keeper remain active; DSP leases,
+transactions and stale transports are zero, Bitwig/debuggers/diagnostics are
+absent and tracing is off. Revisions 12–15 remain immutable inactive history.
+512 stays selected/recommended and 256 unqualified. PR #99 remains draft and
+unmerged for independent product review. Resize, UIO2 and the cause of prior
+Windows exits remain outside this completed IF2 check.

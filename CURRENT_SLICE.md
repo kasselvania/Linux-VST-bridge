@@ -44,13 +44,32 @@ service/keeper healthy, zero DSP leases/transactions/stale transport and tracing
 off. Preserve SteamOS scheduling ownership. 512 remains recommended;
 256 remains unqualified. Keep the new PR draft and unmerged for product review.
 
-## Current checkpoint
+## Current result
 
-Implementation and generated validation are complete; all four hosted lanes
-passed at `b3006a4`. Candidate 16 was built, published reversibly and loaded in
-the protected project. The live failure check has not occurred: a tool approval
-requires explicit permission to transfer the private exact-window capture.
-No editor action, controlled signal or menu/resize attempt was sent. Normal
-close completed and ordinary 11 was restored with zero leases, transactions and
-stale transports. Continue the single controlled check after that approval;
-do not count the preflight as terminal-host-survival proof. PR #99 stays draft.
+Implementation, generated validation and the one controlled failure check are
+complete. All four hosted lanes passed at `b3006a4` and the documentation-only
+checkpoint `9624317`. The native product artifact remains from `1da2983`, with
+the unchanged merged IF1 Windows host.
+
+Candidate 16 survived one exact supervised Windows-child SIGKILL: the same
+native PID/start identity remained alive, the controller acknowledged exactly
+one terminal notification, and reopening displayed the native terminal failure
+view. Its exact rendered pixels matched the source-owned text, including
+confirmed snapshot revision 3. One later host Macro edit published no Windows
+GUI command. Final native counters retained 71,844 contained callbacks and
+36,784,128 silent frames separately from pre-terminal delivery gaps.
+
+Bitwig quit normally after declining the test-only edit and acknowledging its
+explicit current-state-unavailable warning. No stale state was substituted.
+The supervisor reported terminal-instance failure with positive cohort and
+transport cleanup; the native cleanup acknowledgement was positive. This is
+not normal SDK or process-scoped vendor retirement.
+
+Exact ordinary Pigments 11 is restored; candidate 16 and revisions 12–15 remain
+inactive. LoFi/FRAGMENTS 10, physical targets and protected project hashes are
+unchanged. Service/keeper are active, with zero DSP leases, pending transactions
+and stale transports; Bitwig and diagnostics are absent, tracing is off, and
+SteamOS CPUWeight remains untouched. See [live evidence](evidence/if2/live-check.json)
+and [completed readback](evidence/if2/installed-completed.json). Earlier preflight
+evidence remains unchanged. PR #99 stays draft and unmerged for independent
+product review. No additional IF2 live test or resize action is required here.

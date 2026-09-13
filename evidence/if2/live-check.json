@@ -1,0 +1,280 @@
+{
+  "schema": 1,
+  "disposition": "IF2_CONTROLLED_CHILD_FAILURE_NATIVE_HOST_SURVIVAL_PROVED_REVIEW_PENDING",
+  "source": {
+    "native": "1da298386b773eaf4ba3dbce242cc146c2f6a285",
+    "manager_and_fault_helper": "b3006a4a5ad5cf7247ef968b03143e648c40a220",
+    "checkout_at_live_check": "962431708e8d3c4dc73cb5d803c6bb9ec10a4b4b"
+  },
+  "fixture": {
+    "os": "SteamOS 3.8.16",
+    "daw": "Bitwig Studio 6.1 Flatpak",
+    "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "product": "Pigments 7.0.1.6772",
+    "session_alias": "if2-A",
+    "sample_rate": 48000,
+    "precision": "float32",
+    "host_maximum": 512,
+    "bridge_delay": 512,
+    "transport": "stopped",
+    "project_sha256": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573",
+    "launch": "normal Applications desktop entry with protected project copy",
+    "input": "Deck XTEST exact-window identity and pointer settlement; no Mac keyboard, mouse or focus takeover",
+    "tracing": false,
+    "scheduling": "SteamOS CPUWeight 10000 retained; no performance comparison"
+  },
+  "candidate": {
+    "revision": 16,
+    "claim": "review_candidate",
+    "profile_fingerprint": "3199611a7578f751a17fe9e0d8f20aa12a27ec1b296f4de2630f7cb7738ab9dc",
+    "publication": {
+      "id": "5a4507b6584289e206aac74fca77cbcb",
+      "sha256": "c809838018ba23e663e8cf19d6a957f986b72c24dd7a6b6357b96973a38e2604"
+    },
+    "parent": {
+      "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+      "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+    },
+    "qualification": "if1_failure"
+  },
+  "preflight_history": "evidence/if2/product-check.json records an earlier no-fault preflight and restoration; it is preserved unchanged. The single controlled failure below occurred after permission was supplied.",
+  "sequence": [
+    "Load exact candidate 16 in protected project, stopped transport",
+    "Open real vendor editor once; no terminal record",
+    "Send one pidfd-bound SIGKILL to the exact supervised Windows child",
+    "Retain first complete terminal record; same native PID/start remains alive",
+    "Use normal editor action once; verify native terminal failure view",
+    "Change host Macro 1 once; observe no new Windows GUI command",
+    "Request normal Bitwig close",
+    "Decline saving the test-only Macro edit with operator permission",
+    "Acknowledge explicit state-unavailable warning and proceed without substituting saved state",
+    "Observe normal frontend/native exit and positive transport/cohort cleanup",
+    "Restore exact ordinary Pigments 11"
+  ],
+  "controlled_fault": {
+    "count": 1,
+    "source": "tools/if2/child_exit.py",
+    "signal": "SIGKILL",
+    "pidfd_bound": true,
+    "exact_candidate_native_host_session_and_supervisor_ancestry_verified": true,
+    "unrelated_process_signals": 0,
+    "helper_exit": 0,
+    "root_windows_cause": "deliberate exact-child SIGKILL",
+    "outer_proton_launcher_exit": 1,
+    "exit_value_note": "Outer launcher exit 1 is not the Windows child signal result. Historical spontaneous exit cause remains unresolved."
+  },
+  "terminal": {
+    "schema": 1,
+    "generation": 1,
+    "epoch": 1,
+    "sequence": 25044,
+    "last_completed_position": 6410240,
+    "state_revision": 3,
+    "state_generation": 1,
+    "state_through": 0,
+    "state_sha256": "f03752c9a4a4bd04a39af4a5eaf52f2b19b127c04cda119049f4c3d35190a604",
+    "failure_class": 3,
+    "status": 3,
+    "position": 6410240,
+    "native_phase": 11,
+    "producer": 1,
+    "status_domain": 1,
+    "session_alias": "if2-A"
+  },
+  "last_complete_status": {
+    "native": {
+      "publication": 75122,
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 25044,
+      "position": 6410240,
+      "stage": 2,
+      "detail": 0,
+      "current": true,
+      "clock_domain": "linux_monotonic_ns"
+    },
+    "delivery": {
+      "publication": 150245,
+      "generation": 1,
+      "epoch": 1,
+      "request_sequence": 25044,
+      "position": 6410240,
+      "stage": 3,
+      "detail": 0,
+      "current": true,
+      "clock_domain": "windows_qpc"
+    },
+    "owner": {
+      "publication": 76177,
+      "generation": 1,
+      "epoch": 0,
+      "request_sequence": 0,
+      "position": 0,
+      "stage": 0,
+      "detail": 0,
+      "current": true,
+      "clock_domain": "windows_qpc"
+    },
+    "editor": {
+      "available": true,
+      "independently_sampled": true,
+      "closed": 1,
+      "failure": 0,
+      "open": 1,
+      "view_stage": 16,
+      "open_stage": 100,
+      "exception_code": 0
+    },
+    "result_status": {
+      "available": true,
+      "schema": 1,
+      "rejection": null
+    },
+    "mailbox_flags": {
+      "request": 0,
+      "reply": 0,
+      "independently_sampled": true
+    }
+  },
+  "native_survival": {
+    "same_pid_and_start_after_custody": true,
+    "same_pid_and_start_at_view": true,
+    "same_pid_and_start_after_host_edit": true,
+    "windows_absent_after_custody": true,
+    "notification_count": 1,
+    "controller_acknowledged": true,
+    "automatic_reload": false
+  },
+  "terminal_failure_view": {
+    "native_same_identity": true,
+    "native_namespace_pid_matches_window": true,
+    "dimensions": [
+      640,
+      210
+    ],
+    "viewable": true,
+    "active_parent": true,
+    "expected_lines": [
+      "Bridge instance failed",
+      "Instance transport failed. This instance is unavailable.",
+      "Confirmed snapshot #3 retained; later edits may be unavailable.",
+      "Remove/reload the device or reopen your saved project.",
+      "No stale plug-in state has been substituted."
+    ],
+    "expected_rgb_sha256": "2603e0d23f7c725a70883dee0b4ad5bba91bd7862bd20ff7517888e270087b5f",
+    "actual_rgb_sha256": "2603e0d23f7c725a70883dee0b4ad5bba91bd7862bd20ff7517888e270087b5f",
+    "exact_pixels_equal": true,
+    "different_rgb_bytes": 0,
+    "snapshot_revision": 3,
+    "no_vendor_image_exported": true,
+    "method": "On-Deck XGetImage of the exact visible native child compared byte-for-byte in RGB with a local X11 pixmap rendered from source-owned RecoveryView terminal text, colors, positions and default font. Parent active, namespace PID matched, original native PID/start unchanged. No vendor image used as evidence.",
+    "private_executed_witness_source_sha256": "06ed018a45d82b30176bed5977f90585568bd56ceca376aafd20838253c610cc"
+  },
+  "forwarding": {
+    "host_parameter": "Macro 1",
+    "host_display_before": "0.0600",
+    "host_display_after": "0.1200",
+    "native_to_windows_gui_counter_before": 5,
+    "native_to_windows_gui_counter_after": 5,
+    "windows_to_native_gui_counter_before": 4450,
+    "windows_to_native_gui_counter_after": 4450,
+    "no_windows_gui_commands_published": true,
+    "live_method_return": "not observed; SDK fixture separately proves kResultFalse",
+    "semantic_scope": "Host-side edit and unchanged exact-session publication counters; generated SDK fixture separately proves refusal return codes."
+  },
+  "native_final_rows": [
+    {
+      "event": "ap5_worker_fault",
+      "generation": 1,
+      "fault": 3,
+      "first_position": 6410240,
+      "processed": 25040,
+      "request_high": 43,
+      "result_high": 4,
+      "detail": "InvalidData: delivery endpoint disconnected"
+    },
+    {
+      "event": "if2_terminal_notification",
+      "generation": 1,
+      "epoch": 1,
+      "sequence": 25044,
+      "failure_class": 3,
+      "controller_acknowledged": true
+    },
+    {
+      "event": "if2_contained_terminal",
+      "callbacks": 71844,
+      "silent_frames": 36784128,
+      "automatic_reload": false
+    },
+    {
+      "event": "if2_terminal_cleanup",
+      "confirmed": true,
+      "normal_sdk_retirement": false
+    },
+    {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 9,
+      "requested_maximum": 512,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 6421504,
+      "blocks": 12542,
+      "callback_rejections": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 1,
+      "successful_silent_frames": 512,
+      "priming_frames": 512,
+      "underrun_frames": 11264,
+      "underrun_gaps": 2,
+      "underrun_callbacks": 22,
+      "expired_output_frames": 512,
+      "delivered_frames": 6409728,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    }
+  ],
+  "shutdown": {
+    "normal_window_manager_close": true,
+    "save_project_dialog": "No: discard only the test Macro edit; protected bytes unchanged",
+    "state_warning": "Bitwig explicitly reported unavailable current Pigments state before proceeding. Yes/proceed acknowledged; no save or stale snapshot substitution.",
+    "fresh_state_recovery_claim": false,
+    "frontend_exit": "normal after dialogs",
+    "native_exit": "normal; no signal or forced containment of the native/Bitwig process",
+    "windows_cohort_cleanup": true,
+    "transport_retired": true,
+    "retirement_disposition": "terminal_instance_failure",
+    "normal_process_scoped_retirement": false,
+    "supervisor_error": "Windows host exited without successful close",
+    "outer_launcher_exit": 1,
+    "final_process_absence": {
+      "frontend_absent": true,
+      "native_absent": true,
+      "windows_absent": true
+    }
+  },
+  "measurement_limits": [
+    "No musical, latency, performance or gap-free claim. Post-terminal silent callbacks are counted separately from pre-terminal gaps.",
+    "Final native gap counters and the earlier independently sampled fault-status counters cover different intervals; they are retained separately.",
+    "No new cross-clock latency calculation. Private timestamps retain their original Linux monotonic or Windows QPC domain.",
+    "No second controlled failure; no menu, resize, automation, save/reopen, sibling, capacity or reboot campaign.",
+    "No cause assigned to historical spontaneous Windows exits; no in-place recovery or ordinary candidate acceptance."
+  ],
+  "private_custody": {
+    "fault-before.json": "817c6523f024db8366c54ca98a8047d00b463df14cecd1ff1c430f35da34f3ff",
+    "fault-after.json": "abe7488e63dcc7db9304c759f53e11d284eab869c76f142ef685f7a2c84e466b",
+    "fault-signal.json": "cf07a4312b258362028e2f0a263d5639669e39e955dc8be2f7289e42d57c79ce",
+    "supervisor.json": "3069862e5d850ad6aaee4f196d0598f29f0ebd1359f1e5a8eed00ace0cc449eb",
+    "ownership.json": "3fa4362075263fec474bc516ca1c96fd9382fb5c00248482581fce2415092e97",
+    "native.jsonl": "e552b726b041b44a39dac015ddc271bd153f4820989bb1f7a35da061060ff25a",
+    "failure-view-verification.json": "bf03b6a259140cf1c6d61ab0bcabbbccb31eedfb8b355e11dbaa2a633d931d52",
+    "forwarding-check.json": "db508cd35c4b715cce9719b7c8f50f0e7b582db74892457f74d81301a86d5ab7",
+    "quit-final-result.json": "a9b07c72f4e2a278c8d19ddb6fbfb184b9a569f2d52d2c9f1e9da454da39c895",
+    "project.json": "7bbe5625c0e6545ad426dc3e7c35dfd0c01fd069dfbc4d5e03a96f24319d6ab4"
+  },
+  "public_privacy": "Session/process/window identities use aliases or equality facts. No raw PID/start, private path, image, credential, state payload, vendor binary or vendor diagnostic stream is included.",
+  "final_state": "evidence/if2/installed-completed.json"
+}
