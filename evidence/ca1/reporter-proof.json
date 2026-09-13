@@ -1,0 +1,220 @@
+{
+  "schema": 1,
+  "source": "32908e0b3649669538095c333402a5e859687dcc",
+  "fixture": "source-owned AP18 known-function exception fixture; no vendor module",
+  "pinned_runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+  "cases": {
+    "handled": {
+      "schema": 1,
+      "outcome": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "outer_exit": -15,
+      "windows_self_exit_codes": [
+        0
+      ],
+      "native_same_identity_at_finalization": false,
+      "first_terminal": null,
+      "exceptions": [
+        {
+          "code": 3221225477,
+          "classification": "exception_followed_by_normal_exit",
+          "fault": {
+            "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+            "offset": 4102
+          },
+          "stack": [
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4102
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4127
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4895
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "received_bytes": 60620,
+        "excluded_bytes": 43453,
+        "oversized_lines": 0,
+        "malformed_lines": 2,
+        "module_overflow": 0,
+        "exception_overwrite": 0,
+        "frame_overflow": 0,
+        "process_overflow": 0,
+        "mapped_path_drops": 0,
+        "incomplete_lines": 0,
+        "disabled_bytes": 0,
+        "final_drain_incomplete": false
+      },
+      "fixture_mode": "handled",
+      "fixture_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "production_run": true,
+      "collector_source": "32908e0b3649669538095c333402a5e859687dcc",
+      "runtime_sha256": {
+        "session.py": "fc627b370e4a07e60bd5aca380a74f5406e0cd4118259fbca2f820bc500fb31e",
+        "ownership.py": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b"
+      }
+    },
+    "fatal-late": {
+      "schema": 1,
+      "outcome": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "outer_exit": 5,
+      "windows_self_exit_codes": [
+        3221225477
+      ],
+      "native_same_identity_at_finalization": false,
+      "first_terminal": null,
+      "exceptions": [
+        {
+          "code": 3221225477,
+          "classification": "exception_matching_self_exit_status",
+          "fault": {
+            "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+            "offset": 4102
+          },
+          "stack": [
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4102
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4127
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 4730
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 5885
+            },
+            {
+              "module_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+              "offset": 5996
+            },
+            {
+              "module_sha256": "13f82daa75b0b0d0b6a16560103054fe4cd474627174f152776d7078eaa3906f",
+              "offset": 71241
+            },
+            {
+              "module_sha256": null,
+              "offset": null
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "received_bytes": 530495,
+        "excluded_bytes": 512735,
+        "oversized_lines": 0,
+        "malformed_lines": 16386,
+        "module_overflow": 0,
+        "exception_overwrite": 0,
+        "frame_overflow": 0,
+        "process_overflow": 0,
+        "mapped_path_drops": 0,
+        "incomplete_lines": 0,
+        "disabled_bytes": 0,
+        "final_drain_incomplete": false
+      },
+      "fixture_mode": "fatal-late",
+      "fixture_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "production_run": true,
+      "collector_source": "32908e0b3649669538095c333402a5e859687dcc",
+      "runtime_sha256": {
+        "session.py": "fc627b370e4a07e60bd5aca380a74f5406e0cd4118259fbca2f820bc500fb31e",
+        "ownership.py": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b"
+      }
+    },
+    "normal": {
+      "schema": 1,
+      "outcome": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "outer_exit": -15,
+      "windows_self_exit_codes": [
+        0
+      ],
+      "native_same_identity_at_finalization": false,
+      "first_terminal": null,
+      "exceptions": [],
+      "counts": {
+        "received_bytes": 47012,
+        "excluded_bytes": 31101,
+        "oversized_lines": 0,
+        "malformed_lines": 2,
+        "module_overflow": 0,
+        "exception_overwrite": 0,
+        "frame_overflow": 0,
+        "process_overflow": 0,
+        "mapped_path_drops": 0,
+        "incomplete_lines": 0,
+        "disabled_bytes": 0,
+        "final_drain_incomplete": false
+      },
+      "fixture_mode": "normal",
+      "fixture_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "production_run": true,
+      "collector_source": "32908e0b3649669538095c333402a5e859687dcc",
+      "runtime_sha256": {
+        "session.py": "fc627b370e4a07e60bd5aca380a74f5406e0cd4118259fbca2f820bc500fb31e",
+        "ownership.py": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b"
+      }
+    },
+    "exit": {
+      "schema": 1,
+      "outcome": null,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "outer_exit": 23,
+      "windows_self_exit_codes": [
+        23
+      ],
+      "native_same_identity_at_finalization": false,
+      "first_terminal": null,
+      "exceptions": [],
+      "counts": {
+        "received_bytes": 48206,
+        "excluded_bytes": 32078,
+        "oversized_lines": 0,
+        "malformed_lines": 2,
+        "module_overflow": 0,
+        "exception_overwrite": 0,
+        "frame_overflow": 0,
+        "process_overflow": 0,
+        "mapped_path_drops": 0,
+        "incomplete_lines": 0,
+        "disabled_bytes": 0,
+        "final_drain_incomplete": false
+      },
+      "fixture_mode": "exit",
+      "fixture_sha256": "778f1c083e526219019b7a4195e5465afacf87965d5692c7f5e281279ee29378",
+      "production_run": true,
+      "collector_source": "32908e0b3649669538095c333402a5e859687dcc",
+      "runtime_sha256": {
+        "session.py": "fc627b370e4a07e60bd5aca380a74f5406e0cd4118259fbca2f820bc500fb31e",
+        "ownership.py": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b"
+      }
+    }
+  },
+  "earlier_parser_failure": {
+    "fatal_run_retained": true,
+    "observed_signed_decimal_status": -1073741819,
+    "fix": "parse signed decimal self-exit status and normalize as unsigned 32 bits; regression added"
+  },
+  "nonclaims": [
+    "SIGKILL is not exception-stack proof",
+    "outer Proton status is not Windows or native wait status",
+    "fixture exceptions do not attribute the historical Pigments crash"
+  ]
+}

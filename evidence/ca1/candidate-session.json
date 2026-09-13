@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "reporter_source": "32908e0b3649669538095c333402a5e859687dcc",
+  "candidate": 16,
+  "profile_fingerprint": "3199611a7578f751a17fe9e0d8f20aa12a27ec1b296f4de2630f7cb7738ab9dc",
+  "publication": {
+    "id": "29336c9b0f942ea5779a1864ac58adb0",
+    "sha256": "f96c3fd0f7933719f8cbad5d3f76cf2ec559bbe4db89e980b2487df0e238d50e"
+  },
+  "host_sha256": "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8",
+  "host_manifest_sha256": "aab9ed5088e7f2a6a52665fb67150ce3fbe1a52893f7eedb68a63c55c06da498",
+  "native_sha256": "56987399359d05b4b113f1818c48e6c57142cc8bf073dae255606d1e663ecc38",
+  "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+  "session": "ca1-pigments-one",
+  "incident": "ca1-pigments-one",
+  "project": {
+    "alias": "protected CA1 copy of accepted AP18 project",
+    "sha256": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573",
+    "test_edits_discarded": true
+  },
+  "application_entry_launch": true,
+  "mac_control_takeover": false,
+  "actions": [
+    "existing C3 loop started",
+    "real editor opened once",
+    "Engine 1 Sample to Wavetable",
+    "Basic Waveforms to Basics Clip once",
+    "normal Bitwig close; decline only agent test edits"
+  ],
+  "local_editor_change_observed": true,
+  "endpoint_alive_after_waveform": true,
+  "first_terminal": null,
+  "retirement": {
+    "schema": 1,
+    "state": "process_scoped_retirement_ready",
+    "milestones": 127,
+    "epoch": 1,
+    "sequence": 44470,
+    "position": 11382784,
+    "generation": 1,
+    "reserved0": 0,
+    "reserved1": 0,
+    "reserved2": 0
+  },
+  "cleanup": {
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "retirement_disposition": "process_scoped_vendor_retirement",
+    "error": null
+  },
+  "module_rows": 104,
+  "retention": {
+    "stop_reason": null,
+    "elapsed_seconds": 246.63405651799985
+  },
+  "counts": {
+    "received_bytes": 105808,
+    "excluded_bytes": 83583,
+    "oversized_lines": 0,
+    "malformed_lines": 8,
+    "module_overflow": 0,
+    "exception_overwrite": 0,
+    "frame_overflow": 0,
+    "process_overflow": 0,
+    "mapped_path_drops": 0,
+    "incomplete_lines": 0,
+    "disabled_bytes": 0,
+    "final_drain_incomplete": false
+  },
+  "exception_posture": "Observed exception traces during normal continuation; no terminal record or spontaneous crash. Do not label first-chance exceptions as crashes.",
+  "reporting_followup": "Retained module-history projection corrected without repeating Pigments; original private report preserved.",
+  "historical_waveform_crash": "not reproduced or attributed; no fix claim",
+  "preserved_limits": [
+    "512 recommended",
+    "256 unqualified",
+    "one Pigments instance",
+    "no performance or graphics claim"
+  ]
+}

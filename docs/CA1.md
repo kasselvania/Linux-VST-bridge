@@ -63,7 +63,10 @@ cleanup; unresolved pipe data is reported. PE identity resolution admits work fo
 five seconds, with finite PE section/export/filename limits and a 512 MiB hash
 budget. It does not fetch symbols or inspect arbitrary files: identities come from
 actual mapped paths or the exact verified host/module. No preferred PE base or
-basename match is address authority.
+basename match is address authority. Unloads match the exact full Windows path
+and process. Load/unload history is resolved at the exception timestamp, not
+at finalization: unrelated or later unloads cannot erase a prior frame. Unknown
+unload syntax makes only subsequent bindings uncertain.
 
 Private directories are 0700, files 0600. Incident JSON is capped at 4 MiB;
 summary is capped at 64 KiB with omissions reported. At most 64 incident
@@ -119,3 +122,25 @@ production cleanup with an unrelated sibling, and finalization failure.
 Product-session and final installed results are retained separately under
 `evidence/ca1/`; reporter readiness does not imply that the historical waveform
 crash has been reproduced, attributed or repaired.
+
+## Candidate-16 session
+
+One protected Applications-launched Bitwig session exercised capture from launch
+through normal quit. The editor switched Engine 1 to Wavetable, then selected
+Basic Waveforms → Basics Clip once while the existing C3 loop ran. The local
+editor image changed; the endpoint remained alive. No menu/resize campaign or
+manual Mac input was used. The source-owned window driver briefly refused a
+second write to its existing private preflight filename; the original was
+preserved and a new readback filename was used, without repeating an action.
+
+Pigments committed all seven process-scoped retirement milestones and retired
+transport/cohort ownership. There was no IF1 terminal failure. Four observed
+Windows exceptions remained first-chance/unclassified exception observations;
+normal continuation and retirement do not turn them into a terminal crash.
+No historical waveform-crash cause is claimed.
+
+Inspecting this report exposed an over-conservative module-history bug: any
+unload had invalidated all modules of that process, including unrelated images
+and earlier exception frames. The path/time-specific correction has generated
+coverage and a private reprojection of the already retained record. The original
+incident is preserved. No second Pigments run was needed to correct the reporter.

@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "outcome": "process_scoped_vendor_retirement",
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "outer_exit": -15,
+  "windows_self_exit_codes": [],
+  "native_same_identity_at_finalization": false,
+  "first_terminal": null,
+  "exceptions": [
+    {
+      "code": 3221225477,
+      "classification": "observed_exception_fatality_unavailable",
+      "fault": {
+        "module_sha256": "e0a22a594e148fa55ceef3e49969bfa77011a801267a0bd7805b681b593c9d0b",
+        "offset": 77952
+      },
+      "stack": [
+        {
+          "module_sha256": "e0a22a594e148fa55ceef3e49969bfa77011a801267a0bd7805b681b593c9d0b",
+          "offset": 77952
+        },
+        {
+          "module_sha256": null,
+          "offset": null
+        },
+        {
+          "module_sha256": null,
+          "offset": null
+        },
+        {
+          "module_sha256": null,
+          "offset": null
+        },
+        {
+          "module_sha256": null,
+          "offset": null
+        },
+        {
+          "module_sha256": null,
+          "offset": null
+        },
+        {
+          "module_sha256": null,
+          "offset": null
+        },
+        {
+          "module_sha256": null,
+          "offset": null
+        },
+        {
+          "module_sha256": null,
+          "offset": null
+        }
+      ]
+    },
+    {
+      "code": 3765269347,
+      "classification": "observed_exception_fatality_unavailable",
+      "fault": {
+        "module_sha256": "d7989a3efa01a28ecdfc83495c2dcb88468695b5ff9da47c920e443078d53316",
+        "offset": 55623
+      },
+      "stack": [
+        {
+          "module_sha256": "d7989a3efa01a28ecdfc83495c2dcb88468695b5ff9da47c920e443078d53316",
+          "offset": 55623
+        },
+        {
+          "module_sha256": "c179d8914ba8e57b2f8f4d6c101c2c550c7c6712a7f0f9920a97db340f9d9574",
+          "offset": 25728
+        },
+        {
+          "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "offset": 5814493
+        },
+        {
+          "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "offset": 5858488
+        }
+      ]
+    },
+    {
+      "code": 1073807366,
+      "classification": "observed_exception_fatality_unavailable",
+      "fault": {
+        "module_sha256": "d7989a3efa01a28ecdfc83495c2dcb88468695b5ff9da47c920e443078d53316",
+        "offset": 55623
+      },
+      "stack": [
+        {
+          "module_sha256": "d7989a3efa01a28ecdfc83495c2dcb88468695b5ff9da47c920e443078d53316",
+          "offset": 55623
+        },
+        {
+          "module_sha256": "13f82daa75b0b0d0b6a16560103054fe4cd474627174f152776d7078eaa3906f",
+          "offset": 144883
+        }
+      ]
+    },
+    {
+      "code": 3765269347,
+      "classification": "observed_exception_fatality_unavailable",
+      "fault": {
+        "module_sha256": "d7989a3efa01a28ecdfc83495c2dcb88468695b5ff9da47c920e443078d53316",
+        "offset": 55623
+      },
+      "stack": [
+        {
+          "module_sha256": "d7989a3efa01a28ecdfc83495c2dcb88468695b5ff9da47c920e443078d53316",
+          "offset": 55623
+        },
+        {
+          "module_sha256": "c179d8914ba8e57b2f8f4d6c101c2c550c7c6712a7f0f9920a97db340f9d9574",
+          "offset": 25728
+        },
+        {
+          "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "offset": 15621179
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "received_bytes": 18720,
+    "excluded_bytes": 0,
+    "oversized_lines": 0,
+    "malformed_lines": 0,
+    "module_overflow": 0,
+    "exception_overwrite": 0,
+    "frame_overflow": 0,
+    "process_overflow": 0,
+    "mapped_path_drops": 0,
+    "incomplete_lines": 0,
+    "disabled_bytes": 0,
+    "final_drain_incomplete": false
+  },
+  "kind": "retained_record_reprojection_not_live_retry",
+  "original_incident_sha256": "5609e82c9edc6e75b969722b8744f744fa854a9acbf9704b88a6c8cbc9996ede",
+  "runtime_sha256": "dadac2a0148074b048df65df5289e7268b803d2bed3fa6c9834c68c2524b6daa",
+  "original_preserved": true,
+  "resolved_selected_faults": 4
+}

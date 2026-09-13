@@ -577,10 +577,17 @@ class IncidentCapture:
             if len(self.modules)>=self.MODULES:self.counts['module_overflow']+=1;return
             path,base,kind=load.groups();self.modules.append(dict(**when,path=path,base=int(base,16),kind=kind,unloaded=False));self.dirty=True;return
         if channel=='loaddll' and ('Unload' in body or 'unload' in func):
-            # Unknown unload syntax must not leave an assumed live load map.
             self.context.write(line)
+            unloaded=re.fullmatch(r'Unloaded module L"(.{1,1024})" : (builtin|native)',body)
+            def windows_path(value):return value.replace('\\\\','\\').casefold()
             for mod in self.modules:
-                if mod['windows_pid']==pid:mod['unload_uncertainty']=True
+                if mod['windows_pid']!=pid or mod.get('unloaded_at'):continue
+                if unloaded:
+                    if windows_path(mod['path'])==windows_path(unloaded[1]):mod['unloaded_at']=timestamp
+                elif not mod.get('unload_uncertain_at'):
+                    mod['unload_uncertain_at']=timestamp
+            # Retain load history. An unrelated or later unload does not erase
+            # the actual image binding that existed at an earlier exception.
             return
         fault=re.search(r'code=([0-9a-fA-F]{8}) .*flags=([0-9a-fA-F]+) addr=([0-9a-fA-F]+)',body) if channel=='seh' and func=='dispatch_exception' else None
         if fault:
@@ -688,8 +695,11 @@ class IncidentCapture:
             info=self.images.get(location,{})
             m['sha256']=info.get('sha256');m['size_of_image']=info.get('size_of_image')
         return deadline
-    def frame(self,pid,ip,base=None):
-        choices=[m for m in self.modules if m['windows_pid']==pid and not m.get('unload_uncertainty') and m.get('size_of_image') and m['base']<=ip<m['base']+m['size_of_image'] and (base is None or base==m['base'])]
+    def frame(self,pid,ip,base=None,at=None):
+        def current(m):
+            if at is None:return not m.get('unloaded_at') and not m.get('unload_uncertain_at')
+            return float(m['timestamp'])<=float(at) and all(not m.get(k) or float(m[k])>float(at) for k in ('unloaded_at','unload_uncertain_at'))
+        choices=[m for m in self.modules if m['windows_pid']==pid and current(m) and m.get('size_of_image') and m['base']<=ip<m['base']+m['size_of_image'] and (base is None or base==m['base'])]
         if len(choices)!=1:return dict(ip=ip,module=None,offset=None,symbol=None,unavailable='loaded module missing or ambiguous')
         m=choices[0];offset=ip-m['base'];symbol=None
         exports=self.images.get(m.get('linux_path'),{}).get('exports',[])
@@ -707,7 +717,7 @@ class IncidentCapture:
         for e in self.fatal_reserved:
             if e not in retained:retained.append(e)
         for old in retained:
-            e=dict(old);e['fault']=self.frame(e['windows_pid'],e['ip']);e['stack']=[self.frame(e['windows_pid'],x['ip'],x['base']) for x in e.pop('frames')]
+            e=dict(old);e['fault']=self.frame(e['windows_pid'],e['ip'],at=e['timestamp']);e['stack']=[self.frame(e['windows_pid'],x['ip'],x['base'],at=e['timestamp']) for x in e.pop('frames')]
             exit_row=self.exits.get(e['windows_pid']);e['classification']='observed_exception_fatality_unavailable'
             if exit_row and exit_row['exit_code']==0:e['classification']='exception_followed_by_normal_exit'
             elif exit_row and exit_row['exit_code']==e['code'] and e['code']>=0x80000000:e['classification']='exception_matching_self_exit_status'

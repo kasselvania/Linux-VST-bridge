@@ -55,6 +55,26 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual(c.first_terminal['status'],3)
             c.first_terminal=None
             with self.assertRaises(ValueError):c.retain_terminal({'before_containment':{'terminal_instance':{'session':'ff'*16}}})
+    def test_unload_is_path_specific_and_preserves_prior_exception_binding(self):
+        with tempfile.TemporaryDirectory() as d:
+            c=session.IncidentCapture(self.spec(pathlib.Path(d)))
+            c.write('stderr',self.line(32,36,'loaddll','build_module','Loaded L"Z:\\test.exe" at 140000000: native'))
+            c.modules[0].update(size_of_image=65536,sha256='ab'*32)
+            c.write('stderr',self.line(32,36,'loaddll','free_modref','Unloaded module L"Z:\\other.dll" : builtin'))
+            self.assertEqual(c.frame(32,0x140001006,at='10.020')['offset'],0x1006)
+            line=self.line(32,36,'loaddll','free_modref','Unloaded module L"Z:\\test.exe" : native').replace(b'10.012',b'10.030')
+            c.write('stderr',line)
+            self.assertEqual(c.frame(32,0x140001006,at='10.020')['offset'],0x1006)
+            self.assertIsNone(c.frame(32,0x140001006,at='10.030')['module'])
+            self.assertIsNone(c.frame(32,0x140001006)['module'])
+            # A later same-path load at another actual base cannot bind old IPs.
+            c.write('stderr',self.line(32,36,'loaddll','build_module','Loaded L"Z:\\test.exe" at 150000000: native').replace(b'10.012',b'10.040'))
+            c.modules[1].update(size_of_image=65536,sha256='ab'*32)
+            self.assertIsNone(c.frame(32,0x150001006,at='10.020')['module'])
+            self.assertEqual(c.frame(32,0x150001006,at='10.050')['offset'],0x1006)
+            c.write('stderr',self.line(32,36,'loaddll','unload_unknown','unknown unload form').replace(b'10.012',b'10.060'))
+            self.assertEqual(c.frame(32,0x150001006,at='10.050')['offset'],0x1006)
+            self.assertIsNone(c.frame(32,0x150001006,at='10.070')['module'])
     def test_long_error_excerpt_keeps_readable_summary_bounded(self):
         with tempfile.TemporaryDirectory() as d:
             c=session.IncidentCapture(self.spec(pathlib.Path(d)))
