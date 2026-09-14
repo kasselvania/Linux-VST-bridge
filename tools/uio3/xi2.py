@@ -113,9 +113,15 @@ class RawScope:
         return target in self.targets
 
 
+def verify_device_extension(old,fresh):
+    identity=lambda v:(v['use'],v['attachment'],v['name_sha256'])
+    if len(fresh)>64 or any(v['use'] not in (1,3,5) for v in fresh.values()):raise RuntimeError('non-pointer XI device')
+    if any(k not in fresh or identity(v)!=identity(fresh[k]) for k,v in old.items()):raise RuntimeError('XI device identity changed')
+
+
 class XI2:
     def __init__(self,x,targets,capacity=4096):
-        self.x=x;self.display=x.x.XOpenDisplay(None);self.errors=[];self.records=[];self.dropped=0;self.capacity=capacity;self.action=0;self.closed=False
+        self.x=x;self.display=x.x.XOpenDisplay(None);self.errors=[];self.records=[];self.dropped=0;self.capacity=capacity;self.action=0;self.closed=False;self.device_history=[];self.counters=dict(raw_seen=0,foreign_or_synthetic=0,query_unavailable=0,outside_scope=0)
         if not self.display:raise RuntimeError('XI2 private display')
         _attach_errors(x.x,self.display,self.errors)
         try:
@@ -133,14 +139,27 @@ class XI2:
             self.opcode=op.value;major,minor=I(2),I(2)
             if self.lib.XIQueryVersion(self.display,C.byref(major),C.byref(minor))!=0 or (major.value,minor.value)<(2,2):raise RuntimeError('XI2.2 required')
             self.version=[major.value,minor.value];self.devices=self.census();self.scope=RawScope(targets,self.devices)
-            bits=(C.c_ubyte*4)()
-            for kind in RAW_EVENTS:bits[kind//8]|=1<<(kind%8)
-            masks=(Mask*len(self.devices))(*(Mask(d,4,bits) for d,v in self.devices.items()))
-            # Per-device raw selection cannot claim or reject a touch sequence.
-            if self.lib.XISelectEvents(self.display,x.root,masks,len(masks))!=0:raise RuntimeError('raw selection refused')
-            x.x.XSync(self.display,False)
-            if self.errors:raise RuntimeError('XI2 selection error')
+            self.device_history.append(dict(observed_ns=time.monotonic_ns(),devices=self.devices.copy()))
+            self.select_raw()
         except BaseException:self.close();raise
+    def select_raw(self):
+        bits=(C.c_ubyte*4)()
+        for kind in RAW_EVENTS:bits[kind//8]|=1<<(kind%8)
+        masks=(Mask*len(self.devices))(*(Mask(d,4,bits) for d in self.devices))
+        if self.lib.XISelectEvents(self.display,self.x.root,masks,len(masks))!=0:raise RuntimeError('raw selection refused')
+        self.x.x.XSync(self.display,False)
+        if self.errors:raise RuntimeError('XI2 selection error')
+    def refresh_devices(self):
+        fresh=self.census()
+        # XWayland may lazily create its pointer source on the first event.
+        # A fresh exact census can admit an added pointer, never replace an
+        # existing identity or admit a keyboard. Target checks remain mandatory.
+        verify_device_extension(self.devices,fresh)
+        if set(fresh)!=set(self.devices):
+            if len(self.device_history)>=16:raise RuntimeError('XI device history bound')
+            self.devices=fresh;self.scope.devices=set(fresh);self.select_raw()
+            self.device_history.append(dict(observed_ns=time.monotonic_ns(),devices=fresh.copy()))
+        return self.devices
     def census(self):
         count=I();ptr=self.lib.XIQueryDevice(self.display,0,C.byref(count));rows={}
         if not ptr:raise RuntimeError('XI2 device census unavailable')
@@ -192,9 +211,12 @@ class XI2:
             try:
                 if not self.action:continue
                 r=C.cast(c.data,C.POINTER(Raw)).contents
-                if r.send or r.source not in self.devices or r.device not in self.devices:continue
+                self.counters['raw_seen']+=1
+                if not r.send and (r.source not in self.devices or r.device not in self.devices):self.refresh_devices()
+                if r.send or r.source not in self.devices or r.device not in self.devices:self.counters['foreign_or_synthetic']+=1;continue
                 point=self.pointer(r.source);kind=RAW_EVENTS[r.evtype]
-                if not self.scope.admit(kind,r.source,r.detail,point.get('scope_target')):continue
+                if not point.get('available'):self.counters['query_unavailable']+=1
+                if not self.scope.admit(kind,r.source,r.detail,point.get('scope_target')):self.counters['outside_scope']+=1;continue
                 if len(self.records)>=self.capacity:self.dropped+=1;continue
                 self.records.append(dict(kind=kind,device=r.device,source=r.source,detail=r.detail,flags=r.flags,server_ms=r.time,action=self.action,observed_ns=time.monotonic_ns(),pointer=point))
             finally:self.x.x.XFreeEventData(self.display,C.byref(c))

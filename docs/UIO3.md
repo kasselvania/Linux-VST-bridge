@@ -16,6 +16,11 @@ associated pointer chain/button mask is a *later query*, never delivery evidence
 XWayland may expose a virtual pointer without physical touch events; that is an
 observable coverage limit, not evidence of a lost touch release. A device census
 retains hashed device names, attachment, classes and reported touch capability.
+XWayland can create a pointer source lazily. A bounded fresh census may extend
+that set with verified pointer devices; replacement/removal of an existing
+identity refuses observation. Every raw record still requires exact queried
+window scope (or continuation of an already scoped touch contact). Device history
+is retained privately, capped at 16 snapshots.
 
 The existing thread-scoped Windows observer has an opt-in `observe-input` mode.
 Normal UIO1 scope and ABI1 record size remain unchanged. Additional scalar records
@@ -74,7 +79,11 @@ pointer events, exact-client X RECORD delivery and post-release button state.
 
 ## Status
 
-Implementation and generated validation in progress. No live UIO3 result yet.
+Generated validation passed: Windows hosted and pinned-runner observer fixture,
+Linux Xvfb and isolated Deck XWayland, plus 72 Python checks. The XWayland fixture
+first exposed asynchronous window placement and lazy pointer-source creation;
+those failures and the bounded repairs remain retained. No live UIO3 result yet.
+The operator has been asked to open one ordinary18 editor for the human-only test.
 No product host/native/profile revision or compatibility repair. Ordinary18,
 rollback11, siblings10 and inactive history remain unchanged. 512 recommended;
 256 unqualified. Independent review in draft PR105; do not merge.

@@ -24,11 +24,29 @@ x.XChangeProperty(d,w,x.XInternAtom(d,b'_NET_WM_PID',0),6,32,0,C.byref(pid),1)
 x.XSync.argtypes=[P,I];x.XSync(d,0)
 with X11(w,os.getpid()) as target:
     xi=XI2(target,{w});rec=XIRecorder(target,xi.opcode,xi.devices,{w});xi.action=rec.action=1
-    target.move((.5,.5));target.settle_pointer();target.button(True)
+    # A window manager may reparent/place the new fixture after XMapWindow.
+    # Freeze stable geometry before calculating the single generated action.
+    deadline=time.monotonic()+3;last=None;stable=0
+    while time.monotonic()<deadline:
+        current=target.geometry()
+        stable=stable+1 if current==last else 0;last=current
+        if stable>=5:break
+        time.sleep(.05)
+    assert stable>=5,'fixture geometry did not stabilize'
+    target.activate()
+    deadline=time.monotonic()+2
+    while target.pointer()['active']!=[w] and time.monotonic()<deadline:time.sleep(.01)
+    assert target.pointer()['active']==[w],'fixture activation refused'
+    issued=target.move((.5,.5))
+    try:target.settle_pointer()
+    except Exception:
+        print({'motion':issued,'readback':target.pointer(),'geometry':target.geometry()},flush=True);raise
+    target.button(True)
     for _ in range(5):xi.poll();rec.poll();time.sleep(.01)
     target.button(False)
     for _ in range(5):xi.poll();rec.poll();time.sleep(.01)
     assert any(r['kind']=='core_up' for r in rec.records),rec.records
+    print({'xi_counters':xi.counters,'devices':xi.devices,'pointers':{k:xi.pointer(k) for k in xi.devices},'core':rec.records},flush=True)
     assert any(r['kind']=='raw_button_up' for r in xi.records),xi.records
     assert all(r['pointer']['scope_target']==w for r in xi.records)
     assert all(r['kind'] in ('raw_motion','raw_button_down','raw_button_up') for r in xi.records)

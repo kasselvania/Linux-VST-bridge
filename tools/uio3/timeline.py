@@ -76,7 +76,7 @@ def summarize(raw):
             local_changed_frames=sum(r['action']==action and r['changed_sample_percent']>0 for r in raw['frames'])))
     return dict(schema=1,product_profile=raw['profile_fingerprint'],actions=actions,
         cleanup={k:raw.get('cleanup',{}).get('helper',{}).get('cleanup',{}).get(k) for k in ('owned_descendants_zero','process_group_empty')},drops=raw.get('drops',{}),completed=raw.get('completed',False),
-        classification='observed_boundary_not_root_cause',observation_stop=raw.get('stop','operator_stop'),
+        classification='observed_boundary_not_root_cause',observation_stop=(raw.get('stop','operator_stop') if raw.get('stop','operator_stop') in ('operator_stop','first_useful_release_boundary','cancellation_or_time_bound') else 'observer_error_details_private'),
         limitations=['Raw XI2 events have no delivery target; associated pointer state is a later query.',
           'XWayland may not expose physical touch as XI2 touch events.',
           'Capture still present alone is not proof of a defect.',

@@ -79,12 +79,14 @@ class Session:
         for win in windows:
             if win.get('pid')==self.e.pid and win.get('tid')==self.e.tid and win.get('root')==self.e.hwnd and win.get('xid'):targets.add(win['xid'])
         self.xi=XI2(self.x,targets);self.rec=XIRecorder(self.x,self.xi.opcode,self.xi.devices,targets)
+        self.raw['observer_package']=c.manifest
+        self.raw['reporting_software']={k:v['sha256'] for k,v in c.software.items() if isinstance(v,dict) and 'sha256' in v}
         self.raw['devices']=self.xi.devices;self.raw['xi_version']=self.xi.version;self.raw['frequency']=self.obs.read(48)
         self.raw['capture_arm_at_launch']=bool(c.session.get('crash_capture'))
         private_json(self.out/'action.json',0)
         private_json(self.out/'ready.json',dict(schema=1,ready=True,labels={1:'without_held_note',2:'with_held_note',3:'stop'},maximum_seconds=160,input_injection=False))
     def collect(self):
-        self.helper.poll();self.rec.poll();self.xi.poll()
+        self.helper.poll();self.xi.poll();self.rec.devices=set(self.xi.devices);self.rec.poll()
         self.raw['win32'].extend(self.obs.take())
         before=self.last_gui_poll;now_ns=time.monotonic_ns()
         for r in self.gui.take():
@@ -95,9 +97,8 @@ class Session:
         now=time.monotonic()
         if now>=self.next_clock:self.raw['brackets'].append(self.obs.clock());self.next_clock=now+2
         if now>=self.next_device:
-            current=self.xi.census()
-            identity=lambda ds:{k:(v['use'],v['attachment'],v['name_sha256']) for k,v in ds.items()}
-            if identity(current)!=identity(self.xi.devices):raise RuntimeError('XI device identity changed')
+            self.xi.refresh_devices()
+            self.rec.devices=set(self.xi.devices)
             self.next_device=now+1
         s=self.c.fault.snapshot();r=self.latest
         if s.get('terminal_instance'):
@@ -145,7 +146,7 @@ class Session:
             except Exception as e:errors.append(type(e).__name__)
             self.raw['x11']=self.rec.records;self.raw['drops']['xrecord']=self.rec.dropped
         if self.xi:
-            self.raw['raw']=self.xi.records;self.raw['drops']['xi_raw']=self.xi.dropped
+            self.raw['device_history']=self.xi.device_history;self.raw['raw']=self.xi.records;self.raw['xi_counters']=self.xi.counters;self.raw['drops']['xi_raw']=self.xi.dropped
             try:self.xi.close()
             except Exception as e:errors.append(type(e).__name__)
         if self.obs:

@@ -5,7 +5,7 @@ import sys
 import unittest
 HERE=pathlib.Path(__file__).parent
 sys.path[:0]=[str(HERE),str(HERE.parent/'uio1'),str(HERE.parent/'uio2')]
-from xi2 import packets,device_packet,RawScope
+from xi2 import packets,device_packet,RawScope,verify_device_extension
 from timeline import summarize,projected
 from session import Labels
 
@@ -38,6 +38,13 @@ class Tests(unittest.TestCase):
         self.assertFalse(s.admit('raw_motion',11,0,91))
         for i in range(16):self.assertTrue(s.admit('raw_touch_begin',11,i,90))
         self.assertFalse(s.admit('raw_touch_begin',11,17,90))
+    def test_lazily_added_pointer_requires_fresh_exact_census(self):
+        old={2:dict(use=1,attachment=3,name_sha256='a')}
+        new={**old,6:dict(use=3,attachment=2,name_sha256='b')}
+        verify_device_extension(old,new)
+        for bad in ({}, {2:dict(use=1,attachment=3,name_sha256='reused')}, {**old,6:dict(use=4,attachment=2,name_sha256='keyboard')}):
+            with self.assertRaises(RuntimeError):verify_device_extension(old,bad)
+        self.assertFalse(RawScope({90},new).admit('raw_button_up',6,1,91))
     def raw(self):
         def w(source,message,qpc,capture=0,result=0):return dict(action=1,source=source,message=message,qpc=qpc,capture=capture,result=result,hwnd=123456)
         r=dict(schema=1,profile_fingerprint='a'*64,actions=[dict(action=1)],x11=[dict(action=1,kind='core_up',observed_ns=100)],raw=[dict(action=1,kind='raw_touch_end',observed_ns=99)],win32=[w(5,0x202,100),w(6,0x202,101),w(14,0x202,102),w(15,0x202,104),w(4,0,110,result=3)],gui=[dict(action=1,kind=k,parameter=1,value=.2,poll_before_ns=t,observed_ns=t+1) for k,t in [(101,20),(102,30),(103,108)]],brackets=[dict(windows_qpc=0,frequency=1000000000,linux_before_ns=0,linux_after_ns=1)],frequency=1000000000,frames=[],drops={},completed=True,cleanup={})
@@ -119,7 +126,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.boundary(r),'release_not_observed')
     def test_summary_excludes_raw_identifiers_payloads_and_paths(self):
         import json
-        r=self.raw();r['path']='SECRET_PATH';r['cleanup']={'helper':{'cleanup':{'pid':123456,'owned_descendants_zero':True,'process_group_empty':True}}}
+        r=self.raw();r['path']='SECRET_PATH';r['stop']='FileNotFoundError: SECRET_PATH';r['cleanup']={'helper':{'cleanup':{'pid':123456,'owned_descendants_zero':True,'process_group_empty':True}}}
         s=json.dumps(summarize(r));self.assertNotIn('SECRET',s);self.assertNotIn('123456',s);self.assertNotIn('hwnd',s)
     def test_mailbox_no_input_coordinates_retries_or_skips(self):
         for bad in ({'point':[1,2]},True,'1',1.0,4,-1):
