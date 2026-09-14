@@ -40,7 +40,7 @@ class Tests(unittest.TestCase):
         self.assertFalse(s.admit('raw_touch_begin',11,17,90))
     def raw(self):
         def w(source,message,qpc,capture=0,result=0):return dict(action=1,source=source,message=message,qpc=qpc,capture=capture,result=result,hwnd=123456)
-        r=dict(schema=1,profile_fingerprint='a'*64,actions=[dict(action=1)],x11=[dict(action=1,kind='core_up',observed_ns=100)],raw=[dict(action=1,kind='raw_touch_end',observed_ns=99)],win32=[w(5,0x202,100),w(6,0x202,101),w(2,0x202,102),w(3,0x202,104),w(4,0,110,result=3)],gui=[dict(action=1,kind=k,parameter=1,value=.2,poll_before_ns=t,observed_ns=t+1) for k,t in [(101,20),(102,30),(103,108)]],brackets=[dict(windows_qpc=0,frequency=1000000000,linux_before_ns=0,linux_after_ns=1)],frequency=1000000000,frames=[],drops={},completed=True,cleanup={})
+        r=dict(schema=1,profile_fingerprint='a'*64,actions=[dict(action=1)],x11=[dict(action=1,kind='core_up',observed_ns=100)],raw=[dict(action=1,kind='raw_touch_end',observed_ns=99)],win32=[w(5,0x202,100),w(6,0x202,101),w(14,0x202,102),w(15,0x202,104),w(4,0,110,result=3)],gui=[dict(action=1,kind=k,parameter=1,value=.2,poll_before_ns=t,observed_ns=t+1) for k,t in [(101,20),(102,30),(103,108)]],brackets=[dict(windows_qpc=0,frequency=1000000000,linux_before_ns=0,linux_after_ns=1)],frequency=1000000000,frames=[],drops={},completed=True,cleanup={})
         return r
     def boundary(self,r):return summarize(r)['actions'][0]['boundary']
     def test_complete_release_capture_gesture(self):
@@ -81,7 +81,7 @@ class Tests(unittest.TestCase):
         self.assertTrue(summarize(r)['actions'][0]['pointer_up_observed'])
     def test_wm_touch_up_detail_route(self):
         r=self.raw();r['x11']=[]
-        r['win32']=[dict(action=1,source=12,message=0x240,qpc=102,capture=0,key_class=1,buttons=4),dict(action=1,source=3,message=0x240,qpc=105,capture=0,result=0)]
+        r['win32']=[dict(action=1,source=12,message=0x240,qpc=102,capture=0,key_class=1,buttons=4),dict(action=1,source=15,message=0x240,qpc=105,capture=0,result=0)]
         self.assertEqual(self.boundary(r),'release_and_gesture_end_observed')
         self.assertTrue(summarize(r)['actions'][0]['touch_up_observed'])
     def test_mapping_failure_still_detaches_and_closes_every_owner(self):

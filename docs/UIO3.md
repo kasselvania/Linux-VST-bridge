@@ -22,10 +22,14 @@ Normal UIO1 scope and ABI1 record size remain unchanged. Additional scalar recor
 carry pointer ID/type/flags or bounded touch-contact details. No touch handle,
 source handle, extra-info, opaque payload or typed keyboard text is retained.
 Touch handles are never closed by the observer. Failed API reads remain unavailable.
-WH_MOUSE entry/next-hook result, PM_REMOVE retrieval, WH_CALLWNDPROC entry and
-WH_CALLWNDPROCRET return remain distinct. A nonzero mouse-hook result differs
+WH_MOUSE entry/next-hook result, PM_REMOVE retrieval, sent-call hooks and
+actual window-procedure entry/return remain distinct. UIO3 installs transparent
+Comctl32 subclasses on the exact UI thread and exact editor children, forwarding
+once through DefSubclassProc without changing arguments/results. They are removed
+on stop. The diagnostic DLL is pinned inert until that vendor process exits so
+an abnormal observer exit cannot leave an unloaded callback address. A nonzero mouse-hook result differs
 from a later message rewrite to WM_NULL. Capture, focus and active HWND facts
-are private; no subclass or direct vendor WndProc call is introduced.
+are private; no direct vendor WndProc call is introduced.
 
 AP11 Begin/Value/End is observed without consuming either production queue.
 Parameter times are poll intervals, not invented emission timestamps. QPC is

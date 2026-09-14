@@ -1,5 +1,6 @@
 #include "record.h"
 #include <windows.h>
+#include <commctrl.h>
 #include <cstdio>
 namespace {
 uio1::Header* header=nullptr; HANDLE mapping=nullptr;
@@ -8,6 +9,26 @@ HMODULE self_module=nullptr;
 HWINEVENTHOOK lifecycle_hook=nullptr;
 void CALLBACK lifecycle(HWINEVENTHOOK,DWORD,HWND,LONG,LONG,DWORD,DWORD);
 constexpr UINT pulse=WM_APP+0x541;
+constexpr UINT_PTR subclass_id=0x334f4955;
+HWND subclass_windows[64]{};
+LRESULT CALLBACK input_proc(HWND,UINT,WPARAM,LPARAM,UINT_PTR,DWORD_PTR);
+bool exact_window(HWND w){DWORD pid=0;auto root=header?HWND(header->root):nullptr;
+  return header&&GetWindowThreadProcessId(w,&pid)==header->tid&&pid==header->pid&&(w==root||IsChild(root,w));}
+BOOL CALLBACK attach_window(HWND w,LPARAM){
+  if(!exact_window(w))return TRUE;
+  for(auto old:subclass_windows)if(old==w)return TRUE;
+  for(auto& slot:subclass_windows)if(!slot){
+    if(!SetWindowSubclass(w,input_proc,subclass_id,0)){uio1::atom(header->scope_errors).fetch_add(1);return FALSE;}
+    slot=w;return TRUE;
+  }
+  uio1::atom(header->scope_errors).fetch_add(1);return FALSE;
+}
+void detach_windows(){
+  for(auto& w:subclass_windows)if(w){
+    if(IsWindow(w)&&!RemoveWindowSubclass(w,input_proc,subclass_id))uio1::atom(header->unhook_errors).fetch_add(1);
+    w=nullptr;
+  }
+}
 uint64_t now(){LARGE_INTEGER n{};QueryPerformanceCounter(&n);return uint64_t(n.QuadPart);}
 bool connect() {
   if(header)return true;
@@ -24,6 +45,15 @@ bool connect() {
     UnmapViewOfFile(p);CloseHandle(mapping);mapping=nullptr;return false;
   }
   header=p;
+  if(p->input_mode){
+    // Subclass callbacks have no module reference count. Pin this diagnostic DLL
+    // until process exit so abnormal observer loss cannot leave dangling code.
+    // All subclasses/observation are removed on stop; the inert image remains.
+    HMODULE pinned=nullptr;
+    if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_PIN,
+          reinterpret_cast<LPCWSTR>(&input_proc),&pinned))uio1::atom(p->scope_errors).fetch_add(1);
+    else{attach_window(HWND(p->root),0);EnumChildWindows(HWND(p->root),attach_window,0);}
+  }
   // Same process and exact UI thread. Callback refuses any fallback delivery on
   // another thread; the existing ring remains single-writer.
   if(p->surface_mode)lifecycle_hook=SetWinEventHook(EVENT_OBJECT_CREATE,EVENT_OBJECT_LOCATIONCHANGE,self_module,lifecycle,
@@ -38,6 +68,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
   if(!header && !(source==1&&msg==pulse&&connect())){inside=false;return;}
   auto& h=*header;
   if(uio1::atom(h.stop).load(std::memory_order_acquire)){
+    if(h.input_mode)detach_windows();
     uio1::atom(h.detached).store(1,std::memory_order_release);
     if(lifecycle_hook){if(!UnhookWinEvent(lifecycle_hook))uio1::atom(h.unhook_errors).fetch_add(1);lifecycle_hook=nullptr;}
     UnmapViewOfFile(header);header=nullptr;CloseHandle(mapping);mapping=nullptr;
@@ -79,7 +110,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
       POINT p{r.screen_x,r.screen_y};ScreenToClient(hwnd,&p);r.x=p.x;r.y=p.y;
       if(source==3)r.result=result;
     }
-    if(source==3||source==13)r.result=result;
+    if(source==3||source==13||source==15)r.result=result;
     if(source>=5&&source<=8)r.result=result; // hit code / next-hook boolean
     if(heartbeat)r.result=int64_t(began-sent);
     if(source==9&&msg==HCBT_CREATEWND&&lp){
@@ -93,7 +124,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
     // Supplementary scalar records use ABI1 spare meanings only in input mode.
     // No WPARAM/LPARAM, TOUCHINPUT handle, source handle or extra-info is stored.
     // Never close a touch handle: ownership remains with the vendor procedure.
-    if(h.input_mode&&source==2&&(msg==WM_POINTERDOWN||msg==WM_POINTERUPDATE||msg==WM_POINTERUP||msg==WM_POINTERCAPTURECHANGED)){
+    if(h.input_mode&&source==14&&(msg==WM_POINTERDOWN||msg==WM_POINTERUPDATE||msg==WM_POINTERUP||msg==WM_POINTERCAPTURECHANGED)){
       auto detail=r;detail.source=11;detail.x=GET_POINTERID_WPARAM(wp);
       detail.y=0;detail.buttons=HIWORD(wp);detail.key_class=0;detail.result=0;
       POINTER_INFO info{};
@@ -103,7 +134,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
       }else detail.result=GetLastError();
       uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
     }
-    if(h.input_mode&&source==2&&msg==WM_TOUCH){
+    if(h.input_mode&&source==14&&msg==WM_TOUCH){
       const auto count=LOWORD(wp);TOUCHINPUT contacts[16]{};
       if(count>0&&count<=16&&GetTouchInputInfo(reinterpret_cast<HTOUCHINPUT>(lp),count,contacts,sizeof(TOUCHINPUT))){
         for(unsigned i=0;i<count;++i){auto detail=r;detail.source=12;
@@ -128,6 +159,13 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
   }
   inside=false;
 }
+LRESULT CALLBACK input_proc(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,UINT_PTR,DWORD_PTR){
+  observe(hwnd,msg,wp,lp,14);
+  const auto result=DefSubclassProc(hwnd,msg,wp,lp);
+  observe(hwnd,msg,wp,lp,15,result);
+  if(msg==WM_NCDESTROY){RemoveWindowSubclass(hwnd,input_proc,subclass_id);for(auto& w:subclass_windows)if(w==hwnd)w=nullptr;}
+  return result;
+}
 void CALLBACK lifecycle(HWINEVENTHOOK,DWORD event,HWND hwnd,LONG object,LONG child,DWORD tid,DWORD time){
   if(!header||GetCurrentThreadId()!=header->tid||tid!=header->tid||object!=OBJID_WINDOW||child!=0)return;
   if(event==EVENT_OBJECT_CREATE||event==EVENT_OBJECT_SHOW||event==EVENT_OBJECT_HIDE||
@@ -137,7 +175,7 @@ void CALLBACK lifecycle(HWINEVENTHOOK,DWORD event,HWND hwnd,LONG object,LONG chi
 }
 extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_get(int c,WPARAM w,LPARAM l){
   MSG before{};const bool selected=c>=0&&w==PM_REMOVE;
-  if(selected){before=*reinterpret_cast<MSG*>(l);observe(before.hwnd,before.message,before.wParam,before.lParam,1,0,before.time);}
+  if(selected){before=*reinterpret_cast<MSG*>(l);if(header&&header->input_mode)attach_window(before.hwnd,0);observe(before.hwnd,before.message,before.wParam,before.lParam,1,0,before.time);}
   const auto result=CallNextHookEx(nullptr,c,w,l);
   if(selected&&header&&header->input_mode){
     const auto& after=*reinterpret_cast<MSG*>(l);

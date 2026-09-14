@@ -1,6 +1,6 @@
 """Scalar-only release attribution; missing observations are never root causes."""
 
-SOURCE={1:'queue_retrieval',2:'wndproc_entry',3:'wndproc_return',4:'heartbeat',5:'mouse_hook_entry',6:'mouse_hook_result',7:'mouse_hook_peek',8:'mouse_hook_peek_result',11:'pointer_detail',12:'touch_detail',13:'getmessage_downstream'}
+SOURCE={1:'queue_retrieval',2:'sent_call_hook',3:'sent_return_hook',4:'heartbeat',5:'mouse_hook_entry',6:'mouse_hook_result',7:'mouse_hook_peek',8:'mouse_hook_peek_result',11:'pointer_detail',12:'touch_detail',13:'getmessage_downstream',14:'wndproc_entry',15:'wndproc_return'}
 UP={0x202,0x247};DOWN={0x201,0x246}
 
 def projected(qpc,brackets):
@@ -32,8 +32,8 @@ def summarize(raw):
         release_observed=max([r['observed_ns'] for r in end+up],default=None)
         # A pointer-up route does not require emulated core mouse release.
         touch_up=[r for r in win if r['source']==12 and r['message']==0x240 and r.get('key_class')==1 and r.get('buttons',0)&4]
-        entry=[r for r in win if r['source']==2 and r['message'] in UP]+touch_up
-        ret=[r for r in win if r['source']==3 and (r['message'] in UP or (touch_up and r['message']==0x240 and r['qpc']>=touch_up[0]['qpc']))]
+        entry=[r for r in win if r['source']==14 and r['message'] in UP]+touch_up
+        ret=[r for r in win if r['source']==15 and (r['message'] in UP or (touch_up and r['message']==0x240 and r['qpc']>=touch_up[0]['qpc']))]
         hooked=[r for r in win if r['source']==5 and r['message']==0x202]
         swallowed=any(r['source']==6 and r['message']==0x202 and r['result']!=0 for r in win)
         rewritten=any(r['source']==13 and r['message'] in UP and r['result']==1 for r in win)

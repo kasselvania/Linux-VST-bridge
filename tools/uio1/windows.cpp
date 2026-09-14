@@ -58,11 +58,11 @@ int main(int argc,char**argv){
   if(input){
     assert(shared->input_mode==1);
     // Generated User32 message-route proof, not hardware touch synthesis.
-    PostMessageW(child,WM_POINTERDOWN,7,MAKELPARAM(40,40));
-    PostMessageW(child,WM_POINTERUPDATE,7,MAKELPARAM(41,40));
-    PostMessageW(child,WM_POINTERUP,7,MAKELPARAM(41,40));
-    PostMessageW(child,WM_POINTERCAPTURECHANGED,7,0);
-    PostMessageW(child,WM_TOUCH,0,0);PostMessageW(child,WM_CANCELMODE,0,0);
+    SendMessageW(child,WM_POINTERDOWN,7,MAKELPARAM(40,40));
+    SendMessageW(child,WM_POINTERUPDATE,7,MAKELPARAM(41,40));
+    SendMessageW(child,WM_POINTERUP,7,MAKELPARAM(41,40));
+    SendMessageW(child,WM_POINTERCAPTURECHANGED,7,0);
+    SendMessageW(child,WM_TOUCH,0,0);SendMessageW(child,WM_CANCELMODE,0,0);
     PostMessageW(foreign,WM_POINTERUP,8,0);
     Sleep(100);
   }
@@ -77,10 +77,11 @@ int main(int argc,char**argv){
   if(input){
     bool pointer_entry=false,pointer_return=false,pointer_detail=false,touch=false,cancel=false;
     for(uint64_t i=0;i<count;++i){
-      if(r[i].message==WM_POINTERUP){pointer_entry|=r[i].source==2;pointer_return|=r[i].source==3&&r[i].result==42;pointer_detail|=r[i].source==11&&r[i].x==7;}
+      if(r[i].message==WM_POINTERUP){pointer_entry|=r[i].source==14;pointer_return|=r[i].source==15&&r[i].result==42;pointer_detail|=r[i].source==11&&r[i].x==7;}
       touch|=r[i].message==WM_TOUCH&&r[i].source==12&&r[i].key_class==0;
-      cancel|=r[i].message==WM_CANCELMODE&&r[i].source==2;
+      cancel|=r[i].message==WM_CANCELMODE&&r[i].source==14;
     }
+    printf("UIO3 specifics: pointer_entry=%u pointer_return=%u pointer_detail=%u touch=%u cancel=%u detached=%llu\n",unsigned(pointer_entry),unsigned(pointer_return),unsigned(pointer_detail),unsigned(touch),unsigned(cancel),shared->detached);fflush(stdout);
     assert(pointer_entry&&pointer_return&&pointer_detail&&touch&&cancel&&shared->detached==1);
     puts("UIO3: pointer route, procedure return, unavailable touch detail, cancel, exact scope and detachment passed");
   }
