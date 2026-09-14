@@ -40,13 +40,13 @@ impl Operator {
     fn buttons(
         ui: &mut egui::Ui,
         actions: &[AvailableAction],
-        busy: bool,
+        busy: Option<&str>,
         pending: bool,
         chosen: &mut Option<Action>,
     ) {
         for a in actions {
-            let reason = if a.action.requires_inactive() && busy {
-                Some("Close active bridged instances before this action")
+            let reason = if a.action.requires_inactive() {
+                busy.or(a.disabled_reason.as_deref())
             } else {
                 a.disabled_reason.as_deref()
             };
@@ -98,11 +98,20 @@ impl eframe::App for Operator {
                 }
                 Reply::Activity(a) => {
                     if let Some(op) = &a.operation {
-                        if op["state"] == "refused" { self.message = format!("Last operation refused: {}",op["reason"].as_str().unwrap_or("see receipt")); }
-                        else if op["state"] == "completed" { self.message = "Operation completed".into(); }
+                        if op["state"] == "refused" {
+                            self.message = format!(
+                                "Last operation refused: {}",
+                                op["reason"].as_str().unwrap_or("see receipt")
+                            );
+                        } else if op["state"] == "completed" {
+                            self.message = "Operation completed".into();
+                        }
                     }
                     if let Some(s) = &mut self.snapshot {
-                        if s.system.dsp != a.system.dsp
+                        if s.system.capacity_available() != a.system.capacity_available()
+                            || s.system.dsp != a.system.dsp
+                            || s.system.maintenance != a.system.maintenance
+                            || s.system.cleanup_unconfirmed != a.system.cleanup_unconfirmed
                             || refresh_for_receipt(&s.operation, &a.operation)
                         {
                             self.refresh_after = true;
@@ -112,7 +121,13 @@ impl eframe::App for Operator {
                         s.operation = a.operation;
                     }
                 }
-                Reply::Error(e) => self.message = e,
+                Reply::Error(e) => {
+                    self.message = e;
+                    if let Some(s) = &mut self.snapshot {
+                        s.system.service = "capacity unavailable".into();
+                        s.system.cleanup_unconfirmed = true;
+                    }
+                }
             }
         }
         let mut refresh = false;
@@ -123,9 +138,11 @@ impl eframe::App for Operator {
             ui.separator();
             egui::ScrollArea::vertical().show(ui,|ui|{
                 let Some(s)=&self.snapshot else{ui.label("The installed Rust manager is the state authority. Waiting for readback.");return;};
-                let busy=s.system.dsp>0 || s.system.maintenance>0 || s.system.cleanup_unconfirmed;
-                ui.label(format!("Service: {}  ·  Keeper: {}  ·  DSP: {} / {}  ·  Pending: {}  ·  Stale transports: {}",s.system.service,s.system.keepers,s.system.dsp,s.system.ceiling,s.system.pending_transactions,s.system.stale_transports));
-                ui.label(format!("Installing / scanning: {}",s.system.maintenance));
+                let busy=s.system.inactive_reason();
+                if !s.system.capacity_available() { ui.colored_label(egui::Color32::YELLOW,"Service capacity unavailable — DSP, keeper and cleanup status cannot be confirmed"); }
+                else { ui.label(format!("Service: {}  ·  Keeper: {}  ·  DSP: {} / {}  ·  Pending: {}  ·  Stale transports: {}",s.system.service,s.system.keepers,s.system.dsp,s.system.ceiling,s.system.pending_transactions,s.system.stale_transports)); }
+                if s.system.capacity_available() { ui.label(format!("Installing / scanning: {}",s.system.maintenance)); }
+                if s.system.capacity_available() && s.system.cleanup_unconfirmed { ui.colored_label(egui::Color32::YELLOW,"Previous instance cleanup is unconfirmed — retained leases are not proof of a live DSP; new admission is blocked"); }
                 ui.label("512 added frames recommended · 256 unqualified");
                 ui.label(if s.capture["armed"]==true{"Crash capture: armed for next admitted launch"}else if s.capture["active_retention"].as_u64().unwrap_or(0)>0{"Crash capture: retaining an active instance"}else{"Crash capture: off"});
                 if s.capture["armed"]==true { for action in &s.actions { if matches!(action.action,Action::CaptureDisarm{}) { Self::buttons(ui,std::slice::from_ref(action),busy,self.pending,&mut chosen); } } }
@@ -182,9 +199,35 @@ impl eframe::App for Operator {
     }
 }
 fn incident_lines(v: &serde_json::Value) -> Vec<String> {
-    let word = |key: &str| v[key].as_str().unwrap_or("unavailable").replace('_'," ");
-    let confirmed = |key: &str| match v[key].as_bool(){Some(true)=>"confirmed",Some(false)=>"not confirmed",None=>"unavailable"};
-    vec![format!("Outcome: {}",word("outcome")),format!("Cleanup: {} · Transport retirement: {}",confirmed("cleanup_confirmed"),confirmed("transport_retired")),format!("Outer runner exit (separate from Windows): {}",v["outer_exit"]),format!("Windows reported exit codes: {}",v["windows_self_exit_codes"]),format!("Retained exception observations: {}",v["exceptions"].as_array().map(|items|items.len().to_string()).unwrap_or_else(||"unavailable".into()))]
+    let word = |key: &str| v[key].as_str().unwrap_or("unavailable").replace('_', " ");
+    let confirmed = |key: &str| match v[key].as_bool() {
+        Some(true) => "confirmed",
+        Some(false) => "not confirmed",
+        None => "unavailable",
+    };
+    vec![
+        format!("Outcome: {}", word("outcome")),
+        format!(
+            "Cleanup: {} · Transport retirement: {}",
+            confirmed("cleanup_confirmed"),
+            confirmed("transport_retired")
+        ),
+        format!(
+            "Outer runner exit (separate from Windows): {}",
+            v["outer_exit"]
+        ),
+        format!(
+            "Windows reported exit codes: {}",
+            v["windows_self_exit_codes"]
+        ),
+        format!(
+            "Retained exception observations: {}",
+            v["exceptions"]
+                .as_array()
+                .map(|items| items.len().to_string())
+                .unwrap_or_else(|| "unavailable".into())
+        ),
+    ]
 }
 fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json::Value>) -> bool {
     old != new
@@ -198,8 +241,8 @@ mod tests {
     use super::*;
     #[test]
     fn incident_summary_keeps_runner_exit_separate_and_missing_cleanup_unknown() {
-        let v=serde_json::json!({"outcome":"process_scoped_vendor_retirement","outer_exit":-15,"windows_self_exit_codes":[],"exceptions":[]});
-        let lines=incident_lines(&v).join("\n");
+        let v = serde_json::json!({"outcome":"process_scoped_vendor_retirement","outer_exit":-15,"windows_self_exit_codes":[],"exceptions":[]});
+        let lines = incident_lines(&v).join("\n");
         assert!(lines.contains("process scoped vendor retirement"));
         assert!(lines.contains("Cleanup: unavailable"));
         assert!(lines.contains("separate from Windows): -15"));

@@ -585,7 +585,17 @@ impl Manager {
         Ok(())
     }
     pub fn reconcile(&self) -> Result<()> {
+        self.reconcile_checked(false)
+    }
+    /// Operator reconciliation must not repair publication while any instance or maintenance owner remains.
+    pub fn reconcile_inactive(&self) -> Result<()> {
+        self.reconcile_checked(true)
+    }
+    fn reconcile_checked(&self, inactive: bool) -> Result<()> {
         let _lock = self.lock("registry.lock")?;
+        if inactive {
+            self.require_inactive(None)?;
+        }
         let mut db = self.registry()?;
         self.reconcile_revisions(&mut db)?;
         let mut changed = false;

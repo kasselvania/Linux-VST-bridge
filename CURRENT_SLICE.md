@@ -63,3 +63,14 @@ remain separate from installed-product observations. Final ordinary18/10/10,
 service/keeper and protected projects are preserved, with no leases, transactions,
 stale transport or armed capture. See docs/MF1.md and evidence/mf1/workflow.json.
 No merge or next-vendor qualification is authorized by this completion record.
+
+
+## Focused integrity repair after review 5194092433
+
+Continue PR104 from reviewed `21a1b6921171f0043c687d0c8fc0a460e89fdc8a`.
+Repair only authoritative LVC1 cleanup/readback, manager-enforced inactivity,
+frontend setup preflight/retention, terminal operator receipts, and scanner
+host/source currency. Deterministic tests plus manager/frontend Clippy, runtime,
+AP12 and PX2 establish this pass. Preserve all live evidence and installed state.
+No further GUI/vendor/plug-in test, installation, real rollback or merge in this
+repair pass. Return the amended source for independent rereview. See docs/MF1.md.

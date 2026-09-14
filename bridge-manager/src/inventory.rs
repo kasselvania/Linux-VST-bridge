@@ -169,11 +169,75 @@ pub fn classes(report: &Value) -> Result<Vec<Class>> {
     Ok(result)
 }
 
+/// Retained scan facts are current only under the same exact scanner and environment.
+pub fn stale_reason(
+    module: &Module,
+    observed_environment: &Environment,
+    observed_host: &Artifact,
+    observed_source: &str,
+    environment: &Environment,
+    host: &Artifact,
+    source: &str,
+) -> Option<&'static str> {
+    if observed_host != host || observed_source != source {
+        Some("Scanner host changed — rescan under current scanner host")
+    } else if observed_environment != environment {
+        Some("Environment changed — rescan required")
+    } else if module.artifact.verify().is_err() {
+        Some("Module changed or missing — rescan required")
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     fn report() -> Value {
         serde_json::json!({"cleanup_confirmed":true,"transport_retired":true,"records":[{"state":"ap8_factory","factory":{"vendor_hex":hex(b"New Vendor")},"class_count":1,"classes":[{"raw_tuid_hex":"01000000020003000400000000000000","tier":"IPluginFactory2.PClassInfo2","name_hex":hex(b"Unknown synth"),"category_hex":hex(b"Audio Module Class"),"subcategories_hex":hex(b"Instrument|Synth"),"vendor_hex":"","version_hex":hex(b"1.0")}]}]})
+    }
+    #[test]
+    fn inventory_requires_current_module_environment_host_and_source() {
+        let f = crate::test_fixture::Fixture::new();
+        let module = Module {
+            artifact: f.r.module.clone(),
+            classes: vec![],
+            report: f.r.module.clone(),
+            quarantine_reason: None,
+            inspection_error: None,
+        };
+        let env = &f.r.environment;
+        let host = &f.r.host;
+        let source = &f.r.host_source_sha256;
+        assert_eq!(
+            stale_reason(&module, env, host, source, env, host, source),
+            None
+        );
+        let mut changed = host.clone();
+        changed.sha256 = "bb".repeat(32);
+        assert!(
+            stale_reason(&module, env, host, source, env, &changed, source)
+                .unwrap()
+                .contains("Scanner host changed")
+        );
+        assert!(
+            stale_reason(&module, env, host, source, env, host, &"cc".repeat(32))
+                .unwrap()
+                .contains("Scanner host changed")
+        );
+        let mut changed = env.clone();
+        changed.revision += 1;
+        assert!(
+            stale_reason(&module, env, host, source, &changed, host, source)
+                .unwrap()
+                .contains("Environment changed")
+        );
+        fs::write(&module.artifact.path, b"changed module").unwrap();
+        assert!(
+            stale_reason(&module, env, host, source, env, host, source)
+                .unwrap()
+                .contains("Module changed")
+        );
     }
     #[test]
     fn scan_delta_separates_location_and_bytes() {

@@ -144,6 +144,24 @@ pub struct Activity {
     pub capture: serde_json::Value,
     pub operation: Option<serde_json::Value>,
 }
+impl System {
+    /// Preserve the version-1 wire shape so an exactly retained frontend can
+    /// still parse new manager readback. Only a successful LVC1 reply is active.
+    pub fn capacity_available(&self) -> bool {
+        self.service == "active"
+    }
+    pub fn inactive_reason(&self) -> Option<&'static str> {
+        if !self.capacity_available() {
+            Some("Service capacity unavailable; actions requiring inactivity are unsafe")
+        } else if self.cleanup_unconfirmed {
+            Some("Previous instance cleanup is unconfirmed")
+        } else if self.dsp > 0 || self.maintenance > 0 {
+            Some("Close active bridged instances before this action")
+        } else {
+            None
+        }
+    }
+}
 impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
@@ -159,6 +177,30 @@ impl Action {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unavailable_and_blocked_capacity_are_not_presented_as_active_dsp() {
+        let mut s = System {
+            service: "unavailable".into(),
+            keepers: 0,
+            dsp: 0,
+            maintenance: 0,
+            ceiling: 0,
+            pending_transactions: 0,
+            stale_transports: 0,
+            cleanup_unconfirmed: true,
+        };
+        assert!(s.inactive_reason().unwrap().contains("unavailable"));
+        s.service = "active".into();
+        s.dsp = 1;
+        assert_eq!(
+            s.inactive_reason(),
+            Some("Previous instance cleanup is unconfirmed")
+        );
+        s.cleanup_unconfirmed = false;
+        assert!(s.inactive_reason().unwrap().contains("Close active"));
+        s.dsp = 0;
+        assert_eq!(s.inactive_reason(), None);
+    }
     #[test]
     fn action_vocabulary_cannot_carry_a_command_path_or_pid() {
         for raw in [

@@ -6,6 +6,7 @@ mod transport_storage;
 mod vendor_cli;
 mod vendor_product_cli;
 mod operator_cli;
+mod setup_install;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{
@@ -177,6 +178,9 @@ fn software(m: &Manager) -> Result<Software> {
         s.source_manifest.sha256 == s.source_sha256,
         "host source manifest differs",
     )?;
+    if let Some(a) = &s.operator_frontend {
+        a.verify()?;
+    }
     if let Some(a) = &s.native_catalogue {
         a.verify()?;
     }
@@ -212,6 +216,11 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         let _unresolved = reconcile_leases(m)?;
     }
     m.require_inactive(None)?;
+    let previous = if m.root.join("software.json").try_exists()? {
+        Some(read_json::<Software>(&m.root.join("software.json"))?)
+    } else {
+        None
+    };
     let me = std::env::current_exe()?;
     let (catalogue, files, source) = if let Some(package) = package {
         let profiles = profiles::installed_profiles()?;
@@ -278,10 +287,11 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         )
     };
     let mut files=files.to_vec();
-    let frontend=if let Some(package)=package {
-        let path=package.join("linux-audio-compatibility-manager");
-        if path.exists(){Some(path)}else{None}
-    } else { read_json::<Software>(&m.root.join("software.json"))?.operator_frontend.map(|a|a.path) };
+    let frontend = package
+        .map(|p| p.join("linux-audio-compatibility-manager"))
+        .filter(|p| p.exists());
+    let retained_frontend =
+        setup_install::retained_frontend(frontend.as_deref(), previous.as_ref())?;
     if let Some(path)=frontend {files.push(("linux-audio-compatibility-manager",path));}
     require(
         valid_hex(&source, 64) && digest(&files[4].1)? == source,
@@ -296,6 +306,9 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
     }
     if package.is_none() {
         identity.push_str(&hex(&sha2::Sha256::digest(review)));
+    }
+    if let Some(a) = &retained_frontend {
+        identity.push_str(&serde_json::to_string(a)?);
     }
     let id = hex(&sha2::Sha256::digest(identity.as_bytes()));
     let dest = m.root.join("software").join(&id);
@@ -415,7 +428,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         actual.validate(&m.root)?;
     }
     let installed = Software {
-        operator_frontend: if files.iter().any(|(n,_)|*n=="linux-audio-compatibility-manager") {Some(a("linux-audio-compatibility-manager")?)}else{None},
+        operator_frontend: if files.iter().any(|(n,_)|*n=="linux-audio-compatibility-manager") {Some(a("linux-audio-compatibility-manager")?)}else{retained_frontend},
         manager: a("linux-vst-bridge")?,
         supervisor: a("session.py")?,
         ownership: a("ownership.py")?,
@@ -433,48 +446,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         "host source manifest hash differs",
     )?;
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-    let previous = read_json::<Software>(&m.root.join("software.json")).ok();
-    publication::install_command(
-        &home.join(".local/bin/linux-vst-bridge"),
-        &installed.manager.path,
-        previous.as_ref().map(|s| s.manager.path.as_path()),
-    )?;
-    atomic_json(&m.root.join("software.json"), &installed)?;
-    if let Some(frontend)=&installed.operator_frontend {
-        publication::install_command(&home.join(".local/bin/linux-audio-compatibility-manager"),&frontend.path,previous.as_ref().and_then(|s|s.operator_frontend.as_ref()).map(|a|a.path.as_path()))?;
-        let applications=home.join(".local/share/applications");fs::create_dir_all(&applications)?;
-        let desktop=applications.join("linux-audio-compatibility-manager.desktop");
-        if desktop.exists(){require(fs::read_to_string(&desktop)?.starts_with("[Desktop Entry]\nX-LinuxVSTBridge-Owner=MF1\n"),"operator_desktop_entry_foreign")?;}
-        // Desktop Exec quoting is distinct from shell quoting. This is a
-        // manager-owned exact path, never user-supplied command material.
-        let path=frontend.path.to_str().ok_or("operator_frontend_path")?;
-        require(!path.chars().any(char::is_control),"operator_frontend_path")?;
-        let escaped=path.replace('\\',"\\\\").replace('"',"\\\"").replace('`',"\\`").replace('$',"\\$").replace('%',"%%");
-        let bytes=format!("[Desktop Entry]\nX-LinuxVSTBridge-Owner=MF1\nType=Application\nName=Linux Audio Compatibility Manager\nExec=\"{escaped}\"\nTerminal=false\nCategories=AudioVideo;Audio;\n");
-        let temporary=applications.join(format!(".manager-{}.desktop",random_id()?));fs::write(&temporary,bytes)?;fs::rename(temporary,desktop)?;
-    }
-    let units = home.join(".config/systemd/user");
-    fs::create_dir_all(&units)?;
-    let service=format!("[Unit]\nDescription=Linux VST Bridge registered host\nAfter=graphical-session.target\n\n[Service]\nType=simple\nExecStart={} serve\nUMask=0077\nRestart=on-failure\nRestartSec=2\nKillMode=control-group\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n",systemd(installed.manager.path.to_str().ok_or("executable path encoding")?));
-    let unit = units.join("linux-vst-bridge.service");
-    if unit.exists() {
-        let old = fs::read_to_string(&unit)?;
-        require(
-            old.starts_with("[Unit]\nDescription=Linux VST Bridge registered host\n"),
-            "service name belongs to another owner",
-        )?;
-    }
-    let temp = units.join(".linux-vst-bridge.service.tmp");
-    {
-        let mut f = fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .mode(0o600)
-            .open(&temp)?;
-        f.write_all(service.as_bytes())?;
-        f.sync_all()?;
-    }
-    fs::rename(temp, unit)?;
+    setup_install::commit(m, &home, &installed, previous.as_ref(), None)?;
     // Publication/setup records are complete. Let the service's startup
     // reconcile acquire the same nonblocking admission lock immediately.
     drop(_registry);
@@ -650,7 +622,7 @@ fn startup_reply(peer: &mut UnixStream, bytes: &[u8]) -> Result<()> {
     peer.write_all(bytes)?;
     Ok(())
 }
-fn capacity_read(m: &Manager) -> Result<()> {
+fn capacity_value(m: &Manager) -> Result<serde_json::Value> {
     let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
     peer.set_read_timeout(Some(Duration::from_secs(5)))?;
     peer.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -662,8 +634,13 @@ fn capacity_read(m: &Manager) -> Result<()> {
     let mut bytes = vec![0; size];
     peer.read_exact(&mut bytes)?;
     let value: serde_json::Value = serde_json::from_slice(&bytes)?;
-    println!("{}", serde_json::to_string_pretty(&value)?);
-    require(value["ok"] == true, "capacity_readback_unavailable")
+    require(value["ok"] == true, "capacity_readback_unavailable")?;
+    Ok(value["capacity"].clone())
+}
+fn capacity_read(m: &Manager) -> Result<()> {
+    let value = capacity_value(m)?;
+    println!("{}", serde_json::to_string_pretty(&serde_json::json!({"ok":true,"capacity":value}))?);
+    Ok(())
 }
 fn serve(m: Manager) -> Result<()> {
     let _lock = m.lock("service.lock")?;

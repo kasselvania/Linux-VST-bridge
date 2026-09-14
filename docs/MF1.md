@@ -18,9 +18,12 @@ it is an ancestor of the current physical publication. Recommended restoration
 uses the same installed profiles, census, native catalogue and publisher as CLI.
 
 Heavy exact readback runs on opening, manual refresh, an operation result or a
-live-instance transition. A separate lightweight readback reports current leases,
-transaction presence, transport and operation receipts without taking the registry
-mutation lock or rehashing the verified capacity envelope. Heavy frontend readback
+live-instance transition. Activity and snapshot consume the service's existing
+LVC1 capacity readback, including its blocked flag and coherent owner census.
+The service owns the registry lock and capacity verification. The frontend does
+not read leases without that lock. Unavailable or malformed capacity is displayed
+as unavailable and unsafe; retained leases with unresolved cleanup are not called
+live DSP proof. Transaction, transport and operation receipts remain projections. Heavy frontend readback
 and mutation entry are serialized; an operation is never replayed after it begins. Neither UI nor manager
 control code enters the DAW callback. UI close does not cancel operations.
 
@@ -113,3 +116,51 @@ Bitwig, ASC and manager closed; original protected project hashes unchanged. The
 normal application launcher remains installed; the toolkit-only launcher was removed.
 This implementation is ready for independent review, not a consumer-release or
 universal desktop/accessibility claim.
+
+
+## Source-only integrity rereview
+
+Review 5194092433 at `21a1b6921171f0043c687d0c8fc0a460e89fdc8a`
+accepted the installed workflow and requested five manager/tooling corrections.
+The retained workflow and toolkit evidence remain byte-identical. This repair
+pass performs no installation, Deck access, vendor operation or live plug-in test.
+
+- Activity and snapshot use authoritative LVC1 capacity, including unresolved
+  cleanup. Missing, refused or unsupported readback cannot claim safe inactivity.
+  Buttons show that reason; current owner rows retain the blocked disposition.
+  The version1 wire shape is preserved for an exactly retained older frontend.
+- Every inactive-only action revalidates service cleanup, DSP/maintenance owners,
+  vendor retirement and transaction posture in manager dispatch. Reconciliation
+  permits its target pending transaction but no active or unresolved owner.
+  Reconcile, rollback and recommended restoration recheck global inactivity under
+  their mutation registry lock; the ordinary CLI and qualification paths retain
+  their existing scope.
+- Setup preflights manager/frontend links, desktop entry, service unit and software
+  manifest before changing any stable surface. Detected commit errors restore
+  the exact previous surfaces. A package omitting the frontend retains its exact
+  previous artifact and links; omission never uninstalls it. Normal installed
+  software validation verifies the frontend digest. There is no new uninstall
+  operation or claim of atomicity across process death during multiple renames.
+- A failed systemd launch commits `refused/operator_worker_launch_failed` to the
+  operation and latest receipt. Operation-bound ExecStopPost finalizes unfinished
+  jobs as `refused/operator_worker_terminated`, then attempts existing service
+  recovery even if reporting fails. Terminal receipts are not overwritten, and an
+  older job cannot replace the latest receipt belonging to a newer operation.
+- Retained inventory is current only with the exact module, environment, scanner
+  host and source-manifest identity. Scanner drift displays Needs attention with
+  a rescan reason; it grants no qualification or publication authority.
+
+Generated verification covers blocked/unavailable service responses, independently
+constructed inactive actions, mutation-lock owner rechecks, foreign setup surfaces,
+each setup write-boundary failure, omitted/corrupt frontend, failed launch and
+unfinished worker receipts (including competing writers), and scanner drift.
+The accepted live installation remains at source `ec2b99d`; these source repairs
+require their own reviewed immutable software installation later. Existing
+ordinary Pigments18/rollback11, LoFi10, FRAGMENTS10 and protected projects are
+untouched. The last retained machine state above is not a fresh live observation.
+
+Local repair validation: 89 manager-library tests,26 macOS binary tests and four
+frontend tests passed, with strict manager/frontend Clippy. The runtime suite
+reported 61 tests with34 Linux-only skips on macOS. AP12 supplies the full Linux
+manager/runtime, frontend and existing tooling lanes; PX2 supplies the unchanged
+policy checks. Exact amended-head results are attached to PR104.

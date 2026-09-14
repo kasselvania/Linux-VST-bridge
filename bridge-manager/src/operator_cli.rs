@@ -1,7 +1,7 @@
 //! MF1: closed operator requests dispatched to existing canonical owners.
 use super::*;
 use linux_vst_bridge::operator_model as ui;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
@@ -22,8 +22,13 @@ fn vendor_state_live(state: &str) -> Result<bool> {
     }
 }
 fn vendor_live() -> Result<bool> {
-    let output=Command::new("systemctl").args(["--user","show",VENDOR,"-p","ActiveState","--value"]).output()?;
-    require(output.status.success(),"operator_vendor_unit_state_unavailable")?;
+    let output = Command::new("systemctl")
+        .args(["--user", "show", VENDOR, "-p", "ActiveState", "--value"])
+        .output()?;
+    require(
+        output.status.success(),
+        "operator_vendor_unit_state_unavailable",
+    )?;
     vendor_state_live(std::str::from_utf8(&output.stdout)?.trim())
 }
 fn service(action: &str) -> Result<()> {
@@ -62,6 +67,9 @@ fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
 }
 fn vendor_retired(m: &Manager) -> Result<bool> {
+    if !app_directory(m).exists() {
+        return Ok(true);
+    }
     if vendor_live()? {
         return Ok(false);
     }
@@ -94,10 +102,26 @@ fn capture_state(m: &Manager) -> Result<Value> {
         json!({"armed":m.root.join("runtime/incidents/next.json").exists(),"active_retention":collecting}),
     )
 }
-fn activity(m: &Manager) -> Result<ui::Activity> {
-    // Read live ownership only. Full profile/envelope hashing belongs to snapshot.
-    let owners = capacity::owners(m)?;
-    let limits = capacity::service_limits()?;
+#[derive(Deserialize)]
+struct CapacityReadback {
+    schema: u32,
+    dsp: usize,
+    maintenance: usize,
+    keepers: usize,
+    cleanup_unconfirmed: bool,
+    owners: Vec<capacity::Owner>,
+    limits: CapacityLimits,
+}
+#[derive(Deserialize)]
+struct CapacityLimits {
+    global_dsp: usize,
+}
+fn live_capacity(m: &Manager) -> Result<CapacityReadback> {
+    let value: CapacityReadback = serde_json::from_value(capacity_value(m)?)?;
+    require(value.schema == 1, "operator_capacity_schema")?;
+    Ok(value)
+}
+fn pending_transactions(m: &Manager) -> Result<usize> {
     let transactions = m.root.join("transactions");
     let mut pending = 0;
     if transactions.exists() {
@@ -115,38 +139,90 @@ fn activity(m: &Manager) -> Result<ui::Activity> {
             }
         }
     }
+    Ok(pending)
+}
+fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result<ui::Activity> {
+    let pending = pending_transactions(m)?;
     let root = transport_storage::root();
     let mut stale = 0;
-    if root.exists() {
-        require(count_entries(&root)? <= 4096, "operator_transport_bound")?;
-        for item in fs::read_dir(root)? {
-            let item = item?;
-            let name = item.file_name().to_string_lossy().into_owned();
-            if item.file_type()?.is_dir()
-                && valid_hex(&name, 32)
-                && !owners.iter().any(|o| o.session == name)
-            {
-                stale += 1;
+    if let Some(cap) = cap {
+        if root.exists() {
+            require(count_entries(&root)? <= 4096, "operator_transport_bound")?;
+            for item in fs::read_dir(root)? {
+                let item = item?;
+                let name = item.file_name().to_string_lossy().into_owned();
+                if item.file_type()?.is_dir()
+                    && valid_hex(&name, 32)
+                    && !cap.owners.iter().any(|o| o.session == name)
+                {
+                    stale += 1;
+                }
             }
         }
     }
     Ok(ui::Activity {
         schema: 1,
         system: ui::System {
-            service: if active(SERVICE) { "active" } else { "stopped" }.into(),
-            keepers: owners.iter().filter(|o|o.kind == capacity::Kind::Keeper).count(),
-            dsp: owners.iter().filter(|o|o.kind == capacity::Kind::Dsp).count(),
-            maintenance: owners.iter().filter(|o|matches!(o.kind,capacity::Kind::Inspection|capacity::Kind::VendorAccess)).count(),
-            ceiling: limits.global_dsp,
+            service: if cap.is_some() {
+                "active"
+            } else {
+                "capacity unavailable"
+            }
+            .into(),
+            keepers: cap.map_or(0, |c| c.keepers),
+            dsp: cap.map_or(0, |c| c.dsp),
+            maintenance: cap.map_or(0, |c| c.maintenance),
+            ceiling: cap.map_or(0, |c| c.limits.global_dsp),
             pending_transactions: pending,
             stale_transports: stale,
-            cleanup_unconfirmed: false,
+            cleanup_unconfirmed: cap.is_none_or(|c| c.cleanup_unconfirmed),
         },
         capture: capture_state(m)?,
         operation: optional(&m.root.join("operator/latest.json"))?
             .as_object()
             .map(|v| Value::Object(v.clone())),
     })
+}
+fn activity(m: &Manager) -> Result<ui::Activity> {
+    let cap = live_capacity(m).ok();
+    activity_with_capacity(m, cap.as_ref())
+}
+fn inactive_reason(
+    cap: Option<&CapacityReadback>,
+    vendor_retired: bool,
+    pending: usize,
+    reconcile: bool,
+) -> Option<&'static str> {
+    match cap {
+        None => Some("Service capacity unavailable; actions requiring inactivity are unsafe"),
+        Some(c) if c.cleanup_unconfirmed => Some("Previous instance cleanup is unconfirmed"),
+        Some(c) if c.dsp > 0 || c.maintenance > 0 => {
+            Some("Close active bridged instances before this action")
+        }
+        _ if !vendor_retired => {
+            Some("Close Arturia Software Center and wait for its owned operation to retire")
+        }
+        _ if pending > 0 && !reconcile => Some("Reconcile the interrupted publication first"),
+        _ => None,
+    }
+}
+fn require_operator_inactive(m: &Manager, a: &ui::Action) -> Result<()> {
+    if !a.requires_inactive() {
+        return Ok(());
+    }
+    let cap = live_capacity(m)?;
+    let _admission = m.lock("registry.lock")?;
+    if let Some(reason) = inactive_reason(
+        Some(&cap),
+        vendor_retired(m)?,
+        pending_transactions(m)?,
+        matches!(a, ui::Action::TransactionReconcile {}),
+    ) {
+        return Err(reason.into());
+    }
+    // Recheck durable owners at the mutation boundary, under the same lock
+    // used by service admission; a peer lost since LVC1 must not disappear.
+    m.require_inactive(None)
 }
 fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     let mut ancestors = std::collections::BTreeSet::new();
@@ -190,14 +266,14 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     result.sort_by_key(|r| r.revision);
     Ok(result)
 }
-pub(super) // Serialize this frontend's heavy readback with its mutation entry points.
-// Waiting is for the lock only: no operation is retried after it has begun.
-fn canonical_lock(m: &Manager) -> Result<Lock> {
+pub(super) fn canonical_lock(m: &Manager) -> Result<Lock> {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         match m.lock("operator-canonical.lock") {
             Ok(lock) => return Ok(lock),
-            Err(e) if e.to_string() == "operation already running" && Instant::now() < deadline => std::thread::sleep(Duration::from_millis(25)),
+            Err(e) if e.to_string() == "operation already running" && Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(25))
+            }
             Err(e) => return Err(e),
         }
     }
@@ -208,23 +284,10 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     let sw = software(m)?;
     let canonical = m.managed_status(&sw.host, &sw.source_sha256)?;
     let db = m.registry()?;
-    let cap = capacity::status(m, capacity::service_limits()?, 0, false)?;
-    let pending = canonical
-        .products
-        .iter()
-        .filter(|p| p.recovery_pending)
-        .count();
-    let busy = if cap.cleanup_unconfirmed {
-        Some("Previous instance cleanup is unconfirmed")
-    } else if cap.dsp > 0 || cap.maintenance > 0 {
-        Some("Close active bridged instances before this action")
-    } else if !vendor_retired(m)? {
-        Some("Close Arturia Software Center and wait for its owned operation to retire")
-    } else if pending > 0 {
-        Some("Reconcile the interrupted publication first")
-    } else {
-        None
-    };
+    let cap = live_capacity(m).ok();
+    let pending = pending_transactions(m)?;
+    let retired = vendor_retired(m)?;
+    let busy = inactive_reason(cap.as_ref(), retired, pending, false);
     let mut products = Vec::new();
     let profiles = profiles::installed_profiles()?;
     for p in canonical.products {
@@ -284,6 +347,15 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
                 "inventory_environment_binding",
             )?;
             for module in scan.modules {
+                let stale = inventory::stale_reason(
+                    &module,
+                    &scan.environment,
+                    &scan.host,
+                    &scan.host_source_sha256,
+                    &e.environment,
+                    &sw.host,
+                    &sw.source_sha256,
+                );
                 if let Some(reason) = &module.quarantine_reason {
                     products.push(ui::Product {
                         class_id: String::new(),
@@ -297,20 +369,20 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
                         vendor: "Unresolved factory".into(),
                         role: "unknown".into(),
                         version: String::new(),
-                        disposition: "quarantined".into(),
+                        disposition: if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
                         active_revision: None,
                         recommended_revision: None,
                         environment: scan.environment.id.clone(),
                         runner: scan.environment.runner.id.clone(),
                         module_sha256: module.artifact.sha256.clone(),
-                        limitations: vec![reason.clone()],
+                        limitations: stale.into_iter().map(str::to_owned).chain(std::iter::once(reason.clone())).collect(),
                         history: vec![],
                         actions: vec![],
-                        details: json!({"scan":scan.id,"activation_permitted":false}),
+                        details: json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),"activation_permitted":false}),
                     });
                     continue;
                 }
-                let current = module.artifact.verify().is_ok() && scan.environment == e.environment;
+                let current = stale.is_none();
                 for class in module.classes {
                     if class.category != "Audio Module Class"
                         || products.iter().any(|p| {
@@ -319,7 +391,7 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
                     {
                         continue;
                     }
-                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec!["Installed — not yet supported; not published to Bitwig".into()],history:vec![],actions:vec![],details:json!({"scan":scan.id,"observed_at":scan.completed_at,"inspection_error":module.inspection_error,"activation_permitted":false})});
+                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published to Bitwig").into()],history:vec![],actions:vec![],details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"activation_permitted":false})});
                 }
             }
         }
@@ -416,7 +488,7 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     }
     let after = token(m)?;
     require(before == after, "operator_state_changed_refresh")?;
-    let live = activity(m)?;
+    let live = activity_with_capacity(m, cap.as_ref())?;
     Ok(ui::Snapshot {
         schema: 1,
         state_token: after,
@@ -425,10 +497,9 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
         vendor_applications,
         products,
         active_sessions: cap
-            .owners
-            .into_iter()
+            .as_ref().into_iter().flat_map(|c|c.owners.iter())
             .filter(|o| o.kind == capacity::Kind::Dsp)
-            .map(|o| json!({"class_id":o.class_id,"state":"active"}))
+            .map(|o| json!({"class_id":o.class_id,"state":if cap.as_ref().is_some_and(|c|c.cleanup_unconfirmed){"cleanup_unconfirmed"}else{"active"}}))
             .collect(),
         capture: capture_state(m)?,
         recent_incidents: incidents,
@@ -437,11 +508,7 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
             action(
                 "Reconcile interrupted transaction",
                 ui::Action::TransactionReconcile {},
-                if cap.dsp > 0 {
-                    Some("Close active bridged instances")
-                } else {
-                    None
-                },
+                inactive_reason(cap.as_ref(),retired,pending,true),
             ),
         ],
         operation: optional(&m.root.join("operator/latest.json"))?
@@ -490,41 +557,67 @@ fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "operator_operation_identity")?;
     Ok(m.root.join("operator").join(id))
 }
-fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
-    let _lock = m.lock("operator-dispatch.lock")?;
-    validate(&request, &snapshot(m)?)?;
-    let sw = software(m)?;
-    sw.manager.verify()?;
+fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let _lock = loop {
+        match m.lock("operator-receipt.lock") {
+            Ok(lock) => break lock,
+            Err(e) if e.to_string() == "operation already running" && Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(10))
+            }
+            Err(e) => return Err(e),
+        }
+    };
+    let dir = job_dir(m, id)?;
+    let prior = optional(&dir.join("result.json"))?;
+    if matches!(prior["state"].as_str(), Some("completed" | "refused")) {
+        let latest = m.root.join("operator/latest.json");
+        if optional(&latest)?["operation"] == id {
+            atomic_json(&latest, &prior)?;
+        }
+        return Ok(());
+    }
+    atomic_json(&dir.join("result.json"), value)?;
+    let latest = m.root.join("operator/latest.json");
+    if make_latest || optional(&latest)?["operation"] == id {
+        atomic_json(&latest, value)?;
+    }
+    Ok(())
+}
+fn refuse_unfinished(m: &Manager, id: &str, reason: &str) -> Result<()> {
+    write_operation(
+        m,
+        id,
+        &json!({"schema":1,"operation":id,"state":"refused","reason":reason}),
+        false,
+    )
+}
+fn finish_operation(m: &Manager, id: &str) -> Result<()> {
+    // Reporting must not prevent the existing service/keeper recovery owner.
+    let finalized = refuse_unfinished(m, id, "operator_worker_terminated");
+    let recovered = resume(m);
+    finalized?;
+    recovered
+}
+fn launch_queued(
+    m: &Manager,
+    request: &ui::Request,
+    launch: impl FnOnce(&str) -> Result<bool>,
+) -> Result<ui::Receipt> {
     let id = random_id()?;
     let dir = job_dir(m, &id)?;
     private_dir(&dir)?;
-    atomic_json(&dir.join("request.json"), &request)?;
-    let initial = json!({"schema":1,"operation":id,"state":"queued","action":request.action});
-    atomic_json(&dir.join("result.json"), &initial)?;
-    atomic_json(&m.root.join("operator/latest.json"), &initial)?;
-    let status = Command::new("systemd-run")
-        .args([
-            "--user",
-            "--collect",
-            "--property=UMask=0077",
-            "--property=KillMode=control-group",
-            "--property=StandardOutput=null",
-            "--property=StandardError=null",
-        ])
-        .arg(format!(
-            "--property=ExecStopPost={} operator resume",
-            systemd(
-                sw.manager
-                    .path
-                    .to_str()
-                    .ok_or("operator_executable_encoding")?
-            )
-        ))
-        .arg(format!("--unit=linux-vst-bridge-operator-{id}"))
-        .arg(&sw.manager.path)
-        .args(["operator", "worker", &id])
-        .status()?;
-    require(status.success(), "operator_worker_launch_failed")?;
+    atomic_json(&dir.join("request.json"), request)?;
+    write_operation(
+        m,
+        &id,
+        &json!({"schema":1,"operation":id,"state":"queued","action":request.action}),
+        true,
+    )?;
+    if !launch(&id).unwrap_or(false) {
+        refuse_unfinished(m, &id, "operator_worker_launch_failed")?;
+        return Err("operator_worker_launch_failed".into());
+    }
     Ok(ui::Receipt {
         schema: 1,
         accepted: true,
@@ -532,12 +625,45 @@ fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
         refusal: None,
     })
 }
+fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
+    let _lock = m.lock("operator-dispatch.lock")?;
+    validate(&request, &snapshot(m)?)?;
+    let sw = software(m)?;
+    sw.manager.verify()?;
+    launch_queued(m, &request, |id| {
+        let status = Command::new("systemd-run")
+            .args([
+                "--user",
+                "--collect",
+                "--property=UMask=0077",
+                "--property=KillMode=control-group",
+                "--property=StandardOutput=null",
+                "--property=StandardError=null",
+            ])
+            .arg(format!(
+                "--property=ExecStopPost={} operator finish {id}",
+                systemd(
+                    sw.manager
+                        .path
+                        .to_str()
+                        .ok_or("operator_executable_encoding")?
+                )
+            ))
+            .arg(format!("--unit=linux-vst-bridge-operator-{id}"))
+            .arg(&sw.manager.path)
+            .args(["operator", "worker", id])
+            .status()?;
+        Ok(status.success())
+    })
+}
+
 #[cfg(test)]
 fn execute(m: &Manager, a: &ui::Action) -> Result<Value> {
     execute_with_receipt(m, a, None)
 }
 fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) -> Result<Value> {
     let mut projection = Some(canonical_lock(m)?);
+    require_operator_inactive(m, a)?;
 
     match a {
         ui::Action::CaptureArm { class_id } => {
@@ -549,14 +675,14 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
             Ok(json!({"capture":"disarmed"}))
         }
         ui::Action::TransactionReconcile {} => {
-            m.reconcile()?;
+            m.reconcile_inactive()?;
             resume(m)?;
             Ok(json!({"reconciled":true}))
         }
         ui::Action::OrdinaryRollback {
             class_id,
             publication,
-        } => Ok(serde_json::to_value(m.rollback(
+        } => Ok(serde_json::to_value(m.rollback_inactive(
             class_id,
             publication,
             None,
@@ -592,8 +718,7 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
             if let Some(id) = operation {
                 let receipt =
                     json!({"schema":1,"operation":id,"state":"vendor_running","action":a});
-                atomic_json(&job_dir(m, id)?.join("result.json"), &receipt)?;
-                atomic_json(&m.root.join("operator/latest.json"), &receipt)?;
+                write_operation(m, id, &receipt, false)?;
             }
             // This manager operation outlives the frontend. ASC's own existing
             // dedicated unit remains process owner; neither UI close nor this
@@ -827,18 +952,20 @@ fn worker(m: &Manager, id: &str) -> Result<()> {
     let dir = job_dir(m, id)?;
     let request: ui::Request = read_json(&dir.join("request.json"))?;
     let result: Result<Value> = (|| {
-        validate(&request, &snapshot(m).map_err(|e| format!("Operator validation readback: {e}"))?)?;
+        validate(
+            &request,
+            &snapshot(m).map_err(|e| format!("Operator validation readback: {e}"))?,
+        )?;
         let state = json!({"schema":1,"operation":id,"state":"running","action":request.action});
-        atomic_json(&dir.join("result.json"), &state)?;
-        atomic_json(&m.root.join("operator/latest.json"), &state)?;
-        execute_with_receipt(m, &request.action, Some(id)).map_err(|e| format!("Operator action: {e}").into())
+        write_operation(m, id, &state, false)?;
+        execute_with_receipt(m, &request.action, Some(id))
+            .map_err(|e| format!("Operator action: {e}").into())
     })();
     let value = match result {
         Ok(v) => json!({"schema":1,"operation":id,"state":"completed","result":v}),
         Err(e) => json!({"schema":1,"operation":id,"state":"refused","reason":e.to_string()}),
     };
-    atomic_json(&dir.join("result.json"), &value)?;
-    atomic_json(&m.root.join("operator/latest.json"), &value)?;
+    write_operation(m, id, &value, false)?;
     Ok(())
 }
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
@@ -863,6 +990,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
         }
         [a, id] if a == "worker" => worker(m, id)?,
         [a] if a == "resume" => resume(m)?,
+        [a, id] if a == "finish" => finish_operation(m, id)?,
         _ => return Err("operator snapshot | request".into()),
     }
     Ok(())
@@ -931,6 +1059,234 @@ mod tests {
         );
         assert!(validate(&r, &busy).is_err());
     }
+    fn capacity_json(blocked: bool, dsp: usize, maintenance: usize) -> Value {
+        json!({"ok":true,"capacity":{"schema":1,"dsp":dsp,"maintenance":maintenance,"keepers":1,"cleanup_unconfirmed":blocked,"owners":[],"limits":{"global_dsp":6}}})
+    }
+    fn service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
+        private_dir(&m.root.join("runtime")).unwrap();
+        let socket = m.root.join("runtime/owner.sock");
+        if socket.exists() {
+            fs::remove_file(&socket).unwrap();
+        }
+        let listener = UnixListener::bind(&socket).unwrap();
+        std::thread::spawn(move || {
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut greeting = [0; 5];
+            peer.read_exact(&mut greeting).unwrap();
+            assert_eq!(&greeting, b"LVC1\n");
+            let bytes = serde_json::to_vec(&value).unwrap();
+            peer.write_all(&(bytes.len() as u32).to_le_bytes()).unwrap();
+            peer.write_all(&bytes).unwrap();
+        })
+    }
+    #[test]
+    fn authoritative_blocked_readback_and_unavailable_service_never_claim_safe_cleanup() {
+        let f = test_fixture::Fixture::new();
+        let server = service_reply(&f.m, capacity_json(true, 1, 0));
+        let a = activity(&f.m).unwrap();
+        server.join().unwrap();
+        assert!(a.system.capacity_available());
+        assert!(a.system.cleanup_unconfirmed);
+        assert_eq!(a.system.dsp, 1);
+        assert_eq!(
+            a.system.inactive_reason(),
+            Some("Previous instance cleanup is unconfirmed")
+        );
+        let a = activity(&f.m).unwrap();
+        assert!(!a.system.capacity_available());
+        assert!(a.system.cleanup_unconfirmed);
+        assert!(a.system.inactive_reason().unwrap().contains("unavailable"));
+    }
+    #[test]
+    fn malformed_or_refused_capacity_is_unavailable_not_safe() {
+        let f = test_fixture::Fixture::new();
+        let mut missing = capacity_json(false, 0, 0);
+        missing["capacity"]
+            .as_object_mut()
+            .unwrap()
+            .remove("cleanup_unconfirmed");
+        let mut future = capacity_json(false, 0, 0);
+        future["capacity"]["schema"] = json!(2);
+        for reply in [missing, future, json!({"ok":false,"refusal":"busy"})] {
+            let server = service_reply(&f.m, reply);
+            let read = activity(&f.m).unwrap();
+            server.join().unwrap();
+            assert!(!read.system.capacity_available());
+            assert!(read.system.cleanup_unconfirmed);
+        }
+    }
+    #[test]
+    fn crafted_inactive_actions_refuse_each_live_boundary_before_any_mutation() {
+        let f = test_fixture::Fixture::new();
+        atomic_json(&f.m.root.join("sentinel.json"), &json!({"unchanged":true})).unwrap();
+        let actions = [
+            ui::Action::TransactionReconcile {},
+            ui::Action::EnvironmentRescan {
+                environment: f.r.environment.id.clone(),
+            },
+            ui::Action::VendorApplicationOpen {
+                application: ASC.into(),
+            },
+            ui::Action::OrdinaryRollback {
+                class_id: f.r.key(),
+                publication: "a".repeat(32),
+            },
+            ui::Action::OrdinaryRestoreRecommended {
+                class_id: f.r.key(),
+            },
+        ];
+        for action in &actions {
+            for (blocked, dsp, maintenance) in [(true, 0, 0), (false, 1, 0), (false, 0, 1)] {
+                let server = service_reply(&f.m, capacity_json(blocked, dsp, maintenance));
+                let e = execute(&f.m, action).unwrap_err().to_string();
+                server.join().unwrap();
+                assert!(e.contains("cleanup") || e.contains("active bridged"), "{e}");
+            }
+            let cap: CapacityReadback =
+                serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap();
+            assert!(
+                inactive_reason(Some(&cap), false, 0, false)
+                    .unwrap()
+                    .contains("Software Center")
+            );
+            if !matches!(action, ui::Action::TransactionReconcile {}) {
+                assert!(
+                    inactive_reason(Some(&cap), true, 1, false)
+                        .unwrap()
+                        .contains("Reconcile")
+                );
+            }
+        }
+        assert!(!f.m.root.join("registry.json").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn mutation_owners_recheck_global_inactivity_under_their_registry_lock() {
+        let (f, p, c, n) = test_fixture::prepared();
+        let r = observation::derive(&p, &c, &n).unwrap();
+        let key = r.key();
+        let first =
+            f.m.managed_publish(&p, &c, r.clone(), &c.host, &c.host_source_sha256, None)
+                .unwrap();
+        let before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let mut binding: HostBinding = f.r.clone().into();
+        binding.metadata.class_id = "aa".repeat(16);
+        let (job, _) = spec(&f.m, binding, true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        assert!(f.m.reconcile_inactive().is_err());
+        assert!(f.m.rollback_inactive(&key, &first.id, None).is_err());
+        assert!(
+            f.m.managed_publish_inactive(&p, &c, r, &c.host, &c.host_source_sha256, None)
+                .is_err()
+        );
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
+    }
+    #[test]
+    fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
+        let f = test_fixture::Fixture::new();
+        let request = ui::Request {
+            schema: 1,
+            state_token: "t".into(),
+            action: ui::Action::CaptureDisarm {},
+        };
+        let id = launch_queued(&f.m, &request, |_| Ok(true))
+            .unwrap()
+            .operation
+            .unwrap();
+        let held = f.m.lock("operator-receipt.lock").unwrap();
+        let m = Manager {
+            root: f.m.root.clone(),
+            publications: f.m.publications.clone(),
+        };
+        let child_id = id.clone();
+        let child =
+            std::thread::spawn(move || finish_operation(&m, &child_id).map_err(|e| e.to_string()));
+        std::thread::sleep(Duration::from_millis(40));
+        assert_eq!(
+            optional(&job_dir(&f.m, &id).unwrap().join("result.json")).unwrap()["state"],
+            "queued"
+        );
+        drop(held);
+        child.join().unwrap().unwrap();
+        assert_eq!(
+            optional(&job_dir(&f.m, &id).unwrap().join("result.json")).unwrap()["state"],
+            "refused"
+        );
+    }
+    #[test]
+    fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
+        let f = test_fixture::Fixture::new();
+        let request = ui::Request {
+            schema: 1,
+            state_token: "t".into(),
+            action: ui::Action::CaptureDisarm {},
+        };
+        for io_failure in [false, true] {
+            let result = launch_queued(&f.m, &request, |_| {
+                if io_failure {
+                    Err("launch io error".into())
+                } else {
+                    Ok(false)
+                }
+            });
+            assert!(result.is_err());
+            let last = optional(&f.m.root.join("operator/latest.json")).unwrap();
+            assert_eq!(last["state"], "refused");
+            assert_eq!(last["reason"], "operator_worker_launch_failed");
+            assert_eq!(
+                optional(
+                    &job_dir(&f.m, last["operation"].as_str().unwrap())
+                        .unwrap()
+                        .join("result.json")
+                )
+                .unwrap(),
+                last
+            );
+        }
+        for state in ["queued", "running", "vendor_running"] {
+            let id = launch_queued(&f.m, &request, |_| Ok(true))
+                .unwrap()
+                .operation
+                .unwrap();
+            write_operation(
+                &f.m,
+                &id,
+                &json!({"schema":1,"operation":id,"state":state}),
+                false,
+            )
+            .unwrap();
+            finish_operation(&f.m, &id).unwrap();
+            let last = optional(&f.m.root.join("operator/latest.json")).unwrap();
+            assert_eq!(last["state"], "refused");
+            assert_eq!(last["reason"], "operator_worker_terminated");
+        }
+        let old = launch_queued(&f.m, &request, |_| Ok(true))
+            .unwrap()
+            .operation
+            .unwrap();
+        let new = launch_queued(&f.m, &request, |_| Ok(true))
+            .unwrap()
+            .operation
+            .unwrap();
+        finish_operation(&f.m, &old).unwrap();
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap()["operation"],
+            new
+        );
+        let completed =
+            json!({"schema":1,"operation":new,"state":"completed","result":{"done":true}});
+        write_operation(&f.m, &new, &completed, false).unwrap();
+        atomic_json(
+            &f.m.root.join("operator/latest.json"),
+            &json!({"operation":new,"state":"running"}),
+        )
+        .unwrap();
+        finish_operation(&f.m, &new).unwrap();
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap(),
+            completed
+        );
+    }
     #[test]
     fn ordinary_history_limits_rollback_to_ancestry_and_restore_preserves_bytes() {
         let (f, mut p, c, n) = test_fixture::prepared();
@@ -977,6 +1333,7 @@ mod tests {
                 .unwrap()
                 .rollback_allowed
         );
+        let server = service_reply(&f.m, capacity_json(false, 0, 0));
         execute(
             &f.m,
             &ui::Action::OrdinaryRollback {
@@ -985,6 +1342,7 @@ mod tests {
             },
         )
         .unwrap();
+        server.join().unwrap();
         assert_eq!(
             f.m.registry().unwrap().classes[&key].managed_revision,
             Some(first)
@@ -1006,26 +1364,29 @@ mod tests {
             saved
         );
         p.claim = profiles::Claim::ReviewCandidate;
-        assert!(f
-            .m
-            .managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
-            .is_err());
+        assert!(
+            f.m.managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
+                .is_err()
+        );
     }
     #[test]
     fn vendor_deactivation_is_live_until_the_unit_finishes_cleanup() {
-        let sequence=["activating","active","deactivating","inactive"];
-        assert_eq!(sequence.map(|s|vendor_state_live(s).unwrap()),[true,true,true,false]);
+        let sequence = ["activating", "active", "deactivating", "inactive"];
+        assert_eq!(
+            sequence.map(|s| vendor_state_live(s).unwrap()),
+            [true, true, true, false]
+        );
         assert!(!vendor_state_live("failed").unwrap());
         assert!(vendor_state_live("unknown").is_err());
         assert!(vendor_state_live("").is_err());
     }
     #[test]
-    fn idle_activity_does_not_take_the_registry_mutation_lock() {
+    fn failed_capacity_readback_does_not_guess_idle_ownership() {
         let f = test_fixture::Fixture::new();
         let _mutation = f.m.lock("registry.lock").unwrap();
         let read = activity(&f.m).unwrap();
-        assert_eq!(read.system.dsp,0);
-        assert_eq!(read.system.maintenance,0);
+        assert!(!read.system.capacity_available());
+        assert!(read.system.cleanup_unconfirmed);
         assert!(read.operation.is_none());
     }
     #[test]
@@ -1037,9 +1398,9 @@ mod tests {
         let entered = Arc::new(AtomicBool::new(false));
         let after = entered.clone();
         let child = std::thread::spawn(move || {
-            let m = Manager {root,publications};
+            let m = Manager { root, publications };
             let _guard = canonical_lock(&m).unwrap();
-            after.store(true,Ordering::SeqCst);
+            after.store(true, Ordering::SeqCst);
         });
         std::thread::sleep(Duration::from_millis(75));
         assert!(!entered.load(Ordering::SeqCst));

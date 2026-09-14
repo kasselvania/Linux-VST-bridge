@@ -303,7 +303,7 @@ pub(super) fn restore_recommended(m: &Manager, key: &str) -> Result<()> {
     let mut matched = plans(m, &sw, &c, e, &profiles, SelectionPurpose::Activation, InspectionRoute::Current)?;
     require(matched.len() == 1, "profile_ambiguous")?;
     let p = matched.remove(0);
-    m.managed_publish(&p.profile, &p.census, p.registration, &p.census.host, &p.census.host_source_sha256, None)?;
+    m.managed_publish_inactive(&p.profile, &p.census, p.registration, &p.census.host, &p.census.host_source_sha256, None)?;
     Ok(())
 }
 fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_json::Value> {
