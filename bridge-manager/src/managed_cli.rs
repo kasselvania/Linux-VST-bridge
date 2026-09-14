@@ -90,7 +90,7 @@ fn product(m: &Manager, index: &str) -> Result<String> {
         .cloned()
         .ok_or_else(|| "product_selection_required".into())
 }
-fn modules(environment: &Environment) -> Result<Vec<Artifact>> {
+pub(super) fn modules(environment: &Environment) -> Result<Vec<Artifact>> {
     let root = environment
         .root
         .join("compatdata/pfx/drive_c/Program Files/Common Files/VST3");
@@ -293,6 +293,19 @@ fn status(m: &Manager) -> Result<serde_json::Value> {
         m.managed_status(&sw.host, &sw.source_sha256)?,
     )?)
 }
+pub(super) fn restore_recommended(m: &Manager, key: &str) -> Result<()> {
+    let sw = software(m)?;
+    let c = catalogue(m, &sw)?;
+    let r = m.registry()?.classes.get(key).ok_or("registration_absent")?.registration.clone();
+    let e = c.environments.iter().find(|e| e.environment == r.environment).ok_or("environment_absent")?.clone();
+    let profiles: Vec<_> = installed_profiles()?.into_iter().filter(|p| p.class.class_id == key).collect();
+    require(profiles.len() == 1, "profile_ambiguous")?;
+    let mut matched = plans(m, &sw, &c, e, &profiles, SelectionPurpose::Activation, InspectionRoute::Current)?;
+    require(matched.len() == 1, "profile_ambiguous")?;
+    let p = matched.remove(0);
+    m.managed_publish(&p.profile, &p.census, p.registration, &p.census.host, &p.census.host_source_sha256, None)?;
+    Ok(())
+}
 fn execute(m: &Manager, args: &[String], profiles: &[Profile]) -> Result<serde_json::Value> {
     match args.first().map(String::as_str){
             Some("status") if args.len()==1=>status(m),
@@ -480,6 +493,7 @@ mod tests {
     fn completed_setup_receipt_does_not_race_service_startup_registry_lock() {
         let (f, _, c, _) = prepared();
         let sw = Software {
+            operator_frontend: None,
             manager: c.host.clone(),
             supervisor: c.host.clone(),
             ownership: c.host.clone(),
@@ -531,6 +545,7 @@ mod tests {
         )
         .unwrap();
         let sw = Software {
+            operator_frontend: None,
             manager: c.host.clone(),
             supervisor: c.host.clone(),
             ownership: c.host.clone(),

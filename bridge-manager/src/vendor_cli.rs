@@ -167,7 +167,7 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
             }
             atomic_json(
                 &job,
-                &serde_json::json!({"application":app,"report":directory.join("operation-result.json"),"mode":mode}),
+                &serde_json::json!({"application":app,"report":directory.join("operation-result.json"),"mode":mode,"operation_id":random_id()?}),
             )?;
             let result = Command::new("systemd-run")
                 .args([

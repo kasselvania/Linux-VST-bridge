@@ -5,6 +5,7 @@ mod test_fixture;
 mod transport_storage;
 mod vendor_cli;
 mod vendor_product_cli;
+mod operator_cli;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{
@@ -276,6 +277,12 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
             accepted.source_manifest.sha256,
         )
     };
+    let mut files=files.to_vec();
+    let frontend=if let Some(package)=package {
+        let path=package.join("linux-audio-compatibility-manager");
+        if path.exists(){Some(path)}else{None}
+    } else { read_json::<Software>(&m.root.join("software.json"))?.operator_frontend.map(|a|a.path) };
+    if let Some(path)=frontend {files.push(("linux-audio-compatibility-manager",path));}
     require(
         valid_hex(&source, 64) && digest(&files[4].1)? == source,
         "host source manifest hash differs",
@@ -319,7 +326,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
             require(digest(&to)? == digest(p)?, "software copy differs")?;
             fs::set_permissions(
                 &to,
-                fs::Permissions::from_mode(if *name == "linux-vst-bridge" {
+                fs::Permissions::from_mode(if matches!(*name, "linux-vst-bridge" | "linux-audio-compatibility-manager") {
                     0o500
                 } else {
                     0o400
@@ -408,6 +415,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         actual.validate(&m.root)?;
     }
     let installed = Software {
+        operator_frontend: if files.iter().any(|(n,_)|*n=="linux-audio-compatibility-manager") {Some(a("linux-audio-compatibility-manager")?)}else{None},
         manager: a("linux-vst-bridge")?,
         supervisor: a("session.py")?,
         ownership: a("ownership.py")?,
@@ -432,6 +440,19 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         previous.as_ref().map(|s| s.manager.path.as_path()),
     )?;
     atomic_json(&m.root.join("software.json"), &installed)?;
+    if let Some(frontend)=&installed.operator_frontend {
+        publication::install_command(&home.join(".local/bin/linux-audio-compatibility-manager"),&frontend.path,previous.as_ref().and_then(|s|s.operator_frontend.as_ref()).map(|a|a.path.as_path()))?;
+        let applications=home.join(".local/share/applications");fs::create_dir_all(&applications)?;
+        let desktop=applications.join("linux-audio-compatibility-manager.desktop");
+        if desktop.exists(){require(fs::read_to_string(&desktop)?.starts_with("[Desktop Entry]\nX-LinuxVSTBridge-Owner=MF1\n"),"operator_desktop_entry_foreign")?;}
+        // Desktop Exec quoting is distinct from shell quoting. This is a
+        // manager-owned exact path, never user-supplied command material.
+        let path=frontend.path.to_str().ok_or("operator_frontend_path")?;
+        require(!path.chars().any(char::is_control),"operator_frontend_path")?;
+        let escaped=path.replace('\\',"\\\\").replace('"',"\\\"").replace('`',"\\`").replace('$',"\\$").replace('%',"%%");
+        let bytes=format!("[Desktop Entry]\nX-LinuxVSTBridge-Owner=MF1\nType=Application\nName=Linux Audio Compatibility Manager\nExec=\"{escaped}\"\nTerminal=false\nCategories=AudioVideo;Audio;\n");
+        let temporary=applications.join(format!(".manager-{}.desktop",random_id()?));fs::write(&temporary,bytes)?;fs::rename(temporary,desktop)?;
+    }
     let units = home.join(".config/systemd/user");
     fs::create_dir_all(&units)?;
     let service=format!("[Unit]\nDescription=Linux VST Bridge registered host\nAfter=graphical-session.target\n\n[Service]\nType=simple\nExecStart={} serve\nUMask=0077\nRestart=on-failure\nRestartSec=2\nKillMode=control-group\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n",systemd(installed.manager.path.to_str().ok_or("executable path encoding")?));
@@ -702,6 +723,21 @@ fn serve(m: Manager) -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let mut greeting = [0; 53];
                 peer.read_exact(&mut greeting[..5])?;
+                if &greeting[..5]==b"LVE1\n" {
+                    // MF1 resumes keeper ownership after exclusive vendor work.
+                    // Selection comes only from current registered environments.
+                    let _admission=capacity::reserve(&m,&limits,None,blocked.load(Ordering::Acquire))?;
+                    m.require_inactive(None)?;
+                    let mut environments=std::collections::BTreeSet::new();
+                    for entry in m.registry()?.classes.into_values() {
+                        let r=entry.registration;
+                        if environments.insert(r.environment.id.clone()) {
+                            r.verify(&m.root)?;
+                            ensure_keeper(&m,&s,&r.into(),&keepers)?;
+                        }
+                    }
+                    peer.write_all(b"LVE1 ready\n")?;return Ok(());
+                }
                 if &greeting[..5]==b"LVC1\n" {
                     let value=match capacity::status(&m,limits.clone(),workers.load(Ordering::Acquire),blocked.load(Ordering::Acquire)) {
                         Ok(status)=>serde_json::json!({"ok":true,"capacity":status}),
@@ -1052,6 +1088,7 @@ fn main() -> Result<()> {
   Some("accept-ui") if args.len()==1=>managed_cli::run_ui_acceptance(&m),
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("capture")=>crash_capture::run(&m,&args[1..]),
+  Some("operator")=>operator_cli::run(&m,&args[1..]),
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),

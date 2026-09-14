@@ -63,7 +63,7 @@ fn product(c: &Census) -> Result<()> {
     )
 }
 
-fn finish_scan(mut child: Child, job: &SessionSpec, mut pending: PendingAdmission) -> Result<()> {
+pub(super) fn finish_scan(mut child: Child, job: &SessionSpec, mut pending: PendingAdmission) -> Result<()> {
     let status = child.wait()?;
     let mut receipt = String::new();
     if let Some(stdout) = child.stdout.take() {

@@ -70,7 +70,7 @@ fn bytes(s: &str) -> Result<Vec<u8>> {
         .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
         .collect())
 }
-fn decode(v: &Value, key: &str, unicode: bool) -> Result<String> {
+pub(crate) fn decode(v: &Value, key: &str, unicode: bool) -> Result<String> {
     let b = bytes(string(v, key, 1024)?)?;
     if unicode {
         require(b.len().is_multiple_of(2), "census_utf16")?;
@@ -85,7 +85,7 @@ fn decode(v: &Value, key: &str, unicode: bool) -> Result<String> {
         Ok(String::from_utf8(b)?)
     }
 }
-fn windows_class_id(raw: &str) -> Result<String> {
+pub(crate) fn windows_class_id(raw: &str) -> Result<String> {
     require(valid_hex(raw, 32), "census_class_identity")?;
     let mut b = bytes(raw)?;
     b[..4].reverse();

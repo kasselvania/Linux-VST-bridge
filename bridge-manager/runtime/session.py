@@ -1159,6 +1159,65 @@ def vendor_process_metadata(scope, record, app):
             {'pid':parent['pid'],'start_ticks':parent['start_ticks']} if parent else None}
 
 
+def vendor_focus(scope,app):
+    """Application-origin EWMH focus request, bound to current owned main image.
+
+    No title matching, arbitrary PID, forced input focus or synthetic user input.
+    Runs only on the vendor supervisor control path, never the audio path.
+    """
+    candidates=[]
+    for record in scope.members():
+        metadata=vendor_process_metadata(scope,record,app)
+        if any(v['path']==app['executable']['path'] and v['sha256']==app['executable']['sha256'] for v in metadata['registered_images']):
+            candidates.append(record)
+    if len(candidates)!=1:raise RuntimeError('focus main identity ambiguous')
+    target=candidates[0]
+    def identity():
+        now=scope.identity(target['pid'])
+        if not now or now['start_ticks']!=target['start_ticks'] or not scope.contains(scope.group_of(target['pid'])):
+            raise RuntimeError('focus main identity changed')
+    C=ctypes;U=C.c_ulong;I=C.c_int;P=C.c_void_p
+    x=C.CDLL('libX11.so.6')
+    def bind(name,result,args):f=getattr(x,name);f.restype=result;f.argtypes=args;return f
+    bind('XOpenDisplay',P,[C.c_char_p]);bind('XCloseDisplay',I,[P]);bind('XDefaultRootWindow',U,[P]);bind('XInternAtom',U,[P,C.c_char_p,I]);bind('XSync',I,[P,I]);bind('XFree',I,[P])
+    bind('XGetWindowProperty',I,[P,U,U,C.c_long,C.c_long,I,U,C.POINTER(U),C.POINTER(I),C.POINTER(U),C.POINTER(U),C.POINTER(P)])
+    handler_type=C.CFUNCTYPE(I,P,P);errors=[]
+    handler=handler_type(lambda *_:(errors.append(True) if not errors else None) or 0)
+    bind('XSetErrorHandler',P,[P]);previous=x.XSetErrorHandler(C.cast(handler,P))
+    display=x.XOpenDisplay(None)
+    if not display:x.XSetErrorHandler(previous);raise RuntimeError('focus X11 unavailable')
+    def prop(window,name):
+        kind=U();fmt=I();count=U();after=U();data=P()
+        code=x.XGetWindowProperty(display,window,x.XInternAtom(display,name.encode(),0),0,4096,0,0,C.byref(kind),C.byref(fmt),C.byref(count),C.byref(after),C.byref(data))
+        try:
+            x.XSync(display,0)
+            if code or errors or after.value or count.value>4096:raise RuntimeError('focus X11 property unavailable')
+            if not kind.value:return []
+            if fmt.value!=32:raise RuntimeError('focus property type')
+            return list(C.cast(data,C.POINTER(U))[:count.value])
+        finally:
+            if data:x.XFree(data)
+    try:
+        root=x.XDefaultRootWindow(display);identity()
+        windows=[w for w in prop(root,'_NET_CLIENT_LIST') if prop(w,'_NET_WM_PID')==[target['pid']] and prop(w,'WM_STATE')[:1]==[1]]
+        if len(windows)!=1:raise RuntimeError('focus window absent or ambiguous')
+        window=windows[0];identity()
+        if prop(window,'_NET_WM_PID')!=[target['pid']]:raise RuntimeError('focus X11 identity changed')
+        class Client(C.Structure):
+            _fields_=[('type',I),('serial',U),('send_event',I),('display',P),('window',U),('message',U),('format',I),('data',C.c_long*5)]
+        class Event(C.Union):_fields_=[('client',Client),('pad',C.c_long*24)]
+        event=Event();event.client.type=33;event.client.display=display;event.client.window=window;event.client.message=x.XInternAtom(display,b'_NET_ACTIVE_WINDOW',0);event.client.format=32;event.client.data[0]=1
+        bind('XSendEvent',I,[P,U,I,C.c_long,C.POINTER(Event)])
+        if not x.XSendEvent(display,root,0,(1<<19)|(1<<20),C.byref(event)):raise RuntimeError('focus request refused')
+        deadline=time.monotonic()+.75
+        while True:
+            identity()
+            if prop(root,'_NET_ACTIVE_WINDOW')==[window]:return 'focused'
+            if time.monotonic()>=deadline:return 'window_manager_refused'
+            time.sleep(.01)
+    finally:
+        x.XCloseDisplay(display);x.XSetErrorHandler(previous)
+
 def vendor_application(spec):
     """Own every process in the dedicated unit until observed retirement.
 
@@ -1168,7 +1227,7 @@ def vendor_application(spec):
     """
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
     report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
-    mode=spec.get('mode','normal');diagnostic=mode!='normal'
+    mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None
     lock=(directory/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     logs=report.parent/('private-diagnostic-'+os.urandom(16).hex());logs.mkdir(mode=0o700)
     captures={name:PrivateCapture(logs/(name+'.log')) for name in ('stdout','stderr','process')}
@@ -1196,7 +1255,7 @@ def vendor_application(spec):
             if data:captures[key.data].write(data)
             else:sel.unregister(key.fileobj)
     def result(state,live):
-        return {'schema':3,'state':state,'launcher_exit':child.returncode if child else None,
+        return {'schema':3,'state':state,'operation_id':spec.get('operation_id'),'focus_result':focus_result,'launcher_exit':child.returncode if child else None,
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,
                 'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
                 'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
@@ -1238,6 +1297,23 @@ def vendor_application(spec):
             if child.returncode is not None and not outer_recorded:
                 event('launcher_exit',exit_status=child.returncode);outer_recorded=True
             live=[p for p in scope.members() if p['state']!='Z']
+            focus_path=report.parent/'focus.json'
+            if focus_path.exists():
+                request_id=None
+                try:
+                    with os.fdopen(os.open(focus_path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+                        m=os.fstat(f.fileno())
+                        if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_size>1024:raise RuntimeError('focus request bound')
+                        request=json.loads(f.read(1025))
+                    focus_path.unlink()
+                    if not isinstance(request,dict) or set(request)!=set(('request','operation_id')) or not all(isinstance(request[k],str) and re.fullmatch('[0-9a-f]{32}',request[k]) for k in request):
+                        raise RuntimeError('focus request schema')
+                    request_id=request['request']
+                    if request.get('operation_id')!=spec.get('operation_id') or not request.get('operation_id'):
+                        raise RuntimeError('focus operation mismatch')
+                    focus_result={'request':request['request'],'result':vendor_focus(scope,app)}
+                except Exception:
+                    focus_result={'request':request_id,'result':'refused_exact_window_unavailable'}
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 # No member remains that could create a later handoff. A

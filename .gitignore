@@ -61,3 +61,5 @@ core.*
 /native-vst3-proxy/backend/target/
 
 /bridge-manager/target/
+
+/manager-ui/target/

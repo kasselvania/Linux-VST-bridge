@@ -14,9 +14,19 @@ on:
       - 'tools/uio2/**'
       - 'tools/if2/**'
       - 'tools/ca1/**'
+      - 'manager-ui/**'
+      - 'tools/mf1/**'
 permissions:
   contents: read
 jobs:
+  operator-frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: rustup toolchain install 1.95.0 --profile minimal --component clippy
+      - run: cargo +1.95.0 test --manifest-path manager-ui/Cargo.toml --locked
+      - run: cargo +1.95.0 clippy --manifest-path manager-ui/Cargo.toml --locked --all-targets -- -D warnings
   manager:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

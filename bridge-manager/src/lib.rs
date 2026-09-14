@@ -6,6 +6,8 @@ pub mod crash_capture;
 #[cfg(test)]
 mod managed_tests;
 pub mod observation;
+pub mod operator_model;
+pub mod inventory;
 pub mod profiles;
 pub mod pigments;
 pub mod publication;

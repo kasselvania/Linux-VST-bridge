@@ -1,476 +1,53 @@
-# Pigments 18 — ordinary publication of accepted candidate 17
-
-Base: merged UIO2 `64ed9156c095dba2f8678d840217b99b4c949ed6`.
-Review 5192912686 accepts the candidate17 focused product result at
-`953e246ed2943eaafbac0d83e0dadc1d23bed69f` (tree
-`d256b236b789dea6a2f1d687cb22d92a9b2054cd`). The user selected this transition.
-
-Create ordinary verified_exact_fixture revision18 from exact candidate17 content,
-changing only revision, claim and accepted evidence. Preserve all previous
-profiles, binaries, protected projects and authorization. Keep ordinary11 as
-physical parent/rollback; candidate17 remains inactive reviewed provenance.
-Reuse immutable setup and managed preview/publication. No generic promotion.
-Retain both exact native artifacts in the software catalogue for rollback.
-
-Only manager/profile/catalogue/publication authority changes. No Windows/native
-product rebuild, UI campaign or new compatibility investigation. Test exact
-normalization, catalogue selection, candidate refusal, publication and rollback;
-run manager tests/Clippy, runtime and applicable AP12/PX2 checks.
-
-After installation, one ordinary load/editor/responsiveness/normal-quit smoke.
-Require expected product bytes, process-scoped retirement, zero DSP leases,
-transactions and stale transports, service/keeper health and capture disarmed.
-Leave ordinary18 active only after success. Otherwise restore11 and retain the
-exact failure. Keep LoFi/FRAGMENTS10 unchanged. 512 recommended; 256 unqualified.
-No resize/wavetable/tab/knob/routing/automation/save-recall repeat.
-
-Finish one PR for independent review, no automatic merge. Manager/frontend
-integration is explicitly deferred for a later design discussion.
-
-## Completed ordinary transition
-
-Review5193270789 accepts source head41aec9e. The operator-owned session has
-naturally closed. Joined retained publication/live lease/runtime identity readback
-binds it to ordinary18 fingerprint
-`56872b858daef293aa47c0fcbd7e99e6c586e1311366fedbab0bb410fb0f55cd`.
-No agent input or launch occurred. All seven process-scoped retirement milestones
-committed; no terminal/Collector/editor failure. Zero DSP leases, pending
-transactions and stale transports; service/keeper healthy; projects and siblings
-unchanged. Ordinary18 remains active with ordinary11 rollback and candidate17
-inactive. Retain 12 delivery groups/216832 missing and expired frames; no gap-free
-claim. See `evidence/uio2/acceptance/natural-smoke.json`. The earlier pending-session
-record remains historical. Finish checks and merge this accepted transition.
-
-The next authorized slice is MF1 — Human Operator Manager, a native Rust frontend
-projecting canonical readback and closed operations, including generic inventory
-without publishing unknown products. It begins after this PR merges.
-
----
-## Previous UIO2 slice (merged history)
-
-# UIO2 / TSG1 — generic transient surface groups
-
-Active cut authorized after review 5191850998 at `4fc291bd36e0d53f38d1cb66f3e7903bc27dd0c6`.
-Continue the same branch and draft PR #101. The earlier bounded result below is
-immutable history, not completion of the newly authorized cut.
-
-Implement a second, action-transaction-bound ownerless transient surface group
-route. Prefer canonical owner chains. Require exact pre/post Win32 and X11 graphs,
-editor/process/start/thread/epoch, bounded create/show lifecycle, one connected
-and uniquely stacked group and unique input-bearing member. Never authorize by
-name, largest/newest window, count, geometry or same thread alone. Revalidate at
-Down; release only owned input and stop if the group changes before Up. Nested
-menus require a new capsule. Dismiss a still-valid group through one separately
-issued capsule and prove every member absent before quit; otherwise leave it for
-explicit operator handling.
-
-Add immutable candidate 17, exactly candidate 16 except revision/evidence,
-process-scoped disabled Windows accessibility and its unavailable limitation.
-Reuse all native/Windows/module/descriptor/runner bytes. Preserve all prior
-profiles and ordinary Pigments 11. Existing process-local override only; no prefix
-registry mutation. Prove the account-free UIA comparison and unrelated-process
-scope. Luna-max remains default; Astra requires an explicit bounded custodian
-escalation reason and identical one-action limits.
-
-Generated tests cover canonical, single/group ownerless, unrelated/ambiguous,
-stale/replaced/disappearing, nested, transparent, input/cleanup and accessibility
-scope. Run affected UIO1/UIR1/UIO2/manager/CA1, Clippy, pinned-Proton fixtures,
-AP8/AP12/PX2; AP10 only if native/audio changes.
-
-Only after generated verification, run one protected candidate-17 session with
-CA1 armed: menu, exact group, Resize Window once (new capsule for a chooser),
-resize waterfall, one known control and same-instance editor close/reopen on
-success. Stop at first terminal or exact tool boundary; no blind repeat, no
-candidate16 replay. Restore ordinary11, disarm capture, clean exact resources.
-No merge or promotion. Preserve the prior crash separately without causal claims.
-
-## Current TSG1 result
-
-Generated transient-group and scoped accessibility checks pass. Luna's native
-Moonlight continuation opened the menu, bound its exact ownerless group, and
-selected Resize Window. The observer stopped safely at a temporary X11 window
-being destroyed during chooser census (BadWindow). Its two mouse clicks have
-X11/Win32 receipts; no automated size choice or full resize waterfall is claimed.
-Earlier browser/capture attempts and their cleanup remain separate history.
-
-The operator then took control in the same candidate17 session, selected a new
-size, selected a new wavetable smoothly, changed tabs and moved knobs, and reported
-responsive behavior. This is operator-observed success, not a completed automated
-waterfall. The operator quit Bitwig normally. CA1 finalized with no terminal
-record or Collector rejection, all seven process-scoped retirement milestones,
-and positive cohort/transport cleanup.
-
-Ordinary Pigments11 is restored. Candidate17 is inactive; LoFi/FRAGMENTS10,
-software and protected projects equal their baseline. Capture is disarmed;
-Bitwig/cohorts are absent; leases, transactions, stale transports, held input and
-UIO units are zero; service/keeper remain active. See
-`evidence/uio2/tsg1/native-moonlight-boundary.json` and
-`evidence/uio2/tsg1/operator-resize-and-cleanup.json`.
-
-Review 5192912686 accepts the focused candidate17 product result and requires
-only the transient-census race repair before merge. The graph owner now retries
-BadWindow by discarding the whole attempt and taking a fresh Win32/X11 snapshot,
-at most three times. Missing visible surfaces remain unavailable; hidden/absent
-fresh rows cannot retain old X11 authority. Other errors are not retried.
-Generated tests cover absent/hidden replacement, exhaustion, unrelated errors,
-terminal changes and a real X-server destruction between snapshot and query.
-No more product testing is required for this repair. After checks pass, mark
-PR #101 ready and merge, then make the authorized immutable ordinary18 transition
-with candidate17 bytes and ordinary11 rollback. Only its narrow ordinary smoke
-is authorized; no menu/resize/wavetable repetition or root-cause claim.
-
----
-## Earlier UIO2 contract and retained boundary (historical)
-
-# UIO2 — owned popup control and Pigments resize qualification
-
-## Selected outcome
-
-Make editor-owned popup and menu windows first-class, exact UI targets under the
-current XWayland fixture, then use that capability for one bounded Pigments
-interaction:
-
-```text
-open the top-left menu
-→ identify the exact owned popup
-→ select Resize Window once
-→ retain the resize request, host response, actual geometry and local redraw
-```
-
-This is a product-facing UI boundary, not another crash-reproduction campaign or
-general screen-driving system.
-
-## Accepted basis and installed state
-
-CA1 was accepted at `792650e7614d75c99fb70a180f6ec0f1455536d2` and merged as
-`34fd77e0b1c1a1c41ba348638810a996348dd035`. The corrected crash reporter is
-installed and its late-fatal source fixture passed. Preserve:
-
-- UIO1 exact editor/input observation;
-- UIR1 generic Windows message-pump fairness;
-- IF1 durable terminal-failure custody;
-- IF2 native-host survival, contained silence and terminal failure view;
-- CA1 bounded exception/module/stack attribution;
-- ordinary Pigments revision 11 active;
-- candidate 16 inactive and immutable;
-- LoFi/FRAGMENTS revision 10 unchanged;
-- service/keeper health, projects and authorization;
-- 512 selected/recommended and 256 unqualified.
-
-The historical Pigments menu and waveform exits remain unattributed. Resize was
-never actually selected: the previous harness stopped when the menu appeared as
-a separate popup outside the main editor drawable. Do not call that a resize
-failure.
-
-Continue on `codex/uio2-owned-popup-resize` and draft PR #101 from the merged CA1
-basis. Read `AGENTS.md`, this file and only the relevant UIO1/UIR1/editor source.
-The goal is selected; continue directly with implementation and focused tests.
-
-## Reuse the existing owners
-
-- UIO1 Windows child census, exact UI-thread hooks, heartbeat, focus/capture facts
-  and local visual observation.
-- UIO1 XTEST/X RECORD input path, pointer settlement and held-input refusal.
-- UIR1's accepted production pump and fairness fixtures; do not reopen them.
-- `windows-factory-probe/source/vendor_view.h` and the existing VST3
-  `IPlugFrame::resizeView` / view-sizing path.
-- Current editor token, activation, generation and epoch ownership.
-- CA1 arming/reporting and IF1/IF2 terminal status.
-- Existing protected Pigments project and reversible candidate-16 route.
-
-Do not create a second editor owner, input injector, process supervisor or crash
-reporter.
-
-## Test custody and GUI executor split
-
-The implementation/coding agent is the **test custodian**. It owns:
-
-- exact source, artifacts, candidate and protected project;
-- setup, permissions and installed-state checks;
-- popup/editor/process identity;
-- the permitted interaction sequence and stop conditions;
-- UIO/CA1/process evidence;
-- cleanup, retry authority and the engineering verdict.
-
-Where model-routed GUI control is available, use **Luna** as the default bounded
-GUI executor. Use Luna at max reasoning for this owned-popup interaction. Use
-Astra only if Luna stops on a genuinely novel or consequential visual ambiguity;
-do not replay a useful session merely to change models.
-
-The executor receives one closed action capsule generated by the custodian. At
-minimum it contains:
-
-```text
-test ID
-exact editor identity and epoch
-expected popup owner relationship
-permitted actions
-forbidden actions
-machine stop conditions
-maximum action count
-time/observation bounds
-```
-
-The executor may report actions attempted, visible observations and the blocked
-step. It may not:
-
-- choose a new test;
-- declare technical pass/fail;
-- retry, relaunch or change candidate;
-- guess coordinates after identity/visibility failure;
-- dismiss an unexpected dialog;
-- save or modify a user project beyond the explicit capsule;
-- use a terminal or alter source/settings;
-- continue after CA1/IF1 terminal failure.
-
-Machine evidence from UIO, CA1 and bridge/process records is authoritative over
-the executor's narration. Only the custodian may authorize another action or
-launch.
-
-## Implementation contract
-
-### Exact owned-popup identity
-
-Extend the UIO window graph so a transient popup can be bound to the current
-editor by closed facts such as:
-
-```text
-Windows PID and start identity
-Windows UI thread
-HWND
-owner and root-owner HWND chain
-current native editor token
-activation, editor generation and epoch
-visibility/enabled state
-screen and client geometry
-XWayland XID and geometry where available
-```
-
-Window title, class name, product name, creation order, screen location or “most
-recent window” may be retained as observations but cannot independently select a
-target.
-
-A popup belonging to another process/thread/editor epoch, an ambiguous set of
-plausible popups, or a popup that disappears during selection must fail closed.
-
-### Popup-local observation
-
-Observe the selected popup independently of the main editor drawable.
-
-Prefer exact-window capture where available. If XComposite is unavailable and a
-bounded screen-region observation is needed, prove at the sampling boundary:
-
-- exact popup rectangle;
-- popup visibility and enabled state;
-- stacking/topmost relationship at the target;
-- no foreign occluding window over the target region;
-- current owner/editor identity;
-- unchanged scale and geometry.
-
-Private frames remain local. Public evidence should retain only bounded hashes,
-geometry, changed-region facts and scalar timing. Do not make OCR the primary
-selection mechanism.
-
-### Safe interaction
-
-Before each permitted click:
-
-1. Revalidate editor and popup identity/epoch.
-2. Revalidate target rectangle inside the popup.
-3. Confirm pointer settlement.
-4. Confirm no operator button/modifier is held.
-5. Confirm the expected Bitwig/editor ownership is active.
-6. Confirm CA1/IF1 has no terminal record.
-7. Deliver normal desktop input through the accepted XTEST/XWayland path.
-8. Observe the corresponding X11 and Win32 receipt.
-
-Do not call a vendor WndProc directly, synthesize `WM_COMMAND`, invoke an
-undocumented menu ID, or bypass the normal UI path.
-
-If selecting `Resize Window` opens a second expected owned popup rather than
-performing an immediate action, the custodian may prepare one new bounded capsule
-for that already-running session after exact identity is established. The GUI
-executor may not improvise that extension.
-
-### Resize waterfall
-
-Correlate the one menu action across:
-
-```text
-popup target and input receipt
-menu dismissal or replacement
-plug-in resize request, if any
-requested ViewRect
-host accept/refuse result
-parent/client/vendor-child rectangles
-scale/work-area facts
-onSize / resulting view-size delivery
-first local visual change
-stable final geometry
-UI heartbeat and terminal status
-```
-
-Distinguish at least:
-
-- item never selected;
-- no resize request followed;
-- host refused the request;
-- parent resized but child did not;
-- geometry succeeded but redraw did not;
-- endpoint entered terminal failure;
-- successful resize and continued interaction.
-
-Do not infer success from the window merely looking different remotely.
-
-### CA1 integration
-
-Arm the installed CA1 reporter before the exact product session. If a terminal
-incident occurs at any step:
-
-- stop GUI actions immediately;
-- do not relaunch or repeat the menu sequence;
-- finalize and retain the incident;
-- verify IF2 containment and cleanup;
-- return the exact fault/module/RVA/stack posture for review.
-
-No speculative graphics, resource, DLL, Proton or Arturia repair is authorized
-without that evidence.
-
-## Generated verification
-
-Add a source-owned Windows/XWayland fixture with:
-
-- a normal parent and vendor child;
-- a transient owned popup on the same UI thread;
-- an unrelated lookalike popup;
-- a bounded action that triggers the production resize route;
-- deterministic before/after geometry and paint facts.
-
-Prove:
-
-- exact popup binding and XWayland geometry;
-- stale editor epoch refusal;
-- wrong process/thread/owner refusal;
-- ambiguous multiple-popup refusal;
-- popup closure between census and click refusal;
-- target-outside-popup refusal;
-- foreign occlusion refusal;
-- held-input refusal;
-- normal X11 → Win32 receipt;
-- no direct vendor message dispatch;
-- resize request/response and actual child geometry;
-- bounded capture and cleanup;
-- the action capsule cannot grant retry, arbitrary input or verdict authority.
-
-Run affected UIO1/UIR1/Windows and manager tests. Run AP8 when Windows fixture or
-observer source changes, AP12 for manager/tooling changes and PX2 policy. Do not
-run AP10 unless native/audio source changes.
-
-## One product check
-
-After generated verification passes:
-
-1. Keep ordinary Pigments 11 as rollback.
-2. Select existing candidate 16 reversibly; do not create revision 17 unless
-   product-bound native/Windows/profile bytes genuinely change.
-3. Arm CA1 for that exact instance.
-4. Launch Bitwig normally from Applications with a protected project copy.
-5. Open Pigments once.
-6. Have Luna-max execute the approved capsule:
-   - open the top-left menu;
-   - stop while tooling binds the exact owned popup;
-   - select `Resize Window` once after custodian authorization.
-7. Retain the resize waterfall and actual final geometry.
-8. If resize succeeds, exercise one already-known control once and close/reopen
-   the editor once on the same DSP instance.
-9. Remove Pigments or quit Bitwig normally.
-10. Confirm cleanup and restore ordinary Pigments 11 pending review.
-
-No manual Mac focus/input takeover, prolonged playback, repeated resize matrix,
-every-size campaign, preset/automation/state campaign or second attempt after a
-material failure.
-
-If Luna stops on a novel visual ambiguity, preserve the running state and exact
-blocker. The custodian may ask Astra to resolve only that bounded ambiguity; do
-not replay earlier successful actions. If the state cannot be safely continued,
-stop the session and report it rather than guessing.
-
-## Product outcomes
-
-### Successful resize
-
-Require exact popup selection, actual resize request/acceptance, correct parent
-and child geometry, local redraw, continued control response, same live DSP
-instance, no terminal incident and positive cleanup.
-
-Do not promote candidate 16 in this PR. Return it for independent product review;
-an ordinary acceptance transition is a separate bounded decision.
-
-### Attributed terminal failure
-
-Do not retry. Return the CA1 incident, IF1 first failure, IF2 containment,
-interaction waterfall and cleanup. The next repair is selected from that exact
-failure path.
-
-### Non-crashing refusal or tooling boundary
-
-Retain the exact owner: ambiguous popup, missing item, absent resize request,
-host refusal, incorrect geometry or missing repaint. An in-scope deterministic
-UIO2 tooling/source repair may be made and rechecked once after its generated
-regression passes. Do not broaden into a generic UI campaign.
-
-## Out of scope
-
-- a universal GUI crawler or AI screen agent;
-- OCR-first menu discovery;
-- arbitrary menus or every Pigments page;
-- graphics-driver or Proton migration;
-- DLL/accessibility/resource experiments;
-- historical crash reproduction loops;
-- residual audio delivery work;
-- capacity/lease maintenance;
-- in-place state recovery;
-- Serum authorization or qualification;
-- ordinary Pigments promotion.
-
-## Handoff
-
-Return this same draft PR with:
-
-- exact final source/head/tree;
-- popup identity and capture design;
-- generated fixture results;
-- exact Luna action capsule and executor receipt, without private screenshots;
-- resize waterfall or exact blocked/failure boundary;
-- CA1 incident posture;
-- validation and CI;
-- final installed state and cleanup;
-- explicit nonclaims.
-
-Leave ordinary Pigments 11 active, candidate 16 inactive unless a reviewed test
-is deliberately in progress, LoFi/FRAGMENTS unchanged, capture disarmed, service
-and keeper healthy, zero leases/transactions/stale transport, held input zero and
-no GUI executor session left running.
-
-UIO2 is complete when the owned-popup boundary is implemented and the one real
-resize action either succeeds with machine evidence or stops at one exact,
-actionable boundary without blind repetition.
-
-
-## UIO2 retained implementation result
-
-The generated owned-popup/production-resize fixture passed under the pinned
-runner: exact input receipts, one accepted 800×500 resize, matching child geometry,
-repaint and positive cleanup. One Luna-max Pigments menu click then exposed five
-same-thread top-level windows with no owner chain to the editor. Resize Window
-was not selected. The underlying-editor capture fallback was corrected with a
-deterministic refusal regression; no product replay occurred.
-
-The subsequent normal Bitwig quit attempt produced a state-response timeout and
-a CA1-retained Windows UI-thread access violation. IF1 custody, IF2 native survival/
-contained silence and terminal cleanup were retained. The logged UIAutomationCore
-base/RVA is a lead with mapped identity unavailable, not a proven root cause.
-Ordinary 11 is restored, candidate 16 inactive, service/keeper healthy and all
-owned session/input/diagnostic resources cleaned. See `docs/UIO2.md` and
-`evidence/uio2/`. PR #101 remains draft/unmerged. No more live action is authorized
-by this completed bounded check.
+# MF1 — Human Operator Manager
+
+Base: `68451b11f613778514bb0b23f58efe47468c3c2a` (merged ordinary Pigments18).
+The user selected MF1 after review5193270789 and the natural ordinary shutdown.
+No separate planning review. One implementation PR; independent review before merge.
+
+## Outcome
+
+A native Rust desktop frontend, without browser/WebView dependence, makes existing
+manager operations usable without a terminal. Canonical Rust state remains the
+only authority. The frontend is a projection and refreshes after typed receipts.
+Start with one bounded native desktop launch/input/scaling/close fixture; choose
+a simple toolkit from that proof, not a framework comparison campaign.
+
+## Contract
+
+Version1 read model: system, environments, vendor applications, products, active
+sessions, capture, incidents, revision history and operations. Human names first;
+exact technical facts on expansion. States include ready, needs attention,
+installing/scanning, installed/unqualified, quarantined and recent incidents.
+Unknown authorization remains unknown; vendor account/secret material is excluded.
+
+Closed actions: ASC open/focus/owned stop, environment rescan, ordinary rollback,
+restore recommended, reconcile, capture arm/disarm and sanitized incident export.
+No arbitrary path/PID/command/argument action; no direct frontend file mutation or
+competing state database. Revalidate authority and inactive-only constraints in
+the manager; disabled reasons are presented before actions. Review candidates are
+history only, never ordinary activation targets. Closing the frontend must not
+stop audio or unrelated/vendor processes.
+
+Generic Arturia environment scan inventories exact modules and all exported
+classes with version/role/digest/environment. Filename is nomination, not identity.
+Unknown products remain installed/unqualified and unpublished. Reuse supervised
+scanner and existing ownership/cleanup; no product-name button per new plug-in.
+
+## Verification and preservation
+
+Generated fixtures prove typed action/schema refusal, stale/foreign target
+refusal, candidate refusal, busy environment refusal, supported/unknown inventory,
+ordinary rollback/restore and positive cleanup. Real Deck proof: app-menu launch,
+readback, ASC launch/focus, return/rescan, capture arm/disarm, sanitized incident,
+actions disabled during a live DSP lease, close without disrupting owners.
+Use Luna for bounded GUI execution; custodian owns identity, stop conditions and
+verdict. No credential automation. Stop for operator authorization screens.
+
+Preserve ordinary Pigments18/rollback11, inactive candidate17/history, LoFi and
+FRAGMENTS10, native/Windows product artifacts, environments, authorization and
+projects. No Pigments menu/resize campaign, Serum qualification, performance,
+capacity or in-place recovery work. 512 recommended,256 unqualified.
+Run affected manager/Clippy/runtime, frontend and inventory tests, AP12/PX2;
+AP8 only if Windows scanner source/inputs change. No native/audio rebuild for UI.
+Package immutably and install a normal application entry. Final record states
+actual source/software, operator workflow, tests, limitations and installed state.

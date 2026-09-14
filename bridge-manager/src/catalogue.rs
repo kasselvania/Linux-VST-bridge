@@ -34,6 +34,8 @@ pub fn verify_host_path(path: &Path) -> Result<()> {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Software {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operator_frontend: Option<Artifact>,
     pub manager: Artifact,
     pub supervisor: Artifact,
     pub ownership: Artifact,
