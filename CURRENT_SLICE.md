@@ -74,3 +74,13 @@ host/source currency. Deterministic tests plus manager/frontend Clippy, runtime,
 AP12 and PX2 establish this pass. Preserve all live evidence and installed state.
 No further GUI/vendor/plug-in test, installation, real rollback or merge in this
 repair pass. Return the amended source for independent rereview. See docs/MF1.md.
+
+
+## Remaining concurrency repair after review 5194445612
+
+The five preceding fixes are accepted at `5008ed32564b41b91281bbfab1945289d27db8cd`.
+Bind service resume ownership to the creating operation; delayed cleanup must not
+consume another operation's record. Stop ASC may recover only its checked exact
+vendor-open owner. Add deterministic overlap and Stop-handoff regressions, run
+focused manager/runtime/Clippy and AP12/PX2, and return PR104 for rereview.
+No installation, live interaction, product/evidence change or merge.

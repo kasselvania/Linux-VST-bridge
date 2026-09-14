@@ -4,6 +4,18 @@ use linux_vst_bridge::vendor_application::{
 };
 
 pub fn run(m: &Manager, args: &[String]) -> Result<()> {
+    run_selected(m, args, None)
+}
+pub(super) fn launch_owned(m: &Manager, application: &str, operation: &str) -> Result<()> {
+    run_selected(m, &["launch".into(), application.into()], Some(operation))
+}
+pub(super) fn cancel_owned(m: &Manager, application: &str, operation: &str) -> Result<()> {
+    run_selected(m, &["cancel".into(), application.into()], Some(operation))
+}
+fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result<()> {
+    if let Some(id) = operation {
+        require(valid_hex(id, 32), "vendor_application_operation_identity")?;
+    }
     require(args.len() == 2, "vendor-app ACTION arturia-software-center")?;
     ApplicationId::parse(&args[1])?;
     let directory = m.root.join("vendor-applications/arturia-software-center");
@@ -83,6 +95,13 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
         "cancel" => {
             let _guard = m.lock("registry.lock")?;
             let prior: OperationResult = read_json(&directory.join("operation-result.json"))?;
+            if let Some(id) = operation {
+                let job: serde_json::Value = read_json(&directory.join("operation.json"))?;
+                require(
+                    job["operation_id"] == id && prior.operation_id.as_deref() == Some(id),
+                    "vendor_application_operation_changed",
+                )?;
+            }
             if prior.retired() {
                 let state = Command::new("systemctl")
                     .args([
@@ -119,6 +138,12 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
             )?;
             let result: OperationResult = read_json(&directory.join("operation-result.json"))?;
             require(result.retired(), "vendor_application_cleanup_unconfirmed")?;
+            if let Some(id) = operation {
+                require(
+                    result.operation_id.as_deref() == Some(id),
+                    "vendor_application_operation_changed",
+                )?;
+            }
             println!("{}", serde_json::to_string(&result)?);
             Ok(())
         }
@@ -165,9 +190,13 @@ pub fn run(m: &Manager, args: &[String]) -> Result<()> {
                     .args(["--user", "reset-failed", unit])
                     .status()?;
             }
+            let operation_id = match operation {
+                Some(id) => id.to_owned(),
+                None => random_id()?,
+            };
             atomic_json(
                 &job,
-                &serde_json::json!({"application":app,"report":directory.join("operation-result.json"),"mode":mode,"operation_id":random_id()?}),
+                &serde_json::json!({"application":app,"report":directory.join("operation-result.json"),"mode":mode,"operation_id":operation_id}),
             )?;
             let result = Command::new("systemd-run")
                 .args([

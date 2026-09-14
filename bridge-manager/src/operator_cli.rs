@@ -1,7 +1,7 @@
 //! MF1: closed operator requests dispatched to existing canonical owners.
 use super::*;
 use linux_vst_bridge::operator_model as ui;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
@@ -595,9 +595,16 @@ fn refuse_unfinished(m: &Manager, id: &str, reason: &str) -> Result<()> {
     )
 }
 fn finish_operation(m: &Manager, id: &str) -> Result<()> {
-    // Reporting must not prevent the existing service/keeper recovery owner.
+    finish_operation_with(m, id, |saved| restore_service(m, saved))
+}
+fn finish_operation_with(
+    m: &Manager,
+    id: &str,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    // Reporting must not prevent this operation's service/keeper recovery.
     let finalized = refuse_unfinished(m, id, "operator_worker_terminated");
-    let recovered = resume(m);
+    let recovered = resume_owned_with(m, id, restore);
     finalized?;
     recovered
 }
@@ -678,7 +685,7 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
         }
         ui::Action::TransactionReconcile {} => {
             m.reconcile_inactive()?;
-            resume(m)?;
+            resume_interrupted(m)?;
             Ok(json!({"reconciled":true}))
         }
         ui::Action::OrdinaryRollback {
@@ -711,10 +718,12 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
         ui::Action::VendorApplicationOpen { application } => {
             vendor_application::ApplicationId::parse(application)?;
             let _environment = m.lock("operator-environment.lock")?;
-            suspend(m)?;
-            let launched = vendor_cli::run(m, &["launch".into(), application.clone()]);
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let vendor_operation = random_id()?;
+            suspend(m, owner, Some(vendor_operation.clone()))?;
+            let launched = vendor_cli::launch_owned(m, application, &vendor_operation);
             if let Err(e) = launched {
-                let _ = resume(m);
+                let _ = resume_owned(m, owner);
                 return Err(e);
             }
             if let Some(id) = operation {
@@ -730,12 +739,16 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
                 std::thread::sleep(Duration::from_millis(500));
             }
             require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")?;
-            resume(m)?;
+            resume_owned(m, owner)?;
             Ok(json!({"vendor":"retired","service":"resumed"}))
         }
         ui::Action::VendorApplicationStop { application } => {
-            vendor_cli::run(m, &["cancel".into(), application.clone()])?;
-            resume(m)?;
+            stop_vendor_with(
+                m,
+                application,
+                |vendor| vendor_cli::cancel_owned(m, application, vendor),
+                |saved| restore_service(m, saved),
+            )?;
             Ok(json!({"vendor":"stopped"}))
         }
         ui::Action::VendorApplicationFocus { application } => {
@@ -769,35 +782,31 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
         }
         ui::Action::EnvironmentRescan { environment } => {
             let _environment = m.lock("operator-environment.lock")?;
-            suspend(m)?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m, owner, None)?;
             let result = rescan(m, environment);
-            let cleanup = resume(m);
+            let cleanup = resume_owned(m, owner);
             let value = result?;
             cleanup?;
             Ok(value)
         }
     }
 }
-fn suspend(m: &Manager) -> Result<()> {
-    let _lock = m.lock("registry.lock")?;
-    m.require_inactive(None)?;
-    require(vendor_retired(m)?, "operator_vendor_active")?;
-    let was_active = active(SERVICE);
-    atomic_json(
-        &m.root.join("operator/resume.json"),
-        &json!({"schema":1,"resume":was_active,"software":software(m)?.manager.sha256}),
-    )?;
-    if was_active {
-        service("stop")?;
-    }
-    require(!reconcile_leases(m)?, "operator_cleanup_unconfirmed")?;
-    Ok(())
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResumeRecord {
+    schema: u32,
+    owner_operation: String,
+    resume: bool,
+    software: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    vendor_operation: Option<String>,
 }
-fn resume(m: &Manager) -> Result<()> {
+fn resume_lock(m: &Manager) -> Result<Lock> {
     let deadline = Instant::now() + Duration::from_secs(75);
-    let _resume = loop {
+    loop {
         match m.lock("operator-resume.lock") {
-            Ok(lock) => break lock,
+            Ok(lock) => return Ok(lock),
             Err(e) => {
                 if e.to_string() != "operation already running" || Instant::now() >= deadline {
                     return Err(e);
@@ -805,18 +814,151 @@ fn resume(m: &Manager) -> Result<()> {
                 std::thread::sleep(Duration::from_millis(50));
             }
         }
+    }
+}
+fn resume_record(m: &Manager) -> Result<Option<ResumeRecord>> {
+    let value = optional(&m.root.join("operator/resume.json"))?;
+    if value.is_null() {
+        return Ok(None);
+    }
+    let saved: ResumeRecord = serde_json::from_value(value)?;
+    require(
+        saved.schema == 1
+            && valid_hex(&saved.owner_operation, 32)
+            && valid_hex(&saved.software, 64)
+            && saved
+                .vendor_operation
+                .as_ref()
+                .is_none_or(|id| valid_hex(id, 32)),
+        "operator_resume_identity",
+    )?;
+    Ok(Some(saved))
+}
+// Caller holds operator-resume.lock. An outstanding recovery is never replaced.
+fn create_resume(m: &Manager, saved: &ResumeRecord) -> Result<()> {
+    require(resume_record(m)?.is_none(), "operator_resume_pending")?;
+    job_dir(m, &saved.owner_operation)?;
+    atomic_json(&m.root.join("operator/resume.json"), saved)
+}
+fn suspend(m: &Manager, owner: &str, vendor_operation: Option<String>) -> Result<()> {
+    // Same lock order as recovery: resume, then registry. Hold through Stop so
+    // even the matching owner cannot consume the record before suspension.
+    let _resume = resume_lock(m)?;
+    let _lock = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    require(vendor_retired(m)?, "operator_vendor_active")?;
+    let was_active = active(SERVICE);
+    create_resume(
+        m,
+        &ResumeRecord {
+            schema: 1,
+            owner_operation: owner.into(),
+            resume: was_active,
+            software: software(m)?.manager.sha256,
+            vendor_operation,
+        },
+    )?;
+    if was_active {
+        service("stop")?;
+    }
+    require(!reconcile_leases(m)?, "operator_cleanup_unconfirmed")?;
+    Ok(())
+}
+fn resume_owned(m: &Manager, owner: &str) -> Result<()> {
+    resume_owned_with(m, owner, |saved| restore_service(m, saved))
+}
+fn resume_owned_with(
+    m: &Manager,
+    owner: &str,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    resume_locked(m, owner, restore)
+}
+// The lock covers read, restore and removal. A newer suspension cannot slip
+// between the identity comparison and record retirement.
+fn resume_locked(
+    m: &Manager,
+    owner: &str,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    job_dir(m, owner)?;
+    let Some(saved) = resume_record(m)? else {
+        return Ok(());
     };
-    let path = m.root.join("operator/resume.json");
-    let saved = optional(&path)?;
-    if saved.is_null() {
+    if saved.owner_operation != owner {
         return Ok(());
     }
+    restore(&saved)?;
+    fs::remove_file(m.root.join("operator/resume.json"))?;
+    Ok(())
+}
+fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
+    let request: ui::Request =
+        read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
+    require(request.schema == 1, "operator_resume_request_schema")?;
+    Ok(request.action)
+}
+fn stop_vendor_with(
+    m: &Manager,
+    application: &str,
+    cancel: impl FnOnce(&str) -> Result<()>,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>,
+) -> Result<()> {
+    vendor_application::ApplicationId::parse(application)?;
+    let _resume = resume_lock(m)?;
+    let saved = resume_record(m)?.ok_or("operator_vendor_open_owner_absent")?;
+    require(
+        recovery_request(m, &saved)?
+            == (ui::Action::VendorApplicationOpen {
+                application: application.into(),
+            }),
+        "operator_vendor_open_owner_mismatch",
+    )?;
+    let vendor = saved
+        .vendor_operation
+        .as_deref()
+        .ok_or("operator_vendor_open_binding_absent")?;
+    let job = optional(&app_directory(m).join("operation.json"))?;
+    require(
+        job["operation_id"] == vendor,
+        "operator_vendor_open_binding_changed",
+    )?;
+    // cancel_owned also checks this identity under the vendor registry lock,
+    // then requires positive retirement of that same launch.
+    cancel(vendor)?;
+    resume_locked(m, &saved.owner_operation, restore)
+}
+fn resume_interrupted(m: &Manager) -> Result<()> {
+    // Only explicit reconciliation can recover a completed prior owner. It
+    // cannot steal an active Open/Rescan or adopt an ownerless legacy record.
+    let _resume = resume_lock(m)?;
+    let Some(saved) = resume_record(m)? else {
+        return Ok(());
+    };
+    let _environment = m.lock("operator-environment.lock")?;
+    require(
+        matches!(
+            recovery_request(m, &saved)?,
+            ui::Action::VendorApplicationOpen { .. } | ui::Action::EnvironmentRescan { .. }
+        ),
+        "operator_resume_action_mismatch",
+    )?;
+    let result = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
+    require(
+        result["operation"] == saved.owner_operation
+            && matches!(result["state"].as_str(), Some("completed" | "refused")),
+        "operator_resume_owner_not_terminal",
+    )?;
+    resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved))
+}
+fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
     require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")?;
     require(
-        saved["software"] == software(m)?.manager.sha256,
+        saved.software == software(m)?.manager.sha256,
         "operator_resume_software_changed",
     )?;
-    if saved["resume"] == true {
+    if saved.resume {
         service("start")?;
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut peer = loop {
@@ -840,7 +982,6 @@ fn resume(m: &Manager) -> Result<()> {
             "operator_keeper_resume_unconfirmed",
         )?;
     }
-    fs::remove_file(path)?;
     Ok(())
 }
 fn rescan(m: &Manager, environment: &str) -> Result<Value> {
@@ -991,7 +1132,6 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             println!("{}", serde_json::to_string(&receipt)?);
         }
         [a, id] if a == "worker" => worker(m, id)?,
-        [a] if a == "resume" => resume(m)?,
         [a, id] if a == "finish" => finish_operation(m, id)?,
         _ => return Err("operator snapshot | request".into()),
     }
@@ -1146,17 +1286,13 @@ mod tests {
             }
             let cap: CapacityReadback =
                 serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap();
-            assert!(
-                inactive_reason(Some(&cap), false, 0, false)
-                    .unwrap()
-                    .contains("Software Center")
-            );
+            assert!(inactive_reason(Some(&cap), false, 0, false)
+                .unwrap()
+                .contains("Software Center"));
             if !matches!(action, ui::Action::TransactionReconcile {}) {
-                assert!(
-                    inactive_reason(Some(&cap), true, 1, false)
-                        .unwrap()
-                        .contains("Reconcile")
-                );
+                assert!(inactive_reason(Some(&cap), true, 1, false)
+                    .unwrap()
+                    .contains("Reconcile"));
             }
         }
         assert!(!f.m.root.join("registry.json").exists());
@@ -1177,10 +1313,10 @@ mod tests {
         atomic_json(&job.lease, &job.report).unwrap();
         assert!(f.m.reconcile_inactive().is_err());
         assert!(f.m.rollback_inactive(&key, &first.id, None).is_err());
-        assert!(
-            f.m.managed_publish_inactive(&p, &c, r, &c.host, &c.host_source_sha256, None)
-                .is_err()
-        );
+        assert!(f
+            .m
+            .managed_publish_inactive(&p, &c, r, &c.host, &c.host_source_sha256, None)
+            .is_err());
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
     }
     #[test]
@@ -1289,6 +1425,176 @@ mod tests {
             completed
         );
     }
+    fn queued_test_action(m: &Manager, action: ui::Action) -> String {
+        launch_queued(
+            m,
+            &ui::Request {
+                schema: 1,
+                state_token: "fixture".into(),
+                action,
+            },
+            |_| Ok(true),
+        )
+        .unwrap()
+        .operation
+        .unwrap()
+    }
+    fn saved_test_resume(m: &Manager, owner: &str, vendor: Option<String>) -> ResumeRecord {
+        let saved = ResumeRecord {
+            schema: 1,
+            owner_operation: owner.into(),
+            resume: true,
+            software: "ab".repeat(32),
+            vendor_operation: vendor,
+        };
+        let _lock = resume_lock(m).unwrap();
+        create_resume(m, &saved).unwrap();
+        saved
+    }
+    #[test]
+    fn delayed_finish_preserves_newer_service_recovery_until_its_owner_restores() {
+        let f = test_fixture::Fixture::new();
+        let a = queued_test_action(&f.m, ui::Action::CaptureDisarm {});
+        let completed =
+            json!({"schema":1,"operation":a,"state":"completed","result":{"capture":"disarmed"}});
+        write_operation(&f.m, &a, &completed, false).unwrap();
+        let b = queued_test_action(
+            &f.m,
+            ui::Action::EnvironmentRescan {
+                environment: f.r.environment.id.clone(),
+            },
+        );
+        let saved = saved_test_resume(&f.m, &b, None);
+        let path = f.m.root.join("operator/resume.json");
+        let before = fs::read(&path).unwrap();
+        let latest = fs::read(f.m.root.join("operator/latest.json")).unwrap();
+        let mut restores = 0;
+        finish_operation_with(&f.m, &a, |_| {
+            restores += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            restores, 0,
+            "old finish must not even query/start recovery for B"
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert_eq!(
+            fs::read(f.m.root.join("operator/latest.json")).unwrap(),
+            latest
+        );
+        assert_eq!(
+            optional(&job_dir(&f.m, &a).unwrap().join("result.json")).unwrap(),
+            completed
+        );
+        // The current record cannot be overwritten by another suspension.
+        {
+            let _lock = resume_lock(&f.m).unwrap();
+            assert!(create_resume(&f.m, &saved).is_err());
+        }
+        assert_eq!(fs::read(&path).unwrap(), before);
+        // Failure preserves the recovery obligation; a later exact-owner call
+        // may complete it. These closures replace only external service I/O.
+        assert!(resume_owned_with(&f.m, &b, |_| Err("service unavailable".into())).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        resume_owned_with(&f.m, &b, |r| {
+            assert_eq!(r.owner_operation, b);
+            assert!(r.resume);
+            assert_eq!(r.software, saved.software);
+            restores += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(restores, 1);
+        assert!(!path.exists());
+        finish_operation_with(&f.m, &a, |_| panic!("no record to recover")).unwrap();
+    }
+    #[test]
+    fn stop_asc_recovers_only_the_exact_vendor_open_operation() {
+        for mismatch in [
+            "none",
+            "wrong_action",
+            "wrong_launch",
+            "missing_launch_binding",
+            "changed_vendor_result",
+        ] {
+            let f = test_fixture::Fixture::new();
+            let a = if mismatch == "wrong_action" {
+                ui::Action::EnvironmentRescan {
+                    environment: f.r.environment.id.clone(),
+                }
+            } else {
+                ui::Action::VendorApplicationOpen {
+                    application: ASC.into(),
+                }
+            };
+            let owner = queued_test_action(&f.m, a);
+            let stop = queued_test_action(
+                &f.m,
+                ui::Action::VendorApplicationStop {
+                    application: ASC.into(),
+                },
+            );
+            let vendor = "cd".repeat(16);
+            saved_test_resume(
+                &f.m,
+                &owner,
+                if mismatch == "missing_launch_binding" {
+                    None
+                } else {
+                    Some(vendor.clone())
+                },
+            );
+            private_dir(&app_directory(&f.m)).unwrap();
+            atomic_json(&app_directory(&f.m).join("operation.json"),
+                &json!({"operation_id":if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()}})).unwrap();
+            atomic_json(&app_directory(&f.m).join("operation-result.json"),
+                &json!({"schema":3,"operation_id":if mismatch=="changed_vendor_result"{"ef".repeat(16)}else{vendor.clone()},
+                "state":"running","launcher_exit":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+            let path = f.m.root.join("operator/resume.json");
+            let before = fs::read(&path).unwrap();
+            let mut cancels = 0;
+            let mut restores = 0;
+            let result = stop_vendor_with(
+                &f.m,
+                ASC,
+                |id| {
+                    assert_eq!(id, vendor);
+                    if mismatch == "changed_vendor_result" {
+                        // Actual cancellation owner rejects drift before systemctl,
+                        // application verification or any vendor/process action.
+                        return vendor_cli::cancel_owned(&f.m, ASC, id);
+                    }
+                    cancels += 1;
+                    Ok(())
+                },
+                |saved| {
+                    assert_eq!(saved.owner_operation, owner);
+                    assert_ne!(saved.owner_operation, stop);
+                    restores += 1;
+                    Ok(())
+                },
+            );
+            if mismatch == "none" {
+                result.unwrap();
+                assert_eq!(cancels, 1);
+                assert_eq!(restores, 1);
+                assert!(!path.exists());
+            } else {
+                let reason = match mismatch {
+                    "wrong_action" => "operator_vendor_open_owner_mismatch",
+                    "wrong_launch" => "operator_vendor_open_binding_changed",
+                    "missing_launch_binding" => "operator_vendor_open_binding_absent",
+                    "changed_vendor_result" => "vendor_application_operation_changed",
+                    _ => unreachable!(),
+                };
+                assert_eq!(result.unwrap_err().to_string(), reason);
+                assert_eq!(cancels, 0);
+                assert_eq!(restores, 0);
+                assert_eq!(fs::read(&path).unwrap(), before);
+            }
+        }
+    }
     #[test]
     fn ordinary_history_limits_rollback_to_ancestry_and_restore_preserves_bytes() {
         let (f, mut p, c, n) = test_fixture::prepared();
@@ -1366,10 +1672,10 @@ mod tests {
             saved
         );
         p.claim = profiles::Claim::ReviewCandidate;
-        assert!(
-            f.m.managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
-                .is_err()
-        );
+        assert!(f
+            .m
+            .managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
+            .is_err());
     }
     #[test]
     fn vendor_deactivation_is_live_until_the_unit_finishes_cleanup() {

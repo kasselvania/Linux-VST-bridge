@@ -164,3 +164,37 @@ frontend tests passed, with strict manager/frontend Clippy. The runtime suite
 reported 61 tests with34 Linux-only skips on macOS. AP12 supplies the full Linux
 manager/runtime, frontend and existing tooling lanes; PX2 supplies the unchanged
 policy checks. Exact amended-head results are attached to PR104.
+
+
+## Operation-bound service recovery — review 5194445612
+
+The five integrity repairs above were accepted at `5008ed32564b41b91281bbfab1945289d27db8cd`.
+The remaining race was an older ExecStopPost consuming a newer global resume
+record. The resume record now includes the exact `owner_operation`, schema,
+manager digest and prior service-active posture. ASC Open also reserves its exact
+vendor launch identity before suspension and retains that binding in the record.
+No vendor host, supervisor protocol, profile or installed artifact changes.
+
+Suspension and recovery share the existing resume lock. Suspension refuses an
+outstanding record and holds that lock through service stop; recovery holds it
+through owner comparison, restoration and removal. A delayed finish still
+finalizes its own receipt, but skips another operation's resume record before any
+vendor, software or service recovery work. Failed restoration leaves the record.
+
+Stop ASC is an explicit checked handoff: the retained request must be ASC Open,
+and the resume record must match the current vendor job identity. Cancellation
+rechecks the job/result identity under the vendor registry lock and requires
+positive retirement of that same launch. Only then may Stop restore and retire
+the original Open operation's resume record. Explicit reconciliation additionally
+requires a terminal Open/Rescan owner and the environment-operation lock. The old
+unscoped `operator resume` entry point is removed; ownerless legacy records are
+refused rather than assigned an invented owner.
+
+Two deterministic production-owner regressions cover delayed A-finish after B
+publishes its resume record, byte-for-byte preservation/no restoration attempt,
+B-only recovery and retry after a restoration failure, and the exact Stop-ASC
+handoff with wrong action, changed launch, absent binding and changed vendor-result
+refusal. Only external service/cancellation I/O is substituted by the fixtures.
+No GUI, vendor launch, rescan, plug-in session, installation or real rollback was
+performed. Existing live evidence and installed state remain untouched; source
+awaits independent rereview and a separately authorized installation.
