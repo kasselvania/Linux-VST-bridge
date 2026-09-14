@@ -120,8 +120,10 @@ class Session:
             path=self.out/'action.json'
             if path.is_symlink() or path.stat().st_uid!=os.getuid() or path.stat().st_size>16:raise RuntimeError('action mailbox identity/size')
             value=json.loads(path.read_text())
+            if value==3:
+                self.collect() # Retain the previous action label through its final drain.
+                self.labels.accept(value);self.raw['completed']=True;break
             if self.labels.accept(value):
-                if value==3:self.collect();self.raw['completed']=True;break
                 self.obs.action(value);self.rec.action=value;self.xi.action=value
                 self.raw['actions'].append(dict(action=value,begin_ns=time.monotonic_ns()))
             self.collect()
@@ -164,7 +166,9 @@ class Session:
                 except Exception as e:errors.append(type(e).__name__)
         try:self.raw['after']=self.c.fault.snapshot()
         except Exception as e:errors.append(type(e).__name__)
-        finally:self.c.fault.close()
+        finally:
+            try:self.c.fault.close()
+            except Exception as e:errors.append(type(e).__name__)
         self.raw['cleanup']['errors']=errors
         if errors:self.raw['completed']=False
         private_json(self.out/'timeline.json',self.raw)

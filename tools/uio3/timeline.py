@@ -53,7 +53,8 @@ def summarize(raw):
             elif swallowed:boundary='downstream_mouse_hook_nonzero'
             elif rewritten:boundary='retrieved_release_rewritten_to_null'
             elif entry:
-                if begin and not ended:
+                if not ret:boundary='wndproc_release_return_unobserved'
+                elif begin and not ended:
                     boundary='capture_clear_gesture_end_unobserved' if captures_after and not any(captures_after[-3:]) else 'wndproc_release_gesture_end_unobserved'
                 elif ret and ret[-1]['capture']!=0:boundary='wndproc_release_capture_still_present'
                 else:boundary='release_and_gesture_end_observed' if ended else 'release_delivered_no_parameter_gesture'

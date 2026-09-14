@@ -118,16 +118,16 @@ class XI2:
         self.x=x;self.display=x.x.XOpenDisplay(None);self.errors=[];self.records=[];self.dropped=0;self.capacity=capacity;self.action=0;self.closed=False
         if not self.display:raise RuntimeError('XI2 private display')
         _attach_errors(x.x,self.display,self.errors)
-        self.lib=C.CDLL(ctypes.util.find_library('Xi'))
-        def bind(lib,name,result,args):f=getattr(lib,name);f.restype=result;f.argtypes=args
-        bind(x.x,'XQueryExtension',I,[P,C.c_char_p,C.POINTER(I),C.POINTER(I),C.POINTER(I)])
-        bind(x.x,'XPending',I,[P]);bind(x.x,'XNextEvent',I,[P,C.POINTER(Event)])
-        bind(x.x,'XGetEventData',I,[P,C.POINTER(Cookie)]);bind(x.x,'XFreeEventData',None,[P,C.POINTER(Cookie)])
-        bind(self.lib,'XIQueryVersion',I,[P,C.POINTER(I),C.POINTER(I)])
-        bind(self.lib,'XIQueryDevice',C.POINTER(Device),[P,I,C.POINTER(I)]);bind(self.lib,'XIFreeDeviceInfo',None,[C.POINTER(Device)])
-        bind(self.lib,'XISelectEvents',I,[P,U,C.POINTER(Mask),I])
-        bind(self.lib,'XIQueryPointer',I,[P,I,U,C.POINTER(U),C.POINTER(U),*[C.POINTER(C.c_double)]*4,C.POINTER(Buttons),C.POINTER(Mods),C.POINTER(Mods)])
         try:
+            self.lib=C.CDLL(ctypes.util.find_library('Xi'))
+            def bind(lib,name,result,args):f=getattr(lib,name);f.restype=result;f.argtypes=args
+            bind(x.x,'XQueryExtension',I,[P,C.c_char_p,C.POINTER(I),C.POINTER(I),C.POINTER(I)])
+            bind(x.x,'XPending',I,[P]);bind(x.x,'XNextEvent',I,[P,C.POINTER(Event)])
+            bind(x.x,'XGetEventData',I,[P,C.POINTER(Cookie)]);bind(x.x,'XFreeEventData',None,[P,C.POINTER(Cookie)])
+            bind(self.lib,'XIQueryVersion',I,[P,C.POINTER(I),C.POINTER(I)])
+            bind(self.lib,'XIQueryDevice',C.POINTER(Device),[P,I,C.POINTER(I)]);bind(self.lib,'XIFreeDeviceInfo',None,[C.POINTER(Device)])
+            bind(self.lib,'XISelectEvents',I,[P,U,C.POINTER(Mask),I])
+            bind(self.lib,'XIQueryPointer',I,[P,I,U,C.POINTER(U),C.POINTER(U),*[C.POINTER(C.c_double)]*4,C.POINTER(Buttons),C.POINTER(Mods),C.POINTER(Mods)])
             op,a,b=I(),I(),I()
             if not x.x.XQueryExtension(self.display,b'XInputExtension',C.byref(op),C.byref(a),C.byref(b)):raise RuntimeError('XI2 unavailable')
             self.opcode=op.value;major,minor=I(2),I(2)

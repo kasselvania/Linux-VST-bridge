@@ -52,7 +52,7 @@ def outer(root,package,admission):
     for name,sha in expected.items():sealed_bytes(package/name,sha)
     private_json(root/'runner.json',runner)
     env=compositor_environment(root);env['UIO3_ROOT']=str(root);env['UIO3_PACKAGE']=str(package)
-    command=['dbus-run-session','--','kwin_wayland','--virtual','--xwayland','--socket','uio3-isolated','--width','1280','--height','800','--no-lockscreen','--no-global-shortcuts','--no-kactivities','--exit-with-session',str(HERE/'fixture.sh')]
+    command=['dbus-run-session','--','kwin_wayland','--virtual','--xwayland','--socket','uir1-isolated','--width','1280','--height','800','--no-lockscreen','--no-global-shortcuts','--no-kactivities','--exit-with-session',str(HERE/'fixture.sh')]
     r=finish(Helper(ownership,command,env,root,root/'compositor.log',150))
     public=dict(schema=1,compositor_exit=r['exit'],cleanup=r['cleanup'],fixture=json.loads((root/'fixture.json').read_text()))
     private_json(root/'result.json',public);print(json.dumps({'completed':public['fixture']['completed'],'compositor_exit':r['exit']}))

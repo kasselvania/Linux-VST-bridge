@@ -73,6 +73,14 @@ class Tests(unittest.TestCase):
         self.assertEqual(summarize(r)['actions'][0]['parameter_values_observed_after_release'],1)
         r['gui'][-1]['poll_before_ns']=90
         self.assertEqual(summarize(r)['actions'][0]['parameter_values_observed_after_release'],0)
+    def test_procedure_entry_without_return_never_claims_complete_delivery(self):
+        r=self.raw();r['win32']=[w for w in r['win32'] if w['source']!=15]
+        self.assertEqual(self.boundary(r),'wndproc_release_return_unobserved')
+    def test_pinned_fixture_imports_its_own_cleanup_owner(self):
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('uio3_fixture_test',HERE/'fixture.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        self.assertEqual(module.finish.__module__,'uio3_session')
     def test_pointerup_need_not_generate_core_up(self):
         r=self.raw();r['x11']=[]
         for w in r['win32']:
