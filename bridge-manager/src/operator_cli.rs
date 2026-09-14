@@ -70,6 +70,18 @@ fn count_entries(path: &Path) -> Result<usize> {
     require(n <= 4096, "operator_entry_bound")?;
     Ok(n)
 }
+fn capture_state(m: &Manager) -> Result<Value> {
+    let mut collecting = 0;
+    for path in crash_capture::incidents(m)? {
+        let state = optional(&path.join("status.json"))?;
+        if matches!(state["state"].as_str(), Some("claimed" | "collecting")) {
+            collecting += 1;
+        }
+    }
+    Ok(
+        json!({"armed":m.root.join("runtime/incidents/next.json").exists(),"active_retention":collecting}),
+    )
+}
 fn activity(m: &Manager) -> Result<ui::Activity> {
     let cap = capacity::status(m, capacity::service_limits()?, 0, false)?;
     let transactions = m.root.join("transactions");
@@ -115,7 +127,7 @@ fn activity(m: &Manager) -> Result<ui::Activity> {
             stale_transports: stale,
             cleanup_unconfirmed: cap.cleanup_unconfirmed,
         },
-        capture: json!({"armed":m.root.join("runtime/incidents/next.json").exists()}),
+        capture: capture_state(m)?,
         operation: optional(&m.root.join("operator/latest.json"))?
             .as_object()
             .map(|v| Value::Object(v.clone())),
@@ -384,7 +396,7 @@ pub(super) fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
             .filter(|o| o.kind == capacity::Kind::Dsp)
             .map(|o| json!({"class_id":o.class_id,"state":"active"}))
             .collect(),
-        capture: json!({"armed":m.root.join("runtime/incidents/next.json").exists()}),
+        capture: capture_state(m)?,
         recent_incidents: incidents,
         actions: vec![
             action("Disarm crash capture", ui::Action::CaptureDisarm {}, None),
@@ -486,7 +498,11 @@ fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
         refusal: None,
     })
 }
+#[cfg(test)]
 fn execute(m: &Manager, a: &ui::Action) -> Result<Value> {
+    execute_with_receipt(m, a, None)
+}
+fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) -> Result<Value> {
     match a {
         ui::Action::CaptureArm { class_id } => {
             crash_capture::arm(m, Some(class_id))?;
@@ -537,6 +553,12 @@ fn execute(m: &Manager, a: &ui::Action) -> Result<Value> {
                 let _ = resume(m);
                 return Err(e);
             }
+            if let Some(id) = operation {
+                let receipt =
+                    json!({"schema":1,"operation":id,"state":"vendor_running","action":a});
+                atomic_json(&job_dir(m, id)?.join("result.json"), &receipt)?;
+                atomic_json(&m.root.join("operator/latest.json"), &receipt)?;
+            }
             // This manager operation outlives the frontend. ASC's own existing
             // dedicated unit remains process owner; neither UI close nor this
             // operation creates an orphan or kills a continuing download.
@@ -568,7 +590,10 @@ fn execute(m: &Manager, a: &ui::Action) -> Result<Value> {
             loop {
                 let value = optional(&app_directory(m).join("operation-result.json"))?;
                 if value["focus_result"]["request"] == request {
-                    require(value["focus_result"]["result"]=="focused","operator_focus_refused")?;
+                    require(
+                        value["focus_result"]["result"] == "focused",
+                        "operator_focus_refused",
+                    )?;
                     return Ok(value["focus_result"].clone());
                 }
                 require(
@@ -605,6 +630,18 @@ fn suspend(m: &Manager) -> Result<()> {
     Ok(())
 }
 fn resume(m: &Manager) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(75);
+    let _resume = loop {
+        match m.lock("operator-resume.lock") {
+            Ok(lock) => break lock,
+            Err(e) => {
+                if e.to_string() != "operation already running" || Instant::now() >= deadline {
+                    return Err(e);
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        }
+    };
     let path = m.root.join("operator/resume.json");
     let saved = optional(&path)?;
     if saved.is_null() {
@@ -756,7 +793,7 @@ fn worker(m: &Manager, id: &str) -> Result<()> {
         let state = json!({"schema":1,"operation":id,"state":"running","action":request.action});
         atomic_json(&dir.join("result.json"), &state)?;
         atomic_json(&m.root.join("operator/latest.json"), &state)?;
-        execute(m, &request.action)
+        execute_with_receipt(m, &request.action, Some(id))
     })();
     let value = match result {
         Ok(v) => json!({"schema":1,"operation":id,"state":"completed","result":v}),
@@ -932,14 +969,7 @@ mod tests {
         p.claim = profiles::Claim::ReviewCandidate;
         assert!(f
             .m
-            .managed_publish(
-                &p,
-                &c,
-                f.r.clone(),
-                &c.host,
-                &c.host_source_sha256,
-                None
-            )
+            .managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
             .is_err());
     }
     #[test]

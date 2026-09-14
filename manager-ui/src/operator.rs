@@ -92,11 +92,15 @@ impl eframe::App for Operator {
                     } else {
                         r.refusal.unwrap_or_else(|| "Operation refused".into())
                     };
-                    self.refresh_after = true;
+                    // Do not race a newly dispatched mutation for registry.lock.
+                    // The lightweight receipt poll selects the completed readback.
+                    self.refresh_after = !r.accepted;
                 }
                 Reply::Activity(a) => {
                     if let Some(s) = &mut self.snapshot {
-                        if s.system.dsp != a.system.dsp || s.operation != a.operation {
+                        if s.system.dsp != a.system.dsp
+                            || refresh_for_receipt(&s.operation, &a.operation)
+                        {
                             self.refresh_after = true;
                         }
                         s.system = a.system;
@@ -118,7 +122,7 @@ impl eframe::App for Operator {
                 let busy=s.system.dsp>0 || s.system.cleanup_unconfirmed;
                 ui.label(format!("Service: {}  ·  Keeper: {}  ·  DSP: {} / {}  ·  Pending: {}  ·  Stale transports: {}",s.system.service,s.system.keepers,s.system.dsp,s.system.ceiling,s.system.pending_transactions,s.system.stale_transports));
                 ui.label("512 added frames recommended · 256 unqualified");
-                ui.label(if s.capture["armed"]==true{"Crash capture: armed for next admitted launch"}else{"Crash capture: off"});
+                ui.label(if s.capture["armed"]==true{"Crash capture: armed for next admitted launch"}else if s.capture["active_retention"].as_u64().unwrap_or(0)>0{"Crash capture: retaining an active instance"}else{"Crash capture: off"});
                 if let Some(op)=&s.operation{egui::CollapsingHeader::new("Last operation receipt").show(ui,|ui|Self::value(ui,op));}
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,self.pending,&mut chosen);}
@@ -165,5 +169,31 @@ impl eframe::App for Operator {
             self.request(Query::Activity, ui.ctx());
         }
         ui.ctx().request_repaint_after(Duration::from_millis(500));
+    }
+}
+fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json::Value>) -> bool {
+    old != new
+        && new
+            .as_ref()
+            .and_then(|v| v["state"].as_str())
+            .is_some_and(|s| matches!(s, "vendor_running" | "completed" | "refused"))
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn readback_waits_for_mutation_or_vendor_launch_receipt() {
+        let initial = None;
+        for state in ["queued", "running"] {
+            assert!(!refresh_for_receipt(
+                &initial,
+                &Some(serde_json::json!({"state":state}))
+            ));
+        }
+        for state in ["vendor_running", "completed", "refused"] {
+            let value = Some(serde_json::json!({"state":state}));
+            assert!(refresh_for_receipt(&initial, &value));
+            assert!(!refresh_for_receipt(&value, &value));
+        }
     }
 }

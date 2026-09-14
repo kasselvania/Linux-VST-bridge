@@ -11,6 +11,7 @@ if [ "$(uname -s)" = Darwin ]; then
     chmod 700 "$MF1_LINKER"
     export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="$MF1_LINKER"
 fi
+export RUSTC=$(rustup which --toolchain 1.95.0 rustc)
 export RUSTFLAGS="--remap-path-prefix=$MF1_ROOT=."
-cargo +1.95.0 build --manifest-path "$MF1_ROOT/bridge-manager/Cargo.toml" --locked --release --target "$MF1_TARGET" --bin linux-vst-bridge
-cargo +1.95.0 build --manifest-path "$MF1_ROOT/manager-ui/Cargo.toml" --locked --release --target "$MF1_TARGET"
+rustup run 1.95.0 cargo build --manifest-path "$MF1_ROOT/bridge-manager/Cargo.toml" --locked --release --target "$MF1_TARGET" --bin linux-vst-bridge
+rustup run 1.95.0 cargo build --manifest-path "$MF1_ROOT/manager-ui/Cargo.toml" --locked --release --target "$MF1_TARGET"
