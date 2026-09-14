@@ -269,3 +269,26 @@ Bitwig; the running Sunshine instance predated the current desktop and could not
 open its Wayland display. Restarting that existing application restored display
 capture and the connection, without changing pairing or certificate validation.
 This is connection setup evidence, not a Pigments resize result.
+
+### Operator continuation and final cleanup
+
+Luna used native Moonlight mouse control to open the menu and select Resize
+Window. Both exact targets retained X11 and Win32 Down/Up. TSG1 bound the first
+ownerless group and captured its content window. A temporary chooser window was
+destroyed during X11 graph enrichment; BadWindow stopped the observer, whose
+hooks and helper retired cleanly. No automated size-choice claim follows.
+
+The operator took control in that same candidate17 session and confirmed choosing
+a new size, smooth new-wavetable selection, tab navigation and knob interaction.
+The operator then quit normally. CA1 retained no terminal failure or Collector
+rejection; all seven process-scoped retirement milestones committed, with positive
+process/transport cleanup. The four diagnostic exception entries are not relabeled
+as terminal crashes. One 512-frame delivery gap remains recorded.
+
+Ordinary11 is restored; candidate17 is inactive. LoFi/FRAGMENTS10, installed
+software, protected originals and test project bytes remain unchanged. Capture is
+disarmed; Bitwig and cohorts are absent; DSP leases, transactions, tmpfs sessions,
+held input and UIO units are zero. Service and keeper are active. The successful
+operator result and incomplete automated resize waterfall remain separate; no
+product promotion, universal stability or historical root-cause claim is made.
+See `evidence/uio2/tsg1/operator-resize-and-cleanup.json`.

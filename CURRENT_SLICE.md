@@ -36,25 +36,31 @@ No merge or promotion. Preserve the prior crash separately without causal claims
 
 ## Current TSG1 result
 
-Generated transient-group and scoped accessibility checks pass. Candidate17 was
-staged, loaded once and restored to ordinary11. Its editor opened; no menu action
-was executed because Luna's delegated browser capability was unavailable, even
-for a custodian-created hidden tab. This is an executor/tool boundary before
-popup selection, not a resize result or product completion. A multi-connection
-Xlib error-routing defect discovered before input was repaired and tested on the
-same running instance. Normal product retirement and final cleanup completed.
-See `evidence/uio2/tsg1/` and `docs/UIO2.md`. Keep PR #101 draft. Do not claim UIO2
-complete or promote candidate17. The operator subsequently authorized native Moonlight keyboard/mouse execution
-by Luna. That route now connects to the Deck after restarting the stale Sunshine
-instance against the current desktop. The new direct-input observer retains
-two-ended input and action graphs without injecting input; external Down cannot
-be interlocked by this observer, so stale/foreign input stops the observation.
-No browser executor is required. The native Moonlight continuation opened the menu, bound its exact ownerless
-group, and selected Resize Window. A temporary X11 window disappeared during
-chooser census (BadWindow); no size was selected. The observer retired cleanly.
-The unresolved chooser requires explicit operator dismissal before quit; see
-`evidence/uio2/tsg1/native-moonlight-boundary.json`. Candidate17 remains selected
-with one DSP lease until that cleanup; do not claim ordinary11 restored yet.
+Generated transient-group and scoped accessibility checks pass. Luna's native
+Moonlight continuation opened the menu, bound its exact ownerless group, and
+selected Resize Window. The observer stopped safely at a temporary X11 window
+being destroyed during chooser census (BadWindow). Its two mouse clicks have
+X11/Win32 receipts; no automated size choice or full resize waterfall is claimed.
+Earlier browser/capture attempts and their cleanup remain separate history.
+
+The operator then took control in the same candidate17 session, selected a new
+size, selected a new wavetable smoothly, changed tabs and moved knobs, and reported
+responsive behavior. This is operator-observed success, not a completed automated
+waterfall. The operator quit Bitwig normally. CA1 finalized with no terminal
+record or Collector rejection, all seven process-scoped retirement milestones,
+and positive cohort/transport cleanup.
+
+Ordinary Pigments11 is restored. Candidate17 is inactive; LoFi/FRAGMENTS10,
+software and protected projects equal their baseline. Capture is disarmed;
+Bitwig/cohorts are absent; leases, transactions, stale transports, held input and
+UIO units are zero; service/keeper remain active. See
+`evidence/uio2/tsg1/native-moonlight-boundary.json` and
+`evidence/uio2/tsg1/operator-resize-and-cleanup.json`.
+
+Return this exact tool boundary and operator result for independent review on
+PR #101, draft and unmerged. No promotion or repeated product session. The next
+tooling decision concerns bounded census of windows destroyed during a chooser
+transition; the operator result does not establish the historical crash cause.
 
 ---
 ## Earlier UIO2 contract and retained boundary (historical)
