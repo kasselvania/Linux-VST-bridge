@@ -117,7 +117,9 @@ struct CapacityLimits {
     global_dsp: usize,
 }
 fn live_capacity(m: &Manager) -> Result<CapacityReadback> {
-    let value: CapacityReadback = serde_json::from_value(capacity_value(m)?)?;
+    let reply = capacity_reply(m)?;
+    require(reply["ok"] == true, "capacity_readback_unavailable")?;
+    let value: CapacityReadback = serde_json::from_value(reply["capacity"].clone())?;
     require(value.schema == 1, "operator_capacity_schema")?;
     Ok(value)
 }

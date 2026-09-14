@@ -622,7 +622,7 @@ fn startup_reply(peer: &mut UnixStream, bytes: &[u8]) -> Result<()> {
     peer.write_all(bytes)?;
     Ok(())
 }
-fn capacity_value(m: &Manager) -> Result<serde_json::Value> {
+fn capacity_reply(m: &Manager) -> Result<serde_json::Value> {
     let mut peer = UnixStream::connect(m.root.join("runtime/owner.sock"))?;
     peer.set_read_timeout(Some(Duration::from_secs(5)))?;
     peer.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -633,14 +633,12 @@ fn capacity_value(m: &Manager) -> Result<serde_json::Value> {
     require(size <= 65536, "capacity_readback_extent")?;
     let mut bytes = vec![0; size];
     peer.read_exact(&mut bytes)?;
-    let value: serde_json::Value = serde_json::from_slice(&bytes)?;
-    require(value["ok"] == true, "capacity_readback_unavailable")?;
-    Ok(value["capacity"].clone())
+    Ok(serde_json::from_slice(&bytes)?)
 }
 fn capacity_read(m: &Manager) -> Result<()> {
-    let value = capacity_value(m)?;
-    println!("{}", serde_json::to_string_pretty(&serde_json::json!({"ok":true,"capacity":value}))?);
-    Ok(())
+    let value = capacity_reply(m)?;
+    println!("{}", serde_json::to_string_pretty(&value)?);
+    require(value["ok"] == true, "capacity_readback_unavailable")
 }
 fn serve(m: Manager) -> Result<()> {
     let _lock = m.lock("service.lock")?;
