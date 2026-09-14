@@ -148,9 +148,9 @@ class SurfaceGraphX11(X11):
         _,stack=self.tree(self.root)
         if chain[-1] not in stack:raise RuntimeError('X frame absent')
         px=I();py=I();child=U()
-        if not self.x.XTranslateCoordinates(self.display,window,self.root,0,0,C.byref(px),C.byref(py),C.byref(child)):
-            raise RuntimeError('X coordinates unavailable')
-        self.sync()
+        translated=self.x.XTranslateCoordinates(self.display,window,self.root,0,0,C.byref(px),C.byref(py),C.byref(child))
+        self.sync() # preserve typed BadWindow if destruction races this query too
+        if not translated:raise RuntimeError('X coordinates unavailable')
         return dict(xid=window,frame=chain[-1],parent_chain=chain,stack_index=stack.index(chain[-1]),
                     rect=[px.value,py.value,px.value+a.width,py.value+a.height],viewable=a.map_state==2,
                     override_redirect=bool(a.override_redirect),transient_for=self.property(window,'WM_TRANSIENT_FOR'),
