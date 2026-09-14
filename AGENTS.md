@@ -32,8 +32,16 @@ Ask before changing the goal, making destructive changes to unrelated/user-owned
 
 Publish one PR with what works, how it was checked, relevant versions, remaining limitations and cleanup. Review before merge; include the current-status update in the same PR. No separate audit/closure artifact is required by default. Write additional design only for a consequential unresolved decision, not to memorialize every implementation choice.
 
+## GUI test custody and delegated control
+
+The implementation agent remains the test custodian. It owns the exact candidate and project, setup, permissions, target identities, allowed actions, stop conditions, evidence, cleanup, retry decision and final interpretation. A delegated GUI worker executes a bounded interaction plan; it does not choose the test, declare pass or failure, improvise a retry or change the system.
+
+Where model-routed GUI control is available, use Luna as the default executor for routine exact-window work, normally at high reasoning and at max for owned popups or mildly ambiguous layouts. Escalate to Astra only after Luna stops on a genuinely novel or consequential visual ambiguity. Give either worker a closed action capsule containing the exact target, permitted actions, forbidden actions and immediate stop conditions. Do not replay an otherwise useful session merely to change executors.
+
+Machine evidence from UIO, CA1 and bridge/process records outranks the worker's narration. The worker returns actions attempted, visible observations and the blocked step, not an engineering verdict. It stops on identity drift, an unexpected dialog, popup ambiguity, terminal failure, focus or capture ownership change, or any action outside the capsule. Only the test custodian may authorize another launch or attempt.
+
 ## Concurrent work and access
 
 Do not change another agent's branch, checkout or running experiment. Reconcile current instructions when integrating branches; preserve product code and original observations instead of restoring retired process requirements.
 
-Reuse established Moonlight/Sunshine and SSH under their existing permissions. Launch Bitwig normally from Applications for desktop use. No streamed terminal or alternate tool route to bypass Computer Use restrictions. Remote access is development tooling, not a plug-in runtime dependency.
+Reuse established Moonlight/Sunshine and SSH under their existing permissions. Launch Bitwig normally from Applications for desktop use. Respect Computer Use restrictions and do not substitute unapproved interaction methods. Remote access is development tooling, not a plug-in runtime dependency.

@@ -1,0 +1,230 @@
+{
+  "schema": 1,
+  "incident_alias": "uio2-post-menu-quit-1",
+  "reporter_finalized": true,
+  "reporting_error": null,
+  "first_terminal": {
+    "schema": 1,
+    "generation": 1,
+    "epoch": 1,
+    "sequence": 41873,
+    "last_completed_position": 10718208,
+    "state_revision": 3,
+    "state_generation": 1,
+    "state_through": 0,
+    "state_sha256": "f03752c9a4a4bd04a39af4a5eaf52f2b19b127c04cda119049f4c3d35190a604",
+    "failure_class": 3,
+    "status": 3,
+    "position": 10718208,
+    "native_phase": 11,
+    "producer": 1,
+    "status_domain": 1,
+    "session_alias": "pigments-uio2-1"
+  },
+  "worker_first_fault": {
+    "event": "ap5_worker_fault",
+    "generation": 1,
+    "fault": 3,
+    "first_position": 10718208,
+    "processed": 41868,
+    "request_high": 2,
+    "result_high": 2,
+    "detail": "InvalidData: state response deadline"
+  },
+  "ordering": [
+    "one menu click; owner-chain boundary found; no resize selected",
+    "observer/helper stopped with positive cleanup",
+    "normal Bitwig close requested with test menu still open",
+    "native state response deadline; IF1 first failure retained",
+    "CA1 retained UI-owner-thread access violation and matching self-exit status; no normal retirement record",
+    "Bitwig state-save warning; custodian proceeded with quit without saving protected project",
+    "native and frontend eventually exited; cleanup confirmed"
+  ],
+  "ordering_limit": "No cross-clock equality is inferred from raw Wine time. State request, failure, exit and warning are retained as distinct observations; the exact causal SDK call remains unresolved.",
+  "windows": {
+    "exit_code": "0xC0000005",
+    "exception_code": "0xC0000005",
+    "thread": "same Windows UI owner thread",
+    "read_address": "null",
+    "classification": "exception_matching_self_exit_status",
+    "unhandled_marker": false,
+    "proton_launcher_exit": 5,
+    "unix_wait_status": "unavailable: Windows child is not supervisor Popen child"
+  },
+  "fault": {
+    "authoritative_CA1_module": null,
+    "authoritative_CA1_rva": null,
+    "authoritative_CA1_symbol": null,
+    "unavailable_reason": "loaded module missing or ambiguous",
+    "wine_load_unwind_lead": {
+      "module": "UIAutomationCore.dll",
+      "kind": "builtin",
+      "rva_from_logged_unwind_base": "0x7988",
+      "next_frame_rva": "0x2d11",
+      "sha256": null,
+      "identity_unavailable": "no exact observed Linux mapping",
+      "meaning": "same Wine logged module base and unwind base; mapped-file identity/extent unavailable, so this is a lead, not authoritative CA1 attribution or a root-cause claim"
+    }
+  },
+  "stack": {
+    "frames_retained": 40,
+    "selected_exact_module_frames": [
+      {
+        "module": "Pigments exact module",
+        "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "rva": "0xe93ca9",
+        "symbols": "nearest export only; function extent unavailable, not named as failing function"
+      },
+      {
+        "module": "Pigments exact module",
+        "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "rva": "0xdfc0e8",
+        "symbols": "nearest export only; function extent unavailable, not named as failing function"
+      },
+      {
+        "module": "Pigments exact module",
+        "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "rva": "0x417774",
+        "symbols": "nearest export only; function extent unavailable, not named as failing function"
+      },
+      {
+        "module": "Pigments exact module",
+        "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "rva": "0xdfd1b3",
+        "symbols": "nearest export only; function extent unavailable, not named as failing function"
+      },
+      {
+        "module": "Pigments exact module",
+        "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "rva": "0xe5046a",
+        "symbols": "nearest export only; function extent unavailable, not named as failing function"
+      },
+      {
+        "module": "Pigments exact module",
+        "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "rva": "0xe94b59",
+        "symbols": "nearest export only; function extent unavailable, not named as failing function"
+      },
+      {
+        "module": "Pigments exact module",
+        "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "rva": "0xe4cd47",
+        "symbols": "nearest export only; function extent unavailable, not named as failing function"
+      },
+      {
+        "module": "Pigments exact module",
+        "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+        "rva": "0xe504b4",
+        "symbols": "nearest export only; function extent unavailable, not named as failing function"
+      }
+    ],
+    "full_stack_private": true
+  },
+  "earlier_exceptions": "Earlier access violation/C++ exceptions were followed by continued processing and the menu interaction. Matching a later numeric exit code does not establish they were fatal at their earlier occurrence.",
+  "if2": {
+    "same_native_process_alive_at_CA1_finalization": true,
+    "events": [
+      {
+        "event": "ap5_worker_fault",
+        "generation": 1,
+        "fault": 3,
+        "first_position": 10718208,
+        "processed": 41868,
+        "request_high": 2,
+        "result_high": 2,
+        "detail": "InvalidData: state response deadline"
+      },
+      {
+        "event": "if2_terminal_notification",
+        "generation": 1,
+        "epoch": 1,
+        "sequence": 41873,
+        "failure_class": 3,
+        "controller_acknowledged": true
+      },
+      {
+        "event": "if2_contained_terminal",
+        "callbacks": 7585,
+        "silent_frames": 3883520,
+        "automatic_reload": false
+      },
+      {
+        "event": "ap10_process_results",
+        "stats_status": 0,
+        "events_delivered": 0,
+        "points_delivered": 0,
+        "late_events": 0,
+        "late_points": 0,
+        "host_unrequested_events": 0,
+        "host_unrequested_points": 0,
+        "rejected": 0,
+        "cleanup_sent": 0,
+        "cleanup_unavailable": 0,
+        "active_notes_unreleased": 0,
+        "discarded_on_reset": 0,
+        "pending_events": 0,
+        "pending_points": 0
+      },
+      {
+        "event": "if2_terminal_cleanup",
+        "confirmed": true,
+        "normal_sdk_retirement": false
+      }
+    ],
+    "terminal_failure_view": "not reopened in this stopped UIO2 test",
+    "native_exit_status": "unavailable; eventually absent after normal quit"
+  },
+  "cleanup": {
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "retirement_disposition": "terminal_instance_failure",
+    "vendor_retirement": null,
+    "error": "Windows host exited without successful close"
+  },
+  "CA1_limits": {
+    "line_bytes": 8192,
+    "modules": 1024,
+    "exceptions": 16,
+    "frames_per_exception": 64,
+    "processes": 128,
+    "retention_seconds": 7200,
+    "module_resolution_seconds": 5,
+    "mapped_file_record_bytes": 524288,
+    "context": {
+      "capacity": 131072,
+      "record_capacity": 512,
+      "retained_bytes": 3136,
+      "dropped_bytes": 0,
+      "dropped_records": 0
+    },
+    "terminal": {
+      "capacity": 262144,
+      "record_capacity": 1024,
+      "retained_bytes": 8355,
+      "dropped_bytes": 0,
+      "dropped_records": 0
+    }
+  },
+  "CA1_counts": {
+    "received_bytes": 148646,
+    "excluded_bytes": 120427,
+    "oversized_lines": 0,
+    "malformed_lines": 8,
+    "module_overflow": 0,
+    "exception_overwrite": 0,
+    "frame_overflow": 0,
+    "process_overflow": 0,
+    "mapped_path_drops": 0,
+    "incomplete_lines": 0,
+    "disabled_bytes": 0,
+    "final_drain_incomplete": false
+  },
+  "speculative_changes": false,
+  "nonclaims": [
+    "resize failure",
+    "menu or quit causality established",
+    "UIAutomationCore verified root cause",
+    "normal process-scoped SDK retirement",
+    "new Pigments acceptance"
+  ]
+}

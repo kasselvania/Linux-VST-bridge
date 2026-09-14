@@ -1,0 +1,158 @@
+{
+  "schema": 1,
+  "completed": true,
+  "fixture": "source-owned SDK CPluginView + unchanged production VendorView; isolated KWin/XWayland; pinned Proton; scratch unlicensed prefix",
+  "attempts": [
+    {
+      "attempt": 1,
+      "stage": "read-only admission",
+      "result": "ordinary Pigments 11 rollback is not current compiled UIO1 ordinary profile; no fixture launched",
+      "correction": "use exact ordinary LoFi 10 admission only to select the same pinned runner"
+    },
+    {
+      "attempt": 2,
+      "result": "popup bound; XComposite pixmap GetImage returned zero masks; resize not selected; helpers/compositor cleaned",
+      "correction": "resolve masks through exact source window TrueColor visual; no root/default-visual assumption"
+    },
+    {
+      "attempt": 3,
+      "result": "passed"
+    }
+  ],
+  "before": {
+    "request": 0,
+    "result": 0,
+    "on_size": 0,
+    "paints": 1,
+    "down": 0,
+    "up": 0,
+    "requested_width": 0,
+    "requested_height": 0,
+    "parent_width": 640,
+    "parent_height": 400,
+    "child_width": 640,
+    "child_height": 400,
+    "closed": 0,
+    "error": 0,
+    "view_stage": 100
+  },
+  "after": {
+    "request": 1,
+    "result": 0,
+    "on_size": 1,
+    "paints": 5,
+    "down": 2,
+    "up": 2,
+    "requested_width": 800,
+    "requested_height": 500,
+    "parent_width": 800,
+    "parent_height": 500,
+    "child_width": 800,
+    "child_height": 500,
+    "closed": 0,
+    "error": 0,
+    "view_stage": 16
+  },
+  "identity": {
+    "process_start_bound": true,
+    "same_ui_thread": true,
+    "popup_owner_is_editor": true,
+    "popup_root_owner_is_editor": true,
+    "unrelated_lookalike_rejected": true,
+    "closed_popup_refused": true
+  },
+  "capture": {
+    "backend": "xcomposite_pixmap",
+    "rectangle": [
+      14,
+      86,
+      254,
+      166
+    ],
+    "dpi": 96,
+    "image_masks": [
+      0,
+      0,
+      0
+    ],
+    "effective_masks": [
+      16711680,
+      65280,
+      255
+    ],
+    "sha256": "d8b556676f4c78df7c2ab23ab3c6a6a4daa76843f0ec526f3ca86ff569e93649",
+    "viewable_and_stack_checked_before_after": true,
+    "private_frames_only": true
+  },
+  "receipt": {
+    "x11_button_down": true,
+    "x11_button_up": true,
+    "win32_mouse_down": true,
+    "win32_mouse_up": true,
+    "actual_popup_target": true,
+    "no_direct_wndproc_or_wm_command": true
+  },
+  "xrecord_status": {
+    "dropped": 0,
+    "unparsed": 1
+  },
+  "xrecord_nonclaim": "One packet was not parsed as an exact selected-XID core pointer event; the required Down/Up records are present. This is not a zero-unparsed-events claim.",
+  "observer_status": {
+    "committed": 91,
+    "dropped": 0,
+    "ready": 1,
+    "closed": 1,
+    "hook_calls": 388,
+    "hook_ticks": 7805,
+    "max_hook_ticks": 524,
+    "filtered": 297,
+    "heartbeat_errors": 0,
+    "scope_errors": 0,
+    "unhook_errors": 0,
+    "detached": 1
+  },
+  "helper_results": {
+    "initialization": {
+      "exit": 0,
+      "kept": 740,
+      "overflow": 0,
+      "stderr_bytes": 732,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    },
+    "census_cleanup": {
+      "exit": 0,
+      "kept": 1926,
+      "overflow": 0,
+      "stderr_bytes": 667,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    },
+    "observer_cleanup": {
+      "exit": 0,
+      "kept": 667,
+      "overflow": 0,
+      "stderr_bytes": 667,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    },
+    "fixture_cleanup": {
+      "exit": 0,
+      "kept": 531,
+      "overflow": 0,
+      "stderr_bytes": 490,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    }
+  },
+  "compositor_cleanup": "exit 0, zero overflow, owned descendants zero and process group empty",
+  "repaint": "SDK fixture paint count advanced 1 to 5; no product repaint claim"
+}

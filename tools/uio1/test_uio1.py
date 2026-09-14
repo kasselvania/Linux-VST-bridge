@@ -101,6 +101,8 @@ class Tests(unittest.TestCase):
             def __init__(self):self.calls=[]
             def __getattr__(self,name):return lambda *args:self.calls.append((name,args)) or 1
         x=X11.__new__(X11);x.t=Fake();x.x=Fake();x.buttons={1};x.keys={24};x.display=1;x.pixmap=0;x.prior_handler=None
+        from x11 import _ERROR_OWNERS
+        _ERROR_OWNERS[x.display]=[]
         x.close();self.assertEqual([c[0] for c in x.t.calls],['XTestFakeButtonEvent','XTestFakeKeyEvent'])
         self.assertEqual(x.buttons,set());self.assertEqual(x.keys,set())
     def test_stale_pointer_acknowledgement_never_becomes_a_click(self):

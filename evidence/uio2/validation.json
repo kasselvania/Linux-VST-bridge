@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "local": {
+    "manager_library_tests": 79,
+    "manager_binary_tests": 12,
+    "strict_clippy": "passed --all-targets -- -D warnings",
+    "uio1_tests": 13,
+    "uir1_tests": 4,
+    "uio2_tests": 13,
+    "post_product_refusal_regression": "passed: five unowned same-thread top levels prevent editor fallback capture",
+    "diff_check": "passed"
+  },
+  "hosted_at_live_tooling_head": {
+    "head": "8a1279620b24de81d8cfc998d5e10e4e7fc5a314",
+    "AP8": {
+      "run": 34774079801,
+      "result": "success"
+    },
+    "AP12": {
+      "run": 34774079807,
+      "result": "success",
+      "includes": "Linux runtime, UIO1/UIR1/UIO2 and Xvfb including redirected pixmap capture"
+    },
+    "PX2": {
+      "run": 34774079805,
+      "result": "success"
+    }
+  },
+  "executed_windows_helpers": {
+    "source": "417b0a2de7710985d7990c0b92c67feb015556a4",
+    "run": 34773103847,
+    "result": "success; exact helper artifacts retained in artifacts.json"
+  },
+  "post_product_source": {
+    "product_py_sha256": "e7dd2d5cd680c653980c0efbacc935b36ca597f3c6f16838ef87858d286653c7",
+    "test_sha256": "117da202e1ab214a71eaedc3560bacf74dbd120cee514fb58c0586146b6e2f09",
+    "product_replay": false,
+    "scope": "refuse root capture when visible same-process top levels lack editor ownership"
+  },
+  "final_head_checks": "Recorded on PR #101 at the final exact head; this evidence file does not self-reference its commit.",
+  "AP10": "not applicable: no native/audio source or product artifact changed",
+  "generated_proton": "passed once after exact pixmap-mask correction; accepted UIR1 starvation differential not repeated",
+  "privacy": "raw frames, host paths, session/process identifiers and CA1 logs retained privately; public files are explicit projections"
+}

@@ -36,7 +36,7 @@ pub fn uir1_candidate() -> Result<Profile> {
         "qualification_ui_contract")?;
     Ok(p)
 }
-pub fn if1_candidate() -> Result<Profile> {
+fn if2_candidate() -> Result<Profile> {
     let p = Profile::parse(include_bytes!("../../compatibility/if2/arturia-pigments.json"))?;
     let ordinary = Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))?;
     let mut same = p.clone();
@@ -49,6 +49,20 @@ pub fn if1_candidate() -> Result<Profile> {
     require(p.revision == 16 && p.claim == Claim::ReviewCandidate && ordinary.revision == 11
         && ordinary.claim == Claim::VerifiedExactFixture && same == ordinary,
         "qualification_failure_contract")?;
+    Ok(p)
+}
+pub fn if1_candidate() -> Result<Profile> {
+    let previous = if2_candidate()?;
+    let p = Profile::parse(include_bytes!("../../compatibility/uio2/arturia-pigments.json"))?;
+    let mut same = p.clone();
+    same.revision = previous.revision;
+    same.evidence = previous.evidence.clone();
+    same.capabilities.accessibility = previous.capabilities.accessibility.clone();
+    same.limitations.retain(|x| *x != Limitation::WindowsAccessibilityUnavailable);
+    require(p.revision == 17 && p.claim == Claim::ReviewCandidate
+        && p.capabilities.accessibility == Accessibility::DisabledForVendorProcess
+        && p.limitations.iter().filter(|x| **x == Limitation::WindowsAccessibilityUnavailable).count() == 1
+        && same == previous, "qualification_tsg_accessibility_contract")?;
     Ok(p)
 }
 pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
@@ -184,6 +198,7 @@ pub(crate) fn stage_selected_for(
         let mut registration = e.registration.clone();
         registration.host.sha256 = p.requirements.host_sha256.clone();
         registration.native.sha256 = p.requirements.native_sha256.clone();
+        if purpose == Qualification::If1Failure { registration.compatibility = p.capabilities.compatibility(); }
         registration.host_source_sha256 = p.requirements.host_source_sha256.clone();
         m.verify_qualification_parent_for(&db, p, &registration, purpose)?;
         for (name, hash) in package_files(p) {
@@ -388,7 +403,7 @@ impl Manager {
                     Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
                     Qualification::Ap18Pigments => false,
                     Qualification::Uir1Input => p.revision == 12,
-                    Qualification::If1Failure => p.revision == 16,
+                    Qualification::If1Failure => p.revision == 17,
                 }
                 && p.capabilities.editor == Editor::DetachedDirectVendorLifecycle,
             "qualification_candidate_contract",
@@ -405,6 +420,7 @@ impl Manager {
         let r = &prior.registration;
         let mut capabilities = p.capabilities.clone();
         let mut limitations = prior.profile.limitations.clone();
+        let mut parent_compatibility = registration.compatibility.clone();
         match purpose {
             Qualification::Ap18Pigments => return Err("pigments_has_no_same_class_parent".into()),
             Qualification::Uir1Input | Qualification::If1Failure => {
@@ -419,6 +435,19 @@ impl Manager {
                 if purpose == Qualification::If1Failure {
                     normalized.requirements.native_sha256 = prior.profile.requirements.native_sha256.clone();
                     normalized.requirements.native_source_commit = prior.profile.requirements.native_source_commit.clone();
+                    require(p.capabilities.accessibility == Accessibility::DisabledForVendorProcess
+                        && p.limitations.contains(&Limitation::WindowsAccessibilityUnavailable)
+                        && registration.compatibility == p.capabilities.compatibility(), "qualification_tsg_accessibility_contract")?;
+                    capabilities.accessibility = prior.profile.capabilities.accessibility.clone();
+                    if !limitations.contains(&Limitation::WindowsAccessibilityUnavailable) {
+                        limitations.push(Limitation::WindowsAccessibilityUnavailable);
+                    }
+                    parent_compatibility.disable_windows_accessibility = r.compatibility.disable_windows_accessibility;
+                    // TSG1 changes only the exact candidate's accessibility posture.
+                    normalized.capabilities.accessibility = prior.profile.capabilities.accessibility.clone();
+                    if !prior.profile.limitations.contains(&Limitation::WindowsAccessibilityUnavailable) {
+                        normalized.limitations.retain(|x| *x != Limitation::WindowsAccessibilityUnavailable);
+                    }
                 }
                 require(normalized == prior.profile
                     && p.requirements.host_sha256 != prior.profile.requirements.host_sha256
@@ -461,7 +490,7 @@ impl Manager {
                 && r.metadata == registration.metadata
                 && r.module == registration.module
                 && r.environment == registration.environment
-                && r.compatibility == registration.compatibility
+                && r.compatibility == parent_compatibility
                 && e.registration == *r
                 && self.performance(&p.class.class_id)?.added_frames == 512
                 && (!check_pointer

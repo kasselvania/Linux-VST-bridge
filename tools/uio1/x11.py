@@ -21,6 +21,26 @@ class Image(C.Structure):
               ('depth',I),('bytes_per_line',I),('bits_per_pixel',I),
               ('red_mask',U),('green_mask',U),('blue_mask',U),('obdata',P),('functions',P*6)]
 
+class Visual(C.Structure):
+    _fields_=[('ext_data',P),('visualid',U),('cls',I),('red_mask',U),('green_mask',U),('blue_mask',U),('bits_per_rgb',I),('map_entries',I)]
+
+class Attributes(C.Structure):
+    _fields_=[('x',I),('y',I),('width',I),('height',I),('border',I),('depth',I),('visual',P),('root',U),('cls',I),
+              ('bit_gravity',I),('win_gravity',I),('backing_store',I),('backing_planes',U),('backing_pixel',U),('save_under',I),
+              ('colormap',U),('installed',I),('map_state',I),('all_events',C.c_long),('your_events',C.c_long),
+              ('do_not_propagate',C.c_long),('override_redirect',I),('screen',P)]
+
+def validated_masks(image_masks, pixmap, image_depth, attributes):
+    if image_masks==(0xff0000,0xff00,0xff):return image_masks
+    # GetImage on a pixmap has no visual ID. Resolve only through the exact
+    # source window's TrueColor visual, never the default/root visual.
+    if not pixmap or image_masks!=(0,0,0) or not attributes or attributes.depth!=image_depth or not attributes.visual:
+        raise RuntimeError('unsupported image masks')
+    v=C.cast(attributes.visual,C.POINTER(Visual)).contents
+    masks=(v.red_mask,v.green_mask,v.blue_mask)
+    if v.cls!=4 or masks!=(0xff0000,0xff00,0xff):raise RuntimeError('unsupported source visual')
+    return masks
+
 def normalized(rect, point):
     x,y,w,h=rect
     if w<1 or h<1 or any(not math.isfinite(v) or not 0<=v<=1 for v in point):
@@ -57,6 +77,42 @@ def summaries(pixels, width, height, stride, previous=None, regions=()):
                 changed_sample_percent=100*len(changed)/len(sampled),changed_sample_bounds=box,
                 spatial_step=8,region_hashes=hashes),sampled
 
+class XError(C.Structure):
+    _fields_=[('type',I),('display',P),('resource',U),('serial',U),('code',C.c_ubyte),('major',C.c_ubyte),('minor',C.c_ubyte)]
+
+# Xlib has one process-wide handler, not one handler per Display. Route by the
+# exact private connection so a graph connection cannot steal capture errors.
+_ERROR_TYPE=C.CFUNCTYPE(I,P,C.POINTER(XError))
+_ERROR_OWNERS={}
+_ERROR_PRIOR=None
+
+def _route_error(display,event):
+    owner=_ERROR_OWNERS.get(display)
+    if owner is not None:
+        e=event.contents;owner.append((e.code,e.major,e.minor));return 0
+    if _ERROR_PRIOR:return _ERROR_TYPE(_ERROR_PRIOR)(display,event)
+    return 0
+
+_ERROR_CALLBACK=_ERROR_TYPE(_route_error)
+
+def _attach_errors(lib,display,errors):
+    global _ERROR_PRIOR
+    if display in _ERROR_OWNERS or len(_ERROR_OWNERS)>=16:raise RuntimeError('X11 error-owner bound/identity')
+    if not _ERROR_OWNERS:_ERROR_PRIOR=lib.XSetErrorHandler(_ERROR_CALLBACK)
+    _ERROR_OWNERS[display]=errors
+
+def _detach_errors(lib,display):
+    global _ERROR_PRIOR
+    del _ERROR_OWNERS[display]
+    if not _ERROR_OWNERS:
+        lib.XSetErrorHandler(_ERROR_PRIOR);_ERROR_PRIOR=None
+
+class X11OperationError(RuntimeError):
+    """Typed server errors; callers may retry only an explicitly handled class."""
+    def __init__(self, errors):
+        self.errors=tuple(errors)
+        super().__init__(f'X11 operation refused: {list(self.errors)}')
+
 class X11:
     def __init__(self, window, pid=None):
         self.x=C.CDLL(ctypes.util.find_library('X11'));self.t=C.CDLL(ctypes.util.find_library('Xtst'))
@@ -67,6 +123,7 @@ class X11:
         bind(self.x,'XGetGeometry',I,[P,U,C.POINTER(U),C.POINTER(I),C.POINTER(I),C.POINTER(C.c_uint),C.POINTER(C.c_uint),C.POINTER(C.c_uint),C.POINTER(C.c_uint)])
         bind(self.x,'XTranslateCoordinates',I,[P,U,U,I,I,C.POINTER(I),C.POINTER(I),C.POINTER(U)])
         bind(self.x,'XInternAtom',U,[P,C.c_char_p,I]);bind(self.x,'XGetWindowProperty',I,[P,U,U,C.c_long,C.c_long,I,U,C.POINTER(U),C.POINTER(I),C.POINTER(U),C.POINTER(U),C.POINTER(P)])
+        bind(self.x,'XGetWindowAttributes',I,[P,U,C.POINTER(Attributes)])
         bind(self.x,'XFree',I,[P]);bind(self.x,'XSync',I,[P,I]);bind(self.x,'XQueryPointer',I,[P,U,C.POINTER(U),C.POINTER(U),C.POINTER(I),C.POINTER(I),C.POINTER(I),C.POINTER(I),C.POINTER(C.c_uint)])
         bind(self.x,'XGetInputFocus',I,[P,C.POINTER(U),C.POINTER(I)]);bind(self.x,'XGetImage',C.POINTER(Image),[P,U,I,I,C.c_uint,C.c_uint,U,I]);bind(self.x,'XDestroyImage',I,[C.POINTER(Image)]);bind(self.x,'XFreePixmap',I,[P,U])
         bind(self.t,'XTestQueryExtension',I,[P,C.POINTER(I),C.POINTER(I),C.POINTER(I),C.POINTER(I)])
@@ -77,17 +134,20 @@ class X11:
         self.display=self.x.XOpenDisplay(None)
         if not self.display:raise RuntimeError('X11 display unavailable; native Wayland needs portal consent')
         self.root=self.x.XDefaultRootWindow(self.display);self.buttons=set();self.keys=set();self.pixmap=0;self.errors=[]
-        # Our private X connection only; never suppress the application error handler.
-        class Error(C.Structure):_fields_=[('type',I),('display',P),('resource',U),('serial',U),('code',C.c_ubyte),('major',C.c_ubyte),('minor',C.c_ubyte)]
-        self.error_callback=C.CFUNCTYPE(I,P,C.POINTER(Error))(lambda d,e:self.errors.append((e.contents.code,e.contents.major,e.contents.minor)) or 0)
-        self.x.XSetErrorHandler.argtypes=[P];self.x.XSetErrorHandler.restype=P;self.prior_handler=self.x.XSetErrorHandler(self.error_callback)
-        a,b,c,d=I(),I(),I(),I()
-        if not self.t.XTestQueryExtension(self.display,C.byref(a),C.byref(b),C.byref(c),C.byref(d)):raise RuntimeError('XTEST unavailable')
-        self.initial=self.geometry();self.check_identity()
+        self.x.XSetErrorHandler.argtypes=[P];self.x.XSetErrorHandler.restype=P
+        try:
+            _attach_errors(self.x,self.display,self.errors)
+            a,b,c,d=I(),I(),I(),I()
+            if not self.t.XTestQueryExtension(self.display,C.byref(a),C.byref(b),C.byref(c),C.byref(d)):raise RuntimeError('XTEST unavailable')
+            self.initial=self.geometry();self.check_identity()
+        except BaseException:
+            self.x.XCloseDisplay(self.display)
+            if self.display in _ERROR_OWNERS:_detach_errors(self.x,self.display)
+            raise
     def sync(self):
         self.x.XSync(self.display,0)
         if self.errors:
-            errors=self.errors;self.errors=[];raise RuntimeError(f'X11 operation refused: {errors}')
+            errors=list(self.errors);self.errors.clear();raise X11OperationError(errors)
     def property(self, window, name):
         atom=self.x.XInternAtom(self.display,name.encode(),1)
         if not atom:return []
@@ -119,12 +179,19 @@ class X11:
         if not self.t.XTestFakeMotionEvent(self.display,-1,x,y,0):raise RuntimeError('XTEST motion refused')
         self.sync();self.expected_pointer=[x,y]
         return dict(kind='motion',interval_ns=[before,time.monotonic_ns()],target=[x,y],pointer=self.pointer())
+    def active_for_input(self, pointer):
+        return pointer['active']==[self.window]
+    def capture_ready(self):
+        if self.property(self.root,'_NET_ACTIVE_WINDOW')!=[self.window]:
+            raise RuntimeError('direct drawable is not foreground; occlusion not qualified')
+    def pointer_after_input(self, down):
+        return self.pointer()
     def button(self, down, button=1):
         if button not in (1,3):raise ValueError('only bounded primary/secondary buttons')
         if down:
             rect=self.check_identity();p=self.pointer()
             if self.expected_pointer is None or p['screen']!=self.expected_pointer:raise RuntimeError('pointer move not acknowledged at target')
-            if not 0<=p['client'][0]<rect[2] or not 0<=p['client'][1]<rect[3] or p['active']!=[self.window]:raise RuntimeError('target not active under pointer')
+            if not 0<=p['client'][0]<rect[2] or not 0<=p['client'][1]<rect[3] or not self.active_for_input(p):raise RuntimeError('target not active under pointer')
             if p['mask']&0x1fff:raise RuntimeError('operator key/button held; refuse shared input')
             self.buttons.add(button) # retain ownership before sending, for failure cleanup
         elif button not in self.buttons:raise RuntimeError('not our held button')
@@ -132,7 +199,7 @@ class X11:
         if not self.t.XTestFakeButtonEvent(self.display,button,int(down),0):raise RuntimeError('XTEST button refused')
         self.sync()
         if not down:self.buttons.remove(button)
-        return dict(kind='button_down' if down else 'button_up',interval_ns=[before,time.monotonic_ns()],pointer=self.pointer())
+        return dict(kind='button_down' if down else 'button_up',interval_ns=[before,time.monotonic_ns()],pointer=self.pointer_after_input(down))
     def settle_pointer(self,seconds=.75):
         # XWayland can acknowledge XTEST before the compositor applies motion.
         # Wait for readback; never turn a pending warp into a click elsewhere.
@@ -191,20 +258,25 @@ class X11:
                 # XWayland may have no XComposite redirection. Do not redirect
                 # it (that would change the renderer). Read only its own drawable
                 # while foreground; occluded/minimized frames are not evidence.
-                self.errors=[];self.pixmap=0;self.capture_backend='direct_drawable'
+                self.errors.clear();self.pixmap=0;self.capture_backend='direct_drawable'
             else:
                 self.sync();self.capture_backend='xcomposite_pixmap'
                 if not self.pixmap:raise RuntimeError('exact pixmap unavailable')
-        if self.capture_backend=='direct_drawable' and self.property(self.root,'_NET_ACTIVE_WINDOW')!=[self.window]:
-            raise RuntimeError('direct drawable is not foreground; occlusion not qualified')
+        if self.capture_backend=='direct_drawable':self.capture_ready()
         before=time.monotonic_ns();p=self.x.XGetImage(self.display,self.pixmap or self.window,0,0,rect[2],rect[3],U(-1).value,2)
         self.sync()
         if not p:raise RuntimeError('exact pixmap capture failed')
         try:
             a=p.contents
-            if a.bits_per_pixel!=32 or a.byte_order!=0 or (a.red_mask,a.green_mask,a.blue_mask)!=(0xff0000,0xff00,0xff) or a.bytes_per_line>4096*4:raise RuntimeError('unsupported pixel format')
+            if a.bits_per_pixel!=32 or a.byte_order!=0 or not a.width*4<=a.bytes_per_line<=4096*4:raise RuntimeError('unsupported pixel format')
+            raw_masks=(a.red_mask,a.green_mask,a.blue_mask);attributes=None
+            if raw_masks==(0,0,0) and self.pixmap:
+                attributes=Attributes()
+                if not self.x.XGetWindowAttributes(self.display,self.window,C.byref(attributes)):self.sync();raise RuntimeError('source visual absent')
+                self.sync()
+            masks=validated_masks(raw_masks,bool(self.pixmap),a.depth,attributes)
             pixels=C.string_at(a.data,a.bytes_per_line*a.height)
-            return dict(interval_ns=[before,time.monotonic_ns()],width=a.width,height=a.height,stride=a.bytes_per_line,capture_backend=self.capture_backend),pixels
+            return dict(interval_ns=[before,time.monotonic_ns()],width=a.width,height=a.height,stride=a.bytes_per_line,capture_backend=self.capture_backend,image_masks=raw_masks,effective_masks=masks),pixels
         finally:self.x.XDestroyImage(p)
     def close(self):
         # Never release a key/button we did not press. Up remains necessary even
@@ -213,6 +285,6 @@ class X11:
         for k in self.keys:self.t.XTestFakeKeyEvent(self.display,k,0,0)
         self.buttons.clear();self.keys.clear();self.x.XSync(self.display,0)
         if self.pixmap:self.x.XFreePixmap(self.display,self.pixmap)
-        self.x.XCloseDisplay(self.display);self.x.XSetErrorHandler(self.prior_handler)
+        self.x.XCloseDisplay(self.display);_detach_errors(self.x,self.display)
     def __enter__(self):return self
     def __exit__(self,*args):self.close()

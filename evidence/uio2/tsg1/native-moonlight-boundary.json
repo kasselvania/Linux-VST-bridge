@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "source": "6271503a883f802159802f44b78d00173a1a5030",
+  "executor": "luna-max",
+  "input_route": "native Moonlight keyboard/mouse tools",
+  "browser_used": false,
+  "profile_revision": 17,
+  "outcome": "size_chooser_census_boundary",
+  "actions": [
+    {
+      "ordinal": 1,
+      "action": "open_menu",
+      "x11_down_up": true,
+      "win32_down_up": true,
+      "exact_vendor_child": true,
+      "group_bound": true,
+      "members": 5,
+      "unique_input_member": true,
+      "private_popup_capture": true
+    },
+    {
+      "ordinal": 2,
+      "action": "resize_window",
+      "x11_down_up": true,
+      "win32_down_up": true,
+      "exact_menu_content": true,
+      "size_choice_attempted": false,
+      "new_chooser_lifecycle_observed": true
+    }
+  ],
+  "boundary": {
+    "operation": "X11 GetWindowAttributes",
+    "error": "BadWindow",
+    "detail": "A transient window was destroyed during graph enrichment; observer stopped before a complete chooser graph or new capsule."
+  },
+  "terminal_at_observer_stop": false,
+  "collector_rejection_at_observer_stop": false,
+  "observer_cleanup": {
+    "exit": 0,
+    "overflow": 0,
+    "closed": 1,
+    "detached": 1,
+    "unhook_errors": 0,
+    "owned_descendants_zero": true,
+    "process_group_empty": true
+  },
+  "xrecord": [
+    {
+      "dropped": 0,
+      "unparsed": 0
+    },
+    {
+      "dropped": 0,
+      "unparsed": 3
+    }
+  ],
+  "resting_state": "Awaiting explicit operator dismissal of unresolved chooser and normal Bitwig quit; candidate17 still selected with one DSP lease and current CA1 capture collecting. No claim of restored ordinary11 yet.",
+  "nonclaims": [
+    "No size selected",
+    "No resize success or failure established",
+    "No terminal crash observed in this observer interval",
+    "No product acceptance",
+    "No external Down interlock"
+  ]
+}

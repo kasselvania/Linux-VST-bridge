@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "basis": "34fd77e0b1c1a1c41ba348638810a996348dd035",
+  "prepared_head": "564ca42bf104066135e215e803250cd84d6cca59",
+  "windows_diagnostic_source": "417b0a2de7710985d7990c0b92c67feb015556a4",
+  "windows_workflow": 34773103847,
+  "windows_build_merge": "d27c15ea2188475be07262b99059d64378de2eeb",
+  "windows_build_tree": "e1adb86644f227302a3579621403424c94d0feae",
+  "artifact_id": 10322418167,
+  "artifact_archive_sha256": "3815851da86c5f65a2e8e7cd57bb237d81026bbe6d854c7f2fec9d6731aa6b57",
+  "diagnostic_files": {
+    "uio1-observer.exe": "3abc4439b24a7bd0033f01a4bbc1c609391b6c8b9facd5cb20b5ea250339fb1c",
+    "uio1-hook.dll": "3738513ce2bf6699cd15cd776c2a1c61da9d8a6f97144516d6e2c0a0f67da7a9",
+    "uio1-accessibility.exe": "f3e6b61a0d949de0f656ec8e29cf183f9f380f207a7aef20fee4c36794ef122c",
+    "uio1-tests.exe": "6cd2e92c1b4839b9a5d234e44e664d6c6bac373dde1436823d9c85e284950b40",
+    "uio2-popup-fixture.exe": "d3911842ba24e3015b38ebd4cfffc04805eaf47efe6565b4f82238a56a198b10"
+  },
+  "live_tooling_head": "8a1279620b24de81d8cfc998d5e10e4e7fc5a314",
+  "product": {
+    "profile_revision": 16,
+    "claim": "review_candidate",
+    "fingerprint": "3199611a7578f751a17fe9e0d8f20aa12a27ec1b296f4de2630f7cb7738ab9dc",
+    "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "native_sha256": "56987399359d05b4b113f1818c48e6c57142cc8bf073dae255606d1e663ecc38",
+    "host_sha256": "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8",
+    "host_source_sha256": "aab9ed5088e7f2a6a52665fb67150ce3fbe1a52893f7eedb68a63c55c06da498",
+    "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34",
+    "compatibility": {
+      "vendor_retirement": "process_scoped_vendor_retirement",
+      "editor_lifetime": "retain_editor_view_until_instance_retirement",
+      "event_output": "reported_zero_event_channels_unspecified",
+      "disable_windows_accessibility": false
+    },
+    "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "new_product_bytes": false,
+    "new_profile_revision": false
+  },
+  "reporter_artifacts": {
+    "manager": "58d00d2d56d99b520e7eb4991043c16e45de2022b3f7214f5ade0cdb7fed7ab7",
+    "supervisor": "6c19084b7c6c29d49e561b92237d026b26b41e2591d3e3456ce7f4fe9175db30",
+    "ownership": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "6fc3f4301973ae341514c4f4f7565723f75d9913dc50925ce90dac4478a2d001"
+  }
+}

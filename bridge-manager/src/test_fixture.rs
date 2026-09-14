@@ -83,8 +83,11 @@ impl Drop for Fixture {
     }
 }
 pub(crate) fn prepared() -> (Fixture, Profile, Census, NativeArtifact) {
+    prepared_accessibility(true)
+}
+pub(crate) fn prepared_accessibility(disabled: bool) -> (Fixture, Profile, Census, NativeArtifact) {
     let mut f = Fixture::new();
-    f.r.compatibility.disable_windows_accessibility = true;
+    f.r.compatibility.disable_windows_accessibility = disabled;
     f.r.metadata.metadata_tier = "factory_3_unicode".into();
     let source = f.r.host.path.with_file_name("host-source-manifest.json");
     fs::write(&source, b"fixture host source").unwrap();
@@ -129,7 +132,7 @@ pub(crate) fn prepared() -> (Fixture, Profile, Census, NativeArtifact) {
             editor_lifetime: None,
             vendor_retirement: None,
             event_output: None,
-            accessibility: Accessibility::DisabledForVendorProcess,
+            accessibility: if disabled { Accessibility::DisabledForVendorProcess } else { Accessibility::WindowsDefault },
             editor: Editor::DetachedOwnerThreadWithNativePanel,
             state: State::ConcurrentReadOnlyCaptureV12,
             precision: Precision::Float32Only,

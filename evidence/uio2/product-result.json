@@ -1,0 +1,424 @@
+{
+  "schema": 1,
+  "disposition": "UIO2_GENERATED_OWNED_POPUP_PROVED_PRODUCT_OWNER_CHAIN_ABSENT_SUBSEQUENT_TERMINAL_INCIDENT",
+  "session_alias": "pigments-uio2-1",
+  "fixture": "SteamOS 3.8.16; Bitwig 6.1 Flatpak; existing managed Arturia environment; protected project copy",
+  "launch": "normal Applications desktop entry via gio",
+  "project_sha256": "5cae28e19c251a83b291398d6509ac1b7d5a41381433d447fd98894411a7f573",
+  "actions": {
+    "menu_clicks": 1,
+    "resize_item_clicks": 0,
+    "resize_choice_clicks": 0,
+    "known_control_checks": 0,
+    "editor_reopen_checks": 0,
+    "relaunches": 0,
+    "mac_input_takeover": false
+  },
+  "capsule": {
+    "private_exact_capsule_sha256": "6e8d74fb8b122c0873203c903c18a79e356077a3a1341878a7964037f5b82714",
+    "projection": "private identities replaced by aliases; exact private capsule retained",
+    "test_id": "uio2-pigments-1",
+    "session": "pigments-uio2-1",
+    "native_view": 1,
+    "activation": 1,
+    "generation": 1,
+    "editor_epoch": 1,
+    "process": "windows-root-1 with exact creation identity",
+    "ui_thread": "editor-owner-1",
+    "hwnd": "editor-parent",
+    "xid": "editor-xwayland-window",
+    "client_rect": [
+      3,
+      22,
+      1283,
+      746
+    ],
+    "point_screen": [
+      28,
+      44
+    ],
+    "permitted_action": "open_menu",
+    "expected_popup": "same process/start/UI thread with complete GW_OWNER/GA_ROOTOWNER chain to exact editor",
+    "maximum_actions": 1,
+    "lifetime_seconds": 120,
+    "whole_observer_bound_seconds": 170,
+    "executor": "gpt-5.6-luna",
+    "reasoning": "max",
+    "forbidden": [
+      "retry",
+      "relaunch",
+      "terminal",
+      "settings",
+      "project_change",
+      "verdict",
+      "unexpected_dialog"
+    ],
+    "machine_stop_conditions": [
+      "terminal_record",
+      "identity_change",
+      "visibility_loss",
+      "held_input",
+      "unexpected_popup"
+    ]
+  },
+  "executor_receipt": {
+    "action_attempted": "open_menu",
+    "count": 1,
+    "single_browser_reload": true,
+    "visible_observation": "main editor image, hamburger trigger, no popup or Resize Window text in returned frame",
+    "custodian_interpretation": "post-menu frame was underlying root drawable, not a verified visible popup; it cannot negate the machine window census",
+    "hidden_tab_closed": true,
+    "no_further_executor_action": true
+  },
+  "waterfall": {
+    "origin": "XTEST Down issue start; all times are relative nanoseconds",
+    "clock_projection": "nearest measured Linux round-trip/QPC bracket plus 100 ppm allowance; within 10 seconds; X server timestamps remain separate",
+    "pointer_settlement": [
+      -24330156,
+      -18533882
+    ],
+    "down_issue": [
+      0,
+      75932
+    ],
+    "up_issue": [
+      65358528,
+      65473531
+    ],
+    "x11": [
+      {
+        "kind": 6,
+        "button": null,
+        "target": "editor-xwayland-window",
+        "client": [
+          25,
+          22
+        ],
+        "observed_no_later_than_ns": -16998444
+      },
+      {
+        "kind": 4,
+        "button": 1,
+        "target": "editor-xwayland-window",
+        "client": [
+          25,
+          22
+        ],
+        "observed_no_later_than_ns": 2486332
+      },
+      {
+        "kind": 5,
+        "button": 1,
+        "target": "editor-xwayland-window",
+        "client": [
+          25,
+          22
+        ],
+        "observed_no_later_than_ns": 67371638
+      }
+    ],
+    "win32": [
+      {
+        "message": "WM_LBUTTONDOWN",
+        "source": "WH_MOUSE_entry",
+        "target": "vendor-child",
+        "focus": "vendor-child",
+        "active": "editor-parent",
+        "capture": "none",
+        "client": [
+          25,
+          22
+        ],
+        "result": 1,
+        "projected_interval_ns": [
+          37815653,
+          46405673
+        ]
+      },
+      {
+        "message": "WM_LBUTTONDOWN",
+        "source": "WH_MOUSE_next_return",
+        "target": "vendor-child",
+        "focus": "vendor-child",
+        "active": "editor-parent",
+        "capture": "none",
+        "client": [
+          25,
+          22
+        ],
+        "result": 0,
+        "projected_interval_ns": [
+          37834851,
+          46424875
+        ]
+      },
+      {
+        "message": "WM_LBUTTONDOWN",
+        "source": "WH_GETMESSAGE_PM_REMOVE",
+        "target": "vendor-child",
+        "focus": "vendor-child",
+        "active": "editor-parent",
+        "capture": "none",
+        "client": [
+          25,
+          22
+        ],
+        "result": 0,
+        "projected_interval_ns": [
+          38826152,
+          47416374
+        ]
+      },
+      {
+        "message": "WM_LBUTTONUP",
+        "source": "WH_MOUSE_NOREMOVE_entry",
+        "target": "vendor-child",
+        "focus": "vendor-child",
+        "active": "editor-parent",
+        "capture": "vendor-child",
+        "client": [
+          25,
+          22
+        ],
+        "result": 1,
+        "projected_interval_ns": [
+          393244806,
+          401905920
+        ]
+      },
+      {
+        "message": "WM_LBUTTONUP",
+        "source": "WH_MOUSE_NOREMOVE_next_return",
+        "target": "vendor-child",
+        "focus": "vendor-child",
+        "active": "editor-parent",
+        "capture": "vendor-child",
+        "client": [
+          25,
+          22
+        ],
+        "result": 0,
+        "projected_interval_ns": [
+          393266804,
+          401927922
+        ]
+      },
+      {
+        "message": "WM_LBUTTONUP",
+        "source": "WH_MOUSE_entry",
+        "target": "vendor-child",
+        "focus": "vendor-child",
+        "active": "editor-parent",
+        "capture": "vendor-child",
+        "client": [
+          25,
+          22
+        ],
+        "result": 1,
+        "projected_interval_ns": [
+          393576173,
+          402237353
+        ]
+      },
+      {
+        "message": "WM_LBUTTONUP",
+        "source": "WH_MOUSE_next_return",
+        "target": "vendor-child",
+        "focus": "vendor-child",
+        "active": "editor-parent",
+        "capture": "vendor-child",
+        "client": [
+          25,
+          22
+        ],
+        "result": 0,
+        "projected_interval_ns": [
+          393598071,
+          402259255
+        ]
+      },
+      {
+        "message": "WM_LBUTTONUP",
+        "source": "WH_GETMESSAGE_PM_REMOVE",
+        "target": "vendor-child",
+        "focus": "vendor-child",
+        "active": "editor-parent",
+        "capture": "vendor-child",
+        "client": [
+          25,
+          22
+        ],
+        "result": 0,
+        "projected_interval_ns": [
+          393660165,
+          402321361
+        ]
+      }
+    ],
+    "popup_census_interval": [
+      867933525,
+      874329274
+    ],
+    "popup_candidates": [
+      {
+        "alias": "unbound-menu-window-1",
+        "same_process": true,
+        "same_ui_thread": true,
+        "visible": true,
+        "enabled": true,
+        "owner": null,
+        "root_owner": "self",
+        "screen_rect": [
+          15,
+          57,
+          204,
+          311
+        ],
+        "client_rect": [
+          15,
+          57,
+          204,
+          311
+        ],
+        "xwayland_binding_present": true,
+        "dpi": 96
+      },
+      {
+        "alias": "unbound-menu-window-2",
+        "same_process": true,
+        "same_ui_thread": true,
+        "visible": true,
+        "enabled": true,
+        "owner": null,
+        "root_owner": "self",
+        "screen_rect": [
+          15,
+          311,
+          204,
+          323
+        ],
+        "client_rect": [
+          15,
+          311,
+          204,
+          323
+        ],
+        "xwayland_binding_present": true,
+        "dpi": 96
+      },
+      {
+        "alias": "unbound-menu-window-3",
+        "same_process": true,
+        "same_ui_thread": true,
+        "visible": true,
+        "enabled": true,
+        "owner": null,
+        "root_owner": "self",
+        "screen_rect": [
+          15,
+          45,
+          204,
+          57
+        ],
+        "client_rect": [
+          15,
+          45,
+          204,
+          57
+        ],
+        "xwayland_binding_present": true,
+        "dpi": 96
+      },
+      {
+        "alias": "unbound-menu-window-4",
+        "same_process": true,
+        "same_ui_thread": true,
+        "visible": true,
+        "enabled": true,
+        "owner": null,
+        "root_owner": "self",
+        "screen_rect": [
+          204,
+          45,
+          216,
+          323
+        ],
+        "client_rect": [
+          204,
+          45,
+          216,
+          323
+        ],
+        "xwayland_binding_present": true,
+        "dpi": 96
+      },
+      {
+        "alias": "unbound-menu-window-5",
+        "same_process": true,
+        "same_ui_thread": true,
+        "visible": true,
+        "enabled": true,
+        "owner": null,
+        "root_owner": "self",
+        "screen_rect": [
+          3,
+          45,
+          15,
+          323
+        ],
+        "client_rect": [
+          3,
+          45,
+          15,
+          323
+        ],
+        "xwayland_binding_present": true,
+        "dpi": 96
+      }
+    ],
+    "authorized_popup_count": 0,
+    "selected_resize_item": false,
+    "sdk_resize_request": "not selected; raw SDK ViewRect/return not exported by unchanged candidate 16",
+    "host_resize_result": "unavailable; not inferred",
+    "parent_client_before": [
+      1280,
+      724
+    ],
+    "parent_client_after_menu": [
+      1280,
+      724
+    ],
+    "resize_redraw": "not exercised",
+    "terminal_at_action_end": null,
+    "collector_at_action_end": null
+  },
+  "observer_status": {
+    "committed": 676,
+    "dropped": 0,
+    "ready": 1,
+    "closed": 1,
+    "hook_calls": 20313,
+    "hook_ticks": 426131,
+    "max_hook_ticks": 2185,
+    "filtered": 19637,
+    "heartbeat_errors": 0,
+    "scope_errors": 0,
+    "unhook_errors": 0,
+    "detached": 1
+  },
+  "observer_helper_cleanup": {
+    "exit": 0,
+    "kept": 529,
+    "overflow": 0,
+    "stderr_bytes": 529,
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    }
+  },
+  "xrecord_counter_limitation": "The product owner retained exact records but did not persist recorder drop/unparsed counters; no zero-drop claim is made for this product record.",
+  "capture_limitation": "post-menu root frames are not popup observations; no page/menu signature or pixel-change claim",
+  "source_repair_after_run": "Product.target now refuses any visible unbound same-process top level instead of returning the underlying root. Deterministic five-window regression; no live replay.",
+  "post_stop": "normal Bitwig close requested after observer/helper retirement; subsequent Windows endpoint failure captured by CA1; no Escape or Resize action",
+  "result": "Resize Window remains unselected and unqualified. Same PID/thread and geometry do not supply the missing editor owner relationship."
+}

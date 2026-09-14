@@ -4,6 +4,9 @@
 namespace {
 uio1::Header* header=nullptr; HANDLE mapping=nullptr;
 thread_local bool inside=false;
+HMODULE self_module=nullptr;
+HWINEVENTHOOK lifecycle_hook=nullptr;
+void CALLBACK lifecycle(HWINEVENTHOOK,DWORD,HWND,LONG,LONG,DWORD,DWORD);
 constexpr UINT pulse=WM_APP+0x541;
 uint64_t now(){LARGE_INTEGER n{};QueryPerformanceCounter(&n);return uint64_t(n.QuadPart);}
 bool connect() {
@@ -20,7 +23,13 @@ bool connect() {
     p->pid!=GetCurrentProcessId()||p->tid!=GetCurrentThreadId()||p->start!=start){
     UnmapViewOfFile(p);CloseHandle(mapping);mapping=nullptr;return false;
   }
-  header=p;uio1::atom(p->ready).store(1,std::memory_order_release);return true;
+  header=p;
+  // Same process and exact UI thread. Callback refuses any fallback delivery on
+  // another thread; the existing ring remains single-writer.
+  if(p->surface_mode)lifecycle_hook=SetWinEventHook(EVENT_OBJECT_CREATE,EVENT_OBJECT_LOCATIONCHANGE,self_module,lifecycle,
+      p->pid,p->tid,WINEVENT_INCONTEXT);
+  if(p->surface_mode&&!lifecycle_hook)uio1::atom(p->scope_errors).fetch_add(1);
+  uio1::atom(p->ready).store(1,std::memory_order_release);return true;
 }
 void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t result=0,uint32_t message_time=0) noexcept {
   if(inside)return; inside=true;
@@ -30,6 +39,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
   auto& h=*header;
   if(uio1::atom(h.stop).load(std::memory_order_acquire)){
     uio1::atom(h.detached).store(1,std::memory_order_release);
+    if(lifecycle_hook){if(!UnhookWinEvent(lifecycle_hook))uio1::atom(h.unhook_errors).fetch_add(1);lifecycle_hook=nullptr;}
     UnmapViewOfFile(header);header=nullptr;CloseHandle(mapping);mapping=nullptr;
     inside=false;return;
   }
@@ -42,9 +52,10 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
   DWORD pid=0;
   bool same=hwnd && GetWindowThreadProcessId(hwnd,&pid)==h.tid && pid==h.pid;
   auto root=reinterpret_cast<HWND>(h.root);
-  bool scope=same&&(hwnd==root||IsChild(root,hwnd)||GetAncestor(hwnd,GA_ROOTOWNER)==root);
+  // Observe exact-thread peers too; observation never authorizes their input.
+  bool scope=same&&(h.surface_mode||hwnd==root||IsChild(root,hwnd)||GetAncestor(hwnd,GA_ROOTOWNER)==root);
   const auto action=uio1::atom(h.action).load(std::memory_order_acquire);
-  if(heartbeat || (scope&&uio1::selected(msg)&&action)){
+  if(heartbeat || (scope&&(uio1::selected(msg)||source==9||source==10)&&action)){
     uio1::Record r{};r.qpc=began;r.action=action;r.hwnd=uint64_t(hwnd);r.message=msg;r.source=heartbeat?4:source;
     r.focus=uint64_t(GetFocus());r.active=uint64_t(GetActiveWindow());r.capture=uint64_t(GetCapture());
     if(msg>=WM_MOUSEMOVE&&msg<=WM_MOUSEWHEEL){
@@ -53,6 +64,15 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
       else{r.x=p.x;r.y=p.y;ClientToScreen(hwnd,&p);r.screen_x=p.x;r.screen_y=p.y;}
       r.buttons=uint32_t(wp)&0xffff;
     }
+    // Fixed sizing facts at ordinary User32 call/return boundaries. Do not
+    // retain WINDOWPOS pointers or pretend these are an SDK return value.
+    if((msg==WM_WINDOWPOSCHANGING||msg==WM_WINDOWPOSCHANGED)&&source>=2&&source<=3&&lp){
+      const auto* p=reinterpret_cast<const WINDOWPOS*>(lp);
+      r.x=p->cx;r.y=p->cy;r.screen_x=p->x;r.screen_y=p->y;r.buttons=p->flags;
+      if(source==3)r.result=result;
+    }
+    if(msg==WM_SHOWWINDOW)r.buttons=uint32_t(wp);
+    if(msg==WM_SIZE){r.x=LOWORD(lp);r.y=HIWORD(lp);r.buttons=uint32_t(wp);}
     if(msg==WM_KEYDOWN||msg==WM_KEYUP||msg==WM_SYSKEYDOWN||msg==WM_SYSKEYUP)r.key_class=uio1::key_class(wp);
     if(msg==WM_NCHITTEST){
       r.screen_x=short(LOWORD(lp));r.screen_y=short(HIWORD(lp));
@@ -61,6 +81,12 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
     }
     if(source>=5&&source<=8)r.result=result; // hit code / next-hook boolean
     if(heartbeat)r.result=int64_t(began-sent);
+    if(source==9&&msg==HCBT_CREATEWND&&lp){
+      const auto* creation=reinterpret_cast<const CBT_CREATEWNDW*>(lp);
+      const auto* c=creation->lpcs;
+      r.x=c->cx;r.y=c->cy;r.screen_x=c->x;r.screen_y=c->y;
+      r.buttons=uint32_t(c->style);r.key_class=uint32_t(c->dwExStyle);r.result=int64_t(c->hwndParent);
+    }
     r.message_time=message_time;r.cost_ticks=now()-began;
     uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),r);
   }else uio1::atom(h.filtered).fetch_add(1,std::memory_order_relaxed);
@@ -73,6 +99,12 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
     uio1::atom(h.pong).store(uint64_t(wp),std::memory_order_release);
   }
   inside=false;
+}
+void CALLBACK lifecycle(HWINEVENTHOOK,DWORD event,HWND hwnd,LONG object,LONG child,DWORD tid,DWORD time){
+  if(!header||GetCurrentThreadId()!=header->tid||tid!=header->tid||object!=OBJID_WINDOW||child!=0)return;
+  if(event==EVENT_OBJECT_CREATE||event==EVENT_OBJECT_SHOW||event==EVENT_OBJECT_HIDE||
+     event==EVENT_OBJECT_DESTROY||event==EVENT_OBJECT_LOCATIONCHANGE)
+    observe(hwnd,event,0,0,10,0,time);
 }
 }
 extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_get(int c,WPARAM w,LPARAM l){
@@ -100,7 +132,14 @@ extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_mouse(int c,WPARAM w,LPAR
   if(hwnd)observe(hwnd,UINT(w),0,position,c==HC_ACTION?6:8,result?1:0);
   return result;
 }
-BOOL WINAPI DllMain(HINSTANCE,DWORD reason,LPVOID){
+extern "C" __declspec(dllexport) LRESULT CALLBACK uio2_cbt(int code,WPARAM w,LPARAM l){
+  if(header&&header->surface_mode&&(code==HCBT_CREATEWND||code==HCBT_DESTROYWND||code==HCBT_ACTIVATE||code==HCBT_MOVESIZE||code==HCBT_SETFOCUS))
+    observe(HWND(w),UINT(code),0,l,9);
+  // Read-only: never block creation, modify CBT_CREATEWND, or override next result.
+  return CallNextHookEx(nullptr,code,w,l);
+}
+BOOL WINAPI DllMain(HINSTANCE module,DWORD reason,LPVOID){
+  if(reason==DLL_PROCESS_ATTACH)self_module=module;
   if(reason==DLL_PROCESS_DETACH){if(header)UnmapViewOfFile(header);if(mapping)CloseHandle(mapping);}
   return TRUE;
 }
