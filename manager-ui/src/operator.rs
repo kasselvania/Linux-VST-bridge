@@ -98,7 +98,7 @@ impl eframe::App for Operator {
                 }
                 Reply::Activity(a) => {
                     if let Some(op) = &a.operation {
-                        if op["state"] == "refused" { self.message = format!("Operation refused: {}",op["reason"].as_str().unwrap_or("see receipt")); }
+                        if op["state"] == "refused" { self.message = format!("Last operation refused: {}",op["reason"].as_str().unwrap_or("see receipt")); }
                         else if op["state"] == "completed" { self.message = "Operation completed".into(); }
                     }
                     if let Some(s) = &mut self.snapshot {
@@ -128,6 +128,7 @@ impl eframe::App for Operator {
                 ui.label(format!("Installing / scanning: {}",s.system.maintenance));
                 ui.label("512 added frames recommended · 256 unqualified");
                 ui.label(if s.capture["armed"]==true{"Crash capture: armed for next admitted launch"}else if s.capture["active_retention"].as_u64().unwrap_or(0)>0{"Crash capture: retaining an active instance"}else{"Crash capture: off"});
+                if s.capture["armed"]==true { for action in &s.actions { if matches!(action.action,Action::CaptureDisarm{}) { Self::buttons(ui,std::slice::from_ref(action),busy,self.pending,&mut chosen); } } }
                 if let Some(op)=&s.operation{egui::CollapsingHeader::new("Last operation receipt").show(ui,|ui|Self::value(ui,op));}
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,self.pending,&mut chosen);}
@@ -150,7 +151,11 @@ impl eframe::App for Operator {
                     });}
                 }
                 ui.separator();egui::CollapsingHeader::new("Recent incidents").show(ui,|ui|{
-                    for incident in s.recent_incidents.iter().rev(){egui::CollapsingHeader::new(format!("{} · {}",incident.state,incident.id)).show(ui,|ui|{Self::value(ui,&incident.summary);if let Some(a)=&incident.export{Self::buttons(ui,std::slice::from_ref(a),busy,self.pending,&mut chosen);}});}
+                    for incident in s.recent_incidents.iter().rev(){egui::CollapsingHeader::new(format!("{} · {}",incident.state,incident.id)).show(ui,|ui|{
+                        for line in incident_lines(&incident.summary){ui.label(line);}
+                        if let Some(a)=&incident.export{Self::buttons(ui,std::slice::from_ref(a),busy,self.pending,&mut chosen);}
+                        egui::CollapsingHeader::new("Sanitized technical report").id_salt(&incident.id).show(ui,|ui|Self::value(ui,&incident.summary));
+                    });}
                 });
                 Self::buttons(ui,&s.actions,busy,self.pending,&mut chosen);
                 ui.separator();ui.small("Closing this window does not stop bridged audio or vendor applications. Vendor sign-in and authorization stay in the vendor's own interface.");
@@ -176,6 +181,11 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(Duration::from_millis(500));
     }
 }
+fn incident_lines(v: &serde_json::Value) -> Vec<String> {
+    let word = |key: &str| v[key].as_str().unwrap_or("unavailable").replace('_'," ");
+    let confirmed = |key: &str| match v[key].as_bool(){Some(true)=>"confirmed",Some(false)=>"not confirmed",None=>"unavailable"};
+    vec![format!("Outcome: {}",word("outcome")),format!("Cleanup: {} · Transport retirement: {}",confirmed("cleanup_confirmed"),confirmed("transport_retired")),format!("Outer runner exit (separate from Windows): {}",v["outer_exit"]),format!("Windows reported exit codes: {}",v["windows_self_exit_codes"]),format!("Retained exception observations: {}",v["exceptions"].as_array().map(|items|items.len().to_string()).unwrap_or_else(||"unavailable".into()))]
+}
 fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json::Value>) -> bool {
     old != new
         && new
@@ -186,6 +196,15 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn incident_summary_keeps_runner_exit_separate_and_missing_cleanup_unknown() {
+        let v=serde_json::json!({"outcome":"process_scoped_vendor_retirement","outer_exit":-15,"windows_self_exit_codes":[],"exceptions":[]});
+        let lines=incident_lines(&v).join("\n");
+        assert!(lines.contains("process scoped vendor retirement"));
+        assert!(lines.contains("Cleanup: unavailable"));
+        assert!(lines.contains("separate from Windows): -15"));
+        assert!(!lines.contains("crash"));
+    }
     #[test]
     fn readback_waits_for_mutation_or_vendor_launch_receipt() {
         let initial = None;

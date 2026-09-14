@@ -81,7 +81,7 @@ private exact ASC installer
 
 The operator has placed unopened ASC installer file(s) in the Steam Deck user's Downloads directory. The implementation must hash and privately admit one exact file before execution. Installer/product bytes, account data, authorization payloads, presets, and sensitive vendor logs never enter Git.
 
-The real ASC UI remains the account/catalogue/download surface. A minimal manager frontend is added only if a demonstrated launch, focus, lifecycle, rescan, or status problem blocks the workflow. Manager state remains canonical; no frontend may automate credentials or licensing.
+The real ASC UI remains the account/catalogue/download surface. MF1 adds the native operator frontend for launch, focus, rescan, capture and canonical status. Manager state remains canonical; no frontend may automate credentials or licensing.
 
 ## Performance posture
 
@@ -159,3 +159,25 @@ The accepted operator resize and continued use are not an automated numeric
 geometry waterfall or a universal stability claim. Windows accessibility remains
 disabled only for the exact vendor process. Delivery gaps remain; 512 is
 recommended and 256 unqualified. This change adds no ASC integration or frontend.
+
+## MF1 native desktop frontend
+
+Launch **Linux Audio Compatibility Manager** from the desktop Applications menu.
+Expand the Arturia section to open/focus/stop the registered ASC application, then
+rescan after ASC has closed and its operation has retired. The manager resumes
+the bridge service and keeper after this exclusive environment work. Unknown
+products remain installed/unqualified and cannot be activated by the ordinary UI.
+
+Product cards show current ordinary revision, recommended revision, exact
+rollback targets and inactive history. Capture arms the next exact admitted
+launch without restarting a running device. Incident display/export reads only
+CA1's sanitized projection. Closing the frontend leaves product/session ownership
+with the manager. Disabled controls explain active-instance or unresolved-state
+refusals; the operation worker revalidates before mutation.
+
+Development build: `sh tools/mf1/build-linux.sh` from the repository root. Add
+`linux-audio-compatibility-manager` beside the existing package files for `setup`.
+Setup retains prior ordinary rollback images in catalogue schema3 and creates the
+native application-menu entry. Operator readback is `operator snapshot` or
+`operator activity`; closed requests use schema1 JSON on `operator request` stdin.
+No arbitrary command, executable, PID or path operation is exposed.

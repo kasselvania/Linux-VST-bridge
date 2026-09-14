@@ -79,8 +79,10 @@ real UI. Independent review **5185372983** accepted exact Pigments 7.0.1.6772
 revision 10, including LC1 routing, note audio, preset/control automation recall,
 sibling independence and process-scoped retirement. Revision 10 remains immutable
 ReviewCandidate history. Revision 11 became VerifiedExactFixture with the
-same technical content; UIR1 now installs ordinary revision 13 with the accepted
-pump repair and retains 11 as exact rollback. The original AP18 single
+same technical content. The current ordinary Pigments revision is 18, with the
+accepted input fairness, failure containment and scoped accessibility posture.
+Revision 11 remains its exact rollback; intervening candidates and failed
+ordinary revision 13 remain inactive history. The original AP18 single
 ordinary-load/C3/editor/quit smoke passed with nonzero output and positive
 process-scoped retirement. LoFi and FRAGMENTS ordinary revision 10 remain unchanged.
 See the [accepted result](evidence/ap18/lc1/live-completion.json),
@@ -166,3 +168,15 @@ Rust owns product state, environment/application/installer supervision, transpor
 - `evidence/` — bounded retained results; never proprietary plug-in, installer, preset, credential, or license payloads.
 
 Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), and [docs/DESIGN_DOSSIER.md](docs/DESIGN_DOSSIER.md) before implementation. The bridge remains independent: Proton/Wine is a runner beneath project-owned proxy, host, transport, state, installation, and management boundaries—not a yabridge configuration project.
+
+## MF1 — native operator manager
+
+Linux Audio Compatibility Manager is a native Rust desktop frontend for the
+installed manager. It shows ordinary products and rollback history, opens and
+focuses ASC, rescans managed VST3 roots, and exposes private crash-capture controls
+and sanitized incident exports. New discovered classes remain installed but
+unqualified; rescan does not publish them to Bitwig. Vendor sign-in stays in ASC.
+
+The UI calls a closed versioned Rust interface and refreshes canonical readback.
+It owns no separate product database and does no audio-callback work. See
+[MF1](docs/MF1.md) for the implemented boundary and verification record.

@@ -19,7 +19,9 @@ uses the same installed profiles, census, native catalogue and publisher as CLI.
 
 Heavy exact readback runs on opening, manual refresh, an operation result or a
 live-instance transition. A separate lightweight readback reports current leases,
-transaction presence, transport and operation receipts. Neither UI nor manager
+transaction presence, transport and operation receipts without taking the registry
+mutation lock or rehashing the verified capacity envelope. Heavy frontend readback
+and mutation entry are serialized; an operation is never replayed after it begins. Neither UI nor manager
 control code enters the DAW callback. UI close does not cancel operations.
 
 Closed mutations run in manager-owned systemd units, independently of the UI.
@@ -41,14 +43,20 @@ a multi-class module, the complete factory census and that separate refusal are
 retained. This does not qualify the component or authorize publication. Failed or
 incomplete censuses are quarantined; unchanged failed bytes are not executed on
 every rescan. Changed or missing inventory bytes are shown as needing attention.
-Existing exact ordinary products remain bound to their accepted bytes.
+Existing exact ordinary products remain bound to their accepted bytes. Each scan
+retains counts of added, changed, removed and unchanged module locations; hashes
+remain the authority for bytes. Incident ordering uses retained status modification
+time rather than random incident identifiers.
 
 Crash capture delegates to CA1. Account state remains uninspected. Incident display
 and export use CA1's sanitized projection, not raw vendor logs. Exports go to the
 manager-owned exports directory. The existing immutable software installer can
 include the native frontend; its digest participates in the software generation,
 and setup installs an owned application-menu entry. Previous software remains
-available. No product native/Windows binary or profile is rebuilt for MF1.
+available. Setup retains prior catalogue images and the exact ordinary publication
+ancestry, including different native builds for rollback; it keeps schema3 when
+multiple builds of one class exist. Module-census leases with no selected class
+are explicit standalone inspection maintenance, never DSP admission. No product native/Windows binary or profile is rebuilt for MF1.
 
 Remaining verification and real-workflow results are recorded in this PR as they
 complete. MF1 makes discovery operable; it does not automatically qualify or
