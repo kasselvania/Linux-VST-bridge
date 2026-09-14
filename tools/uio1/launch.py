@@ -38,8 +38,8 @@ def private_json(path,value):
     with os.fdopen(os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as f:
         json.dump(value,f,indent=2);f.write('\n')
 
-def verified_package(source):
-    manifest=json.loads((HERE/'package.json').read_text())
+def verified_package(source, manifest_path=None):
+    manifest=json.loads((manifest_path or HERE/'package.json').read_text())
     if set(manifest['files'])!=FILES:raise RuntimeError('closed diagnostic file set')
     for name,sha in manifest['files'].items():
         p=source/name
@@ -47,7 +47,7 @@ def verified_package(source):
     return manifest
 
 class Context:
-    def __init__(self,admission_binary,class_id,package,uir1=False,if1=False):
+    def __init__(self,admission_binary,class_id,package,uir1=False,if1=False,manifest_path=None):
         os.umask(0o077)
         if uir1 and if1:raise RuntimeError('conflicting exact diagnostic purpose')
         command=['admit-if1'] if if1 else (['admit-uir1'] if uir1 else ['admit',class_id])
@@ -66,17 +66,17 @@ class Context:
         self.runtime=importlib.util.module_from_spec(spec);spec.loader.exec_module(self.runtime)
         self.env=self.runtime.environment(self.reg)
         self.prefix=pathlib.Path(self.reg['environment']['root'])/'compatdata/pfx'
-        self.manifest=verified_package(package)
+        self.manifest=verified_package(package,manifest_path)
         self.package=self.prefix/'drive_c/bridge/diagnostics'/('uio1-'+self.manifest['source_head'])
         if self.package.resolve()!=self.package:raise RuntimeError('diagnostic directory alias')
-        if self.package.exists():verified_package(self.package)
+        if self.package.exists():verified_package(self.package,manifest_path)
         else:
             self.package.mkdir(parents=True,mode=0o700)
             for name,sha in self.manifest['files'].items():
                 # Copy once into an owned immutable directory, then check bytes.
                 data=sealed_bytes(package/name,sha)
                 with os.fdopen(os.open(self.package/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o500),'wb') as f:f.write(data)
-            verified_package(self.package)
+            verified_package(self.package,manifest_path)
         self.session=self.resolve(class_id)
         self.fault=self.runtime.FaultStatus(pathlib.Path(self.session['directory']),self.session['session'])
 

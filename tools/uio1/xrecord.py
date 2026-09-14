@@ -37,12 +37,14 @@ class Recorder:
         if not t.XRecordQueryVersion(x.display,C.byref(a),C.byref(b)):raise RuntimeError('X RECORD unavailable')
         t.XRecordCreateContext.argtypes=[P,I,C.POINTER(U),I,C.POINTER(C.POINTER(Range)),I];t.XRecordCreateContext.restype=U
         t.XRecordDisableContext.argtypes=[P,U];t.XRecordFreeContext.argtypes=[P,U];t.XRecordFreeData.argtypes=[C.POINTER(Data)];t.XRecordProcessReplies.argtypes=[P]
-        r=Range();r.delivered=Range8(4,6);rp=C.pointer(r);client=U(x.window)
+        r=self.ranges();rp=C.pointer(r);client=U(x.window)
         self.context=t.XRecordCreateContext(x.display,1,C.byref(client),1,C.byref(rp),1);x.sync()
         if not self.context:raise RuntimeError('exact-client X RECORD context refused')
         self.callback=C.CFUNCTYPE(None,P,C.POINTER(Data))(self.receive)
         t.XRecordEnableContextAsync.argtypes=[P,U,type(self.callback),P];t.XRecordEnableContextAsync.restype=I
         if not t.XRecordEnableContextAsync(self.data,self.context,self.callback,None):raise RuntimeError('X RECORD enable refused')
+    def ranges(self):
+        r=Range();r.delivered=Range8(4,6);return r
     def receive(self, closure, ptr):
         d=ptr.contents
         try:

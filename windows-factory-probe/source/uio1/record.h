@@ -28,6 +28,7 @@ struct Header {
   uint64_t ping_qpc;
   uint64_t detached;
   uint64_t surface_mode; // opt-in development observer; ordinary UIO1 scope unchanged
+  uint64_t input_mode; // UIO3 opt-in scalar pointer/touch observation
 };
 static_assert(sizeof(Header)<header_bytes);
 inline std::atomic_ref<uint64_t> atom(uint64_t& x) {return std::atomic_ref<uint64_t>(x);}
@@ -43,6 +44,10 @@ inline bool selected(uint32_t m) noexcept {
   switch(m){case 0x200:case 0x201:case 0x202:case 0x204:case 0x205:case 0x20a:
     case 0x100:case 0x101:case 0x104:case 0x105:case 7:case 8:case 6:case 0x21:
     case 0x18:case 2:case 0x82:case 0x215:case 0x46:case 0x47:case 5:case 0xf:case 0x113:case 0x2e0:case 0x84:return true;
+    default:return false;}
+}
+inline bool input_selected(uint32_t m) noexcept {
+  switch(m){case 0x240:case 0x245:case 0x246:case 0x247:case 0x24c:case 0x1f:return true;
     default:return false;}
 }
 // No typed characters or arbitrary WPARAM/LPARAM contents leave the hook.

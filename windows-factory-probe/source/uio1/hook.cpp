@@ -55,7 +55,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
   // Observe exact-thread peers too; observation never authorizes their input.
   bool scope=same&&(h.surface_mode||hwnd==root||IsChild(root,hwnd)||GetAncestor(hwnd,GA_ROOTOWNER)==root);
   const auto action=uio1::atom(h.action).load(std::memory_order_acquire);
-  if(heartbeat || (scope&&(uio1::selected(msg)||source==9||source==10)&&action)){
+  if(heartbeat || (scope&&(uio1::selected(msg)||(h.input_mode&&uio1::input_selected(msg))||source==9||source==10)&&action)){
     uio1::Record r{};r.qpc=began;r.action=action;r.hwnd=uint64_t(hwnd);r.message=msg;r.source=heartbeat?4:source;
     r.focus=uint64_t(GetFocus());r.active=uint64_t(GetActiveWindow());r.capture=uint64_t(GetCapture());
     if(msg>=WM_MOUSEMOVE&&msg<=WM_MOUSEWHEEL){
@@ -79,6 +79,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
       POINT p{r.screen_x,r.screen_y};ScreenToClient(hwnd,&p);r.x=p.x;r.y=p.y;
       if(source==3)r.result=result;
     }
+    if(source==3||source==13)r.result=result;
     if(source>=5&&source<=8)r.result=result; // hit code / next-hook boolean
     if(heartbeat)r.result=int64_t(began-sent);
     if(source==9&&msg==HCBT_CREATEWND&&lp){
@@ -89,6 +90,33 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
     }
     r.message_time=message_time;r.cost_ticks=now()-began;
     uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),r);
+    // Supplementary scalar records use ABI1 spare meanings only in input mode.
+    // No WPARAM/LPARAM, TOUCHINPUT handle, source handle or extra-info is stored.
+    // Never close a touch handle: ownership remains with the vendor procedure.
+    if(h.input_mode&&source==2&&(msg==WM_POINTERDOWN||msg==WM_POINTERUPDATE||msg==WM_POINTERUP||msg==WM_POINTERCAPTURECHANGED)){
+      auto detail=r;detail.source=11;detail.x=GET_POINTERID_WPARAM(wp);
+      detail.y=0;detail.buttons=HIWORD(wp);detail.key_class=0;detail.result=0;
+      POINTER_INFO info{};
+      if(GetPointerInfo(UINT(detail.x),&info)){
+        detail.y=int32_t(info.pointerType);detail.buttons=info.pointerFlags;detail.key_class=1;
+        detail.screen_x=info.ptPixelLocation.x;detail.screen_y=info.ptPixelLocation.y;
+      }else detail.result=GetLastError();
+      uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
+    }
+    if(h.input_mode&&source==2&&msg==WM_TOUCH){
+      const auto count=LOWORD(wp);TOUCHINPUT contacts[16]{};
+      if(count>0&&count<=16&&GetTouchInputInfo(reinterpret_cast<HTOUCHINPUT>(lp),count,contacts,sizeof(TOUCHINPUT))){
+        for(unsigned i=0;i<count;++i){auto detail=r;detail.source=12;
+          detail.x=int32_t(contacts[i].dwID);detail.y=int32_t(count);detail.buttons=contacts[i].dwFlags;
+          detail.screen_x=contacts[i].x;detail.screen_y=contacts[i].y;detail.key_class=1;detail.result=0;
+          uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
+        }
+      }else{auto detail=r;detail.source=12;detail.x=0;detail.y=count;detail.key_class=0;
+        detail.result=count>16?ERROR_INSUFFICIENT_BUFFER:GetLastError();
+        uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
+      }
+    }
+
   }else uio1::atom(h.filtered).fetch_add(1,std::memory_order_relaxed);
   const auto cost=now()-began;
   uio1::atom(h.hook_calls).fetch_add(1,std::memory_order_relaxed);
@@ -108,8 +136,16 @@ void CALLBACK lifecycle(HWINEVENTHOOK,DWORD event,HWND hwnd,LONG object,LONG chi
 }
 }
 extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_get(int c,WPARAM w,LPARAM l){
-  if(c>=0&&w==PM_REMOVE){auto&m=*reinterpret_cast<MSG*>(l);observe(m.hwnd,m.message,m.wParam,m.lParam,1,0,m.time);}
-  return CallNextHookEx(nullptr,c,w,l);
+  MSG before{};const bool selected=c>=0&&w==PM_REMOVE;
+  if(selected){before=*reinterpret_cast<MSG*>(l);observe(before.hwnd,before.message,before.wParam,before.lParam,1,0,before.time);}
+  const auto result=CallNextHookEx(nullptr,c,w,l);
+  if(selected&&header&&header->input_mode){
+    const auto& after=*reinterpret_cast<MSG*>(l);
+    // WH_GETMESSAGE return is not a swallowing decision. Retain whether the
+    // downstream chain rewrote this selected message to WM_NULL separately.
+    observe(before.hwnd,before.message,before.wParam,before.lParam,13,after.message==WM_NULL?1:0,before.time);
+  }
+  return result;
 }
 extern "C" __declspec(dllexport) LRESULT CALLBACK uio1_call(int c,WPARAM w,LPARAM l){
   if(c>=0){auto&m=*reinterpret_cast<CWPSTRUCT*>(l);observe(m.hwnd,m.message,m.wParam,m.lParam,2);}

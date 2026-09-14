@@ -18,6 +18,7 @@ on:
       - 'tools/uio1/windows.cpp'
       - 'tools/uir1/**'
       - 'tools/uio2/**'
+      - 'tools/uio3/**'
       - 'native-vst3-proxy/include/ap11*'
       - 'native-vst3-proxy/include/ap18_bus_support.h'
 permissions:
@@ -62,6 +63,8 @@ jobs:
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap14-environment-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/uio1-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/ap8-build/wf0/bin/Release/uio1-tests.exe" --input
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/uir1-input-fixture.exe" --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
