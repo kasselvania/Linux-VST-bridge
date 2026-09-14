@@ -17,7 +17,20 @@
         "detached": true
       },
       "limitation": "Fabricated cross-thread pointer/touch messages did not produce the required observations. This does not describe physical touch delivery or a Pigments failure."
+    },
+    {
+      "head": "0239b207296417e77c854418827b916208c44623",
+      "workflow": 34907414014,
+      "result": "same_thread_fabricated_pointer_refused",
+      "baseline_uio1": "passed",
+      "evidence": "The test asserted the pointer-up procedure return directly; User32 did not return its expected value. Observer coverage was therefore not established by this fabricated message."
+    },
+    {
+      "head": "6fcdfe9d09482cae4f9e07a15812789506a84216",
+      "workflow": 34907787377,
+      "result": "synthetic_touch_injection_refused",
+      "evidence": "InitializeTouchInjection succeeded but the first InjectTouchInput assertion failed; this fixture did not retain GetLastError. No physical touch-delivery claim is made."
     }
   ],
-  "correction": "The source-owned fixture now sends its generated touch/pointer message sequence on its own UI thread and asserts that the fixture procedure received it independently of the observer. Physical touch remains exclusively operator supplied."
+  "correction": "The focused fixture uses real core mouse User32 delivery to prove actual subclass procedure entry/return/capture and detachment. It exercises the same production bounded touch/pointer scalar encoder with deterministic API results, including unavailable results. It does not claim generated hardware touch delivery; real touchscreen delivery remains operator-supplied evidence."
 }

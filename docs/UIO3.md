@@ -61,6 +61,17 @@ if already explicitly armed before launch. No relaunch is authorized by this too
 - [GetPointerInfo](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getpointerinfo)
 - [GetTouchInputInfo](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-gettouchinputinfo)
 
+## Generated proof boundary
+
+Real User32 mouse delivery proves the exact procedure observer, capture facts and
+detachment. The same production pointer/touch scalar encoder is tested with
+bounded API-result fixtures, including absent pointer information and oversized
+contact counts. Fabricated WM_POINTER messages and synthetic touch injection
+were refused in the hosted fixture; those failed attempts are retained in
+`evidence/uio3/generated-development.json`. No generated physical-touch delivery
+is claimed. The Xvfb/XWayland fixture separately exercises actual libXi raw
+pointer events, exact-client X RECORD delivery and post-release button state.
+
 ## Status
 
 Implementation and generated validation in progress. No live UIO3 result yet.

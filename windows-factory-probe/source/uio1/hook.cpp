@@ -1,4 +1,5 @@
 #include "record.h"
+#include "input_detail.h"
 #include <windows.h>
 #include <commctrl.h>
 #include <cstdio>
@@ -124,29 +125,9 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
     // Supplementary scalar records use ABI1 spare meanings only in input mode.
     // No WPARAM/LPARAM, TOUCHINPUT handle, source handle or extra-info is stored.
     // Never close a touch handle: ownership remains with the vendor procedure.
-    if(h.input_mode&&source==14&&(msg==WM_POINTERDOWN||msg==WM_POINTERUPDATE||msg==WM_POINTERUP||msg==WM_POINTERCAPTURECHANGED)){
-      auto detail=r;detail.source=11;detail.x=GET_POINTERID_WPARAM(wp);
-      detail.y=0;detail.buttons=HIWORD(wp);detail.key_class=0;detail.result=0;
-      POINTER_INFO info{};
-      if(GetPointerInfo(UINT(detail.x),&info)){
-        detail.y=int32_t(info.pointerType);detail.buttons=info.pointerFlags;detail.key_class=1;
-        detail.screen_x=info.ptPixelLocation.x;detail.screen_y=info.ptPixelLocation.y;
-      }else detail.result=GetLastError();
-      uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
-    }
-    if(h.input_mode&&source==14&&msg==WM_TOUCH){
-      const auto count=LOWORD(wp);TOUCHINPUT contacts[16]{};
-      if(count>0&&count<=16&&GetTouchInputInfo(reinterpret_cast<HTOUCHINPUT>(lp),count,contacts,sizeof(TOUCHINPUT))){
-        for(unsigned i=0;i<count;++i){auto detail=r;detail.source=12;
-          detail.x=int32_t(contacts[i].dwID);detail.y=int32_t(count);detail.buttons=contacts[i].dwFlags;
-          detail.screen_x=contacts[i].x;detail.screen_y=contacts[i].y;detail.key_class=1;detail.result=0;
-          uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
-        }
-      }else{auto detail=r;detail.source=12;detail.x=0;detail.y=count;detail.key_class=0;
-        detail.result=count>16?ERROR_INSUFFICIENT_BUFFER:(count==0?ERROR_INVALID_PARAMETER:GetLastError());
-        uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
-      }
-    }
+    if(h.input_mode&&source==14)
+      uio1::input_details(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),r,msg,wp,lp,
+                         GetPointerInfo,GetTouchInputInfo);
 
   }else uio1::atom(h.filtered).fetch_add(1,std::memory_order_relaxed);
   const auto cost=now()-began;
