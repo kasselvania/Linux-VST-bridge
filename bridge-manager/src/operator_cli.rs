@@ -122,6 +122,7 @@ fn activity(m: &Manager) -> Result<ui::Activity> {
             service: if active(SERVICE) { "active" } else { "stopped" }.into(),
             keepers: cap.keepers,
             dsp: cap.dsp,
+            maintenance: cap.maintenance,
             ceiling: cap.limits.global_dsp,
             pending_transactions: pending,
             stale_transports: stale,
@@ -243,7 +244,7 @@ pub(super) fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
         products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = sw.catalogue(m)?;
-    let environments=catalogue.environments.iter().map(|e| -> Result<ui::Environment> { let scan=optional(&m.root.join("inventory").join(format!("{}.json",e.environment.id)))?; Ok(ui::Environment {id:e.environment.id.clone(),family:format!("{:?}",e.family),runner:e.environment.runner.id.clone(),revision:e.environment.revision,authorization:"Managed by the vendor and user; account state is not inspected".into(),last_scan:json!({"id":scan["id"],"completed_at":scan["completed_at"],"module_count":scan["modules"].as_array().map(Vec::len)}),actions:vec![action("Rescan installed products",ui::Action::EnvironmentRescan{environment:e.environment.id.clone()},busy)]}) }).collect::<Result<Vec<_>>>()?;
+    let environments=catalogue.environments.iter().map(|e| -> Result<ui::Environment> { let scan=optional(&m.root.join("inventory").join(format!("{}.json",e.environment.id)))?; Ok(ui::Environment {id:e.environment.id.clone(),family:format!("{:?}",e.family),runner:e.environment.runner.id.clone(),revision:e.environment.revision,authorization:"Managed by the vendor and user; account state is not inspected".into(),last_scan:json!({"id":scan["id"],"completed_at":scan["completed_at"],"module_count":scan["modules"].as_array().map(Vec::len),"changes":scan["changes"]}),actions:vec![action("Rescan installed products",ui::Action::EnvironmentRescan{environment:e.environment.id.clone()},busy)]}) }).collect::<Result<Vec<_>>>()?;
     for e in &catalogue.environments {
         let path = m
             .root
@@ -357,7 +358,13 @@ pub(super) fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
         });
     }
     let mut incidents = Vec::new();
-    for path in crash_capture::incidents(m)? {
+    let mut paths = crash_capture::incidents(m)?;
+    paths.sort_by_key(|p| {
+        fs::metadata(p.join("status.json"))
+            .and_then(|m| m.modified())
+            .ok()
+    });
+    for path in paths {
         let id = path
             .file_name()
             .and_then(|s| s.to_str())
@@ -773,6 +780,7 @@ fn rescan(m: &Manager, environment: &str) -> Result<Value> {
         host: sw.host,
         host_source_sha256: sw.source_sha256,
         completed_at: observation::now()?,
+        changes: inventory::changes(prior.as_ref().map(|p| p.modules.as_slice()), &found),
         modules: found,
     };
     let dir = m.root.join("inventory");
@@ -841,6 +849,7 @@ mod tests {
                 service: "active".into(),
                 keepers: 1,
                 dsp: 0,
+                maintenance: 0,
                 ceiling: 6,
                 pending_transactions: 0,
                 stale_transports: 0,

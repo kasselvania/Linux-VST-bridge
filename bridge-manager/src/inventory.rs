@@ -35,6 +35,44 @@ pub struct Scan {
     pub host_source_sha256: String,
     pub completed_at: u64,
     pub modules: Vec<Module>,
+    #[serde(default)]
+    pub changes: Changes,
+}
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Changes {
+    pub initial_scan: bool,
+    pub added: usize,
+    pub changed: usize,
+    pub removed: usize,
+    pub unchanged: usize,
+}
+/// Locations correlate an installation delta; module digests remain byte identity.
+pub fn changes(prior: Option<&[Module]>, current: &[Module]) -> Changes {
+    let previous = prior.unwrap_or(&[]);
+    let mut result = Changes {
+        initial_scan: prior.is_none(),
+        ..Changes::default()
+    };
+    for module in current {
+        match previous
+            .iter()
+            .find(|old| old.artifact.path == module.artifact.path)
+        {
+            None => result.added += 1,
+            Some(old) if old.artifact.sha256 == module.artifact.sha256 => result.unchanged += 1,
+            Some(_) => result.changed += 1,
+        }
+    }
+    result.removed = previous
+        .iter()
+        .filter(|old| {
+            !current
+                .iter()
+                .any(|module| module.artifact.path == old.artifact.path)
+        })
+        .count();
+    result
 }
 /// Consume only the complete SDK factory record. Follow-on component inspection
 /// may refuse a multi-class module; that distinct outcome is retained by Module.
@@ -136,6 +174,36 @@ mod tests {
     use super::*;
     fn report() -> Value {
         serde_json::json!({"cleanup_confirmed":true,"transport_retired":true,"records":[{"state":"ap8_factory","factory":{"vendor_hex":hex(b"New Vendor")},"class_count":1,"classes":[{"raw_tuid_hex":"01000000020003000400000000000000","tier":"IPluginFactory2.PClassInfo2","name_hex":hex(b"Unknown synth"),"category_hex":hex(b"Audio Module Class"),"subcategories_hex":hex(b"Instrument|Synth"),"vendor_hex":"","version_hex":hex(b"1.0")}]}]})
+    }
+    #[test]
+    fn scan_delta_separates_location_and_bytes() {
+        let module = |path: &str, hash: &str| Module {
+            artifact: Artifact {
+                path: path.into(),
+                sha256: hash.into(),
+            },
+            classes: vec![],
+            report: Artifact {
+                path: "report".into(),
+                sha256: "report".into(),
+            },
+            inspection_error: None,
+            quarantine_reason: None,
+        };
+        let prior = vec![module("a", "1"), module("b", "2"), module("c", "3")];
+        let current = vec![module("a", "1"), module("b", "4"), module("d", "3")];
+        assert_eq!(
+            changes(Some(&prior), &current),
+            Changes {
+                initial_scan: false,
+                added: 1,
+                changed: 1,
+                removed: 1,
+                unchanged: 1
+            }
+        );
+        assert_eq!(changes(None, &current).added, 3);
+        assert!(changes(None, &current).initial_scan);
     }
     #[test]
     fn unknown_factory_is_inventory_not_a_profile() {

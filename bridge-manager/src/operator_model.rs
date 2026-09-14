@@ -107,6 +107,7 @@ pub struct System {
     pub service: String,
     pub keepers: usize,
     pub dsp: usize,
+    pub maintenance: usize,
     pub ceiling: usize,
     pub pending_transactions: usize,
     pub stale_transports: usize,
