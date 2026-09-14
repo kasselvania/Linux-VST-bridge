@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "purpose": "reviewed MF1 prerequisite installation for UIO3",
+  "reviewed_head": "841332bcc183b7d1d70c7c35f7d934d03704526a",
+  "reviewed_tree": "e70a3d1a2c95fa8595cb4adc6fc70f252856aedd",
+  "merged_main": "a123852b1d3462bb38ec4a1fdccdbb87cdd9de72",
+  "build_command": "sh tools/mf1/build-linux.sh",
+  "artifacts": {
+    "linux-vst-bridge": "8daba8a8bb984cec1d2f1aec48aa6014032a75c0993a7603f7e160208524af53",
+    "linux-audio-compatibility-manager": "b87af432f8e9edf0013f3c68207b5a3f7f913ee20e926154cf0d449dc85b9bbc",
+    "session.py": "04868ce6e8f2deb387fe322e052e5527d5b4e757d7b814bbd1b2ae2eaac9a69d",
+    "ownership.py": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b"
+  },
+  "product_native_windows_rebuilt": false,
+  "installed": true,
+  "readback": {
+    "ordinary_revisions": [
+      18,
+      10,
+      10
+    ],
+    "rollback": 11,
+    "product_bytes_rebuilt": false,
+    "projects_unchanged": true,
+    "dsp": 0,
+    "maintenance": 0,
+    "keeper": 1,
+    "transactions": 0,
+    "capture": "off"
+  }
+}
