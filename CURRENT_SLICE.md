@@ -27,6 +27,18 @@ No resize/wavetable/tab/knob/routing/automation/save-recall repeat.
 Finish one PR for independent review, no automatic merge. Manager/frontend
 integration is explicitly deferred for a later design discussion.
 
+## Current transition state
+
+Product source `317fd717f4826734d36a0b2fe01b1ad7999bb495` passes AP12/PX2.
+The immutable manager/catalogue is installed; ordinary18 is physically active,
+with exact ordinary11 parent and unchanged siblings. Candidate17 remains inactive.
+Before the agent's launch, Bitwig opened externally. The launch guard refused
+before creating/opening the smoke copy. Luna's read-only Moonlight view shows
+Pigments Welcome; neither agent sent input. One DSP lease is active. The session
+ownership/disposition question is pending with the operator. Do not close or
+change that session without the answer. Ordinary shutdown/zero-lease final smoke
+is not yet established. See `evidence/uio2/acceptance/transition.json`.
+
 ---
 ## Previous UIO2 slice (merged history)
 

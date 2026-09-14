@@ -1,0 +1,76 @@
+{
+  "profile_fingerprint": "56872b858daef293aa47c0fcbd7e99e6c586e1311366fedbab0bb410fb0f55cd",
+  "publication": {
+    "id": "23cbf3bdbe4cf6d4ee3d2056103557ea",
+    "sha256": "9909092ab38a07cef970122d7e451d98828ac7864e477b5c6401ec00da064630"
+  },
+  "parent": {
+    "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+    "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+  },
+  "qualification": null,
+  "artifacts": {
+    "manager": "354a62e95118137152dfc82c726cc72935066769bea50a0f5e69a85c71da5507",
+    "supervisor": "6c19084b7c6c29d49e561b92237d026b26b41e2591d3e3456ce7f4fe9175db30",
+    "ownership": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "044bf2a88dea1ab5bbaac129109004294b74ce4e5fe8a9dddcd158064e6168c0"
+  },
+  "catalogue_schema": 3,
+  "native_hashes": [
+    "ce7531e4c76e53e85abe1153354fac890a6ba641b3b6333f5891a25f49843d59",
+    "11615d88cb253e22ca6f6beecbe946bdb5efd46882d091b65f9c461cd6757428",
+    "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
+    "56987399359d05b4b113f1818c48e6c57142cc8bf073dae255606d1e663ecc38"
+  ],
+  "host_hashes": [
+    "5a781f7d77a2e7499d2d07b7e92b8d29976f72e71f8f0f96e8e3f1878051125e",
+    "50c09be65eb2d2930f744afc16212f953c0b948f47132fa6cac1c90bbb91773d",
+    "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8"
+  ],
+  "schema": 1,
+  "product_source": "317fd717f4826734d36a0b2fe01b1ad7999bb495",
+  "review": 5192912686,
+  "ordinary_revision": 18,
+  "candidate_revision": 17,
+  "candidate_inactive": true,
+  "rollback_revision": 11,
+  "siblings_unchanged": true,
+  "product_bytes_rebuilt": false,
+  "manager_installed": true,
+  "ordinary_publication_verified": true,
+  "preflight": {
+    "bitwig_absent": true,
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "capture_armed": false,
+    "projects_unchanged": true
+  },
+  "smoke": {
+    "state": "awaiting_external_session_disposition",
+    "agent_launch_attempt": "refused_before_launch_because_bitwig_already_running",
+    "agent_input_actions": 0,
+    "gui_readback": "Pigments Welcome editor visible in connected Moonlight stream",
+    "dsp_leases": 1,
+    "normal_shutdown": "not_yet_observed",
+    "zero_lease_final_cleanup": "not_yet_observed"
+  },
+  "validation": {
+    "manager_linux": "81 library + 15 binary passed",
+    "manager_macos": "81 library + 12 binary passed",
+    "runtime_linux": "60 passed",
+    "clippy": "passed",
+    "ap12": 34795733973,
+    "px2": 34795733963
+  },
+  "nonclaims": [
+    "No ordinary shutdown smoke completed yet",
+    "No resize or wavetable repetition",
+    "No universal stability or crash-cause claim",
+    "No frontend or ASC integration"
+  ],
+  "recommended_frames": 512,
+  "frames256": "unqualified"
+}
