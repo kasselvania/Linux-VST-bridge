@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "arturia-pigments",
-  "revision": 18,
+  "revision": 13,
   "claim": "verified_exact_fixture",
   "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
   "factory_vendor": "Arturia",
@@ -56,17 +56,17 @@
     },
     "environment_family": "arturia_persistent_v1",
     "environment_revision": 1,
-    "host_sha256": "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8",
-    "host_source_sha256": "aab9ed5088e7f2a6a52665fb67150ce3fbe1a52893f7eedb68a63c55c06da498",
-    "native_sha256": "56987399359d05b4b113f1818c48e6c57142cc8bf073dae255606d1e663ecc38",
-    "native_source_commit": "1da298386b773eaf4ba3dbce242cc146c2f6a285",
+    "host_sha256": "50c09be65eb2d2930f744afc16212f953c0b948f47132fa6cac1c90bbb91773d",
+    "host_source_sha256": "a829ccf933af39d4ab7ed36aea8258309143ba5daf3b10e1a15fa09560644e6c",
+    "native_sha256": "ecd5f36b8b8d08f9a690065e7521ae89639a7bc385e67105a40e4ec37b6ef6fb",
+    "native_source_commit": "e077351153cc5aeaa564cef4c8fb9fc688e33bbc",
     "descriptor_sha256": "8e3cc04ef0c6ac5beb3482d5366128373943b7c10b46f896f1932b3dcbb85e34"
   },
   "capabilities": {
     "vendor_retirement": "process_scoped_vendor_retirement",
     "editor_lifetime": "retain_editor_view_until_instance_retirement",
     "event_output": "reported_zero_event_channels_unspecified",
-    "accessibility": "disabled_for_vendor_process",
+    "accessibility": "windows_default",
     "editor": "detached_direct_vendor_lifecycle",
     "state": "concurrent_read_only_capture_v12",
     "precision": "float32_only",
@@ -77,18 +77,24 @@
     "unqualified256",
     "detached_focus_refusal",
     "exact_operator_artifact_only",
-    "sole_stereo_auxiliary_input_only",
-    "windows_accessibility_unavailable"
+    "sole_stereo_auxiliary_input_only"
   ],
   "evidence": [
     "docs/AP18.md",
-    "docs/IF1.md",
-    "docs/IF2.md",
-    "evidence/if1/revision-15/live-check.json",
-    "evidence/if2/generated.json",
-    "docs/UIO2.md",
-    "evidence/uio2/incident.json",
-    "evidence/uio2/tsg1/operator-resize-and-cleanup.json",
-    "evidence/uio2/acceptance/review.json"
+    "evidence/ap18/pigments/installed.json",
+    "evidence/ap18/pigments/census.json",
+    "evidence/ap18/pigments/native-activation.json",
+    "evidence/ap18/pigments/event-output-operational-census.json",
+    "evidence/ap18/pigments/event-output-correction.json",
+    "evidence/ap18/pigments/retained-editor.json",
+    "evidence/ap18/pigments/process-retirement.json",
+    "evidence/ap18/pigments/process-retirement-live.json",
+    "evidence/ap18/lc1/regression-before.json",
+    "evidence/ap18/lc1/regression-after.json",
+    "evidence/ap18/lc1/live-completion.json",
+    "evidence/ap18/lc1/installed-final.json",
+    "evidence/ap18/lc1/validation.json",
+    "evidence/uir1/acceptance/review.json",
+    "docs/UIR1.md"
   ]
 }

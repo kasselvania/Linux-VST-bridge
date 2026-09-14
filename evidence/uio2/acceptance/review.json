@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "review": 5192912686,
+  "head": "953e246ed2943eaafbac0d83e0dadc1d23bed69f",
+  "tree": "d256b236b789dea6a2f1d687cb22d92a9b2054cd",
+  "candidate": {
+    "id": "0889215a6dcb3b6e54fd244536d53bb0",
+    "sha256": "61f6d0fb1a1ec3550f9d342f68fa56fbce7f4019ae6e2e535df5fd5fcbb25f41"
+  },
+  "candidate_fingerprint": "2fd865a9a91ae7fae7215a0f8e9c0d6fba717941be7ce6ed4a5a828f42ac5b66",
+  "transaction": "9ec2b80b704fde77b903568565f21d38",
+  "parent": {
+    "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+    "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+  },
+  "prior_software_sha256": "4728f786fd0bad9ab6d09a64cb1dc457cb17b60e5f84d79234d7d4e53affe2bf",
+  "prior_manager_sha256": "5204e0406087ccaa1d1c2a50e76a840d0a6654dc4938218fa9025dae6ba83a6d",
+  "baseline": [
+    [
+      "417274754156495350724C4650726F63",
+      {
+        "id": "51f241c4da508aa1fbbc9d6d172eb123",
+        "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+      }
+    ],
+    [
+      "41727475415649536772616E50726F63",
+      {
+        "id": "e340c6f8ad5ca494d2fb477214c9937e",
+        "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+      }
+    ]
+  ],
+  "history": [
+    {
+      "path": "compatibility/ap18/revision-11/arturia-pigments.json",
+      "sha256": "e3d2d6b5cf81b736f3a934bb64f018b62db98dc6eb3833f71ab63f7c12f5fabe"
+    },
+    {
+      "path": "compatibility/uio2/arturia-pigments.json",
+      "sha256": "a9357081a629571008f233f89754da452f7897b7832df076da942f5cd7e8138a"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "evidence/uio2/tsg1/generated.json",
+      "sha256": "eb92169a1ae0fbf7efc21ec3c5ae2d6eb19bf2bbd9a448fcae61989331b95a7f"
+    },
+    {
+      "path": "evidence/uio2/tsg1/native-moonlight-boundary.json",
+      "sha256": "a11881b3b4282b0339708c1f10595490ea5eb74eb6f9ba63a71a1ac7118a4d7e"
+    },
+    {
+      "path": "evidence/uio2/tsg1/operator-resize-and-cleanup.json",
+      "sha256": "cb9622059cda138216a232a02509cb0001f5a2e84f0ef3855a97183eedf82c3a"
+    }
+  ],
+  "disposition": "UIO2_FOCUSED_PRODUCT_ACCEPTED_ORDINARY_18_AUTHORIZED"
+}

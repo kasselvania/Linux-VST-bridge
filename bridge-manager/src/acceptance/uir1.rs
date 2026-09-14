@@ -4,21 +4,21 @@ use super::*;
 pub const REVIEW: &[u8] = include_bytes!("../../../evidence/uir1/acceptance/review.json");
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Seal {
-    schema: u32,
-    review: u64,
-    head: String,
-    tree: String,
-    candidate: RevisionRef,
-    candidate_fingerprint: String,
-    transaction: String,
-    parent: RevisionRef,
-    prior_software_sha256: String,
-    prior_manager_sha256: String,
-    baseline: Vec<(String, RevisionRef)>,
-    history: Vec<EvidenceIdentity>,
-    evidence: Vec<EvidenceIdentity>,
-    disposition: String,
+pub(super) struct Seal {
+    pub(super) schema: u32,
+    pub(super) review: u64,
+    pub(super) head: String,
+    pub(super) tree: String,
+    pub(super) candidate: RevisionRef,
+    pub(super) candidate_fingerprint: String,
+    pub(super) transaction: String,
+    pub(super) parent: RevisionRef,
+    pub(super) prior_software_sha256: String,
+    pub(super) prior_manager_sha256: String,
+    pub(super) baseline: Vec<(String, RevisionRef)>,
+    pub(super) history: Vec<EvidenceIdentity>,
+    pub(super) evidence: Vec<EvidenceIdentity>,
+    pub(super) disposition: String,
 }
 const EVIDENCE: &[(&str, &[u8])] = &[
     (
@@ -76,15 +76,19 @@ fn verify_seal(s: &Seal) -> Result<()> {
     }
     Ok(())
 }
-fn normalized(p: &Profile, c: &Profile) -> Result<()> {
+pub(super) fn normalized(p: &Profile, c: &Profile) -> Result<()> {
     p.validate()?;
     c.validate()?;
     let mut expected = c.clone();
-    expected.revision = 13;
+    expected.revision = match c.revision {
+        12 => 13,
+        17 => 18,
+        _ => return Err("acceptance_profile_transition".into()),
+    };
     expected.claim = Claim::VerifiedExactFixture;
     expected.evidence = p.evidence.clone();
     require(
-        c.revision == 12 && c.claim == Claim::ReviewCandidate && *p == expected,
+        c.claim == Claim::ReviewCandidate && *p == expected,
         "acceptance_profile_transition",
     )
 }
@@ -92,6 +96,22 @@ fn normalized(p: &Profile, c: &Profile) -> Result<()> {
 pub fn prepare(m: &Manager) -> Result<AcceptedSoftware> {
     let seal: Seal = serde_json::from_slice(REVIEW)?;
     verify_seal(&seal)?;
+    prepare_review(
+        m,
+        &seal,
+        REVIEW,
+        &pigments_thirteen()?,
+        &qualification::uir1_candidate()?,
+    )
+}
+
+pub(super) fn prepare_review(
+    m: &Manager,
+    seal: &Seal,
+    review: &[u8],
+    p: &Profile,
+    c: &Profile,
+) -> Result<AcceptedSoftware> {
     let sw: Software = read_json(&m.root.join("software.json"))?;
     if digest(&m.root.join("software.json"))? == seal.prior_software_sha256 {
         require(
@@ -107,7 +127,7 @@ pub fn prepare(m: &Manager) -> Result<AcceptedSoftware> {
                 && sw.manager.path.canonicalize()? == sw.manager.path
                 && file(&sw.manager.path)?.metadata()?.mode() & 0o222 == 0
                 && file(&receipt)?.metadata()?.mode() & 0o222 == 0
-                && fs::read(receipt)? == REVIEW,
+                && fs::read(receipt)? == review,
             "acceptance_prior_software_identity",
         )?;
     }
@@ -135,17 +155,9 @@ pub fn prepare(m: &Manager) -> Result<AcceptedSoftware> {
             "active_lease_unresolved",
         )?;
     }
-    prepare_selected(
-        m,
-        &seal,
-        &pigments_verified()?,
-        &qualification::uir1_candidate()?,
-        &pigments_eleven()?,
-        &ap17_profiles()?,
-        &sw,
-    )
+    prepare_selected(m, seal, p, c, &pigments_eleven()?, &ap17_profiles()?, &sw)
 }
-fn prepare_selected(
+pub(super) fn prepare_selected(
     m: &Manager,
     s: &Seal,
     p: &Profile,
@@ -155,6 +167,11 @@ fn prepare_selected(
     sw: &Software,
 ) -> Result<AcceptedSoftware> {
     normalized(p, c)?;
+    let purpose = match c.revision {
+        12 => Qualification::Uir1Input,
+        17 => Qualification::If1Failure,
+        _ => return Err("acceptance_profile_transition".into()),
+    };
     m.require_inactive(None)?;
     let db = m.registry()?;
     for key in db.classes.keys() {
@@ -176,15 +193,20 @@ fn prepare_selected(
             && c.fingerprint()? == s.candidate_fingerprint
             && r.transaction == s.transaction
             && r.parent.as_ref() == Some(&s.parent)
-            && r.qualification == Some(Qualification::Uir1Input),
+            && r.qualification == Some(purpose),
         "acceptance_candidate_identity",
     )?;
     require(
-        read_json::<Profile>(&m.root.join("profiles").join(&c.id).join("12.json"))? == *c,
+        read_json::<Profile>(
+            &m.root
+                .join("profiles")
+                .join(&c.id)
+                .join(format!("{}.json", c.revision)),
+        )? == *c,
         "acceptance_profile_identity",
     )?;
     m.verify_completed_publication(&r, &s.candidate)?;
-    let exact = qualification::load_for(m, c.clone(), Qualification::Uir1Input)?;
+    let exact = qualification::load_for(m, c.clone(), purpose)?;
     r.registration.verify(&m.root)?;
     r.census.verify_current(
         &m.root,
@@ -201,8 +223,7 @@ fn prepare_selected(
             && exact.native.artifact.sha256 == r.registration.native.sha256,
         "acceptance_artifact_identity",
     )?;
-    let prior =
-        m.verify_qualification_parent_for(&db, c, &r.registration, Qualification::Uir1Input)?;
+    let prior = m.verify_qualification_parent_for(&db, c, &r.registration, purpose)?;
     require(
         prior.profile == *parent
             && db.classes[&c.class.class_id].managed_revision.as_ref() == Some(&s.parent),
@@ -235,13 +256,14 @@ fn prepare_selected(
     }
     let mut catalogue = sw.catalogue(m)?;
     require(
-        catalogue.schema == 2
-            && catalogue.natives.len() == siblings.len() + 1
+        matches!(catalogue.schema, 2 | 3)
+            && catalogue.natives.len() > siblings.len()
             && catalogue.environments == vec![r.census.environment.clone()],
         "acceptance_catalogue_identity",
     )?;
     catalogue.native(parent)?;
     let old_host = catalogue.host(parent, &sw.host, &sw.source_sha256)?;
+    let new_native = exact.native.clone();
     let new_host = HostArtifact {
         host: exact.host,
         source_manifest: exact.source_manifest,
@@ -258,11 +280,17 @@ fn prepare_selected(
             && catalogue
                 .hosts
                 .iter()
-                .all(|h| same(h, &old_host) || same(h, &new_host)),
+                .all(|h| c.revision == 17 || same(h, &old_host) || same(h, &new_host)),
         "acceptance_catalogue_identity",
     )?;
     if !catalogue.hosts.iter().any(|h| same(h, &new_host)) {
         catalogue.hosts.push(new_host);
+    }
+    if catalogue.native(p).is_err() {
+        require(c.revision == 17, "acceptance_artifact_identity")?;
+        new_native.matches(p)?;
+        catalogue.schema = 3;
+        catalogue.natives.push(new_native);
     }
     catalogue.native(p)?;
     catalogue.host(p, &sw.host, &sw.source_sha256)?;
@@ -282,7 +310,7 @@ mod tests {
     fn thirteen_is_only_reviewed_twelve_and_eleven_remains_immutable() {
         let seal: Seal = serde_json::from_slice(REVIEW).unwrap();
         verify_seal(&seal).unwrap();
-        let p = pigments_verified().unwrap();
+        let p = pigments_thirteen().unwrap();
         let c = qualification::uir1_candidate().unwrap();
         normalized(&p, &c).unwrap();
         assert_eq!(p.revision, 13);
@@ -293,7 +321,7 @@ mod tests {
             external_ids(&p.class.class_id).unwrap(),
             external_ids(&c.class.class_id).unwrap()
         );
-        assert!(installed_profiles().unwrap().contains(&p));
+        assert!(!installed_profiles().unwrap().contains(&c));
         assert!(!installed_profiles().unwrap().contains(&c));
         assert!(p.claim.permits(SelectionPurpose::Activation));
         assert!(!c.claim.permits(SelectionPurpose::Activation));
@@ -319,7 +347,7 @@ mod tests {
         }
         println!("UIR1 ordinary 13 fingerprint {}", p.fingerprint().unwrap());
     }
-    fn fixture() -> (Fixture, Seal, Profile, Profile, Profile, Software) {
+    fn fixture(candidate_revision: u32) -> (Fixture, Seal, Profile, Profile, Profile, Software) {
         let (f, mut old, mut census, native) = prepared();
         old.revision = 11;
         old.capabilities.editor = Editor::DetachedDirectVendorLifecycle;
@@ -377,7 +405,12 @@ mod tests {
         };
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         let mut c = old.clone();
-        c.revision = 12;
+        c.revision = candidate_revision;
+        let purpose = if candidate_revision == 17 {
+            Qualification::If1Failure
+        } else {
+            Qualification::Uir1Input
+        };
         c.claim = Claim::ReviewCandidate;
         let package = f.outer.join("package");
         private_dir(&package).unwrap();
@@ -388,12 +421,28 @@ mod tests {
             package.join(format!("{}.so", c.class.class_id)),
         )
         .unwrap();
+        if candidate_revision == 17 {
+            c.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
+            if !c
+                .limitations
+                .contains(&Limitation::WindowsAccessibilityUnavailable)
+            {
+                c.limitations
+                    .push(Limitation::WindowsAccessibilityUnavailable);
+            }
+            fs::write(
+                package.join(format!("{}.so", c.class.class_id)),
+                b"new native IF2",
+            )
+            .unwrap();
+            c.requirements.native_sha256 =
+                digest(&package.join(format!("{}.so", c.class.class_id))).unwrap();
+        }
         c.requirements.host_sha256 = digest(&package.join("host.exe")).unwrap();
         c.requirements.host_source_sha256 =
             digest(&package.join("host-source-manifest.json")).unwrap();
-        qualification::stage_selected_for(&f.m, &package, &[c.clone()], Qualification::Uir1Input)
-            .unwrap();
-        let exact = qualification::load_for(&f.m, c.clone(), Qualification::Uir1Input).unwrap();
+        qualification::stage_selected_for(&f.m, &package, &[c.clone()], purpose).unwrap();
+        let exact = qualification::load_for(&f.m, c.clone(), purpose).unwrap();
         census.host = exact.host.clone();
         census.host_source_sha256 = exact.source_manifest.sha256.clone();
         census.report.path = f.outer.join("ui-census.json");
@@ -405,7 +454,7 @@ mod tests {
                 &census,
                 derive_for(&c, &census, &exact.native, SelectionPurpose::Qualification).unwrap(),
                 (&census.host, &census.host_source_sha256),
-                Some(Qualification::Uir1Input),
+                Some(purpose),
                 None,
             )
             .unwrap();
@@ -418,13 +467,80 @@ mod tests {
         seal.candidate_fingerprint = c.fingerprint().unwrap();
         seal.baseline.clear();
         let mut p = c.clone();
-        p.revision = 13;
+        p.revision = candidate_revision + 1;
         p.claim = Claim::VerifiedExactFixture;
         (f, seal, p, c, old, sw)
     }
     #[test]
+    fn eighteen_retains_both_native_images_and_publishes_with_eleven_parent() {
+        let (f, s, p, c, old, mut sw) = fixture(17);
+        let before = snapshot(&f.outer);
+        let accepted = prepare_selected(&f.m, &s, &p, &c, &old, &[], &sw).unwrap();
+        assert_eq!(snapshot(&f.outer), before);
+        assert_eq!(accepted.catalogue.schema, 3);
+        assert_eq!(accepted.catalogue.natives.len(), 2);
+        accepted.catalogue.native(&old).unwrap();
+        accepted.catalogue.native(&p).unwrap();
+        let mut duplicate = accepted.catalogue.clone();
+        duplicate.natives.push(duplicate.natives[0].clone());
+        assert!(duplicate.validate(&f.m.root).is_err());
+        let mut legacy = accepted.catalogue.clone();
+        legacy.schema = 2;
+        assert!(legacy.validate(&f.m.root).is_err());
+        let mut wrong = p.clone();
+        wrong.requirements.native_sha256 = "ab".repeat(32);
+        assert!(accepted.catalogue.native(&wrong).is_err());
+        let a = sw.native_catalogue.as_mut().unwrap();
+        atomic_json(&a.path, &accepted.catalogue).unwrap();
+        a.sha256 = digest(&a.path).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let again = prepare_selected(&f.m, &s, &p, &c, &old, &[], &sw).unwrap();
+        assert_eq!(again.catalogue, accepted.catalogue);
+        let r = f.m.load_revision(&p.class.class_id, &s.candidate).unwrap();
+        let reg = derive(&p, &r.census, accepted.catalogue.native(&p).unwrap()).unwrap();
+        assert!(f
+            .m
+            .managed_publish(
+                &c,
+                &r.census,
+                reg.clone(),
+                &r.census.host,
+                &r.census.host_source_sha256,
+                None
+            )
+            .is_err());
+        let ordinary =
+            f.m.managed_publish(
+                &p,
+                &r.census,
+                reg,
+                &r.census.host,
+                &r.census.host_source_sha256,
+                None,
+            )
+            .unwrap();
+        let active = f.m.load_revision(&p.class.class_id, &ordinary).unwrap();
+        assert_eq!(active.parent, Some(s.parent.clone()));
+        assert!(active.qualification.is_none());
+        f.m.verify_served_host(
+            &active.registration,
+            &sw.host,
+            &sw.source_sha256,
+            std::slice::from_ref(&p),
+        )
+        .unwrap();
+        f.m.rollback(&p.class.class_id, &s.parent.id, None).unwrap();
+        let restored = f.m.load_revision(&p.class.class_id, &s.parent).unwrap();
+        assert_eq!(
+            fs::read_link(f.m.link(&p.class.class_id)).unwrap(),
+            restored.target
+        );
+        f.m.verify_served_host(&restored.registration, &sw.host, &sw.source_sha256, &[p])
+            .unwrap();
+    }
+    #[test]
     fn exact_preparation_refuses_drift_then_ordinary_publish_and_rollback() {
-        let (f, s, p, c, old, mut sw) = fixture();
+        let (f, s, p, c, old, mut sw) = fixture(12);
         let before = snapshot(&f.outer);
         let accepted = prepare_selected(&f.m, &s, &p, &c, &old, &[], &sw).unwrap();
         assert_eq!(snapshot(&f.outer), before);

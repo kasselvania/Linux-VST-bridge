@@ -1,3 +1,53 @@
+# Pigments 18 — ordinary publication of accepted candidate 17
+
+Base: merged UIO2 `64ed9156c095dba2f8678d840217b99b4c949ed6`.
+Review 5192912686 accepts the candidate17 focused product result at
+`953e246ed2943eaafbac0d83e0dadc1d23bed69f` (tree
+`d256b236b789dea6a2f1d687cb22d92a9b2054cd`). The user selected this transition.
+
+Create ordinary verified_exact_fixture revision18 from exact candidate17 content,
+changing only revision, claim and accepted evidence. Preserve all previous
+profiles, binaries, protected projects and authorization. Keep ordinary11 as
+physical parent/rollback; candidate17 remains inactive reviewed provenance.
+Reuse immutable setup and managed preview/publication. No generic promotion.
+Retain both exact native artifacts in the software catalogue for rollback.
+
+Only manager/profile/catalogue/publication authority changes. No Windows/native
+product rebuild, UI campaign or new compatibility investigation. Test exact
+normalization, catalogue selection, candidate refusal, publication and rollback;
+run manager tests/Clippy, runtime and applicable AP12/PX2 checks.
+
+After installation, one ordinary load/editor/responsiveness/normal-quit smoke.
+Require expected product bytes, process-scoped retirement, zero DSP leases,
+transactions and stale transports, service/keeper health and capture disarmed.
+Leave ordinary18 active only after success. Otherwise restore11 and retain the
+exact failure. Keep LoFi/FRAGMENTS10 unchanged. 512 recommended; 256 unqualified.
+No resize/wavetable/tab/knob/routing/automation/save-recall repeat.
+
+Finish one PR for independent review, no automatic merge. Manager/frontend
+integration is explicitly deferred for a later design discussion.
+
+## Completed ordinary transition
+
+Review5193270789 accepts source head41aec9e. The operator-owned session has
+naturally closed. Joined retained publication/live lease/runtime identity readback
+binds it to ordinary18 fingerprint
+`56872b858daef293aa47c0fcbd7e99e6c586e1311366fedbab0bb410fb0f55cd`.
+No agent input or launch occurred. All seven process-scoped retirement milestones
+committed; no terminal/Collector/editor failure. Zero DSP leases, pending
+transactions and stale transports; service/keeper healthy; projects and siblings
+unchanged. Ordinary18 remains active with ordinary11 rollback and candidate17
+inactive. Retain 12 delivery groups/216832 missing and expired frames; no gap-free
+claim. See `evidence/uio2/acceptance/natural-smoke.json`. The earlier pending-session
+record remains historical. Finish checks and merge this accepted transition.
+
+The next authorized slice is MF1 — Human Operator Manager, a native Rust frontend
+projecting canonical readback and closed operations, including generic inventory
+without publishing unknown products. It begins after this PR merges.
+
+---
+## Previous UIO2 slice (merged history)
+
 # UIO2 / TSG1 — generic transient surface groups
 
 Active cut authorized after review 5191850998 at `4fc291bd36e0d53f38d1cb66f3e7903bc27dd0c6`.
