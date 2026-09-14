@@ -37,5 +37,8 @@ service/keeper. Draft PR, independent review, no merge.
 
 ## Status
 
-MF1 prerequisite complete. UIO3 implementation and generated verification in progress.
-No UIO3 product interaction has occurred.
+MF1 prerequisite complete. Observer implementation and focused generated checks
+passed, including hosted Windows, pinned-Proton procedure/capture/detach and isolated
+XWayland source/release observation. Physical touch delivery is not generated proof.
+The operator has been asked to open ordinary18 for the two human-only actions.
+No UIO3 product interaction has occurred; no compatibility repair is selected.
