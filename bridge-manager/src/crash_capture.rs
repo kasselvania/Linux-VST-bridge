@@ -22,7 +22,7 @@ fn folder(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "capture incident identity")?;
     Ok(root(m).join(id))
 }
-fn incidents(m: &Manager) -> Result<Vec<PathBuf>> {
+pub fn incidents(m: &Manager) -> Result<Vec<PathBuf>> {
     if !root(m).exists() {
         return Ok(Vec::new());
     }
@@ -40,7 +40,7 @@ fn incidents(m: &Manager) -> Result<Vec<PathBuf>> {
     paths.sort();
     Ok(paths)
 }
-fn arm(m: &Manager, class: Option<&str>) -> Result<()> {
+pub fn arm(m: &Manager, class: Option<&str>) -> Result<()> {
     // Admission independently verifies exact physical publication and artifacts.
     let admission = match class {
         Some(class) => ui_observation::admit(m, class)?,
@@ -144,7 +144,7 @@ pub fn claim(m: &Manager, reg: &Registration, session: &str) -> Result<Option<Ca
     fs::remove_file(root(m).join("next.json"))?;
     Ok(Some(c))
 }
-fn disarm(m: &Manager) -> Result<()> {
+pub fn disarm(m: &Manager) -> Result<()> {
     let _lock = m.lock("capture.lock")?;
     if root(m).join("next.json").exists() {
         let c: Capture = read_json(&root(m).join("next.json"))?;

@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "fixture": "Steam Deck desktop / existing Moonlight session",
+  "toolkit": "eframe 0.36.2 / egui / Glow / X11",
+  "executor": "Luna high",
+  "capsule": "MF1-toolkit-1",
+  "maximum_actions": 12,
+  "application_menu_launches": 1,
+  "exact_fixture_label_observed": true,
+  "button_receipt_counter": 1,
+  "nonsecret_keyboard_text": "MF1",
+  "tab_focus_transition_observed": true,
+  "reported_scale": 1.0,
+  "window_closed": true,
+  "process_absent_after_close": true,
+  "dsp_leases_after_close": 0,
+  "keeper_retained": true,
+  "bitwig_or_vendor_interaction": false,
+  "nonclaims": ["physical touchscreen", "other scale factors", "native Wayland", "complete manager workflow"]
+}

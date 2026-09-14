@@ -63,6 +63,10 @@ impl LaunchMode {
 #[serde(deny_unknown_fields)]
 pub struct OperationResult {
     pub schema: u32,
+    #[serde(default)]
+    pub operation_id: Option<String>,
+    #[serde(default)]
+    pub focus_result: Option<serde_json::Value>,
     pub state: OperationState,
     pub launcher_exit: Option<i32>,
     #[serde(default)]

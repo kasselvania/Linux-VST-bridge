@@ -190,6 +190,22 @@ pub(crate) fn rename_link(from: &Path, to: &Path, exchange: bool) -> Result<()> 
 
 /// Stable operator entry point for the immutable installed manager. Foreign
 /// commands are never replaced, including a change between check and exchange.
+pub fn preflight_command(link: &Path, candidate: &Path, prior: Option<&Path>) -> Result<()> {
+    let actual = physical(link)?;
+    require(
+        actual.is_none() || actual.as_deref() == Some(candidate) || actual.as_deref() == prior,
+        "foreign_manager_command",
+    )?;
+    let parent = link.parent().ok_or("command_parent")?;
+    if parent.try_exists()? {
+        let metadata = fs::symlink_metadata(parent)?;
+        require(
+            metadata.is_dir() && metadata.uid() == unsafe { libc::getuid() },
+            "command_directory_owner",
+        )?;
+    }
+    Ok(())
+}
 pub fn install_command(link: &Path, candidate: &Path, prior: Option<&Path>) -> Result<()> {
     let actual = physical(link)?;
     if actual.as_deref() == Some(candidate) {
@@ -775,6 +791,22 @@ impl Manager {
             fail,
         )
     }
+    /// MF1's global inactivity law is checked again under the publication lock.
+    pub fn managed_publish_inactive(
+        &self,
+        profile: &Profile,
+        census: &Census,
+        registration: Registration,
+        installed_host: &Artifact,
+        source: &str,
+        fail: Option<Boundary>,
+    ) -> Result<RevisionRef> {
+        profile.validate()?;
+        profile.claim.require(SelectionPurpose::Activation)?;
+        self.publish_with_scope(
+            profile, census, registration, (installed_host, source), (None, true), fail,
+        )
+    }
     // Only the sealed AP15 qualification owner may choose this purpose. The
     // ordinary public method above retains its verified-only gate.
     pub(crate) fn publish_selected(
@@ -786,10 +818,22 @@ impl Manager {
         qualification: Option<Qualification>,
         fail: Option<Boundary>,
     ) -> Result<RevisionRef> {
+        self.publish_with_scope(profile, census, registration, host, (qualification, false), fail)
+    }
+    fn publish_with_scope(
+        &self,
+        profile: &Profile,
+        census: &Census,
+        registration: Registration,
+        host: (&Artifact, &str),
+        scope: (Option<Qualification>, bool),
+        fail: Option<Boundary>,
+    ) -> Result<RevisionRef> {
+        let (qualification, global_inactive) = scope;
         let (installed_host, source) = host;
         let _lock = self.lock("registry.lock")?;
         let key = registration.key();
-        self.require_inactive(Some(&key))?;
+        self.require_inactive(if global_inactive { None } else { Some(&key) })?;
         let mut db = self.registry()?;
         self.reconcile_revisions(&mut db)?;
         census.verify_current(
@@ -922,9 +966,22 @@ impl Manager {
         fail: Option<Boundary>,
         expected: Option<&RevisionRef>,
     ) -> Result<RevisionRef> {
+        self.rollback_with_scope(key, id, fail, expected, false)
+    }
+    pub fn rollback_inactive(&self, key: &str, id: &str, fail: Option<Boundary>) -> Result<RevisionRef> {
+        self.rollback_with_scope(key, id, fail, None, true)
+    }
+    fn rollback_with_scope(
+        &self,
+        key: &str,
+        id: &str,
+        fail: Option<Boundary>,
+        expected: Option<&RevisionRef>,
+        global_inactive: bool,
+    ) -> Result<RevisionRef> {
         require(valid_hex(key, 32) && valid_hex(id, 32), "rollback_identity")?;
         let _lock = self.lock("registry.lock")?;
-        self.require_inactive(Some(key))?;
+        self.require_inactive(if global_inactive { None } else { Some(key) })?;
         let mut db = self.registry()?;
         self.reconcile_revisions(&mut db)?;
         let e = db.classes.get(key).ok_or("registration_absent")?.clone();

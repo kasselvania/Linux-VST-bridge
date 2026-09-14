@@ -1,0 +1,199 @@
+{
+  "schema": 1,
+  "state": "implementation_complete_pending_independent_review",
+  "product_runtime_rebuild": false,
+  "ordinary_products": {
+    "pigments": 18,
+    "pigments_rollback": 11,
+    "pure_lofi": 10,
+    "efx_fragments": 10,
+    "pigments_fingerprint": "56872b858daef293aa47c0fcbd7e99e6c586e1311366fedbab0bb410fb0f55cd"
+  },
+  "completed": {
+    "native_application_menu_launch": true,
+    "ordinary_readback": true,
+    "capture_arm": true,
+    "capture_disarm": true,
+    "sanitized_incident_opened": true,
+    "generated_ordinary_rollback_restore": true,
+    "generated_module_census_maintenance": true,
+    "sanitized_incident_export": true,
+    "asc_open_focus_retire": true,
+    "environment_rescan": true,
+    "live_dsp_disabled_actions": true,
+    "manager_close_preserves_dsp": true,
+    "final_cleanup": true
+  },
+  "pending": [],
+  "retained_development_findings": [
+    {
+      "finding": "initial capture action refused on registry lock contention",
+      "capture_enabled": false,
+      "repair": "idle activity reads ownership counts without full capacity verification; heavy frontend readback and mutation entry serialize",
+      "corrected_capture_result": "armed then disarmed through GUI"
+    },
+    {
+      "finding": "ordinary setup omitted older native build from new catalogue",
+      "old_files_or_publications_modified": false,
+      "repair": "retain prior catalogue plus verified ordinary publication ancestry in schema3",
+      "original_native_hashes_retained_after_repair": true
+    },
+    {
+      "finding": "runtime test package omitted profile fixtures",
+      "result": "one test setup error",
+      "correction": "full source-owned test directory with required profile data",
+      "corrected_linux_runtime_tests": 61
+    },
+    {
+      "finding": "long technical report preceded outcome and export",
+      "repair": "outcome and export first; sanitized technical JSON collapsed"
+    },
+    {
+      "finding": "long-running ASC Open worker saw deactivating unit before final cleanup receipt",
+      "actual_stop_result": "completed with positive cleanup",
+      "repair": "closed ActiveState reader waits through deactivation; unknown state refuses",
+      "generated_transition_regression": "passed",
+      "asc_relaunch_after_reporting_fix": false
+    },
+    {
+      "finding": "GUI file-open submission was truncated to a nonexistent filename",
+      "dsp_admitted": false,
+      "bitwig_error": "FileNotFoundException",
+      "full_private_copy_visible_in_sandbox": true,
+      "product_or_permission_defect_established": false,
+      "correction": "select actual existing file from chooser list; create a private disposable project folder",
+      "attempts": 2,
+      "final_project_loaded": true
+    }
+  ],
+  "nonclaims": [
+    "new Arturia product qualification",
+    "automatic publication of unknown modules",
+    "physical touchscreen",
+    "general native Wayland",
+    "audio or performance qualification"
+  ],
+  "rescan": {
+    "trigger": "native frontend button once",
+    "modules": 3,
+    "factory_classes": 5,
+    "audio_module_classes": 3,
+    "compatibility_classes": 2,
+    "ready_products": 3,
+    "installed_unqualified": 0,
+    "quarantined": 0,
+    "initial_scan": true,
+    "added": 3,
+    "changed": 0,
+    "removed": 0,
+    "unchanged": 0,
+    "every_scanner_cleanup_confirmed": true,
+    "every_scanner_transport_retired": true,
+    "service_and_keeper_resumed": true,
+    "unknown_products_fixture_only": true
+  },
+  "asc": {
+    "opened_from_frontend": true,
+    "focused_from_frontend": true,
+    "library_presented": true,
+    "account_input_by_agent": false,
+    "stopped_from_frontend": true,
+    "vendor_cleanup_confirmed": true,
+    "service_and_keeper_resumed": true
+  },
+  "validation": {
+    "source_head": "ec2b99db3ff448c98dca16f505a151fbb0581041",
+    "linux_manager_library": 87,
+    "linux_manager_binary": 21,
+    "native_frontend": 3,
+    "linux_runtime": 61,
+    "strict_manager_clippy": "passed",
+    "strict_frontend_clippy": "passed",
+    "ap12_run": 34804908438,
+    "px2_run": 34804908445,
+    "product_windows_native_rebuilt": false
+  },
+  "source": {
+    "implementation_head": "ec2b99db3ff448c98dca16f505a151fbb0581041",
+    "implementation_tree": "c403a210e9a3f4fc3e22adcf604beb3d63efc0a9",
+    "base": "68451b11f613778514bb0b23f58efe47468c3c2a"
+  },
+  "installed_software": {
+    "linux-vst-bridge": "d4d23cd7ea449fbe48e6f42988f5fe7b82b71cbd6964ddf8014038560103de4c",
+    "linux-audio-compatibility-manager": "203307e9b3b4cf9207d6c86ca886e798ec94d391981689f59c8391a35b914bc9",
+    "session.py": "04868ce6e8f2deb387fe322e052e5527d5b4e757d7b814bbd1b2ae2eaac9a69d",
+    "ownership.py": "d6dc571f12c6202b40b05ff7f5c651865a83934af6196b2109f2775e947a343b"
+  },
+  "live_busy_check": {
+    "fixture": "disposable protected project copy; ordinary Pigments18",
+    "session": "mf1-dsp-1",
+    "dsp": 1,
+    "canonical_open_asc_disabled": true,
+    "canonical_rescan_disabled": true,
+    "gui_rollback_disabled_reason_observed": "Close active bridged instances before this action",
+    "manager_closed": true,
+    "same_dsp_session_retained": true,
+    "same_native_process_identities_retained": true,
+    "processing_advanced_after_close": true,
+    "terminal_record": null,
+    "playback_or_vendor_editor_interaction": false,
+    "normal_bitwig_quit": true,
+    "save_prompt": false,
+    "retirement": "process_scoped_vendor_retirement",
+    "retirement_milestones": 127,
+    "collector_rejection": null,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "final_sequence": 30108,
+    "final_position": 7706624,
+    "retained_delivery": {
+      "missing_frames": 0,
+      "expired_frames": 0,
+      "gaps": 0,
+      "priming_frames": 512
+    },
+    "performance_claim": false
+  },
+  "final_state": {
+    "ordinary_publications_unchanged": true,
+    "original_projects_unchanged": true,
+    "previous_software_retained": true,
+    "catalogue_schema": 3,
+    "catalogue_native_images": 8,
+    "all_original_native_hashes_retained": true,
+    "service": "active",
+    "keepers": 1,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "capture": "disarmed",
+    "bitwig": "absent",
+    "frontend": "absent",
+    "asc": "absent",
+    "held_input": 0,
+    "gui_executor": "stopped",
+    "fixture_launcher": "removed",
+    "normal_manager_launcher": "installed",
+    "tracing": "off",
+    "recommended_frames": 512,
+    "frames_256": "unqualified"
+  },
+  "executor": {
+    "model": "Luna high",
+    "route": "native Moonlight to Steam Deck",
+    "custodian": "implementation agent",
+    "raw_screenshots": "private",
+    "receipts": [
+      "toolkit app-menu/button/keyboard/close",
+      "manager product and revision readback",
+      "capture arm/disarm",
+      "human incident summary and sanitized export",
+      "ASC open/focus/owned stop",
+      "rescan once",
+      "live rollback disabled reason",
+      "manager close while same DSP continued",
+      "normal Bitwig quit"
+    ]
+  }
+}

@@ -10,7 +10,9 @@ impl Fixture {
         unsafe {
             libc::umask(0o077);
         }
-        let outer = std::env::temp_dir()
+        // A real owner.sock must also fit macOS SUN_LEN. The system per-app
+        // temporary directory can exceed that before the fixture suffix.
+        let outer = PathBuf::from("/tmp")
             .canonicalize()
             .unwrap()
             .join(format!("lvb-manager-{}", random_id().unwrap()));

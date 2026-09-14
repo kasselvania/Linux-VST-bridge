@@ -304,13 +304,25 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
         let class = o["registration"]["metadata"]["class_id"]
             .as_str()
             .ok_or("active_lease_unresolved")?;
-        require(valid_hex(class, 32), "active_lease_unresolved")?;
         let keeper = o["keeper"].as_bool().ok_or("active_lease_unresolved")?;
         let inspect = o["inspect"].as_bool().ok_or("active_lease_unresolved")?;
         let access = match o.get("vendor_access") {
             None => false,
             Some(v) => v.as_bool().ok_or("active_lease_unresolved")?,
         };
+        // The existing standalone module census intentionally has no selected
+        // class yet. It is maintenance, never an unclassified DSP admission.
+        let module_census = class.is_empty()
+            && inspect
+            && !keeper
+            && !access
+            && o["first_audio"] == true
+            && o["shared_runtime"] == false
+            && o["shared_inspection"] == false;
+        require(
+            valid_hex(class, 32) || module_census,
+            "active_lease_unresolved",
+        )?;
         let kind = if keeper {
             require(
                 inspect
@@ -452,6 +464,49 @@ mod tests {
         private_dir(path.parent().unwrap()).unwrap();
         atomic_json(&path, &report).unwrap();
         path
+    }
+    #[test]
+    fn standalone_module_census_is_only_maintenance() {
+        let f = Fixture::new();
+        let path = lease(&f, "", Kind::Inspection);
+        let sid = path.file_stem().unwrap();
+        let owner =
+            f.r.environment
+                .root
+                .join("compatdata/pfx/drive_c/bridge/sessions")
+                .join(sid)
+                .join("owner.json");
+        let mut row: serde_json::Value = read_json(&owner).unwrap();
+        assert!(owners(&f.m).is_err());
+        row["first_audio"] = true.into();
+        row["shared_runtime"] = false.into();
+        row["shared_inspection"] = false.into();
+        atomic_json(&owner, &row).unwrap();
+        let observed = owners(&f.m).unwrap();
+        assert_eq!(observed.len(), 1);
+        assert_eq!(observed[0].kind, Kind::Inspection);
+        assert_eq!(
+            reason(reserve(
+                &f.m,
+                &limits(),
+                Some(&limits().classes[0].class_id),
+                false
+            )),
+            Refusal::MaintenanceActive.code()
+        );
+        for (key, value) in [
+            ("inspect", false),
+            ("keeper", true),
+            ("vendor_access", true),
+            ("first_audio", false),
+            ("shared_runtime", true),
+            ("shared_inspection", true),
+        ] {
+            let mut malformed = row.clone();
+            malformed[key] = value.into();
+            atomic_json(&owner, &malformed).unwrap();
+            assert!(owners(&f.m).is_err(), "{key}");
+        }
     }
     fn reason(r: Result<Lock>) -> String {
         r.err().unwrap().to_string()
