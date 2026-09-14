@@ -14,6 +14,18 @@ fn active(unit: &str) -> bool {
         .status()
         .is_ok_and(|s| s.success())
 }
+fn vendor_state_live(state: &str) -> Result<bool> {
+    match state {
+        "active" | "activating" | "deactivating" | "reloading" => Ok(true),
+        "inactive" | "failed" => Ok(false),
+        _ => Err("operator_vendor_unit_state_unavailable".into()),
+    }
+}
+fn vendor_live() -> Result<bool> {
+    let output=Command::new("systemctl").args(["--user","show",VENDOR,"-p","ActiveState","--value"]).output()?;
+    require(output.status.success(),"operator_vendor_unit_state_unavailable")?;
+    vendor_state_live(std::str::from_utf8(&output.stdout)?.trim())
+}
 fn service(action: &str) -> Result<()> {
     require(
         Command::new("systemctl")
@@ -50,7 +62,7 @@ fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
 }
 fn vendor_retired(m: &Manager) -> Result<bool> {
-    if active(VENDOR) {
+    if vendor_live()? {
         return Ok(false);
     }
     let p = app_directory(m).join("operation-result.json");
@@ -316,7 +328,7 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     let app = app_directory(m).join("application.json");
     if app.exists() {
         let a: vendor_application::Application = read_json(&app)?;
-        let live = active(VENDOR);
+        let live = vendor_live()?;
         let valid = a.verify(&m.root).is_ok();
         let reason = if !valid {
             Some("Registered ASC executable or environment changed")
@@ -587,7 +599,7 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
             // dedicated unit remains process owner; neither UI close nor this
             // operation creates an orphan or kills a continuing download.
             drop(projection.take());
-            while active(VENDOR) {
+            while vendor_live()? {
                 std::thread::sleep(Duration::from_millis(500));
             }
             require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")?;
@@ -601,7 +613,7 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
         }
         ui::Action::VendorApplicationFocus { application } => {
             vendor_application::ApplicationId::parse(application)?;
-            require(active(VENDOR), "operator_vendor_not_running")?;
+            require(vendor_live()?, "operator_vendor_not_running")?;
             let operation = optional(&app_directory(m).join("operation-result.json"))?;
             let operation_id = operation["operation_id"]
                 .as_str()
@@ -998,6 +1010,14 @@ mod tests {
             .m
             .managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
             .is_err());
+    }
+    #[test]
+    fn vendor_deactivation_is_live_until_the_unit_finishes_cleanup() {
+        let sequence=["activating","active","deactivating","inactive"];
+        assert_eq!(sequence.map(|s|vendor_state_live(s).unwrap()),[true,true,true,false]);
+        assert!(!vendor_state_live("failed").unwrap());
+        assert!(vendor_state_live("unknown").is_err());
+        assert!(vendor_state_live("").is_err());
     }
     #[test]
     fn idle_activity_does_not_take_the_registry_mutation_lock() {
