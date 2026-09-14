@@ -44,8 +44,12 @@ popup selection, not a resize result or product completion. A multi-connection
 Xlib error-routing defect discovered before input was repaired and tested on the
 same running instance. Normal product retirement and final cleanup completed.
 See `evidence/uio2/tsg1/` and `docs/UIO2.md`. Keep PR #101 draft. Do not claim UIO2
-complete or promote candidate17. Restore delegated browser execution before any
-further product launch; no blind replay.
+complete or promote candidate17. The operator subsequently authorized native Moonlight keyboard/mouse execution
+by Luna. That route now connects to the Deck after restarting the stale Sunshine
+instance against the current desktop. The new direct-input observer retains
+two-ended input and action graphs without injecting input; external Down cannot
+be interlocked by this observer, so stale/foreign input stops the observation.
+No browser executor is required. The resize product result remains outstanding.
 
 ---
 ## Earlier UIO2 contract and retained boundary (historical)

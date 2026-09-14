@@ -252,3 +252,20 @@ live tooling retains Win32 geometry and view stages separately and must not
 substitute those for a raw SDK result. Generated SDK resize facts remain valid.
 No real ownerless-group, resize, accessibility-stability or performance success
 is claimed here.
+
+### Native Moonlight executor continuation
+
+The operator authorized Luna to use native Moonlight keyboard/mouse controls.
+`tools/uio2/direct.py` observes those external actions using the same private
+capsules, X RECORD, Win32 hooks and transient-group owner. It does not inject
+input or depend on a browser. A bounded rolling graph selects a complete snapshot
+before actual input receipt; delivered point, button state, target and epoch
+remain checked. The observer cannot prevent an external Down: this limitation is
+recorded explicitly, and an invalid observation grants no further action.
+Resize geometry observations do not implicitly authorize a new popup.
+
+Luna reached the streamed Deck desktop. The first connection failed before
+Bitwig; the running Sunshine instance predated the current desktop and could not
+open its Wayland display. Restarting that existing application restored display
+capture and the connection, without changing pairing or certificate validation.
+This is connection setup evidence, not a Pigments resize result.
