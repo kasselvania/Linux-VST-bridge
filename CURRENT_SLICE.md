@@ -51,3 +51,15 @@ Run affected manager/Clippy/runtime, frontend and inventory tests, AP12/PX2;
 AP8 only if Windows scanner source/inputs change. No native/audio rebuild for UI.
 Package immutably and install a normal application entry. Final record states
 actual source/software, operator workflow, tests, limitations and installed state.
+
+
+## Current result
+
+MF1 implementation and bounded installed workflow are complete for independent
+review in PR104. The native application, ASC open/focus/owned stop, exact rescan,
+capture/incident/export, live disabled-action projection and manager-close/DSP
+independence were exercised. Generated rollback/restore and unknown inventory
+remain separate from installed-product observations. Final ordinary18/10/10,
+service/keeper and protected projects are preserved, with no leases, transactions,
+stale transport or armed capture. See docs/MF1.md and evidence/mf1/workflow.json.
+No merge or next-vendor qualification is authorized by this completion record.

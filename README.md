@@ -174,7 +174,8 @@ Read [AGENTS.md](AGENTS.md), [CURRENT_SLICE.md](CURRENT_SLICE.md), and [docs/DES
 Linux Audio Compatibility Manager is a native Rust desktop frontend for the
 installed manager. It shows ordinary products and rollback history, opens and
 focuses ASC, rescans managed VST3 roots, and exposes private crash-capture controls
-and sanitized incident exports. New discovered classes remain installed but
+and sanitized incident exports. Its bounded installed Deck workflow is complete
+and pending independent review in PR104. New discovered classes remain installed but
 unqualified; rescan does not publish them to Bitwig. Vendor sign-in stays in ASC.
 
 The UI calls a closed versioned Rust interface and refreshes canonical readback.

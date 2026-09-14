@@ -58,7 +58,58 @@ ancestry, including different native builds for rollback; it keeps schema3 when
 multiple builds of one class exist. Module-census leases with no selected class
 are explicit standalone inspection maintenance, never DSP admission. No product native/Windows binary or profile is rebuilt for MF1.
 
-Remaining verification and real-workflow results are recorded in this PR as they
-complete. MF1 makes discovery operable; it does not automatically qualify or
+MF1 makes discovery operable; it does not automatically qualify or
 publish newly installed products, replace ASC, handle vendor credentials, or
 claim universal Linux/Wayland support. 512 remains recommended;256 unqualified.
+
+
+## Delivered workflow
+
+The native manager launched from the Deck Applications menu and showed ordinary
+Pigments18 (rollback11), Pure LoFi10 and FRAGMENTS10. Luna operated the frontend
+through the existing native Moonlight session under custodian-owned action plans.
+Capture was armed and disarmed, an existing sanitized incident was opened and
+exported, and ASC was opened, focused to its library and stopped through the UI.
+No account input, download, authorization change or product update was performed.
+
+One UI-triggered rescan inventoried three modules and five exact factory classes:
+three audio classes plus two compatibility classes. All three products stayed
+Ready. Every scanner retired its transport and owned processes; the service and
+keeper resumed. There were no new unsupported products on this installed machine;
+the unknown-product, incomplete-census and quarantine behavior is generated proof.
+A rescan inventories installed bytes; it does not create qualification authority.
+
+With one ordinary Pigments18 instance loaded from a disposable protected copy,
+canonical readback disabled ASC launch and rescan. The frontend visibly disabled
+rollback and explained why. Closing only the manager left the same DSP session
+and native process identities alive, with processing continuing to advance. Normal
+Bitwig quit then committed all seven process-scoped retirement milestones and
+retired the cohort and transport. No terminal or Collector rejection appeared.
+No playback, editor, routing, resize, automation or state qualification was repeated.
+
+Development failures remain in [workflow evidence](../evidence/mf1/workflow.json):
+idle readback contended with capture admission; initial catalogue adoption omitted
+older rollback images; the long-running ASC Open receipt returned too early during
+unit deactivation; and the first incident layout buried the outcome below JSON.
+Those owners were repaired with focused verification. The actual ASC Stop operation
+completed positively; its old Open reporting refusal is retained separately. The
+final wait correction was tested deterministically without another ASC session.
+Two typed file-dialog submissions were malformed over Moonlight; the real project
+opened after selecting the existing file from the chooser list. Neither failure
+admitted a plug-in or established a project/bridge defect.
+
+Implementation source is `ec2b99db3ff448c98dca16f505a151fbb0581041`, tree
+`c403a210e9a3f4fc3e22adcf604beb3d63efc0a9`. Installed manager/frontend/supervisor
+hashes are retained in the workflow record. Later evidence/documentation commits
+do not rebuild those bytes. AP12 passed 87 library,21 Linux binary,61 runtime and
+3 native-frontend tests, strict Clippy for both crates, and the existing UIO/UIR,
+IF2 and Xvfb lanes. PX2 passed. No Windows/native product source changed, so no
+product artifact rebuild or audio campaign was added.
+
+Final state: ordinary18/10/10 unchanged; previous profiles, publications, software
+and rollback native images retained; capture disarmed; service/keeper active;
+zero DSP/maintenance leases, pending transactions, stale transports or held input;
+Bitwig, ASC and manager closed; original protected project hashes unchanged. The
+normal application launcher remains installed; the toolkit-only launcher was removed.
+This implementation is ready for independent review, not a consumer-release or
+universal desktop/accessibility claim.
