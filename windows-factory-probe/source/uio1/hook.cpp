@@ -143,7 +143,7 @@ void observe(HWND hwnd,UINT msg,WPARAM wp,LPARAM lp,uint32_t source,int64_t resu
           uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
         }
       }else{auto detail=r;detail.source=12;detail.x=0;detail.y=count;detail.key_class=0;
-        detail.result=count>16?ERROR_INSUFFICIENT_BUFFER:GetLastError();
+        detail.result=count>16?ERROR_INSUFFICIENT_BUFFER:(count==0?ERROR_INVALID_PARAMETER:GetLastError());
         uio1::append(h,reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(header)+uio1::header_bytes),detail);
       }
     }

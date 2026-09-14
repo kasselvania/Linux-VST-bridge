@@ -42,6 +42,9 @@ def outer(root,package,admission):
     runner=json.loads(admission.read_text())['registration']['environment']['runner']
     if Path(runner['entry_point']).stat().st_dev!=root.stat().st_dev:raise RuntimeError('runtime/scratch filesystem mismatch')
     for a in runner['files']:sealed_runner(a)
+    expected=json.loads((HERE/'package.json').read_text())['files']
+    if set(expected)!={'uio1-observer.exe','uio1-hook.dll','uio1-accessibility.exe','uio1-tests.exe'}:raise RuntimeError('fixture helper set')
+    for name,sha in expected.items():sealed_bytes(package/name,sha)
     private_json(root/'runner.json',runner)
     env=compositor_environment(root);env['UIO3_ROOT']=str(root);env['UIO3_PACKAGE']=str(package)
     command=['dbus-run-session','--','kwin_wayland','--virtual','--xwayland','--socket','uio3-isolated','--width','1280','--height','800','--no-lockscreen','--no-global-shortcuts','--no-kactivities','--exit-with-session',str(HERE/'fixture.sh')]

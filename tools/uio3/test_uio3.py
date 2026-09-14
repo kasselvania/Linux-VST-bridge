@@ -84,6 +84,12 @@ class Tests(unittest.TestCase):
         r['win32']=[dict(action=1,source=12,message=0x240,qpc=102,capture=0,key_class=1,buttons=4),dict(action=1,source=15,message=0x240,qpc=105,capture=0,result=0)]
         self.assertEqual(self.boundary(r),'release_and_gesture_end_observed')
         self.assertTrue(summarize(r)['actions'][0]['touch_up_observed'])
+    def test_sent_call_hook_is_not_actual_procedure_delivery(self):
+        r=self.raw()
+        for w in r['win32']:
+            if w['source']==14:w['source']=2
+            if w['source']==15:w['source']=3
+        self.assertEqual(self.boundary(r),'core_release_without_win32_dispatch')
     def test_mapping_failure_still_detaches_and_closes_every_owner(self):
         from session import Session
         from unittest.mock import Mock
