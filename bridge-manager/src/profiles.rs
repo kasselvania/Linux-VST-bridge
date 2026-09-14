@@ -286,6 +286,10 @@ pub fn pigments_eleven() -> Result<Profile> {
     Profile::parse(include_bytes!("../../compatibility/ap18/revision-11/arturia-pigments.json"))
 }
 
+pub fn pigments_thirteen() -> Result<Profile> {
+    Profile::parse(include_bytes!("../../compatibility/ap18/revision-13/arturia-pigments.json"))
+}
+
 pub fn pigments_verified() -> Result<Profile> {
     Profile::parse(include_bytes!("../../compatibility/arturia-pigments.json"))
 }

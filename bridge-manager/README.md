@@ -138,3 +138,24 @@ only `export` selects sanitized fields. The sealed engineering candidate uses
 `capture arm-failure`. See [CA1](../docs/CA1.md) for finite retention, exit
 classification, and the distinction between reporting readiness and a proven
 crash cause.
+
+## Accepted UIO2 Pigments ordinary transition
+
+`linux-vst-bridge accept-pigments-ui` installs the reviewed candidate-17 artifact
+set as ordinary revision-18 software authority. It accepts no profile, review ID,
+or artifact arguments. Close devices and stop the service before this immutable
+software transition; use `managed preview` and `managed publish` afterward.
+The compiled seal requires the exact inactive candidate publication, the current
+software generation, ordinary11 parent, and unchanged LoFi/FRAGMENTS10 siblings.
+
+Revision18 preserves candidate17's exact module, native proxy, Windows host,
+descriptor, runner, environment, capabilities and limitations. Only revision,
+claim and accepted evidence change. Catalogue schema3 retains both exact native
+builds for the same class and selects by complete profile identity; schemas1/2
+retain their single-image uniqueness law. Ordinary11 remains the publication
+parent and rollback, while candidate17 stays immutable reviewed provenance.
+
+The accepted operator resize and continued use are not an automated numeric
+geometry waterfall or a universal stability claim. Windows accessibility remains
+disabled only for the exact vendor process. Delivery gaps remain; 512 is
+recommended and 256 unqualified. This change adds no ASC integration or frontend.

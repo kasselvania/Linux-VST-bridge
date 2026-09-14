@@ -142,7 +142,7 @@ pub struct Catalogue {
 impl Catalogue {
     pub fn validate(&self, root: &Path) -> Result<()> {
         require(
-            ((self.schema == 1 && self.hosts.is_empty()) || self.schema == 2)
+            ((self.schema == 1 && self.hosts.is_empty()) || self.schema == 2 || self.schema == 3)
                 && !self.natives.is_empty()
                 && self.natives.len() <= PROFILE_COUNT
                 && self.hosts.len() <= PROFILE_COUNT
@@ -150,12 +150,20 @@ impl Catalogue {
                 && self.environments.len() <= 16,
             "catalogue_schema_or_bound",
         )?;
+        // Schema 3 retains multiple immutable native builds per class for rollback.
+        // Older schemas preserve their single-class-image uniqueness law.
         let mut classes = std::collections::BTreeSet::new();
         for n in &self.natives {
             n.class.verify()?;
             require(
-                classes.insert(&n.class.class_id)
-                    && n.external_ids == external_ids(&n.class.class_id)?
+                classes.insert((
+                    &n.class.class_id,
+                    if self.schema == 3 {
+                        n.artifact.sha256.as_str()
+                    } else {
+                        ""
+                    },
+                )) && n.external_ids == external_ids(&n.class.class_id)?
                     && n.artifact.path.starts_with(root.join("software"))
                     && n.artifact.path.canonicalize()? == n.artifact.path,
                 "catalogue_identity",
@@ -219,7 +227,7 @@ impl Catalogue {
         let n = self
             .natives
             .iter()
-            .find(|n| n.class.class_id == p.class.class_id)
+            .find(|n| n.matches(p).is_ok())
             .ok_or("native_artifact_absent")?;
         n.matches(p)?;
         n.artifact.verify()?;
