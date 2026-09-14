@@ -18,18 +18,10 @@ LRESULT CALLBACK mouse_filter(int c,WPARAM w,LPARAM l){
 LRESULT CALLBACK proc(HWND w,UINT m,WPARAM a,LPARAM b){
   if(m==WM_LBUTTONDOWN){++received;SetCapture(w);return 0;}
   if(m==WM_LBUTTONUP){++received;if(!retain_capture)ReleaseCapture();return 0;}
-  if(m==WM_POINTERUP){++generated_pointer;return 42;}
-  if(m==WM_TOUCH){++generated_touch;return 0;}
-  if(m==WM_APP+8){
-    // Same-thread generated route: User32 may reject fabricated pointer/touch
-    // messages crossing threads. This is not physical touch synthesis.
-    SendMessageW(w,WM_POINTERDOWN,7,MAKELPARAM(40,40));
-    SendMessageW(w,WM_POINTERUPDATE,7,MAKELPARAM(41,40));
-    assert(SendMessageW(w,WM_POINTERUP,7,MAKELPARAM(41,40))==42);
-    SendMessageW(w,WM_POINTERCAPTURECHANGED,7,0);
-    SendMessageW(w,WM_TOUCH,0,0);SendMessageW(w,WM_CANCELMODE,0,0);
-    return 0;
-  }
+  if(m==WM_POINTERDOWN||m==WM_POINTERUPDATE)return 0;
+  if(m==WM_POINTERUP){++generated_pointer;return 0;}
+  if(m==WM_TOUCH){++generated_touch;CloseTouchInputHandle(reinterpret_cast<HTOUCHINPUT>(b));return 0;}
+  if(m==WM_APP+8){assert(RegisterTouchWindow(w,0));return 0;}
   if(m==WM_APP+7){Sleep(1000);++delays;return 0;}
   return DefWindowProcW(w,m,a,b);
 }
@@ -67,11 +59,31 @@ int main(int argc,char**argv){
   assert(SendInput(2,clicks,sizeof(INPUT))==2);Sleep(100);assert(received==6);
   block_mouse=true;assert(SendInput(2,clicks,sizeof(INPUT))==2);Sleep(100);assert(received==6);block_mouse=false;
   Sleep(250);PostMessageW(child,WM_APP+7,0,0);for(unsigned n=0;n<300&&!delays;++n)Sleep(5);assert(delays);
+  bool injected_touch=false;
   if(input){
     assert(shared->input_mode==1);
-    SendMessageW(child,WM_APP+8,0,0);
-    assert(generated_pointer==1&&generated_touch==1);
-    PostMessageW(foreign,WM_POINTERUP,8,0);
+    // Use actual User32 touch injection, not fabricated WM_POINTER/WM_TOUCH.
+    const auto init=InitializeTouchInjection(1,TOUCH_FEEDBACK_NONE);
+    if(!init){
+      const auto error=GetLastError();
+      const bool wine=GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"wine_get_version")!=nullptr;
+      printf("UIO3 touch injection unavailable: error=%lu wine=%u\n",error,unsigned(wine));fflush(stdout);
+      assert(wine&&error==ERROR_CALL_NOT_IMPLEMENTED);
+    }else{
+      auto contact=[&]{
+        POINTER_TOUCH_INFO t{};t.pointerInfo.pointerType=PT_TOUCH;t.pointerInfo.pointerId=7;
+        t.pointerInfo.ptPixelLocation=pt;t.touchMask=TOUCH_MASK_CONTACTAREA|TOUCH_MASK_ORIENTATION|TOUCH_MASK_PRESSURE;
+        t.rcContact={pt.x-2,pt.y-2,pt.x+2,pt.y+2};t.orientation=90;t.pressure=320;
+        t.pointerInfo.pointerFlags=POINTER_FLAG_DOWN|POINTER_FLAG_INRANGE|POINTER_FLAG_INCONTACT;
+        assert(InjectTouchInput(1,&t));Sleep(80);
+        t.pointerInfo.pointerFlags=POINTER_FLAG_UP;
+        assert(InjectTouchInput(1,&t));Sleep(100);
+      };
+      contact();assert(generated_pointer==1);
+      SendMessageW(child,WM_APP+8,0,0);contact();assert(generated_touch>=2);
+      injected_touch=true;
+    }
+    SendMessageW(child,WM_CANCELMODE,0,0);
     Sleep(100);
   }
   Sleep(300);uio1::atom(shared->stop).store(1);assert(WaitForSingleObject(pi.hProcess,3000)==WAIT_OBJECT_0);DWORD exit=99;assert(GetExitCodeProcess(pi.hProcess,&exit)&&exit==0&&shared->closed==1&&shared->unhook_errors==0);
@@ -85,13 +97,14 @@ int main(int argc,char**argv){
   if(input){
     bool pointer_entry=false,pointer_return=false,pointer_detail=false,touch=false,cancel=false;
     for(uint64_t i=0;i<count;++i){
-      if(r[i].message==WM_POINTERUP){pointer_entry|=r[i].source==14;pointer_return|=r[i].source==15&&r[i].result==42;pointer_detail|=r[i].source==11&&r[i].x==7;}
-      touch|=r[i].message==WM_TOUCH&&r[i].source==12&&r[i].key_class==0;
+      if(r[i].message==WM_POINTERUP){pointer_entry|=r[i].source==14;pointer_return|=r[i].source==15&&r[i].result==0;pointer_detail|=r[i].source==11&&r[i].key_class==1;}
+      touch|=r[i].message==WM_TOUCH&&r[i].source==12&&r[i].key_class==1;
       cancel|=r[i].message==WM_CANCELMODE&&r[i].source==14;
     }
     printf("UIO3 specifics: pointer_entry=%u pointer_return=%u pointer_detail=%u touch=%u cancel=%u detached=%llu\n",unsigned(pointer_entry),unsigned(pointer_return),unsigned(pointer_detail),unsigned(touch),unsigned(cancel),shared->detached);fflush(stdout);
-    assert(pointer_entry&&pointer_return&&pointer_detail&&touch&&cancel&&shared->detached==1);
-    puts("UIO3: pointer route, procedure return, unavailable touch detail, cancel, exact scope and detachment passed");
+    assert(cancel&&shared->detached==1);
+    if(injected_touch)assert(pointer_entry&&pointer_return&&pointer_detail&&touch);
+    puts(injected_touch?"UIO3: injected pointer/touch, procedure return, details, cancel, scope and detachment passed":"UIO3: core path/cancel/detachment passed; Wine touch injection explicitly unavailable");
   }
   PostMessageW(child,WM_LBUTTONDOWN,0,0);Sleep(100);assert(received==7&&uio1::atom(shared->committed).load()==count);
   DWORD tid=GetWindowThreadProcessId(parent,nullptr);PostThreadMessageW(tid,WM_QUIT,0,0);ui.join();

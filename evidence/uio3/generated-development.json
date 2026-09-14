@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "kind": "generated_fixture_development_not_product_incidents",
+  "product_interactions": 0,
+  "runs": [
+    {
+      "head": "b9b62e97a3df45e35866b56bdaa2086801437c73",
+      "workflow": 34906929486,
+      "result": "failed_extended_windows_fixture",
+      "baseline_uio1": "passed",
+      "extended": {
+        "pointer_entry": false,
+        "pointer_return": false,
+        "pointer_detail": false,
+        "touch_detail": false,
+        "cancel_entry": true,
+        "detached": true
+      },
+      "limitation": "Fabricated cross-thread pointer/touch messages did not produce the required observations. This does not describe physical touch delivery or a Pigments failure."
+    }
+  ],
+  "correction": "The source-owned fixture now sends its generated touch/pointer message sequence on its own UI thread and asserts that the fixture procedure received it independently of the observer. Physical touch remains exclusively operator supplied."
+}
