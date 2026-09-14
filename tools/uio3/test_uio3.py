@@ -79,6 +79,25 @@ class Tests(unittest.TestCase):
             if w['message']==0x202:w['message']=0x247
         self.assertEqual(self.boundary(r),'release_and_gesture_end_observed')
         self.assertTrue(summarize(r)['actions'][0]['pointer_up_observed'])
+    def test_wm_touch_up_detail_route(self):
+        r=self.raw();r['x11']=[]
+        r['win32']=[dict(action=1,source=12,message=0x240,qpc=102,capture=0,key_class=1,buttons=4),dict(action=1,source=3,message=0x240,qpc=105,capture=0,result=0)]
+        self.assertEqual(self.boundary(r),'release_and_gesture_end_observed')
+        self.assertTrue(summarize(r)['actions'][0]['touch_up_observed'])
+    def test_mapping_failure_still_detaches_and_closes_every_owner(self):
+        from session import Session
+        from unittest.mock import Mock
+        from types import SimpleNamespace
+        import tempfile,json
+        with tempfile.TemporaryDirectory() as d:
+            fault=SimpleNamespace(snapshot=lambda:{},close=Mock())
+            s=Session(SimpleNamespace(admission={'profile_fingerprint':'a'*64},fault=fault),pathlib.Path(d))
+            s.obs=SimpleNamespace(action=Mock(),stop=Mock(),take=Mock(side_effect=ValueError('broken record')),status=Mock(),close=Mock())
+            s.gui=SimpleNamespace(dropped=[0,0],close=Mock());s.graph=SimpleNamespace(close=Mock());s.x=SimpleNamespace(close=Mock())
+            s.close()
+            s.obs.stop.assert_called_once();s.obs.close.assert_called_once();s.gui.close.assert_called_once();s.graph.close.assert_called_once();s.x.close.assert_called_once();fault.close.assert_called_once()
+            result=json.loads((pathlib.Path(d)/'timeline.json').read_text())
+            self.assertFalse(result['completed']);self.assertEqual(result['cleanup']['errors'],['ValueError'])
     def test_bounds_terminal_and_no_touch_are_not_success(self):
         r=self.raw();r['drops']['win32']=1;self.assertEqual(self.boundary(r),'incomplete_observation_capacity')
         r['terminal']={'secret':'must not export'};self.assertEqual(self.boundary(r),'terminal_instance_failure')

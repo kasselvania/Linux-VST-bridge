@@ -54,7 +54,9 @@ class XIRecorder(Recorder):
         super().__init__(x)
     def ranges(self):
         from xrecord import Range
-        r=Range();r.delivered=Range8(4,35);return r
+        core=Range();core.delivered=Range8(4,6)
+        generic=Range();generic.delivered=Range8(35,35)
+        return [core,generic]
     def receive(self,closure,ptr):
         d=ptr.contents
         try:

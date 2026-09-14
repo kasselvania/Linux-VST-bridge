@@ -31,8 +31,9 @@ def summarize(raw):
         gestures=[r for r in gui if r['parameter']==parameter and r['kind'] in (101,102,103)]
         release_observed=max([r['observed_ns'] for r in end+up],default=None)
         # A pointer-up route does not require emulated core mouse release.
-        entry=[r for r in win if r['source']==2 and r['message'] in UP]
-        ret=[r for r in win if r['source']==3 and r['message'] in UP]
+        touch_up=[r for r in win if r['source']==12 and r['message']==0x240 and r.get('key_class')==1 and r.get('buttons',0)&4]
+        entry=[r for r in win if r['source']==2 and r['message'] in UP]+touch_up
+        ret=[r for r in win if r['source']==3 and (r['message'] in UP or (touch_up and r['message']==0x240 and r['qpc']>=touch_up[0]['qpc']))]
         hooked=[r for r in win if r['source']==5 and r['message']==0x202]
         swallowed=any(r['source']==6 and r['message']==0x202 and r['result']!=0 for r in win)
         rewritten=any(r['source']==13 and r['message'] in UP and r['result']==1 for r in win)
@@ -67,7 +68,7 @@ def summarize(raw):
         actions.append(dict(action=action,condition='without_held_note' if action==1 else 'with_held_note',
             condition_basis='operator_action_label_not_MIDI_measurement',boundary=boundary,
             xi_touch_end_observed=bool(end),core_release_observed=bool(up),win32_release_entry=bool(entry),win32_release_return=bool(ret),
-            pointer_up_observed=any(r['message']==0x247 for r in entry),gesture_parameter=parameter,
+            pointer_up_observed=any(r['message']==0x247 for r in entry),touch_up_observed=bool(touch_up),gesture_parameter=parameter,
             gesture_sequence=[{101:'begin',102:'value',103:'end'}[r['kind']] for r in gestures],
             parameter_values_observed_after_release=len(values_after),capture_present_after_release=captures_after[-8:],
             x11_to_win32_retrieval_lower_ms=lower,heartbeat_max_ms=latency,

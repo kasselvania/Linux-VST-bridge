@@ -77,7 +77,7 @@ class Session:
         # Core/XI delivery is limited to proven XIDs on the exact window graph.
         targets={xid}
         for win in windows:
-            if win.get('root')==self.e.hwnd and win.get('xid'):targets.add(win['xid'])
+            if win.get('pid')==self.e.pid and win.get('tid')==self.e.tid and win.get('root')==self.e.hwnd and win.get('xid'):targets.add(win['xid'])
         self.xi=XI2(self.x,targets);self.rec=XIRecorder(self.x,self.xi.opcode,self.xi.devices,targets)
         self.raw['devices']=self.xi.devices;self.raw['xi_version']=self.xi.version;self.raw['frequency']=self.obs.read(48)
         self.raw['capture_arm_at_launch']=bool(c.session.get('crash_capture'))
@@ -146,19 +146,25 @@ class Session:
             self.raw['raw']=self.xi.records;self.raw['drops']['xi_raw']=self.xi.dropped
             try:self.xi.close()
             except Exception as e:errors.append(type(e).__name__)
-        if self.obs:self.obs.action(0);self.obs.stop()
+        if self.obs:
+            try:self.obs.action(0);self.obs.stop()
+            except Exception as e:errors.append(type(e).__name__)
         if self.helper:
             try:self.raw['cleanup']['helper']=finish(self.helper)
             except Exception as e:errors.append(type(e).__name__)
         if self.obs:
-            self.raw['win32'].extend(self.obs.take());s=self.obs.status();self.raw['observer_status']=s;self.raw['drops']['win32']=s['dropped']
-            if s['closed']!=1 or s['detached']!=1 or s['unhook_errors']:errors.append('observer_detachment_unconfirmed')
+            try:
+                self.raw['win32'].extend(self.obs.take());s=self.obs.status();self.raw['observer_status']=s;self.raw['drops']['win32']=s['dropped']
+                if s['closed']!=1 or s['detached']!=1 or s['unhook_errors']:errors.append('observer_detachment_unconfirmed')
+            except Exception as e:errors.append(type(e).__name__)
         if self.gui:self.raw['drops']['gui_ring']=sum(self.gui.dropped)
         for obj in (self.graph,self.obs,self.gui,self.x):
             if obj:
                 try:obj.close()
                 except Exception as e:errors.append(type(e).__name__)
-        self.raw['after']=self.c.fault.snapshot();self.c.fault.close()
+        try:self.raw['after']=self.c.fault.snapshot()
+        except Exception as e:errors.append(type(e).__name__)
+        finally:self.c.fault.close()
         self.raw['cleanup']['errors']=errors
         if errors:self.raw['completed']=False
         private_json(self.out/'timeline.json',self.raw)
