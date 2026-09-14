@@ -121,7 +121,7 @@ class Session:
             if path.is_symlink() or path.stat().st_uid!=os.getuid() or path.stat().st_size>16:raise RuntimeError('action mailbox identity/size')
             value=json.loads(path.read_text())
             if self.labels.accept(value):
-                if value==3:self.raw['completed']=True;break
+                if value==3:self.collect();self.raw['completed']=True;break
                 self.obs.action(value);self.rec.action=value;self.xi.action=value
                 self.raw['actions'].append(dict(action=value,begin_ns=time.monotonic_ns()))
             self.collect()
@@ -136,7 +136,7 @@ class Session:
             time.sleep(.005)
         if not self.raw['completed']:self.raw['stop']='cancellation_or_time_bound'
     def close(self):
-        errors=[]
+        errors=[];self.raw['observation_end_ns']=time.monotonic_ns()
         # Stop read-only observation; never release human input or kill vendor.
         if self.rec:
             try:self.rec.close()

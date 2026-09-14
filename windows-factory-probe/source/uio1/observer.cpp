@@ -73,7 +73,7 @@ struct Owner {
     // Unhook can return with an in-flight callback. The mapped view belongs
     // separately to the injected DLL and remains valid until DLL unload; no
     // remote FreeLibrary or forced target-thread termination is attempted.
-    if(h){uio1::atom(h->unhook_errors).store(errors);uio1::atom(h->closed).store(errors?2:1,std::memory_order_release);UnmapViewOfFile(h);}
+    if(h){errors+=uio1::atom(h->unhook_errors).fetch_add(errors);uio1::atom(h->closed).store(errors?2:1,std::memory_order_release);UnmapViewOfFile(h);}
     if(dll)FreeLibrary(dll);if(thread)CloseHandle(thread);if(process)CloseHandle(process);if(map)CloseHandle(map);if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);
   }
 };

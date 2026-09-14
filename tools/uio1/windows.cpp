@@ -10,6 +10,7 @@ std::atomic<HWND> parent{},child{},foreign{};
 std::atomic<unsigned> received{0},delays{0};
 std::atomic<bool> block_mouse{false};
 std::atomic<bool> retain_capture{false};
+std::atomic<unsigned> generated_pointer{0},generated_touch{0};
 LRESULT CALLBACK mouse_filter(int c,WPARAM w,LPARAM l){
   if(c>=0&&block_mouse&&(w==WM_LBUTTONDOWN||w==WM_LBUTTONUP))return 1;
   return CallNextHookEx(nullptr,c,w,l);
@@ -17,7 +18,18 @@ LRESULT CALLBACK mouse_filter(int c,WPARAM w,LPARAM l){
 LRESULT CALLBACK proc(HWND w,UINT m,WPARAM a,LPARAM b){
   if(m==WM_LBUTTONDOWN){++received;SetCapture(w);return 0;}
   if(m==WM_LBUTTONUP){++received;if(!retain_capture)ReleaseCapture();return 0;}
-  if(m==WM_POINTERUP)return 42;
+  if(m==WM_POINTERUP){++generated_pointer;return 42;}
+  if(m==WM_TOUCH){++generated_touch;return 0;}
+  if(m==WM_APP+8){
+    // Same-thread generated route: User32 may reject fabricated pointer/touch
+    // messages crossing threads. This is not physical touch synthesis.
+    SendMessageW(w,WM_POINTERDOWN,7,MAKELPARAM(40,40));
+    SendMessageW(w,WM_POINTERUPDATE,7,MAKELPARAM(41,40));
+    assert(SendMessageW(w,WM_POINTERUP,7,MAKELPARAM(41,40))==42);
+    SendMessageW(w,WM_POINTERCAPTURECHANGED,7,0);
+    SendMessageW(w,WM_TOUCH,0,0);SendMessageW(w,WM_CANCELMODE,0,0);
+    return 0;
+  }
   if(m==WM_APP+7){Sleep(1000);++delays;return 0;}
   return DefWindowProcW(w,m,a,b);
 }
@@ -57,12 +69,8 @@ int main(int argc,char**argv){
   Sleep(250);PostMessageW(child,WM_APP+7,0,0);for(unsigned n=0;n<300&&!delays;++n)Sleep(5);assert(delays);
   if(input){
     assert(shared->input_mode==1);
-    // Generated User32 message-route proof, not hardware touch synthesis.
-    SendMessageW(child,WM_POINTERDOWN,7,MAKELPARAM(40,40));
-    SendMessageW(child,WM_POINTERUPDATE,7,MAKELPARAM(41,40));
-    SendMessageW(child,WM_POINTERUP,7,MAKELPARAM(41,40));
-    SendMessageW(child,WM_POINTERCAPTURECHANGED,7,0);
-    SendMessageW(child,WM_TOUCH,0,0);SendMessageW(child,WM_CANCELMODE,0,0);
+    SendMessageW(child,WM_APP+8,0,0);
+    assert(generated_pointer==1&&generated_touch==1);
     PostMessageW(foreign,WM_POINTERUP,8,0);
     Sleep(100);
   }

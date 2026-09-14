@@ -7,7 +7,12 @@ HERE=Path(__file__).resolve().parent
 sys.path[:0]=[str(HERE.parent/'uio1'),str(HERE.parent/'uir1'),str(HERE.parent.parent/'bridge-manager/runtime')]
 from isolation import compositor_environment,runner_environment
 from launch import Helper,sealed_bytes,private_json
-from session import finish
+# Load this owner by path: UIR1 also has a module named session.
+import importlib.util
+sys.path.insert(0,str(HERE))
+_spec=importlib.util.spec_from_file_location('uio3_session',HERE/'session.py')
+_session=importlib.util.module_from_spec(_spec);_spec.loader.exec_module(_session)
+finish=_session.finish
 import ownership
 
 def inner(root,package):
