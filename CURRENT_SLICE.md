@@ -49,7 +49,12 @@ by Luna. That route now connects to the Deck after restarting the stale Sunshine
 instance against the current desktop. The new direct-input observer retains
 two-ended input and action graphs without injecting input; external Down cannot
 be interlocked by this observer, so stale/foreign input stops the observation.
-No browser executor is required. The resize product result remains outstanding.
+No browser executor is required. The native Moonlight continuation opened the menu, bound its exact ownerless
+group, and selected Resize Window. A temporary X11 window disappeared during
+chooser census (BadWindow); no size was selected. The observer retired cleanly.
+The unresolved chooser requires explicit operator dismissal before quit; see
+`evidence/uio2/tsg1/native-moonlight-boundary.json`. Candidate17 remains selected
+with one DSP lease until that cleanup; do not claim ordinary11 restored yet.
 
 ---
 ## Earlier UIO2 contract and retained boundary (historical)
