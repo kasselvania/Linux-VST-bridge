@@ -97,6 +97,10 @@ impl eframe::App for Operator {
                     self.refresh_after = !r.accepted;
                 }
                 Reply::Activity(a) => {
+                    if let Some(op) = &a.operation {
+                        if op["state"] == "refused" { self.message = format!("Operation refused: {}",op["reason"].as_str().unwrap_or("see receipt")); }
+                        else if op["state"] == "completed" { self.message = "Operation completed".into(); }
+                    }
                     if let Some(s) = &mut self.snapshot {
                         if s.system.dsp != a.system.dsp
                             || refresh_for_receipt(&s.operation, &a.operation)

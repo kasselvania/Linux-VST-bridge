@@ -288,10 +288,34 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
             environments.push(binding);
         }
     }
+    // Retain accepted rollback ancestry even when it uses an older native image.
+    // Reconstruct from exact immutable publication records, not current filenames.
+    for entry in db.classes.values() {
+        let mut reference = entry.managed_revision.clone();
+        let mut visited = std::collections::BTreeSet::new();
+        while let Some(current) = reference {
+            require(visited.len() < 256 && visited.insert(current.id.clone()), "adoption_history_bound")?;
+            let revision = m.load_revision(&entry.registration.key(), &current)?;
+            if !revision.adopted_legacy { m.verify_completed_publication(&revision, &current)?; }
+            if revision.qualification.is_none() && revision.profile.claim == Claim::VerifiedExactFixture {
+                let p = &revision.profile;
+                let r = &revision.registration;
+                let n = NativeArtifact {class:r.metadata.clone(),module_sha256:r.module.sha256.clone(),artifact:r.native.clone(),source_commit:p.requirements.native_source_commit.clone(),descriptor_sha256:p.requirements.descriptor_sha256.clone(),external_ids:external_ids(&r.key())?};
+                n.artifact.verify()?;
+                n.matches(p)?;
+                retain_native(&mut natives,n)?;
+            }
+            reference = revision.parent;
+        }
+    }
+    let mut schema = 1;
     let hosts = if m.root.join("software.json").try_exists()? {
         let sw: Software = read_json(&m.root.join("software.json"))?;
         if sw.native_catalogue.is_some() {
-            sw.catalogue(m)?.hosts
+            let old = sw.catalogue(m)?;
+            schema = old.schema;
+            for n in old.natives { retain_native(&mut natives,n)?; }
+            old.hosts
         } else {
             Vec::new()
         }
@@ -299,16 +323,48 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
         Vec::new()
     };
     Ok(Catalogue {
-        schema: if hosts.is_empty() { 1 } else { 2 },
+        schema: if schema == 3 || natives.iter().map(|n| &n.class.class_id).collect::<std::collections::BTreeSet<_>>().len() != natives.len() {3} else if hosts.is_empty() {1} else {2},
         natives,
         environments,
         hosts,
     })
 }
 
+fn retain_native(natives: &mut Vec<NativeArtifact>, n: NativeArtifact) -> Result<()> {
+    if let Some(old) = natives.iter().find(|v|v.class.class_id == n.class.class_id && v.artifact.sha256 == n.artifact.sha256) {
+        let mut same = n;
+        same.artifact.path = old.artifact.path.clone();
+        require(&same == old, "adoption_native_metadata_conflict")?;
+    } else {
+        require(natives.len() < PROFILE_COUNT, "adoption_native_bound")?;
+        natives.push(n);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod path_tests {
     use super::*;
+    #[test]
+    fn setup_retains_ordinary_rollback_native_after_native_update() {
+        let (f,p,c,n) = crate::test_fixture::prepared();
+        let r = crate::observation::derive(&p,&c,&n).unwrap();
+        let first = f.m.managed_publish(&p,&c,r,&c.host,&c.host_source_sha256,None).unwrap();
+        let mut updated = p.clone(); updated.revision += 1;
+        let mut native = n.clone(); native.artifact.path = f.m.root.join("software/new-native.so");
+        fs::write(&native.artifact.path,b"new native image").unwrap();
+        native.artifact.sha256 = digest(&native.artifact.path).unwrap();
+        updated.requirements.native_sha256 = native.artifact.sha256.clone();
+        let r = crate::observation::derive(&updated,&c,&native).unwrap();
+        f.m.managed_publish(&updated,&c,r,&c.host,&c.host_source_sha256,None).unwrap();
+        let adopted = adoption(&f.m,std::slice::from_ref(&updated)).unwrap();
+        assert_eq!(adopted.schema,3);
+        assert_eq!(adopted.natives.len(),2);
+        assert_eq!(adopted.native(&p).unwrap().artifact.sha256,n.artifact.sha256);
+        assert_eq!(adopted.native(&updated).unwrap().artifact.sha256,native.artifact.sha256);
+        f.m.rollback(&p.class.class_id,&first.id,None).unwrap();
+        assert_eq!(f.m.registry().unwrap().classes[&p.class.class_id].registration.native.sha256,n.artifact.sha256);
+    }
     #[test]
     fn supplemental_host_pair_has_one_digest_and_launch_extent_is_checked() {
         let mut h = HostArtifact {

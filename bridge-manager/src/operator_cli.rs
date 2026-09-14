@@ -83,7 +83,9 @@ fn capture_state(m: &Manager) -> Result<Value> {
     )
 }
 fn activity(m: &Manager) -> Result<ui::Activity> {
-    let cap = capacity::status(m, capacity::service_limits()?, 0, false)?;
+    // Read live ownership only. Full profile/envelope hashing belongs to snapshot.
+    let owners = capacity::owners(m)?;
+    let limits = capacity::service_limits()?;
     let transactions = m.root.join("transactions");
     let mut pending = 0;
     if transactions.exists() {
@@ -110,7 +112,7 @@ fn activity(m: &Manager) -> Result<ui::Activity> {
             let name = item.file_name().to_string_lossy().into_owned();
             if item.file_type()?.is_dir()
                 && valid_hex(&name, 32)
-                && !cap.owners.iter().any(|o| o.session == name)
+                && !owners.iter().any(|o| o.session == name)
             {
                 stale += 1;
             }
@@ -120,13 +122,13 @@ fn activity(m: &Manager) -> Result<ui::Activity> {
         schema: 1,
         system: ui::System {
             service: if active(SERVICE) { "active" } else { "stopped" }.into(),
-            keepers: cap.keepers,
-            dsp: cap.dsp,
-            maintenance: cap.maintenance,
-            ceiling: cap.limits.global_dsp,
+            keepers: owners.iter().filter(|o|o.kind == capacity::Kind::Keeper).count(),
+            dsp: owners.iter().filter(|o|o.kind == capacity::Kind::Dsp).count(),
+            maintenance: owners.iter().filter(|o|matches!(o.kind,capacity::Kind::Inspection|capacity::Kind::VendorAccess)).count(),
+            ceiling: limits.global_dsp,
             pending_transactions: pending,
             stale_transports: stale,
-            cleanup_unconfirmed: cap.cleanup_unconfirmed,
+            cleanup_unconfirmed: false,
         },
         capture: capture_state(m)?,
         operation: optional(&m.root.join("operator/latest.json"))?
@@ -176,7 +178,20 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     result.sort_by_key(|r| r.revision);
     Ok(result)
 }
-pub(super) fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
+pub(super) // Serialize this frontend's heavy readback with its mutation entry points.
+// Waiting is for the lock only: no operation is retried after it has begun.
+fn canonical_lock(m: &Manager) -> Result<Lock> {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match m.lock("operator-canonical.lock") {
+            Ok(lock) => return Ok(lock),
+            Err(e) if e.to_string() == "operation already running" && Instant::now() < deadline => std::thread::sleep(Duration::from_millis(25)),
+            Err(e) => return Err(e),
+        }
+    }
+}
+fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
+    let _projection = canonical_lock(m)?;
     let before = token(m)?;
     let sw = software(m)?;
     let canonical = m.managed_status(&sw.host, &sw.source_sha256)?;
@@ -510,6 +525,8 @@ fn execute(m: &Manager, a: &ui::Action) -> Result<Value> {
     execute_with_receipt(m, a, None)
 }
 fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) -> Result<Value> {
+    let mut projection = Some(canonical_lock(m)?);
+
     match a {
         ui::Action::CaptureArm { class_id } => {
             crash_capture::arm(m, Some(class_id))?;
@@ -569,6 +586,7 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
             // This manager operation outlives the frontend. ASC's own existing
             // dedicated unit remains process owner; neither UI close nor this
             // operation creates an orphan or kills a continuing download.
+            drop(projection.take());
             while active(VENDOR) {
                 std::thread::sleep(Duration::from_millis(500));
             }
@@ -796,12 +814,12 @@ fn rescan(m: &Manager, environment: &str) -> Result<Value> {
 fn worker(m: &Manager, id: &str) -> Result<()> {
     let dir = job_dir(m, id)?;
     let request: ui::Request = read_json(&dir.join("request.json"))?;
-    let result = (|| {
-        validate(&request, &snapshot(m)?)?;
+    let result: Result<Value> = (|| {
+        validate(&request, &snapshot(m).map_err(|e| format!("Operator validation readback: {e}"))?)?;
         let state = json!({"schema":1,"operation":id,"state":"running","action":request.action});
         atomic_json(&dir.join("result.json"), &state)?;
         atomic_json(&m.root.join("operator/latest.json"), &state)?;
-        execute_with_receipt(m, &request.action, Some(id))
+        execute_with_receipt(m, &request.action, Some(id)).map_err(|e| format!("Operator action: {e}").into())
     })();
     let value = match result {
         Ok(v) => json!({"schema":1,"operation":id,"state":"completed","result":v}),
@@ -980,6 +998,34 @@ mod tests {
             .m
             .managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
             .is_err());
+    }
+    #[test]
+    fn idle_activity_does_not_take_the_registry_mutation_lock() {
+        let f = test_fixture::Fixture::new();
+        let _mutation = f.m.lock("registry.lock").unwrap();
+        let read = activity(&f.m).unwrap();
+        assert_eq!(read.system.dsp,0);
+        assert_eq!(read.system.maintenance,0);
+        assert!(read.operation.is_none());
+    }
+    #[test]
+    fn readback_and_action_entry_share_one_bounded_lock_without_repeating_action() {
+        let f = test_fixture::Fixture::new();
+        let held = canonical_lock(&f.m).unwrap();
+        let root = f.m.root.clone();
+        let publications = f.m.publications.clone();
+        let entered = Arc::new(AtomicBool::new(false));
+        let after = entered.clone();
+        let child = std::thread::spawn(move || {
+            let m = Manager {root,publications};
+            let _guard = canonical_lock(&m).unwrap();
+            after.store(true,Ordering::SeqCst);
+        });
+        std::thread::sleep(Duration::from_millis(75));
+        assert!(!entered.load(Ordering::SeqCst));
+        drop(held);
+        child.join().unwrap();
+        assert!(entered.load(Ordering::SeqCst));
     }
     #[test]
     fn software_and_registry_both_invalidate_an_operator_request_token() {
