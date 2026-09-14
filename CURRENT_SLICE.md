@@ -57,10 +57,17 @@ UIO units are zero; service/keeper remain active. See
 `evidence/uio2/tsg1/native-moonlight-boundary.json` and
 `evidence/uio2/tsg1/operator-resize-and-cleanup.json`.
 
-Return this exact tool boundary and operator result for independent review on
-PR #101, draft and unmerged. No promotion or repeated product session. The next
-tooling decision concerns bounded census of windows destroyed during a chooser
-transition; the operator result does not establish the historical crash cause.
+Review 5192912686 accepts the focused candidate17 product result and requires
+only the transient-census race repair before merge. The graph owner now retries
+BadWindow by discarding the whole attempt and taking a fresh Win32/X11 snapshot,
+at most three times. Missing visible surfaces remain unavailable; hidden/absent
+fresh rows cannot retain old X11 authority. Other errors are not retried.
+Generated tests cover absent/hidden replacement, exhaustion, unrelated errors,
+terminal changes and a real X-server destruction between snapshot and query.
+No more product testing is required for this repair. After checks pass, mark
+PR #101 ready and merge, then make the authorized immutable ordinary18 transition
+with candidate17 bytes and ordinary11 rollback. Only its narrow ordinary smoke
+is authorized; no menu/resize/wavetable repetition or root-cause claim.
 
 ---
 ## Earlier UIO2 contract and retained boundary (historical)

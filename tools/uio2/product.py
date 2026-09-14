@@ -110,7 +110,7 @@ class Product:
             self.faults.append(self.c.fault.snapshot());self.next_fault=time.monotonic()+.1
 
     def fresh(self):
-        self.current();g=self.xgraph.enrich(self.graph.snapshot(),self.terminal());self.current()
+        self.current();g=self.xgraph.snapshot(self.graph.snapshot,self.terminal);self.current()
         if len(self.graphs)>=128:raise RuntimeError('window graph retention bound')
         self.graphs.append(g)
         return g

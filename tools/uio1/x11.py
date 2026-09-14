@@ -107,6 +107,12 @@ def _detach_errors(lib,display):
     if not _ERROR_OWNERS:
         lib.XSetErrorHandler(_ERROR_PRIOR);_ERROR_PRIOR=None
 
+class X11OperationError(RuntimeError):
+    """Typed server errors; callers may retry only an explicitly handled class."""
+    def __init__(self, errors):
+        self.errors=tuple(errors)
+        super().__init__(f'X11 operation refused: {list(self.errors)}')
+
 class X11:
     def __init__(self, window, pid=None):
         self.x=C.CDLL(ctypes.util.find_library('X11'));self.t=C.CDLL(ctypes.util.find_library('Xtst'))
@@ -141,7 +147,7 @@ class X11:
     def sync(self):
         self.x.XSync(self.display,0)
         if self.errors:
-            errors=list(self.errors);self.errors.clear();raise RuntimeError(f'X11 operation refused: {errors}')
+            errors=list(self.errors);self.errors.clear();raise X11OperationError(errors)
     def property(self, window, name):
         atom=self.x.XInternAtom(self.display,name.encode(),1)
         if not atom:return []

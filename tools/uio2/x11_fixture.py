@@ -56,6 +56,36 @@ with PopupX11(r,e,lambda:g,lambda:e,lambda:False) as x:
     x.c.XCompositeUnredirectWindow(x.display,popup,0);x.sync()
     rec.close()
 lib.XDestroyWindow.argtypes=[P,U];lib.XCloseDisplay.argtypes=[P]
+# Real BadWindow between a source-owned Win32-shaped snapshot and X11 query.
+# The collector/finalizer is the production SurfaceGraphX11 owner. No input is
+# issued by the census path; the deleted popup can never reach the action binder.
+from desktop import SurfaceGraphX11
+from popup import bind
+with SurfaceGraphX11(editor) as census:
+    transient=lib.XCreateSimpleWindow(bootstrap,root,90,90,100,60,0,0,0x445566)
+    lib.XMapWindow(bootstrap,transient);lib.XSync(bootstrap,0)
+    stale=row(10,transient,[90,90,190,150],8)
+    attempts=[]
+    def snapshot():
+        rows=[g['windows'][0]]
+        if not attempts:
+            rows.append(stale)
+            lib.XDestroyWindow(bootstrap,transient);lib.XSync(bootstrap,0)
+        attempts.append(len(rows))
+        return dict(editor=asdict(e),windows=rows,interval_ns=[time.monotonic_ns(),time.monotonic_ns()])
+    result=census.snapshot(snapshot)
+    assert attempts==[2,1] and result['discarded_attempts']==1
+    assert str(transient) not in result['x11'] and not census.buttons and not census.keys
+    try:bind(result,e,e)
+    except RuntimeError:pass
+    else:raise AssertionError('deleted transient authorized')
+    # A fresh Win32 census that keeps claiming a missing visible XID is refused.
+    def unresolved():
+        return dict(editor=asdict(e),windows=[g['windows'][0],stale],interval_ns=[time.monotonic_ns(),time.monotonic_ns()])
+    try:census.snapshot(unresolved)
+    except RuntimeError as err:assert '3 complete attempts' in str(err)
+    else:raise AssertionError('unverifiable visible surface admitted')
+    print('UIO2 real BadWindow: bounded fresh census, no stale popup authority or input passed')
 for w in (popup,foreign,editor):lib.XDestroyWindow(bootstrap,w)
 lib.XCloseDisplay(bootstrap)
 print('UIO2 Xvfb: popup capture, normal input receipt, foreign occlusion and terminal refusal passed')

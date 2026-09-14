@@ -6,7 +6,7 @@ whole-desktop image is read. Native Wayland-only surfaces are not supported.
 import ctypes as C
 import time
 from popup import bind
-from x11 import X11, U, I, P, Attributes
+from x11 import X11, X11OperationError, U, I, P, Attributes
 
 def overlaps(a, b):
     return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
@@ -157,12 +157,30 @@ class SurfaceGraphX11(X11):
                     window_type=self.property(window,'_NET_WM_WINDOW_TYPE'),wm_state=self.property(window,'_NET_WM_STATE'),
                     net_wm_pid=self.property(window,'_NET_WM_PID'),
                     bounding_shape=self.rectangles(window,0),input_shape=self.rectangles(window,2))
+    def snapshot(self,win32_snapshot,terminal=lambda:False):
+        # A disappearing transient invalidates the WHOLE attempt, not merely
+        # one member. Re-read Win32 as well as X11; never repair a stale graph.
+        for attempt in range(3):
+            stopped=bool(terminal())
+            graph=win32_snapshot()
+            try:
+                result=self.enrich(graph,stopped)
+            except X11OperationError as error:
+                if not error.errors or any(row[0]!=3 for row in error.errors):raise
+                if attempt==2:
+                    raise RuntimeError('transient census unavailable after 3 complete attempts') from error
+                continue
+            result['terminal']=stopped or bool(terminal())
+            result['discarded_attempts']=attempt
+            return result
+        raise AssertionError('unreachable census bound')
+
     def enrich(self,graph,terminal=False):
-        # Query every exactly mapped surface, including pre-action invisible
-        # windows. Missing bindings remain absent, never invented.
-        graph=dict(graph);graph['x11']={}
+        # Hidden windows retain their Win32 metadata, but are never input/capture
+        # authority. Their X surface may legitimately have ceased to exist.
+        graph=dict(graph);graph['interval_ns']=list(graph['interval_ns']);graph['x11']={}
         for r in graph['windows']:
-            if r['xid']:graph['x11'][str(r['xid'])]=self.facts(r['xid'])
+            if r['xid'] and r['visible']:graph['x11'][str(r['xid'])]=self.facts(r['xid'])
         graph['terminal']=bool(terminal);graph['complete']=True
         graph['interval_ns'][1]=time.monotonic_ns()
         return graph

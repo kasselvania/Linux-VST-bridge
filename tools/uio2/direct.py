@@ -74,7 +74,7 @@ def run(owner,out):
         if pending:
             pending.validate(owner.current(),time.monotonic_ns())
             # Sample without retaining idle duplicates in the public report.
-            graph=owner.xgraph.enrich(owner.graph.snapshot(),owner.terminal());owner.current()
+            graph=owner.xgraph.snapshot(owner.graph.snapshot,owner.terminal);owner.current()
             history.append(graph)
             xs=owner.inputs+owner.record.records+(owner.popup_record.records if owner.popup_record else [])
             xs=list({json.dumps(r,sort_keys=True):r for r in xs}.values())

@@ -126,7 +126,7 @@ def run(root,package):
         report['transient_cases']=[]
         report['tsg_graphs']=[]
         def fresh():
-            value=xgraph.enrich(graph.snapshot())
+            value=xgraph.snapshot(graph.snapshot)
             if len(report['tsg_graphs'])>=256:raise RuntimeError('generated graph bound')
             report['tsg_graphs'].append(value);return value
         def rotate(target):

@@ -292,3 +292,22 @@ held input and UIO units are zero. Service and keeper are active. The successful
 operator result and incomplete automated resize waterfall remain separate; no
 product promotion, universal stability or historical root-cause claim is made.
 See `evidence/uio2/tsg1/operator-resize-and-cleanup.json`.
+
+### Reviewed transient-census repair
+
+Review 5192912686 accepted the focused operator/product result and identified
+normal transient destruction during graph enrichment as the remaining tooling
+repair. `SurfaceGraphX11.snapshot` discards an entire attempt on typed X11
+BadWindow and re-reads Win32 and X11, at most three attempts. No incomplete graph
+is returned or retained. A fresh absent/hidden surface grants no old authority;
+a still-visible unverifiable XID fails at the bound. Other server/errors remain
+terminal diagnostic failures. Snapshot interval storage is copied, so failure
+cannot mutate a retained pre-action graph. Product, generated and Moonlight
+observation paths all use the same owner.
+
+The real Xvfb regression destroys a source-owned transient after snapshot but
+before XGetWindowAttributes, exercising production error capture and retry. It
+proves fresh absence, refusal of a stale popup target, no injected input, and
+bounded refusal when Win32 keeps claiming the deleted visible surface. Unit
+regressions additionally cover hidden state, unrelated/mixed errors and terminal
+changes. No Pigments or pinned-Proton product replay is part of this repair.
