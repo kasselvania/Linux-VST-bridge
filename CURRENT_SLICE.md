@@ -27,17 +27,23 @@ No resize/wavetable/tab/knob/routing/automation/save-recall repeat.
 Finish one PR for independent review, no automatic merge. Manager/frontend
 integration is explicitly deferred for a later design discussion.
 
-## Current transition state
+## Completed ordinary transition
 
-Product source `317fd717f4826734d36a0b2fe01b1ad7999bb495` passes AP12/PX2.
-The immutable manager/catalogue is installed; ordinary18 is physically active,
-with exact ordinary11 parent and unchanged siblings. Candidate17 remains inactive.
-Before the agent's launch, Bitwig opened externally. The launch guard refused
-before creating/opening the smoke copy. Luna's read-only Moonlight view shows
-Pigments Welcome; neither agent sent input. One DSP lease is active. The session
-ownership/disposition question is pending with the operator. Do not close or
-change that session without the answer. Ordinary shutdown/zero-lease final smoke
-is not yet established. See `evidence/uio2/acceptance/transition.json`.
+Review5193270789 accepts source head41aec9e. The operator-owned session has
+naturally closed. Joined retained publication/live lease/runtime identity readback
+binds it to ordinary18 fingerprint
+`56872b858daef293aa47c0fcbd7e99e6c586e1311366fedbab0bb410fb0f55cd`.
+No agent input or launch occurred. All seven process-scoped retirement milestones
+committed; no terminal/Collector/editor failure. Zero DSP leases, pending
+transactions and stale transports; service/keeper healthy; projects and siblings
+unchanged. Ordinary18 remains active with ordinary11 rollback and candidate17
+inactive. Retain 12 delivery groups/216832 missing and expired frames; no gap-free
+claim. See `evidence/uio2/acceptance/natural-smoke.json`. The earlier pending-session
+record remains historical. Finish checks and merge this accepted transition.
+
+The next authorized slice is MF1 — Human Operator Manager, a native Rust frontend
+projecting canonical readback and closed operations, including generic inventory
+without publishing unknown products. It begins after this PR merges.
 
 ---
 ## Previous UIO2 slice (merged history)

@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "review": 5193270789,
+  "reviewed_source_head": "41aec9e4803279f4e4597ad72c742bef6e477728",
+  "product_source": "317fd717f4826734d36a0b2fe01b1ad7999bb495",
+  "session_alias": "ordinary18-user-session",
+  "operator_owned": true,
+  "agent_input_actions": 0,
+  "agent_launches": 0,
+  "operator_observation": "User confirmed they opened the session and were enjoying normal use",
+  "admission_binding": {
+    "profile_revision": 18,
+    "profile_fingerprint": "56872b858daef293aa47c0fcbd7e99e6c586e1311366fedbab0bb410fb0f55cd",
+    "publication": {
+      "id": "23cbf3bdbe4cf6d4ee3d2056103557ea",
+      "sha256": "9909092ab38a07cef970122d7e451d98828ac7864e477b5c6401ec00da064630"
+    },
+    "qualification": null,
+    "proof": "Joined retained ordinary publication readback before launch, observed live class lease, exact session readiness host/module/source identities, unchanged publication after shutdown; lease file itself does not contain a profile fingerprint",
+    "candidate17_inactive": true,
+    "rollback11": {
+      "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+      "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+    }
+  },
+  "readiness": {
+    "scanner_sha256": "186ba6d18f231a438041f3b8322259b73622a5f982835d7a48202efb2585e2f8",
+    "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+    "implementation_source_manifest_sha256": "aab9ed5088e7f2a6a52665fb67150ce3fbe1a52893f7eedb68a63c55c06da498",
+    "mode": "ap9-commercial"
+  },
+  "retirement": {
+    "state": "process_scoped_retirement_ready",
+    "milestones": 127,
+    "generation": 1,
+    "epoch": 1,
+    "sequence": 47715,
+    "position": 12213248
+  },
+  "retirement_disposition": "process_scoped_vendor_retirement",
+  "outer_exit_after_owned_containment": -15,
+  "clean_sdk_destruction_claim": false,
+  "terminal_record": null,
+  "collector_rejection": null,
+  "editor_failure": 0,
+  "delivery": {
+    "frames": 12213248,
+    "blocks": 23854,
+    "callback_rejections": 1,
+    "rejected_silent_frames": 512,
+    "successful_silent_callbacks": 1,
+    "successful_silent_frames": 512,
+    "priming_frames": 512,
+    "underrun_frames": 216832,
+    "underrun_gaps": 12,
+    "underrun_callbacks": 428,
+    "expired_output_frames": 216832,
+    "delivered_frames": 11995904
+  },
+  "final_state": {
+    "ordinary18_active": true,
+    "ordinary11_rollback": true,
+    "candidate17_inactive": true,
+    "siblings_unchanged": true,
+    "projects_unchanged": true,
+    "capture_armed": false,
+    "bitwig_absent": true,
+    "dsp_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "service": "active",
+    "keeper": "active",
+    "tracing": false
+  },
+  "limitations": [
+    "No repeat UI qualification",
+    "No automated numeric resize waterfall",
+    "Residual delivery gaps retained; no performance or gap-free claim",
+    "Process-scoped retirement, not clean SDK destruction"
+  ],
+  "recommended_frames": 512,
+  "frames256": "unqualified"
+}
