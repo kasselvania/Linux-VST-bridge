@@ -2,8 +2,10 @@
 import json
 from pathlib import Path
 import sys
-sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'uio3'))
-from timeline import projected
+import importlib.util
+_spec=importlib.util.spec_from_file_location('uio3_projection',Path(__file__).resolve().parent.parent/'uio3/timeline.py')
+_projection=importlib.util.module_from_spec(_spec);_spec.loader.exec_module(_projection)
+projected=_projection.projected
 
 INSUFFICIENT='UIR2_INSUFFICIENT_PHYSICAL_COVERAGE'
 

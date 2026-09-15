@@ -99,7 +99,7 @@ def summary(raw):
  facts=dict(contacts=len(contacts),coverage_complete=exact and len(core)==1 and not any(raw.get('drops',{}).values()) and raw.get('error') is None,
    clock_validated=bool(len(clocks)>=2 and len(xclocks)>=2 and raw.get('status',{}).get('calibration_ok',0)),procedure_after_removal=False)
  delays=[];gaps=[];message_times=[]
- if len(core)==1 and removals:
+ if len(core)==1 and removals and clocks:
   event=core[0];b=min(xclocks,key=lambda b:abs(((event['server_ms']-b['server_ms']+2**31)%2**32)-2**31)) if xclocks else None
   if b:
    d=(unfold32(event['server_ms'],b['server_ms'])-b['server_ms'])*1000000
