@@ -17,6 +17,15 @@ class Scope:
         reap();return self.clean
 
 class InstallerTests(unittest.TestCase):
+    def test_launcher_exit_between_poll_and_reap_preserves_nonzero_status(self):
+        class Child:
+            pid=42
+            returncode=None
+            def poll(self):return None
+        child=Child()
+        with patch.object(session.os,'waitpid',side_effect=[(42,23<<8),(0,0)]):session.installer_reap(child)
+        self.assertEqual(child.returncode,23)
+
     def test_cgroup_is_bound_to_operation_not_another_unit(self):
         with tempfile.TemporaryDirectory() as tmp:
             class InstallerCgroup(CgroupFixture):group='/user.slice/linux-vst-bridge-installer-'+('ab'*16)+'.service'

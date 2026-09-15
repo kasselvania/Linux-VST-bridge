@@ -1079,6 +1079,18 @@ def install(spec):
         lock.close()
     return code==0 and clean and failure is None
 
+def installer_reap(child):
+    if child:child.poll()
+    for _ in range(128):
+        try:
+            pid,status=os.waitpid(-1,os.WNOHANG)
+            if not pid:break
+            # The launcher can exit between poll and waitpid. Preserve its
+            # actual status rather than letting Popen infer zero after ECHILD.
+            if child is not None and pid==child.pid:child.returncode=os.waitstatus_to_exitcode(status)
+        except ChildProcessError:break
+
+
 def managed_install(spec):
     """MF2 initial installer, exact dedicated unit. No product admission authority."""
     op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
@@ -1090,13 +1102,7 @@ def managed_install(spec):
         nonlocal stop
         stop=True
     signal.signal(signal.SIGTERM,stopping);signal.signal(signal.SIGINT,stopping)
-    def reap():
-        if child:child.poll()
-        while True:
-            try:
-                pid,_=os.waitpid(-1,os.WNOHANG)
-                if not pid:break
-            except ChildProcessError:break
+    def reap():installer_reap(child)
     def drain(wait):
         nonlocal discarded
         for key,_ in sel.select(wait):
