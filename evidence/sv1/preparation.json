@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "disposition": "SV1_INSTRUMENT_PREPARED_INSTALLATION_PENDING_MANAGER_CLOSE",
+  "disposition": "SV1_INSTRUMENT_CANDIDATE_STAGED_INACTIVE",
   "mf2_merge": "3aa26d11f401abfabf86b0b574d4cc7f8436810a",
   "class_id": "56534558667350736572756D20320000",
   "controller_factory_class_id": "56534558667343736572756D20320000",
@@ -44,7 +44,7 @@
   "fx_component_inspected": false,
   "bitwig_launched": false,
   "ordinary_promotion": false,
-  "candidate_staged": false,
+  "candidate_staged": true,
   "validation": {
     "manager_library": 97,
     "manager_binary_linux_at_initial_candidate_source": 54,
@@ -76,7 +76,13 @@
     },
     "implementation_head": "5cd73b00098dc25f2948e9f07df40d20e3cc4aa3",
     "implementation_tree": "3f184b79054749a3413e11467e4c7a99dedb9d59",
-    "manager_binary_linux": 56
+    "manager_binary_linux": 56,
+    "documentation_head_ci": {
+      "head": "32ea70c8bf2f99539e885c45957b99e589d197be",
+      "AP12": 35021973173,
+      "PX2": 35021973248,
+      "result": "success"
+    }
   },
   "nonclaims": [
     "No note audio tested",
@@ -85,11 +91,10 @@
     "No Serum FX qualification"
   ],
   "installation": {
-    "new_software_installed": false,
-    "reason": "operator manager window remains open",
+    "new_software_installed": true,
     "frontend_bytes_unchanged": true,
     "native_candidate_built": true,
-    "manager_candidate_stage_executed": false,
+    "manager_candidate_stage_executed": true,
     "ordinary_products_changed": false,
     "bitwig_publication": false,
     "prepared_package": {
@@ -98,6 +103,60 @@
       "linux-audio-compatibility-manager": "1fce3670189f887c80a1c22adbedcd5aec55aa6c578b0e324a1fc5a492d6b6cd",
       "session.py": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab"
     },
-    "package_source": "5cd73b00098dc25f2948e9f07df40d20e3cc4aa3"
+    "package_source": "5cd73b00098dc25f2948e9f07df40d20e3cc4aa3",
+    "installed_artifacts": {
+      "operator_frontend": "1fce3670189f887c80a1c22adbedcd5aec55aa6c578b0e324a1fc5a492d6b6cd",
+      "manager": "5e6ddaa139459f155f347f8cd875466dffda53f922a3b6fa574f5888f56539c6",
+      "supervisor": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab",
+      "ownership": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "a948813c0f1e3554dc5d77215da2fb765d8f29128ce85e1d17c7af5e3abd615f"
+    },
+    "immutable_setup_completed": true,
+    "canonical_readback_verified": true,
+    "candidate_stage_readback": {
+      "profile_fingerprint": "121c38272d670aaeace5c526dff0460178a9a6593267f596ecf28e96b83ee381",
+      "files": {
+        "host.exe": {
+          "sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+          "mode": "0o400"
+        },
+        "host-source-manifest.json": {
+          "sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+          "mode": "0o400"
+        },
+        "inspection.json": {
+          "sha256": "ed1670d47b3be6c6d3369fb737be17ebafc8a4a68c3823b20e96b2799f140ac1",
+          "mode": "0o400"
+        },
+        "baseline.json": {
+          "sha256": "076e39841e8c2477b4c3643b1c3e843da39997dd3a9adee8ce08de89ad1c0cc5",
+          "mode": "0o400"
+        },
+        "native.so": {
+          "sha256": "0c87f6c79914e9b9fbfd77c613cc5532fa74bfd71dea10eec249f0b2e558a16b",
+          "mode": "0o500"
+        }
+      }
+    }
+  },
+  "candidate_fingerprint": "121c38272d670aaeace5c526dff0460178a9a6593267f596ecf28e96b83ee381",
+  "final_state": {
+    "system": {
+      "service": "active",
+      "keepers": 1,
+      "dsp": 0,
+      "maintenance": 0,
+      "ceiling": 6,
+      "pending_transactions": 0,
+      "stale_transports": 0,
+      "cleanup_unconfirmed": false
+    },
+    "capture_armed": false,
+    "retained_products_projects_import_inventory_unchanged": true,
+    "candidate_inactive": true,
+    "serum_publication": false,
+    "bitwig_launched": false
   }
 }
