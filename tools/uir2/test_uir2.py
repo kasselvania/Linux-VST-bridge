@@ -63,7 +63,7 @@ class SessionTests(unittest.TestCase):
             dict(kind=3,message=0x247,hwnd=73,qpc=1012,end_qpc=1013,dispatch=7)],
    windows_clocks=[dict(linux_before_ns=999000000,linux_after_ns=1001000000,windows_qpc=1000,tick=1000,frequency=1000)]*2,
    x_clocks=[dict(linux_before_ns=999000000,linux_after_ns=1001000000,server_ms=1000)]*2,
-   status=dict(frequency=1000,calibration_ok=1),drops={},error=None)
+   status=dict(frequency=1000,calibration_ok=1),drops={},error=None,final_pointer=dict(mask=0))
  def test_full_summary_prompt(self):
   from session import summary
   s=summary(self.raw());self.assertEqual(s['disposition'],'UIR2_EMBEDDED_PRODUCT_ROUTE_REQUIRED')
