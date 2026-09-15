@@ -483,7 +483,8 @@ fn spec(
     private_dir(&results)?;
     let leases = m.root.join("runtime/leases");
     private_dir(&leases)?;
-    let onboarding_home = m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
+    let onboarding_home = r.metadata.class_id == managed_candidate::candidate()?.class.class_id
+        || m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
     if onboarding_home {
         if r.metadata.class_id == managed_candidate::candidate()?.class.class_id {
             managed_candidate::check_session(m,&r.metadata.class_id,&r.environment,&r.module,&r.host,&r.host_source_sha256)?;
