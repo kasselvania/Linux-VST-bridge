@@ -208,11 +208,11 @@ fn inactive_reason(
         _ => None,
     }
 }
-fn require_operator_inactive(m: &Manager, a: &ui::Action) -> Result<()> {
+fn require_operator_inactive_with(m:&Manager,a:&ui::Action,capacity_read:&dyn Fn()->Option<CapacityReadback>) -> Result<()> {
     if !a.requires_inactive() {
         return Ok(());
     }
-    let cap = live_capacity(m)?;
+    let cap = capacity_read().ok_or("capacity_readback_unavailable")?;
     let _admission = m.lock("registry.lock")?;
     if let Some(reason) = inactive_reason(
         Some(&cap),
@@ -268,25 +268,69 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     result.sort_by_key(|r| r.revision);
     Ok(result)
 }
+const OPERATOR_WAIT: Duration = Duration::from_secs(10);
 pub(super) fn canonical_lock(m: &Manager) -> Result<Lock> {
-    let deadline = Instant::now() + Duration::from_secs(10);
-    loop {
-        match m.lock("operator-canonical.lock") {
-            Ok(lock) => return Ok(lock),
-            Err(e) if e.to_string() == "operation already running" && Instant::now() < deadline => {
-                std::thread::sleep(Duration::from_millis(25))
+    Ok(m.lock_bounded(
+        ui::OperatorLock::Canonical,
+        ui::LockPurpose::ActionSerialization,
+        None,
+        OPERATOR_WAIT,
+    )?
+    .0)
+}
+fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
+    snapshot_for_operation(m, None, OPERATOR_WAIT, &mut vec![], &|| {
+        live_capacity(m).ok()
+    })
+}
+fn acquire_readback(
+    m: &Manager,
+    name: ui::OperatorLock,
+    id: Option<&str>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+) -> Result<Lock> {
+    let purpose = if id.is_some() {
+        ui::LockPurpose::OperatorValidationReadback
+    } else {
+        ui::LockPurpose::OperatorReadback
+    };
+    match m.lock_bounded(name, purpose, id, timeout) {
+        Ok((lock, facts)) => {
+            waits.push(facts);
+            Ok(lock)
+        }
+        Err(e) => {
+            if let Some(f) = e.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
+            {
+                waits.push(f.facts.clone());
             }
-            Err(e) => return Err(e),
+            Err(e)
         }
     }
 }
-fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
-    let _projection = canonical_lock(m)?;
+fn snapshot_for_operation(m: &Manager,id:Option<&str>,timeout:Duration,waits:&mut Vec<ui::LockFacts>,capacity_read:&dyn Fn()->Option<CapacityReadback>) -> Result<ui::Snapshot> {
+    // Bounded wait order: operator serialization -> registry authority.
+    let _projection=acquire_readback(m,ui::OperatorLock::Canonical,id,timeout,waits)?;
+    // LVC1 itself takes registry.lock in the service. Never request it while
+    // holding that lock. Its owner census must still match after acquisition.
+    let deadline=Instant::now()+timeout;
+    let mut cap=capacity_read();
+    let mut registry=acquire_readback(m,ui::OperatorLock::Registry,id,deadline.saturating_duration_since(Instant::now()),waits)?;
+    if cap.is_none() {
+        // LVC1 may itself have lost the same fail-fast registry race. After
+        // contention clears, resample once without owning its required lock.
+        // Unreachable/malformed/blocked service still never becomes healthy.
+        drop(registry);
+        cap=capacity_read();
+        registry=acquire_readback(m,ui::OperatorLock::Registry,id,deadline.saturating_duration_since(Instant::now()),waits)?;
+    }
+    let owners=capacity::owners(m)?;
+    let cap=cap.filter(|c| c.owners==owners);
     let before = token(m)?;
     let sw = software(m)?;
-    let canonical = m.managed_status(&sw.host, &sw.source_sha256)?;
+    let canonical = m.managed_status_locked(&sw.host, &sw.source_sha256, &registry)?;
     let db = m.registry()?;
-    let cap = live_capacity(m).ok();
     let pending = pending_transactions(m)?;
     let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     let busy = inactive_reason(cap.as_ref(), retired, pending, false);
@@ -496,7 +540,8 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     let after = token(m)?;
     require(before == after, "operator_state_changed_refresh")?;
     let live = activity_with_capacity(m, cap.as_ref())?;
-    let onboarding = onboarding::projection(m, busy)?;
+    let mut onboarding = onboarding::projection(m, busy)?;
+    if let Some(receipt)=&live.operation { project_onboarding_failure(m,receipt,&mut onboarding)?; }
     Ok(ui::Snapshot {
         onboarding,
         schema: 2,
@@ -524,6 +569,29 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
             .as_object()
             .map(|v| Value::Object(v.clone())),
     })
+}
+fn project_onboarding_failure(
+    m: &Manager,
+    receipt: &Value,
+    rows: &mut [ui::Onboarding],
+) -> Result<()> {
+    if receipt["state"] != "refused" || receipt["failure"].is_null() {
+        return Ok(());
+    }
+    let id = receipt["operation"]
+        .as_str()
+        .ok_or("operator_failure_identity")?;
+    let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
+    let failure: ui::OperationFailure = serde_json::from_value(receipt["failure"].clone())?;
+    if let ui::Action::InstallerEnvironmentCreate { installer, .. } = request.action {
+        for row in rows
+            .iter_mut()
+            .filter(|r| r.installer == installer && r.environment.is_none())
+        {
+            row.failure = Some(failure.clone());
+        }
+    }
+    Ok(())
 }
 fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
     snapshot
@@ -572,7 +640,7 @@ fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> R
     let _lock = loop {
         match m.lock("operator-receipt.lock") {
             Ok(lock) => break lock,
-            Err(e) if e.to_string() == "operation already running" && Instant::now() < deadline => {
+            Err(e) if e.is::<linux_vst_bridge::operator_lock::LockBusy>() && Instant::now() < deadline => {
                 std::thread::sleep(Duration::from_millis(10))
             }
             Err(e) => return Err(e),
@@ -691,9 +759,13 @@ fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
 fn execute(m: &Manager, a: &ui::Action) -> Result<Value> {
     execute_with_receipt(m, a, None)
 }
+#[cfg(test)]
 fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) -> Result<Value> {
+    execute_with_receipt_capacity(m,a,operation,&||live_capacity(m).ok())
+}
+fn execute_with_receipt_capacity(m:&Manager,a:&ui::Action,operation:Option<&str>,capacity_read:&dyn Fn()->Option<CapacityReadback>) -> Result<Value> {
     let mut projection = Some(canonical_lock(m)?);
-    require_operator_inactive(m, a)?;
+    require_operator_inactive_with(m, a,capacity_read)?;
 
     match a {
         ui::Action::InstallerEnvironmentCreate { installer, runner } => onboarding::create(
@@ -898,7 +970,7 @@ fn resume_lock(m: &Manager) -> Result<Lock> {
         match m.lock("operator-resume.lock") {
             Ok(lock) => return Ok(lock),
             Err(e) => {
-                if e.to_string() != "operation already running" || Instant::now() >= deadline {
+                if !e.is::<linux_vst_bridge::operator_lock::LockBusy>() || Instant::now() >= deadline {
                     return Err(e);
                 }
                 std::thread::sleep(Duration::from_millis(50));
@@ -1197,24 +1269,91 @@ fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
     Ok(json!({"scan":scan.id,"modules":scan.modules.len(),"activation_permitted":false}))
 }
 fn worker(m: &Manager, id: &str) -> Result<()> {
+    worker_with_capacity(m, id, OPERATOR_WAIT, &|| live_capacity(m).ok())
+}
+fn worker_with_capacity(
+    m: &Manager,
+    id: &str,
+    timeout: Duration,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+) -> Result<()> {
+    // Prevent a duplicate worker from executing the same operation twice.
     let dir = job_dir(m, id)?;
+    let _owner = m.lock(&format!("operator-worker-{id}.lock"))?;
+    let prior = optional(&dir.join("result.json"))?;
+    if matches!(prior["state"].as_str(), Some("completed" | "refused")) {
+        return Ok(());
+    }
     let request: ui::Request = read_json(&dir.join("request.json"))?;
-    let result: Result<Value> = (|| {
-        validate(
-            &request,
-            &snapshot(m).map_err(|e| format!("Operator validation readback: {e}"))?,
-        )?;
-        let state = json!({"schema":1,"operation":id,"state":"running","action":request.action});
-        write_operation(m, id, &state, false)?;
-        execute_with_receipt(m, &request.action, Some(id))
-            .map_err(|e| format!("Operator action: {e}").into())
-    })();
+    write_operation(
+        m,
+        id,
+        &json!({"schema":1,"operation":id,"state":"waiting","stage":"operator_validation_readback","action":request.action}),
+        false,
+    )?;
+    let mut waits = vec![];
+    let validation = snapshot_for_operation(m, Some(id), timeout, &mut waits, capacity_read)
+        .and_then(|snapshot| validate(&request, &snapshot));
+    if let Err(e) = validation {
+        let failure = e
+            .downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
+            .map(|f| {
+                let retryable = f.facts.outcome == ui::LockOutcome::Timeout;
+                ui::OperationFailure {
+                    layer: ui::FailureLayer::ManagerControlPlane,
+                    stage: ui::FailureStage::OperatorValidationReadback,
+                    code: if !retryable {
+                        ui::FailureCode::LockAccessError
+                    } else if f.facts.name == ui::OperatorLock::Registry {
+                        ui::FailureCode::RegistryLockTimeout
+                    } else {
+                        ui::FailureCode::SerializationLockTimeout
+                    },
+                    retryable,
+                    mutation_started: false,
+                    environment_created: false,
+                    installer_launched: false,
+                    lock: f.facts.clone(),
+                }
+            });
+        let reason = if failure.as_ref().is_some_and(|f| f.retryable) {
+            if matches!(request.action,ui::Action::InstallerEnvironmentCreate{..}) {
+                "Manager busy validating state. Environment creation did not start; installer was not launched. Retry after canonical state is healthy.".to_owned()
+            } else {
+                "Manager busy validating state. The requested action did not start. Retry after canonical state is healthy.".to_owned()
+            }
+        } else {
+            format!("Operator validation readback: {e}")
+                .chars()
+                .take(512)
+                .collect()
+        };
+        return write_operation(
+            m,
+            id,
+            &json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"lock_waits":waits}),
+            false,
+        );
+    }
+    // Snapshot's registry authority and serialization have both been released.
+    // Existing action owners reacquire serialization and fail-fast mutation
+    // locks and revalidate inactivity/identity; validation grants no mutation.
+    write_operation(
+        m,
+        id,
+        &json!({"schema":1,"operation":id,"state":"running","action":request.action,"lock_waits":waits}),
+        false,
+    )?;
+    let result = execute_with_receipt_capacity(m, &request.action, Some(id), capacity_read);
     let value = match result {
-        Ok(v) => json!({"schema":1,"operation":id,"state":"completed","result":v}),
-        Err(e) => json!({"schema":1,"operation":id,"state":"refused","reason":e.to_string()}),
+        Ok(v) => {
+            json!({"schema":1,"operation":id,"state":"completed","result":v,"lock_waits":waits})
+        }
+        Err(e) => {
+            json!({"schema":1,"operation":id,"state":"refused","reason":format!("Operator action: {e}"),"lock_waits":waits})
+        }
     };
-    write_operation(m, id, &value, false)?;
-    Ok(())
+    write_operation(m, id, &value, false)
 }
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
@@ -1490,7 +1629,7 @@ mod tests {
                 last
             );
         }
-        for state in ["queued", "running", "vendor_running"] {
+        for state in ["queued", "waiting", "running", "vendor_running"] {
             let id = launch_queued(&f.m, &request, |_| Ok(true))
                 .unwrap()
                 .operation
@@ -1806,48 +1945,228 @@ mod tests {
         assert!(read.system.cleanup_unconfirmed);
         assert!(read.operation.is_none());
     }
-    #[test]
-    fn environment_worker_refuses_during_registry_readback_contention_before_mutation() {
-        // Reproduce the retained MF2 refusal using the production worker. The
-        // service capacity reader uses this same exclusive registry lock and
-        // does not participate in operator-canonical.lock.
-        let f = test_fixture::Fixture::new();
-        let a = f.r.host.clone();
-        let sw = Software {
-            manager: a.clone(), operator_frontend: None,
-            supervisor: a.clone(), ownership: a.clone(), host: a.clone(),
-            source_manifest: a.clone(), source_sha256: a.sha256.clone(),
-            native_catalogue: None,
-        };
-        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
-        let id = "ab".repeat(16);
-        let dir = job_dir(&f.m, &id).unwrap();
-        private_dir(&dir).unwrap();
-        let request = ui::Request {
-            schema: 2, state_token: token(&f.m).unwrap(),
-            action: ui::Action::InstallerEnvironmentCreate {
-                installer: "cd".repeat(32), runner: "ef".repeat(32),
-            },
-        };
-        atomic_json(&dir.join("request.json"), &request).unwrap();
-        write_operation(&f.m, &id,
-            &json!({"schema":1,"operation":id,"state":"queued","action":request.action}), true).unwrap();
-        let before = fs::read(f.m.root.join("software.json")).unwrap();
-        let registry_reader = f.m.lock("registry.lock").unwrap();
-        // The operator serialization lock is free: it cannot protect against
-        // a capacity read in the service's independent registry-lock domain.
-        drop(canonical_lock(&f.m).unwrap());
-        worker(&f.m, &id).unwrap();
-        let receipt: Value = read_json(&dir.join("result.json")).unwrap();
-        assert_eq!(receipt["state"], "refused");
-        assert_eq!(receipt["reason"],
-            "Operator validation readback: operation already running");
-        assert!(!f.m.root.join("onboarding").exists());
-        assert!(!f.m.root.join("operator/resume.json").exists());
-        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), before);
-        assert_eq!(optional(&f.m.root.join("operator/latest.json")).unwrap(), receipt);
-        drop(registry_reader);
-    }
+fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
+    use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
+    let (f, p, _, native) = test_fixture::prepared();
+    let catalogue = Catalogue {
+        schema: 3,
+        natives: vec![native],
+        environments: vec![EnvironmentBinding {
+            family: p.requirements.environment_family,
+            environment: f.r.environment.clone(),
+        }],
+        hosts: vec![],
+    };
+    let path = f.m.root.join("software/catalogue.json");
+    atomic_json(&path, &catalogue).unwrap();
+    let source = Artifact {
+        path: f.r.host.path.with_file_name("host-source-manifest.json"),
+        sha256: f.r.host_source_sha256.clone(),
+    };
+    let a = f.r.host.clone();
+    let sw = Software {
+        manager: a.clone(),
+        operator_frontend: None,
+        supervisor: a.clone(),
+        ownership: a.clone(),
+        host: a,
+        source_manifest: source,
+        source_sha256: f.r.host_source_sha256.clone(),
+        native_catalogue: Some(Artifact {
+            sha256: digest(&path).unwrap(),
+            path,
+        }),
+    };
+    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+    let mut bytes = vec![0; 1024];
+    bytes[..2].copy_from_slice(b"MZ");
+    bytes[60] = 128;
+    bytes[128..132].copy_from_slice(b"PE\0\0");
+    bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+    bytes[148] = 2;
+    bytes[150] = 2;
+    bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+    let source = f.outer.join("operator-file");
+    fs::write(&source, bytes).unwrap();
+    let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
+    let request = ui::Request {
+        schema: 2,
+        state_token: token(&f.m).unwrap(),
+        action: ui::Action::InstallerEnvironmentCreate {
+            installer: installer.id,
+            runner: onboarding::runner_key(&f.r.environment.runner).unwrap(),
+        },
+    };
+    let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
+    (f, receipt.operation.unwrap())
+}
+fn capacity_fixture(m: &Manager) -> Option<CapacityReadback> {
+    // Actual capacity owner and registry read, only the Unix socket is omitted.
+    capacity::status(m, capacity::fixture_limits(), 0, false)
+        .ok()
+        .and_then(|v| serde_json::from_value(serde_json::to_value(v).unwrap()).ok())
+}
+fn worker_receipt(m: &Manager, id: &str) -> Value {
+    read_json(&job_dir(m, id).unwrap().join("result.json")).unwrap()
+}
+#[test]
+fn environment_worker_timeout_is_structured_retryable_and_never_mutates() {
+    let (f, id) = onboarding_worker_fixture();
+    let registry = f.m.lock("registry.lock").unwrap();
+    worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| {
+        capacity_fixture(&f.m)
+    })
+    .unwrap();
+    let receipt = worker_receipt(&f.m, &id);
+    assert_eq!(receipt["state"], "refused");
+    let failure: ui::OperationFailure = serde_json::from_value(receipt["failure"].clone()).unwrap();
+    assert_eq!(failure.code, ui::FailureCode::RegistryLockTimeout);
+    assert!(
+        failure.retryable
+            && !failure.mutation_started
+            && !failure.environment_created
+            && !failure.installer_launched
+    );
+    assert_eq!(failure.lock.name, ui::OperatorLock::Registry);
+    assert_eq!(
+        failure.lock.purpose,
+        ui::LockPurpose::OperatorValidationReadback
+    );
+    assert_eq!(failure.lock.operation.as_deref(), Some(id.as_str()));
+    assert_eq!(failure.lock.holder, ui::LockHolder::Unknown);
+    assert!(failure.lock.attempts >= 2);
+    assert!(!f.m.root.join("onboarding").exists());
+    assert!(!f.m.root.join("operator/resume.json").exists());
+    drop(registry);
+    // A duplicate worker/late ExecStopPost cannot rerun or overwrite terminal custody.
+    worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| {
+        capacity_fixture(&f.m)
+    })
+    .unwrap();
+    refuse_unfinished(&f.m, &id, "late hook").unwrap();
+    assert_eq!(worker_receipt(&f.m, &id), receipt);
+    let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+        capacity_fixture(&f.m)
+    })
+    .unwrap();
+    assert_eq!(snapshot.onboarding.len(), 1);
+    assert_eq!(snapshot.onboarding[0].failure.as_ref(), Some(&failure));
+    assert!(snapshot.onboarding[0]
+        .actions
+        .iter()
+        .all(|a| a.disabled_reason.is_none()));
+}
+#[test]
+fn environment_worker_waits_then_creates_once_and_keeps_wait_receipt() {
+    let (f, id) = onboarding_worker_fixture();
+    let registry = f.m.lock("registry.lock").unwrap();
+    let m = Manager {
+        root: f.m.root.clone(),
+        publications: f.m.publications.clone(),
+    };
+    let op = id.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let thread = std::thread::spawn(move || {
+        worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
+            let _ = tx.send(());
+            capacity_fixture(&m)
+        })
+    });
+    rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    std::thread::sleep(Duration::from_millis(30));
+    drop(registry);
+    thread.join().unwrap().unwrap();
+    let receipt = worker_receipt(&f.m, &id);
+    assert_eq!(receipt["state"], "completed", "{receipt}");
+    assert!(receipt["lock_waits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|w| w["name"] == "registry.lock"
+            && w["attempts"].as_u64().unwrap() > 1
+            && w["outcome"] == "acquired"));
+    let records = onboarding::records(&f.m).unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].creation_operation, id);
+    assert!(records[0].installation_operation.is_none());
+    assert!(!records[0].published);
+    worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+    assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
+    assert_eq!(worker_receipt(&f.m, &id), receipt);
+    assert!(!f.m.root.join("operator/resume.json").exists());
+}
+#[test]
+fn state_change_during_wait_refuses_original_request_without_mutation() {
+    let (f, id) = onboarding_worker_fixture();
+    let registry = f.m.lock("registry.lock").unwrap();
+    let m = Manager {
+        root: f.m.root.clone(),
+        publications: f.m.publications.clone(),
+    };
+    let op = id.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let thread = std::thread::spawn(move || {
+        worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
+            let _ = tx.send(());
+            capacity_fixture(&m)
+        })
+    });
+    rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    let mut db = f.m.registry().unwrap();
+    db.revision += 1;
+    atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
+    drop(registry);
+    thread.join().unwrap().unwrap();
+    let r = worker_receipt(&f.m, &id);
+    assert_eq!(r["state"], "refused");
+    assert_eq!(
+        r["reason"],
+        "Operator validation readback: operator_stale_request_refresh"
+    );
+    assert!(!f.m.root.join("onboarding").exists());
+    assert!(!f.m.root.join("operator/resume.json").exists());
+}
+#[test]
+fn snapshot_capacity_and_creation_complete_without_reverse_wait_or_latest_theft() {
+    let (f, id) = onboarding_worker_fixture();
+    let registry = f.m.lock("registry.lock").unwrap();
+    let a = Manager {
+        root: f.m.root.clone(),
+        publications: f.m.publications.clone(),
+    };
+    let b = Manager {
+        root: f.m.root.clone(),
+        publications: f.m.publications.clone(),
+    };
+    let op = id.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        worker_with_capacity(&a, &op, Duration::from_secs(2), &|| {
+            let _ = tx.send(());
+            capacity_fixture(&a)
+        })
+    });
+    rx.recv_timeout(Duration::from_secs(1)).unwrap();
+    let snapshot = std::thread::spawn(move || {
+        snapshot_for_operation(&b, None, Duration::from_secs(2), &mut vec![], &|| {
+            capacity_fixture(&b)
+        })
+    });
+    // Newer receipt is projection authority, regardless of A's late completion.
+    let newer = "fe".repeat(16);
+    private_dir(&job_dir(&f.m, &newer).unwrap()).unwrap();
+    let latest = json!({"schema":1,"operation":newer,"state":"queued"});
+    write_operation(&f.m, &newer, &latest, true).unwrap();
+    drop(registry);
+    worker.join().unwrap().unwrap();
+    snapshot.join().unwrap().unwrap();
+    assert_eq!(worker_receipt(&f.m, &id)["state"], "completed");
+    assert_eq!(
+        optional(&f.m.root.join("operator/latest.json")).unwrap(),
+        latest
+    );
+    assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
+}
     #[test]
     fn readback_and_action_entry_share_one_bounded_lock_without_repeating_action() {
         let f = test_fixture::Fixture::new();

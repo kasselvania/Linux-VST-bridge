@@ -420,3 +420,17 @@ the manager/frontend is immutably installed. Human file import passed. The
 Create isolated environment action failed during validation on registry-lock
 contention; no environment or installer launched. Retain this material boundary
 and production-worker regression. No repeat occurred; onboarding remains incomplete.
+
+
+## MF2-R1 — bounded operator lock coordination
+
+Continue the same branch/PR from `62f8756df21ebedd5f5a2fa963112f773dd255f9`.
+The historical `evidence/mf2/result.json` and imported installer remain immutable.
+Repair only non-RT operator validation coordination and structured failure
+presentation. `Manager::lock` admission/mutation behavior remains fail-fast.
+See `docs/MF2-R1.md` for the lock order, generated regression and review boundary.
+
+Independent source review is required before immutable installation and one
+human resumed environment-create action. Until then no installation, file picker,
+installer reimport, environment creation, vendor launch or product test is allowed.
+PR108 remains draft and unmerged. No Serum candidate/publication belongs to MF2.

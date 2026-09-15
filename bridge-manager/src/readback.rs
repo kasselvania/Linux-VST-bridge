@@ -167,7 +167,14 @@ impl Manager {
         source: &str,
         profiles: &[Profile],
     ) -> Result<ManagedStatus> {
-        let _lock = self.lock("registry.lock")?;
+        let lock = self.lock("registry.lock")?;
+        self.managed_status_locked_for_policy(installed_host,source,profiles,&lock)
+    }
+    pub fn managed_status_locked(&self, installed_host: &Artifact, source: &str, lock: &Lock) -> Result<ManagedStatus> {
+        self.managed_status_locked_for_policy(installed_host,source,&installed_profiles()?,lock)
+    }
+    fn managed_status_locked_for_policy(&self, installed_host: &Artifact, source: &str, profiles: &[Profile], lock: &Lock) -> Result<ManagedStatus> {
+        lock.require_registry(self)?;
         let db = self.registry()?;
         let mut products = Vec::new();
         for (index, (key, e)) in db.classes.iter().enumerate() {

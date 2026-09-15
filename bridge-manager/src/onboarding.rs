@@ -316,6 +316,7 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
             .collect();
         if bound.is_empty() {
             rows.push(ui::Onboarding {
+                failure: None,
                 installer: installer.id.clone(),
                 name: installer.name_hint.clone(),
                 byte_size: installer.byte_size,
@@ -403,7 +404,7 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                 state = scan_state(&parsed, &r.environment, &sw.host, &sw.source_sha256).into();
                 human = "Review discovery below. No class has been published to Bitwig";
             }
-            rows.push(ui::Onboarding{installer:installer.id.clone(),name:installer.name_hint.clone(),byte_size:installer.byte_size,format:installer.format.clone(),environment:Some(r.id.clone()),state,required_human_action:human.into(),details:json!({"installation":v,"scan":scan,"runner":r.environment.runner.id,"published":false}),actions});
+            rows.push(ui::Onboarding{failure:None,installer:installer.id.clone(),name:installer.name_hint.clone(),byte_size:installer.byte_size,format:installer.format.clone(),environment:Some(r.id.clone()),state,required_human_action:human.into(),details:json!({"installation":v,"scan":scan,"runner":r.environment.runner.id,"published":false}),actions});
         }
     }
     Ok(rows)

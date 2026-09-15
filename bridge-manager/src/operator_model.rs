@@ -150,6 +150,8 @@ pub struct Snapshot {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Onboarding {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<OperationFailure>,
     pub installer: String,
     pub name: String,
     pub byte_size: u64,
@@ -255,4 +257,91 @@ mod tests {
             a
         );
     }
+}
+
+// Additive schema-2 failure/readback projection. Closed fields carry no paths or PID claims.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OperatorLock {
+    #[serde(rename = "registry.lock")]
+    Registry,
+    #[serde(rename = "operator-canonical.lock")]
+    Canonical,
+    #[serde(rename = "operator-receipt.lock")]
+    Receipt,
+    #[serde(rename = "operator-resume.lock")]
+    Resume,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockMode {
+    Exclusive,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockPurpose {
+    OperatorReadback,
+    OperatorValidationReadback,
+    ActionSerialization,
+    OperationReceipt,
+    ServiceRecovery,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WaitPolicy {
+    Bounded,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockOutcome {
+    Acquired,
+    Timeout,
+    Error,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockHolder {
+    Unknown,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureLayer {
+    ManagerControlPlane,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureStage {
+    OperatorValidationReadback,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureCode {
+    RegistryLockTimeout,
+    SerializationLockTimeout,
+    LockAccessError,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LockFacts {
+    pub name: OperatorLock,
+    pub mode: LockMode,
+    pub purpose: LockPurpose,
+    pub operation: Option<String>,
+    pub policy: WaitPolicy,
+    pub elapsed_wait_us: u64,
+    pub attempts: u32,
+    pub timeout_ms: u64,
+    pub outcome: LockOutcome,
+    pub holder: LockHolder,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct OperationFailure {
+    pub layer: FailureLayer,
+    pub stage: FailureStage,
+    pub code: FailureCode,
+    pub retryable: bool,
+    pub mutation_started: bool,
+    pub environment_created: bool,
+    pub installer_launched: bool,
+    pub lock: LockFacts,
 }

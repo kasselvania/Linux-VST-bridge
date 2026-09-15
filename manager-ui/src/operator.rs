@@ -166,6 +166,7 @@ impl eframe::App for Operator {
                 for o in &s.onboarding {egui::Frame::group(ui.style()).show(ui,|ui|{
                     ui.heading(o.state.replace('_'," "));ui.label(format!("{} · {} bytes · {}",o.name,o.byte_size,o.format));
                     ui.label(&o.required_human_action);
+                    if let Some(failure)=&o.failure { for line in failure_lines(failure) { ui.colored_label(egui::Color32::YELLOW,line); } }
                     ui.small(format!("SHA-256: {}",o.installer));if let Some(id)=&o.environment{ui.small(format!("Isolated environment: {id}"));}
                     Self::buttons(ui,&o.actions,busy,self.pending,&mut chosen);
                     egui::CollapsingHeader::new("Installation and scan details").id_salt((&o.installer,&o.environment)).show(ui,|ui|Self::value(ui,&o.details));
@@ -219,6 +220,31 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(Duration::from_millis(500));
     }
 }
+fn failure_lines(f: &crate::model::OperationFailure) -> Vec<String> {
+    let mut lines = vec!["Manager could not finish validating state.".into()];
+    if !f.mutation_started && !f.environment_created {
+        lines.push("Environment creation did not start.".into());
+    }
+    if !f.installer_launched {
+        lines.push("The installer was not launched; this is not an installer failure.".into());
+    }
+    lines.push(
+        if f.retryable {
+            "Retry is safe once the manager refreshes and canonical state is healthy."
+        } else {
+            "Manager access needs attention before retrying."
+        }
+        .into(),
+    );
+    lines.push(format!(
+        "Validation lock: {:?}; {:?}; {} attempts, {:.1} ms elapsed; holder unknown.",
+        f.lock.name,
+        f.lock.outcome,
+        f.lock.attempts,
+        f.lock.elapsed_wait_us as f64 / 1000.0
+    ));
+    lines
+}
 fn incident_lines(v: &serde_json::Value) -> Vec<String> {
     let word = |key: &str| v[key].as_str().unwrap_or("unavailable").replace('_', " ");
     let confirmed = |key: &str| match v[key].as_bool() {
@@ -261,6 +287,18 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 mod tests {
     use super::*;
     #[test]
+    fn timeout_card_distinguishes_manager_refusal_from_installer_failure() {
+        let f:crate::model::OperationFailure=serde_json::from_value(serde_json::json!({
+            "layer":"manager_control_plane","stage":"operator_validation_readback","code":"registry_lock_timeout",
+            "retryable":true,"mutation_started":false,"environment_created":false,"installer_launched":false,
+            "lock":{"name":"registry.lock","mode":"exclusive","purpose":"operator_validation_readback","operation":"ab".repeat(16),"policy":"bounded","elapsed_wait_us":100000,"attempts":11,"timeout_ms":100,"outcome":"timeout","holder":"unknown"}
+        })).unwrap();
+        let text=failure_lines(&f).join("\n");
+        for expected in ["Manager", "Environment creation did not start", "installer was not launched", "not an installer failure", "Retry is safe", "holder unknown"] {assert!(text.contains(expected));}
+        let mut f=f;f.retryable=false;
+        assert!(!failure_lines(&f).join(" ").contains("Retry is safe"));
+    }
+    #[test]
     fn incident_summary_keeps_runner_exit_separate_and_missing_cleanup_unknown() {
         let v = serde_json::json!({"outcome":"process_scoped_vendor_retirement","outer_exit":-15,"windows_self_exit_codes":[],"exceptions":[]});
         let lines = incident_lines(&v).join("\n");
@@ -272,7 +310,7 @@ mod tests {
     #[test]
     fn readback_waits_for_mutation_or_vendor_launch_receipt() {
         let initial = None;
-        for state in ["queued", "running"] {
+        for state in ["queued", "waiting", "running"] {
             assert!(!refresh_for_receipt(
                 &initial,
                 &Some(serde_json::json!({"state":state}))
