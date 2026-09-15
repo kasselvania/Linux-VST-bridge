@@ -377,3 +377,75 @@ fn evidence_order_is_durable_and_failure_cannot_be_checked_away() {
         .iter()
         .any(|s| s.starts_with("Audio")));
 }
+
+#[test]
+fn effect_is_a_distinct_selection_and_never_inherits_instrument_inspection() {
+    let (f, c) = fixture();
+    let path =
+        f.m.root
+            .join("inventory")
+            .join(format!("{}.json", c.selection.environment.id));
+    let mut scan: crate::inventory::Scan = read_json(&path).unwrap();
+    let mut raw: Value = read_json(&c.selection.factory_report.path).unwrap();
+    let mut fx = raw["records"][1]["classes"][0].clone();
+    fx["raw_tuid_hex"] = json!("03".repeat(16));
+    fx["subcategories_hex"] = json!(hex(b"Fx"));
+    raw["records"][1]["classes"]
+        .as_array_mut()
+        .unwrap()
+        .push(fx);
+    raw["records"][1]["class_count"] = json!(3);
+    atomic_json(&c.selection.factory_report.path, &raw).unwrap();
+    scan.modules[0].classes = crate::inventory::classes(&raw).unwrap();
+    scan.modules[0].report.sha256 = digest(&scan.modules[0].report.path).unwrap();
+    atomic_json(&path, &scan).unwrap();
+    let all = selections(&f.m, &c.host, &c.source_manifest.sha256).unwrap();
+    assert_eq!(all.len(), 2);
+    let effect = all.iter().find(|s| s.class.role == "effect").unwrap();
+    assert_ne!(
+        effect.id().unwrap(),
+        all.iter()
+            .find(|s| s.class.role == "instrument")
+            .unwrap()
+            .id()
+            .unwrap()
+    );
+    assert!(inspect_record(
+        effect.clone(),
+        scan.modules[0].report.clone(),
+        Origin::ManagedPreparation
+    )
+    .is_err());
+    assert!(unmet(&[], &Role::Effect)
+        .iter()
+        .all(|s| !s.starts_with("Midi:")));
+    assert!(f.m.registry().unwrap().classes.is_empty());
+}
+
+#[test]
+fn failed_build_cleanup_retains_bounded_diagnostic_without_partial_candidate() {
+    let (f, c) = fixture();
+    let operation = "de".repeat(16);
+    let dir = f.m.root.join("preparation/work").join(&operation);
+    private_dir(&dir).unwrap();
+    fs::write(dir.join("native.so"), b"half-built").unwrap();
+    fs::write(dir.join("build.log"), b"source-owned compiler failure").unwrap();
+    fs::write(
+        dir.join("failure.json"),
+        b"{\"error\":\"native_build_failed_1\"}",
+    )
+    .unwrap();
+    build::cleanup_work(&f.m, &operation).unwrap();
+    assert!(!dir.exists());
+    assert!(f
+        .m
+        .root
+        .join("preparation/failures")
+        .join(operation)
+        .join("build.log.json")
+        .exists());
+    assert!(candidates(&f.m, &c.host, &c.source_manifest.sha256)
+        .unwrap()
+        .is_empty());
+    assert!(f.m.registry().unwrap().classes.is_empty());
+}

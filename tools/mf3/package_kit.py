@@ -21,7 +21,10 @@ def main():
     manifest=json.loads(files['runtime/host-source-manifest.json'])
     if manifest['host_sha256']!=hashlib.sha256(files['runtime/host.exe']).hexdigest():raise SystemExit('Windows package identity differs')
     for name,sha in manifest['files'].items():
-        if hashlib.sha256((ROOT/name).read_bytes()).hexdigest()!=sha:raise SystemExit('Windows package source differs: '+name)
+        data=(ROOT/name).read_bytes()
+        # actions/checkout uses CRLF on Windows. Match the exact retained checkout
+        # digest; permit only Git's declared text line-ending conversion.
+        if sha not in {hashlib.sha256(data).hexdigest(),hashlib.sha256(data.replace(b'\n',b'\r\n')).hexdigest()}:raise SystemExit('Windows package source differs: '+name)
     recipe=dict(schema=1,source_commit=git('rev-parse','HEAD'),sdk=SDK,sdk_runtime=SDK_RUNTIME,files={n:hashlib.sha256(v).hexdigest() for n,v in files.items()})
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(a.output,'x',compression=zipfile.ZIP_DEFLATED) as z:

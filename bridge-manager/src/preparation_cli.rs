@@ -30,6 +30,9 @@ pub fn project(
             disabled_reason: reason.map(str::to_owned),
         };
         p.details["preparation"] = serde_json::to_value(&v)?;
+        if !matches!(v.publication.as_str(), "experimental" | "ordinary") {
+            p.active_revision = None;
+        }
         if let Some(id) = v.candidate.as_ref() {
             let enabled = v.publication == "experimental";
             if enabled {
@@ -90,11 +93,7 @@ pub fn project(
                 },
                 None,
             ));
-            let approved = v
-                .review
-                .as_ref()
-                .is_some_and(|r| r.choice == prep::ReviewChoice::AcceptExactLocal)
-                && v.unmet_requirements.is_empty();
+            let approved = v.ordinary_acceptance_current;
             p.actions.push(offer("Publish accepted exact configuration for ordinary use",ui::Action::CandidatePublishOrdinary{candidate:id.clone()},busy.or(if approved{None}else{Some("An explicit current qualification decision and complete product evidence are required")})));
         } else if v.inspection == "complete" {
             let controller = matches!(

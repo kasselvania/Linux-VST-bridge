@@ -615,7 +615,7 @@ fn scan_state(
 ) -> &'static str {
     if scan.schema != 1
         || &scan.environment != environment
-        || &scan.host != host
+        || scan.host.sha256 != host.sha256
         || scan.host_source_sha256 != source
         || scan.modules.iter().any(|m| {
             inventory::stale_reason(

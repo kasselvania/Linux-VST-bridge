@@ -118,6 +118,16 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
     let additional_verified = extended && verified_additional(m)?;
     let mut engineering_classes = if extended && !additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     if extended { engineering_classes.push(limits.classes[3].clone()); }
+    let mut current_classes=limits.classes.clone();
+    for (key,e) in m.registry()?.classes {
+        if e.publication!=Publication::Published || current_classes.iter().any(|c|c.class_id==key){continue;}
+        let Some(reference)=e.managed_revision else {continue};
+        let r=m.load_revision(&key,&reference)?;
+        if crate::preparation::owns_profile(m,&r.profile)? {
+            let limit=ClassLimit{class_id:key,dsp:1};
+            engineering_classes.push(limit.clone());current_classes.push(limit);
+        }
+    }
     let verified_additional_classes = if additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     let owners = owners(m)?;
     let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();
@@ -126,8 +136,7 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
         .filter(|o| matches!(o.kind, Kind::Inspection | Kind::VendorAccess))
         .count();
     let keepers = owners.iter().filter(|o| o.kind == Kind::Keeper).count();
-    let per_class: BTreeMap<_, _> = limits
-        .classes
+    let per_class: BTreeMap<_, _> = current_classes
         .iter()
         .map(|c| {
             (
@@ -145,8 +154,7 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
             0
         } else {
             limits.global_dsp.saturating_sub(dsp).min(
-                limits
-                    .classes
+                current_classes
                     .iter()
                     .map(|c| c.dsp.saturating_sub(per_class[&c.class_id]))
                     .sum(),

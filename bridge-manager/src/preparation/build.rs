@@ -43,7 +43,7 @@ pub fn construct(
     let dir = parent.join(operation);
     require(!dir.exists(), "preparation_operation_already_started")?;
     let request = serde_json::json!({"directory":dir,"kit":kit.path,"kit_sha256":kit.sha256,"inspection":i.report.path,"class_id":s.class.id,"module_sha256":s.module.sha256});
-    let script=format!("{}\n{}\ntry:\n print(json.dumps(build(json.load(sys.stdin), generate)))\nexcept Exception as e:\n print(json.dumps({{'error':str(e)[:256]}}))\n raise SystemExit(1)\n",include_str!("../../../tools/mf3/native_builder.py"),include_str!("../../../tools/ap8_descriptor.py").split("def main():").next().ok_or("descriptor_recipe")?);
+    let script=format!("{}\n{}\ntry:\n request=json.load(sys.stdin)\n print(json.dumps(build(request, generate)))\nexcept Exception as e:\n result={{'error':(str(e) or type(e).__name__)[:256]}}\n if 'request' in globals() and pathlib.Path(request['directory']).is_dir():\n  (pathlib.Path(request['directory'])/'failure.json').write_text(json.dumps(result))\n print(json.dumps(result))\n raise SystemExit(1)\n",include_str!("../../../tools/mf3/native_builder.py"),include_str!("../../../tools/ap8_descriptor.py").split("def main():").next().ok_or("descriptor_recipe")?);
     let mut child = Command::new("python3")
         .args(["-I", "-c", &script])
         .stdin(Stdio::piped())
@@ -117,7 +117,7 @@ pub struct Runtime {
 }
 fn runtime_dir(m: &Manager, sha: &str) -> Result<PathBuf> {
     require(valid_hex(sha, 64), "preparation_kit_identity")?;
-    Ok(m.root.join("preparation/kits").join(sha))
+    Ok(m.root.join("software/preparation-kits").join(sha))
 }
 fn read_runtime(m: &Manager, sha: &str) -> Result<Runtime> {
     let dir = runtime_dir(m, sha)?;
@@ -215,6 +215,20 @@ pub fn cleanup_work(m: &Manager, operation: &str) -> Result<()> {
         retained |= c.native.artifact.path == dir.join("native.so");
     }
     if !retained {
+        for name in ["failure.json", "build.log"] {
+            let path = dir.join(name);
+            if path.try_exists()? {
+                let mut bytes = vec![];
+                file(&path)?.take(32769).read_to_end(&mut bytes)?;
+                require(bytes.len() <= 32768, "build_failure_bound")?;
+                let dest = m.root.join("preparation/failures").join(operation);
+                private_dir(&dest)?;
+                immutable(
+                    &dest.join(format!("{name}.json")),
+                    &String::from_utf8_lossy(&bytes),
+                )?;
+            }
+        }
         fs::remove_dir_all(dir)?;
         return Ok(());
     }

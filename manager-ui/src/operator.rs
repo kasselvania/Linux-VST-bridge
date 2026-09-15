@@ -429,6 +429,7 @@ impl eframe::App for Operator {
                         let live=s.active_sessions.iter().filter(|o|o["class_id"]==p.class_id).count();if live>0{ui.label(format!("Live instances: {live}. Closing the manager leaves them running."));}
                         if let Some(rev)=p.active_revision{ui.label(format!("Published revision: {rev} · Recommended: {}",p.recommended_revision.map(|v|v.to_string()).unwrap_or_else(||"none".into())));}
                         for limit in &p.limitations{ui.small(limit.replace('_'," "));}
+                        if let Some(hint)=p.details["inspection_hint"].as_str(){ui.label(hint);}
                         if let Some(v)=p.details.get("preparation") { Self::preparation_details(ui,v); }
                         if let Some(reason)=p.details["preparation_failure"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
                         Self::buttons(ui,&p.actions,busy,controls_pending,&mut chosen);

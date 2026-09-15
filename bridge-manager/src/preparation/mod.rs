@@ -704,6 +704,7 @@ fn preliminary(i: Option<&Inspection>) -> Result<Value> {
     )
 }
 pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<View> {
+    verify_selection(m, s, host, source)?;
     let i = inspection(m, s)?;
     let found: Vec<_> = candidates(m, host, source)?
         .into_iter()
@@ -711,6 +712,9 @@ pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result
         .collect();
     require(found.len() <= 1, "candidate_choice_required")?;
     let c = found.first();
+    if let Some(c) = c {
+        verify_candidate(m, c, host, source)?;
+    }
     let evidence = c
         .map(|c| observations(m, c))
         .transpose()?
@@ -751,6 +755,7 @@ pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result
             .transpose()?
             .unwrap_or_default()
             .pop(),
+        ordinary_acceptance_current: c.is_some_and(|c| accepted(m, c).is_ok()),
         operation: None,
     })
 }

@@ -133,6 +133,7 @@ pub struct View {
     pub evidence: Vec<Observation>,
     pub unmet_requirements: Vec<String>,
     pub review: Option<Decision>,
+    pub ordinary_acceptance_current: bool,
     pub operation: Option<serde_json::Value>,
 }
 impl Selection {
