@@ -475,3 +475,11 @@ explicit new isolated attempt with immutable predecessor history. Preserve the
 original cancelled attempt. The operator authorizes in-scope generated debugging
 and immutable installation followed by a human-only fresh Xfer attempt. No product
 publication, runner replacement, private-home expansion or historical replay.
+
+R2 source `3c23d8e` is now immutably installed after generated startup/cancellation,
+frontend reply/button and history tests plus AP8/AP12/PX2. The private-home route
+initializes via pinned Proton getcompatpath, then launches via runinprefix.
+Historical failure records and the original cancelled environment remain intact.
+Service/keeper and zero-lease idle state were verified. One human New isolated
+attempt is requested; Run installer waits for exact environment readback.
+See `docs/MF2-R2.md` and `evidence/mf2/r2-recovery-startup.json`.

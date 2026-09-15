@@ -89,3 +89,26 @@ unknown evidence, launch failure and exact cgroup containment. AP8 builds and
 executes the harmless Windows payload; AP12 and PX2 cover affected owners.
 No native/audio source changes require AP10. Current source and installed hashes,
 CI and the next human-only installer outcome are recorded in the PR continuation.
+
+## Installed R2 continuation
+
+Implementation `3c23d8ef00440b0464231fee81104e44185ba314` passed AP8, AP12
+and PX2. Linux validation passed 92 library, 54 binary, 13 frontend and 69 runtime
+tests, with strict manager/frontend Clippy. Rust binaries were built from
+`e3e7b98`; the later commit changes only runtime diagnostic parsing/tests.
+
+The immutable setup installed the repaired manager, frontend and supervisor while
+reusing the exact installed Windows host/native catalogue artifacts. An initial
+staging omission of the retained host/source files caused setup to refuse before
+stable authority changed; service was restored. Supplying those exact existing
+inputs allowed setup and all post-install identity/preservation checks to pass.
+No installer was launched during setup. The retained import and original cancelled
+environment remain byte-for-byte unchanged. Service/keeper are healthy; DSP,
+maintenance, transactions and stale transports are zero, and capture is off.
+
+See `evidence/mf2/r2-recovery-startup.json`. The source-owned comparison was run
+in development; final diagnostic refinements were covered by generated tests.
+The final runtime digest was not captured at the start of those earlier runs and
+is not retroactively asserted. Human continuation begins with one **New isolated
+attempt** from the existing import, then waits for exact environment readback
+before Run installer. Xfer completion and scan remain pending.
