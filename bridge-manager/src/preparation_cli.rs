@@ -8,16 +8,10 @@ pub fn project(
     products: &mut [ui::Product],
     busy: Option<&str>,
 ) -> Result<()> {
-    let mut selections = prep::selections(m, &sw.host, &sw.source_sha256)?;
-    for c in prep::candidates(m, &sw.host, &sw.source_sha256)? {
-        if !selections.iter().any(|s| {
-            s.environment.id == c.selection.environment.id
-                && s.module.sha256 == c.selection.module.sha256
-                && s.class.id == c.selection.class.id
-        }) {
-            selections.push(c.selection);
-        }
-    }
+    let selections = product_selections(
+        prep::selections(m, &sw.host, &sw.source_sha256)?,
+        prep::candidates(m, &sw.host, &sw.source_sha256)?,
+    )?;
     for s in selections {
         let Some(p) = products.iter_mut().find(|p| {
             p.class_id == s.class.id
@@ -27,8 +21,24 @@ pub fn project(
             continue;
         };
         let v = prep::view(m, &s, &sw.host, &sw.source_sha256)?;
-        p.active_revision = v.current_profile_revision;
+        // Ordinary registry readback remains authority; MF3 augments that card.
+        let canonical = p.disposition == "needs_attention"
+            || (p.disposition == "ready"
+                && (v.candidates.is_empty()
+                    || p.details["profile"]["claim"] == "verified_exact_fixture"));
+        if !canonical {
+            p.active_revision = v.current_profile_revision;
+        }
         p.details["preparation"] = serde_json::to_value(&v)?;
+        if canonical && v.candidates.is_empty() {
+            p.details["preparation"]["publication"] = json!(if p.disposition == "ready" {
+                "ordinary"
+            } else {
+                "needs_attention"
+            });
+            p.details["preparation"]["current_profile_revision"] = json!(p.active_revision);
+            p.details["preparation"]["canonical_publication"] = p.details["publication"].clone();
+        }
         let offer = |label: String, action: ui::Action, reason: Option<&str>| ui::AvailableAction {
             label,
             action,
@@ -78,20 +88,22 @@ pub fn project(
                     json!("Install a current preparation kit to prepare another generation");
             }
         }
-        p.disposition = match v.publication.as_str() {
-            "needs_attention" => "needs_attention",
-            "another_configuration" => "another_configuration",
-            "experimental" => "experimental",
-            "ordinary" => "ready",
-            _ => {
-                if v.candidates.is_empty() {
-                    "installed_unqualified"
-                } else {
-                    "prepared"
+        if !canonical {
+            p.disposition = match v.publication.as_str() {
+                "needs_attention" => "needs_attention",
+                "another_configuration" => "another_configuration",
+                "experimental" => "experimental",
+                "ordinary" => "ready",
+                _ => {
+                    if v.candidates.is_empty() {
+                        "installed_unqualified"
+                    } else {
+                        "prepared"
+                    }
                 }
             }
+            .into();
         }
-        .into();
         for h in &v.candidates {
             let id = &h.id;
             let label = |name: &str| format!("{} · candidate {}", name, &id[..12]);
@@ -135,7 +147,8 @@ pub fn project(
                 },
                 None,
             ));
-            p.actions.push(offer(
+            if h.publication != "ordinary" {
+                p.actions.push(offer(
                 label("Publish accepted exact configuration for ordinary use"),
                 ui::Action::CandidatePublishOrdinary {
                     candidate: id.clone(),
@@ -153,6 +166,7 @@ pub fn project(
                     },
                 ),
             ));
+            }
         }
         if let Some(rows) = p.details["preparation"]["candidates"].as_array_mut() {
             for row in rows {
@@ -167,6 +181,32 @@ pub fn project(
         }
     }
     Ok(())
+}
+
+/// Inventory wins over candidate-bound history. Conflicting current inventory
+/// cannot be resolved by iteration order. Historical selections only supply a
+/// card anchor when no current selection exists; view() retains all generations.
+fn product_selections(
+    current: Vec<prep::Selection>,
+    history: Vec<prep::Candidate>,
+) -> Result<Vec<prep::Selection>> {
+    let key = |s: &prep::Selection| {
+        (
+            s.environment.id.clone(),
+            s.module.sha256.clone(),
+            s.class.id.clone(),
+        )
+    };
+    let mut products = std::collections::BTreeMap::new();
+    for s in current {
+        if let Some(old) = products.insert(key(&s), s.clone()) {
+            require(old == s, "preparation_current_selection_ambiguous")?;
+        }
+    }
+    for c in history {
+        products.entry(key(&c.selection)).or_insert(c.selection);
+    }
+    Ok(products.into_values().collect())
 }
 
 fn publication_identity(r: &publication::RevisionRef) -> ui::PublicationIdentity {
@@ -474,6 +514,79 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn projection_fixture() -> (test_fixture::Fixture, prep::Candidate) {
+        use observation::ModuleStamp;
+        use prep::*;
+        use profiles::Family;
+        use test_fixture::{inspection_report, prepared_accessibility};
+        let (mut f, _, mut census, native) = prepared_accessibility(false);
+        f.m.unpublish(&f.r.key()).unwrap();
+        atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
+        let old = f.r.environment.root.clone();
+        let id = "13".repeat(16);
+        let envroot = f.m.root.join("environments").join(&id);
+        fs::rename(&old, &envroot).unwrap();
+        f.r.module.path = envroot.join(f.r.module.path.strip_prefix(&old).unwrap());
+        f.r.environment.id = id;
+        f.r.environment.root = envroot;
+        atomic_json(
+            &f.r.environment.root.join("environment.json"),
+            &f.r.environment,
+        )
+        .unwrap();
+        census.environment.environment = f.r.environment.clone();
+        census.environment.family = Family::ManagedInstallerV1;
+        census.module = f.r.module.clone();
+        census.module_stamp = ModuleStamp::read(&census.module.path).unwrap();
+        let mut raw = inspection_report(&census);
+        // Complete non-audio factory class; the production inventory validates all rows.
+        let class = raw["records"][1]["classes"][0].clone();
+        let mut controller = class;
+        controller["raw_tuid_hex"] = json!("02".repeat(16));
+        controller["category_hex"] = json!(hex(b"Component Controller Class"));
+        raw["records"][1]["classes"][1] = controller;
+        raw["records"].as_array_mut().unwrap().push(
+        json!({"state":"ap8_controller_association","combined":false,"class_id":"02".repeat(16)}),
+    );
+        atomic_json(&census.report.path, &raw).unwrap();
+        census.report.sha256 = digest(&census.report.path).unwrap();
+        let classes = linux_vst_bridge::inventory::classes(&raw).unwrap();
+        let scan = linux_vst_bridge::inventory::Scan {
+            schema: 1,
+            id: random_id().unwrap(),
+            environment: f.r.environment.clone(),
+            host: f.r.host.clone(),
+            host_source_sha256: f.r.host_source_sha256.clone(),
+            completed_at: observation::now().unwrap(),
+            modules: vec![linux_vst_bridge::inventory::Module {
+                artifact: f.r.module.clone(),
+                classes,
+                report: census.report.clone(),
+                inspection_error: None,
+                quarantine_reason: None,
+            }],
+            changes: Default::default(),
+        };
+        private_dir(&f.m.root.join("inventory")).unwrap();
+        atomic_json(
+            &f.m.root
+                .join("inventory")
+                .join(format!("{}.json", f.r.environment.id)),
+            &scan,
+        )
+        .unwrap();
+        let s = selections(&f.m, &f.r.host, &f.r.host_source_sha256)
+            .unwrap()
+            .pop()
+            .unwrap();
+        let i = inspect_record(s.clone(), census.report, Origin::ManagedPreparation).unwrap();
+        let manifest = Artifact {
+            path: f.r.host.path.with_file_name("host-source-manifest.json"),
+            sha256: f.r.host_source_sha256.clone(),
+        };
+        let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
+        (f, c)
+    }
     #[test]
     fn attention_and_alternative_never_offer_generic_enable() {
         let id = "ab".repeat(32);
@@ -630,5 +743,239 @@ mod tests {
         assert!(spec(&f.m, newer.clone(), true, false, true).is_err());
         assert!(spec(&f.m, newer.clone(), true, true, false).is_ok());
         assert!(spec(&f.m, newer, false, false, false).is_err());
+    }
+    fn projection_software(c: &prep::Candidate) -> Software {
+        Software {
+            preparation_kit: None,
+            manager: c.host.clone(),
+            operator_frontend: None,
+            supervisor: c.host.clone(),
+            ownership: c.host.clone(),
+            host: c.host.clone(),
+            source_manifest: c.source_manifest.clone(),
+            source_sha256: c.source_manifest.sha256.clone(),
+            native_catalogue: None,
+        }
+    }
+    fn projection_product(c: &prep::Candidate) -> ui::Product {
+        let s = &c.selection;
+        ui::Product {
+            class_id: s.class.id.clone(),
+            name: s.class.name.clone(),
+            vendor: s.class.vendor.clone(),
+            role: s.class.role.clone(),
+            version: s.class.version.clone(),
+            disposition: "installed_unqualified".into(),
+            active_revision: None,
+            recommended_revision: None,
+            environment: s.environment.id.clone(),
+            runner: s.environment.runner.id.clone(),
+            module_sha256: s.module.sha256.clone(),
+            limitations: vec![],
+            history: vec![],
+            actions: vec![],
+            details: json!({}),
+        }
+    }
+    #[test]
+    fn ordinary_registry_card_without_mf3_candidate_keeps_its_authority() {
+        let (f, c) = projection_fixture();
+        let sw = projection_software(&c);
+        let mut product = projection_product(&c);
+        product.disposition = "ready".into();
+        product.active_revision = Some(18);
+        let ordinary = ui::AvailableAction {
+            label: "Rollback to exact ordinary".into(),
+            action: ui::Action::OrdinaryRollback {
+                class_id: c.selection.class.id.clone(),
+                publication: "cd".repeat(16),
+            },
+            disabled_reason: None,
+        };
+        product.actions.push(ordinary.clone());
+        let facts = json!({"id":"ef".repeat(16),"revision":18});
+        product.details = json!({"profile":{"claim":"verified_exact_fixture"},"publication":facts});
+        let mut products = vec![product];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        assert_eq!(products.len(), 1);
+        let p = &products[0];
+        assert_eq!(p.disposition, "ready");
+        assert_eq!(p.active_revision, Some(18));
+        assert_eq!(p.details["publication"], facts);
+        assert_eq!(p.details["preparation"]["publication"], "ordinary");
+        assert!(p
+            .actions
+            .iter()
+            .any(|a| serde_json::to_value(a).unwrap() == serde_json::to_value(&ordinary).unwrap()));
+        assert!(!p
+            .actions
+            .iter()
+            .any(|a| matches!(a.action, ui::Action::ExperimentalEnable { .. })));
+        assert_eq!(p.details["preparation"]["candidates"], json!([]));
+        products[0].disposition = "needs_attention".into();
+        project(&f.m, &sw, &mut products, None).unwrap();
+        assert_eq!(products[0].disposition, "needs_attention");
+        assert_eq!(products[0].active_revision, Some(18));
+    }
+    #[test]
+    fn current_selection_projects_once_with_old_candidate_and_inspection_history() {
+        let (f, c) = projection_fixture();
+        prep::record_candidate(&f.m, &c).unwrap();
+        prep::retain_inspection(&f.m, &c.inspection).unwrap();
+        let original = test_fixture::snapshot(&f.m.root.join("preparation/candidates"));
+        let mut sw = projection_software(&c);
+        // A current kit host with exact runtime identities for preparation offers.
+        let kitpath = f.m.root.join("software/projection-kit.zip");
+        fs::write(&kitpath, b"generated kit identity").unwrap();
+        fs::set_permissions(&kitpath, fs::Permissions::from_mode(0o400)).unwrap();
+        let kit = Artifact {
+            sha256: digest(&kitpath).unwrap(),
+            path: kitpath,
+        };
+        let dir = f.m.root.join("software/preparation-kits").join(&kit.sha256);
+        private_dir(&dir).unwrap();
+        let copy = |a: &Artifact, name: &str| {
+            let path = dir.join(name);
+            fs::copy(&a.path, &path).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+            Artifact {
+                path,
+                sha256: a.sha256.clone(),
+            }
+        };
+        let host = copy(&c.host, "host.exe");
+        let source = copy(&c.source_manifest, "host-source-manifest.json");
+        atomic_json(
+            &dir.join("runtime.json"),
+            &prep::build::Runtime {
+                kit: kit.clone(),
+                host: host.clone(),
+                source_manifest: source.clone(),
+                builder: None,
+                generator: None,
+            },
+        )
+        .unwrap();
+        sw.preparation_kit = Some(kit.clone());
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let mut raw: Value = read_json(&c.selection.factory_report.path).unwrap();
+        raw["inspection_generation"] = json!(2);
+        let report_path = c
+            .selection
+            .factory_report
+            .path
+            .with_file_name("inspection-s2.json");
+        atomic_json(&report_path, &raw).unwrap();
+        let report = Artifact {
+            sha256: digest(&report_path).unwrap(),
+            path: report_path,
+        };
+        let scanpath =
+            f.m.root
+                .join("inventory")
+                .join(format!("{}.json", c.selection.environment.id));
+        let mut scan: inventory::Scan = read_json(&scanpath).unwrap();
+        scan.modules[0].report = report.clone();
+        atomic_json(&scanpath, &scan).unwrap();
+        let s2 = prep::selections(&f.m, &sw.host, &sw.source_sha256)
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert_ne!(s2, c.selection);
+        let i2 = prep::inspect_record_with(
+            s2.clone(),
+            report,
+            prep::Origin::ManagedPreparation,
+            host,
+            source,
+        )
+        .unwrap();
+        prep::retain_inspection(&f.m, &i2).unwrap();
+        assert_eq!(
+            product_selections(vec![s2.clone(), s2.clone()], vec![c.clone(), c.clone()]).unwrap(),
+            vec![s2.clone()]
+        );
+        assert!(product_selections(vec![s2.clone(), c.selection.clone()], vec![]).is_err());
+        let mut products = vec![projection_product(&c)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        assert_eq!(products.len(), 1);
+        let p = &products[0];
+        let v = &p.details["preparation"];
+        assert_eq!(v["selection"], s2.id().unwrap());
+        assert_eq!(v["recommended_inspection"], i2.id().unwrap());
+        assert_eq!(v["candidates"].as_array().unwrap().len(), 1);
+        assert!(v["inspections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|i| i["id"] == c.inspection.id().unwrap()));
+        assert_eq!(
+            p.actions
+                .iter()
+                .filter(|a| matches!(a.action, ui::Action::PluginReinspect { .. }))
+                .count(),
+            1
+        );
+        let prepare = p
+            .actions
+            .iter()
+            .find(|a| matches!(a.action, ui::Action::PluginPrepare { .. }))
+            .unwrap();
+        assert_eq!(
+            prepare.action,
+            ui::Action::PluginPrepare {
+                selection: s2.id().unwrap(),
+                inspection: i2.id().unwrap(),
+                recipe: kit.sha256,
+                predecessor: Some(c.id().unwrap())
+            }
+        );
+        for (n, a) in p.actions.iter().enumerate() {
+            assert!(!p.actions[..n].iter().any(|b| b.action == a.action));
+        }
+        assert_eq!(
+            test_fixture::snapshot(&f.m.root.join("preparation/candidates")),
+            original
+        );
+    }
+    #[test]
+    fn ordinarily_published_candidate_offers_withdraw_and_not_publish() {
+        let (f, c) = projection_fixture();
+        prep::record_candidate(&f.m, &c).unwrap();
+        for area in prep::AREAS {
+            prep::record_observation(
+                &f.m,
+                &c,
+                &random_id().unwrap(),
+                area,
+                prep::TestStatus::Passed,
+                "Generated exact evidence",
+            )
+            .unwrap();
+        }
+        prep::review(
+            &f.m,
+            &c,
+            &random_id().unwrap(),
+            prep::ReviewChoice::AcceptExactLocal,
+            "Generated exact review",
+        )
+        .unwrap();
+        prep::enable(&f.m, &c, true).unwrap();
+        let mut products = vec![projection_product(&c)];
+        project(&f.m, &projection_software(&c), &mut products, None).unwrap();
+        assert_eq!(products[0].disposition, "ready");
+        assert_eq!(
+            products[0].details["preparation"]["publication"],
+            "ordinary"
+        );
+        assert!(products[0]
+            .actions
+            .iter()
+            .any(|a| matches!(a.action, ui::Action::CandidateWithdraw { .. })));
+        assert!(!products[0]
+            .actions
+            .iter()
+            .any(|a| matches!(a.action, ui::Action::CandidatePublishOrdinary { .. })));
     }
 }

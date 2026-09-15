@@ -195,3 +195,30 @@ cannot borrow newer manager-embedded generators to create a new candidate.
 projection records its restart failure there, normal retirement as not tested,
 and positive terminal cleanup separately. No historical evidence file is edited,
 and no LC2 behavior or Serum lifecycle repair is included.
+
+### Projection, idempotence and interrupted adoption
+
+MF3 groups by environment ID, module SHA-256 and audio class ID. A current
+inventory selection owns current inspection/preparation actions; candidate-bound
+old selections appear only as history. Conflicting current selections are refused,
+not resolved by iteration order. A canonical ordinary Ready or needs-attention
+card retains its active revision and ordinary controls. MF3 cannot downgrade it
+merely because no MF3 candidate exists.
+
+An already ordinary candidate shows “Ordinarily published” and Withdraw, without
+another ordinary-publish control. Both the candidate owner and guarded publication
+owner reject `candidate_already_ordinary` before creating a revision or transaction.
+The regression compares the entire registry/publication/evidence tree before and
+after repeated requests.
+
+Legacy SV1 input snapshots and final provenance use bounded private temporary
+files, complete write/fsync, atomic no-replace installation and parent fsync.
+An existing final file must match exact size, digest and bytes. Concurrent exact
+completion is accepted; differing material is an immutable conflict. Temporary
+files and uncommitted candidate directories carry no authority. Restart resumes
+inspection/lineage/candidate retention from complete snapshots; the provenance
+seal alone does not skip those final steps. Generated interruption tests cover
+all three snapshots, provenance staging/install, lineage and candidate records.
+
+This repair is source-only. No installation, product interaction or new
+compatibility evidence is added.

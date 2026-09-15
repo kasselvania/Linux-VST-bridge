@@ -44,33 +44,64 @@ fn list(dir: &Path) -> Result<Vec<PathBuf>> {
     Ok(out)
 }
 fn immutable<T: Serialize>(p: &Path, v: &T) -> Result<()> {
-    let bytes = serde_json::to_vec(v)?;
+    immutable_bytes(p, &serde_json::to_vec(v)?)
+}
+fn immutable_bytes(p: &Path, bytes: &[u8]) -> Result<()> {
+    immutable_bytes_staged(p, bytes, &mut || Ok(()))
+}
+fn immutable_bytes_staged(
+    p: &Path,
+    bytes: &[u8],
+    staged: &mut dyn FnMut() -> Result<()>,
+) -> Result<()> {
     require(bytes.len() <= 8 * 1024 * 1024, "preparation_record_bound")?;
-    if p.exists() {
-        let mut prior = vec![];
-        file(p)?.take(8 * 1024 * 1024 + 1).read_to_end(&mut prior)?;
-        return require(
-            prior == bytes && p.canonicalize()? == p,
+    let verify = || -> Result<()> {
+        let f = file(p)?;
+        require(
+            f.metadata()?.len() == bytes.len() as u64 && p.canonicalize()? == p,
             "preparation_immutable_conflict",
-        );
-    }
+        )?;
+        let mut prior = vec![];
+        f.take(8 * 1024 * 1024 + 1).read_to_end(&mut prior)?;
+        require(
+            prior == bytes && Sha256::digest(&prior) == Sha256::digest(bytes),
+            "preparation_immutable_conflict",
+        )
+    };
     let parent = p.parent().ok_or("record_parent")?;
+    if fs::symlink_metadata(p).is_ok() {
+        verify()?;
+        File::open(parent)?.sync_all()?;
+        return Ok(());
+    }
     private_dir(parent)?;
     let tmp = parent.join(format!(".writing-{}", random_id()?));
-    let mut f = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o400)
-        .open(&tmp)?;
-    f.write_all(&bytes)?;
-    f.sync_all()?;
-    let result = crate::publication::rename_link(&tmp, p, false);
-    if result.is_err() {
-        let _ = fs::remove_file(&tmp);
-    }
-    result?;
-    File::open(parent)?.sync_all()?;
-    Ok(())
+    let result = (|| {
+        let mut f = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o400)
+            .open(&tmp)?;
+        f.write_all(bytes)?;
+        f.sync_all()?;
+        staged()?;
+        match crate::publication::rename_link(&tmp, p, false) {
+            Ok(()) => (),
+            Err(e)
+                if e.downcast_ref::<std::io::Error>()
+                    .is_some_and(|e| e.kind() == std::io::ErrorKind::AlreadyExists) =>
+            {
+                verify()?
+            }
+            Err(e) => return Err(e),
+        }
+        File::open(parent)?.sync_all()?;
+        Ok(())
+    })();
+    // A killed process can leave only a private temporary file, never a partial
+    // authoritative target. Normal error/retry paths also retire their temporary.
+    let _ = fs::remove_file(&tmp);
+    result
 }
 /// Factory and environment identities, never a friendly-name dispatch table.
 pub fn selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Selection>> {
@@ -888,6 +919,10 @@ fn enable_exact(
     ordinary: bool,
     expected: Option<&RevisionRef>,
 ) -> Result<RevisionRef> {
+    require(
+        !ordinary || publication_state(m, c)? != "ordinary",
+        "candidate_already_ordinary",
+    )?;
     verify_candidate(m, c, &c.selection.scanner, &c.selection.scanner_source)?;
     require(
         publication_state(m, c)? != "needs_attention"

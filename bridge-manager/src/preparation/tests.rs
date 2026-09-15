@@ -858,3 +858,183 @@ fn original_sv1_projection_separates_restart_failure_from_terminal_cleanup() {
     c.selection.class.id = "00".repeat(16);
     assert!(retained_sv1_observations(&c, &report).unwrap().is_empty());
 }
+
+#[test]
+fn repeated_ordinary_publication_is_nonmutating_at_both_owners() {
+    let (f, c) = fixture();
+    record_candidate(&f.m, &c).unwrap();
+    for area in AREAS {
+        record_observation(
+            &f.m,
+            &c,
+            &random_id().unwrap(),
+            area,
+            TestStatus::Passed,
+            "Generated exact review",
+        )
+        .unwrap();
+    }
+    review(
+        &f.m,
+        &c,
+        &random_id().unwrap(),
+        ReviewChoice::AcceptExactLocal,
+        "Generated explicit acceptance",
+    )
+    .unwrap();
+    let current = enable(&f.m, &c, true).unwrap();
+    let revision = f.m.load_revision(&c.selection.class.id, &current).unwrap();
+    let before = snapshot(&f.m.root); // Registry, revisions, pointers, transactions and all evidence.
+    assert_eq!(
+        enable(&f.m, &c, true).unwrap_err().to_string(),
+        "candidate_already_ordinary"
+    );
+    assert_eq!(snapshot(&f.m.root), before);
+    assert_eq!(
+        f.m.publish_with_expected(
+            &revision.profile,
+            &c.census().unwrap(),
+            revision.registration.clone(),
+            (&c.host, &c.source_manifest.sha256),
+            (None, true),
+            None,
+            None
+        )
+        .unwrap_err()
+        .to_string(),
+        "candidate_already_ordinary"
+    );
+    assert_eq!(snapshot(&f.m.root), before);
+    assert_eq!(
+        f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision,
+        Some(current)
+    );
+}
+
+fn legacy_fixture() -> (Fixture, Candidate, Value) {
+    let (f, mut c) = fixture();
+    c.origin = Origin::RetainedSv1;
+    c.inspection.origin = Origin::RetainedSv1;
+    c.recipe_sha256 = "retained-sv1".into();
+    let on =
+        f.m.root
+            .join("onboarding")
+            .join(&c.selection.environment.id)
+            .join("record.json");
+    private_dir(on.parent().unwrap()).unwrap();
+    atomic_json(&on, &json!({"test":"original onboarding"})).unwrap();
+    let inv =
+        f.m.root
+            .join("inventory")
+            .join(format!("{}.json", c.selection.environment.id));
+    let b = json!({"environment_sha256":digest(&c.selection.environment.root.join("environment.json")).unwrap(),"onboarding_sha256":digest(&on).unwrap(),"inventory_sha256":digest(&inv).unwrap(),"inspection_sha256":c.inspection.report.sha256});
+    (f, c, b)
+}
+#[test]
+fn every_legacy_materialization_boundary_recovers_without_partial_final_files() {
+    use history::MaterializeBoundary::*;
+    for boundary in [
+        Environment,
+        Onboarding,
+        Inventory,
+        ProvenanceStaged,
+        ProvenanceInstalled,
+        Lineage,
+        Candidate,
+    ] {
+        let (f, c, b) = legacy_fixture();
+        let dir = object(&f.m, "legacy", &c.id().unwrap()).unwrap();
+        assert_eq!(
+            history::materialize_legacy_with(&f.m, &c, &b, Some(boundary))
+                .unwrap_err()
+                .to_string(),
+            "legacy_materialization_interrupted"
+        );
+        for name in ["environment", "onboarding", "inventory"] {
+            let p = dir.join(format!("{name}.json"));
+            if p.exists() {
+                assert_eq!(digest(&p).unwrap(), b[format!("{name}_sha256")]);
+            }
+        }
+        if boundary == ProvenanceStaged {
+            assert!(!dir.join("provenance.json").exists());
+            let uncommitted = object(&f.m, "candidates", &c.id().unwrap()).unwrap();
+            private_dir(&uncommitted).unwrap();
+            fs::write(uncommitted.join(".writing-interrupted"), b"partial").unwrap();
+            assert!(retained_candidates(&f.m).unwrap().is_empty());
+        }
+        // A true killed writer may leave a partial *temporary*, which has no authority.
+        fs::write(
+            dir.join(".writing-interrupted-fixture"),
+            b"partial temporary",
+        )
+        .unwrap();
+        history::materialize_legacy(&f.m, &c, &b).unwrap();
+        verify_legacy(&f.m, &c).unwrap();
+        assert_eq!(retained_candidates(&f.m).unwrap(), vec![c.clone()]);
+        assert_eq!(
+            inspections(&f.m, &c.selection).unwrap(),
+            vec![c.inspection.clone()]
+        );
+        let line = lineage(&f.m, &c).unwrap();
+        assert!(line.preparation_identity.starts_with("sv1:"));
+        let seal = fs::read(dir.join("provenance.json")).unwrap();
+        history::materialize_legacy(&f.m, &c, &b).unwrap();
+        assert_eq!(lineage(&f.m, &c).unwrap(), line);
+        assert_eq!(fs::read(dir.join("provenance.json")).unwrap(), seal);
+    }
+}
+#[test]
+fn immutable_raw_custody_accepts_exact_and_never_replaces_conflicts() {
+    let (f, c, b) = legacy_fixture();
+    let dir = object(&f.m, "legacy", &c.id().unwrap()).unwrap();
+    private_dir(&dir).unwrap();
+    let target = dir.join("environment.json");
+    let bytes = fs::read(c.selection.environment.root.join("environment.json")).unwrap();
+    immutable_bytes(&target, &bytes).unwrap();
+    immutable_bytes(&target, &bytes).unwrap();
+    assert_eq!(
+        immutable_bytes(&target, b"different")
+            .unwrap_err()
+            .to_string(),
+        "preparation_immutable_conflict"
+    );
+    assert_eq!(fs::read(&target).unwrap(), bytes);
+    let conflict = dir.join("onboarding.json");
+    immutable_bytes(&conflict, b"not the bound snapshot").unwrap();
+    assert_eq!(
+        history::materialize_legacy(&f.m, &c, &b)
+            .unwrap_err()
+            .to_string(),
+        "preparation_immutable_conflict"
+    );
+    assert_eq!(fs::read(&conflict).unwrap(), b"not the bound snapshot");
+    assert!(!dir.join("provenance.json").exists());
+    // Atomic no-replace also handles a concurrent exact completion.
+    let race = dir.join("race.json");
+    immutable_bytes_staged(&race, b"complete", &mut || {
+        immutable_bytes(&race, b"complete")
+    })
+    .unwrap();
+    assert_eq!(fs::read(&race).unwrap(), b"complete");
+}
+
+#[test]
+fn legacy_provenance_conflict_is_not_silently_reused_or_replaced() {
+    let (f, c, b) = legacy_fixture();
+    history::materialize_legacy(&f.m, &c, &b).unwrap();
+    let seal = object(&f.m, "legacy", &c.id().unwrap())
+        .unwrap()
+        .join("provenance.json");
+    let mut v: Value = read_json(&seal).unwrap();
+    v["original_evidence"]["foreign_change"] = json!(true);
+    atomic_json(&seal, &v).unwrap();
+    let before = fs::read(&seal).unwrap();
+    assert_eq!(
+        history::materialize_legacy(&f.m, &c, &b)
+            .unwrap_err()
+            .to_string(),
+        "preparation_immutable_conflict"
+    );
+    assert_eq!(fs::read(&seal).unwrap(), before);
+}

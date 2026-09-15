@@ -870,6 +870,14 @@ impl Manager {
             let prior=self.load_revision(&key,expected)?;
             require(physical(&self.link(&key))?==Some(prior.target),"replacement_physical_changed")?;
         }
+        if managed && qualification.is_none() {
+            if let Some(e) = db.classes.get(&key).filter(|e| e.publication == Publication::Published) {
+                if let Some(current) = &e.managed_revision {
+                    let prior = self.load_revision(&key, current)?;
+                    require(prior.profile != *profile || prior.qualification.is_some(), "candidate_already_ordinary")?;
+                }
+            }
+        }
         self.reconcile_revisions(&mut db)?;
         let purpose = if qualification.is_some() {
             SelectionPurpose::Qualification

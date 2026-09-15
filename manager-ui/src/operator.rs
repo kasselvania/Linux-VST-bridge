@@ -196,6 +196,7 @@ impl Operator {
         }
     }
     fn preparation_details(ui:&mut egui::Ui,v:&serde_json::Value) {
+        if v["publication"]=="ordinary" {ui.strong("Ordinarily published");}
         if let Some(history)=v["candidates"].as_array(){
             egui::CollapsingHeader::new("Candidate generations and their own results").id_salt((v["selection"].as_str(),"candidate-history")).default_open(history.len()>1).show(ui,|ui|{
                 for c in history {ui.group(|ui|{ui.label(format!("Candidate {} · {} · {}",c["id"].as_str().unwrap_or("?"),c["disposition"].as_str().unwrap_or("?"),c["publication"].as_str().unwrap_or("?")));if c["publication_acceptance_sealed"]==true && c["unmet_requirements"].as_array().is_some_and(|r|!r.is_empty()){ui.colored_label(egui::Color32::YELLOW,"This publication retains its original acceptance. New evidence needs review; use Withdraw to disable it.");}Self::value(ui,c);});}

@@ -7,7 +7,12 @@ pub fn retained_candidates(m: &Manager) -> Result<Vec<Candidate>> {
         if !p.is_dir() {
             continue;
         }
-        let c: Candidate = bounded(&p.join("candidate.json"))?;
+        let record = p.join("candidate.json");
+        // A crash before atomic installation leaves only an uncommitted directory.
+        if !record.try_exists()? {
+            continue;
+        }
+        let c: Candidate = bounded(&record)?;
         require(
             c.schema == 1 && p.file_name().and_then(|n| n.to_str()) == Some(c.id()?.as_str()),
             "candidate_identity",
@@ -77,18 +82,34 @@ pub fn legacy_provenance(m: &Manager, c: &Candidate) -> Result<LegacyProvenance>
     )?;
     Ok(v)
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum MaterializeBoundary {
+    Environment,
+    Onboarding,
+    Inventory,
+    ProvenanceStaged,
+    ProvenanceInstalled,
+    Lineage,
+    Candidate,
+}
 pub(super) fn materialize_legacy(m: &Manager, c: &Candidate, b: &Value) -> Result<()> {
+    materialize_legacy_with(m, c, b, None)
+}
+pub(super) fn materialize_legacy_with(
+    m: &Manager,
+    c: &Candidate,
+    b: &Value,
+    fail: Option<MaterializeBoundary>,
+) -> Result<()> {
+    let stop = |at| require(fail != Some(at), "legacy_materialization_interrupted");
     let dir = object(m, "legacy", &c.id()?)?;
-    if dir.join("provenance.json").exists() {
-        verify_legacy(m, c)?;
-        record_candidate(m, c)?;
-        return Ok(());
-    }
+    let seal = dir.join("provenance.json");
     let mut inputs = std::collections::BTreeMap::new();
-    for (name, path) in [
+    for (name, path, boundary) in [
         (
             "environment",
             c.selection.environment.root.join("environment.json"),
+            MaterializeBoundary::Environment,
         ),
         (
             "onboarding",
@@ -96,34 +117,37 @@ pub(super) fn materialize_legacy(m: &Manager, c: &Candidate, b: &Value) -> Resul
                 .join("onboarding")
                 .join(&c.selection.environment.id)
                 .join("record.json"),
+            MaterializeBoundary::Onboarding,
         ),
         (
             "inventory",
             m.root
                 .join("inventory")
                 .join(format!("{}.json", c.selection.environment.id)),
+            MaterializeBoundary::Inventory,
         ),
     ] {
+        let target = dir.join(format!("{name}.json"));
+        // Previously committed exact snapshots survive mutable inventory drift.
+        let source = if fs::symlink_metadata(&target).is_ok() {
+            &target
+        } else {
+            &path
+        };
         let mut bytes = vec![];
-        file(&path)?
+        file(source)?
             .take(8 * 1024 * 1024 + 1)
             .read_to_end(&mut bytes)?;
         require(
             bytes.len() <= 8 * 1024 * 1024
                 && hex(&Sha256::digest(&bytes)) == b[format!("{name}_sha256")],
-            "legacy_input_binding",
+            if source == &target {
+                "preparation_immutable_conflict"
+            } else {
+                "legacy_input_binding"
+            },
         )?;
-        private_dir(&dir)?;
-        let target = dir.join(format!("{name}.json"));
-        if !target.exists() {
-            let mut f = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o400)
-                .open(&target)?;
-            f.write_all(&bytes)?;
-            f.sync_all()?;
-        }
+        immutable_bytes(&target, &bytes)?;
         inputs.insert(
             name.to_owned(),
             Artifact {
@@ -131,6 +155,7 @@ pub(super) fn materialize_legacy(m: &Manager, c: &Candidate, b: &Value) -> Resul
                 sha256: hex(&Sha256::digest(&bytes)),
             },
         );
+        stop(boundary)?;
     }
     let v = LegacyProvenance {
         schema: 1,
@@ -150,7 +175,11 @@ pub(super) fn materialize_legacy(m: &Manager, c: &Candidate, b: &Value) -> Resul
             "../../../evidence/sv1/first-operator-session.json"
         ))?,
     };
-    immutable(&dir.join("provenance.json"), &v)?;
+    immutable_bytes_staged(&seal, &serde_json::to_vec(&v)?, &mut || {
+        stop(MaterializeBoundary::ProvenanceStaged)
+    })?;
+    stop(MaterializeBoundary::ProvenanceInstalled)?;
+    // The seal alone is not completion: finish all derived history after a crash.
     verify_legacy(m, c)?;
     retain_inspection(m, &c.inspection)?;
     retain_lineage(
@@ -165,7 +194,9 @@ pub(super) fn materialize_legacy(m: &Manager, c: &Candidate, b: &Value) -> Resul
         ),
         None,
     )?;
+    stop(MaterializeBoundary::Lineage)?;
     record_candidate(m, c)?;
+    stop(MaterializeBoundary::Candidate)?;
     Ok(())
 }
 pub fn verify_legacy(m: &Manager, c: &Candidate) -> Result<()> {

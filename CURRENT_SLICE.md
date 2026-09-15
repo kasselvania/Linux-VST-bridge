@@ -57,14 +57,15 @@ PR #109 remains draft, stacked on the unchanged PR #107, for independent review.
 
 ## Active rereview repair
 
-Repair the seven generation/provenance/publication/recipe findings against
-`4fd1cf6caac16265f2d7afbb54430a43d11b11c7` without changing PR #107. Operator
-model 4 and kit schema 2 are source-only. Use publication-time immutable acceptance
-until explicit withdrawal; retain later failure evidence without silently refusing
-an already accepted runtime. Candidate and inspection histories remain immutable;
-SV1 is durably adopted with original provenance. Processing restart, normal
-retirement and terminal cleanup are separate facts.
+The seven generation/provenance/publication/recipe repairs at
+`cd14513b32a98b29e56b557ed372c79c6637daad` are accepted. Repair only three
+remaining findings: project each logical environment/module/class once while
+preserving canonical ordinary status; refuse repeated exact ordinary publication
+without mutation; and make SV1 raw snapshots/provenance atomically installed and
+retryable at each interruption boundary.
 
-Run affected generated manager/frontend/recipe/runtime tests, strict Clippy and
-AP8/AP12/PX2. Do not install, publish, launch Bitwig/Serum, rerun a live fixture or
-begin LC2. Preserve the original MF3/SV1 evidence. Return PR #109 draft/unmerged.
+Preserve operator model 4, kit schema 2, immutable histories, policy-A acceptance,
+processing-restart evidence and the original MF3/SV1 result bytes. Run affected
+manager/frontend/recipe/runtime tests, strict Clippy, AP12 and PX2. AP8 only if
+Windows or build inputs change. No installation, publication, Bitwig/Serum session,
+LC2 work or changes to PR #107. Return PR #109 draft and unmerged.
