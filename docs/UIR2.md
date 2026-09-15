@@ -85,8 +85,16 @@ input and unchanged canonical product/service state.
 - [GetQueueStatus words and hints](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getqueuestatus)
 - [PeekMessage ordering](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagew)
 
-## Status
+## Result
 
-Phase A is inconclusive. Generated fixture and human-only owner implemented;
-physical action pending generated validation. PR106 remains draft and unmerged.
-No product retest, new Pigments revision, compatibility repair or promotion.
+Disposition: **UIR2_INSUFFICIENT_PHYSICAL_COVERAGE**. The generated Windows and
+pinned-runner tests, Xvfb/XWayland clock fixture and 56 relevant Python tests pass.
+One physical-desktop observation window ran; no operator completion arrived and
+no contact/release was recorded before its bound expired. There was no second
+window or forced retry. It does not select admission, retrieval or vendor cause.
+See `evidence/uir2/result.json` and `result.md`.
+
+Both fixture windows and cohorts retired positively. Ordinary products and
+installed software were not changed. Service/keeper healthy, capture off, no
+leases, transactions, stale transports or held core input. PR106 remains draft
+and unmerged; no product retest or compatibility repair is proposed.

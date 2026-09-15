@@ -37,3 +37,12 @@ Ordinary18, rollback11, siblings10, candidates and installed bytes unchanged.
 512 recommended, 256 unqualified. Stop fixture/helper and scratch owners, verify
 zero held input/leases/transactions/stale transports, service/keeper healthy,
 capture off. Commit/push and return draft for independent review. Do not merge.
+
+## Result
+
+UIR2_INSUFFICIENT_PHYSICAL_COVERAGE. Phase A remains unpaired/uncalibrated for
+admission purposes. Generated fixture and clock checks passed. One human-only
+source-owned window expired without a recorded physical contact or operator
+completion; no retry. This does not establish a physical input failure or select
+a repair owner. Positive fixture/window/cohort cleanup and unchanged ordinary
+products retained in evidence/uir2/result.json. Return draft PR106 for review.

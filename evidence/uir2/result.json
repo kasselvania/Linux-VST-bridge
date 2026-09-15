@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "disposition": "UIR2_INSUFFICIENT_PHYSICAL_COVERAGE",
+  "source": "3c33d55e5397ebca3e3382bb651186fba1c433a2",
+  "prerequisite": {
+    "reviewed_head": "52e41d4ae68fae89fa8be90dfba2341c0991c71f",
+    "merge": "a204c2da4c98f02dfd5af503228c0c2c303efa07"
+  },
+  "phase_a": {
+    "conclusion": "retained_timestamps_do_not_select_admission_or_retrieval",
+    "source_timeline_sha256": "d7938c002118baba1bd80d4c850c1be7a8c54620afd0896178edfd1a062f61a4",
+    "source_summary_sha256": "de6b07970fb06f3c8072b52da79d715ad9b123b80c37e14282ef93cf1f2cf8e9",
+    "cross_contact_association": false,
+    "independent_old_clock_calibration_available": false,
+    "queue_samples_available": false
+  },
+  "phase_b": {
+    "observation_windows": 1,
+    "confirmed_operator_actions": 0,
+    "operator_response_received": false,
+    "contact_records": 0,
+    "core_release_records": 0,
+    "windows_release_records": 0,
+    "stop": "bounded_observation_expired",
+    "reruns": 0,
+    "input_injection": false,
+    "pigments_or_bitwig_launched": false,
+    "clock_samples": {
+      "windows": 68,
+      "x11": 68
+    },
+    "posted_clock_sentinels_passed": 1312,
+    "turns": 32776,
+    "heartbeats": 1350,
+    "records": 181105,
+    "drops": {
+      "xrecord": 0,
+      "xi2": 0,
+      "windows": 0
+    }
+  },
+  "generated": {
+    "initialize": {
+      "exit": 0,
+      "kept": 604,
+      "overflow": 0,
+      "stderr_bytes": 596,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    },
+    "fixture": {
+      "exit": 0,
+      "kept": 458,
+      "overflow": 0,
+      "stderr_bytes": 352,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    }
+  },
+  "final": {
+    "system": {
+      "service": "active",
+      "keepers": 1,
+      "dsp": 0,
+      "maintenance": 0,
+      "ceiling": 6,
+      "pending_transactions": 0,
+      "stale_transports": 0,
+      "cleanup_unconfirmed": false
+    },
+    "capture": {
+      "active_retention": 0,
+      "armed": false
+    },
+    "products_equal": true,
+    "fixture_destroyed": true,
+    "fixture_finished": true,
+    "fixture_error": 0,
+    "held_core_input_clear": true,
+    "owned_cohort_absent": true
+  },
+  "limitations": [
+    "No physical contact was recorded and no operator completion was received; this does not prove a physical input defect.",
+    "No admission, retrieval, embedded vendor or observer-overhead owner was selected.",
+    "Queue words are class hints, not exact message admission or continuous absence.",
+    "Old MSG.time is not independently observed Wine creation time.",
+    "No product/runner/profile/artifact installation, compatibility repair, or historical fix claim.",
+    "512 remains recommended; 256 unqualified."
+  ]
+}
