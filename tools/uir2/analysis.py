@@ -30,7 +30,7 @@ def classify(f):
     Repeated absent samples cannot prove absence between samples. A late source
     timestamp is not a measured Wine message-creation time without that proof.
     """
-    if (f.get('contacts')!=1 or f.get('coverage_complete') is not True or
+    if (type(f.get('contacts')) is not int or f.get('contacts')!=1 or f.get('coverage_complete') is not True or
         f.get('clock_validated') is not True or f.get('procedure_after_removal') is not True):
         return INSUFFICIENT
     if f.get('removal_upper_ms',float('inf'))<=100 and f.get('procedure_gap_upper_ms',float('inf'))<=20:

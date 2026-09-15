@@ -49,3 +49,4 @@ jobs:
       - run: UIO1_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio1/x11_fixture.py
       - run: UIO2_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio2/x11_fixture.py
       - run: UIO3_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio3/x11_fixture.py
+      - run: UIR2_X11_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uir2/xclock_fixture.py
