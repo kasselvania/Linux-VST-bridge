@@ -125,9 +125,11 @@ metadata; AP12 and PX2 apply to manager/tooling. Native behavior is unchanged;
 the fixed descriptor/build output needs its own source-owned build proof.
 
 The real check adopts the current SV1 record read-only. It must not reinstall,
-rescan, rebuild or re-publish Serum merely to demonstrate a new label. Installation
-of the MF3 software and any new operator controls require an idle coordinated
-window. No such live result is claimed by this document before its receipt exists.
+rescan, rebuild or re-publish Serum merely to demonstrate a new label. The MF3 software was installed in a verified idle window. Its installed model-3
+readback adopted the existing candidate and separate FX inventory without product
+mutation. The source-owned build and publication exercise, exact installed hashes,
+unchanged retained files and remaining UI/product nonclaims are recorded in
+`evidence/mf3/result.json` and `result.md`. No new commercial session was started.
 
 Installer Focus remains the previously retained unconfirmed convenience action.
 MF3 does not investigate that issue or repair Serum's separate lifecycle failure.

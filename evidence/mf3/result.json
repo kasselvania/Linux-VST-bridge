@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "slice": "MF3",
+  "disposition": "IMPLEMENTED_INSTALLED_AWAITING_INDEPENDENT_REVIEW",
+  "implementation_head": "f56734ed58ac0a0af7ea1e96be19e26fa0c94247",
+  "implementation_tree": "f7bbe53b57af0de66afd23547247db1e13582bd1",
+  "stacked_on": {
+    "pr": 107,
+    "head": "d4b863837814b6e5f889952226dadb28798caae2",
+    "other_checkout_modified": false,
+    "other_pr_merged": false
+  },
+  "operator_model_schema": 3,
+  "preparation_record_schema": 1,
+  "installed": {
+    "software_generation": "5ecc20081e6819e6420aea46b7c9f333ffbc2f0431d14cc5a8f3f2e49e355620",
+    "artifacts": {
+      "preparation_kit": "3dcac0c66f819e0f6a905f64eb5730f6ef2b31189d33d48b851317ce8c1b3c1e",
+      "operator_frontend": "470fa3bb6289db94d7e8aea610c53375092f3f46753bfcb7a2990d667d4080dd",
+      "manager": "dc3d0a3e6e6ab213f23aa387d5d661c18cfdb3e627be36556534956546e0154b",
+      "supervisor": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab",
+      "ownership": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "06ec13a34550f2ca7b302b7d992e701fd462055c9e0e4d4a8763ca27f15796b5"
+    },
+    "immutable_setup": true,
+    "previous_software_retained": true,
+    "default_product_host_unchanged": true,
+    "supervisor_unchanged": true,
+    "native_product_artifacts_unchanged": true,
+    "installation_window": {
+      "manager_closed": true,
+      "bitwig_closed": true,
+      "dsp": 0,
+      "maintenance": 0
+    }
+  },
+  "kit": {
+    "sha256": "3dcac0c66f819e0f6a905f64eb5730f6ef2b31189d33d48b851317ce8c1b3c1e",
+    "size": 7042991,
+    "recipe_source": "51471f3de94418b33bb8618a8ca1ab39342842e7",
+    "windows_inspection_host_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "windows_source_manifest_sha256": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+    "vendor_or_sdk_distribution_included": false,
+    "source_owned_windows_inspection_ci_run": 35029171826,
+    "windows_ci_checkout": "9434f8289be1f04206e20b76e62a3a1b958e3040",
+    "source_files_verified_against_retained_manifest": true
+  },
+  "source_owned_build_publication": {
+    "candidate": "7f5df427dd749ce54a43f7852bc4e6cdd3ffc967aaa47434985d55f8a3d992a3",
+    "cleanup": true,
+    "commercial_product_run": false,
+    "descriptor_sha256": "6dd99dba454e4567dfd8b85414ca9e70670feb485b6b088629fbf285e78ab221",
+    "exact_controller": {
+      "class_id": "4150313052455455524E535445535402",
+      "kind": "separate"
+    },
+    "experimental_enable_remove": true,
+    "native_sha256": "3306161fc1b1cd65587ae1f145dd75492478176975b750dea6ed07c3c0dd4557",
+    "ordinary_refused": true,
+    "prepare_did_not_publish": true,
+    "schema": 1,
+    "source_owned": true,
+    "native_factory_entry_exports_exact": true,
+    "fixture_unit_retired": true,
+    "fixture_processes_remaining": 0,
+    "first_harness_attempt": {
+      "outcome": "refused",
+      "reason": "fixture directory permissions were not private",
+      "build_started": false,
+      "installed_state_changed": false,
+      "repair": "fixture sets umask 077 and UMask 0077"
+    }
+  },
+  "serum_adoption": {
+    "selection": "1fe79af459cc358a5828aac1ff226bd2d738c52f44822d529a57e62c3d2e7c0f",
+    "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+    "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+    "audio_class": "56534558667350736572756D20320000",
+    "origin": "retained_sv1",
+    "inspection": "complete",
+    "controller_association": {
+      "kind": "unavailable",
+      "reason": "Retained inspector initialized the controller but did not retain its returned class identity"
+    },
+    "preparation": "prepared",
+    "publication": "removed",
+    "active_revision": null,
+    "ordinary_acceptance_current": false,
+    "evidence": [
+      {
+        "area": "daw_load",
+        "status": "passed",
+        "witness": "machine_observation",
+        "detail": "SV1 retained exact instrument processing session"
+      },
+      {
+        "area": "editor",
+        "status": "passed",
+        "witness": "operator_observation",
+        "detail": "Operator reported responsive editor before failure"
+      },
+      {
+        "area": "parameters",
+        "status": "passed",
+        "witness": "machine_observation",
+        "detail": "SV1 retained two complete gestures and 24 value events"
+      },
+      {
+        "area": "retirement",
+        "status": "failed",
+        "witness": "machine_observation",
+        "detail": "Terminal lifecycle correlation failure on processing restart; abnormal cleanup succeeded"
+      }
+    ],
+    "unmet_requirements": [
+      "Midi: a retained passing product observation is required",
+      "Audio: a retained passing product observation is required",
+      "Automation: a retained passing product observation is required",
+      "StateRecall: a retained passing product observation is required",
+      "Retirement: a retained passing product observation is required"
+    ],
+    "reinstalled": false,
+    "rescanned": false,
+    "reinspected": false,
+    "proxy_rebuilt": false,
+    "republication_attempted": false,
+    "new_product_session": false
+  },
+  "serum_fx": {
+    "class": "56534558667351736572756D20322066",
+    "disposition": "installed_unqualified",
+    "candidate": null,
+    "active_revision": null
+  },
+  "validation": {
+    "manager_library": 109,
+    "manager_binary": 56,
+    "frontend": 14,
+    "build_recipe_python": 5,
+    "local_runtime": {
+      "run": 70,
+      "skipped_on_macos": 36
+    },
+    "manager_clippy": "passed",
+    "frontend_clippy": "passed",
+    "implementation_ci": {
+      "AP8": 35030789964,
+      "AP12": 35030789946,
+      "PX2": 35030789955
+    },
+    "implementation_ci_conclusion": "passed",
+    "AP10": "not applicable: native/audio behavior unchanged; generated native output was built and its factory exports checked separately",
+    "linux_ci_manager_binary": 59,
+    "linux_ci_runtime": 70
+  },
+  "preservation": {
+    "retained_files_verified_unchanged": 243,
+    "protected_projects_verified_unchanged": 5,
+    "physical_product_publications_unchanged": true,
+    "original_sv1_evidence_unchanged": true,
+    "pigments_ordinary": 18,
+    "pigments_rollback": 11,
+    "lofi": 10,
+    "fragments": 10,
+    "import_reused_without_reimport": true,
+    "selected_buffer": 512,
+    "buffer_256_qualified": false
+  },
+  "final_state": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false,
+    "capture_armed": false,
+    "owned_build_or_fixture_processes": 0,
+    "owned_build_unit": "retired",
+    "agent_input_supplied": false,
+    "product_session_started": false
+  },
+  "operator_mf3_presentation": {
+    "status": "operator_observed_manager_open_and_serum_experimental_control",
+    "installed_canonical_readback_verified": true,
+    "canonical_publication_after_observation": "removed",
+    "experimental_enable_offered": true,
+    "ordinary_publication_disabled": true,
+    "no_action_submission_inferred_from_operator_wording": true
+  },
+  "limitations": [
+    "Serum remains unqualified and unpublished; its prior failure is retained.",
+    "SV1 retained inspection lacks the actual returned controller CID and editor-interface metadata; these remain unavailable.",
+    "No new Serum interaction, MIDI/audio, state recall, or runtime compatibility claim.",
+    "Generic source-owned native build/publication proof does not claim a new generic DAW runtime session.",
+    "Preparation requires the packaged recipe and existing exact SDK/Flatpak SDK prerequisites; no automatic SDK download.",
+    "Explicit local maintainer acceptance is distinct from project-wide support.",
+    "Installer Focus remains deferred and unconfirmed."
+  ]
+}

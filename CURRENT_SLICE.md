@@ -44,3 +44,13 @@ Human owns GUI/account input; no live product or installer campaign is required.
 Preserve Pigments18/rollback11, LoFi10, FRAGMENTS10, runner, environments, import,
 authorization, projects and original evidence. Keep the implementation PR draft
 and unmerged. Record actual results and remaining limits in the same PR.
+
+## Implemented result
+
+The operator workflow is implemented and installed from `f56734ed58ac0a0af7ea1e96be19e26fa0c94247`.
+Source-owned native preparation, exact class exports, private experimental
+publication/removal and incomplete-qualification refusal passed. Installed
+readback adopts Serum's original candidate as prepared/unpublished and preserves
+FX inventory and installation history. No Serum product action was repeated.
+See `evidence/mf3/result.json` for exact identities, tests and preservation.
+PR #109 remains draft, stacked on the unchanged PR #107, for independent review.
