@@ -63,7 +63,20 @@
       "candidate session uses sealed binding after registry publication",
       "missing candidate onboarding cannot fall back to operator HOME"
     ],
-    "final_head_ci": "pending"
+    "final_head_ci": {
+      "head": "5cd73b00098dc25f2948e9f07df40d20e3cc4aa3",
+      "AP12": {
+        "run": 35021641535,
+        "result": "success"
+      },
+      "PX2": {
+        "run": 35021641518,
+        "result": "success"
+      }
+    },
+    "implementation_head": "5cd73b00098dc25f2948e9f07df40d20e3cc4aa3",
+    "implementation_tree": "3f184b79054749a3413e11467e4c7a99dedb9d59",
+    "manager_binary_linux": 56
   },
   "nonclaims": [
     "No note audio tested",
@@ -78,6 +91,13 @@
     "native_candidate_built": true,
     "manager_candidate_stage_executed": false,
     "ordinary_products_changed": false,
-    "bitwig_publication": false
+    "bitwig_publication": false,
+    "prepared_package": {
+      "ownership.py": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+      "linux-vst-bridge": "5e6ddaa139459f155f347f8cd875466dffda53f922a3b6fa574f5888f56539c6",
+      "linux-audio-compatibility-manager": "1fce3670189f887c80a1c22adbedcd5aec55aa6c578b0e324a1fc5a492d6b6cd",
+      "session.py": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab"
+    },
+    "package_source": "5cd73b00098dc25f2948e9f07df40d20e3cc4aa3"
   }
 }

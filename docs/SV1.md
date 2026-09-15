@@ -67,3 +67,17 @@ are omitted once qualification/product management owns that environment. The
 candidate session instead validates its sealed installation binding. This avoids
 reimporting or hashing the large installer during candidate startup. It does not
 make the environment eligible for another initial installation.
+
+## Preparation handoff
+
+Implementation `5cd73b00098dc25f2948e9f07df40d20e3cc4aa3` passed AP12 and PX2,
+including 97 manager library tests, 56 Linux CLI tests, 13 frontend tests, 70
+runtime tests and strict manager/frontend Clippy. The Linux manager package and
+Serum native candidate are built and privately copied to the Deck. The frontend
+binary is unchanged. The manager window was still open at handoff, so the new
+software was not installed and manager candidate staging was not executed. No
+Serum registry entry or Bitwig publication exists. Service/keeper remained healthy,
+with zero DSP/maintenance leases, pending transactions and stale transports;
+crash capture remained off. The next action is to install the prepared update
+once the operator closes the manager, then stage the candidate inactive and
+verify readback before the human Bitwig test.
