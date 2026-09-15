@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "windows_pinned": {
+    "exit": 0,
+    "kept": 1078,
+    "overflow": 0,
+    "stderr_bytes": 490,
+    "cleanup": {
+      "owned_descendants_zero": true,
+      "process_group_empty": true
+    }
+  },
+  "xwayland": {
+    "schema": 1,
+    "coverage": "x11_only",
+    "completed": true,
+    "xwayland": {
+      "exit": 0,
+      "kept": 4055,
+      "overflow": 0,
+      "stderr_bytes": 0,
+      "cleanup": {
+        "owned_descendants_zero": true,
+        "process_group_empty": true
+      }
+    }
+  },
+  "previous_failures": [
+    "Initial new-window placement was not stable; refused before Down.",
+    "Core release arrived but raw source was outside initial census; fresh exact census identified a lazily created pointer source."
+  ],
+  "physical_touch_generated": false,
+  "helper_manifest": "tools/uio3/package.json",
+  "product_interactions": 0
+}

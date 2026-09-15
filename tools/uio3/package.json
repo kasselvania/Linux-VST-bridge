@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "source_head": "a5b4a0fa7ead5a8f5151caeb2f3ca155b3406bb3",
+  "build_commit": "cd9cc0e7be2fd1441b113b5e6cb26d1567c042e4",
+  "workflow": 34908215467,
+  "artifact": 10373098704,
+  "archive_sha256": "96d38add1c20b2eaafb2cd7bd52bbedfb480a1a3366de19d93679be95cb653d3",
+  "files": {
+    "uio1-observer.exe": "c2b26bd2952882496e5bc0e5e711947484e5f2eb99477c8ec841acbc89f97e9e",
+    "uio1-hook.dll": "1785bc9d858b6e34367e5a1eec1e754a7c4f8b2bb69fd21fa8152e07ecd51918",
+    "uio1-accessibility.exe": "f3e6b61a0d949de0f656ec8e29cf183f9f380f207a7aef20fee4c36794ef122c",
+    "uio1-tests.exe": "bc8c736b92818da12cf070a4d2006b2ad89b20549228562a0d6fe764eeb5d7cb"
+  }
+}

@@ -1,86 +1,52 @@
-# MF1 — Human Operator Manager
+# UIO3 — Touch release, pointer capture and gesture-end attribution
 
-Base: `68451b11f613778514bb0b23f58efe47468c3c2a` (merged ordinary Pigments18).
-The user selected MF1 after review5193270789 and the natural ordinary shutdown.
-No separate planning review. One implementation PR; independent review before merge.
+Base: post-MF1 main `a123852b1d3462bb38ec4a1fdccdbb87cdd9de72`.
+MF1 PR104 is merged and reviewed manager/frontend `841332b` installed through
+immutable setup before UIO3 began. See evidence/uio3/mf1-prerequisite.json.
 
 ## Outcome
 
-A native Rust desktop frontend, without browser/WebView dependence, makes existing
-manager operations usable without a terminal. Canonical Rust state remains the
-only authority. The frontend is a projection and refreshes after typed receipts.
-Start with one bounded native desktop launch/input/scaling/close fixture; choose
-a simple toolkit from that proof, not a framework comparison campaign.
+Attribute the first missing or retained boundary when a physical Steam Deck
+touchscreen drag remains held in Pigments after release. This is observation,
+not a compatibility repair or an assumed Wine, vendor, MIDI, load or renderer cause.
 
-## Contract
+Reuse UIO1 exact editor/X RECORD/Win32 observation, AP11 gesture witness and
+UIO2 identity. Add bounded XI2 touch/pointer device/event observation and Win32
+touch/pointer/release/capture/cancel facts. Keep diagnostics off audio callbacks.
+Preserve core X RECORD and never guess Generic Event contents. No /dev/input or
+arbitrary keyboard capture. Private timeline and sanitized scalar summary distinguish
+missing observation, delayed retrieval, swallowed input, capture and gesture state.
 
-Version1 read model: system, environments, vendor applications, products, active
-sessions, capture, incidents, revision history and operations. Human names first;
-exact technical facts on expansion. States include ready, needs attention,
-installing/scanning, installed/unqualified, quarantined and recent incidents.
-Unknown authorization remains unknown; vendor account/secret material is excluded.
+## Boundaries and verification
 
-Closed actions: ASC open/focus/owned stop, environment rescan, ordinary rollback,
-restore recommended, reconcile, capture arm/disarm and sanitized incident export.
-No arbitrary path/PID/command/argument action; no direct frontend file mutation or
-competing state database. Revalidate authority and inactive-only constraints in
-the manager; disabled reasons are presented before actions. Review candidates are
-history only, never ordinary activation targets. Closing the frontend must not
-stop audio or unrelated/vendor processes.
+Observer/tooling changes only unless demonstrated source needs otherwise. Preserve
+ordinary Pigments18, rollback11, siblings10, inactive history, product artifacts,
+projects, authorization, MF1/IF1/IF2/CA1, 512 recommended and 256 unqualified.
+Generated tests cover release success, XI end/core/Win32 gaps, hook swallowing,
+live-heartbeat delay, capture and gesture retention, pointer-up, foreign exclusion,
+limits, cleanup and detachment. Run affected observer/manager/runtime tests and
+Clippy; AP8/AP12/PX2, AP10 only if native/audio changes.
 
-Generic Arturia environment scan inventories exact modules and all exported
-classes with version/role/digest/environment. Filename is nomination, not identity.
-Unknown products remain installed/unqualified and unpublished. Reuse supervised
-scanner and existing ownership/cleanup; no product-name button per new plug-in.
+One ordinary Pigments18 session, human-only touch/MIDI. At most one short drag
+without a held note and one with a held note on the same control. Action mailbox
+labels only; it cannot supply coordinates/input. Stop on the first useful reproduced
+boundary or terminal failure; no relaunch to force a result. CA1 only if explicitly
+armed before launch. No automatic compatibility repair. Human closes normally;
+verify no observers, held input, leases, transactions or stale transport and healthy
+service/keeper. Draft PR, independent review, no merge.
 
-## Verification and preservation
+## Status
 
-Generated fixtures prove typed action/schema refusal, stale/foreign target
-refusal, candidate refusal, busy environment refusal, supported/unknown inventory,
-ordinary rollback/restore and positive cleanup. Real Deck proof: app-menu launch,
-readback, ASC launch/focus, return/rescan, capture arm/disarm, sanitized incident,
-actions disabled during a live DSP lease, close without disrupting owners.
-Use Luna for bounded GUI execution; custodian owns identity, stop conditions and
-verdict. No credential automation. Stop for operator authorization screens.
+One human-only ordinary18 observation completed at source `0820ddb`. The single
+labeled attempt contained three unintended touch contacts. No held-note comparison
+or repeat occurred. X11 releases were present; Windows release processing continued
+at least 16.514 seconds after the last recorded X11 release while UI heartbeats
+continued. Internal cause remains unresolved. One GUI witness row was missing, so
+complete gesture coverage is not claimed. See `evidence/uio3/result.json` and `.md`.
 
-Preserve ordinary Pigments18/rollback11, inactive candidate17/history, LoFi and
-FRAGMENTS10, native/Windows product artifacts, environments, authorization and
-projects. No Pigments menu/resize campaign, Serum qualification, performance,
-capacity or in-place recovery work. 512 recommended,256 unqualified.
-Run affected manager/Clippy/runtime, frontend and inventory tests, AP12/PX2;
-AP8 only if Windows scanner source/inputs change. No native/audio rebuild for UI.
-Package immutably and install a normal application entry. Final record states
-actual source/software, operator workflow, tests, limitations and installed state.
-
-
-## Current result
-
-MF1 implementation and bounded installed workflow are complete for independent
-review in PR104. The native application, ASC open/focus/owned stop, exact rescan,
-capture/incident/export, live disabled-action projection and manager-close/DSP
-independence were exercised. Generated rollback/restore and unknown inventory
-remain separate from installed-product observations. Final ordinary18/10/10,
-service/keeper and protected projects are preserved, with no leases, transactions,
-stale transport or armed capture. See docs/MF1.md and evidence/mf1/workflow.json.
-No merge or next-vendor qualification is authorized by this completion record.
-
-
-## Focused integrity repair after review 5194092433
-
-Continue PR104 from reviewed `21a1b6921171f0043c687d0c8fc0a460e89fdc8a`.
-Repair only authoritative LVC1 cleanup/readback, manager-enforced inactivity,
-frontend setup preflight/retention, terminal operator receipts, and scanner
-host/source currency. Deterministic tests plus manager/frontend Clippy, runtime,
-AP12 and PX2 establish this pass. Preserve all live evidence and installed state.
-No further GUI/vendor/plug-in test, installation, real rollback or merge in this
-repair pass. Return the amended source for independent rereview. See docs/MF1.md.
-
-
-## Remaining concurrency repair after review 5194445612
-
-The five preceding fixes are accepted at `5008ed32564b41b91281bbfab1945289d27db8cd`.
-Bind service resume ownership to the creating operation; delayed cleanup must not
-consume another operation's record. Stop ASC may recover only its checked exact
-vendor-open owner. Add deterministic overlap and Stop-handoff regressions, run
-focused manager/runtime/Clippy and AP12/PX2, and return PR104 for rereview.
-No installation, live interaction, product/evidence change or merge.
+The user quit normally. All seven retirement milestones and positive cleanup were
+retained; leases, transactions, stale transport and held core input are zero,
+service/keeper healthy, capture off, observers detached. Ordinary18, rollback11,
+siblings10 and product artifacts are unchanged. Generated and hosted validation
+passed at the observation source; final offline report checks accompany the draft
+PR105 rereview. No additional live test or compatibility repair is selected.

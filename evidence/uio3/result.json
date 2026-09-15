@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "disposition": "UIO3_TOUCH_RELEASE_DELAY_OBSERVED_INTERNAL_CAUSE_UNRESOLVED",
+  "observation_source": "0820ddb017d909d4b55e16124038f2426fcc62f8",
+  "profile": "56872b858daef293aa47c0fcbd7e99e6c586e1311366fedbab0bb410fb0f55cd",
+  "observer_manifest": "tools/uio3/package.json",
+  "operator": {
+    "first_action": "Unintended touch/drag occurred; editor appeared delayed and slow.",
+    "followup": "The touch controls appeared to have followed my input but been massively delayed",
+    "normal_close_confirmed": true
+  },
+  "scope": {
+    "labeled_actions": 1,
+    "touch_contacts_observed": 3,
+    "controlled_single_drag": false,
+    "held_note_action_attempted": false,
+    "agent_input_sent": false,
+    "relaunches": 0
+  },
+  "coverage": {
+    "xrecord_drops": 0,
+    "raw_xi_drops": 0,
+    "windows_drops": 0,
+    "gui_witness_drops": 1,
+    "gui_missing_row_timing": "not independently retained; initial historical scan also uses this counter",
+    "first_summary_boundary": "incomplete_observation_capacity"
+  },
+  "observations": {
+    "core_release_relative_seconds": [
+      14.824245603,
+      16.952773964,
+      17.74017595
+    ],
+    "windows_pointer_up_queue_relative_intervals": [
+      {
+        "lower_seconds": 15.011479619,
+        "upper_seconds": 15.012673168
+      },
+      {
+        "lower_seconds": 31.682623473,
+        "upper_seconds": 31.691309329
+      },
+      {
+        "lower_seconds": 34.127513873,
+        "upper_seconds": 34.137270704
+      }
+    ],
+    "windows_pointer_up_procedure_relative_intervals": [
+      {
+        "lower_seconds": 15.011654501,
+        "upper_seconds": 15.012848086
+      },
+      {
+        "lower_seconds": 31.682714382,
+        "upper_seconds": 31.69140022
+      },
+      {
+        "lower_seconds": 34.127612783,
+        "upper_seconds": 34.137369594
+      }
+    ],
+    "windows_release_tail_after_all_x11_releases_lower_ms": 16513.81547,
+    "heartbeat_max_ms": 42.955,
+    "gesture_begin_count": 3,
+    "observed_gesture_end_count": 3,
+    "parameter_values_observed_after_last_release": 139,
+    "later_mouse_capture_samples_present": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "windows_scope_errors": 0,
+    "windows_unhook_errors": 0,
+    "observer_detached": true,
+    "terminal_record": false,
+    "collector_rejection": false
+  },
+  "retirement": {
+    "disposition": "process_scoped_vendor_retirement",
+    "milestones": 127,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "error": null
+  },
+  "final_state": {
+    "system": {
+      "service": "active",
+      "keepers": 1,
+      "dsp": 0,
+      "maintenance": 0,
+      "ceiling": 6,
+      "pending_transactions": 0,
+      "stale_transports": 0,
+      "cleanup_unconfirmed": false
+    },
+    "capture": {
+      "active_retention": 0,
+      "armed": false
+    },
+    "products_preserved": true,
+    "core_button_mask_zero": true,
+    "core_modifier_mask_zero": true
+  },
+  "limitations": [
+    "Not a clean single-contact/no-note versus held-note comparison.",
+    "One GUI witness row was reported missing; gesture completeness is not certified.",
+    "Relative event streams are ordered observations; no universal Linux/Windows contact-ID equivalence is assumed.",
+    "The retained input delay does not identify Wine admission, queue scheduling, pointer translation, vendor servicing or observer perturbation as root cause.",
+    "CA1 was not armed; no terminal incident occurred.",
+    "No compatibility repair, product revision, performance claim, or historical fix claim.",
+    "512 remains recommended; 256 remains unqualified."
+  ]
+}

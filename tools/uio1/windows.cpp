@@ -1,4 +1,5 @@
 #include "uio1/record.h"
+#include "uio1/input_detail.h"
 #include <windows.h>
 #include <cassert>
 #include <atomic>
@@ -9,18 +10,23 @@
 std::atomic<HWND> parent{},child{},foreign{};
 std::atomic<unsigned> received{0},delays{0};
 std::atomic<bool> block_mouse{false};
+std::atomic<bool> retain_capture{false};
 LRESULT CALLBACK mouse_filter(int c,WPARAM w,LPARAM l){
   if(c>=0&&block_mouse&&(w==WM_LBUTTONDOWN||w==WM_LBUTTONUP))return 1;
   return CallNextHookEx(nullptr,c,w,l);
 }
 LRESULT CALLBACK proc(HWND w,UINT m,WPARAM a,LPARAM b){
   if(m==WM_LBUTTONDOWN){++received;SetCapture(w);return 0;}
-  if(m==WM_LBUTTONUP){++received;ReleaseCapture();return 0;}
+  if(m==WM_LBUTTONUP){++received;if(!retain_capture)ReleaseCapture();return 0;}
+  if(m==WM_POINTERDOWN||m==WM_POINTERUPDATE)return 0;
+  if(m==WM_POINTERUP)return 0;
+  if(m==WM_TOUCH){CloseTouchInputHandle(reinterpret_cast<HTOUCHINPUT>(b));return 0;}
   if(m==WM_APP+7){Sleep(1000);++delays;return 0;}
   return DefWindowProcW(w,m,a,b);
 }
 uint64_t born(){FILETIME c{},e{},k{},u{};assert(GetProcessTimes(GetCurrentProcess(),&c,&e,&k,&u));return(uint64_t(c.dwHighDateTime)<<32)|c.dwLowDateTime;}
-int main(){
+int main(int argc,char**argv){
+  const bool input=argc==2&&std::string(argv[1])=="--input";assert(argc==1||input);
   auto slots=std::vector<uio1::Record>(uio1::capacity);uio1::Header h{};
   for(unsigned i=0;i<uio1::capacity;++i){uio1::Record r{};r.action=i;assert(uio1::append(h,slots.data(),r));}
   assert(!uio1::append(h,slots.data(),{}));assert(h.dropped==1&&slots[0].commit==1&&slots.back().commit==uio1::capacity);
@@ -37,7 +43,7 @@ int main(){
   for(unsigned n=0;n<200&&!parent;++n)Sleep(5);assert(parent&&child&&foreign);
   wchar_t own[32768]{};GetModuleFileNameW(nullptr,own,32768);std::wstring dir=own;dir.resize(dir.find_last_of(L"\\/")+1);
   wchar_t temp[MAX_PATH]{};GetTempPathW(MAX_PATH,temp);std::wstring out=std::wstring(temp)+L"uio1-fixture-"+std::to_wstring(GetCurrentProcessId())+L".bin";
-  std::wstring cmd=L"\""+dir+L"uio1-observer.exe\" observe "+std::to_wstring(uint64_t(parent.load()))+L" "+std::to_wstring(born())+L" 8 \""+out+L"\"";
+  std::wstring cmd=L"\""+dir+L"uio1-observer.exe\" "+(input?std::wstring(L"observe-input "):std::wstring(L"observe "))+std::to_wstring(uint64_t(parent.load()))+L" "+std::to_wstring(born())+L" 8 \""+out+L"\"";
   STARTUPINFOW si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};assert(CreateProcessW(nullptr,cmd.data(),nullptr,nullptr,FALSE,0,nullptr,nullptr,&si,&pi));
   HANDLE f=INVALID_HANDLE_VALUE,map=nullptr;uio1::Header* shared=nullptr;
   for(unsigned n=0;n<400&&!shared;++n){f=CreateFileW(out.c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,0,nullptr);if(f!=INVALID_HANDLE_VALUE){LARGE_INTEGER size{};if(GetFileSizeEx(f,&size)&&size.QuadPart==uio1::mapping_bytes){map=CreateFileMappingW(f,nullptr,PAGE_READWRITE,0,0,nullptr);if(map)shared=static_cast<uio1::Header*>(MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,uio1::mapping_bytes));}if(!shared){if(map)CloseHandle(map);CloseHandle(f);}}Sleep(5);}
@@ -52,6 +58,11 @@ int main(){
   assert(SendInput(2,clicks,sizeof(INPUT))==2);Sleep(100);assert(received==6);
   block_mouse=true;assert(SendInput(2,clicks,sizeof(INPUT))==2);Sleep(100);assert(received==6);block_mouse=false;
   Sleep(250);PostMessageW(child,WM_APP+7,0,0);for(unsigned n=0;n<300&&!delays;++n)Sleep(5);assert(delays);
+  if(input){
+    assert(shared->input_mode==1);
+    SendMessageW(child,WM_CANCELMODE,0,0);
+    Sleep(100);
+  }
   Sleep(300);uio1::atom(shared->stop).store(1);assert(WaitForSingleObject(pi.hProcess,3000)==WAIT_OBJECT_0);DWORD exit=99;assert(GetExitCodeProcess(pi.hProcess,&exit)&&exit==0&&shared->closed==1&&shared->unhook_errors==0);
   const auto count=uio1::atom(shared->committed).load();auto*r=reinterpret_cast<uio1::Record*>(reinterpret_cast<uint8_t*>(shared)+uio1::header_bytes);
   unsigned get=0,enter=0,leave=0,accepted=0,filtered=0;bool slow=false;
@@ -59,9 +70,38 @@ int main(){
     if(r[i].source==6&&(r[i].message==WM_LBUTTONDOWN||r[i].message==WM_LBUTTONUP)){if(r[i].result)++filtered;else ++accepted;}
     if(r[i].message==WM_SIZE){enter+=r[i].source==2;leave+=r[i].source==3;}if(r[i].source==4){printf("heartbeat ticks=%lld frequency=%llu\n",r[i].result,shared->frequency);if(r[i].result>int64_t(shared->frequency/5))slow=true;}}
   printf("UIO1 fixture counts get=%u enter=%u leave=%u slow=%u received=%u records=%llu\n",get,enter,leave,unsigned(slow),received.load(),count);fflush(stdout);
-  assert(get==1&&enter==1&&leave==1&&slow&&received==6&&accepted==2&&filtered==2);
-  PostMessageW(child,WM_LBUTTONDOWN,0,0);Sleep(100);assert(received==7&&uio1::atom(shared->committed).load()==count);
+  assert(get==1&&enter==1&&leave==1&&slow&&filtered==2);
+  // User32 may additionally promote registered touch to primary mouse input.
+  // The pre-injection mouse assertions above remain exact.
+  assert(input?(received>=6&&accepted>=2):(received==6&&accepted==2));
+  if(input){
+    bool actual_up=false,cancel=false;
+    for(uint64_t i=0;i<count;++i){
+      actual_up|=r[i].message==WM_LBUTTONUP&&r[i].source==15&&r[i].capture==0;
+      cancel|=r[i].message==WM_CANCELMODE&&r[i].source==14;
+    }
+    assert(actual_up&&cancel&&shared->detached==1);
+    // Same production encoder, deterministic API-result fixtures. These prove
+    // scalar custody and unavailable reads, not hardware touch delivery.
+    uio1::Header ih{};uio1::Record rows[16]{},base{};base.hwnd=uint64_t(child.load());
+    auto pointer=[](UINT id,POINTER_INFO* info)->BOOL{assert(id==7);info->pointerType=PT_TOUCH;info->pointerFlags=POINTER_FLAG_UP;info->ptPixelLocation={41,40};return TRUE;};
+    auto touch=[](HTOUCHINPUT,UINT n,TOUCHINPUT* v,int)->BOOL{assert(n==1);v[0].dwID=9;v[0].dwFlags=TOUCHEVENTF_UP;v[0].x=4100;v[0].y=4000;return TRUE;};
+    base.message=WM_POINTERUP;uio1::input_details(ih,rows,base,WM_POINTERUP,7,0,pointer,touch);
+    assert(ih.committed==1&&rows[0].source==11&&rows[0].x==7&&rows[0].y==PT_TOUCH&&rows[0].buttons==POINTER_FLAG_UP&&rows[0].key_class==1);
+    base.message=WM_TOUCH;uio1::input_details(ih,rows,base,WM_TOUCH,1,0,pointer,touch);
+    assert(ih.committed==2&&rows[1].source==12&&rows[1].x==9&&rows[1].buttons==TOUCHEVENTF_UP&&rows[1].screen_x==4100);
+    uio1::input_details(ih,rows,base,WM_TOUCH,17,0,pointer,touch);
+    assert(rows[2].key_class==0&&rows[2].result==ERROR_INSUFFICIENT_BUFFER);
+    uio1::input_details(ih,rows,base,WM_TOUCH,0,0,pointer,touch);
+    assert(rows[3].key_class==0&&rows[3].result==ERROR_INVALID_PARAMETER);
+    auto missing=[](UINT,POINTER_INFO*)->BOOL{SetLastError(ERROR_NOT_FOUND);return FALSE;};
+    base.message=WM_POINTERUP;uio1::input_details(ih,rows,base,WM_POINTERUP,7,0,missing,touch);
+    assert(rows[4].key_class==0&&rows[4].result==ERROR_NOT_FOUND);
+    puts("UIO3: real core procedure/cancel/detach; production pointer/touch scalar encoder and unavailable API reads passed; physical touch not synthesized");
+  }
+  const auto before_detached=received.load();
+  PostMessageW(child,WM_LBUTTONDOWN,0,0);Sleep(100);assert(received==before_detached+1&&uio1::atom(shared->committed).load()==count);
   DWORD tid=GetWindowThreadProcessId(parent,nullptr);PostThreadMessageW(tid,WM_QUIT,0,0);ui.join();
-  UnmapViewOfFile(shared);CloseHandle(map);CloseHandle(f);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);assert(DeleteFileW(out.c_str()));
+  UnmapViewOfFile(shared);CloseHandle(map);CloseHandle(f);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);assert(DeleteFileW(out.c_str()));assert(DeleteFileW((out+L".windows").c_str()));
   puts("UIO1: exact child receipt, dispatch, delayed heartbeat, foreign refusal, bounded ring, unhook and owner survival passed");
 }

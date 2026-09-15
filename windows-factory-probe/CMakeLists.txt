@@ -130,6 +130,7 @@ foreach(target uio1-hook uio1-observer uio1-accessibility uio1-tests)
   target_link_libraries(${target} PRIVATE user32)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 endforeach()
+target_link_libraries(uio1-hook PRIVATE comctl32)
 target_link_libraries(uio1-accessibility PRIVATE ole32 oleaut32 uiautomationcore)
 add_dependencies(uio1-tests uio1-hook uio1-observer uio1-accessibility)
 
