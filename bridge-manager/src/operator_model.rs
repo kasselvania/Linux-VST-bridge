@@ -10,6 +10,13 @@ pub struct Request {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    PluginInspect { selection: String },
+    PluginPrepare { selection: String },
+    ExperimentalEnable { candidate: String },
+    ExperimentalDisable { candidate: String },
+    CandidateObserve { candidate: String, area: String, status: String, note: String },
+    CandidateReview { candidate: String, accept: bool, rationale: String },
+    CandidatePublishOrdinary { candidate: String },
     InstallerEnvironmentCreate {
         installer: String,
         runner: String,
@@ -204,7 +211,7 @@ impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::InstallerEnvironmentCreate { .. }
+            Self::PluginInspect { .. } | Self::PluginPrepare { .. } | Self::ExperimentalEnable { .. } | Self::ExperimentalDisable { .. } | Self::CandidatePublishOrdinary { .. } | Self::InstallerEnvironmentCreate { .. }
                 | Self::InstallerNewAttempt { .. }
                 | Self::InstallerStart { .. }
                 | Self::InstallerScan { .. }

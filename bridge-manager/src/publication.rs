@@ -38,6 +38,7 @@ pub enum Qualification {
     Uir1Input,
     If1Failure,
     Sv1Instrument,
+    ManagedExperimental,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -109,7 +110,10 @@ pub const BOUNDARIES: [Boundary; 16] = [
     Boundary::ResultWritten,
     Boundary::Cleanup,
 ];
+#[cfg(test)]
+thread_local! {pub(crate) static COPY_OBSERVER:std::cell::RefCell<Option<Box<dyn Fn()>>>=const {std::cell::RefCell::new(None)};}
 fn boundary(fail: Option<Boundary>, here: Boundary) -> Result<()> {
+    #[cfg(test)] if here==Boundary::NativeCopied { COPY_OBSERVER.with(|h|{if let Some(f)=h.borrow().as_ref(){f();}}); }
     require(fail != Some(here), &format!("injected_{here:?}"))
 }
 fn encoded<T: Serialize>(value: &T) -> Result<Vec<u8>> {
@@ -374,6 +378,13 @@ impl Manager {
             && retained.map(|r| self.load_revision(&registration.key(), r))
                 .transpose()?.is_some_and(|r| r.qualification == Some(Qualification::Ap18Pigments)) {
             return crate::pigments::served(self, registration, installed, source);
+        }
+        if let Some(reference) = retained {
+            let revision = self.load_revision(&registration.key(), reference)?;
+            if revision.qualification == Some(Qualification::ManagedExperimental) || revision.profile.id.starts_with("managed.") || (revision.qualification.is_none() && crate::preparation::owns_profile(self, &revision.profile)?) {
+                require(registration == &revision.registration, "managed_candidate_host_changed")?;
+                return crate::preparation::retained(self, &revision);
+            }
         }
         if registration.key() == crate::managed_candidate::candidate()?.class.class_id {
             return crate::managed_candidate::served(self, registration, installed, source);
@@ -824,7 +835,7 @@ impl Manager {
     ) -> Result<RevisionRef> {
         self.publish_with_scope(profile, census, registration, host, (qualification, false), fail)
     }
-    fn publish_with_scope(
+    pub(crate) fn publish_with_scope(
         &self,
         profile: &Profile,
         census: &Census,
@@ -835,17 +846,17 @@ impl Manager {
     ) -> Result<RevisionRef> {
         let (qualification, global_inactive) = scope;
         let (installed_host, source) = host;
-        let _lock = self.lock("registry.lock")?;
+        let managed = qualification == Some(Qualification::ManagedExperimental) || crate::preparation::owns_profile(self,profile)?;
+        if managed {crate::preparation::check_publication(self,profile,&registration)?;}
+        // Digest and inspection work precede registry admission. Immutable inputs
+        // are rechecked outside the guard again before the short commit below.
+        census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
+        registration.verify(&self.root)?;
+        let mut guard = Some(self.lock("registry.lock")?);
         let key = registration.key();
         self.require_inactive(if global_inactive { None } else { Some(&key) })?;
         let mut db = self.registry()?;
         self.reconcile_revisions(&mut db)?;
-        census.verify_current(
-            &self.root,
-            installed_host,
-            source,
-            crate::observation::now()?,
-        )?;
         let purpose = if qualification.is_some() {
             SelectionPurpose::Qualification
         } else {
@@ -860,6 +871,7 @@ impl Manager {
             let prior = self.load_revision(&key, current)?;
             require(
                 prior.qualification.is_none()
+                    || crate::preparation::permits_transition(self, profile, &prior, qualification)?
                     || (qualification.is_none() && db.classes[&key].publication == Publication::Removed
                         && crate::acceptance::pigments::accepted_predecessor(self, profile, &prior)?)
                     || (qualification == Some(Qualification::Ap18Pigments)
@@ -869,7 +881,9 @@ impl Manager {
             )?;
         }
         if let Some(purpose) = qualification {
-            if purpose == Qualification::Ap18Pigments {
+            if purpose == Qualification::ManagedExperimental {
+                require(managed,"candidate_preparation_required")?;
+            } else if purpose == Qualification::Ap18Pigments {
                 crate::pigments::check_publication(self, profile, &registration)?;
             } else if purpose == Qualification::Sv1Instrument {
                 crate::managed_candidate::check_publication(self, profile, &registration)?;
@@ -877,7 +891,6 @@ impl Manager {
                 self.verify_qualification_parent_for(&db, profile, &registration, purpose)?;
             }
         }
-        registration.verify(&self.root)?;
         require(
             registration.metadata == census.selected
                 && registration.module == census.module
@@ -955,11 +968,28 @@ impl Manager {
             candidate: Some(reference.clone()),
             candidate_target: Some(r.target.clone()),
         };
-        self.write_intent(&intent, fail)?;
-        boundary(fail, Boundary::Intent)?;
-        self.make_candidate(&r, &source_artifact, fail)?;
+        if managed {
+            let snapshot=serde_json::to_vec(&db)?;
+            drop(guard.take());
+            // No physical pointer or transaction is exposed during package copy.
+            // A failed/interrupted copy cannot authorize service admission.
+            self.make_candidate(&r,&source_artifact,fail)?;
+            census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
+            source_artifact.verify()?;
+            guard=Some(self.lock("registry.lock")?);
+            self.require_inactive(None)?;
+            require(serde_json::to_vec(&self.registry()?)?==snapshot && !self.publication_pending(&r.class_id)?
+                && physical(&self.link(&r.class_id))?==intent.prior.as_ref().and_then(|p|p.target.clone()),"preparation_publication_state_changed")?;
+            self.write_intent(&intent,fail)?;
+            boundary(fail,Boundary::Intent)?;
+        } else {
+            self.write_intent(&intent, fail)?;
+            boundary(fail, Boundary::Intent)?;
+            self.make_candidate(&r, &source_artifact, fail)?;
+        }
         self.activate(&intent, fail)?;
         self.finish(&mut db, &intent, Outcome::Committed, fail)?;
+        drop(guard);
         Ok(reference)
     }
     pub fn rollback(&self, key: &str, id: &str, fail: Option<Boundary>) -> Result<RevisionRef> {
@@ -976,6 +1006,9 @@ impl Manager {
     }
     pub fn rollback_inactive(&self, key: &str, id: &str, fail: Option<Boundary>) -> Result<RevisionRef> {
         self.rollback_with_scope(key, id, fail, None, true)
+    }
+    pub(crate) fn rollback_exact_inactive(&self, key: &str, id: &str, expected: &RevisionRef) -> Result<RevisionRef> {
+        self.rollback_with_scope(key, id, None, Some(expected), true)
     }
     fn rollback_with_scope(
         &self,

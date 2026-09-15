@@ -179,7 +179,7 @@ pub fn stale_reason(
     host: &Artifact,
     source: &str,
 ) -> Option<&'static str> {
-    if observed_host != host || observed_source != source {
+    if observed_host.sha256 != host.sha256 || observed_source != source || observed_host.verify().is_err() || host.verify().is_err() {
         Some("Scanner host changed — rescan under current scanner host")
     } else if observed_environment != environment {
         Some("Environment changed — rescan required")

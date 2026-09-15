@@ -1,4 +1,5 @@
 //! Canonical, inactive-only registration and atomic publication. No SDK or DSP here.
+pub mod preparation;
 pub mod acceptance;
 pub mod capacity;
 pub mod catalogue;
@@ -645,12 +646,15 @@ impl Manager {
         drop(_lock);
         self.restore_editor_qualifications()
     }
-    pub fn unpublish(&self, key: &str) -> Result<()> {
+    pub fn unpublish(&self, key: &str) -> Result<()> { self.unpublish_scoped(key,None,false) }
+    pub fn unpublish_exact_inactive(&self,key:&str,expected:&publication::RevisionRef)->Result<()> {self.unpublish_scoped(key,Some(expected),true)}
+    fn unpublish_scoped(&self,key:&str,expected:Option<&publication::RevisionRef>,global:bool)->Result<()> {
         require(valid_hex(key, 32), "class ID syntax")?;
         let key = key.to_uppercase();
         let _lock = self.lock("registry.lock")?;
-        self.require_inactive(Some(&key))?;
+        self.require_inactive(if global{None}else{Some(&key)})?;
         let mut db = self.registry()?;
+        require(expected.is_none_or(|r|db.classes.get(&key).and_then(|e|e.managed_revision.as_ref())==Some(r)),"experimental_publication_changed")?;
         if db
             .classes
             .get(&key)

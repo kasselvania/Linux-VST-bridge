@@ -113,10 +113,13 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         auto query=component->queryInterface(IEditController::iid,reinterpret_cast<void**>(&controller));
         if(query==kNoInterface&&controller==nullptr){
             TUID cid{};step("getControllerClassId");ok(component->getControllerClassId(cid),"getControllerClassId");
+            char controller_id[33]{};FUID::fromTUID(cid).toString(controller_id);
+            events.lifecycle("ap8_controller_association",",\"combined\":false,\"class_id\":"+quoted(controller_id));
             step("createController");ok(factory->createInstance(cid,IEditController::iid,reinterpret_cast<void**>(&controller)),"createController");
             if(!controller)throw std::runtime_error("null controller");
             step("initializeController");ok(controller->initialize(&host),"initializeController");controller_initialized=true;
         }else if(query!=kResultOk||!controller)throw std::runtime_error("controller query tuple");
+        if(!controller_initialized)events.lifecycle("ap8_controller_association",",\"combined\":true");
         step("setComponentHandler");ok(controller->setComponentHandler(&handler),"setComponentHandler");handler_set=true;
         component->queryInterface(IConnectionPoint::iid,reinterpret_cast<void**>(&cp));
         controller->queryInterface(IConnectionPoint::iid,reinterpret_cast<void**>(&cc));
@@ -167,6 +170,14 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         synchronize_initial(*controller,controller_initialized,state_result,state);
         if(state_result==kResultOk&&controller_initialized)ok(kResultOk,"synchronizeController");
         if(state_result==kResultOk)events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
+        if(!external && access_directory.empty()){
+            // Preliminary interface observation only: never attach or pump a vendor editor.
+            step("inspectEditorInterface");
+            IPlugView* view=controller->createView(ViewType::kEditor);
+            tresult platform=kNoInterface;
+            if(view){platform=view->isPlatformTypeSupported(kPlatformTypeHWND);view->release();}
+            events.lifecycle("ap8_editor_interface",",\"created\":"+std::string(view?"true":"false")+",\"hwnd_result\":"+std::to_string(platform)+",\"attached\":false");
+        }
         if(!access_directory.empty()){
             // Explicit unpublished access session: no DAW/DSP impersonation.
             // Reuse the same SDK view lifecycle on this initialized controller.

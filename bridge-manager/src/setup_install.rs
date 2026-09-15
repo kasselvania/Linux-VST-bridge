@@ -196,7 +196,8 @@ mod tests {
         };
         let source = a("source");
         Software {
-            manager: a("manager"),
+            preparation_kit: None,
+        manager: a("manager"),
             operator_frontend: Some(a("frontend")),
             supervisor: a("session"),
             ownership: a("ownership"),

@@ -73,6 +73,7 @@ pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
         Qualification::Uir1Input => Ok(vec![uir1_candidate()?]),
         Qualification::If1Failure => Ok(vec![if1_candidate()?]),
         Qualification::Sv1Instrument => Ok(vec![crate::managed_candidate::candidate()?]),
+        Qualification::ManagedExperimental => Err("managed_candidate_requires_manager_selection".into()),
     }
 }
 fn parent_revision(purpose: Qualification) -> u32 {
@@ -80,7 +81,7 @@ fn parent_revision(purpose: Qualification) -> u32 {
         Qualification::Ap15Editor => 3,
         Qualification::Ap17Capacity => 7,
         Qualification::Ap18Pigments => 10,
-        Qualification::Sv1Instrument => 0,
+        Qualification::Sv1Instrument | Qualification::ManagedExperimental => 0,
         Qualification::Uir1Input | Qualification::If1Failure => 11,
     }
 }
@@ -100,6 +101,7 @@ fn directory(m: &Manager, p: &Profile, purpose: Qualification) -> Result<PathBuf
             Qualification::Uir1Input => "software/uir1-qualification",
             Qualification::If1Failure => "software/if1-qualification",
             Qualification::Sv1Instrument => "software/sv1-qualification",
+            Qualification::ManagedExperimental => return Err("managed_candidate_requires_manager_selection".into()),
         })
         .join(p.fingerprint()?))
 }
@@ -266,6 +268,7 @@ impl Manager {
     // The roster argument is supplied only by compiled product policy (or the
     // deterministic private fixture); there is no CLI/profile input here.
     pub(crate) fn verify_retained_authority(&self, r: &Revision, roster: &[Profile]) -> Result<()> {
+        if r.qualification == Some(Qualification::ManagedExperimental) { return crate::preparation::retained(self,r); }
         let p = &r.profile;
         require(
             p.capabilities.state == State::ConcurrentReadOnlyCaptureV12
@@ -407,7 +410,7 @@ impl Manager {
                 && match purpose {
                     Qualification::Ap15Editor => p.revision > 3,
                     Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
-                    Qualification::Ap18Pigments | Qualification::Sv1Instrument => false,
+                    Qualification::Ap18Pigments | Qualification::Sv1Instrument | Qualification::ManagedExperimental => false,
                     Qualification::Uir1Input => p.revision == 12,
                     Qualification::If1Failure => p.revision == 17,
                 }
@@ -428,7 +431,7 @@ impl Manager {
         let mut limitations = prior.profile.limitations.clone();
         let mut parent_compatibility = registration.compatibility.clone();
         match purpose {
-            Qualification::Ap18Pigments | Qualification::Sv1Instrument => return Err("new_class_has_no_same_class_parent".into()),
+            Qualification::Ap18Pigments | Qualification::Sv1Instrument | Qualification::ManagedExperimental => return Err("new_class_has_no_same_class_parent".into()),
             Qualification::Uir1Input | Qualification::If1Failure => {
                 // UIR1 changes only the host; IF1 also binds a new native.
                 // Every other technical constraint must equal the exact parent.
@@ -558,6 +561,7 @@ impl Manager {
             let Some(purpose) = r.qualification else {
                 continue;
             };
+            if purpose == Qualification::ManagedExperimental { continue; }
             if purpose == Qualification::Ap18Pigments { crate::pigments::restore(self)?; continue; }
             if purpose == Qualification::Sv1Instrument { crate::managed_candidate::restore(self)?; continue; }
             let parent = r.parent.as_ref().ok_or("qualification_parent_absent")?;

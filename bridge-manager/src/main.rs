@@ -8,6 +8,7 @@ mod vendor_product_cli;
 mod operator_cli;
 mod installer_import;
 mod onboarding;
+mod preparation_cli;
 mod setup_install;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
@@ -182,6 +183,7 @@ fn software(m: &Manager) -> Result<Software> {
         s.source_manifest.sha256 == s.source_sha256,
         "host source manifest differs",
     )?;
+    if let Some(a) = &s.preparation_kit { a.verify()?; }
     if let Some(a) = &s.operator_frontend {
         a.verify()?;
     }
@@ -301,7 +303,13 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         valid_hex(&source, 64) && digest(&files[4].1)? == source,
         "host source manifest hash differs",
     )?;
+    let kit=package.map(|p|p.join("preparation-kit.zip")).filter(|p|p.exists());
+    let retained_kit=previous.as_ref().and_then(|s|s.preparation_kit.clone()).filter(|_|kit.is_none());
+    if let Some(a)=&retained_kit {a.verify()?;}
+    if let Some(path)=kit {files.push(("preparation-kit.zip",path));}
     let mut identity = String::new();
+    if let Some(a)=&retained_kit {identity.push_str(&serde_json::to_string(a)?);}
+
     for (_, p) in &files {
         identity.push_str(&digest(p)?);
     }
@@ -432,6 +440,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         actual.validate(&m.root)?;
     }
     let installed = Software {
+        preparation_kit: if files.iter().any(|(n,_)|*n=="preparation-kit.zip"){Some(a("preparation-kit.zip")?)}else{retained_kit},
         operator_frontend: if files.iter().any(|(n,_)|*n=="linux-audio-compatibility-manager") {Some(a("linux-audio-compatibility-manager")?)}else{retained_frontend},
         manager: a("linux-vst-bridge")?,
         supervisor: a("session.py")?,
@@ -486,7 +495,14 @@ fn spec(
     let onboarding_home = r.metadata.class_id == managed_candidate::candidate()?.class.class_id
         || m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
     if onboarding_home {
-        if r.metadata.class_id == managed_candidate::candidate()?.class.class_id {
+        let managed=m.registry()?.classes.values().filter(|e|e.registration.environment==r.environment && e.registration.module==r.module)
+            .filter_map(|e|e.managed_revision.as_ref().map(|reference|(&e.registration.metadata.class_id,reference))).map(|(key,reference)|m.load_revision(key,reference)).collect::<Result<Vec<_>>>()?;
+        if managed.iter().any(|rev|rev.qualification==Some(publication::Qualification::ManagedExperimental) || rev.profile.id.starts_with("managed.")) {
+            require(managed.iter().any(|rev|rev.registration.host.sha256==r.host.sha256 && rev.registration.host_source_sha256==r.host_source_sha256),"managed_session_host_changed")?;
+        } else if inspect && onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment) {
+            // Maintenance-only exact inspector selection survives the ownership
+            // handoff; this does not admit a DSP or initial installer update.
+        } else if r.metadata.class_id == managed_candidate::candidate()?.class.class_id {
             managed_candidate::check_session(m,&r.metadata.class_id,&r.environment,&r.module,&r.host,&r.host_source_sha256)?;
         } else {
             require(onboarding::load(m,&r.environment.id)?.environment==r.environment,"onboarding_inspection_environment")?;

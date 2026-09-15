@@ -94,6 +94,7 @@ pub(super) fn modules(environment: &Environment) -> Result<Vec<Artifact>> {
     let root = environment
         .root
         .join("compatdata/pfx/drive_c/Program Files/Common Files/VST3");
+    if !root.try_exists()? { return Ok(vec![]); }
     require(root.canonicalize()? == root, "module_directory_symlink")?;
     let mut pending = vec![(root, 0)];
     let mut result = Vec::new();
@@ -417,7 +418,7 @@ fn execute_qualification_for(
                         publication::Qualification::Ap18Pigments => InspectionRoute::Ap18Pigments,
                         publication::Qualification::Uir1Input => InspectionRoute::Uir1Input,
                         publication::Qualification::If1Failure => InspectionRoute::If1Failure,
-                        publication::Qualification::Sv1Instrument => return Err("candidate_uses_retained_inspection".into()),
+                        publication::Qualification::Sv1Instrument | publication::Qualification::ManagedExperimental => return Err("candidate_uses_retained_inspection".into()),
                     },
                 )?);
             }
@@ -501,6 +502,7 @@ mod tests {
     fn completed_setup_receipt_does_not_race_service_startup_registry_lock() {
         let (f, _, c, _) = prepared();
         let sw = Software {
+            preparation_kit: None,
             operator_frontend: None,
             manager: c.host.clone(),
             supervisor: c.host.clone(),
@@ -553,6 +555,7 @@ mod tests {
         )
         .unwrap();
         let sw = Software {
+            preparation_kit: None,
             operator_frontend: None,
             manager: c.host.clone(),
             supervisor: c.host.clone(),
