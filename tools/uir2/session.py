@@ -23,7 +23,8 @@ RECORD=struct.Struct('<10Q8I2iQ')
 class Mapping:
  def __init__(self,path):
   self.file=path.open('r+b');self.map=mmap.mmap(self.file.fileno(),SIZE);self.cursor=0;self.rows=[]
-  if [self.read(x) for x in ('magic','version','bytes')]!=[0x32524955,1,SIZE]:raise RuntimeError('fixture status schema')
+  if [self.read(x) for x in ('magic','version','bytes')]!=[0x32524955,2,SIZE]:
+   self.map.close();self.file.close();raise RuntimeError('fixture status schema')
   self.identity=tuple(self.read(x) for x in ('pid','start','tid','root','child','frequency'))
  def read(self,key):return struct.unpack_from('<Q',self.map,HEADER.index(key)*8)[0]
  def write(self,key,n):
@@ -35,7 +36,7 @@ class Mapping:
   if not self.cursor<=count<=CAPACITY:raise RuntimeError('fixture record capacity/counter')
   for n in range(self.cursor,count):
    r=dict(zip(FIELDS,RECORD.unpack_from(self.map,4096+n*128)))
-   if r['commit']!=n+1 or not 1<=r['kind']<=6:raise RuntimeError('fixture torn/unknown record')
+   if r['commit']!=n+1 or not 1<=r['kind']<=7:raise RuntimeError('fixture torn/unknown record')
    self.rows.append(r)
   self.cursor=count
  def clock(self,helper):
@@ -84,20 +85,70 @@ def make_environment(root,desktop):
  if desktop.get('XDG_RUNTIME_DIR'):env['XDG_RUNTIME_DIR']=desktop['XDG_RUNTIME_DIR']
  return env
 
+def windows_action(rows):
+ """One fixture-published 0->1 boundary; Linux timing cannot supply authority.
+
+ Commit order is stream order, not QPC start order: dispatch records commit after
+ nested procedure records. No call interval may cross the UI-thread arm boundary.
+ """
+ def uint(v):return type(v) is int and 0<=v<2**64
+ if not isinstance(rows,list) or len(rows)>CAPACITY:return [],None,'invalid_stream'
+ for i,r in enumerate(rows):
+  if not isinstance(r,dict) or type(r.get('kind')) is not int or not 1<=r['kind']<=7:
+   return [],None,'invalid_stream'
+  if (not uint(r.get('commit')) or r['commit']!=i+1 or
+      not uint(r.get('qpc')) or not uint(r.get('end_qpc'))):return [],None,'invalid_stream'
+ boundaries=[r for r in rows if r['kind']==7]
+ if len(boundaries)!=1:return [],None,'missing_or_multiple_boundaries'
+ b=boundaries[0]
+ if (not uint(b.get('flags')) or b['flags']!=0 or not uint(b.get('value')) or b['value']!=1 or
+     not uint(b.get('turn')) or b['turn']==0 or not uint(b.get('dispatch')) or b['dispatch']!=0 or
+     b['qpc']==0 or b['end_qpc']!=0):return [],None,'malformed_boundary'
+ for r in rows:
+  if r['commit']<b['commit'] and max(r['qpc'],r['end_qpc'])>b['qpc']:
+   return [],None,'reversed_boundary'
+  if r['commit']>b['commit'] and r['qpc']<b['qpc']:
+   return [],None,'reversed_boundary'
+ return rows[b['commit']:],b,None
+
+def release_gaps(rows,removals,procedures,frequency):
+ """All members must come from the already filtered Windows action epoch."""
+ if not procedures or not removals or type(frequency) is not int or frequency<=0:return []
+ dispatches=[r for r in rows if r['kind']==3]
+ returns=[r for r in rows if r['kind']==5 and r['message'] in (0x247,0x202)]
+ gaps=[];used=set()
+ for p in procedures:
+  ds=[d for d in dispatches if d['dispatch']==p['dispatch']]
+  rs=[r for r in returns if r['dispatch']==p['dispatch'] and (r['message'],r['hwnd'])==(p['message'],p['hwnd'])]
+  if len(ds)!=1 or len(rs)!=1:return []
+  d=ds[0];ret=rs[0]
+  if ((d['message'],d['hwnd'])!=(p['message'],p['hwnd']) or
+      not d['qpc']<=p['qpc']<=ret['qpc']<=d['end_qpc'] or
+      not p['commit']<ret['commit']<d['commit']):return []
+  matches=[r for r in removals if (r['message'],r['hwnd'],r['message_time'])==(d['message'],d['hwnd'],d['message_time'])
+           and r['qpc']<=r['end_qpc']<=d['qpc'] and r['commit']<p['commit']]
+  if not matches:return []
+  removal=max(matches,key=lambda r:r['commit'])
+  if removal['commit'] in used:return []
+  used.add(removal['commit']);gaps.append((p['qpc']-removal['end_qpc'])*1000/frequency)
+ return gaps if len(used)==len(removals) and len(returns)==len(procedures) else []
+
 def summary(raw):
  from timeline import projected
  start=raw.get('action_begin_ns',0)
  contacts=[r for r in raw.get('raw',[]) if r['kind']=='raw_touch_begin' and r['observed_ns']>=start]
  ends=[r for r in raw.get('raw',[]) if r['kind']=='raw_touch_end' and r['observed_ns']>=start]
  core=[r for r in raw.get('x11',[]) if r['kind']=='core_up' and r['observed_ns']>=start]
- removals=[r for r in raw.get('windows',[]) if r['kind']==2 and r['value']==1 and r['message'] in (0x247,0x202)]
- procedures=[r for r in raw.get('windows',[]) if r['kind']==4 and r['message'] in (0x247,0x202) and r['dispatch']]
- clocks=raw.get('windows_clocks',[]);xclocks=raw.get('x_clocks',[])
+ windows,boundary,boundary_error=windows_action(raw.get('windows',[]))
+ removals=[r for r in windows if r['kind']==2 and r['value']==1 and r['message'] in (0x247,0x202)]
+ procedures=[r for r in windows if r['kind']==4 and r['message'] in (0x247,0x202) and r['dispatch']]
+ clocks=[b for b in raw.get('windows_clocks',[]) if boundary and type(b.get('windows_qpc')) is int and b['windows_qpc']>=boundary['qpc']]
+ xclocks=raw.get('x_clocks',[])
  # Raw contacts are private source scoped. A single exact source/detail must
  # have one begin/end; matching counts alone are insufficient.
  exact=(len(contacts)==len(ends)==1 and all(contacts[0][k]==ends[0][k] for k in ('device','source','detail')))
- facts=dict(contacts=len(contacts),coverage_complete=exact and len(core)==1 and not any(raw.get('drops',{}).values()) and raw.get('error') is None and raw.get('final_pointer',{}).get('mask',0x1fff)&0x1fff==0,
-   clock_validated=bool(len(clocks)>=2 and len(xclocks)>=2 and raw.get('status',{}).get('calibration_ok',0)),procedure_after_removal=False)
+ facts=dict(contacts=len(contacts),coverage_complete=boundary_error is None and exact and len(core)==1 and not any(raw.get('drops',{}).values()) and raw.get('error') is None and raw.get('final_pointer',{}).get('mask',0x1fff)&0x1fff==0,
+   clock_validated=bool(len(clocks)>=2 and len(xclocks)>=2 and any(r['kind']==5 and r['message']==0x8732 and r['value']==1 for r in windows)),procedure_after_removal=False)
  delays=[];gaps=[];message_times=[]
  if len(core)==1 and removals and clocks:
   event=core[0];b=min(xclocks,key=lambda b:abs(((event['server_ms']-b['server_ms']+2**31)%2**32)-2**31)) if xclocks else None
@@ -114,19 +165,14 @@ def summary(raw):
     # Wine's internal creation moment follows from the inherited MSG.time.
     message_times.append([(bwin['linux_before_ns']+dt-64000000-xupper)/1e6,
                           (bwin['linux_after_ns']+dt+64000000-xlower)/1e6])
-   # Use actual dispatch identity, not sent-call hooks or ordinal contact pairing.
-   dispatches={r['dispatch']:r for r in raw['windows'] if r['kind']==3}
-   for p in procedures:
-    drow=dispatches.get(p['dispatch']);matches=[r for r in removals if r['message']==p['message'] and r['hwnd']==p['hwnd'] and drow and r['end_qpc']<=drow['qpc']]
-    if matches:
-     r=max(matches,key=lambda r:r['end_qpc']);gaps.append((p['qpc']-r['end_qpc'])*1000/raw['status']['frequency'])
+   gaps=release_gaps(windows,removals,procedures,raw['status']['frequency'])
    facts.update(procedure_after_removal=bool(gaps) and len(gaps)==len(procedures),
      removal_lower_ms=min((d[0] for d in delays),default=0),removal_upper_ms=max((d[1] for d in delays),default=float('inf')),
      procedure_gap_upper_ms=max(gaps,default=float('inf')))
  # No queue flag is promoted to exact availability/absence or creation proof.
  disposition=classify(facts)
  clean=raw.get('cleanup',{}).get('fixture',{}).get('cleanup',{})
- return dict(schema=1,disposition=disposition,contacts=len(contacts),core_releases=len(core),windows_release_removals=len(removals),
+ return dict(schema=1,disposition=disposition,windows_action_boundary=boundary_error or 'valid',contacts=len(contacts),core_releases=len(core),windows_release_removals=len(removals),
     removal_intervals_ms=delays,message_timestamp_intervals_after_x_release_ms=message_times,procedure_gaps_ms=gaps,queue_bits_are_hints=True,creation_time_not_proven=True,
     dropped=raw.get('drops',{}),cleanup=clean,clock_calibrated=facts['clock_validated'],error_present=raw.get('error') is not None)
 
@@ -139,7 +185,9 @@ def run(root,package,runner_file,self_test=False):
  for a in runner['files']:
   with open(a['path'],'rb') as f:
    if hashlib.file_digest(f,'sha256').hexdigest()!=a['sha256']:raise RuntimeError('runner artifact changed')
- manifest=json.loads((HERE/'package.json').read_text());payload=sealed_bytes(package,manifest['sha256'])
+ manifest=json.loads((HERE/'action-package.json').read_text())
+ if manifest.get('status_version')!=2:raise RuntimeError('action-bound fixture package required')
+ payload=sealed_bytes(package,manifest['sha256'])
  desktop=dict(line.split('=',1) for line in subprocess.check_output(['systemctl','--user','show-environment'],text=True).splitlines() if '=' in line)
  env=make_environment(root,desktop);os.environ.update({k:env[k] for k in ('DISPLAY','XAUTHORITY')})
  base=[runner['entry_point'],'--verb=run','--',runner['proton']]

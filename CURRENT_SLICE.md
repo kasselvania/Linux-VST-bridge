@@ -46,3 +46,18 @@ source-owned window expired without a recorded physical contact or operator
 completion; no retry. This does not establish a physical input failure or select
 a repair owner. Positive fixture/window/cohort cleanup and unchanged ordinary
 products retained in evidence/uir2/result.json. Return draft PR106 for review.
+
+
+## Source rereview — Windows action binding
+
+Repair only the action-binding integrity issue after reviewed head `d08d89f`.
+The fixture now publishes one UI-thread QPC boundary for armed 0 -> 1 in its
+version-2 diagnostic stream. Summary admits only coherent post-boundary Windows
+records and a complete removal/dispatch/procedure-entry/return chain in that
+epoch. Missing, duplicate, reversed or malformed boundaries refuse classification.
+Linux contact binding remains independent. No queue hint becomes admission.
+
+The existing physical evidence and insufficient-coverage disposition remain
+unchanged. Run deterministic Python and Windows fixture regressions and affected
+CI only. No new physical window/action, Bitwig/Pigments, installation, profile,
+runner or product change. Keep PR106 draft and unmerged for independent rereview.

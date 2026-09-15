@@ -106,8 +106,11 @@ LRESULT CALLBACK proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
      POINT p{short(LOWORD(lp)),short(HIWORD(lp))};ClientToScreen(w,&p);r.x=p.x;r.y=p.y;}
    append(r);
  }
+ const auto calibrated_before=h->calibration_ok;
  const auto value=body(w,m,wp,lp);
- if(keep){append(base(5,w,m));++h->returns;}return value;
+ if(keep){auto r=base(5,w,m);
+   if(m==calibration)r.value=h->calibration_ok==calibrated_before+1;
+   append(r);++h->returns;}return value;
 }
 int run(int argc,wchar_t** argv){
  self_test=argc==2&&std::wstring(argv[1])==L"--self-test";
@@ -119,7 +122,7 @@ int run(int argc,wchar_t** argv){
  HANDLE map=CreateFileMappingW(file,nullptr,PAGE_READWRITE,0,DWORD(bytes),nullptr);if(!map)return 5;
  h=static_cast<Header*>(MapViewOfFile(map,FILE_MAP_ALL_ACCESS,0,0,bytes));if(!h)return 6;
  std::memset(h,0,bytes);rows=reinterpret_cast<Record*>(reinterpret_cast<uint8_t*>(h)+header_bytes);
- h->magic=0x32524955;h->version=1;h->bytes=bytes;h->pid=GetCurrentProcessId();h->tid=GetCurrentThreadId();
+ h->magic=0x32524955;h->version=2;h->bytes=bytes;h->pid=GetCurrentProcessId();h->tid=GetCurrentThreadId();
  FILETIME c{},e{},k{},u{};if(!GetProcessTimes(GetCurrentProcess(),&c,&e,&k,&u))return 7;
  h->start=(uint64_t(c.dwHighDateTime)<<32)|c.dwLowDateTime;LARGE_INTEGER f{};QueryPerformanceFrequency(&f);h->frequency=f.QuadPart;
  WNDCLASSW wc{};wc.lpfnWndProc=proc;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"LVB-UIR2-source-owned";
@@ -137,12 +140,20 @@ int run(int argc,wchar_t** argv){
  put(h->ready,1);const auto deadline=GetTickCount64()+(self_test?500:160000);uint64_t old_armed=0;
  while(!load(h->stop)&&GetTickCount64()<deadline){
    ++turn;h->turns=turn;
+   if(self_test&&turn==2)put(h->armed,1);
+   const auto armed=load(h->armed);
+   if(armed!=old_armed){
+     // UI-thread boundary, before this turn's queue sampling or pump calls.
+     // Record every transition, including an invalid reversal, before refusing it.
+     auto boundary=base(7);boundary.flags=uint32_t(old_armed);boundary.value=armed;append(boundary);
+     if(old_armed!=0||armed!=1){h->error=7;break;}
+     old_armed=armed;InvalidateRect(child,nullptr,TRUE);
+   }
    auto r=base(1);r.queue=GetQueueStatus(QS_ALLINPUT);r.end_qpc=qpc();append(r);
    if(load(h->clock_request)!=load(h->clock_ack)){
      const auto request=load(h->clock_request);h->clock_qpc=qpc();h->clock_tick=GetTickCount();put(h->clock_ack,request);
    }
    if(turn%25==1){const auto before=GetTickCount();if(!PostMessageW(child,calibration,before,GetTickCount()))h->error=3;}
-   if(load(h->armed)!=old_armed){old_armed=load(h->armed);InvalidateRect(child,nullptr,TRUE);}
    if(!VendorView::pump()){h->error=4;break;}
    Sleep(4); // Existing UI-owner maximum service cadence, no artificial workload.
  }
@@ -151,9 +162,22 @@ int run(int argc,wchar_t** argv){
  if(!destroyed)h->error=5;
  if(self_test){
    assert(h->calibration_ok>0&&h->heartbeat>0&&h->error==0&&h->dropped==0);
+   uint64_t boundary_index=capacity, boundaries=0;
+   for(uint64_t i=0;i<h->committed;++i)if(rows[i].kind==7){
+     ++boundaries;boundary_index=i;
+     assert(rows[i].flags==0&&rows[i].value==1&&rows[i].qpc>0&&rows[i].turn==2&&rows[i].dispatch==0);
+   }
+   assert(boundaries==1&&boundary_index>0&&boundary_index+1<h->committed);
+   bool calibrated_after=false;
+   for(uint64_t i=0;i<h->committed;++i)if(i!=boundary_index){
+     if(i<boundary_index){assert(rows[i].qpc<=rows[boundary_index].qpc&&rows[i].end_qpc<=rows[boundary_index].qpc);}
+     else{assert(rows[i].qpc>=rows[boundary_index].qpc);
+       if(rows[i].kind==5&&rows[i].message==calibration&&rows[i].value==1)calibrated_after=true;}
+   }
+   assert(calibrated_after);
    bool matched=false;for(uint64_t i=0;i<h->committed;++i)if(rows[i].kind==4&&rows[i].message==calibration&&rows[i].dispatch){
      for(uint64_t j=i+1;j<h->committed;++j)if(rows[j].kind==3&&rows[j].dispatch==rows[i].dispatch&&rows[j].qpc<=rows[i].qpc)matched=true;
-   }assert(matched);std::printf("UIR2: actual pump removal/dispatch/procedure, clock sentinel, heartbeat, bounded clean retirement passed\n");
+   }assert(matched);std::printf("UIR2: actual pump removal/dispatch/procedure, clock sentinel, exact UI-thread arm boundary, heartbeat, bounded clean retirement passed\n");
  }
  const auto error=h->error;put(h->finished,1);UnmapViewOfFile(h);h=nullptr;CloseHandle(map);if(file!=INVALID_HANDLE_VALUE)CloseHandle(file);
  CoUninitialize();return error?20:0;

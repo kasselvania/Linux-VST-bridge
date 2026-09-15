@@ -48,22 +48,28 @@ class UIR2Tests(unittest.TestCase):
  def test_missing_coverage(self):
   self.assertEqual(classify(self.facts(coverage_complete=False)),INSUFFICIENT)
 
-if __name__=='__main__':unittest.main()
 
 class SessionTests(unittest.TestCase):
+ def ordered(self,rows):
+  from session import FIELDS
+  return [dict(dict.fromkeys(FIELDS,0),**r) | {'commit':i+1} for i,r in enumerate(rows)]
+ def release(self,qpc=1020,dispatch=7):
+  return [dict(kind=2,value=1,message=0x247,hwnd=73,qpc=qpc,end_qpc=qpc+1,message_time=1010),
+          dict(kind=4,message=0x247,hwnd=73,qpc=qpc+2,dispatch=dispatch),
+          dict(kind=5,message=0x247,hwnd=73,qpc=qpc+3,dispatch=dispatch),
+          dict(kind=3,message=0x247,hwnd=73,qpc=qpc+2,end_qpc=qpc+4,dispatch=dispatch,message_time=1010)]
  def raw(self):
-  # Millisecond clock at 1000; a single independently scoped contact. Distinct
-  # Linux and Windows identities are intentionally not equated.
-  return dict(schema=1,action_begin_ns=999000000,raw=[
-   dict(kind='raw_touch_begin',device=1,source=2,detail=44,observed_ns=1000000000),
-   dict(kind='raw_touch_end',device=1,source=2,detail=44,observed_ns=1001000000)],
-   x11=[dict(kind='core_up',server_ms=1000,observed_ns=1001000000)],
-   windows=[dict(kind=2,value=1,message=0x247,hwnd=73,qpc=1010,end_qpc=1011,message_time=1000),
-            dict(kind=4,message=0x247,hwnd=73,qpc=1012,dispatch=7),
-            dict(kind=3,message=0x247,hwnd=73,qpc=1012,end_qpc=1013,dispatch=7)],
-   windows_clocks=[dict(linux_before_ns=999000000,linux_after_ns=1001000000,windows_qpc=1000,tick=1000,frequency=1000)]*2,
+  # Independent Linux and fixture-owned Windows action boundaries. Contact IDs
+  # are deliberately unrelated to Windows dispatch identity.
+  return dict(schema=1,action_begin_ns=990000000,raw=[
+   dict(kind='raw_touch_begin',device=1,source=2,detail=44,observed_ns=1005000000),
+   dict(kind='raw_touch_end',device=1,source=2,detail=44,observed_ns=1011000000)],
+   x11=[dict(kind='core_up',server_ms=1010,observed_ns=1011000000)],
+   windows=self.ordered([dict(kind=7,qpc=1000,turn=2,flags=0,value=1),
+                         dict(kind=5,qpc=1001,message=0x8732,value=1)]+self.release()),
+   windows_clocks=[dict(linux_before_ns=1029000000,linux_after_ns=1031000000,windows_qpc=1030,tick=1030,frequency=1000)]*2,
    x_clocks=[dict(linux_before_ns=999000000,linux_after_ns=1001000000,server_ms=1000)]*2,
-   status=dict(frequency=1000,calibration_ok=1),drops={},error=None,final_pointer=dict(mask=0))
+   status=dict(frequency=1000,calibration_ok=1,error=0),drops={},error=None,final_pointer=dict(mask=0))
  def test_full_summary_prompt(self):
   from session import summary
   s=summary(self.raw());self.assertEqual(s['disposition'],'UIR2_EMBEDDED_PRODUCT_ROUTE_REQUIRED')
@@ -72,7 +78,7 @@ class SessionTests(unittest.TestCase):
   from session import summary
   for mutate in (lambda r:r['raw'][1].update(source=3),lambda r:r.update(error='cleanup'),
                  lambda r:r['drops'].update(windows=1),lambda r:r['windows_clocks'].clear(),
-                 lambda r:r['windows'][1].update(dispatch=0)):
+                 lambda r:r['windows'][3].update(dispatch=0)):
    r=self.raw();mutate(r);self.assertEqual(summary(r)['disposition'],INSUFFICIENT)
  def test_mapping_commit_and_closed_mailbox(self):
   import tempfile,struct
@@ -81,7 +87,7 @@ class SessionTests(unittest.TestCase):
    p=Path(d)/'status'
    with p.open('wb') as f:f.truncate(SIZE)
    with p.open('r+b') as f:
-    f.write(struct.pack('<3Q',0x32524955,1,SIZE))
+    f.write(struct.pack('<3Q',0x32524955,2,SIZE))
    m=Mapping(p)
    try:
     with self.assertRaises(ValueError):m.write('pid',1)
@@ -109,3 +115,64 @@ class CleanupTests(unittest.TestCase):
    session.finalize(Path(d),raw,rec,None,None,m,fixture,True)
    retire.assert_called_once_with(fixture);m.write.assert_called_once_with('stop',1);m.close.assert_called_once()
    self.assertEqual(raw['error'],'observer_cleanup_incomplete')
+
+
+class ActionBindingTests(unittest.TestCase):
+ ordered=SessionTests.ordered
+ release=SessionTests.release
+ raw=SessionTests.raw
+ def noisy(self,post=True):
+  r=self.raw();r['windows']=self.ordered(self.release(994,3)+[
+   dict(kind=1,qpc=999,end_qpc=999,queue=0x10001000),
+   dict(kind=7,qpc=1000,turn=2,flags=0,value=1),
+   dict(kind=5,qpc=1001,message=0x8732,value=1)]+(self.release() if post else []))
+  return r
+ def test_pre_arm_release_cannot_supply_post_arm_linux_release(self):
+  from session import summary
+  s=summary(self.noisy(False));self.assertEqual(s['disposition'],INSUFFICIENT)
+  self.assertEqual(s['windows_release_removals'],0)
+  self.assertEqual(s['message_timestamp_intervals_after_x_release_ms'],[])
+ def test_pre_arm_noise_does_not_poison_exact_post_arm_chain(self):
+  from session import summary
+  s=summary(self.noisy());self.assertEqual(s['disposition'],'UIR2_EMBEDDED_PRODUCT_ROUTE_REQUIRED')
+  self.assertEqual(s['windows_release_removals'],1)
+  self.assertEqual(s['procedure_gaps_ms'],[1.0])
+ def test_pre_arm_procedure_and_dispatch_cannot_complete_post_arm_chain(self):
+  from session import summary
+  for keep in ((2,),(2,3),(2,4),(2,3,4),(2,3,5)):
+   r=self.noisy(False)
+   r['windows']=self.ordered(r['windows']+[dict(row,commit=0) for row in self.release(dispatch=3) if row['kind'] in keep])
+   self.assertEqual(summary(r)['disposition'],INSUFFICIENT)
+ def test_absent_multiple_and_malformed_boundaries(self):
+  from session import summary
+  for change in ({'value':0},{'value':2},{'flags':1},{'qpc':0},{'qpc':True},{'dispatch':1},{'turn':0},{'end_qpc':1001}):
+   r=self.raw();r['windows'][0].update(change)
+   self.assertEqual(summary(r)['disposition'],INSUFFICIENT,change)
+  for rows in (self.raw()['windows'][1:],self.raw()['windows'][:1]+self.raw()['windows']):
+   r=self.raw();r['windows']=self.ordered(rows)
+   self.assertEqual(summary(r)['disposition'],INSUFFICIENT)
+ def test_reversed_boundary_cannot_authorize_rows(self):
+  from session import summary
+  r=self.raw();r['windows'][0]['qpc']=1050
+  self.assertEqual(summary(r)['disposition'],INSUFFICIENT)
+  r=self.noisy();r['windows'][0]['end_qpc']=1001
+  self.assertEqual(summary(r)['disposition'],INSUFFICIENT)
+ def test_pre_arm_queue_timestamp_and_detail_rows_are_excluded(self):
+  from session import windows_action
+  r=self.noisy();r['windows']=self.ordered([dict(kind=6,qpc=993,message=0x240,message_time=55)]+r['windows'])
+  rows,boundary,error=windows_action(r['windows'])
+  self.assertIsNone(error);self.assertEqual(boundary['qpc'],1000)
+  self.assertFalse(any(row['kind'] in (1,6) for row in rows))
+  self.assertTrue(all(row['qpc']>=1000 for row in rows))
+ def test_pre_arm_clocks_and_calibration_do_not_authorize_action(self):
+  from session import summary
+  r=self.raw();r['windows_clocks'][0]['windows_qpc']=999
+  self.assertEqual(summary(r)['disposition'],INSUFFICIENT)
+  r=self.raw();r['windows']=self.ordered([dict(kind=5,qpc=998,message=0x8732,value=1)]+[row for row in r['windows'] if row['message']!=0x8732])
+  self.assertEqual(summary(r)['disposition'],INSUFFICIENT)
+ def test_retained_no_touch_shape_remains_insufficient(self):
+  from session import summary
+  r=self.raw();r['raw']=[];r['x11']=[];r['windows']=[]
+  self.assertEqual(summary(r)['disposition'],INSUFFICIENT)
+
+if __name__=='__main__':unittest.main()

@@ -104,3 +104,33 @@ detachment error cannot skip the fixture stop, cohort cleanup or mapping close.
 That source-only negative check did not require another physical window. The
 retained physical observation source remains `3c33d55`, and the fixture binary
 remains the exact `c5168fb` build recorded in `tools/uir2/package.json`.
+
+
+## Windows action-binding integrity repair
+
+The original version-1 fixture stream did not bind Windows records to the armed
+action. Filtering only Linux events allowed a pre-arm Windows release to supply
+false prompt-path evidence. The new deterministic test reproduces that defect.
+
+Version 2 adds one explicit record from the fixture UI thread when armed changes
+from 0 to 1. It contains QPC, turn, previous/new state and stream commit identity;
+it precedes the turn's queue sampling, clock response and production pump. An
+invalid state transition is recorded then refused. Record size/capacity and the
+production message pump are unchanged. This is a diagnostic fixture version,
+not an audio protocol or product revision.
+
+Summary requires exactly one well-formed boundary and coherent stream/QPC order.
+All pre-arm queue, removal, dispatch, procedure, pointer/touch and timestamp
+candidates are excluded. Windows clock samples and successful clock-sentinel
+returns must also be post-arm. A release must have matching post-arm removal,
+dispatch, entry and return identity and ordering; earlier procedure observations
+cannot complete it. Independent Linux action binding remains in force. No
+cross-system contact-ID equality or queue-class admission assumption is added.
+
+The old package.json and physical records remain unchanged as historical proof.
+The repaired launcher uses action-package.json and requires version 2 before
+running; old binaries cannot silently authorize an action-bound observation.
+Reprocessing the retained no-touch timeline still returns exactly
+UIR2_INSUFFICIENT_PHYSICAL_COVERAGE. It lacks the new marker, so no Windows
+release authority is reconstructed retroactively. No new physical run is part
+of this source repair.
