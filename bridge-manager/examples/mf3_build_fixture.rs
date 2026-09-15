@@ -18,6 +18,9 @@ fn copy(from: &Path, to: &Path) -> Result<Artifact> {
     artifact(to.into())
 }
 fn main() -> Result<()> {
+    unsafe {
+        libc::umask(0o077);
+    }
     let args: Vec<_> = env::args().collect();
     require(
         args.len() == 6,

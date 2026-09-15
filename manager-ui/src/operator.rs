@@ -214,7 +214,7 @@ impl Operator {
             if let Some(reason)=op["reason"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
             if let Some(recovery)=op["preparation_failure"]["recovery"].as_str(){ui.small(recovery);}
         }
-        egui::CollapsingHeader::new("Recorded tests and remaining qualification").id_salt(v["selection"].as_str()).default_open(true).show(ui,|ui|{
+        egui::CollapsingHeader::new("Recorded tests and remaining qualification").id_salt(v["selection"].as_str()).default_open(false).show(ui,|ui|{
             for area in ["daw_load","midi","audio","editor","parameters","automation","state_recall","retirement"] {
                 let latest=v["evidence"].as_array().and_then(|rows|rows.iter().rev().find(|r|r["area"]==area));
                 ui.label(format!("{}: {}",area.replace('_'," "),latest.and_then(|r|r["status"].as_str()).unwrap_or("not tested")));
@@ -403,6 +403,26 @@ impl eframe::App for Operator {
                 ui.label(if s.capture["armed"]==true{"Crash capture: armed for next admitted launch"}else if s.capture["active_retention"].as_u64().unwrap_or(0)>0{"Crash capture: retaining an active instance"}else{"Crash capture: off"});
                 if s.capture["armed"]==true { for action in &s.actions { if matches!(action.action,Action::CaptureDisarm{}) { Self::buttons(ui,std::slice::from_ref(action),busy,controls_pending,&mut chosen); } } }
                 if let Some(op)=&s.operation{egui::CollapsingHeader::new("Last operation receipt").show(ui,|ui|Self::value(ui,op));}
+                ui.separator();ui.horizontal(|ui|{ui.label("Find a product");ui.text_edit_singleline(&mut self.filter);});
+                for (state,label) in [("experimental","Experimental use enabled"),("prepared","Test instances prepared"),("ready","Ready"),("needs_attention","Needs attention"),("installed_unqualified","Installed but unqualified"),("quarantined","Quarantined")]{
+                    let products:Vec<_>=s.products.iter().filter(|p|p.disposition==state && format!("{} {}",p.name,p.vendor).to_lowercase().contains(&self.filter.to_lowercase())).collect();
+                    ui.heading(format!("{} ({})",label,products.len()));
+                    for p in products{egui::Frame::group(ui.style()).show(ui,|ui|{
+                        ui.heading(&p.name);ui.label(format!("{} · {} · {}",p.vendor,p.role,p.version));
+                        let live=s.active_sessions.iter().filter(|o|o["class_id"]==p.class_id).count();if live>0{ui.label(format!("Live instances: {live}. Closing the manager leaves them running."));}
+                        if let Some(rev)=p.active_revision{ui.label(format!("Published revision: {rev} · Recommended: {}",p.recommended_revision.map(|v|v.to_string()).unwrap_or_else(||"none".into())));}
+                        for limit in &p.limitations{ui.small(limit.replace('_'," "));}
+                        if let Some(hint)=p.details["inspection_hint"].as_str(){ui.label(hint);}
+                        Self::buttons(ui,&p.actions,busy,controls_pending,&mut chosen);
+                        if let Some(v)=p.details.get("preparation") { Self::preparation_details(ui,v); }
+                        if let Some(reason)=p.details["preparation_failure"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
+                        egui::CollapsingHeader::new("Revision history and exact details").id_salt((&p.class_id,&p.module_sha256)).show(ui,|ui|{
+                            for h in &p.history{ui.label(format!("Revision {} · {}{}{}",h.revision,h.claim,if h.active{" · active"}else{""},if h.rollback_allowed && !h.active{" · rollback available"}else{""}));}
+                            ui.small("Experimental publication is a separate explicit choice. Candidate history is not a qualification decision.");
+                            ui.label(format!("Class: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",p.class_id,p.module_sha256,p.environment,p.runner));Self::value(ui,&p.details);
+                        });
+                    });}
+                }
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
@@ -420,26 +440,6 @@ impl eframe::App for Operator {
                     Self::buttons(ui,&o.actions,busy,controls_pending,&mut chosen);
                     egui::CollapsingHeader::new("Installation and scan details").id_salt((&o.installer,&o.environment)).show(ui,|ui|Self::value(ui,&o.details));
                 });}
-                ui.separator();ui.horizontal(|ui|{ui.label("Find a product");ui.text_edit_singleline(&mut self.filter);});
-                for (state,label) in [("experimental","Experimental use enabled"),("prepared","Test instances prepared"),("ready","Ready"),("needs_attention","Needs attention"),("installed_unqualified","Installed but unqualified"),("quarantined","Quarantined")]{
-                    let products:Vec<_>=s.products.iter().filter(|p|p.disposition==state && format!("{} {}",p.name,p.vendor).to_lowercase().contains(&self.filter.to_lowercase())).collect();
-                    ui.heading(format!("{} ({})",label,products.len()));
-                    for p in products{egui::Frame::group(ui.style()).show(ui,|ui|{
-                        ui.heading(&p.name);ui.label(format!("{} · {} · {}",p.vendor,p.role,p.version));
-                        let live=s.active_sessions.iter().filter(|o|o["class_id"]==p.class_id).count();if live>0{ui.label(format!("Live instances: {live}. Closing the manager leaves them running."));}
-                        if let Some(rev)=p.active_revision{ui.label(format!("Published revision: {rev} · Recommended: {}",p.recommended_revision.map(|v|v.to_string()).unwrap_or_else(||"none".into())));}
-                        for limit in &p.limitations{ui.small(limit.replace('_'," "));}
-                        if let Some(hint)=p.details["inspection_hint"].as_str(){ui.label(hint);}
-                        if let Some(v)=p.details.get("preparation") { Self::preparation_details(ui,v); }
-                        if let Some(reason)=p.details["preparation_failure"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
-                        Self::buttons(ui,&p.actions,busy,controls_pending,&mut chosen);
-                        egui::CollapsingHeader::new("Revision history and exact details").id_salt((&p.class_id,&p.module_sha256)).show(ui,|ui|{
-                            for h in &p.history{ui.label(format!("Revision {} · {}{}{}",h.revision,h.claim,if h.active{" · active"}else{""},if h.rollback_allowed && !h.active{" · rollback available"}else{""}));}
-                            ui.small("Experimental publication is a separate explicit choice. Candidate history is not a qualification decision.");
-                            ui.label(format!("Class: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",p.class_id,p.module_sha256,p.environment,p.runner));Self::value(ui,&p.details);
-                        });
-                    });}
-                }
                 ui.separator();egui::CollapsingHeader::new("Recent incidents").show(ui,|ui|{
                     for incident in s.recent_incidents.iter().rev(){egui::CollapsingHeader::new(format!("{} · {}",incident.state,incident.id)).show(ui,|ui|{
                         for line in incident_lines(&incident.summary){ui.label(line);}

@@ -272,7 +272,7 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
                 .unwrap_or("unknown")
                 .into(),
             publication: r.id.clone(),
-            active: entry.managed_revision.as_ref() == Some(&reference),
+            active: entry.publication==Publication::Published && entry.managed_revision.as_ref() == Some(&reference),
             rollback_allowed: ordinary && ancestors.contains(&r.id),
         });
     }
