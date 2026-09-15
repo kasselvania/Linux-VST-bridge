@@ -1096,7 +1096,7 @@ def managed_install(spec):
     op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     if not re.fullmatch('[0-9a-f]{32}',op):raise RuntimeError('installer operation identity')
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;discarded=0
+    scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;diagnostics=RecentCapture(131072,64);private_report_written=False
     sel=selectors.DefaultSelector();start=time.monotonic()
     def stopping(*_):
         nonlocal stop
@@ -1104,14 +1104,13 @@ def managed_install(spec):
     signal.signal(signal.SIGTERM,stopping);signal.signal(signal.SIGINT,stopping)
     def reap():installer_reap(child)
     def drain(wait):
-        nonlocal discarded
         for key,_ in sel.select(wait):
             data=os.read(key.fileobj.fileno(),65536)
-            if data:discarded+=len(data)
+            if data:diagnostics.write(data)
             else:sel.unregister(key.fileobj)
     def value(state,live):
         return {'schema':2,'operation':op,'state':state,'raw_exit':child.returncode if child else None,
-                'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':discarded,
+                'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
                 'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
     try:
         for a in [spec['installer'],*env['runner']['files']]:verify(a)
@@ -1160,6 +1159,13 @@ def managed_install(spec):
             child.stdout.close();child.stderr.close()
         sel.close()
         state='cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed'
+        try:
+            with (report.parent/(op+'-private.log')).open('xb') as private:
+                os.chmod(private.name,0o600)
+                for data in diagnostics.rows:private.write(data)
+                private.flush();os.fsync(private.fileno())
+            private_report_written=True
+        except OSError:pass # Reporting must not prevent containment or its receipt.
         atomic(report,value(state,0 if clean else None));lock.close()
     return clean and error is None
 

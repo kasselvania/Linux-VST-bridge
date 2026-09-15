@@ -46,7 +46,7 @@ class InstallerTests(unittest.TestCase):
                 try:
                     with patch.object(session,'CompanionCgroup',return_value=scope),patch.object(session.subprocess,'Popen',return_value=child) as launch,patch.object(session,'environment',return_value={}):
                         self.assertEqual(session.install(spec),code==0)
-                    self.assertIn((code,1),scope.samples);v=json.loads((root/'result.json').read_text());self.assertTrue(v['cleanup_confirmed']);self.assertEqual(v['owned_live'],0);self.assertEqual(v['raw_exit'],code);self.assertEqual(v['state'],'completed' if code==0 else 'failed');self.assertNotIn('private installer payload',(root/'result.json').read_text());self.assertGreater(v['discarded_diagnostic_bytes'],0)
+                    self.assertIn((code,1),scope.samples);v=json.loads((root/'result.json').read_text());self.assertTrue(v['cleanup_confirmed']);self.assertEqual(v['owned_live'],0);self.assertEqual(v['raw_exit'],code);self.assertEqual(v['state'],'completed' if code==0 else 'failed');self.assertNotIn('private installer payload',(root/'result.json').read_text());self.assertGreater(v['retained_diagnostic_bytes'],0);self.assertTrue(v['private_diagnostics_written'])
                     self.assertEqual(launch.call_args.args[0],['fixed-runner','--verb=run','--','fixed-proton','run',str(artifact)])
                     self.assertEqual(launch.call_args.kwargs['env']['HOME'],str(root/'home'))
                 finally:

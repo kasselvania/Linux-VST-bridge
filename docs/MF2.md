@@ -39,8 +39,9 @@ uses the existing operation-bound service suspension/recovery and a dedicated
 `linux-vst-bridge-installer-<operation>` unit. The existing --install supervisor
 has a schema-2 managed-session route, using the same bounded cgroup/PID-start
 containment owner as vendor applications. A launcher exit with surviving children
-is unknown, not completion. The supervisor drains diagnostic pipes without
-publishing installer output. It records completed, failed, cancelled or
+is unknown, not completion. The supervisor continuously drains diagnostic pipes, retains only a private
+128-KiB/64-chunk tail and records dropped counts. Installer output is never
+published; a failed private-log write cannot obstruct containment. It records completed, failed, cancelled or
 cleanup-unconfirmed with exact operation, launcher status and cohort cleanup.
 A one-hour bound applies; stop signals belong only to that exact unit.
 
