@@ -655,10 +655,15 @@ fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> R
         }
         return Ok(());
     }
-    atomic_json(&dir.join("result.json"), value)?;
+    // Later vendor/cleanup owners retain the completed validation wait.
+    let mut value=value.clone();
+    if value.get("lock_waits").is_none() && prior.get("lock_waits").is_some() {
+        value["lock_waits"]=prior["lock_waits"].clone();
+    }
+    atomic_json(&dir.join("result.json"), &value)?;
     let latest = m.root.join("operator/latest.json");
     if make_latest || optional(&latest)?["operation"] == id {
-        atomic_json(&latest, value)?;
+        atomic_json(&latest, &value)?;
     }
     Ok(())
 }
@@ -1945,228 +1950,240 @@ mod tests {
         assert!(read.system.cleanup_unconfirmed);
         assert!(read.operation.is_none());
     }
-fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
-    use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
-    let (f, p, _, native) = test_fixture::prepared();
-    let catalogue = Catalogue {
-        schema: 3,
-        natives: vec![native],
-        environments: vec![EnvironmentBinding {
-            family: p.requirements.environment_family,
-            environment: f.r.environment.clone(),
-        }],
-        hosts: vec![],
-    };
-    let path = f.m.root.join("software/catalogue.json");
-    atomic_json(&path, &catalogue).unwrap();
-    let source = Artifact {
-        path: f.r.host.path.with_file_name("host-source-manifest.json"),
-        sha256: f.r.host_source_sha256.clone(),
-    };
-    let a = f.r.host.clone();
-    let sw = Software {
-        manager: a.clone(),
-        operator_frontend: None,
-        supervisor: a.clone(),
-        ownership: a.clone(),
-        host: a,
-        source_manifest: source,
-        source_sha256: f.r.host_source_sha256.clone(),
-        native_catalogue: Some(Artifact {
-            sha256: digest(&path).unwrap(),
-            path,
-        }),
-    };
-    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
-    let mut bytes = vec![0; 1024];
-    bytes[..2].copy_from_slice(b"MZ");
-    bytes[60] = 128;
-    bytes[128..132].copy_from_slice(b"PE\0\0");
-    bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
-    bytes[148] = 2;
-    bytes[150] = 2;
-    bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
-    let source = f.outer.join("operator-file");
-    fs::write(&source, bytes).unwrap();
-    let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
-    let request = ui::Request {
-        schema: 2,
-        state_token: token(&f.m).unwrap(),
-        action: ui::Action::InstallerEnvironmentCreate {
-            installer: installer.id,
-            runner: onboarding::runner_key(&f.r.environment.runner).unwrap(),
-        },
-    };
-    let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
-    (f, receipt.operation.unwrap())
-}
-fn capacity_fixture(m: &Manager) -> Option<CapacityReadback> {
-    // Actual capacity owner and registry read, only the Unix socket is omitted.
-    capacity::status(m, capacity::fixture_limits(), 0, false)
-        .ok()
-        .and_then(|v| serde_json::from_value(serde_json::to_value(v).unwrap()).ok())
-}
-fn worker_receipt(m: &Manager, id: &str) -> Value {
-    read_json(&job_dir(m, id).unwrap().join("result.json")).unwrap()
-}
-#[test]
-fn environment_worker_timeout_is_structured_retryable_and_never_mutates() {
-    let (f, id) = onboarding_worker_fixture();
-    let registry = f.m.lock("registry.lock").unwrap();
-    worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| {
-        capacity_fixture(&f.m)
-    })
-    .unwrap();
-    let receipt = worker_receipt(&f.m, &id);
-    assert_eq!(receipt["state"], "refused");
-    let failure: ui::OperationFailure = serde_json::from_value(receipt["failure"].clone()).unwrap();
-    assert_eq!(failure.code, ui::FailureCode::RegistryLockTimeout);
-    assert!(
-        failure.retryable
-            && !failure.mutation_started
-            && !failure.environment_created
-            && !failure.installer_launched
-    );
-    assert_eq!(failure.lock.name, ui::OperatorLock::Registry);
-    assert_eq!(
-        failure.lock.purpose,
-        ui::LockPurpose::OperatorValidationReadback
-    );
-    assert_eq!(failure.lock.operation.as_deref(), Some(id.as_str()));
-    assert_eq!(failure.lock.holder, ui::LockHolder::Unknown);
-    assert!(failure.lock.attempts >= 2);
-    assert!(!f.m.root.join("onboarding").exists());
-    assert!(!f.m.root.join("operator/resume.json").exists());
-    drop(registry);
-    // A duplicate worker/late ExecStopPost cannot rerun or overwrite terminal custody.
-    worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| {
-        capacity_fixture(&f.m)
-    })
-    .unwrap();
-    refuse_unfinished(&f.m, &id, "late hook").unwrap();
-    assert_eq!(worker_receipt(&f.m, &id), receipt);
-    let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
-        capacity_fixture(&f.m)
-    })
-    .unwrap();
-    assert_eq!(snapshot.onboarding.len(), 1);
-    assert_eq!(snapshot.onboarding[0].failure.as_ref(), Some(&failure));
-    assert!(snapshot.onboarding[0]
-        .actions
-        .iter()
-        .all(|a| a.disabled_reason.is_none()));
-}
-#[test]
-fn environment_worker_waits_then_creates_once_and_keeps_wait_receipt() {
-    let (f, id) = onboarding_worker_fixture();
-    let registry = f.m.lock("registry.lock").unwrap();
-    let m = Manager {
-        root: f.m.root.clone(),
-        publications: f.m.publications.clone(),
-    };
-    let op = id.clone();
-    let (tx, rx) = std::sync::mpsc::channel();
-    let thread = std::thread::spawn(move || {
-        worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
-            let _ = tx.send(());
-            capacity_fixture(&m)
+    fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
+        use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
+        let (f, p, _, native) = test_fixture::prepared();
+        let catalogue = Catalogue {
+            schema: 3,
+            natives: vec![native],
+            environments: vec![EnvironmentBinding {
+                family: p.requirements.environment_family,
+                environment: f.r.environment.clone(),
+            }],
+            hosts: vec![],
+        };
+        let path = f.m.root.join("software/catalogue.json");
+        atomic_json(&path, &catalogue).unwrap();
+        let source = Artifact {
+            path: f.r.host.path.with_file_name("host-source-manifest.json"),
+            sha256: f.r.host_source_sha256.clone(),
+        };
+        let a = f.r.host.clone();
+        let sw = Software {
+            manager: a.clone(),
+            operator_frontend: None,
+            supervisor: a.clone(),
+            ownership: a.clone(),
+            host: a,
+            source_manifest: source,
+            source_sha256: f.r.host_source_sha256.clone(),
+            native_catalogue: Some(Artifact {
+                sha256: digest(&path).unwrap(),
+                path,
+            }),
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let mut bytes = vec![0; 1024];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60] = 128;
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        bytes[148] = 2;
+        bytes[150] = 2;
+        bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let source = f.outer.join("operator-file");
+        fs::write(&source, bytes).unwrap();
+        let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
+        let request = ui::Request {
+            schema: 2,
+            state_token: token(&f.m).unwrap(),
+            action: ui::Action::InstallerEnvironmentCreate {
+                installer: installer.id,
+                runner: onboarding::runner_key(&f.r.environment.runner).unwrap(),
+            },
+        };
+        let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
+        (f, receipt.operation.unwrap())
+    }
+    fn capacity_fixture(m: &Manager) -> Option<CapacityReadback> {
+        // Actual capacity owner and registry read, only the Unix socket is omitted.
+        capacity::status(m, capacity::fixture_limits(), 0, false)
+            .ok()
+            .and_then(|v| serde_json::from_value(serde_json::to_value(v).unwrap()).ok())
+    }
+    fn worker_receipt(m: &Manager, id: &str) -> Value {
+        read_json(&job_dir(m, id).unwrap().join("result.json")).unwrap()
+    }
+    #[test]
+    fn terminated_worker_preserves_acquired_wait_context_and_first_terminal() {
+        let (f,id)=onboarding_worker_fixture();
+        let (_,facts)=f.m.lock_bounded(ui::OperatorLock::Registry,ui::LockPurpose::OperatorValidationReadback,Some(&id),Duration::from_millis(40)).unwrap();
+        let waits=json!([facts]);
+        write_operation(&f.m,&id,&json!({"schema":1,"operation":id,"state":"running","lock_waits":waits}),false).unwrap();
+        refuse_unfinished(&f.m,&id,"operator_worker_terminated").unwrap();
+        let terminal=worker_receipt(&f.m,&id);
+        assert_eq!(terminal["lock_waits"],waits);
+        write_operation(&f.m,&id,&json!({"schema":1,"operation":id,"state":"completed"}),false).unwrap();
+        assert_eq!(worker_receipt(&f.m,&id),terminal);
+    }
+    #[test]
+    fn environment_worker_timeout_is_structured_retryable_and_never_mutates() {
+        let (f, id) = onboarding_worker_fixture();
+        let registry = f.m.lock("registry.lock").unwrap();
+        worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| {
+            capacity_fixture(&f.m)
         })
-    });
-    rx.recv_timeout(Duration::from_secs(1)).unwrap();
-    std::thread::sleep(Duration::from_millis(30));
-    drop(registry);
-    thread.join().unwrap().unwrap();
-    let receipt = worker_receipt(&f.m, &id);
-    assert_eq!(receipt["state"], "completed", "{receipt}");
-    assert!(receipt["lock_waits"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|w| w["name"] == "registry.lock"
-            && w["attempts"].as_u64().unwrap() > 1
-            && w["outcome"] == "acquired"));
-    let records = onboarding::records(&f.m).unwrap();
-    assert_eq!(records.len(), 1);
-    assert_eq!(records[0].creation_operation, id);
-    assert!(records[0].installation_operation.is_none());
-    assert!(!records[0].published);
-    worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
-    assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
-    assert_eq!(worker_receipt(&f.m, &id), receipt);
-    assert!(!f.m.root.join("operator/resume.json").exists());
-}
-#[test]
-fn state_change_during_wait_refuses_original_request_without_mutation() {
-    let (f, id) = onboarding_worker_fixture();
-    let registry = f.m.lock("registry.lock").unwrap();
-    let m = Manager {
-        root: f.m.root.clone(),
-        publications: f.m.publications.clone(),
-    };
-    let op = id.clone();
-    let (tx, rx) = std::sync::mpsc::channel();
-    let thread = std::thread::spawn(move || {
-        worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
-            let _ = tx.send(());
-            capacity_fixture(&m)
+        .unwrap();
+        let receipt = worker_receipt(&f.m, &id);
+        assert_eq!(receipt["state"], "refused");
+        let failure: ui::OperationFailure = serde_json::from_value(receipt["failure"].clone()).unwrap();
+        assert_eq!(failure.code, ui::FailureCode::RegistryLockTimeout);
+        assert!(
+            failure.retryable
+                && !failure.mutation_started
+                && !failure.environment_created
+                && !failure.installer_launched
+        );
+        assert_eq!(failure.lock.name, ui::OperatorLock::Registry);
+        assert_eq!(
+            failure.lock.purpose,
+            ui::LockPurpose::OperatorValidationReadback
+        );
+        assert_eq!(failure.lock.operation.as_deref(), Some(id.as_str()));
+        assert_eq!(failure.lock.holder, ui::LockHolder::Unknown);
+        assert!(failure.lock.attempts >= 2);
+        assert!(!f.m.root.join("onboarding").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        drop(registry);
+        // A duplicate worker/late ExecStopPost cannot rerun or overwrite terminal custody.
+        worker_with_capacity(&f.m, &id, Duration::from_millis(40), &|| {
+            capacity_fixture(&f.m)
         })
-    });
-    rx.recv_timeout(Duration::from_secs(1)).unwrap();
-    let mut db = f.m.registry().unwrap();
-    db.revision += 1;
-    atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
-    drop(registry);
-    thread.join().unwrap().unwrap();
-    let r = worker_receipt(&f.m, &id);
-    assert_eq!(r["state"], "refused");
-    assert_eq!(
-        r["reason"],
-        "Operator validation readback: operator_stale_request_refresh"
-    );
-    assert!(!f.m.root.join("onboarding").exists());
-    assert!(!f.m.root.join("operator/resume.json").exists());
-}
-#[test]
-fn snapshot_capacity_and_creation_complete_without_reverse_wait_or_latest_theft() {
-    let (f, id) = onboarding_worker_fixture();
-    let registry = f.m.lock("registry.lock").unwrap();
-    let a = Manager {
-        root: f.m.root.clone(),
-        publications: f.m.publications.clone(),
-    };
-    let b = Manager {
-        root: f.m.root.clone(),
-        publications: f.m.publications.clone(),
-    };
-    let op = id.clone();
-    let (tx, rx) = std::sync::mpsc::channel();
-    let worker = std::thread::spawn(move || {
-        worker_with_capacity(&a, &op, Duration::from_secs(2), &|| {
-            let _ = tx.send(());
-            capacity_fixture(&a)
+        .unwrap();
+        refuse_unfinished(&f.m, &id, "late hook").unwrap();
+        assert_eq!(worker_receipt(&f.m, &id), receipt);
+        let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
         })
-    });
-    rx.recv_timeout(Duration::from_secs(1)).unwrap();
-    let snapshot = std::thread::spawn(move || {
-        snapshot_for_operation(&b, None, Duration::from_secs(2), &mut vec![], &|| {
-            capacity_fixture(&b)
-        })
-    });
-    // Newer receipt is projection authority, regardless of A's late completion.
-    let newer = "fe".repeat(16);
-    private_dir(&job_dir(&f.m, &newer).unwrap()).unwrap();
-    let latest = json!({"schema":1,"operation":newer,"state":"queued"});
-    write_operation(&f.m, &newer, &latest, true).unwrap();
-    drop(registry);
-    worker.join().unwrap().unwrap();
-    snapshot.join().unwrap().unwrap();
-    assert_eq!(worker_receipt(&f.m, &id)["state"], "completed");
-    assert_eq!(
-        optional(&f.m.root.join("operator/latest.json")).unwrap(),
-        latest
-    );
-    assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
-}
+        .unwrap();
+        assert_eq!(snapshot.onboarding.len(), 1);
+        assert_eq!(snapshot.onboarding[0].failure.as_ref(), Some(&failure));
+        assert!(snapshot.onboarding[0]
+            .actions
+            .iter()
+            .all(|a| a.disabled_reason.is_none()));
+    }
+    #[test]
+    fn environment_worker_waits_then_creates_once_and_keeps_wait_receipt() {
+        let (f, id) = onboarding_worker_fixture();
+        let registry = f.m.lock("registry.lock").unwrap();
+        let m = Manager {
+            root: f.m.root.clone(),
+            publications: f.m.publications.clone(),
+        };
+        let op = id.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
+                let _ = tx.send(());
+                capacity_fixture(&m)
+            })
+        });
+        rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        std::thread::sleep(Duration::from_millis(30));
+        drop(registry);
+        thread.join().unwrap().unwrap();
+        let receipt = worker_receipt(&f.m, &id);
+        assert_eq!(receipt["state"], "completed", "{receipt}");
+        assert!(receipt["lock_waits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w["name"] == "registry.lock"
+                && w["attempts"].as_u64().unwrap() > 1
+                && w["outcome"] == "acquired"));
+        let records = onboarding::records(&f.m).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].creation_operation, id);
+        assert!(records[0].installation_operation.is_none());
+        assert!(!records[0].published);
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
+        assert_eq!(worker_receipt(&f.m, &id), receipt);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn state_change_during_wait_refuses_original_request_without_mutation() {
+        let (f, id) = onboarding_worker_fixture();
+        let registry = f.m.lock("registry.lock").unwrap();
+        let m = Manager {
+            root: f.m.root.clone(),
+            publications: f.m.publications.clone(),
+        };
+        let op = id.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            worker_with_capacity(&m, &op, Duration::from_secs(2), &|| {
+                let _ = tx.send(());
+                capacity_fixture(&m)
+            })
+        });
+        rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        let mut db = f.m.registry().unwrap();
+        db.revision += 1;
+        atomic_json(&f.m.root.join("registry.json"), &db).unwrap();
+        drop(registry);
+        thread.join().unwrap().unwrap();
+        let r = worker_receipt(&f.m, &id);
+        assert_eq!(r["state"], "refused");
+        assert_eq!(
+            r["reason"],
+            "Operator validation readback: operator_stale_request_refresh"
+        );
+        assert!(!f.m.root.join("onboarding").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[test]
+    fn snapshot_capacity_and_creation_complete_without_reverse_wait_or_latest_theft() {
+        let (f, id) = onboarding_worker_fixture();
+        let registry = f.m.lock("registry.lock").unwrap();
+        let a = Manager {
+            root: f.m.root.clone(),
+            publications: f.m.publications.clone(),
+        };
+        let b = Manager {
+            root: f.m.root.clone(),
+            publications: f.m.publications.clone(),
+        };
+        let op = id.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            worker_with_capacity(&a, &op, Duration::from_secs(2), &|| {
+                let _ = tx.send(());
+                capacity_fixture(&a)
+            })
+        });
+        rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        let snapshot = std::thread::spawn(move || {
+            snapshot_for_operation(&b, None, Duration::from_secs(2), &mut vec![], &|| {
+                capacity_fixture(&b)
+            })
+        });
+        // Newer receipt is projection authority, regardless of A's late completion.
+        let newer = "fe".repeat(16);
+        private_dir(&job_dir(&f.m, &newer).unwrap()).unwrap();
+        let latest = json!({"schema":1,"operation":newer,"state":"queued"});
+        write_operation(&f.m, &newer, &latest, true).unwrap();
+        drop(registry);
+        worker.join().unwrap().unwrap();
+        snapshot.join().unwrap().unwrap();
+        assert_eq!(worker_receipt(&f.m, &id)["state"], "completed");
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap(),
+            latest
+        );
+        assert_eq!(onboarding::records(&f.m).unwrap().len(), 1);
+    }
     #[test]
     fn readback_and_action_entry_share_one_bounded_lock_without_repeating_action() {
         let f = test_fixture::Fixture::new();
