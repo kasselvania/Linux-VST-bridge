@@ -6,13 +6,15 @@ mod transport_storage;
 mod vendor_cli;
 mod vendor_product_cli;
 mod operator_cli;
+mod installer_import;
+mod onboarding;
 mod setup_install;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::{
     fs,
     io::{Read, Write},
-    os::fd::{FromRawFd, IntoRawFd},
+    os::fd::{AsFd, FromRawFd, IntoRawFd},
     os::unix::{
         fs::{OpenOptionsExt, PermissionsExt},
         net::{UnixListener, UnixStream},
@@ -28,6 +30,8 @@ use std::{
 use catalogue::Software;
 #[derive(Serialize, Deserialize)]
 struct SessionSpec {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    onboarding_home: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     crash_capture: Option<crash_capture::Capture>,
     registration: HostBinding,
@@ -479,7 +483,10 @@ fn spec(
     private_dir(&results)?;
     let leases = m.root.join("runtime/leases");
     private_dir(&leases)?;
+    let onboarding_home = inspect && !keeper && m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
+    if onboarding_home {require(onboarding::load(m,&r.environment.id)?.environment==r.environment,"onboarding_inspection_environment")?;}
     let s = SessionSpec {
+        onboarding_home,
         crash_capture: None,
         registration: r,
         session: sid.clone(),
@@ -1064,6 +1071,7 @@ fn main() -> Result<()> {
   Some("managed")=>managed_cli::run(&m,&args[1..]),
   Some("capture")=>crash_capture::run(&m,&args[1..]),
   Some("operator")=>operator_cli::run(&m,&args[1..]),
+  Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),

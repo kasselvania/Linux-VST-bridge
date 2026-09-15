@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "disposition": "MF2_R1_REVIEW_REPAIRS_SOURCE_VERIFIED_PENDING_REREVIEW",
+  "reviewed_base": "44f251f6c7cd6e8eec9fb7ff631b04d0d3adfa21",
+  "source_identity": "containing Git commit and tree; exact-head CI receipt on PR #108",
+  "historical_result": {
+    "path": "evidence/mf2/result.json",
+    "sha256": "21e4b183a7f692338c226ca2f2fa672a36362b4e5f183265dc681744c76c4eec",
+    "modified": false,
+    "holder": "unproved"
+  },
+  "registry_scope": {
+    "capture": "registry plus software/registry token plus exact capacity owner census",
+    "guard_dropped_before": "artifact digests, runner verification, systemd, onboarding and UI projection",
+    "final_recheck": "same token and owner census required",
+    "reviewed_source_barrier_regression": "failed: installer verification blocked registry authority",
+    "repaired_barrier_regression": "passed: independent owner acquires registry while installer verification is paused"
+  },
+  "mutation": {
+    "capacity_outside_registry": true,
+    "registry_acquisitions": 1,
+    "purpose": "environment_creation_admission",
+    "guard_passed_to_owner": true,
+    "full_digest_before_acquisition": true,
+    "verified_file_metadata_rechecked_under_guard": true,
+    "core_admission": "unchanged fail-fast",
+    "timeout": {
+      "stage": "environment_creation_admission",
+      "code": "registry_lock_timeout",
+      "retryable": true,
+      "mutation_started": false,
+      "environment_created": false,
+      "installer_launched": false
+    }
+  },
+  "purposes": {
+    "operator-canonical.lock": "action_serialization",
+    "ordinary_registry_projection": "operator_readback",
+    "queued_registry_validation": "operator_validation_readback"
+  },
+  "generated_validation": {
+    "manager_library": 92,
+    "manager_binary": 47,
+    "frontend": 6,
+    "runtime_local": {
+      "total": 65,
+      "skipped_linux_only": 36,
+      "result": "passed"
+    },
+    "manager_clippy": "passed",
+    "frontend_clippy": "passed",
+    "cases": [
+      "expensive verification barrier leaves registry available",
+      "registry drift during projection refuses final snapshot",
+      "post-validation transient contention continues exact operation once",
+      "mutation timeout retains structured no-mutation failure",
+      "installer, runner and catalogue replacement before mutation refused",
+      "exact acquired/timeout lock purposes",
+      "live cleanup/DSP/maintenance refusal at mutation",
+      "existing fail-fast admission, concurrent lock order, first terminal and latest receipt protection"
+    ]
+  },
+  "ci": {
+    "applicable": [
+      "AP12",
+      "PX2"
+    ],
+    "exact_head_results": "retained in PR #108 receipt",
+    "AP8": "not applicable: no Windows source change",
+    "AP10": "not applicable: no native/audio source change"
+  },
+  "physical_continuation": {
+    "performed": false,
+    "installed_software_changed": false,
+    "source_installer_reopened": false,
+    "import_repeated": false,
+    "environment_created": false,
+    "installer_launched": false,
+    "capture_armed": false,
+    "products_or_projects_changed": false,
+    "state_basis": "prior retained r1.json readback; no live device session in this source-only repair",
+    "installer_sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "installer_size": 1313084056
+  },
+  "nonclaims": [
+    "No historical lock-holder attribution",
+    "No repaired software installation",
+    "No live environment-create or Xfer result",
+    "No product revision, compatibility or publication change"
+  ]
+}

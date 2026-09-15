@@ -10,6 +10,28 @@ pub struct Request {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    InstallerEnvironmentCreate {
+        installer: String,
+        runner: String,
+    },
+    InstallerNewAttempt {
+        previous: String,
+        runner: String,
+    },
+    InstallerStart {
+        onboarding: String,
+    },
+    InstallerFocus {
+        onboarding: String,
+        operation: String,
+    },
+    InstallerStop {
+        onboarding: String,
+        operation: String,
+    },
+    InstallerScan {
+        onboarding: String,
+    },
     VendorApplicationOpen {
         application: String,
     },
@@ -116,6 +138,7 @@ pub struct System {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
+    pub onboarding: Vec<Onboarding>,
     pub schema: u32,
     pub state_token: String,
     pub system: System,
@@ -127,6 +150,21 @@ pub struct Snapshot {
     pub recent_incidents: Vec<Incident>,
     pub actions: Vec<AvailableAction>,
     pub operation: Option<serde_json::Value>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Onboarding {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<OperationFailure>,
+    pub installer: String,
+    pub name: String,
+    pub byte_size: u64,
+    pub format: String,
+    pub environment: Option<String>,
+    pub state: String,
+    pub required_human_action: String,
+    pub details: serde_json::Value,
+    pub actions: Vec<AvailableAction>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -166,7 +204,11 @@ impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::VendorApplicationOpen { .. }
+            Self::InstallerEnvironmentCreate { .. }
+                | Self::InstallerNewAttempt { .. }
+                | Self::InstallerStart { .. }
+                | Self::InstallerScan { .. }
+                | Self::VendorApplicationOpen { .. }
                 | Self::EnvironmentRescan { .. }
                 | Self::OrdinaryRollback { .. }
                 | Self::OrdinaryRestoreRecommended { .. }
@@ -205,6 +247,9 @@ mod tests {
     fn action_vocabulary_cannot_carry_a_command_path_or_pid() {
         for raw in [
             r#"{"kind":"run","command":"anything"}"#,
+            r#"{"kind":"installer_start","onboarding":"a","path":"/tmp/x"}"#,
+            r#"{"kind":"installer_environment_create","installer":"a","runner":"b","environment":".wine"}"#,
+            r#"{"kind":"inspect_and_publish","class_id":"a"}"#,
             r#"{"kind":"capture_disarm","path":"/tmp/other"}"#,
             r#"{"kind":"vendor_application_focus","application":"asc","pid":42}"#,
             r#"{"kind":"ordinary_activate_candidate","class_id":"a"}"#,
@@ -217,4 +262,93 @@ mod tests {
             a
         );
     }
+}
+
+// Additive schema-2 failure/readback projection. Closed fields carry no paths or PID claims.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OperatorLock {
+    #[serde(rename = "registry.lock")]
+    Registry,
+    #[serde(rename = "operator-canonical.lock")]
+    Canonical,
+    #[serde(rename = "operator-receipt.lock")]
+    Receipt,
+    #[serde(rename = "operator-resume.lock")]
+    Resume,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockMode {
+    Exclusive,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockPurpose {
+    EnvironmentCreationAdmission,
+    OperatorReadback,
+    OperatorValidationReadback,
+    ActionSerialization,
+    OperationReceipt,
+    ServiceRecovery,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WaitPolicy {
+    Bounded,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockOutcome {
+    Acquired,
+    Timeout,
+    Error,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LockHolder {
+    Unknown,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureLayer {
+    ManagerControlPlane,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureStage {
+    EnvironmentCreationAdmission,
+    OperatorValidationReadback,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureCode {
+    RegistryLockTimeout,
+    SerializationLockTimeout,
+    LockAccessError,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LockFacts {
+    pub name: OperatorLock,
+    pub mode: LockMode,
+    pub purpose: LockPurpose,
+    pub operation: Option<String>,
+    pub policy: WaitPolicy,
+    pub elapsed_wait_us: u64,
+    pub attempts: u32,
+    pub timeout_ms: u64,
+    pub outcome: LockOutcome,
+    pub holder: LockHolder,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct OperationFailure {
+    pub layer: FailureLayer,
+    pub stage: FailureStage,
+    pub code: FailureCode,
+    pub retryable: bool,
+    pub mutation_started: bool,
+    pub environment_created: bool,
+    pub installer_launched: bool,
+    pub lock: LockFacts,
 }

@@ -163,14 +163,18 @@ class CompanionCgroup:
     MAX_PROCESSES = 4096
     MAX_GROUPS = 64
 
-    def __init__(self, group=None, proc_root='/proc', cgroup_root='/sys/fs/cgroup', supervisor=None):
+    def __init__(self, group=None, proc_root='/proc', cgroup_root='/sys/fs/cgroup', supervisor=None, installer_operation=None):
         self.proc_root = pathlib.Path(proc_root)
         self.cgroup_root = pathlib.Path(cgroup_root)
         self.supervisor = os.getpid() if supervisor is None else supervisor
         actual = self.group_of(self.supervisor)
         self.group = actual if group is None else group
+        suffix='/linux-vst-bridge-vendor-arturia-software-center.service'
+        if installer_operation is not None:
+            if not isinstance(installer_operation,str) or len(installer_operation)!=32 or any(c not in '0123456789abcdef' for c in installer_operation):fail('installer operation identity')
+            suffix='/linux-vst-bridge-installer-'+installer_operation+'.service'
         if (not self.group or self.group != actual or '..' in self.group.split('/')
-                or not self.group.endswith('/linux-vst-bridge-vendor-arturia-software-center.service')):
+                or not self.group.endswith(suffix)):
             fail('companion requires its exact dedicated cgroup')
         self.root = self.cgroup_root / self.group.lstrip('/')
         self.root_identity = (self.root.stat().st_dev, self.root.stat().st_ino)

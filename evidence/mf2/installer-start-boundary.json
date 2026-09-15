@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "source_head": "8e50cd3a6552c9d5317fdd3b5280e04d1acc6c1f",
+  "source_tree": "f4a4e10c0df4c100bdbda11f0ee8c85450862b81",
+  "installed": {
+    "manager_sha256": "a768bfc18cbdae5d4e06bdb5d4b523a712111ef92bd2e0efa5b1d3f80af63054",
+    "frontend_sha256": "f8e257638ddbace57838e9f6bcb385554f42fc44778467290905cda67f62354c"
+  },
+  "installer": {
+    "sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "size": 1313084056,
+    "reimported": false,
+    "record_unchanged": true,
+    "vendor": null,
+    "product": null
+  },
+  "environment_creation": {
+    "count": 1,
+    "onboarding": "7c443d01a0f33215c3f7368665a66780",
+    "operation": "6ec35d49ce16f3ac35868bd18cb76a52",
+    "state": "completed",
+    "published": false,
+    "serialization_wait_us": 3015293,
+    "serialization_attempts": 299,
+    "mutation_registry_attempts": 1,
+    "mutation_registry_wait_us": 39,
+    "duplicate_environment": false
+  },
+  "installer_attempt": {
+    "operation": "f90faf45c6f73dd659e0a2d70d191ab5",
+    "attempts": 1,
+    "validation_registry_wait_us": 80926,
+    "validation_registry_attempts": 9,
+    "human_run_action": true,
+    "agent_installer_input": false,
+    "assertion": {
+      "authority": "operator screenshot",
+      "program_basename": "steam.exe",
+      "source_basename": "steamclient_main.c",
+      "line": 375,
+      "expression": "!status",
+      "root_cause": "unresolved",
+      "xfer_installer_ui_confirmed": false,
+      "screenshot_private_sha256": "8c582f640b24821085c95b95e9b97975a3c6641e4bc3adb10e8d0a7aa8984e04"
+    },
+    "scan_run": false,
+    "retry": false
+  },
+  "stop_boundary": {
+    "operator_report": "Stop installer unusable, no highlight",
+    "canonical_stop_offered": true,
+    "canonical_disabled_reason": null,
+    "exact_frontend_state": "not instrumented",
+    "agent_action": "one installed-manager typed installer_stop request for the exact offered owner",
+    "stop_operation": "a6dd19eec5dc18d0dd85437b76641944",
+    "stop_receipt": "completed",
+    "installer_result": "cancelled",
+    "launcher_exit": -15,
+    "launcher_exit_meaning": "SIGTERM during explicit managed cancellation, not assertion exception status",
+    "cleanup_confirmed": true,
+    "owned_live": 0,
+    "same_identity_survivors": 0,
+    "installer_unit": "inactive",
+    "resume_record_retired": true
+  },
+  "private_diagnostics": {
+    "retained_bytes": 718,
+    "discarded_bytes": 0,
+    "sha256": "b8587931c85fae4ae6ffd424d46e87c7e2d1affca13eb1e10e87149415fe4839",
+    "assertion_text_in_log": false,
+    "assertion_stack": "unavailable",
+    "public_raw_log": false
+  },
+  "final_state": {
+    "service": "active",
+    "keepers": 1,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false,
+    "capture": "off",
+    "products_unchanged": true,
+    "projects_unchanged": true,
+    "software_unchanged_after_attempt": true,
+    "unpublished_environment_retained": true
+  },
+  "disposition": "MF2_INSTALLER_STARTUP_ASSERTION_AND_FRONTEND_STOP_BOUNDARY",
+  "nonclaims": [
+    "Installer completion not established",
+    "No scan or discovered-class result",
+    "No Serum qualification or publication",
+    "No assertion root cause or Xfer defect established",
+    "No exact live frontend gating cause established",
+    "No repeat authorized or performed"
+  ]
+}
