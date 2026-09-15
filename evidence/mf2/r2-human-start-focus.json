@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "implementation_head": "3c23d8ef00440b0464231fee81104e44185ba314",
+  "prior_evidence_head": "3f8e8f46b739573e86f754ed2022d6de459c0f71",
+  "disposition": "MF2_R2_INSTALLER_RUNNING_FOCUS_NOT_CONFIRMED",
+  "environment_creation": {
+    "operation": "f1c594810c71af18be6da3f47672b2d3",
+    "environment": "4db060b14388e41103834fc4dfdd023a",
+    "previous_attempt": "7c443d01a0f33215c3f7368665a66780",
+    "installer_sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "new_environment_count": 1,
+    "total_onboarding_records": 2,
+    "published": false,
+    "state": "completed",
+    "lock_waits": [
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 41,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "f1c594810c71af18be6da3f47672b2d3",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 9,
+        "elapsed_wait_us": 80961,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "f1c594810c71af18be6da3f47672b2d3",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 9999
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 27,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "f1c594810c71af18be6da3f47672b2d3",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 9829
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 27,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "f1c594810c71af18be6da3f47672b2d3",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 39,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "f1c594810c71af18be6da3f47672b2d3",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 52,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "f1c594810c71af18be6da3f47672b2d3",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "environment_creation_admission",
+        "timeout_ms": 10000
+      }
+    ]
+  },
+  "installation": {
+    "operation": "bb01c56fdc59cde3be40946ef5d3c5c0",
+    "state": "running",
+    "human_report": "Installer is now up",
+    "target_sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "target_observation": "observed",
+    "target_ready_machine": "unknown",
+    "first_startup_problem": null,
+    "stages": [
+      {
+        "elapsed_ns": 10790,
+        "stage": "supervisor_started"
+      },
+      {
+        "elapsed_ns": 1118800009,
+        "stage": "prefix_initialization_launch_requested"
+      },
+      {
+        "elapsed_ns": 1119186556,
+        "stage": "prefix_initialization_started"
+      },
+      {
+        "elapsed_ns": 3375355118,
+        "image": "wineboot.exe",
+        "stage": "helper_image_observed"
+      },
+      {
+        "elapsed_ns": 4944732813,
+        "exit": 0,
+        "stage": "prefix_initialization_exit"
+      },
+      {
+        "elapsed_ns": 4944994198,
+        "stage": "target_runner_launch_requested"
+      },
+      {
+        "elapsed_ns": 4945535959,
+        "stage": "target_runner_started"
+      },
+      {
+        "elapsed_ns": 6161738444,
+        "image": "wineboot.exe",
+        "stage": "helper_image_observed"
+      },
+      {
+        "elapsed_ns": 7269540599,
+        "stage": "target_image_observed"
+      }
+    ],
+    "agent_keyboard_mouse_input": false,
+    "duplicate_launch": false
+  },
+  "frontend_reopen": {
+    "human_reported_close_and_reopen": true,
+    "exact_installed_frontend_count": 1,
+    "same_installation_operation": true,
+    "resume_owner_matches": true,
+    "focus_and_stop_offered": true
+  },
+  "focus": {
+    "operation": "34e5b69620cc4568d45da0740c0a5997",
+    "terminal_state": "refused",
+    "reason": "Operator action: installer_focus_refused",
+    "supervisor_result": "window_manager_refused",
+    "confirmation_bound_ms": 750,
+    "explicit_window_manager_negative_ack": false,
+    "human_observation": "possible focus; operator uncertain",
+    "later_read_only_observation": {
+      "exact_owned_top_level_count": 1,
+      "mapped_state": "Normal",
+      "active_window_is_owned": false,
+      "demands_attention": true,
+      "user_time_property": "absent",
+      "transient_for": "absent"
+    },
+    "interpretation": "Exact owned window was found and application activation requested, but active-window confirmation was absent through the bound. No exact window-manager policy cause is established.",
+    "retry": false
+  },
+  "live_state_at_capture": {
+    "installer_running": true,
+    "first_startup_problem": null,
+    "cancellation": null,
+    "cleanup": "not yet applicable; owned installer still running",
+    "service_resume_owner": "exact installation operation",
+    "scan_performed": false
+  },
+  "nonclaims": [
+    "No completed Xfer installation or authorization",
+    "No successful Focus claim from operator uncertainty",
+    "No exact desktop refusal policy root cause",
+    "No new installer or environment retry",
+    "No Serum candidate or publication"
+  ]
+}

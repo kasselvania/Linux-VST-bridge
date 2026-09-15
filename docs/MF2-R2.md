@@ -112,3 +112,21 @@ The final runtime digest was not captured at the start of those earlier runs and
 is not retroactively asserted. Human continuation begins with one **New isolated
 attempt** from the existing import, then waits for exact environment readback
 before Run installer. Xfer completion and scan remain pending.
+
+### Human continuation: startup passed, Focus not confirmed
+
+One human New isolated attempt created `4db060b14388e41103834fc4dfdd023a`,
+linked to the unchanged original cancelled environment. Registry validation
+contention cleared in 80.961ms; the same operation completed. One human Start
+launched the exact imported target, with successful prefix initialization and no
+startup diagnostic. Closing/reopening the frontend retained the same running
+installation and exact offered Focus/Stop controls.
+
+One human Focus request returned `window_manager_refused`. This name denotes
+absence of active-window confirmation within 750ms, not an explicit negative WM
+acknowledgment. Subsequent read-only observation found one exact owned normal
+window, DEMANDS_ATTENTION, and an active window outside that ownership. The
+operator was unsure whether focus moved. No retry occurred, and no exact desktop
+policy cause is claimed. The installer remains live under its original operation;
+startup success is retained separately from this recovery-control boundary.
+See `evidence/mf2/r2-human-start-focus.json`.
