@@ -53,3 +53,15 @@ all candidate history, 512 recommended and 256 unqualified. Do not ordinary-publ
 Serum or alter Serum FX. Stop observers and exact owned test processes; require
 positive cleanup, zero leases/transactions/stale transports and healthy service /
 keeper at handoff. Keep the SV1 PR draft and unmerged for independent review.
+
+## Retained operator result and resting state
+
+The one operator session opened a responsive real editor, then failed at the
+bridge processing-restart `lifecycle correlation` check after preset use. Exact
+IF1 custody and positive cleanup are retained; no Serum exception was established.
+After the operator closed Bitwig, the temporary publication was removed through
+the manager. Candidate/history and installation remain intact, ordinary products
+and projects unchanged, capture off, service/keepers healthy and all DSP,
+maintenance, transaction and stale-transport counts zero. No relaunch or
+compatibility repair has been performed. See `evidence/sv1/first-operator-session.json`
+and `evidence/sv1/closed-restored.json`.

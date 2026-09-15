@@ -134,5 +134,21 @@ survival of its separate native plug-in-host was not established. Service was
 healthy with two environment keepers, no DSP/maintenance leases, no pending
 transactions or stale transports, and no cleanup block. No relaunch or repair
 was attempted. See `evidence/sv1/first-operator-session.json`; raw diagnostics
-remain private. The temporary candidate remains published pending operator
-shutdown and cleanup handoff.
+remain private. The operator subsequently closed Bitwig; the test publication was removed
+through the manager while preserving candidate and failure history (see below).
+
+## Resting state after operator close
+
+Read-only process inspection confirmed that Bitwig was closed. The installed
+manager removed the temporary Serum publication through `qualify-instrument
+restore`. The exact candidate revision, staged artifacts, installation and first
+failure evidence remain intact. No Serum binary, profile or workaround changed.
+Pigments18 with rollback11, LoFi10 and FRAGMENTS10 remain published and valid;
+their registry entries and protected projects were verified unchanged.
+
+Service is active with two healthy service-owned environment keepers and zero
+DSP leases, maintenance leases, pending transactions or stale transports. Cleanup
+is positively confirmed and capture is off. The exact sanitized resting readback
+is `evidence/sv1/closed-restored.json`. No relaunch occurred. The next technical
+investigation is the observed processing-restart lifecycle-correlation boundary;
+the underlying cause remains unresolved. PR #107 remains draft and unmerged.
