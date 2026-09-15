@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "disposition": "MF2_IMPLEMENTED_INSTALLED_HUMAN_IMPORT_PENDING",
+  "implementation_head": "a10ff8526b18c0b7f1eadbddfe6701cee0eb6c66",
+  "implementation_tree": "f31de79c9fe3e323dbd325207ef4dea41380d704",
+  "operator_model": 2,
+  "import_record_schema": 1,
+  "onboarding_record_schema": 1,
+  "installer_result_schema": 2,
+  "installation": {
+    "manager_sha256": "26916a0d1b4f47d0d6cfc81fb94b8bb133f8d4a9ebce4f07b75027851ebc22f0",
+    "frontend_sha256": "b345117f002f8b8dd4f9726f0b9cd6b5e1d38a42e70e8c05f29f2db5442fa923",
+    "supervisor_sha256": "94877d295d59fc7289b0428ab38af2aa761c9a9307e2c12eb8dba61bddbaa090",
+    "ownership_sha256": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+    "windows_host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "product_artifacts_rebuilt": false,
+    "prior_software_retained": true,
+    "package_preflight_correction": "transferred executable mode corrected before setup executed"
+  },
+  "validation": {
+    "manager_library": 89,
+    "manager_binary": 35,
+    "frontend": 5,
+    "runtime_local": {
+      "total": 65,
+      "linux_only_skipped_on_macos": 36
+    },
+    "linux_runtime": "AP12 passed",
+    "strict_manager_clippy": "passed",
+    "strict_frontend_clippy": "passed",
+    "ap12": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34995680063",
+    "px2": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34995679946",
+    "ap8": "not required: no Windows product or fixture source changed",
+    "ap10": "not required: no native/audio source changed"
+  },
+  "human_workflow": {
+    "import": "pending",
+    "environment": "not created",
+    "installer": "not launched",
+    "scan": "not run",
+    "input_by_agent": false
+  },
+  "installed_readback": {
+    "ordinary_pigments": 18,
+    "rollback_pigments": 11,
+    "lofi": 10,
+    "fragments": 10,
+    "projects_unchanged": true,
+    "service": "active",
+    "keeper": 1,
+    "dsp_leases": 0,
+    "maintenance_leases": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "capture": "off"
+  },
+  "nonclaims": [
+    "No Serum qualification, candidate or Bitwig publication",
+    "No installer completion or authorization claim",
+    "Generated tests are not a real installer result"
+  ]
+}

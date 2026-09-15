@@ -415,5 +415,6 @@ prepare a Serum candidate in MF2.
 MF2 adds operator model 2, inherited-file installer ingress, unpublished initial
 installation records, operation-bound supervised installer units, native picker
 and durable wizard, and existing-scanner reuse for onboarding environments.
-See docs/MF2.md. Generated checks and Linux packaging precede the one human-only
-Xfer workflow. No installer or product operation has been run by this source cut.
+See docs/MF2.md and evidence/mf2/result.json. Generated checks and AP12/PX2 passed;
+the manager/frontend is immutably installed. The one human-only Xfer workflow is
+awaiting native-picker input. No installer or product operation has launched.

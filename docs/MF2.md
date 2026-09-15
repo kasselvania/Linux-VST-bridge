@@ -74,7 +74,9 @@ consent interaction belongs to the human operator.
 
 ## Verification status
 
-Generated import, environment, action, ownership, inventory and frontend checks
-are part of the manager/frontend/runtime suites. The real Xfer workflow and exact
-installed-software identities will be recorded separately after those checks and
-CI pass. No real installer or product operation has run during implementation.
+The implementation passed 89 manager-library, 35 binary and 5 frontend tests,
+strict manager/frontend Clippy, and AP12/PX2 at the exact implementation head.
+The Linux manager/frontend package is installed through immutable setup; existing
+product artifacts and publications remain unchanged. The native-picker handoff
+is pending human interaction. No installer has launched. Exact identities and
+current workflow status are retained in `evidence/mf2/result.json`.
