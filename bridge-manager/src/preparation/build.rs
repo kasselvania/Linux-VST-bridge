@@ -167,15 +167,35 @@ with zipfile.ZipFile(kit) as z:
   b=z.read(i);assert hashlib.sha256(b).hexdigest()==recipe['files'][key]
   (out/name).write_bytes(b)
 "#;
-    let result = Command::new("python3")
+    let launch = Command::new("python3")
         .args(["-I", "-c", script])
         .arg(&kit.path)
         .arg(&stage)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .status();
-    if !result?.success() {
+        .spawn();
+    let mut child = match launch {
+        Ok(c) => c,
+        Err(e) => {
+            fs::remove_dir_all(&stage)?;
+            return Err(e.into());
+        }
+    };
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            child.kill()?;
+            child.wait()?;
+            fs::remove_dir_all(&stage)?;
+            return Err("preparation_runtime_unpack_deadline".into());
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    if !status.success() {
         fs::remove_dir_all(&stage)?;
         return Err("preparation_runtime_package_incomplete".into());
     }

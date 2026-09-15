@@ -378,4 +378,74 @@ mod tests {
             &offer
         ));
     }
+    #[test]
+    fn keeper_and_maintenance_inspector_keep_independent_host_bindings() {
+        let (f, _, _, _) = test_fixture::prepared();
+        let id = "ac".repeat(16);
+        let root = f.m.root.join("environments").join(&id);
+        let env = Environment {
+            id: id.clone(),
+            root,
+            revision: 1,
+            runner: f.r.environment.runner.clone(),
+        };
+        let drive = env.root.join("compatdata/pfx/drive_c");
+        private_dir(&drive).unwrap();
+        atomic_json(&env.root.join("environment.json"), &env).unwrap();
+        let module = Artifact {
+            path: drive.join("module.vst3"),
+            sha256: f.r.module.sha256.clone(),
+        };
+        fs::copy(&f.r.module.path, &module.path).unwrap();
+        private_dir(&onboarding::directory(&f.m, &id).unwrap()).unwrap();
+        atomic_json(
+            &onboarding::directory(&f.m, &id)
+                .unwrap()
+                .join("record.json"),
+            &onboarding::Record {
+                schema: 1,
+                id: id.clone(),
+                installer: "ab".repeat(32),
+                environment: env.clone(),
+                created_at: 1,
+                creation_operation: "cd".repeat(16),
+                installation_operation: None,
+                published: false,
+                previous_attempt: None,
+            },
+        )
+        .unwrap();
+        let a = f.r.host.clone();
+        let sw = Software {
+            preparation_kit: None,
+            manager: a.clone(),
+            operator_frontend: None,
+            supervisor: a.clone(),
+            ownership: a.clone(),
+            host: a.clone(),
+            source_manifest: Artifact {
+                path: a.path.with_file_name("host-source-manifest.json"),
+                sha256: f.r.host_source_sha256.clone(),
+            },
+            source_sha256: f.r.host_source_sha256.clone(),
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let original = HostBinding {
+            metadata: ClassSelection {
+                class_id: f.r.key(),
+            },
+            environment: env,
+            module,
+            host: a,
+            host_source_sha256: f.r.host_source_sha256.clone(),
+            compatibility: Compatibility::default(),
+        };
+        assert!(spec(&f.m, original.clone(), true, false, true).is_ok());
+        let mut newer = original;
+        newer.host.sha256 = "de".repeat(32);
+        assert!(spec(&f.m, newer.clone(), true, false, true).is_err());
+        assert!(spec(&f.m, newer.clone(), true, true, false).is_ok());
+        assert!(spec(&f.m, newer, false, false, false).is_err());
+    }
 }

@@ -449,3 +449,60 @@ fn failed_build_cleanup_retains_bounded_diagnostic_without_partial_candidate() {
         .is_empty());
     assert!(f.m.registry().unwrap().classes.is_empty());
 }
+
+#[test]
+fn preparation_runtime_is_exact_immutable_software_and_bad_package_retires_stage() {
+    for good in [true, false] {
+        let (f, c) = fixture();
+        let path = f.m.root.join("software/preparation-kit.zip");
+        let script = r#"import json,zipfile,hashlib,sys
+path,good=sys.argv[1:];files={'runtime/host.exe':b'host','runtime/host-source-manifest.json':b'{}'}
+if good=='false':del files['runtime/host.exe']
+with zipfile.ZipFile(path,'w') as z:
+ z.writestr('recipe.json',json.dumps({'schema':1,'files':{k:hashlib.sha256(v).hexdigest() for k,v in files.items()}}))
+ for k,v in files.items():z.writestr(k,v)
+"#;
+        assert!(std::process::Command::new("python3")
+            .args(["-I", "-c", script])
+            .arg(&path)
+            .arg(if good { "true" } else { "false" })
+            .status()
+            .unwrap()
+            .success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let a = c.host.clone();
+        let sw = crate::catalogue::Software {
+            manager: a.clone(),
+            operator_frontend: None,
+            preparation_kit: Some(Artifact {
+                sha256: digest(&path).unwrap(),
+                path,
+            }),
+            supervisor: a.clone(),
+            ownership: a.clone(),
+            host: a,
+            source_manifest: c.source_manifest.clone(),
+            source_sha256: c.source_manifest.sha256.clone(),
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let result = build::stage_runtime(&f.m);
+        if good {
+            let r = result.unwrap();
+            assert!(r.host.path.starts_with(f.m.root.join("software")));
+            assert_eq!(
+                file(&r.host.path).unwrap().metadata().unwrap().mode() & 0o222,
+                0
+            );
+            assert_eq!(build::stage_runtime(&f.m).unwrap().host, r.host);
+        } else {
+            assert!(result.is_err());
+            assert_eq!(
+                fs::read_dir(f.m.root.join("software/preparation-kits"))
+                    .unwrap()
+                    .count(),
+                0
+            );
+        }
+    }
+}

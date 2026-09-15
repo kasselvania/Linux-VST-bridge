@@ -800,6 +800,36 @@ fn for_profile(m: &Manager, p: &Profile) -> Result<Option<Candidate>> {
 pub(crate) fn owns_profile(m: &Manager, p: &Profile) -> Result<bool> {
     Ok(for_profile(m, p)?.is_some())
 }
+/// Used after service admission to keep per-class runtime identity separate from
+/// the environment keeper and the maintenance inspector.
+pub fn session_binding(
+    m: &Manager,
+    class: &str,
+    environment: &Environment,
+    module: &Artifact,
+    host: &Artifact,
+    source: &str,
+) -> Result<bool> {
+    let db = m.registry()?;
+    let Some(e) = db.classes.get(class) else {
+        return Ok(false);
+    };
+    let Some(reference) = &e.managed_revision else {
+        return Ok(false);
+    };
+    let r = m.load_revision(class, reference)?;
+    if !owns_profile(m, &r.profile)? {
+        return Ok(false);
+    }
+    require(
+        r.registration.environment == *environment
+            && r.registration.module == *module
+            && r.registration.host == *host
+            && r.registration.host_source_sha256 == source,
+        "managed_session_binding_changed",
+    )?;
+    Ok(true)
+}
 pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> Result<()> {
     let c = for_profile(m, p)?.ok_or("candidate_preparation_required")?;
     verify_candidate(m, &c, &c.selection.scanner, &c.selection.scanner_source)?;

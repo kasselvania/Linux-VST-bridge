@@ -495,17 +495,19 @@ fn spec(
     let onboarding_home = r.metadata.class_id == managed_candidate::candidate()?.class.class_id
         || m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
     if onboarding_home {
-        let managed=m.registry()?.classes.values().filter(|e|e.registration.environment==r.environment && e.registration.module==r.module)
-            .filter_map(|e|e.managed_revision.as_ref().map(|reference|(&e.registration.metadata.class_id,reference))).map(|(key,reference)|m.load_revision(key,reference)).collect::<Result<Vec<_>>>()?;
-        if managed.iter().any(|rev|rev.qualification==Some(publication::Qualification::ManagedExperimental) || rev.profile.id.starts_with("managed.")) {
-            require(managed.iter().any(|rev|rev.registration.host.sha256==r.host.sha256 && rev.registration.host_source_sha256==r.host_source_sha256),"managed_session_host_changed")?;
+        if keeper {
+            let current:Software=read_json(&m.root.join("software.json"))?;
+            require(r.host==current.host && r.host_source_sha256==current.source_sha256,"keeper_software_binding_changed")?;
+            require(onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment),"keeper_environment_binding_changed")?;
         } else if inspect && onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment) {
-            // Maintenance-only exact inspector selection survives the ownership
-            // handoff; this does not admit a DSP or initial installer update.
+            // The maintenance inspector is independently installed and may be
+            // newer than a retained product runtime. It grants no DSP authority.
+        } else if preparation::session_binding(m,&r.metadata.class_id,&r.environment,&r.module,&r.host,&r.host_source_sha256)? {
+            // Exact managed preparation/acceptance authority, including adoption.
         } else if r.metadata.class_id == managed_candidate::candidate()?.class.class_id {
             managed_candidate::check_session(m,&r.metadata.class_id,&r.environment,&r.module,&r.host,&r.host_source_sha256)?;
         } else {
-            require(onboarding::load(m,&r.environment.id)?.environment==r.environment,"onboarding_inspection_environment")?;
+            return Err("managed_session_preparation_required".into());
         }
     }
     let s = SessionSpec {
