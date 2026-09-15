@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "source_basis": "7574038d633aade109b0f6401aefe74524326c85",
+  "reviewed_install": {
+    "manager_sha256": "ae300452c598aab219b19225197110ad44b8f8cf3c6f0183e657c75a9ccf0f28",
+    "frontend_sha256": "5d630a079cd209ff0aa64384ce6679b9c85873584c4e8c9fb631afdd7d44e8ff",
+    "installed": true,
+    "staging_execute_permission_refusal": {
+      "setup_started": false,
+      "software_unchanged": true,
+      "service_restored": true,
+      "corrected_staging_permissions": true
+    },
+    "products_unchanged": true,
+    "projects_unchanged": true,
+    "service": "active",
+    "keeper": 1,
+    "dsp": 0,
+    "maintenance": 0,
+    "transactions": 0,
+    "stale_transports": 0,
+    "capture": "off"
+  },
+  "installer": {
+    "sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "size": 1313084056,
+    "record_sha256": "b5efe71543a2abf401d5c0b92b1899cdc0b81d797d5025942842124b80181b69",
+    "reimported": false,
+    "vendor": null,
+    "product": null
+  },
+  "live_observations": {
+    "operator_reported_clicks": 2,
+    "second_click": "operator-reported accidental",
+    "new_operation_records": 0,
+    "historical_receipt_unchanged": true,
+    "environments_created": 0,
+    "resume_created": false,
+    "installer_launched": false,
+    "scan_run": false,
+    "input_or_request_cause": "unresolved; no exact input/request observation retained"
+  },
+  "generated_finding": {
+    "old_pending_gate": "egui Down then activity polling then Up discards click",
+    "repaired_gate": "same button sequence captures click",
+    "request_custody": "one deferred submission; current result ignores old operation receipts",
+    "preworker_refusal": "durable same request identity, no worker or mutation; projected on exact installer card",
+    "abrupt_request_interruption": "unconfirmed, not queued or successful"
+  },
+  "preservation": {
+    "historical_result_changed": false,
+    "product_or_runner_change": false,
+    "agent_installer_input": false,
+    "automatic_live_retry": false
+  },
+  "validation": "exact source and validation receipts retained on PR #108"
+}

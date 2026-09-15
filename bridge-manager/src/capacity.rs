@@ -401,7 +401,7 @@ pub fn reserve(m: &Manager, limits: &Limits, class: Option<&str>, blocked: bool)
         return Err(Refusal::CleanupUnconfirmed.into());
     }
     let lock = m.lock("registry.lock").map_err(|e| {
-        if e.to_string() == "operation already running" {
+        if e.is::<crate::operator_lock::LockBusy>() {
             Refusal::ServiceBusy.into()
         } else {
             e

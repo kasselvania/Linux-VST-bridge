@@ -7,6 +7,7 @@ pub mod crash_capture;
 mod managed_tests;
 pub mod observation;
 pub mod operator_model;
+pub mod operator_lock;
 pub mod inventory;
 pub mod profiles;
 pub mod pigments;
@@ -328,11 +329,23 @@ pub struct Manager {
     pub root: PathBuf,
     pub publications: PathBuf,
 }
-pub struct Lock(File);
+pub struct Lock {
+    file: File,
+    root: PathBuf,
+    name: String,
+}
+impl Lock {
+    pub fn require_registry(&self, m: &Manager) -> Result<()> {
+        require(
+            self.root == m.root && self.name == "registry.lock",
+            "registry_guard_identity",
+        )
+    }
+}
 impl Drop for Lock {
     fn drop(&mut self) {
         unsafe {
-            libc::flock(std::os::fd::AsRawFd::as_raw_fd(&self.0), libc::LOCK_UN);
+            libc::flock(std::os::fd::AsRawFd::as_raw_fd(&self.file), libc::LOCK_UN);
         }
     }
 }
@@ -450,6 +463,12 @@ impl Manager {
         })
     }
     pub fn lock(&self, name: &str) -> Result<Lock> {
+        match self.try_lock(name)? {
+            operator_lock::LockAttempt::Acquired(lock) => Ok(lock),
+            operator_lock::LockAttempt::Busy => Err(operator_lock::LockBusy.into()),
+        }
+    }
+    pub fn try_lock(&self, name: &str) -> Result<operator_lock::LockAttempt> {
         private_dir(&self.root)?;
         let f = OpenOptions::new()
             .read(true)
@@ -463,16 +482,24 @@ impl Manager {
             f.metadata()?.uid() == unsafe { libc::getuid() } && f.metadata()?.is_file(),
             "lock ownership differs",
         )?;
-        require(
-            unsafe {
-                libc::flock(
-                    std::os::fd::AsRawFd::as_raw_fd(&f),
-                    libc::LOCK_EX | libc::LOCK_NB,
-                )
-            } == 0,
-            "operation already running",
-        )?;
-        Ok(Lock(f))
+        let status = unsafe {
+            libc::flock(
+                std::os::fd::AsRawFd::as_raw_fd(&f),
+                libc::LOCK_EX | libc::LOCK_NB,
+            )
+        };
+        if status != 0 {
+            let error = std::io::Error::last_os_error();
+            if error.kind() == std::io::ErrorKind::WouldBlock {
+                return Ok(operator_lock::LockAttempt::Busy);
+            }
+            return Err(error.into());
+        }
+        Ok(operator_lock::LockAttempt::Acquired(Lock {
+            file: f,
+            root: self.root.clone(),
+            name: name.into(),
+        }))
     }
     pub fn registry(&self) -> Result<Registry> {
         let p = self.root.join("registry.json");

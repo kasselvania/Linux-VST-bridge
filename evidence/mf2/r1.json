@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "disposition": "MF2_R1_SOURCE_VERIFIED_AWAITING_INDEPENDENT_REVIEW",
+  "source_head": "60b9d7468989d7d34ecf1e3cb7dd8d53e089af7e",
+  "source_tree": "f9ffb825778b0dcac41243dc4353456a1d71b369",
+  "historical_result": {
+    "head": "62f8756df21ebedd5f5a2fa963112f773dd255f9",
+    "sha256": "21e4b183a7f692338c226ca2f2fa672a36362b4e5f183265dc681744c76c4eec",
+    "modified": false,
+    "lock_holder": "unproved"
+  },
+  "lock_contract": {
+    "admission_and_mutation": "fail_fast_unchanged",
+    "operator_serialization_ms": 10000,
+    "registry_phase_ms": 10000,
+    "poll_max_ms": 10,
+    "contention_detection": "typed",
+    "held_registry_guard_required": true,
+    "automatic_operation_retry": false,
+    "holder": "unknown"
+  },
+  "validation": {
+    "manager_library": 92,
+    "manager_binary": 40,
+    "frontend": 6,
+    "manager_clippy": "passed",
+    "frontend_clippy": "passed",
+    "runtime_local": {
+      "total": 65,
+      "passed_or_skipped": "passed",
+      "linux_only_skipped": 36
+    },
+    "ap12": {
+      "result": "passed",
+      "run": "34999959607"
+    },
+    "px2": {
+      "result": "passed",
+      "run": "34999959594"
+    },
+    "ap8": "not applicable: Windows source unchanged",
+    "ap10": "not applicable: native/audio source unchanged",
+    "cases": [
+      "transient registry contention continues exact operation and creates one environment",
+      "timeout is structured retryable refusal with no mutation",
+      "state changed while waiting is refused",
+      "concurrent snapshot/capacity/create finishes without deadlock",
+      "admission and mutation remain fail-fast",
+      "typed failure displayed on exact imported-installer card",
+      "duplicate worker cannot execute terminal operation",
+      "late writer cannot replace terminal or newer latest receipt",
+      "termination retains acquired wait context",
+      "wrong registry guard and real open error refused"
+    ]
+  },
+  "installed_readback": {
+    "r1_installed": false,
+    "manager_sha256": "26916a0d1b4f47d0d6cfc81fb94b8bb133f8d4a9ebce4f07b75027851ebc22f0",
+    "frontend_sha256": "b345117f002f8b8dd4f9726f0b9cd6b5e1d38a42e70e8c05f29f2db5442fa923",
+    "installer_sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "installer_record_sha256": "b5efe71543a2abf401d5c0b92b1899cdc0b81d797d5025942842124b80181b69",
+    "installer_size": 1313084056,
+    "vendor": null,
+    "product": null,
+    "source_file_read_or_reimported": false,
+    "onboarding_environment_count": 0,
+    "service": "active",
+    "keeper": 1,
+    "dsp_leases": 0,
+    "maintenance_leases": 0,
+    "transactions": 0,
+    "stale_transports": 0,
+    "capture": "off"
+  },
+  "real_continuation": {
+    "status": "not run; independent source review required before installation",
+    "environment_create": "not retried",
+    "installer": "not launched",
+    "scan": "not run"
+  },
+  "nonclaims": [
+    "No historical holder attribution",
+    "No live proof of repaired environment creation",
+    "No new software installation or product revision",
+    "No Serum candidate or publication",
+    "Legacy action-specific fail-fast lock nesting is retained; new bounded wait order applies to validation"
+  ]
+}

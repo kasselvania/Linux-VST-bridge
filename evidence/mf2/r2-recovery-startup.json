@@ -1,0 +1,286 @@
+{
+  "schema": 1,
+  "implementation_head": "3c23d8ef00440b0464231fee81104e44185ba314",
+  "implementation_tree": "1c56d80bd6160a279b2caec915e009aab4f2ddc6",
+  "rust_build_source": "e3e7b9888bcc04331845d31238dcb0ed6ec9715d",
+  "runtime_build_source": "3c23d8ef00440b0464231fee81104e44185ba314",
+  "disposition": "MF2_R2_GENERATED_REPAIR_INSTALLED_HUMAN_CONTINUATION_PENDING",
+  "historical_evidence": {
+    "result.json": "21e4b183a7f692338c226ca2f2fa672a36362b4e5f183265dc681744c76c4eec",
+    "installer-start-boundary.json": "2e8ad0e38430adcefe32f70e311b9df12df6b946d72a8e6769a5834b9fa88f7d"
+  },
+  "pinned_runner": {
+    "proton_script_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+    "lsteamclient_unix_sha256": "742e115bbb32b907c3e349bfed1c8d898f621a8dd2031d1d4479274dde5002c2",
+    "elf": [
+      "Class:                             ELF64",
+      "Machine:                           Advanced Micro Devices X86-64"
+    ],
+    "native_lookup_string_present": true,
+    "export_names_present": {
+      "CreateInterface": true,
+      "Steam_BGetCallback": true,
+      "Steam_GetAPICallResult": true,
+      "Steam_FreeLastCallback": true,
+      "Steam_ReleaseThreadLocalMemory": true,
+      "Steam_IsKnownInterface": true,
+      "Steam_NotifyMissingInterface": true
+    },
+    "target_native_library": "absent in generated private HOME; exports/dependencies cannot be examined there"
+  },
+  "generated_bootstrap": {
+    "baseline": {
+      "first_problem": {
+        "code": "native_steamclient_load_failed",
+        "status": null,
+        "elapsed_ns": 4790395863
+      },
+      "target_observation": "unknown",
+      "ready": false,
+      "state": "cancelled",
+      "outer_exit": -15,
+      "cleanup": true,
+      "payload_sha256": "fb553cb18d06c9f30bb4e96c131b24d46096d2e378fea18c6359c0f253685d77",
+      "stages": [
+        {
+          "stage": "supervisor_started",
+          "elapsed_ns": 9660
+        },
+        {
+          "stage": "runner_launch_requested",
+          "elapsed_ns": 22045351
+        },
+        {
+          "stage": "runner_started",
+          "elapsed_ns": 22529921
+        },
+        {
+          "stage": "startup_problem_observed",
+          "elapsed_ns": 4790401994,
+          "code": "native_steamclient_load_failed"
+        },
+        {
+          "stage": "cancellation_requested",
+          "elapsed_ns": 5418254583
+        },
+        {
+          "stage": "cohort_retired",
+          "elapsed_ns": 7447145312,
+          "outer_exit": -15
+        }
+      ],
+      "diagnostic_bytes": 696,
+      "dropped_bytes": 0
+    },
+    "repaired": {
+      "first_problem": null,
+      "target_observation": "observed",
+      "ready": true,
+      "state": "completed",
+      "outer_exit": 0,
+      "cleanup": true,
+      "payload_sha256": "fb553cb18d06c9f30bb4e96c131b24d46096d2e378fea18c6359c0f253685d77",
+      "stages": [
+        {
+          "stage": "supervisor_started",
+          "elapsed_ns": 9051
+        },
+        {
+          "stage": "prefix_initialization_launch_requested",
+          "elapsed_ns": 24865978
+        },
+        {
+          "stage": "prefix_initialization_started",
+          "elapsed_ns": 25447100
+        },
+        {
+          "stage": "helper_image_observed",
+          "elapsed_ns": 3329690102,
+          "image": "wineboot.exe"
+        },
+        {
+          "stage": "prefix_initialization_exit",
+          "elapsed_ns": 4827327259,
+          "exit": 0
+        },
+        {
+          "stage": "target_runner_launch_requested",
+          "elapsed_ns": 4827512572
+        },
+        {
+          "stage": "target_runner_started",
+          "elapsed_ns": 4827935911
+        },
+        {
+          "stage": "helper_image_observed",
+          "elapsed_ns": 6095364979,
+          "image": "wineboot.exe"
+        },
+        {
+          "stage": "target_image_observed",
+          "elapsed_ns": 7567028515
+        },
+        {
+          "stage": "cohort_retired",
+          "elapsed_ns": 8598304923,
+          "outer_exit": 0
+        }
+      ],
+      "diagnostic_bytes": 995,
+      "dropped_bytes": 0
+    },
+    "cancellation": {
+      "first_problem": null,
+      "target_observation": "observed",
+      "ready": true,
+      "state": "cancelled",
+      "outer_exit": -15,
+      "cleanup": true,
+      "payload_sha256": "90038ab77adaac03e7713454994f50c425f2572be4a66c590ef1f3a22deed8d4",
+      "stages": [
+        {
+          "stage": "supervisor_started",
+          "elapsed_ns": 9540
+        },
+        {
+          "stage": "prefix_initialization_launch_requested",
+          "elapsed_ns": 23138142
+        },
+        {
+          "stage": "prefix_initialization_started",
+          "elapsed_ns": 23686313
+        },
+        {
+          "stage": "helper_image_observed",
+          "elapsed_ns": 3330494990,
+          "image": "wineboot.exe"
+        },
+        {
+          "stage": "prefix_initialization_exit",
+          "elapsed_ns": 4847099933,
+          "exit": 0
+        },
+        {
+          "stage": "target_runner_launch_requested",
+          "elapsed_ns": 4847297167
+        },
+        {
+          "stage": "target_runner_started",
+          "elapsed_ns": 4847713456
+        },
+        {
+          "stage": "helper_image_observed",
+          "elapsed_ns": 6149804275,
+          "image": "wineboot.exe"
+        },
+        {
+          "stage": "target_image_observed",
+          "elapsed_ns": 7622261197
+        },
+        {
+          "stage": "cancellation_requested",
+          "elapsed_ns": 8134991001
+        },
+        {
+          "stage": "cohort_retired",
+          "elapsed_ns": 10161321346,
+          "outer_exit": -15
+        }
+      ],
+      "diagnostic_bytes": 1003,
+      "dropped_bytes": 0
+    }
+  },
+  "generated_provenance": {
+    "development_sessions": true,
+    "final_runtime_digest_not_recorded_at_launch": true,
+    "later_changes": "bounded diagnostic line parsing and helper identity observation; bootstrap launch route unchanged",
+    "repaired_normal_wrapper_cleanup_error": "Stop requested after unit already collected; retained successful payload result finalized without another launch",
+    "public_raw_paths_pids_logs": false
+  },
+  "validation": {
+    "manager_library": 92,
+    "manager_binary_linux": 54,
+    "manager_binary_local": 51,
+    "frontend": 13,
+    "linux_runtime": 69,
+    "strict_manager_frontend_clippy": "passed",
+    "ci_head": "3c23d8ef00440b0464231fee81104e44185ba314",
+    "workflows": {
+      "AP8": {
+        "run": 35012680145,
+        "result": "success"
+      },
+      "AP12": {
+        "run": 35012680147,
+        "result": "success"
+      },
+      "PX2": {
+        "run": 35012680307,
+        "result": "success"
+      }
+    },
+    "AP10": "not applicable; native/audio unchanged"
+  },
+  "installed": {
+    "operator_frontend_sha256": "1fce3670189f887c80a1c22adbedcd5aec55aa6c578b0e324a1fc5a492d6b6cd",
+    "manager_sha256": "bc47be6c96187abd90d3aa21735d4b12ab3d85f56917679d853ab827982f5bbb",
+    "supervisor_sha256": "ea8762295b5c93bdbb6ef0d5b19e0b40b8c220ed78d5ecd8096b3527718b140d",
+    "ownership_sha256": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+    "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue_sha256": "07ae89f353bd100f3f97a0ee04ba9f118e7870cfe99053f1f14f000b135d392f"
+  },
+  "installation": {
+    "immutable_setup": true,
+    "initial_staging_refusal": "retained host/source inputs omitted from staging package; setup refused before installed authority changed",
+    "service_restored_after_staging_refusal": true,
+    "corrected_staging": "copied exact installed host/source into package; no product rebuild",
+    "product_bytes_rebuilt": false,
+    "native_catalogue_artifact_set_unchanged": true,
+    "original_cancelled_onboarding_unchanged": true,
+    "import_record_unchanged": true,
+    "projects_unchanged": true,
+    "publication_ancestry_unchanged": true
+  },
+  "installer": {
+    "sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "byte_size": 1313084056,
+    "import_record_sha256": "b5efe71543a2abf401d5c0b92b1899cdc0b81d797d5025942842124b80181b69",
+    "reimported": false,
+    "source_path_retained": false,
+    "vendor": null,
+    "product": null
+  },
+  "pre_handoff_state": {
+    "service": "active",
+    "keeper": 1,
+    "dsp": 0,
+    "maintenance": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "capture": "off",
+    "ordinary_products": {
+      "Pigments": 18,
+      "Pure LoFi": 10,
+      "Efx FRAGMENTS": 10
+    },
+    "pigments_rollback": 11,
+    "onboarding_records": 1,
+    "original_onboarding": "7c443d01a0f33215c3f7368665a66780",
+    "original_installation_operation": "f90faf45c6f73dd659e0a2d70d191ab5",
+    "original_installation_state": "cancelled",
+    "new_attempt_created": false
+  },
+  "human_continuation": {
+    "requested_action": "New isolated attempt once from retained import; stop before Run installer",
+    "result": "awaiting operator"
+  },
+  "nonclaims": [
+    "No reconstructed historical assertion stack or loader status",
+    "No exact historical frontend-gating cause established",
+    "Generated startup does not prove Xfer completion",
+    "No Serum candidate, native proxy or Bitwig publication",
+    "No ordinary-product or audio qualification"
+  ]
+}

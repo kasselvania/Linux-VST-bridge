@@ -166,3 +166,9 @@ target_compile_options(uir2-touch-fixture PRIVATE /W4 /permissive- /EHsc /UNDEBU
 target_link_options(uir2-touch-fixture PRIVATE /Brepro /INCREMENTAL:NO)
 target_link_libraries(uir2-touch-fixture PRIVATE sdk sdk_hosting user32 ole32)
 set_target_properties(uir2-touch-fixture PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# MF2: account-free installer startup/Stop payload, no product SDK path.
+add_executable(mf2-bootstrap-ready ../tools/mf2/bootstrap_ready.cpp)
+target_compile_options(mf2-bootstrap-ready PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(mf2-bootstrap-ready PRIVATE /Brepro /INCREMENTAL:NO)
+set_target_properties(mf2-bootstrap-ready PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

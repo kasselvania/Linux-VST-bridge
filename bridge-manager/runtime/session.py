@@ -791,7 +791,11 @@ class IncidentCapture:
 def run(spec,peer=None):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg);transport_environment(spec,env);delivery_trace(spec,env);stop=False
+    cmd,binding=command(spec);env=environment(reg)
+    if spec.get('onboarding_home'):
+        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('shared_runtime'):raise RuntimeError('onboarding requires isolated inspection')
+        env['HOME']=str(pathlib.Path(reg['environment']['root'])/'home')
+    transport_environment(spec,env);delivery_trace(spec,env);stop=False
     capture=None;capture_error=None
     if spec.get('crash_capture'):
         try:
@@ -1050,6 +1054,7 @@ def keep(spec):
     return {'cleanup_confirmed':clean}
 
 def install(spec):
+    if spec.get('schema')==2:return managed_install(spec)
     env=spec['environment'];rootdir=pathlib.Path(env['root']);lock=(rootdir/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     for a in [spec['installer'],*env['runner']['files']]:verify(a)
     reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}};runner=env['runner'];command=[runner['entry_point'],'--verb=run','--',runner['proton'],'run',spec['installer']['path']]
@@ -1073,6 +1078,215 @@ def install(spec):
         atomic(pathlib.Path(spec['report']),{'installer':spec['installer'],'raw_exit':code,'cleanup_confirmed':clean,'error':failure,'discarded_diagnostic_bytes':discarded,'private_log':log.decode(errors='replace')})
         lock.close()
     return code==0 and clean and failure is None
+
+def installer_reap(child):
+    if child:child.poll()
+    for _ in range(128):
+        try:
+            pid,status=os.waitpid(-1,os.WNOHANG)
+            if not pid:break
+            # The launcher can exit between poll and waitpid. Preserve its
+            # actual status rather than letting Popen infer zero after ECHILD.
+            if child is not None and pid==child.pid:child.returncode=os.waitstatus_to_exitcode(status)
+        except ChildProcessError:break
+
+
+class InstallerStartup:
+    """Bounded installer-only observations; a cancelled cohort does not erase a fault.
+
+    Output is private. Only closed diagnostic signatures enter the typed report;
+    arbitrary stderr text stays in the existing bounded private sink.
+    """
+    def __init__(self, op, artifact, root, clock=time.monotonic_ns):
+        self.op=op;self.clock=clock;self.begin=clock();self.rows=[];self.dropped=0
+        self.first_problem=None;self.cancel=None;self.pending={};self.discarding=set();self.line_drops=0
+        self.artifact=artifact;self.root=pathlib.Path(root);self.target=None;self.helpers=[];self.next_census=0;self.images={}
+        self.stage('supervisor_started')
+    def stage(self, kind, **fields):
+        row={'stage':kind,'elapsed_ns':self.clock()-self.begin,**fields}
+        if len(self.rows)<48:self.rows.append(row)
+        else:self.dropped+=1
+    def problem(self, code, status=None, source="supervisor"):
+        if self.first_problem is None:
+            self.first_problem={'code':code,'status':status,'elapsed_ns':self.clock()-self.begin,'source':source}
+            self.stage('startup_problem_observed',code=code)
+    def feed(self, data, stream="stderr"):
+        # Bounded line assembly; oversized/truncated text cannot become a guessed
+        # exception or path. Keep draining even after the retention bound.
+        if stream not in ('stdout','stderr'):raise ValueError('diagnostic stream')
+        for line in (self.pending.get(stream,b'')+data).splitlines(keepends=True):
+            complete=line.endswith((b'\n',b'\r'))
+            if stream in self.discarding:
+                if complete:self.discarding.remove(stream)
+                continue
+            if len(line)>4096:
+                self.line_drops+=1;self.pending[stream]=b''
+                if not complete:self.discarding.add(stream)
+                continue
+            if not line.endswith((b'\n',b'\r')):self.pending[stream]=line;continue
+            self.pending[stream]=b''
+            if b'err:steamclient:' in line and b'unable to load native steamclient library' in line:
+                self.problem('native_steamclient_load_failed',source='bounded_runner_pipe_signature')
+            elif b'err:steamclient:' in line and b'unable to load ' in line:
+                self.problem('native_steamclient_export_unavailable',source='bounded_runner_pipe_signature')
+            elif b'Assertion failed' in line or b'Assertion ' in line and b' failed' in line:
+                self.problem('runtime_assertion_observed',source='bounded_runner_pipe_signature')
+    def cancellation(self):
+        if self.cancel is None:
+            self.cancel={'elapsed_ns':self.clock()-self.begin,'source':'owned_unit_stop_signal'}
+            self.stage('cancellation_requested')
+    def bind_images(self, runner):
+        candidates=[('target',pathlib.Path(self.artifact['path']))]
+        base=pathlib.Path(runner['proton']).parent/'files/lib/wine/x86_64-windows'
+        candidates += [(name,base/name) for name in ('steam.exe','wineboot.exe')]
+        for name,path in candidates:
+            try:
+                with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+                    md=os.fstat(f.fileno())
+                    if not stat.S_ISREG(md.st_mode):continue
+                    # The target is already verified by the launch owner; helpers
+                    # have a small explicit digest bound and no public pathname.
+                    if name=='target':digest=self.artifact['sha256']
+                    elif md.st_size<=16*1024*1024:digest=hashlib.file_digest(f,'sha256').hexdigest()
+                    else:continue
+                    self.images[(os.major(md.st_dev),os.minor(md.st_dev),md.st_ino)]=(name,digest)
+            except OSError:continue
+    def observe(self, members):
+        now=self.clock()
+        if now<self.next_census:return
+        self.next_census=now+100_000_000
+        # Identity is the mapped file's device/inode, never comm or basename.
+        for member in members[:64]:
+            try:
+                pid=member['pid'];proc=pathlib.Path('/proc')/str(pid)
+                with (proc/'maps').open('rb') as f:raw=f.read(524289)
+                observed_start=int((proc/'stat').read_text().rsplit(')',1)[1].split()[19])
+                if observed_start!=member['start_ticks'] or len(raw)>524288:continue
+                for line in raw.decode(errors='replace').splitlines():
+                    parts=line.split(None,5)
+                    if len(parts)!=6:continue
+                    dev=tuple(int(x,16) for x in parts[3].split(':'));ino=int(parts[4])
+                    image=self.images.get((*dev,ino))
+                    if image is None:continue
+                    name,digest=image
+                    row={'pid':pid,'start_ticks':member['start_ticks'],'image':name,'sha256':digest}
+                    if name=='target':
+                        if self.target is None:self.target=row;self.stage('target_image_observed')
+                    elif len(self.helpers)<8 and row not in self.helpers:
+                        self.helpers.append(row);self.stage('helper_image_observed',image=name)
+            except (OSError,ValueError,KeyError):continue
+    def value(self):
+        return {'schema':1,'operation':self.op,'stages':self.rows,'dropped_stages':self.dropped,
+                'first_problem':self.first_problem,'cancellation':self.cancel,'target':self.target,
+                'target_observation':'observed' if self.target else 'unknown','target_ready':'unknown',
+                'helpers':self.helpers,'diagnostic_line_drops':self.line_drops,
+                'exception_stack':'unavailable'}
+
+def managed_install(spec):
+    """MF2 initial installer, exact dedicated unit. No product admission authority."""
+    op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
+    if not re.fullmatch('[0-9a-f]{32}',op):raise RuntimeError('installer operation identity')
+    lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;diagnostics=RecentCapture(131072,64);private_report_written=False
+    sel=selectors.DefaultSelector();start=time.monotonic();startup=InstallerStartup(op,spec['installer'],root)
+    def stopping(*_):
+        nonlocal stop
+        stop=True;startup.cancellation()
+    signal.signal(signal.SIGTERM,stopping);signal.signal(signal.SIGINT,stopping)
+    def reap():installer_reap(child)
+    def drain(wait):
+        for key,_ in sel.select(wait):
+            data=os.read(key.fileobj.fileno(),65536)
+            if data:diagnostics.write(data);startup.feed(data,'stdout' if key.fileobj is child.stdout else 'stderr')
+            else:sel.unregister(key.fileobj)
+    def value(state,live):
+        return {'schema':2,'operation':op,'state':state,'raw_exit':child.returncode if child else None,
+                'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
+                'startup':startup.value(),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
+    try:
+        for a in [spec['installer'],*env['runner']['files']]:verify(a)
+        scope=CompanionCgroup(installer_operation=op)
+        if scope.members():raise RuntimeError('installer cgroup initially occupied')
+        if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('installer subreaper unavailable')
+        runner=env['runner'];base=[runner['entry_point'],'--verb=run','--',runner['proton']]
+        argv=base+['runinprefix']
+        if spec['format']=='pe_executable':argv.append(spec['installer']['path'])
+        elif spec['format']=='msi_compound':argv+=['msiexec','/i',windows(spec['installer']['path'],root/'compatdata/pfx')]
+        else:raise RuntimeError('installer format unsupported')
+        reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
+        launch_env=environment(reg);launch_env['HOME']=str(root/'home')
+        launch_env['WINEDEBUG']='-all,err+steamclient,err+module'
+        startup.bind_images(runner)
+        def launch(args, phase):
+            startup.stage(phase+'_launch_requested')
+            process=subprocess.Popen(args,env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+            for pipe in (process.stdout,process.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
+            startup.stage(phase+'_started',pid=process.pid)
+            return process
+        # This public verb calls init_session(True), including setup_prefix, but
+        # never Session.run/steam.exe. runinprefix alone skips setup_prefix.
+        child=launch(base+['getcompatpath','/'],'prefix_initialization')
+        bootstrap_deadline=time.monotonic()+120
+        while child.poll() is None and not stop:
+            drain(.05);startup.observe(scope.members());reap()
+            if time.monotonic()>bootstrap_deadline:
+                startup.problem('prefix_initialization_timeout');raise TimeoutError('prefix initialization')
+            atomic(report,value('starting',len(scope.members())))
+        startup.stage('prefix_initialization_exit',exit=child.returncode)
+        if stop:raise InterruptedError('cancelled during prefix initialization')
+        if child.returncode!=0:
+            startup.problem('prefix_initialization_failed',child.returncode);raise RuntimeError('prefix initialization')
+        for _ in range(64):drain(0)
+        for pipe in (child.stdout,child.stderr):
+            if pipe in sel.get_map():sel.unregister(pipe)
+            pipe.close()
+        if not (root/'compatdata/pfx/system.reg').is_file():raise RuntimeError('prefix initialization missing')
+        child=launch(argv,'target_runner')
+        last=0
+        while not stop:
+            reap();live=[r for r in scope.members() if r['state']!='Z'];startup.observe(live)
+            state=vendor_operation_state(child.returncode,len(live))
+            if state in ('completed','failed'):
+                clean=True
+                if state=='failed':error='installer_launcher_failed'
+                break
+            request_path=report.parent/(op+'-focus.json')
+            if request_path.exists():
+                req=None
+                try:
+                    with os.fdopen(os.open(request_path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+                        md=os.fstat(f.fileno())
+                        if not stat.S_ISREG(md.st_mode) or md.st_uid!=os.getuid() or md.st_size>512:raise RuntimeError('focus request bound')
+                        req=json.loads(f.read(513))
+                    request_path.unlink()
+                    if set(req)!=set(('operation','request')) or req['operation']!=op or not re.fullmatch('[0-9a-f]{32}',req['request']):raise RuntimeError('focus owner changed')
+                    result=vendor_focus(scope,None,installer=True)
+                except Exception:result='refused_exact_window_unavailable'
+                focus_result={'request':req.get('request') if isinstance(req,dict) else None,'result':result}
+            if time.monotonic()-start>3600:error='installer_time_bound';break
+            if time.monotonic()-last>.5:atomic(report,value(state,len(live)));last=time.monotonic()
+            drain(.05)
+    except Exception as exc:
+        if not stop:error='installer_owner_'+type(exc).__name__;startup.problem('supervisor_startup_error')
+    finally:
+        if scope is not None and not clean:
+            try:clean=scope.cleanup(reap)
+            except Exception:error='installer_cleanup_failed'
+        if child:
+            for _ in range(64):drain(0)
+            child.stdout.close();child.stderr.close()
+        sel.close()
+        state='cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed'
+        try:
+            with (report.parent/(op+'-private.log')).open('xb') as private:
+                os.chmod(private.name,0o600)
+                for data in diagnostics.rows:private.write(data)
+                private.flush();os.fsync(private.fileno())
+            private_report_written=True
+        except OSError:pass # Reporting must not prevent containment or its receipt.
+        startup.stage('cohort_retired' if clean else 'cleanup_unconfirmed',outer_exit=child.returncode if child else None)
+        atomic(report,value(state,0 if clean else None));lock.close()
+    return clean and error is None
 
 def vendor_operation_state(launcher_exit, owned_live):
     if launcher_exit is None:return 'running'
@@ -1159,7 +1373,7 @@ def vendor_process_metadata(scope, record, app):
             {'pid':parent['pid'],'start_ticks':parent['start_ticks']} if parent else None}
 
 
-def vendor_focus(scope,app):
+def vendor_focus(scope,app,installer=False):
     """Application-origin EWMH focus request, bound to current owned main image.
 
     No title matching, arbitrary PID, forced input focus or synthetic user input.
@@ -1167,10 +1381,12 @@ def vendor_focus(scope,app):
     """
     candidates=[]
     for record in scope.members():
+        if installer:
+            candidates.append(record);continue
         metadata=vendor_process_metadata(scope,record,app)
         if any(v['path']==app['executable']['path'] and v['sha256']==app['executable']['sha256'] for v in metadata['registered_images']):
             candidates.append(record)
-    if len(candidates)!=1:raise RuntimeError('focus main identity ambiguous')
+    if not candidates or (not installer and len(candidates)!=1):raise RuntimeError('focus main identity ambiguous')
     target=candidates[0]
     def identity():
         now=scope.identity(target['pid'])
@@ -1198,8 +1414,12 @@ def vendor_focus(scope,app):
         finally:
             if data:x.XFree(data)
     try:
-        root=x.XDefaultRootWindow(display);identity()
-        windows=[w for w in prop(root,'_NET_CLIENT_LIST') if prop(w,'_NET_WM_PID')==[target['pid']] and prop(w,'WM_STATE')[:1]==[1]]
+        root=x.XDefaultRootWindow(display)
+        owned={r['pid']:r for r in candidates}
+        windows=[(w,prop(w,'_NET_WM_PID')) for w in prop(root,'_NET_CLIENT_LIST') if prop(w,'WM_STATE')[:1]==[1]]
+        windows=[(w,ids[0]) for w,ids in windows if len(ids)==1 and ids[0] in owned]
+        if len(windows)!=1:raise RuntimeError('focus window absent or ambiguous')
+        target=owned[windows[0][1]];windows=[windows[0][0]];identity()
         if len(windows)!=1:raise RuntimeError('focus window absent or ambiguous')
         window=windows[0];identity()
         if prop(window,'_NET_WM_PID')!=[target['pid']]:raise RuntimeError('focus X11 identity changed')
