@@ -110,7 +110,9 @@ the already-published candidate; publication was not repeated.
 
 ## First operator session: terminal lifecycle failure
 
-The operator reported a very responsive editor before a crash. The exact Serum
+The operator reported a very responsive editor, then a preset that appeared loaded
+and visually present for approximately 3–5 seconds before the crash. The perceived
+preset complexity is an operator impression, not a demonstrated cause. The exact Serum
 instrument session completed 16,508 processing blocks, and the editor retained
 two complete parameter gestures (24 value events, two ends) with no editor
 failure. Nonzero audio and authorization were not independently measured.
