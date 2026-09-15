@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "disposition": "SV1_INSTRUMENT_INSPECTION_PASSED_CANDIDATE_PREPARATION",
+  "disposition": "SV1_INSTRUMENT_PREPARED_INSTALLATION_PENDING_MANAGER_CLOSE",
   "mf2_merge": "3aa26d11f401abfabf86b0b574d4cc7f8436810a",
   "class_id": "56534558667350736572756D20320000",
   "controller_factory_class_id": "56534558667343736572756D20320000",
@@ -45,11 +45,39 @@
   "bitwig_launched": false,
   "ordinary_promotion": false,
   "candidate_staged": false,
-  "validation": "in_progress",
+  "validation": {
+    "manager_library": 97,
+    "manager_binary_linux_at_initial_candidate_source": 54,
+    "frontend": 13,
+    "linux_runtime": 70,
+    "descriptor": 8,
+    "publication_interruption_boundaries": 16,
+    "strict_manager_frontend_clippy": "passed",
+    "initial_candidate_source": "c8278e12451ccb4ead9689f2022a34d9766cfe34",
+    "initial_candidate_ci": {
+      "AP12": 35020627252,
+      "PX2": 35020627201
+    },
+    "final_integration_regressions": [
+      "registered environment leaves initial-install action projection with history unchanged",
+      "candidate session uses sealed binding after registry publication",
+      "missing candidate onboarding cannot fall back to operator HOME"
+    ],
+    "final_head_ci": "pending"
+  },
   "nonclaims": [
     "No note audio tested",
     "No current authorization or editor claim",
     "No project persistence or performance claim",
     "No Serum FX qualification"
-  ]
+  ],
+  "installation": {
+    "new_software_installed": false,
+    "reason": "operator manager window remains open",
+    "frontend_bytes_unchanged": true,
+    "native_candidate_built": true,
+    "manager_candidate_stage_executed": false,
+    "ordinary_products_changed": false,
+    "bitwig_publication": false
+  }
 }

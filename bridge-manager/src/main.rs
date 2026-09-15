@@ -1136,6 +1136,13 @@ fn status(m: &Manager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn missing_candidate_onboarding_cannot_fall_back_to_operator_home() {
+        let f=super::test_fixture::Fixture::new();
+        let mut r:super::HostBinding=f.r.clone().into();
+        r.metadata.class_id=super::managed_candidate::candidate().unwrap().class.class_id;
+        assert!(super::spec(&f.m,r,false,false,false).is_err());
+    }
     use super::*;
     #[test]
     fn exposed_binding_cannot_erase_an_unresolved_retirement() {
