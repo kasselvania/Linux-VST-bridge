@@ -88,6 +88,17 @@ class Tests(unittest.TestCase):
         spec=importlib.util.spec_from_file_location('uio3_fixture_test',HERE/'fixture.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         self.assertEqual(module.finish.__module__,'uio3_session')
+    def test_multiple_contacts_do_not_hide_a_late_release_behind_an_early_one(self):
+        r=self.raw();r['x11'].append(dict(action=1,kind='core_up',observed_ns=200))
+        late=dict(r['win32'][2],qpc=5_000_000_000);r['win32'].append(late)
+        a=summarize(r)['actions'][0]
+        self.assertEqual(a['core_release_count'],2)
+        self.assertGreater(a['windows_release_tail_after_last_x11_release_lower_ms'],4990)
+        self.assertEqual(a['release_tail_basis'],'observed_after_all_X11_releases_not_cross_namespace_contact_pairing')
+    def test_an_earlier_end_does_not_close_a_later_gesture(self):
+        r=self.raw();r['gui'].append(dict(r['gui'][0],observed_ns=120))
+        self.assertNotEqual(self.boundary(r),'release_and_gesture_end_observed')
+        self.assertEqual(summarize(r)['actions'][0]['gesture_open_count'],1)
     def test_pointerup_need_not_generate_core_up(self):
         r=self.raw();r['x11']=[]
         for w in r['win32']:
