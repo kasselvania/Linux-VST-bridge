@@ -207,21 +207,33 @@ def run(root,package,runner_file,self_test=False):
   raw['error']=type(error).__name__
   raise
  finally:
-  if rec:
-   rec.close();raw['x11']=rec.records;raw['drops']['xrecord']=rec.dropped
-  if xi:
-   raw['raw']=xi.records;raw['drops']['xi2']=xi.dropped;raw['devices']=xi.device_history;xi.close()
-  if x:x.close()
-  if m:m.write('stop',1)
-  if fixture:
-   try:raw['cleanup']['fixture']=finish(fixture)
-   except Exception as e:raw['cleanup']['error']=type(e).__name__;raw['error']='fixture_cleanup_incomplete'
-  if m:
+  finalize(root,raw,rec,xi,x,m,fixture,self_test)
+
+def finalize(root,raw,rec,xi,x,m,fixture,self_test):
+ # Each cleanup owner gets its turn even if another observer fails to detach.
+ # Reporting failure must never skip the exact fixture's stop/containment.
+ errors=[]
+ def attempt(label,call):
+  try:call()
+  except Exception as e:errors.append(label+':'+type(e).__name__)
+ if rec:
+  attempt('xrecord',rec.close);raw['x11']=rec.records;raw['drops']['xrecord']=rec.dropped
+ if xi:
+  raw['raw']=xi.records;raw['drops']['xi2']=xi.dropped;raw['devices']=xi.device_history
+  attempt('xi2',xi.close)
+ if x:attempt('x11',x.close)
+ if m:attempt('stop',lambda:m.write('stop',1))
+ if fixture:
+  def retire():raw['cleanup']['fixture']=finish(fixture)
+  attempt('fixture',retire)
+ if m:
+  def read_final():
    m.take();raw['windows']=m.rows;raw['status']={k:m.read(k) for k in HEADER};raw['drops']['windows']=m.read('dropped')
    if not m.read('finished') or not m.read('destroyed') or m.read('error'):raw['error']='fixture_retirement_incomplete'
-   m.close()
-  private_json(root/'timeline.json',raw)
-  if not self_test:private_json(root/'summary.json',summary(raw))
+  attempt('final_status',read_final);attempt('mapping',m.close)
+ if errors:raw['cleanup']['errors']=errors;raw['error']='observer_cleanup_incomplete'
+ private_json(root/'timeline.json',raw)
+ if not self_test:private_json(root/'summary.json',summary(raw))
 
 if __name__=='__main__':
  try:run(*map(Path,sys.argv[1:4]),self_test=sys.argv[4:]==['--self-test'])

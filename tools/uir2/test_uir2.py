@@ -95,3 +95,17 @@ class SessionTests(unittest.TestCase):
   source=(Path(__file__).parent/'session.py').read_text()
   for call in ('.button(','.move(','.activate(','.key(','.settle_pointer(', 'XTestFake','/dev/input'):
    self.assertNotIn(call,source)
+
+
+class CleanupTests(unittest.TestCase):
+ def test_bad_observer_does_not_skip_fixture_retirement(self):
+  import tempfile
+  from unittest.mock import Mock,patch
+  import session
+  rec=Mock(records=[],dropped=0);rec.close.side_effect=RuntimeError('detachment')
+  m=Mock(rows=[]);m.read.return_value=1;fixture=Mock()
+  raw=dict(drops={},cleanup={})
+  with tempfile.TemporaryDirectory() as d,patch.object(session,'finish',return_value={'exit':0}) as retire:
+   session.finalize(Path(d),raw,rec,None,None,m,fixture,True)
+   retire.assert_called_once_with(fixture);m.write.assert_called_once_with('stop',1);m.close.assert_called_once()
+   self.assertEqual(raw['error'],'observer_cleanup_incomplete')
