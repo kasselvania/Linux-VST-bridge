@@ -88,7 +88,7 @@ input and unchanged canonical product/service state.
 ## Result
 
 Disposition: **UIR2_INSUFFICIENT_PHYSICAL_COVERAGE**. The generated Windows and
-pinned-runner tests, Xvfb/XWayland clock fixture and 56 relevant Python tests pass.
+pinned-runner tests, Xvfb/XWayland clock fixture and 57 relevant Python tests pass.
 One physical-desktop observation window ran; no operator completion arrived and
 no contact/release was recorded before its bound expired. There was no second
 window or forced retry. It does not select admission, retrieval or vendor cause.
@@ -98,3 +98,9 @@ Both fixture windows and cohorts retired positively. Ordinary products and
 installed software were not changed. Service/keeper healthy, capture off, no
 leases, transactions, stale transports or held core input. PR106 remains draft
 and unmerged; no product retest or compatibility repair is proposed.
+
+The post-observation finalizer regression additionally proves that an X RECORD
+detachment error cannot skip the fixture stop, cohort cleanup or mapping close.
+That source-only negative check did not require another physical window. The
+retained physical observation source remains `3c33d55`, and the fixture binary
+remains the exact `c5168fb` build recorded in `tools/uir2/package.json`.
