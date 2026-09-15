@@ -95,9 +95,15 @@ read, duplicate-worker suppression, newer-latest preservation, structured card
 projection, and fail-fast admission/mutation preservation. Frontend rendering
 checks prove the manager/no-launch/retry explanation comes from typed fields.
 
-No Deck interaction, package installation, file picker, installer reimport,
+No Deck mutation, GUI interaction, package installation, file picker, installer reimport,
 vendor launch or live retry occurs in R1 before independent source review.
 The installed manager/frontend identities remain those recorded in the historical
 MF2 result. The next authorized live continuation reuses installer SHA-256
 `507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695`
 (size 1,313,084,056 bytes); it must not reopen the source file picker.
+
+
+A read-only Deck check after source verification confirmed the same imported
+record, no onboarding environment, the previous installed manager/frontend,
+service active, keeper 1, capture off and zero leases/transactions/stale transports.
+It did not read the source installer or mutate any installed artifact.
