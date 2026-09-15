@@ -107,3 +107,30 @@ the agent. The operator result is pending. The exact sanitized receipt is
 The first post-publication verifier used an incorrect projection field and stopped
 after the successful manager transaction. A corrected read-only check verified
 the already-published candidate; publication was not repeated.
+
+## First operator session: terminal lifecycle failure
+
+The operator reported a very responsive editor before a crash. The exact Serum
+instrument session completed 16,508 processing blocks, and the editor retained
+two complete parameter gestures (24 value events, two ends) with no editor
+failure. Nonzero audio and authorization were not independently measured.
+
+The processing worker stopped and joined normally, followed by deactivation,
+setup (reported plug-in latency changed from 0 to 7 samples) and reactivation.
+The newly started worker then reported `lifecycle correlation`, and the Windows
+host terminated the failed processing session with status 90. The guard checks
+message kind, session and sequence; these retained records do not identify which
+field differed. This selects the lifecycle/protocol boundary for investigation,
+not a Serum exception, graphics cause, latency-change cause or compatibility fix.
+
+IF1 retained the first native-transport failure and confirmed-state identity.
+There was no Collector rejection. The Windows controller and component terminated,
+and supervisor cleanup and transport retirement were positive; outer cleanup
+exit -15 is distinct from host result 90. CA1 was off, so exception attribution
+and stack are unavailable. Bitwig main/audio-engine processes remained alive;
+survival of its separate native plug-in-host was not established. Service was
+healthy with two environment keepers, no DSP/maintenance leases, no pending
+transactions or stale transports, and no cleanup block. No relaunch or repair
+was attempted. See `evidence/sv1/first-operator-session.json`; raw diagnostics
+remain private. The temporary candidate remains published pending operator
+shutdown and cleanup handoff.
