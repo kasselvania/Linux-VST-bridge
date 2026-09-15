@@ -101,3 +101,11 @@ class StartupTests(unittest.TestCase):
         self.assertIsNone(s.value()['first_problem'])
         s.feed(b'native steamclient library\n','stdout')
         self.assertEqual(s.value()['first_problem']['code'],'native_steamclient_load_failed')
+
+    def test_oversized_line_suffix_cannot_become_a_new_diagnostic(self):
+        s=session.InstallerStartup('ab'*16,{'path':'/unused','sha256':'cd'*32},'/private')
+        s.feed(b'x'*5000)
+        s.feed(b'0040:err:steamclient:steamclient_init unable to load native steamclient library\n')
+        self.assertIsNone(s.first_problem)
+        s.feed(b'0040:err:steamclient:steamclient_init unable to load native steamclient library\n')
+        self.assertEqual(s.first_problem['code'],'native_steamclient_load_failed')

@@ -1099,7 +1099,7 @@ class InstallerStartup:
     """
     def __init__(self, op, artifact, root, clock=time.monotonic_ns):
         self.op=op;self.clock=clock;self.begin=clock();self.rows=[];self.dropped=0
-        self.first_problem=None;self.cancel=None;self.pending={};self.line_drops=0
+        self.first_problem=None;self.cancel=None;self.pending={};self.discarding=set();self.line_drops=0
         self.artifact=artifact;self.root=pathlib.Path(root);self.target=None;self.helpers=[];self.next_census=0;self.images={}
         self.stage('supervisor_started')
     def stage(self, kind, **fields):
@@ -1113,8 +1113,16 @@ class InstallerStartup:
     def feed(self, data, stream="stderr"):
         # Bounded line assembly; oversized/truncated text cannot become a guessed
         # exception or path. Keep draining even after the retention bound.
+        if stream not in ('stdout','stderr'):raise ValueError('diagnostic stream')
         for line in (self.pending.get(stream,b'')+data).splitlines(keepends=True):
-            if len(line)>4096:self.line_drops+=1;self.pending[stream]=b'';continue
+            complete=line.endswith((b'\n',b'\r'))
+            if stream in self.discarding:
+                if complete:self.discarding.remove(stream)
+                continue
+            if len(line)>4096:
+                self.line_drops+=1;self.pending[stream]=b''
+                if not complete:self.discarding.add(stream)
+                continue
             if not line.endswith((b'\n',b'\r')):self.pending[stream]=line;continue
             self.pending[stream]=b''
             if b'err:steamclient:' in line and b'unable to load native steamclient library' in line:
