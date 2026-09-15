@@ -452,3 +452,15 @@ environment. The operator has authorized fixing the reporting/interaction gap.
 Repair background-poll button gating, exact request feedback and durable
 pre-worker refusal; preserve the two no-new-operation observations. Continue on
 PR #108, with no installer launch or human-input replay by the agent.
+
+### Current live boundary after feedback installation
+
+Installed source `8e50cd3` created exactly one unpublished environment from the
+existing import. The single human Run installer action hit a Wine/Proton
+`steam.exe` assertion; Xfer installation was not established. The human could not
+use frontend Stop although canonical readback offered it. One exact typed Stop
+request through the installed manager completed cancellation and positive
+cleanup, restored service/keeper and left zero leases/transactions/transports.
+No retry, scan, runner change or product publication followed. Preserve
+`evidence/mf2/installer-start-boundary.json` alongside immutable historical results.
+These startup and frontend-control boundaries remain open for review.

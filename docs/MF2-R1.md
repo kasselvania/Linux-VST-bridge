@@ -198,3 +198,33 @@ also project onto the exact imported-installer card after frontend restart.
 
 No compatibility profile, product runtime, runner, environment, publication or
 installer bytes change in this request-feedback repair.
+
+## Human continuation on installed 8e50cd3
+
+Exactly one unpublished environment was created from the retained import. The
+same creation operation waited 3.015293 seconds for canonical serialization and
+completed; its mutation registry acquisition took one attempt. Run installer was
+then selected by the operator once. Its validation registry wait was 80.926 ms
+over nine attempts and succeeded. No new import or product artifact was needed.
+
+The operator reported a Wine C++ Runtime assertion in `steam.exe`,
+`steamclient_main.c:375`, expression `!status`. The screenshot is private. The
+owned process census and operation were retained; Xfer UI and installer completion
+were not established. This is a startup assertion boundary, not attribution of
+an Xfer defect. No runner or compatibility change or retry followed.
+
+The operator then reported Stop installer was unusable. Canonical readback offered
+the exact Stop action with no disabled reason. Thus the prior generated
+Focus/Stop coverage did not establish usable live frontend controls. The exact
+frontend blocking state was not instrumented. The agent submitted that same
+closed typed Stop action through the installed manager CLI once. It completed:
+installer cancelled, launcher SIGTERM (-15), zero owned survivors, positive
+cleanup, resume record retired, service active and keeper restored. SIGTERM is
+the cancellation result, not the assertion exception status. The bounded private
+718-byte diagnostic log does not contain the assertion text or a stack.
+
+Final readback confirms Pigments18, LoFi10 and FRAGMENTS10 publications unchanged,
+projects and import unchanged, capture off, zero DSP/maintenance leases, pending
+transactions and stale transports. The one unpublished environment remains as
+retained installation history. No scan, candidate or publication was performed.
+See `evidence/mf2/installer-start-boundary.json`. PR108 remains draft and unmerged.
