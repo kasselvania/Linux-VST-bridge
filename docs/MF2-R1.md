@@ -152,3 +152,49 @@ and purposes; the frontend covers both validation and creation-admission stages.
 These are generated source tests, not another Xfer attempt. Historical MF2 and
 prior R1 evidence are retained separately and unchanged. No installed software,
 product or real environment changes in this repair pass.
+
+## Installed continuation and request-feedback repair
+
+The reviewed `7574038` manager/frontend was installed through immutable setup.
+Its manager digest is `ae300452c598aab219b19225197110ad44b8f8cf3c6f0183e657c75a9ccf0f28`;
+frontend digest is `5d630a079cd209ff0aa64384ce6679b9c85873584c4e8c9fb631afdd7d44e8ff`.
+Readback confirmed the exact imported artifact/record, unchanged products and
+protected projects, healthy service/keeper and zero DSP/maintenance leases,
+transactions and stale transports, with capture off. Staging initially lacked
+execute permission; setup never executed in that attempt, installed authority
+remained unchanged and service restoration succeeded. Correcting only staging
+permissions allowed the verified package to install.
+
+The operator reported one Create isolated environment click and later an
+accidental second click. Neither produced a new durable operation, onboarding
+environment or resume record. The displayed refusal was byte-identical to the
+historical MF2 receipt. No Xfer process or scan ran. The evidence does not prove
+whether either live click was discarded by the frontend or refused before worker
+queuing; there was no input instrumentation for those clicks.
+
+A generated egui button test demonstrates a concrete defect: the former global
+`pending` gate disables the button when activity polling begins between Down and
+Up, discarding the click. The repaired control remains enabled during background
+activity reads. A click captured during that read is retained as one local request,
+then submitted once after the read completes. Canonical manager validation still
+runs; the frontend acquires no new mutation authority. Foreground reads, unknown
+capacity, and an already pending action still disable unsafe controls.
+
+Request feedback is bound to the selected action and returned operation ID. Old
+poll receipts cannot overwrite it. Accepted work remains held until the relevant
+terminal/vendor-running result and refreshed snapshot provide current controls;
+this preserves Focus/Stop during a live installer. An unconfirmed response stays
+explicitly unconfirmed and does not automatically retry.
+
+The manager records a typed request before admission using the existing operation
+record owner. Before dispatch completion it is `unconfirmed`, not fictitiously
+queued/running. An admission refusal commits the bounded reason and
+`operator_request_admission`, with worker/mutation false. A successful admission
+moves the same record into the existing queued worker route. First-terminal and
+newer-latest protection remain in force. If the request process vanishes before
+it confirms dispatch, the retained record truthfully remains unconfirmed; this
+repair does not infer success or start a replacement worker. Pre-worker refusals
+also project onto the exact imported-installer card after frontend restart.
+
+No compatibility profile, product runtime, runner, environment, publication or
+installer bytes change in this request-feedback repair.

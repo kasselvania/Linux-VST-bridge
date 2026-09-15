@@ -615,20 +615,29 @@ fn project_onboarding_failure(
     receipt: &Value,
     rows: &mut [ui::Onboarding],
 ) -> Result<()> {
-    if receipt["state"] != "refused" || receipt["failure"].is_null() {
+    if receipt["state"] != "refused" {
         return Ok(());
     }
     let id = receipt["operation"]
         .as_str()
         .ok_or("operator_failure_identity")?;
     let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
-    let failure: ui::OperationFailure = serde_json::from_value(receipt["failure"].clone())?;
+    let failure: Option<ui::OperationFailure> = if receipt["failure"].is_null() {
+        None
+    } else {
+        Some(serde_json::from_value(receipt["failure"].clone())?)
+    };
     if let ui::Action::InstallerEnvironmentCreate { installer, .. } = request.action {
         for row in rows
             .iter_mut()
             .filter(|r| r.installer == installer && r.environment.is_none())
         {
-            row.failure = Some(failure.clone());
+            row.failure = failure.clone();
+            if receipt["stage"] == "operator_request_admission"
+                && receipt["worker_started"] == false
+            {
+                row.details["request_result"] = json!({"operation":id,"stage":"operator_request_admission","reason":receipt["reason"],"worker_started":false});
+            }
         }
     }
     Ok(())
@@ -752,11 +761,7 @@ fn finish_operation_with(
     finalized?;
     recovered
 }
-fn launch_queued(
-    m: &Manager,
-    request: &ui::Request,
-    launch: impl FnOnce(&str) -> Result<bool>,
-) -> Result<ui::Receipt> {
+fn begin_request(m: &Manager, request: &ui::Request) -> Result<String> {
     let id = random_id()?;
     let dir = job_dir(m, &id)?;
     private_dir(&dir)?;
@@ -764,49 +769,101 @@ fn launch_queued(
     write_operation(
         m,
         &id,
-        &json!({"schema":1,"operation":id,"state":"queued","action":request.action}),
+        &json!({"schema":1,"operation":id,"state":"unconfirmed","stage":"operator_request_admission","action":request.action,"worker_started":false,"reason":"Request received; dispatch completion is not confirmed"}),
         true,
     )?;
-    if !launch(&id).unwrap_or(false) {
-        refuse_unfinished(m, &id, "operator_worker_launch_failed")?;
+    Ok(id)
+}
+#[cfg(test)]
+fn launch_queued(
+    m: &Manager,
+    request: &ui::Request,
+    launch: impl FnOnce(&str) -> Result<bool>,
+) -> Result<ui::Receipt> {
+    let id = begin_request(m, request)?;
+    launch_reserved(m, request, &id, launch)
+}
+fn launch_reserved(
+    m: &Manager,
+    request: &ui::Request,
+    id: &str,
+    launch: impl FnOnce(&str) -> Result<bool>,
+) -> Result<ui::Receipt> {
+    write_operation(
+        m,
+        id,
+        &json!({"schema":1,"operation":id,"state":"queued","action":request.action}),
+        false,
+    )?;
+    if !launch(id).unwrap_or(false) {
+        refuse_unfinished(m, id, "operator_worker_launch_failed")?;
         return Err("operator_worker_launch_failed".into());
     }
     Ok(ui::Receipt {
         schema: 2,
         accepted: true,
-        operation: Some(id),
+        operation: Some(id.into()),
         refusal: None,
     })
 }
+// Record a valid typed request before admission. Even a pre-worker refusal owns
+// a durable result; late completion cannot replace a newer request's projection.
+fn dispatch_recorded(
+    m: &Manager,
+    request: &ui::Request,
+    run: impl FnOnce(&str) -> Result<ui::Receipt>,
+) -> Result<ui::Receipt> {
+    let id = begin_request(m, request)?;
+    match run(&id) {
+        Ok(r) => Ok(r),
+        Err(e) => {
+            let reason: String = e.to_string().chars().take(512).collect();
+            write_operation(
+                m,
+                &id,
+                &json!({"schema":1,"operation":id,"state":"refused","stage":"operator_request_admission","action":request.action,"reason":reason,"worker_started":false,"mutation_started":false}),
+                false,
+            )?;
+            Ok(ui::Receipt {
+                schema: 2,
+                accepted: false,
+                operation: Some(id),
+                refusal: Some(reason),
+            })
+        }
+    }
+}
 fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
-    let _lock = m.lock("operator-dispatch.lock")?;
-    validate(&request, &snapshot(m)?)?;
-    let sw = software(m)?;
-    sw.manager.verify()?;
-    launch_queued(m, &request, |id| {
-        let status = Command::new("systemd-run")
-            .args([
-                "--user",
-                "--collect",
-                "--property=UMask=0077",
-                "--property=KillMode=control-group",
-                "--property=StandardOutput=null",
-                "--property=StandardError=null",
-            ])
-            .arg(format!(
-                "--property=ExecStopPost={} operator finish {id}",
-                systemd(
-                    sw.manager
-                        .path
-                        .to_str()
-                        .ok_or("operator_executable_encoding")?
-                )
-            ))
-            .arg(format!("--unit=linux-vst-bridge-operator-{id}"))
-            .arg(&sw.manager.path)
-            .args(["operator", "worker", id])
-            .status()?;
-        Ok(status.success())
+    dispatch_recorded(m, &request, |id| {
+        let _lock = m.lock("operator-dispatch.lock")?;
+        validate(&request, &snapshot(m)?)?;
+        let sw = software(m)?;
+        sw.manager.verify()?;
+        launch_reserved(m, &request, id, |id| {
+            let status = Command::new("systemd-run")
+                .args([
+                    "--user",
+                    "--collect",
+                    "--property=UMask=0077",
+                    "--property=KillMode=control-group",
+                    "--property=StandardOutput=null",
+                    "--property=StandardError=null",
+                ])
+                .arg(format!(
+                    "--property=ExecStopPost={} operator finish {id}",
+                    systemd(
+                        sw.manager
+                            .path
+                            .to_str()
+                            .ok_or("operator_executable_encoding")?
+                    )
+                ))
+                .arg(format!("--unit=linux-vst-bridge-operator-{id}"))
+                .arg(&sw.manager.path)
+                .args(["operator", "worker", id])
+                .status()?;
+            Ok(status.success())
+        })
     })
 }
 
@@ -2460,6 +2517,64 @@ mod tests {
     #[test]
     fn mutation_timeout_is_structured_without_environment_or_launch() {
         mutation_contention_case(true);
+    }
+    #[test]
+    fn preworker_refusal_is_durable_and_bound_to_installer_without_mutation() {
+        let (f, old) = onboarding_worker_fixture();
+        let request: ui::Request =
+            read_json(&job_dir(&f.m, &old).unwrap().join("request.json")).unwrap();
+        let _busy = f.m.lock("operator-dispatch.lock").unwrap();
+        let reply = dispatch(&f.m, request).unwrap();
+        assert!(!reply.accepted);
+        let id = reply.operation.unwrap();
+        assert_ne!(id, old);
+        let result = worker_receipt(&f.m, &id);
+        assert_eq!(result["state"], "refused");
+        assert_eq!(result["stage"], "operator_request_admission");
+        assert_eq!(result["worker_started"], false);
+        assert_eq!(result["mutation_started"], false);
+        assert!(!f.m.root.join("onboarding").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        write_operation(
+            &f.m,
+            &old,
+            &json!({"schema":1,"operation":old,"state":"refused","reason":"late old error"}),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap(),
+            result
+        );
+        let snapshot = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        })
+        .unwrap();
+        assert_eq!(
+            snapshot.onboarding[0].details["request_result"]["operation"],
+            id
+        );
+        assert_eq!(
+            snapshot.onboarding[0].details["request_result"]["worker_started"],
+            false
+        );
+    }
+    #[test]
+    fn admission_interruption_never_claims_a_queued_or_running_worker() {
+        let (f, old) = onboarding_worker_fixture();
+        let request: ui::Request =
+            read_json(&job_dir(&f.m, &old).unwrap().join("request.json")).unwrap();
+        let id = begin_request(&f.m, &request).unwrap();
+        let result = worker_receipt(&f.m, &id);
+        assert_eq!(result["state"], "unconfirmed");
+        assert_eq!(result["worker_started"], false);
+        assert!(!f.m.root.join("onboarding").exists());
+        let newer = begin_request(&f.m, &request).unwrap();
+        refuse_unfinished(&f.m, &id, "late admission failure").unwrap();
+        assert_eq!(
+            optional(&f.m.root.join("operator/latest.json")).unwrap()["operation"],
+            newer
+        );
     }
     #[test]
     fn expensive_installer_projection_leaves_registry_available() {

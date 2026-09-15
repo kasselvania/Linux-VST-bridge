@@ -443,3 +443,12 @@ exact lock purposes. Preserve prior R1 custody and historical MF2 result bytes.
 See `docs/MF2-R1.md`. Generated source verification and AP12/PX2 only. No
 installation, reimport, real environment creation or vendor launch before
 independent source rereview. Keep PR #108 draft/open/unmerged.
+
+### MF2 continuation: request feedback
+
+The operator authorized installation of reviewed `7574038`, then reported a click
+and an accidental second click. Both retained the old receipt and created no new
+environment. The operator has authorized fixing the reporting/interaction gap.
+Repair background-poll button gating, exact request feedback and durable
+pre-worker refusal; preserve the two no-new-operation observations. Continue on
+PR #108, with no installer launch or human-input replay by the agent.
