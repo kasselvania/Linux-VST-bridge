@@ -1807,6 +1807,48 @@ mod tests {
         assert!(read.operation.is_none());
     }
     #[test]
+    fn environment_worker_refuses_during_registry_readback_contention_before_mutation() {
+        // Reproduce the retained MF2 refusal using the production worker. The
+        // service capacity reader uses this same exclusive registry lock and
+        // does not participate in operator-canonical.lock.
+        let f = test_fixture::Fixture::new();
+        let a = f.r.host.clone();
+        let sw = Software {
+            manager: a.clone(), operator_frontend: None,
+            supervisor: a.clone(), ownership: a.clone(), host: a.clone(),
+            source_manifest: a.clone(), source_sha256: a.sha256.clone(),
+            native_catalogue: None,
+        };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let id = "ab".repeat(16);
+        let dir = job_dir(&f.m, &id).unwrap();
+        private_dir(&dir).unwrap();
+        let request = ui::Request {
+            schema: 2, state_token: token(&f.m).unwrap(),
+            action: ui::Action::InstallerEnvironmentCreate {
+                installer: "cd".repeat(32), runner: "ef".repeat(32),
+            },
+        };
+        atomic_json(&dir.join("request.json"), &request).unwrap();
+        write_operation(&f.m, &id,
+            &json!({"schema":1,"operation":id,"state":"queued","action":request.action}), true).unwrap();
+        let before = fs::read(f.m.root.join("software.json")).unwrap();
+        let registry_reader = f.m.lock("registry.lock").unwrap();
+        // The operator serialization lock is free: it cannot protect against
+        // a capacity read in the service's independent registry-lock domain.
+        drop(canonical_lock(&f.m).unwrap());
+        worker(&f.m, &id).unwrap();
+        let receipt: Value = read_json(&dir.join("result.json")).unwrap();
+        assert_eq!(receipt["state"], "refused");
+        assert_eq!(receipt["reason"],
+            "Operator validation readback: operation already running");
+        assert!(!f.m.root.join("onboarding").exists());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), before);
+        assert_eq!(optional(&f.m.root.join("operator/latest.json")).unwrap(), receipt);
+        drop(registry_reader);
+    }
+    #[test]
     fn readback_and_action_entry_share_one_bounded_lock_without_repeating_action() {
         let f = test_fixture::Fixture::new();
         let held = canonical_lock(&f.m).unwrap();

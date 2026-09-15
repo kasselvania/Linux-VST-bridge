@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "disposition": "MF2_IMPLEMENTED_INSTALLED_HUMAN_IMPORT_PENDING",
+  "disposition": "MF2_REAL_WORKFLOW_BLOCKED_ENVIRONMENT_CREATE_VALIDATION_LOCK",
   "implementation_head": "a10ff8526b18c0b7f1eadbddfe6701cee0eb6c66",
   "implementation_tree": "f31de79c9fe3e323dbd325207ef4dea41380d704",
   "operator_model": 2,
@@ -27,19 +27,26 @@
       "linux_only_skipped_on_macos": 36
     },
     "linux_runtime": "AP12 passed",
-    "strict_manager_clippy": "passed",
+    "strict_manager_clippy": "passed after diagnostic regression",
     "strict_frontend_clippy": "passed",
     "ap12": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34995680063",
     "px2": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/34995679946",
     "ap8": "not required: no Windows product or fixture source changed",
-    "ap10": "not required: no native/audio source changed"
+    "ap10": "not required: no native/audio source changed",
+    "new_contention_regression": "passed; 1 actual production-worker test"
   },
   "human_workflow": {
-    "import": "pending",
-    "environment": "not created",
+    "import": "passed",
+    "installer_sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "installer_byte_size": 1313084056,
+    "source_path_retained": false,
+    "vendor_identity": null,
+    "product_identity": null,
+    "environment": "not created; operator request refused during validation readback",
     "installer": "not launched",
     "scan": "not run",
-    "input_by_agent": false
+    "input_by_agent": false,
+    "retry": false
   },
   "installed_readback": {
     "ordinary_pigments": 18,
@@ -57,7 +64,21 @@
   },
   "nonclaims": [
     "No Serum qualification, candidate or Bitwig publication",
-    "No installer completion or authorization claim",
-    "Generated tests are not a real installer result"
-  ]
+    "No installer launch, completion, authorization, environment creation or real scan",
+    "Historical lock-holder process was not retained; capacity polling is a demonstrated possible competing owner, not proven incident attribution",
+    "No operational repair or second installer attempt performed"
+  ],
+  "failure": {
+    "action": "installer_environment_create",
+    "state": "refused",
+    "reason": "Operator validation readback: operation already running",
+    "request_to_result_mtime_ns": 64293800,
+    "normal_installer_started": false,
+    "source_boundary": "snapshot -> Manager::managed_status -> nonblocking registry.lock acquisition",
+    "canonical_lock_timeout_ns": 10000000000,
+    "historical_lock_holder": "unavailable: receipt records neither lock name nor holder",
+    "reproducer": "production worker under deterministic registry.lock contention writes the exact retained refusal and creates no environment or service-resume record",
+    "selected_defect": "readback lock contention becomes terminal operator-action refusal; operator-canonical serialization does not cover independent registry readers",
+    "installed_repair": false
+  }
 }

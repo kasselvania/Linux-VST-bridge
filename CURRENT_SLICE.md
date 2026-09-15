@@ -416,5 +416,7 @@ MF2 adds operator model 2, inherited-file installer ingress, unpublished initial
 installation records, operation-bound supervised installer units, native picker
 and durable wizard, and existing-scanner reuse for onboarding environments.
 See docs/MF2.md and evidence/mf2/result.json. Generated checks and AP12/PX2 passed;
-the manager/frontend is immutably installed. The one human-only Xfer workflow is
-awaiting native-picker input. No installer or product operation has launched.
+the manager/frontend is immutably installed. Human file import passed. The
+Create isolated environment action failed during validation on registry-lock
+contention; no environment or installer launched. Retain this material boundary
+and production-worker regression. No repeat occurred; onboarding remains incomplete.

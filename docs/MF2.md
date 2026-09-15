@@ -77,6 +77,30 @@ consent interaction belongs to the human operator.
 The implementation passed 89 manager-library, 35 binary and 5 frontend tests,
 strict manager/frontend Clippy, and AP12/PX2 at the exact implementation head.
 The Linux manager/frontend package is installed through immutable setup; existing
-product artifacts and publications remain unchanged. The native-picker handoff
-is pending human interaction. No installer has launched. Exact identities and
-current workflow status are retained in `evidence/mf2/result.json`.
+product artifacts and publications remain unchanged. The human selected the Xfer installer and exact import succeeded. The subsequent
+Create isolated environment action was refused during worker validation with
+`Operator validation readback: operation already running`. No environment or
+installer process was created. The workflow stopped; it is not accepted as a
+completed onboarding result. Exact evidence is in `evidence/mf2/result.json`.
+
+
+## Retained environment-create failure
+
+The request and terminal-result file timestamps are 64.2938 ms apart. The worker
+failed inside its snapshot before action execution. `snapshot` takes the bounded
+operator-canonical lock, then canonical product readback takes `registry.lock`
+nonblocking. The latter lock is also used independently by service capacity
+readback. A competing registry owner therefore immediately aborts validation;
+operator serialization does not prevent that collision.
+
+The new production-worker regression holds that registry lock and reproduces the
+exact refused receipt, with no onboarding or service-resume record. It does not
+launch any external operation. The historical receipt lacks lock name, stage
+within snapshot, and owner identity; it cannot establish which process held the
+lock at the incident. The observed 64-ms path is distinct from the 10-second
+operator-canonical wait exhaustion. No particular historical poll is blamed.
+
+The required next repair is coherent bounded readback/action lock coordination,
+with useful lock-stage refusal reporting. Do not weaken inactivity validation,
+retry the installer, or merely increase timeouts. This commit retains the failure
+and reproducer; it does not change installed behavior or authorize a repeat.
