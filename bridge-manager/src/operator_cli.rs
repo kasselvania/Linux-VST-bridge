@@ -603,19 +603,21 @@ fn refuse_unfinished(m: &Manager, id: &str, reason: &str) -> Result<()> {
     )
 }
 fn finish_operation(m: &Manager, id: &str) -> Result<()> {
-    let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
-    if let ui::Action::InstallerStart {
-        onboarding: ref key,
-    } = request.action
-    {
-        let r = onboarding::load(m, key)?;
-        if r.installation_operation.as_deref() == Some(id) {
-            if onboarding::live(id)? {let _ = onboarding::stop(m, key, id);}
-            onboarding::mark_dead(m,&r)?;
-        }
-    }
-    finish_operation_with(m, id, |saved| restore_service(m, saved))
+    let installer_cleanup:Result<()>=(|| {
+        let request:ui::Request=read_json(&job_dir(m,id)?.join("request.json"))?;
+        if let ui::Action::InstallerStart{onboarding:ref key}=request.action {
+            let r=onboarding::load(m,key)?;
+            if r.installation_operation.as_deref()==Some(id) {
+                if onboarding::live(id)? {let _=onboarding::stop(m,key,id);}
+                onboarding::mark_dead(m,&r)?;
+            }
+        }Ok(())
+    })();
+    // A failed installer readback must not leave the generic worker queued.
+    let finalized=finish_operation_with(m,id,|saved|restore_service(m,saved));
+    installer_cleanup?;finalized
 }
+
 fn finish_operation_with(
     m: &Manager,
     id: &str,

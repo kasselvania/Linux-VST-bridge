@@ -114,6 +114,8 @@ fn call(query: Query) -> Result<Reply, String> {
         }
         return Ok(Reply::Imported);
     }
+    let envelope:serde_json::Value=serde_json::from_slice(&data).map_err(|_|"Invalid manager response")?;
+    if envelope["schema"]!=2 {return Err("Update the frontend and manager together: operator model 2 required".into());}
     match query {
         Query::PickInstaller => unreachable!(),
         Query::Snapshot => {
