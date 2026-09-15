@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "source": "2572075a84c2b1afb0200bda31c3fe8551425b88",
+  "fixture": {
+    "schema": 1,
+    "status_version": 2,
+    "source": "2572075a84c2b1afb0200bda31c3fe8551425b88",
+    "build": "5d0e8617e0a3a6d890784c9b819d2f6deed9e412",
+    "workflow": 34917984934,
+    "artifact": 10376363528,
+    "sha256": "4f0f61b8abf6cd2cff8be1d2c24fc254d602819e186a9dc49d4b978ccba01512",
+    "archive_sha256": "2c133ce9899c1825366b65ce874ced486baaca611aecc0417543c27ad8ecf7a3"
+  },
+  "regressions": {
+    "uio1": 13,
+    "uir1": 4,
+    "uio3": 25,
+    "uir2": 23
+  },
+  "hosted": {
+    "ap8": 34917984934,
+    "ap12": 34917984949,
+    "px2": 34917985170,
+    "result": "passed"
+  },
+  "retained_no_touch": {
+    "timeline_sha256": "efcd813be7b93b5ffdb401e83a0bffbe3398890afea063aa3c9fb117427cb627",
+    "disposition": "UIR2_INSUFFICIENT_PHYSICAL_COVERAGE",
+    "boundary": "missing_or_multiple_boundaries",
+    "original_bytes_unchanged": true
+  },
+  "physical_windows_opened": 0,
+  "operator_actions_requested": 0,
+  "installed_software_changed": false,
+  "product_artifacts_changed": false,
+  "note": "Source-owned fixture v2 only. Historical package.json, private timeline, physical result and product state are preserved."
+}

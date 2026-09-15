@@ -1,52 +1,63 @@
-# UIO3 — Touch release, pointer capture and gesture-end attribution
+# UIR2 — Touch release admission and retrieval differential
 
-Base: post-MF1 main `a123852b1d3462bb38ec4a1fdccdbb87cdd9de72`.
-MF1 PR104 is merged and reviewed manager/frontend `841332b` installed through
-immutable setup before UIO3 began. See evidence/uio3/mf1-prerequisite.json.
+Base: UIO3 merge `a204c2da4c98f02dfd5af503228c0c2c303efa07`, tree
+`3b1af2f9929ba1cad54e329b29a1711139ffa491`. PR105 reviewed head `52e41d4`
+merged unchanged. Work only on `codex/uir2-touch-release-admission`, one draft PR.
 
-## Outcome
+## Claim and basis
 
-Attribute the first missing or retained boundary when a physical Steam Deck
-touchscreen drag remains held in Pigments after release. This is observation,
-not a compatibility repair or an assumed Wine, vendor, MIDI, load or renderer cause.
+Select the earliest evidenced release-delay boundary, without a compatibility
+repair. Basis: AGENTS real-time/identity/evidence laws; docs/UIO3 observation and
+physical result; docs/UIR1 bounded pump; evidence/uio3/result.json and result.md;
+private retained UIO3 timeline. Preserve its three-contact limitation, unpaired
+16.513815470-second release tail, live heartbeats, missing GUI row and clean exit.
 
-Reuse UIO1 exact editor/X RECORD/Win32 observation, AP11 gesture witness and
-UIO2 identity. Add bounded XI2 touch/pointer device/event observation and Win32
-touch/pointer/release/capture/cancel facts. Keep diagnostics off audio callbacks.
-Preserve core X RECORD and never guess Generic Event contents. No /dev/input or
-arbitrary keyboard capture. Private timeline and sanitized scalar summary distinguish
-missing observation, delayed retrieval, swallowed input, capture and gesture state.
+## Execution
 
-## Boundaries and verification
+Phase A derives private release records and explicit 32-bit clock handling before
+any target launch. If old evidence cannot select admission/retrieval, Phase B uses
+a source-owned parent/child and the actual VendorView pump under the exact pinned
+runner, fresh private scratch environment, physical Deck XWayland desktop. No
+Bitwig, vendor files, authorization, hooks/subclasses or synthetic input. Retain
+UI-thread pump/removal/procedure and GetQueueStatus facts plus exact X11/XI2.
+High queue word is current classes; low word is changed classes. Both are hints,
+not per-message admission. Clock calibration must be independently measured.
 
-Observer/tooling changes only unless demonstrated source needs otherwise. Preserve
-ordinary Pigments18, rollback11, siblings10, inactive history, product artifacts,
-projects, authorization, MF1/IF1/IF2/CA1, 512 recommended and 256 unqualified.
-Generated tests cover release success, XI end/core/Win32 gaps, hook swallowing,
-live-heartbeat delay, capture and gesture retention, pointer-up, foreign exclusion,
-limits, cleanup and detachment. Run affected observer/manager/runtime tests and
-Clippy; AP8/AP12/PX2, AP10 only if native/audio changes.
+After generated tests, one human single-finger drag/release only. Multiple contacts
+or unavailable physical route stops as insufficient; no retry. No agent input or
+coordinates, touch injection, /dev/input, global key payload or audio changes.
 
-One ordinary Pigments18 session, human-only touch/MIDI. At most one short drag
-without a held note and one with a held note on the same control. Action mailbox
-labels only; it cannot supply coordinates/input. Stop on the first useful reproduced
-boundary or terminal failure; no relaunch to force a result. CA1 only if explicitly
-armed before launch. No automatic compatibility repair. Human closes normally;
-verify no observers, held input, leases, transactions or stale transport and healthy
-service/keeper. Draft PR, independent review, no merge.
+## Verification and final state
 
-## Status
+Generated wrap, ambiguity, queue nonauthority, classification, procedure/removal,
+production pump identity, bounds and cleanup tests. UIO1/UIR1/UIO3, relevant
+Clippy, Windows fixture, AP8/AP12/PX2; no native/audio changes or AP10. Raw records
+private; public scalar report omits coordinates and process/window/device IDs.
+Ordinary18, rollback11, siblings10, candidates and installed bytes unchanged.
+512 recommended, 256 unqualified. Stop fixture/helper and scratch owners, verify
+zero held input/leases/transactions/stale transports, service/keeper healthy,
+capture off. Commit/push and return draft for independent review. Do not merge.
 
-One human-only ordinary18 observation completed at source `0820ddb`. The single
-labeled attempt contained three unintended touch contacts. No held-note comparison
-or repeat occurred. X11 releases were present; Windows release processing continued
-at least 16.514 seconds after the last recorded X11 release while UI heartbeats
-continued. Internal cause remains unresolved. One GUI witness row was missing, so
-complete gesture coverage is not claimed. See `evidence/uio3/result.json` and `.md`.
+## Result
 
-The user quit normally. All seven retirement milestones and positive cleanup were
-retained; leases, transactions, stale transport and held core input are zero,
-service/keeper healthy, capture off, observers detached. Ordinary18, rollback11,
-siblings10 and product artifacts are unchanged. Generated and hosted validation
-passed at the observation source; final offline report checks accompany the draft
-PR105 rereview. No additional live test or compatibility repair is selected.
+UIR2_INSUFFICIENT_PHYSICAL_COVERAGE. Phase A remains unpaired/uncalibrated for
+admission purposes. Generated fixture and clock checks passed. One human-only
+source-owned window expired without a recorded physical contact or operator
+completion; no retry. This does not establish a physical input failure or select
+a repair owner. Positive fixture/window/cohort cleanup and unchanged ordinary
+products retained in evidence/uir2/result.json. Return draft PR106 for review.
+
+
+## Source rereview — Windows action binding
+
+Repair only the action-binding integrity issue after reviewed head `d08d89f`.
+The fixture now publishes one UI-thread QPC boundary for armed 0 -> 1 in its
+version-2 diagnostic stream. Summary admits only coherent post-boundary Windows
+records and a complete removal/dispatch/procedure-entry/return chain in that
+epoch. Missing, duplicate, reversed or malformed boundaries refuse classification.
+Linux contact binding remains independent. No queue hint becomes admission.
+
+The existing physical evidence and insufficient-coverage disposition remain
+unchanged. Run deterministic Python and Windows fixture regressions and affected
+CI only. No new physical window/action, Bitwig/Pigments, installation, profile,
+runner or product change. Keep PR106 draft and unmerged for independent rereview.
