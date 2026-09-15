@@ -13,6 +13,7 @@ on:
       - 'tools/uir1/**'
       - 'tools/uio2/**'
       - 'tools/uio3/**'
+      - 'tools/uir2/**'
       - 'tools/if2/**'
       - 'tools/ca1/**'
       - 'manager-ui/**'
@@ -42,6 +43,7 @@ jobs:
       - run: python3 -m unittest discover -s tools/uir1 -v
       - run: python3 -m unittest discover -s tools/uio2 -v
       - run: python3 -m unittest discover -s tools/uio3 -v
+      - run: python3 -m unittest discover -s tools/uir2 -v
       - run: python3 -m unittest discover -s tools/if2 -v
       - run: sudo apt-get install -y xvfb libxtst6 libxcomposite1 libxi6
       - run: UIO1_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio1/x11_fixture.py
