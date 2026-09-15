@@ -70,6 +70,7 @@ pub(crate) fn prepare_selected_for(
     purpose: Qualification,
 ) -> Result<AcceptedSoftware> {
     let (review_id, head, tree, revision, candidate_revision, limitation) = match purpose {
+        Qualification::Sv1Instrument => return Err("instrument_not_accepted".into()),
         Qualification::Ap18Pigments | Qualification::Uir1Input | Qualification::If1Failure => return Err("pigments_not_accepted".into()),
         Qualification::Ap15Editor => (
             5161767138,
@@ -170,6 +171,7 @@ pub(crate) fn prepare_selected_for(
         // Existing qualification law verifies the active physical parent and
         // all unchanged registration/environment/module/SDK constraints.
         let prior = match purpose {
+        Qualification::Sv1Instrument => return Err("instrument_not_accepted".into()),
         Qualification::Ap18Pigments | Qualification::Uir1Input | Qualification::If1Failure => return Err("pigments_not_accepted".into()),
             Qualification::Ap15Editor => {
                 m.verify_qualification_parent(&db, candidate, &retained.registration)?
@@ -185,6 +187,7 @@ pub(crate) fn prepare_selected_for(
             "acceptance_parent_identity",
         )?;
         let exact = match purpose {
+        Qualification::Sv1Instrument => return Err("instrument_not_accepted".into()),
         Qualification::Ap18Pigments | Qualification::Uir1Input | Qualification::If1Failure => return Err("pigments_not_accepted".into()),
             Qualification::Ap15Editor => qualification::load(m, candidate.clone())?,
             Qualification::Ap17Capacity => qualification::load_for(m, candidate.clone(), purpose)?,

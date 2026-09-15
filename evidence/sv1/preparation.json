@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "disposition": "SV1_INSTRUMENT_INSPECTION_PASSED_CANDIDATE_PREPARATION",
+  "mf2_merge": "3aa26d11f401abfabf86b0b574d4cc7f8436810a",
+  "class_id": "56534558667350736572756D20320000",
+  "controller_factory_class_id": "56534558667343736572756D20320000",
+  "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+  "version": "2.1.5",
+  "inspection": {
+    "explicit_instrument_selection": true,
+    "report_sha256": "ed1670d47b3be6c6d3369fb737be17ebafc8a4a68c3823b20e96b2799f140ac1",
+    "component_initialized": true,
+    "separate_controller_initialized": true,
+    "audio_inputs": 0,
+    "audio_outputs": [
+      {
+        "channels": 2,
+        "arrangement": 3
+      }
+    ],
+    "event_input_channels": 16,
+    "event_output_channels": 16,
+    "parameters": 2623,
+    "float32": true,
+    "float64": false,
+    "component_state_bytes": 1258,
+    "controller_state_synchronization": true,
+    "inspector_exit": 0,
+    "outer_cleanup_exit": -15,
+    "error": null,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "editor_opened": false,
+    "authorization": "not_observed"
+  },
+  "native_build": {
+    "source_commit": "8c15a4a53af709ce1823edf2314056c855a79386",
+    "sha256": "0c87f6c79914e9b9fbfd77c613cc5532fa74bfd71dea10eec249f0b2e558a16b",
+    "input_archive_sha256": "6e6632982df8aac30b8cfb5f52f613691c694a7bac41f231f9ef223b6703e5c0",
+    "descriptor_sha256": "402c52381dd2fee2678aa2d357aeba96a37a5d6a7acbed2b2e4322259bb159b5",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8"
+  },
+  "fx_component_inspected": false,
+  "bitwig_launched": false,
+  "ordinary_promotion": false,
+  "candidate_staged": false,
+  "validation": "in_progress",
+  "nonclaims": [
+    "No note audio tested",
+    "No current authorization or editor claim",
+    "No project persistence or performance claim",
+    "No Serum FX qualification"
+  ]
+}

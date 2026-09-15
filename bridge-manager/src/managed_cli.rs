@@ -394,6 +394,7 @@ fn execute_qualification_for(
             status(m)
         }
         Some("publish") if args.len() == 1 => {
+            if purpose == publication::Qualification::Sv1Instrument { crate::managed_candidate::publish(m)?; return status(m); }
             let candidates = qualification::installed_for(m, purpose)?;
             let mut sw = software(m)?;
             let mut c = catalogue(m, &sw)?;
@@ -416,6 +417,7 @@ fn execute_qualification_for(
                         publication::Qualification::Ap18Pigments => InspectionRoute::Ap18Pigments,
                         publication::Qualification::Uir1Input => InspectionRoute::Uir1Input,
                         publication::Qualification::If1Failure => InspectionRoute::If1Failure,
+                        publication::Qualification::Sv1Instrument => return Err("candidate_uses_retained_inspection".into()),
                     },
                 )?);
             }
@@ -483,6 +485,12 @@ pub(super) fn run_ui_qualification(m: &Manager, args: &[String]) -> Result<()> {
 
 pub(super) fn run_failure_qualification(m: &Manager, args: &[String]) -> Result<()> {
     render(execute_qualification_for(m, args, publication::Qualification::If1Failure))
+}
+
+
+pub(super) fn run_installer_qualification(m: &Manager, args: &[String]) -> Result<()> {
+    operator_cli::require_engineering_inactive(m)?;
+    render(execute_qualification_for(m,args,publication::Qualification::Sv1Instrument))
 }
 
 #[cfg(test)]

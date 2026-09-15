@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "environment": "4db060b14388e41103834fc4dfdd023a",
+  "onboarding_sha256": "b4ce94d63283335929533c55d5119c195c84d7a42b38e3c470c02d66bb8b9ea5",
+  "environment_sha256": "f9b4b0cbc9ca1ea82eed69e8f3ff967e6e866ee052c11fd416fd83ab209b638e",
+  "inventory_sha256": "9f2e117642f7eb6eadeac1cfbb3f15d1733b7dab7cf8a009c6663fdf070c5a6b",
+  "module_relative": "Program Files/Common Files/VST3/Serum2.vst3/Contents/x86_64-win/Serum2.vst3",
+  "controller": "56534558667343736572756D20320000",
+  "inspection_sha256": "ed1670d47b3be6c6d3369fb737be17ebafc8a4a68c3823b20e96b2799f140ac1"
+}

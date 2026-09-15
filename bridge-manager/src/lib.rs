@@ -836,3 +836,5 @@ mod tests {
         );
     }
 }
+
+pub mod managed_candidate;

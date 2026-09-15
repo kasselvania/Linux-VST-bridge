@@ -72,6 +72,7 @@ pub fn candidates_for(purpose: Qualification) -> Result<Vec<Profile>> {
         Qualification::Ap18Pigments => Ok(vec![crate::pigments::candidate()?]),
         Qualification::Uir1Input => Ok(vec![uir1_candidate()?]),
         Qualification::If1Failure => Ok(vec![if1_candidate()?]),
+        Qualification::Sv1Instrument => Ok(vec![crate::managed_candidate::candidate()?]),
     }
 }
 fn parent_revision(purpose: Qualification) -> u32 {
@@ -79,6 +80,7 @@ fn parent_revision(purpose: Qualification) -> u32 {
         Qualification::Ap15Editor => 3,
         Qualification::Ap17Capacity => 7,
         Qualification::Ap18Pigments => 10,
+        Qualification::Sv1Instrument => 0,
         Qualification::Uir1Input | Qualification::If1Failure => 11,
     }
 }
@@ -97,6 +99,7 @@ fn directory(m: &Manager, p: &Profile, purpose: Qualification) -> Result<PathBuf
             Qualification::Ap18Pigments => "software/ap18-qualification",
             Qualification::Uir1Input => "software/uir1-qualification",
             Qualification::If1Failure => "software/if1-qualification",
+            Qualification::Sv1Instrument => "software/sv1-qualification",
         })
         .join(p.fingerprint()?))
 }
@@ -173,6 +176,7 @@ fn uir1_ordinary_parent(m: &Manager) -> Result<()> {
 pub fn stage_for(m: &Manager, package: &Path, purpose: Qualification) -> Result<()> {
     if matches!(purpose, Qualification::Uir1Input | Qualification::If1Failure) { uir1_ordinary_parent(m)?; }
     if purpose == Qualification::Ap18Pigments { return crate::pigments::stage(m, package); }
+    if purpose == Qualification::Sv1Instrument { return crate::managed_candidate::stage(m, package); }
     stage_selected_for(m, package, &candidates_for(purpose)?, purpose)
 }
 pub(crate) fn stage_selected_for(
@@ -314,6 +318,7 @@ impl Manager {
             "qualification_exact_candidate_required",
         )?;
         if purpose == Qualification::Ap18Pigments { return crate::pigments::retained(self, r, &exact); }
+        if purpose == Qualification::Sv1Instrument { return crate::managed_candidate::retained(self, r, &exact); }
         let parent = r
             .parent
             .as_ref()
@@ -367,6 +372,7 @@ impl Manager {
             "qualification_exact_candidate_required",
         )?;
         if purpose == Qualification::Ap18Pigments { return crate::pigments::check_publication(self, p, r); }
+        if purpose == Qualification::Sv1Instrument { return crate::managed_candidate::check_publication(self, p, r); }
         self.verify_qualification_parent_for(&self.registry()?, p, r, purpose)
             .map(|_| ())
     }
@@ -401,7 +407,7 @@ impl Manager {
                 && match purpose {
                     Qualification::Ap15Editor => p.revision > 3,
                     Qualification::Ap17Capacity => matches!(p.revision, 8 | 9),
-                    Qualification::Ap18Pigments => false,
+                    Qualification::Ap18Pigments | Qualification::Sv1Instrument => false,
                     Qualification::Uir1Input => p.revision == 12,
                     Qualification::If1Failure => p.revision == 17,
                 }
@@ -422,7 +428,7 @@ impl Manager {
         let mut limitations = prior.profile.limitations.clone();
         let mut parent_compatibility = registration.compatibility.clone();
         match purpose {
-            Qualification::Ap18Pigments => return Err("pigments_has_no_same_class_parent".into()),
+            Qualification::Ap18Pigments | Qualification::Sv1Instrument => return Err("new_class_has_no_same_class_parent".into()),
             Qualification::Uir1Input | Qualification::If1Failure => {
                 // UIR1 changes only the host; IF1 also binds a new native.
                 // Every other technical constraint must equal the exact parent.
@@ -553,6 +559,7 @@ impl Manager {
                 continue;
             };
             if purpose == Qualification::Ap18Pigments { crate::pigments::restore(self)?; continue; }
+            if purpose == Qualification::Sv1Instrument { crate::managed_candidate::restore(self)?; continue; }
             let parent = r.parent.as_ref().ok_or("qualification_parent_absent")?;
             let prior = self.load_revision(&key, parent)?;
             require(

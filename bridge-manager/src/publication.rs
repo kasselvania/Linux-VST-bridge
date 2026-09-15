@@ -37,6 +37,7 @@ pub enum Qualification {
     Ap18Pigments,
     Uir1Input,
     If1Failure,
+    Sv1Instrument,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -373,6 +374,9 @@ impl Manager {
             && retained.map(|r| self.load_revision(&registration.key(), r))
                 .transpose()?.is_some_and(|r| r.qualification == Some(Qualification::Ap18Pigments)) {
             return crate::pigments::served(self, registration, installed, source);
+        }
+        if registration.key() == crate::managed_candidate::candidate()?.class.class_id {
+            return crate::managed_candidate::served(self, registration, installed, source);
         }
         let matching: Vec<_> = current_profiles
                 .iter()
@@ -867,6 +871,8 @@ impl Manager {
         if let Some(purpose) = qualification {
             if purpose == Qualification::Ap18Pigments {
                 crate::pigments::check_publication(self, profile, &registration)?;
+            } else if purpose == Qualification::Sv1Instrument {
+                crate::managed_candidate::check_publication(self, profile, &registration)?;
             } else {
                 self.verify_qualification_parent_for(&db, profile, &registration, purpose)?;
             }

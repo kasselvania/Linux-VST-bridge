@@ -483,7 +483,7 @@ fn spec(
     private_dir(&results)?;
     let leases = m.root.join("runtime/leases");
     private_dir(&leases)?;
-    let onboarding_home = inspect && !keeper && m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
+    let onboarding_home = m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
     if onboarding_home {require(onboarding::load(m,&r.environment.id)?.environment==r.environment,"onboarding_inspection_environment")?;}
     let s = SessionSpec {
         onboarding_home,
@@ -1074,6 +1074,7 @@ fn main() -> Result<()> {
   Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
+  Some("qualify-instrument")=>managed_cli::run_installer_qualification(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
   Some("qualify-ui")=>managed_cli::run_ui_qualification(&m,&args[1..]),
   Some("qualify-failure")=>managed_cli::run_failure_qualification(&m,&args[1..]),
