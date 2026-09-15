@@ -90,3 +90,20 @@ transactions and stale transports were zero, and capture was off. No Bitwig
 session was launched. The next step is deliberate reversible test publication,
 followed by the bounded human-owned instrument check described above. Audio,
 authorization and editor usability remain untested.
+
+## Operator test publication
+
+After the operator explicitly requested making Serum available for their own test,
+the installed manager published the exact instrument review candidate once through
+its managed transaction. Canonical readback verified the physical publication,
+module, native artifact, Windows host, environment and runner. Ordinary activation
+remains forbidden; this is the explicit SV1 engineering route. Serum 2 FX remains
+unpublished and the three Arturia registry entries remained byte-for-byte equal.
+Service and keeper were healthy with zero leases, pending transactions and stale
+transports; capture remained off at handoff. No Bitwig launch or input was sent by
+the agent. The operator result is pending. The exact sanitized receipt is
+`evidence/sv1/operator-publication.json`.
+
+The first post-publication verifier used an incorrect projection field and stopped
+after the successful manager transaction. A corrected read-only check verified
+the already-published candidate; publication was not repeated.

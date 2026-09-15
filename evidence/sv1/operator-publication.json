@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "disposition": "SV1_REVIEW_CANDIDATE_PUBLISHED_FOR_OPERATOR_TEST",
+  "installed_implementation": "5cd73b00098dc25f2948e9f07df40d20e3cc4aa3",
+  "profile": {
+    "activation_permitted": false,
+    "claim": "review_candidate",
+    "id": "xfer-serum2",
+    "revision": 1
+  },
+  "class_id": "56534558667350736572756D20320000",
+  "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+  "publication_valid": true,
+  "qualification": "sv1_instrument",
+  "revision": {
+    "id": "f6ad7c626322459fb4a64d8972fe3b6b",
+    "sha256": "f8554090f7993fef2a9ca6446c7991fd2ed0757396a71d9082490d95b78200ee"
+  },
+  "external_ids": [
+    "b7e8c3508fc755db9fdc29f971604942",
+    "f52ccadd0aff58ea8bcad3d50cfc70b9"
+  ],
+  "checks": {
+    "environment_valid": true,
+    "installed_host_valid": true,
+    "module_valid": true,
+    "native_artifact_valid": true,
+    "runner_valid": true
+  },
+  "system_at_handoff": {
+    "service": "active",
+    "keepers": 1,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture_armed": false,
+  "siblings_unchanged": true,
+  "bitwig_launched_by_agent": false,
+  "product_result": "not_observed",
+  "verification_note": "Initial verifier used wrong projection key after successful publication; corrected read-only verification; no repeated publication"
+}
