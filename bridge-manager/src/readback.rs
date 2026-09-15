@@ -168,14 +168,36 @@ impl Manager {
         profiles: &[Profile],
     ) -> Result<ManagedStatus> {
         let lock = self.lock("registry.lock")?;
-        self.managed_status_locked_for_policy(installed_host,source,profiles,&lock)
+        self.managed_status_locked_for_policy(installed_host, source, profiles, &lock)
     }
-    pub fn managed_status_locked(&self, installed_host: &Artifact, source: &str, lock: &Lock) -> Result<ManagedStatus> {
-        self.managed_status_locked_for_policy(installed_host,source,&installed_profiles()?,lock)
+    pub fn managed_status_locked(
+        &self,
+        installed_host: &Artifact,
+        source: &str,
+        lock: &Lock,
+    ) -> Result<ManagedStatus> {
+        self.managed_status_locked_for_policy(installed_host, source, &installed_profiles()?, lock)
     }
-    fn managed_status_locked_for_policy(&self, installed_host: &Artifact, source: &str, profiles: &[Profile], lock: &Lock) -> Result<ManagedStatus> {
+    fn managed_status_locked_for_policy(
+        &self,
+        installed_host: &Artifact,
+        source: &str,
+        profiles: &[Profile],
+        lock: &Lock,
+    ) -> Result<ManagedStatus> {
         lock.require_registry(self)?;
         let db = self.registry()?;
+        self.project_managed_registry(installed_host, source, profiles, &db)
+    }
+    /// Expensive projection of captured registry data; caller must recheck
+    /// registry/owners before using this projection to authorize an action.
+    pub fn project_managed_registry(
+        &self,
+        installed_host: &Artifact,
+        source: &str,
+        profiles: &[Profile],
+        db: &Registry,
+    ) -> Result<ManagedStatus> {
         let mut products = Vec::new();
         for (index, (key, e)) in db.classes.iter().enumerate() {
             let r = &e.registration;

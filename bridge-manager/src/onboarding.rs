@@ -2,6 +2,7 @@
 use super::*;
 use linux_vst_bridge::operator_model as ui;
 use serde_json::{json, Value};
+use std::os::unix::fs::MetadataExt;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Record {
@@ -79,23 +80,118 @@ pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     }
     Ok(list)
 }
-pub fn create(m: &Manager, installer: &str, runner: &str, owner: &str) -> Result<Value> {
-    require(valid_hex(owner, 32), "onboarding_creation_operation")?;
-    let artifact = installer_import::load(m, installer)?;
-    let r = runners(m)?
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct FileIdentity {
+    dev: u64,
+    ino: u64,
+    size: u64,
+    mtime: i64,
+    mtime_ns: i64,
+    ctime: i64,
+    ctime_ns: i64,
+    mode: u32,
+    uid: u32,
+}
+impl FileIdentity {
+    pub(super) fn read(path: &Path) -> Result<Self> {
+        let m = file(path)?.metadata()?;
+        Ok(Self {
+            dev: m.dev(),
+            ino: m.ino(),
+            size: m.len(),
+            mtime: m.mtime(),
+            mtime_ns: m.mtime_nsec(),
+            ctime: m.ctime(),
+            ctime_ns: m.ctime_nsec(),
+            mode: m.mode(),
+            uid: m.uid(),
+        })
+    }
+}
+pub struct PreparedCreation {
+    installer: installer_import::Installer,
+    runner: Runner,
+    files: Vec<(PathBuf, FileIdentity)>,
+}
+pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<PreparedCreation> {
+    require(valid_hex(installer, 64), "installer_identity")?;
+    let software_path = m.root.join("software.json");
+    let software_stamp = FileIdentity::read(&software_path)?;
+    let sw = software(m)?;
+    let catalogue = sw
+        .native_catalogue
+        .as_ref()
+        .ok_or("onboarding_runner_catalogue_absent")?;
+    let catalogue_stamp = FileIdentity::read(&catalogue.path)?;
+    let installed = sw.catalogue(m)?;
+    let r = installed
+        .environments
         .into_iter()
-        .find(|(id, _)| id == runner)
-        .ok_or("onboarding_runner_not_installed")?
-        .1;
-    create_exact(m, &artifact, r, owner)
+        .map(|e| e.environment.runner)
+        .find(|r| runner_key(r).is_ok_and(|key| key == runner))
+        .ok_or("onboarding_runner_not_installed")?;
+    let record_path = m.root.join("installers").join(format!("{installer}.json"));
+    let record_stamp = FileIdentity::read(&record_path)?;
+    let artifact = installer_import::load_record(m, installer)?;
+    let mut files = vec![
+        (software_path, software_stamp),
+        (catalogue.path.clone(), catalogue_stamp),
+        (record_path, record_stamp),
+    ];
+    let mut paths = vec![artifact.artifact.path.clone()];
+    paths.extend(r.files.iter().map(|a| a.path.clone()));
+    files.extend(
+        paths
+            .into_iter()
+            .map(|p| Ok((p.clone(), FileIdentity::read(&p)?)))
+            .collect::<Result<Vec<_>>>()?,
+    );
+    // Full verification is a mutation prerequisite, performed without registry
+    // ownership; metadata is checked both after hashing and under admission.
+    artifact.artifact.verify()?;
+    r.verify()?;
+    let prepared = PreparedCreation {
+        installer: artifact,
+        runner: r,
+        files,
+    };
+    prepared.recheck(m)?;
+    Ok(prepared)
+}
+impl PreparedCreation {
+    fn recheck(&self, m: &Manager) -> Result<()> {
+        require(
+            installer_import::load_record(m, &self.installer.id)? == self.installer,
+            "onboarding_installer_changed",
+        )?;
+        for (path, stamp) in &self.files {
+            require(
+                &FileIdentity::read(path)? == stamp,
+                "onboarding_verified_file_changed",
+            )?;
+        }
+        Ok(())
+    }
+}
+pub fn create_prepared(
+    m: &Manager,
+    prepared: PreparedCreation,
+    owner: &str,
+    guard: &Lock,
+) -> Result<Value> {
+    guard.require_registry(m)?;
+    prepared.recheck(m)?;
+    create_exact(m, &prepared.installer, prepared.runner, owner, guard)
 }
 fn create_exact(
     m: &Manager,
     installer: &installer_import::Installer,
     runner: Runner,
     owner: &str,
+    guard: &Lock,
 ) -> Result<Value> {
-    let _lock = m.lock("registry.lock")?;
+    guard.require_registry(m)?;
+    require(valid_hex(owner, 32), "onboarding_creation_operation")?;
     m.require_inactive(None)?;
     let id = random_id()?;
     let root = m.root.join("environments").join(&id);
@@ -471,7 +567,14 @@ mod tests {
     fn new_isolated_environment_and_initial_transaction_are_durable_unpublished() {
         let (f, i) = fixture();
         let before = f.m.registry().unwrap();
-        let v = create_exact(&f.m, &i, f.r.environment.runner.clone(), &"ab".repeat(16)).unwrap();
+        let v = create_exact(
+            &f.m,
+            &i,
+            f.r.environment.runner.clone(),
+            &"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(),
+        )
+        .unwrap();
         let id = v["onboarding"].as_str().unwrap();
         let r = load(&f.m, id).unwrap();
         assert_ne!(r.environment.root, f.r.environment.root);
@@ -507,7 +610,14 @@ mod tests {
     #[test]
     fn replaced_runner_foreign_environment_and_result_owner_refuse() {
         let (f, i) = fixture();
-        let v = create_exact(&f.m, &i, f.r.environment.runner.clone(), &"ab".repeat(16)).unwrap();
+        let v = create_exact(
+            &f.m,
+            &i,
+            f.r.environment.runner.clone(),
+            &"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(),
+        )
+        .unwrap();
         let id = v["onboarding"].as_str().unwrap();
         let op = "cd".repeat(16);
         let r = reserve(&f.m, id, &op).unwrap();

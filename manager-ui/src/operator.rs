@@ -221,7 +221,15 @@ impl eframe::App for Operator {
     }
 }
 fn failure_lines(f: &crate::model::OperationFailure) -> Vec<String> {
-    let mut lines = vec!["Manager could not finish validating state.".into()];
+    let mut lines = vec![match f.stage {
+        crate::model::FailureStage::OperatorValidationReadback => {
+            "Manager could not finish validating state."
+        }
+        crate::model::FailureStage::EnvironmentCreationAdmission => {
+            "Manager was busy before environment creation could start."
+        }
+    }
+    .into()];
     if !f.mutation_started && !f.environment_created {
         lines.push("Environment creation did not start.".into());
     }
@@ -293,9 +301,25 @@ mod tests {
             "retryable":true,"mutation_started":false,"environment_created":false,"installer_launched":false,
             "lock":{"name":"registry.lock","mode":"exclusive","purpose":"operator_validation_readback","operation":"ab".repeat(16),"policy":"bounded","elapsed_wait_us":100000,"attempts":11,"timeout_ms":100,"outcome":"timeout","holder":"unknown"}
         })).unwrap();
-        let text=failure_lines(&f).join("\n");
-        for expected in ["Manager", "Environment creation did not start", "installer was not launched", "not an installer failure", "Retry is safe", "holder unknown"] {assert!(text.contains(expected));}
-        let mut f=f;f.retryable=false;
+        let text = failure_lines(&f).join("\n");
+        for expected in [
+            "Manager",
+            "Environment creation did not start",
+            "installer was not launched",
+            "not an installer failure",
+            "Retry is safe",
+            "holder unknown",
+        ] {
+            assert!(text.contains(expected));
+        }
+        let mut f = f;
+        f.stage = crate::model::FailureStage::EnvironmentCreationAdmission;
+        f.lock.purpose = crate::model::LockPurpose::EnvironmentCreationAdmission;
+        let text = failure_lines(&f).join(" ");
+        assert!(text.contains("before environment creation"));
+        assert!(text.contains("installer was not launched"));
+        assert!(text.contains("Retry is safe"));
+        f.retryable = false;
         assert!(!failure_lines(&f).join(" ").contains("Retry is safe"));
     }
     #[test]

@@ -15,7 +15,10 @@ text. The legacy display text remains available to old error consumers.
 
 The non-RT bounded helper retains a closed lock name, exclusive mode, purpose,
 operation ID when applicable, bounded policy, elapsed microseconds, attempts,
-timeout milliseconds, and acquired/timeout/error outcome. Holder is explicitly
+timeout milliseconds, and acquired/timeout/error outcome. Canonical serialization
+always uses `action_serialization`; ordinary registry projection uses
+`operator_readback`; queued validation uses `operator_validation_readback`.
+Holder is explicitly
 unknown. It sleeps at most 10 ms between attempts; open/identity errors do not
 retry. No path, command line, credential or asserted process identity is exported.
 
@@ -25,12 +28,32 @@ Validation order is:
 2. Registry authority (at most 10 seconds for the registry sampling phase).
 3. Release readback authority, then enter the existing action-specific owner.
 
-The worker retains the same operation while waiting. It reads one canonical
-snapshot under a registry guard; `managed_status_locked` verifies that guard's
-manager and lock identity and does not reacquire it. Token validation uses this
-fresh snapshot. The guard is dropped before action execution. Inactivity,
-cleanup, runner, installer and environment mutation checks remain in their
-existing mutation owners and use their original fail-fast locks.
+The worker retains the same operation while waiting. Under registry authority it
+captures the registry, software/registry token and exact capacity owner census,
+then explicitly releases the guard. Artifact hashing, runner verification,
+systemd observation, history and installer/onboarding presentation happen outside
+registry authority. `project_managed_registry` consumes the captured registry
+without reacquiring it. A brief bounded registry recheck requires the same token
+and owner census before the snapshot can authorize an action; drift refuses the
+snapshot. Canonical serialization remains held throughout this projection.
+
+Environment creation has a separate mutation boundary. Full imported-installer
+and offered-runner digest verification happens outside registry authority. The
+preparation retains file identities (device, inode, size, nanosecond modification
+and change times, owner and mode) for the installer, its immutable record, runner
+files, installed software record and catalogue. The existing vendor/onboarding
+retirement checks also run outside registry authority; bounded metadata stamps
+bind their durable inputs across that work.
+
+The action samples LVC1 outside registry authority, then obtains **one** bounded,
+operation-bound registry guard with purpose `environment_creation_admission`.
+Under that same guard it compares the exact owner census, registry/software token,
+durable retirement inputs, inactivity, cleanup and transaction posture. The
+prepared installer/runner identities must remain unchanged. The onboarding owner
+receives and validates that exact guard, creates one unpublished environment and
+returns without reacquiring registry authority. No full digest, runner-wide
+verification or systemd query runs inside this mutation guard. All ordinary
+`Manager::lock` and `capacity::reserve` callers remain one-attempt fail-fast.
 
 LVC1 itself needs the registry lock in the service, so it is never requested
 while the caller owns registry authority. Capacity is sampled first and its
@@ -44,7 +67,8 @@ remain separate from the lock-acquisition deadlines.
 
 ### Lock-order audit
 
-Snapshot and worker validation use the same serialization-to-registry order.
+Snapshot, worker validation and operator environment creation use the same
+serialization-to-registry order.
 They do not hold registry authority while calling LVC1, waiting for action
 completion, acquiring receipt ownership or entering service recovery. The new
 per-operation worker guard is acquired fail-fast and is only a duplicate-worker
@@ -66,7 +90,8 @@ Final completion retains acquired waits without calling them failures. A timeout
 retains a schema-2 operator projection with:
 
 - layer `manager_control_plane`;
-- stage `operator_validation_readback`;
+- stage `operator_validation_readback`, or `environment_creation_admission`
+  for the separate pre-mutation acquisition;
 - code `registry_lock_timeout` (or a distinct serialization/access error);
 - retryable true for timeout only;
 - mutation_started, environment_created and installer_launched all false;
@@ -107,3 +132,23 @@ A read-only Deck check after source verification confirmed the same imported
 record, no onboarding environment, the previous installed manager/frontend,
 service active, keeper 1, capture off and zero leases/transactions/stale transports.
 It did not read the source installer or mutate any installed artifact.
+
+## Review repair at the 44f251f boundary
+
+The original barrier regression failed against reviewed source: while actual
+installer verification was paused, another owner could not acquire registry.lock.
+It passes after the split. A second regression changes the registry during that
+unlocked expensive phase and requires the final guarded recheck to refuse it.
+
+The production queued-worker mutation regressions introduce contention only after
+validation has succeeded and the mutation capacity sample has been captured. A
+brief hold continues the same operation with exactly one mutation acquisition and
+one environment; a persistent hold produces the typed mutation-stage timeout and
+no environment/resume/installer operation. Duplicate terminal dispatch remains
+inert. Replacing installer, runner or catalogue files after verification is
+refused before creation. Acquired and timed-out lock facts assert exact lock names
+and purposes; the frontend covers both validation and creation-admission stages.
+
+These are generated source tests, not another Xfer attempt. Historical MF2 and
+prior R1 evidence are retained separately and unchanged. No installed software,
+product or real environment changes in this repair pass.

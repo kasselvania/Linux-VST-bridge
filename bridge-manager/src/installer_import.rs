@@ -192,7 +192,23 @@ fn import_with(
     }
     outcome
 }
+#[cfg(test)]
+thread_local! {
+    pub(super) static VERIFY_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
+}
 pub fn load(m: &Manager, id: &str) -> Result<Installer> {
+    let r = load_record(m, id)?;
+    #[cfg(test)]
+    VERIFY_BARRIER.with(|hook| {
+        if let Some(hook) = hook.borrow_mut().take() {
+            hook();
+        }
+    });
+    r.artifact.verify()?;
+    Ok(r)
+}
+/// Small immutable-record validation; this grants no digest verification.
+pub fn load_record(m: &Manager, id: &str) -> Result<Installer> {
     require(valid_hex(id, 64), "installer_identity")?;
     let d = m.root.join("installers");
     let r: Installer = read_json(&d.join(format!("{id}.json")))?;
@@ -212,10 +228,10 @@ pub fn load(m: &Manager, id: &str) -> Result<Installer> {
             && r.import_result == "imported",
         "installer_record_binding",
     )?;
-    r.artifact.verify()?;
+    let meta = file(&r.artifact.path)?.metadata()?;
     require(
-        file(&r.artifact.path)?.metadata()?.len() == r.byte_size,
-        "installer_size_changed",
+        meta.len() == r.byte_size && meta.mode() & 0o222 == 0,
+        "installer_size_or_permissions_changed",
     )?;
     Ok(r)
 }

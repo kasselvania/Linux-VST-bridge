@@ -434,3 +434,12 @@ Independent source review is required before immutable installation and one
 human resumed environment-create action. Until then no installation, file picker,
 installer reimport, environment creation, vendor launch or product test is allowed.
 PR108 remains draft and unmerged. No Serum candidate/publication belongs to MF2.
+
+### MF2-R1 independent-review correction (44f251f)
+
+Current cut: split registry capture from expensive projection with guarded token/
+owner recheck; use one bounded, operation-bound environment-creation guard; retain
+exact lock purposes. Preserve prior R1 custody and historical MF2 result bytes.
+See `docs/MF2-R1.md`. Generated source verification and AP12/PX2 only. No
+installation, reimport, real environment creation or vendor launch before
+independent source rereview. Keep PR #108 draft/open/unmerged.
