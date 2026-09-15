@@ -8,7 +8,17 @@ pub fn project(
     products: &mut [ui::Product],
     busy: Option<&str>,
 ) -> Result<()> {
-    for s in prep::selections(m, &sw.host, &sw.source_sha256)? {
+    let mut selections = prep::selections(m, &sw.host, &sw.source_sha256)?;
+    for c in prep::candidates(m, &sw.host, &sw.source_sha256)? {
+        if !selections.iter().any(|s| {
+            s.environment.id == c.selection.environment.id
+                && s.module.sha256 == c.selection.module.sha256
+                && s.class.id == c.selection.class.id
+        }) {
+            selections.push(c.selection);
+        }
+    }
+    for s in selections {
         let Some(p) = products.iter_mut().find(|p| {
             p.class_id == s.class.id
                 && p.module_sha256 == s.module.sha256
@@ -16,53 +26,97 @@ pub fn project(
         }) else {
             continue;
         };
-        let v = match prep::view(m, &s, &sw.host, &sw.source_sha256) {
-            Ok(v) => v,
-            Err(e) => {
-                p.details["preparation_failure"] = json!(e.to_string());
-                p.disposition = "needs_attention".into();
-                continue;
-            }
-        };
-        let offer = |label: &str, a: ui::Action, reason: Option<&str>| ui::AvailableAction {
-            label: label.into(),
-            action: a,
+        let v = prep::view(m, &s, &sw.host, &sw.source_sha256)?;
+        p.active_revision = v.current_profile_revision;
+        p.details["preparation"] = serde_json::to_value(&v)?;
+        let offer = |label: String, action: ui::Action, reason: Option<&str>| ui::AvailableAction {
+            label,
+            action,
             disabled_reason: reason.map(str::to_owned),
         };
-        p.details["preparation"] = serde_json::to_value(&v)?;
-        if !matches!(v.publication.as_str(), "experimental" | "ordinary") {
-            p.active_revision = None;
-        }
-        if let Some(id) = v.candidate.as_ref() {
-            let enabled = v.publication == "experimental";
-            if enabled {
-                p.disposition = "experimental".into()
-            } else if v.publication != "ordinary" {
-                p.disposition = "prepared".into()
-            }
-            p.actions.push(if enabled {
-                offer(
-                    "Disable experimental use / restore previous publication",
-                    ui::Action::ExperimentalDisable {
-                        candidate: id.clone(),
-                    },
-                    busy,
-                )
+        let current_selection = prep::verify_selection(m, &s, &sw.host, &sw.source_sha256).is_ok();
+        let stale = if current_selection {
+            None
+        } else {
+            Some("Historical selection: current inventory/scanner must be refreshed before preparation or publication")
+        };
+        p.actions.push(offer(
+            if v.recommended_inspection.is_some() {
+                "Refresh preliminary inspection"
             } else {
-                offer(
-                    "Enable experimental use in Bitwig",
-                    ui::Action::ExperimentalEnable {
-                        candidate: id.clone(),
+                "Check compatibility"
+            }
+            .into(),
+            ui::Action::PluginReinspect {
+                selection: v.selection.clone(),
+            },
+            busy.or(stale),
+        ));
+        if let Some(inspection) = &v.recommended_inspection {
+            let kit = prep::build::recipe_available(m);
+            let controller = matches!(
+                v.controller,
+                Some(prep::ControllerAssociation::Unavailable { .. })
+            );
+            if let Ok(kit) = kit {
+                p.actions.push(offer(
+                    "Prepare a test candidate for this inspection and recipe".into(),
+                    ui::Action::PluginPrepare {
+                        selection: v.selection.clone(),
+                        inspection: inspection.clone(),
+                        recipe: kit.sha256,
+                        predecessor: v.candidate.clone(),
                     },
-                    busy.or(if v.publication == "ordinary" {
-                        Some("This exact product is already ordinarily published")
+                    busy.or(stale).or(if controller {
+                        Some("Refresh inspection to retain exact controller association")
                     } else {
                         None
                     }),
-                )
-            });
+                ));
+            } else {
+                p.details["preparation"]["build_prerequisite"] =
+                    json!("Install a current preparation kit to prepare another generation");
+            }
+        }
+        p.disposition = match v.publication.as_str() {
+            "needs_attention" => "needs_attention",
+            "another_configuration" => "another_configuration",
+            "experimental" => "experimental",
+            "ordinary" => "ready",
+            _ => {
+                if v.candidates.is_empty() {
+                    "installed_unqualified"
+                } else {
+                    "prepared"
+                }
+            }
+        }
+        .into();
+        for h in &v.candidates {
+            let id = &h.id;
+            let label = |name: &str| format!("{} · candidate {}", name, &id[..12]);
+            let historical = if h.current_inputs {
+                None
+            } else {
+                Some("Historical candidate inputs: retain evidence; prepare a current generation before enabling")
+            };
+            if let Some(a) = publication_action(
+                id,
+                &h.publication,
+                v.current_revision.as_ref(),
+                if matches!(h.publication.as_str(), "ordinary" | "experimental") {
+                    busy
+                } else {
+                    busy.or(historical)
+                },
+            ) {
+                p.actions.push(a);
+            }
+            if h.publication == "needs_attention" {
+                p.details["preparation"]["recovery"]=json!("Publication and physical state disagree. Reconcile the managed transaction before enabling or replacing a candidate.");
+            }
             p.actions.push(offer(
-                "Record an operator observation",
+                label("Record an operator observation"),
                 ui::Action::CandidateObserve {
                     candidate: id.clone(),
                     area: "editor".into(),
@@ -71,21 +125,9 @@ pub fn project(
                 },
                 None,
             ));
+            p.actions.push(offer(label("Review this exact configuration"),ui::Action::CandidateReview{candidate:id.clone(),accept:true,rationale:String::new()},busy.or(if h.unmet_requirements.is_empty(){None}else{Some("Qualification incomplete: inspect missing or failed results for this candidate")})));
             p.actions.push(offer(
-                "Review this exact configuration",
-                ui::Action::CandidateReview {
-                    candidate: id.clone(),
-                    accept: true,
-                    rationale: String::new(),
-                },
-                if v.unmet_requirements.is_empty() {
-                    busy
-                } else {
-                    Some("Qualification incomplete: review the missing or failed results below")
-                },
-            ));
-            p.actions.push(offer(
-                "Record needs-work review",
+                label("Record needs-work review"),
                 ui::Action::CandidateReview {
                     candidate: id.clone(),
                     accept: false,
@@ -93,25 +135,32 @@ pub fn project(
                 },
                 None,
             ));
-            let approved = v.ordinary_acceptance_current;
-            p.actions.push(offer("Publish accepted exact configuration for ordinary use",ui::Action::CandidatePublishOrdinary{candidate:id.clone()},busy.or(if approved{None}else{Some("An explicit current qualification decision and complete product evidence are required")})));
-        } else if v.inspection == "complete" {
-            let controller = matches!(
-                v.controller,
-                Some(prep::ControllerAssociation::Unavailable { .. })
-            );
-            let kit = prep::build::recipe_available(m)
-                .err()
-                .map(|e| e.to_string());
-            p.actions.push(offer("Prepare test instance",ui::Action::PluginPrepare{selection:v.selection.clone()},busy.or(if controller{Some("Exact controller association unavailable; inspection needs updated source-owned metadata")}else{kit.as_deref()})));
-        } else {
             p.actions.push(offer(
-                "Check compatibility",
-                ui::Action::PluginInspect {
-                    selection: v.selection.clone(),
+                label("Publish accepted exact configuration for ordinary use"),
+                ui::Action::CandidatePublishOrdinary {
+                    candidate: id.clone(),
                 },
-                busy,
+                busy.or(historical).or(
+                    if h.ordinary_acceptance_current
+                        && !matches!(
+                            h.publication.as_str(),
+                            "needs_attention" | "another_configuration"
+                        )
+                    {
+                        None
+                    } else {
+                        Some("Current exact acceptance and a reconciled publication are required")
+                    },
+                ),
             ));
+        }
+        if let Some(rows) = p.details["preparation"]["candidates"].as_array_mut() {
+            for row in rows {
+                let id = row["id"].as_str().ok_or("candidate_view_id")?.to_owned();
+                if let Some(op) = operator_cli::product_receipt(m, &v.selection, Some(&id))? {
+                    row["operation"] = op;
+                }
+            }
         }
         if let Some(op) = operator_cli::product_receipt(m, &v.selection, v.candidate.as_deref())? {
             p.details["preparation"]["operation"] = op;
@@ -119,10 +168,72 @@ pub fn project(
     }
     Ok(())
 }
+
+fn publication_identity(r: &publication::RevisionRef) -> ui::PublicationIdentity {
+    ui::PublicationIdentity {
+        id: r.id.clone(),
+        sha256: r.sha256.clone(),
+    }
+}
+fn publication_reference(r: &ui::PublicationIdentity) -> publication::RevisionRef {
+    publication::RevisionRef {
+        id: r.id.clone(),
+        sha256: r.sha256.clone(),
+    }
+}
+fn publication_action(
+    id: &str,
+    state: &str,
+    current: Option<&publication::RevisionRef>,
+    reason: Option<&str>,
+) -> Option<ui::AvailableAction> {
+    let (label, action) = match state {
+        "experimental" => (
+            "Disable experimental use / restore previous publication".into(),
+            ui::Action::ExperimentalDisable {
+                candidate: id.into(),
+            },
+        ),
+        "ordinary" => (
+            "Withdraw ordinary publication (retain evidence)".into(),
+            ui::Action::CandidateWithdraw {
+                candidate: id.into(),
+                expected_current: publication_identity(current?),
+            },
+        ),
+        "another_configuration" => (
+            format!(
+                "Replace current revision {} with this candidate",
+                current?.id
+            ),
+            ui::Action::ExperimentalReplace {
+                candidate: id.into(),
+                expected_current: publication_identity(current?),
+            },
+        ),
+        "needs_attention" => return None,
+        "unpublished" | "removed" => (
+            "Enable experimental use in Bitwig".into(),
+            ui::Action::ExperimentalEnable {
+                candidate: id.into(),
+            },
+        ),
+        _ => return None,
+    };
+    Some(ui::AvailableAction {
+        label: format!("{} · candidate {}", label, &id[..12]),
+        action,
+        disabled_reason: reason.map(str::to_owned),
+    })
+}
+
 pub fn is_action(a: &ui::Action) -> bool {
     matches!(
         a,
-        ui::Action::PluginInspect { .. }
+        ui::Action::PluginReinspect { .. }
+            | ui::Action::ExperimentalReplace { .. }
+            | ui::Action::CandidateWithdraw { .. }
+            | ui::Action::PluginInspect { .. }
             | ui::Action::PluginPrepare { .. }
             | ui::Action::ExperimentalEnable { .. }
             | ui::Action::ExperimentalDisable { .. }
@@ -169,9 +280,6 @@ fn text(s: &str) -> bool {
     !s.trim().is_empty() && s.len() <= 512 && !s.chars().any(char::is_control)
 }
 pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::Inspection> {
-    if let Some(i) = prep::inspection(m, s)? {
-        return Ok(i);
-    }
     prep::verify_selection(m, s, &sw.host, &sw.source_sha256)?;
     let runtime = prep::build::stage_runtime(m)?;
     let stamp = observation::ModuleStamp::read(&s.module.path)?;
@@ -220,39 +328,77 @@ pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::
 pub fn execute(m: &Manager, a: &ui::Action, operation: &str) -> Result<Value> {
     let sw = software(m)?;
     match a {
-        ui::Action::PluginInspect { selection } => {
+        ui::Action::PluginInspect { selection } | ui::Action::PluginReinspect { selection } => {
             let s = prep::select(m, selection, &sw.host, &sw.source_sha256)?;
             let i = inspect(m, &s, &sw)?;
             Ok(
                 json!({"selection":selection,"inspection":"complete","controller":i.controller,"guarantee":false,"publication_changed":false}),
             )
         }
-        ui::Action::PluginPrepare { selection } => {
+        ui::Action::PluginPrepare {
+            selection,
+            inspection,
+            recipe,
+            predecessor,
+        } => {
             let s = prep::select(m, selection, &sw.host, &sw.source_sha256)?;
-            if let Some(c) = prep::candidates(m, &sw.host, &sw.source_sha256)?
-                .into_iter()
-                .find(|c| c.selection == s)
-            {
-                prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
-                return Ok(
-                    json!({"selection":selection,"candidate":c.id()?,"reused":true,"publication_changed":false}),
-                );
-            }
-            let i = prep::inspection(m, &s)?.ok_or("preliminary_inspection_required")?;
-            let c = prep::build::construct(
-                m,
-                s,
-                i.clone(),
-                i.host.clone(),
-                i.source_manifest.clone(),
-                operation,
+            let i = prep::exact_inspection(m, &s, inspection)?;
+            require(
+                prep::build::recipe(m)?.sha256 == *recipe,
+                "preparation_recipe_changed",
             )?;
+            let prior = predecessor
+                .as_ref()
+                .map(|id| prep::candidate(m, id, &sw.host, &sw.source_sha256))
+                .transpose()?;
+            if let Some(c) = &prior {
+                require(
+                    prep::same_product(&c.selection, &s),
+                    "candidate_predecessor_selection",
+                )?;
+            }
+            let basis = prep::preparation_basis(m, prior.as_ref())?;
+            let reusable = prep::build::reusable(m, &s, &i, recipe)?;
+            let artifact_reused = reusable.is_some();
+            let c = if let Some(c) = reusable {
+                c
+            } else {
+                prep::build::construct(
+                    m,
+                    s,
+                    i.clone(),
+                    i.host.clone(),
+                    i.source_manifest.clone(),
+                    operation,
+                )?
+            };
+            let c = prep::bind_preparation_basis(c, Some(basis))?;
+            let candidate_reused = prep::retained_candidates(m)?.iter().any(|old| old == &c);
             prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
             let _guard = m.lock("registry.lock")?;
             m.require_inactive(None)?;
+            prep::retain_lineage(m, &c, operation, predecessor.as_deref())?;
             let id = prep::record_candidate(m, &c)?;
             Ok(
-                json!({"selection":selection,"candidate":id,"prepared":true,"publication_changed":false}),
+                json!({"selection":selection,"candidate":id,"prepared":true,"candidate_reused":candidate_reused,"artifact_reused":artifact_reused,"publication_changed":false}),
+            )
+        }
+        ui::Action::ExperimentalReplace {
+            candidate,
+            expected_current,
+        } => {
+            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let revision = prep::replace(m, &c, &publication_reference(expected_current))?;
+            Ok(json!({"candidate":candidate,"replaced":expected_current,"publication":revision}))
+        }
+        ui::Action::CandidateWithdraw {
+            candidate,
+            expected_current,
+        } => {
+            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            prep::withdraw(m, &c, &publication_reference(expected_current))?;
+            Ok(
+                json!({"candidate":candidate,"withdrawn":expected_current,"evidence_preserved":true}),
             )
         }
         ui::Action::ExperimentalEnable { candidate }
@@ -306,9 +452,13 @@ pub fn execute(m: &Manager, a: &ui::Action, operation: &str) -> Result<Value> {
 
 pub fn failure(action: &ui::Action) -> Option<Value> {
     let stage = match action {
-        ui::Action::PluginInspect { .. } => "preliminary_inspection",
+        ui::Action::PluginInspect { .. } | ui::Action::PluginReinspect { .. } => {
+            "preliminary_inspection"
+        }
         ui::Action::PluginPrepare { .. } => "candidate_preparation",
-        ui::Action::ExperimentalEnable { .. }
+        ui::Action::ExperimentalReplace { .. }
+        | ui::Action::CandidateWithdraw { .. }
+        | ui::Action::ExperimentalEnable { .. }
         | ui::Action::ExperimentalDisable { .. }
         | ui::Action::CandidatePublishOrdinary { .. } => "publication_transaction",
         ui::Action::CandidateObserve { .. } | ui::Action::CandidateReview { .. } => {
@@ -324,6 +474,39 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn attention_and_alternative_never_offer_generic_enable() {
+        let id = "ab".repeat(32);
+        let r = publication::RevisionRef {
+            id: "cd".repeat(16),
+            sha256: "ef".repeat(32),
+        };
+        assert!(publication_action(&id, "needs_attention", Some(&r), None).is_none());
+        let offered = publication_action(&id, "another_configuration", Some(&r), None).unwrap();
+        assert_eq!(
+            offered.action,
+            ui::Action::ExperimentalReplace {
+                candidate: id.clone(),
+                expected_current: publication_identity(&r)
+            }
+        );
+        let mut wrong = r.clone();
+        wrong.id = "00".repeat(16);
+        assert!(!super::offered(
+            &ui::Action::ExperimentalReplace {
+                candidate: id.clone(),
+                expected_current: publication_identity(&wrong)
+            },
+            &offered.action
+        ));
+        assert!(matches!(
+            publication_action(&id, "ordinary", Some(&r), None)
+                .unwrap()
+                .action,
+            ui::Action::CandidateWithdraw { .. }
+        ));
+        assert!(publication_action(&id, "unknown", Some(&r), None).is_none());
+    }
     #[test]
     fn observation_is_closed_and_product_bound() {
         let offered = ui::Action::CandidateObserve {

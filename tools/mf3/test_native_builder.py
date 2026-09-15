@@ -3,7 +3,7 @@ from native_builder import build,SDK,SDK_RUNTIME,run
 class BuildContract(unittest.TestCase):
     def request(self,root,files,extra=None):
         kit=root/'kit.zip'
-        recipe=dict(schema=1,source_commit='a'*40,sdk=SDK,sdk_runtime=SDK_RUNTIME,files={k:hashlib.sha256(v).hexdigest() for k,v in files.items()})
+        recipe=dict(schema=2,source_commit='a'*40,sdk=SDK,sdk_runtime=SDK_RUNTIME,files={k:hashlib.sha256(v).hexdigest() for k,v in files.items()})
         with zipfile.ZipFile(kit,'w') as z:
             z.writestr('recipe.json',json.dumps(recipe))
             for name,data in files.items():z.writestr(name,data)
@@ -27,7 +27,25 @@ class BuildContract(unittest.TestCase):
         import sys
         data,dropped=run([sys.executable,'-c','print("x"*70000)'],10)
         self.assertEqual(len(data),32768);self.assertGreater(dropped,0)
-    def test_generator_is_shared_production_descriptor_owner(self):
+    def test_generators_are_kit_owned_and_not_manager_embedded(self):
         p=pathlib.Path(__file__).resolve().parents[2]/'bridge-manager/src/preparation/build.rs'
-        self.assertIn('include_str!("../../../tools/ap8_descriptor.py")',p.read_text())
+        self.assertNotIn('include_str!("../../../tools/ap8_descriptor.py")',p.read_text())
+        self.assertIn('include_str!("../../../tools/mf3/kit_entry.py")',p.read_text())
+    def test_mixed_kit_and_generator_fail_closed(self):
+        from kit_entry import load_generators,BUILDER,GENERATOR
+        with tempfile.TemporaryDirectory() as d:
+            r=pathlib.Path(d);q=self.request(r,{BUILDER:b'first builder',GENERATOR:b'first generator'})
+            recipe,loaded=load_generators(q)
+            self.assertEqual(loaded,[b'first builder',b'first generator'])
+            with zipfile.ZipFile(r/'other.zip','w') as z:
+                z.writestr('recipe.json',json.dumps(recipe));z.writestr(BUILDER,b'changed builder');z.writestr(GENERATOR,b'first generator')
+            q['kit']=str(r/'other.zip');q['kit_sha256']=hashlib.sha256((r/'other.zip').read_bytes()).hexdigest()
+            with self.assertRaisesRegex(AssertionError,'generator_changed'):load_generators(q)
+    def test_legacy_kit_cannot_borrow_new_generators(self):
+        from kit_entry import load_generators
+        with tempfile.TemporaryDirectory() as d:
+            r=pathlib.Path(d);q=self.request(r,{'libap2_backend.a':b'x'})
+            with zipfile.ZipFile(r/'old.zip','w') as z:z.writestr('recipe.json',json.dumps({'schema':1}))
+            q['kit']=str(r/'old.zip');q['kit_sha256']=hashlib.sha256((r/'old.zip').read_bytes()).hexdigest()
+            with self.assertRaisesRegex(AssertionError,'generator_identity_missing'):load_generators(q)
 if __name__=='__main__':unittest.main()

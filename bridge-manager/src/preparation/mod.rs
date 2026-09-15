@@ -1,6 +1,7 @@
 //! MF3: canonical selection, immutable preparation and explicit local review.
 //! No frontend path, process, profile or compiler authority enters this owner.
 pub mod build;
+mod history;
 mod model;
 use crate::{
     catalogue::NativeArtifact,
@@ -9,6 +10,7 @@ use crate::{
     publication::*,
     *,
 };
+pub use history::*;
 pub use model::*;
 use serde_json::Value;
 
@@ -134,6 +136,15 @@ pub fn select(m: &Manager, id: &str, host: &Artifact, source: &str) -> Result<Se
 }
 pub fn verify_selection(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
     require(
+        selections(m, host, source)?
+            .iter()
+            .any(|current| current == s),
+        "preparation_inventory_superseded",
+    )?;
+    verify_selection_data(m, s, host, source)
+}
+fn verify_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
+    require(
         s.schema == 1 && s.scanner.sha256 == host.sha256 && s.scanner_source == source,
         "preparation_scanner_changed",
     )?;
@@ -232,35 +243,15 @@ pub fn inspect_record_with(
     })
 }
 pub fn retain_inspection(m: &Manager, i: &Inspection) -> Result<()> {
-    let id = i.selection.id()?;
-    // An exact report is content-addressed; replacement is a new observation.
-    let dir = object(m, "inspections", &id)?;
-    private_dir(&dir)?;
-    immutable(&dir.join(format!("{}.json", i.report.sha256)), i)?;
+    let dir = object(m, "inspections", &i.selection.id()?)?;
+    immutable(&dir.join(format!("{}.json", i.id()?)), i)?;
+    retain_inspection_order(m, i)?;
     changed(m)
 }
 pub fn inspection(m: &Manager, s: &Selection) -> Result<Option<Inspection>> {
-    if let Some(c) = adopt_sv1(m, s)? {
-        return Ok(Some(c.inspection));
-    }
-    let mut found = vec![];
-    for p in list(&object(m, "inspections", &s.id()?)?)? {
-        if p.extension().is_none_or(|e| e != "json") {
-            continue;
-        }
-        let i: Inspection = bounded(&p)?;
-        if i.selection == *s && i.schema == 1 {
-            i.report.verify()?;
-            found.push(i);
-        }
-    }
-    require(
-        found.len() <= 1,
-        "inspection_multiple_current_results_need_review",
-    )?;
-    Ok(found.pop())
+    recommended_inspection(m, s)
 }
-/// Read-only adoption preserves original provenance; no rescan, proxy build or publication.
+/// Import original authority into durable generic history; no product action.
 fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
     let p = crate::managed_candidate::candidate()?;
     if p.class.class_id != s.class.id || p.module_sha256 != s.module.sha256 {
@@ -317,7 +308,7 @@ fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
         c.host.clone(),
         c.source_manifest.clone(),
     )?;
-    Ok(Some(Candidate {
+    let candidate = Candidate {
         schema: 1,
         selection: s.clone(),
         inspection: i,
@@ -327,41 +318,61 @@ fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
         source_manifest: c.source_manifest,
         origin: Origin::RetainedSv1,
         recipe_sha256: "retained-sv1".into(),
-    }))
+        preparation_basis: None,
+    };
+    materialize_legacy(m, &candidate, &b)?;
+    Ok(Some(candidate))
 }
-pub fn candidates(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Candidate>> {
-    let mut out = vec![];
-    for s in selections(m, host, source)? {
-        if let Some(c) = adopt_sv1(m, &s)? {
-            out.push(c)
-        }
-    }
-    for p in list(&root(m).join("candidates"))? {
-        if !p.is_dir() {
-            continue;
-        }
-        let c: Candidate = bounded(&p.join("candidate.json"))?;
-        require(
-            c.schema == 1 && p.file_name().and_then(|s| s.to_str()) == Some(c.id()?.as_str()),
-            "candidate_identity",
-        )?;
-        if !out.iter().any(|x| x.id().ok() == c.id().ok()) {
-            out.push(c)
+pub fn candidates(m: &Manager, _host: &Artifact, _source: &str) -> Result<Vec<Candidate>> {
+    let mut out = retained_candidates(m)?;
+    // Once adopted, mutable inventory is never consulted to reconstruct history.
+    let legacy = crate::managed_candidate::candidate()?;
+    if !out.iter().any(|c| c.origin == Origin::RetainedSv1) {
+        for path in list(&m.root.join("inventory"))? {
+            if path.extension().is_none_or(|x| x != "json") {
+                continue;
+            }
+            let scan: crate::inventory::Scan = bounded(&path)?;
+            for module in scan.modules {
+                for class in module.classes {
+                    if class.id != legacy.class.class_id
+                        || module.artifact.sha256 != legacy.module_sha256
+                    {
+                        continue;
+                    }
+                    let s = Selection {
+                        schema: 1,
+                        environment: scan.environment.clone(),
+                        module: module.artifact.clone(),
+                        class,
+                        scanner: scan.host.clone(),
+                        scanner_source: scan.host_source_sha256.clone(),
+                        factory_report: module.report.clone(),
+                    };
+                    if let Some(c) = adopt_sv1(m, &s)? {
+                        out.push(c);
+                    }
+                }
+            }
         }
     }
     Ok(out)
 }
 pub fn candidate(m: &Manager, id: &str, host: &Artifact, source: &str) -> Result<Candidate> {
     require(valid_hex(id, 64), "candidate_identity")?;
-    let c = candidates(m, host, source)?
+    candidates(m, host, source)?
         .into_iter()
         .find(|c| c.id().is_ok_and(|v| v == id))
-        .ok_or("candidate_absent")?;
-    verify_candidate(m, &c, host, source)?;
-    Ok(c)
+        .ok_or_else(|| "candidate_absent".into())
 }
 pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &str) -> Result<()> {
     verify_selection(m, &c.selection, host, source)?;
+    verify_retained_candidate(m, c)
+}
+pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
+    let host = &c.selection.scanner;
+    let source = c.selection.scanner_source.as_str();
+    verify_selection_data(m, &c.selection, host, source)?;
     require(
         c.schema == 1
             && c.inspection.selection == c.selection
@@ -377,7 +388,9 @@ pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &st
         c.host == c.inspection.host && c.source_manifest == c.inspection.source_manifest,
         "candidate_host_changed",
     )?;
-    if c.host.sha256 != host.sha256 || c.source_manifest.sha256 != source {
+    if c.origin == Origin::RetainedSv1 {
+        verify_legacy(m, c)?;
+    } else if c.host.sha256 != host.sha256 || c.source_manifest.sha256 != source {
         build::verify_runtime(m, c)?;
     }
     c.source_manifest.verify()?;
@@ -407,6 +420,7 @@ pub fn record_candidate(m: &Manager, c: &Candidate) -> Result<String> {
     let id = c.id()?;
     let d = object(m, "candidates", &id)?;
     immutable(&d.join("candidate.json"), c)?;
+    retain_lineage(m, c, &id, None)?;
     changed(m)?;
     Ok(id)
 }
@@ -430,7 +444,10 @@ pub fn prepared(
     require(raw["error"].is_null(), "inspection_failed")?;
     let profile = Profile {
         schema: 1,
-        id: format!("managed.{}", s.id()?),
+        id: format!(
+            "managed.{}",
+            key(&(&s, &i, &native, &host, &manifest, &recipe))?
+        ),
         revision: 1,
         claim: Claim::ReviewCandidate,
         module_sha256: s.module.sha256.clone(),
@@ -475,6 +492,7 @@ pub fn prepared(
         source_manifest: manifest,
         origin: Origin::ManagedPreparation,
         recipe_sha256: recipe,
+        preparation_basis: None,
     })
 }
 fn evidence_dir(m: &Manager, id: &str) -> Result<PathBuf> {
@@ -484,14 +502,8 @@ pub fn observations(m: &Manager, c: &Candidate) -> Result<Vec<Observation>> {
     let mut out = vec![];
     // Original observations remain labelled with their original provenance.
     if c.origin == Origin::RetainedSv1 {
-        let report: Value = serde_json::from_slice(include_bytes!(
-            "../../../evidence/sv1/first-operator-session.json"
-        ))?;
-        if report["module_sha256"] == c.selection.module.sha256
-            && report["host_sha256"] == c.host.sha256
-        {
-            for (area,status,witness,detail) in [(Area::DawLoad,TestStatus::Passed,Witness::MachineObservation,"SV1 retained exact instrument processing session"),(Area::Editor,TestStatus::Passed,Witness::OperatorObservation,"Operator reported responsive editor before failure"),(Area::Parameters,TestStatus::Passed,Witness::MachineObservation,"SV1 retained two complete gestures and 24 value events"),(Area::Retirement,TestStatus::Failed,Witness::MachineObservation,"Terminal lifecycle correlation failure on processing restart; abnormal cleanup succeeded")]{out.push(Observation{schema:1,candidate:c.id()?,operation:"retained-sv1".into(),area,status,witness,detail:detail.into(),recorded_at:0,ordinal:0})}
-        }
+        let report = legacy_provenance(m, c)?.original_evidence;
+        out.extend(retained_sv1_observations(c, &report)?);
     }
     for p in list(&evidence_dir(m, &c.id()?)?)? {
         let o: Observation = bounded(&p)?;
@@ -504,6 +516,18 @@ pub fn observations(m: &Manager, c: &Candidate) -> Result<Vec<Observation>> {
     out.sort_by_key(|o| (o.ordinal, o.operation.clone()));
     Ok(out)
 }
+fn retained_sv1_observations(c: &Candidate, report: &Value) -> Result<Vec<Observation>> {
+    let mut out = vec![];
+    if report["module_sha256"] == c.selection.module.sha256
+        && report["class_id"] == c.selection.class.id
+        && report["host_sha256"] == c.host.sha256
+        && report["host_source_manifest_sha256"] == c.source_manifest.sha256
+    {
+        for (area,status,witness,detail) in [(Area::DawLoad,TestStatus::Passed,Witness::MachineObservation,"SV1 retained exact instrument processing session"),(Area::Editor,TestStatus::Passed,Witness::OperatorObservation,"Operator reported responsive editor before failure"),(Area::Parameters,TestStatus::Passed,Witness::MachineObservation,"SV1 retained two complete gestures and 24 value events"),(Area::ProcessingRestart,TestStatus::Failed,Witness::MachineObservation,"Terminal lifecycle correlation failure on processing restart"),(Area::Retirement,TestStatus::NotTested,Witness::MachineObservation,"Normal retirement was not observed; positive terminal cleanup is retained separately")]{out.push(Observation{schema:1,candidate:c.id()?,operation:"retained-sv1".into(),area,status,witness,detail:detail.into(),recorded_at:0,ordinal:0})}
+    }
+    Ok(out)
+}
+
 fn detail(s: &str) -> Result<()> {
     require(
         !s.trim().is_empty() && s.len() <= 512 && !s.chars().any(char::is_control),
@@ -653,9 +677,17 @@ pub fn accepted(m: &Manager, c: &Candidate) -> Result<Profile> {
         .ok_or_else(|| "qualification_review_required".into())
 }
 pub fn publication_state(m: &Manager, c: &Candidate) -> Result<String> {
+    if m.publication_pending(&c.selection.class.id)? {
+        return Ok("needs_attention".into());
+    }
     let db = m.registry()?;
     let Some(e) = db.classes.get(&c.selection.class.id) else {
-        return Ok("unpublished".into());
+        return Ok(if physical(&m.link(&c.selection.class.id))?.is_some() {
+            "needs_attention"
+        } else {
+            "unpublished"
+        }
+        .into());
     };
     if e.publication != Publication::Published {
         return Ok(if physical(&m.link(&c.selection.class.id))?.is_none() {
@@ -676,9 +708,7 @@ pub fn publication_state(m: &Manager, c: &Candidate) -> Result<String> {
     {
         return Ok("needs_attention".into());
     }
-    if r.profile.requirements.native_sha256 != c.native.artifact.sha256
-        || r.registration.environment != c.selection.environment
-    {
+    if r.profile != c.profile && !accepted_profile(m, c, &r.profile)? {
         return Ok("another_configuration".into());
     }
     Ok(if r.qualification.is_some() {
@@ -702,62 +732,6 @@ fn preliminary(i: Option<&Inspection>) -> Result<Value> {
     Ok(
         serde_json::json!({"component_initialized":true,"controller_initialized":true,"buses":buses,"parameter_count":one("ap8_parameter_count")["count"],"precision":one("ap12_capabilities"),"state":one("ap12_persistence"),"editor_interface":one("ap8_editor_interface"),"editor_attached":false,"cleanup_confirmed":raw["cleanup_confirmed"]}),
     )
-}
-pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<View> {
-    verify_selection(m, s, host, source)?;
-    let i = inspection(m, s)?;
-    let found: Vec<_> = candidates(m, host, source)?
-        .into_iter()
-        .filter(|c| c.selection == *s)
-        .collect();
-    require(found.len() <= 1, "candidate_choice_required")?;
-    let c = found.first();
-    if let Some(c) = c {
-        verify_candidate(m, c, host, source)?;
-    }
-    let evidence = c
-        .map(|c| observations(m, c))
-        .transpose()?
-        .unwrap_or_default();
-    Ok(View {
-        selection: s.id()?,
-        inspection: if i.is_some() {
-            "complete"
-        } else {
-            "not_checked"
-        }
-        .into(),
-        preliminary: preliminary(i.as_ref())?,
-        controller: i.map(|i| i.controller),
-        candidate: c.map(Candidate::id).transpose()?,
-        preparation: if c.is_some() {
-            "prepared"
-        } else {
-            "not_prepared"
-        }
-        .into(),
-        publication: c
-            .map(|c| publication_state(m, c))
-            .transpose()?
-            .unwrap_or("unpublished".into()),
-        origin: c.map(|c| c.origin.clone()),
-        unmet_requirements: unmet(
-            &evidence,
-            &if s.class.role == "effect" {
-                Role::Effect
-            } else {
-                Role::Instrument
-            },
-        ),
-        evidence,
-        review: c
-            .map(|c| decisions(m, c))
-            .transpose()?
-            .unwrap_or_default()
-            .pop(),
-        ordinary_acceptance_current: c.is_some_and(|c| accepted(m, c).is_ok()),
-        operation: None,
-    })
 }
 
 fn runner_match(r: &Runner) -> Result<RunnerMatch> {
@@ -789,7 +763,7 @@ fn for_profile(m: &Manager, p: &Profile) -> Result<Option<Candidate>> {
             "candidate_identity",
         )?;
         if c.profile == *p
-            || (p.claim == Claim::VerifiedExactFixture && accepted(m, &c).is_ok_and(|a| a == *p))
+            || (p.claim == Claim::VerifiedExactFixture && accepted_profile(m, &c, p)?)
         {
             found.push(c)
         }
@@ -832,7 +806,7 @@ pub fn session_binding(
 }
 pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> Result<()> {
     let c = for_profile(m, p)?.ok_or("candidate_preparation_required")?;
-    verify_candidate(m, &c, &c.selection.scanner, &c.selection.scanner_source)?;
+    verify_retained_candidate(m, &c)?;
     let mut expected = crate::observation::derive_for(
         p,
         &c.census()?,
@@ -899,7 +873,27 @@ pub(crate) fn permits_transition(
         && (p == &c.profile || accepted(m, &c).is_ok_and(|a| a == *p)))
 }
 pub fn enable(m: &Manager, c: &Candidate, ordinary: bool) -> Result<RevisionRef> {
+    enable_exact(m, c, ordinary, None)
+}
+pub fn replace(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Result<RevisionRef> {
+    require(
+        publication_state(m, c)? == "another_configuration",
+        "replacement_not_required",
+    )?;
+    enable_exact(m, c, false, Some(expected))
+}
+fn enable_exact(
+    m: &Manager,
+    c: &Candidate,
+    ordinary: bool,
+    expected: Option<&RevisionRef>,
+) -> Result<RevisionRef> {
     verify_candidate(m, c, &c.selection.scanner, &c.selection.scanner_source)?;
+    require(
+        publication_state(m, c)? != "needs_attention"
+            && (publication_state(m, c)? != "another_configuration" || expected.is_some()),
+        "explicit_replacement_or_reconciliation_required",
+    )?;
     // Adopting retained CLI provenance grants no publication by itself.
     record_candidate(m, c)?;
     let p = if ordinary {
@@ -918,7 +912,7 @@ pub fn enable(m: &Manager, c: &Candidate, ordinary: bool) -> Result<RevisionRef>
             SelectionPurpose::Qualification
         },
     )?;
-    m.publish_with_scope(
+    m.publish_with_expected(
         &p,
         &census,
         r,
@@ -932,6 +926,7 @@ pub fn enable(m: &Manager, c: &Candidate, ordinary: bool) -> Result<RevisionRef>
             true,
         ),
         None,
+        expected,
     )
 }
 pub fn disable(m: &Manager, c: &Candidate) -> Result<()> {

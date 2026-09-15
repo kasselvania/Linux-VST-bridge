@@ -31,7 +31,8 @@ checkbox cannot erase a retained failure. MIDI is not a required instrument
 contract for an effect. An explicit local maintainer review is separate from
 recording observations and from publication. Acceptance needs complete relevant
 passing product observations, no retained failure, and an exact evidence digest.
-A subsequent changed observation invalidates that decision. Local acceptance is
+Changed observations block a new acceptance; an existing ordinary publication
+retains its sealed decision until explicit withdrawal. Local acceptance is
 not a project-wide vendor or platform support claim.
 
 The ordinary publication button uses the same immutable product bytes and stable
@@ -40,7 +41,7 @@ Serum evidence keeps this crossing unavailable; MF3 does not qualify Serum.
 
 ## Canonical records and authority
 
-Operator model 3 adds only closed selection/candidate operations. Paths, commands,
+Operator model 4 adds only closed selection/candidate operations. Paths, commands,
 compiler arguments, profiles, process IDs, source files and environment variables
 cannot be submitted by the frontend. Bounded observation/review text is evidence,
 never executable authority. Manager dispatch revalidates offered state and
@@ -70,7 +71,7 @@ inventory, not a misleading generic operating-system error.
 ## Fixed preparation recipe
 
 The optional immutable software package `preparation-kit.zip` contains owned
-native sources, the registered Rust archive, a pinned recipe and a separately
+native sources, the registered Rust archive, a pinned recipe including its exact builder and descriptor generator, and a separately
 built preparation Windows host/source manifest. No vendor module, installer,
 SDK distribution, account or preset is packaged. Omitted kit updates retain the
 previous exact kit, as with the frontend.
@@ -133,3 +134,64 @@ unchanged retained files and remaining UI/product nonclaims are recorded in
 
 Installer Focus remains the previously retained unconfirmed convenience action.
 MF3 does not investigate that issue or repair Serum's separate lifecycle failure.
+
+## Source rereview repair: immutable generations and publication-time acceptance
+
+The reviewed `4fd1cf6` implementation and its installed/live evidence remain
+historical facts. The following repair is source-only until independent review;
+no new package, candidate publication or product session has been deployed.
+Operator model **4** adds exact inspection/recipe/predecessor preparation inputs,
+a separately requested inspection refresh, exact expected-current replacement,
+and ordinary withdrawal. Old frontend requests cannot silently become new actions.
+
+A selection has a history of immutable inspections and candidates. Inspection
+identity hashes the complete report/host/source record, rather than the report
+alone. Retention order selects the most recent observation under the current
+inspection host; candidate-bound old observations remain readable. A missing or
+superseded current inspection offers refresh, never automatic reinspection.
+
+Candidate identity includes exact selection, inspection, policy, native and
+descriptor, host/source, recipe and preparation evidence basis. Lineage separately
+records the preparation identity, ordinal and declared predecessor. Preparation
+may reuse an exact native output while creating distinct metadata for a changed
+review/evidence basis. A repeated unchanged preparation reuses the same candidate;
+ambiguous different outputs for the same build inputs are refused. New generation
+metadata never overwrites the old candidate, observations or decisions.
+
+SV1 adoption materializes its original candidate identity and provenance in
+private immutable generic history. It retains exact copies of the originally
+bound environment, onboarding and inventory records, original profile and
+qualification authority, inspection, native/host/source identities and original
+session evidence. Later scanner or inventory changes affect current eligibility,
+not readability. The legacy route verifies that provenance directly and never
+passes `retained-sv1` to preparation-kit verification. Its original identity remains
+unchanged; the history view identifies the durable provenance by its digest.
+
+Publication readback distinguishes unpublished, removed, experimental, ordinary,
+needs-attention and another-configuration states. Current revision/profile and
+physical consistency remain visible even while another candidate is displayed.
+Needs-attention cannot offer generic Enable. Replacing a different publication
+requires the exact expected current revision ID/digest and replacement candidate;
+the publication owner compares this again under its mutation guard. Withdrawal
+and experimental removal retain installation and all history.
+
+Acceptance uses **policy A: publication-time authority remains valid until
+explicit withdrawal**. An ordinary profile binds an immutable explicit decision.
+Later evidence remains visible and prevents a new acceptance/publication, but
+does not silently revoke that existing profile in service admission. The manager
+shows the sealed publication and new review requirements together; the exact
+Withdraw action removes it. New observations cannot rewrite the original decision.
+Generated tests exercise a later exact failure, matching UI/runtime authority and
+explicit withdrawal.
+
+Preparation-kit schema **2** contains the actual native builder and descriptor
+generator sources in its hashed file roster. The manager's small loader verifies
+the exact kit and these bytes before executing either kit-owned implementation.
+The build result retains kit, builder and generator hashes; candidate reuse checks
+that complete result. Schema-1 kits remain historical runtime provenance but
+cannot borrow newer manager-embedded generators to create a new candidate.
+
+`processing_restart` is a separate required evidence area. The retained SV1
+projection records its restart failure there, normal retirement as not tested,
+and positive terminal cleanup separately. No historical evidence file is edited,
+and no LC2 behavior or Serum lifecycle repair is included.

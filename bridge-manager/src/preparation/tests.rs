@@ -506,3 +506,355 @@ with zipfile.ZipFile(path,'w') as z:
         }
     }
 }
+
+fn next_generation(m: &Manager, a: &Candidate) -> Candidate {
+    let path = m.root.join("reports/new-inspection.json");
+    private_dir(path.parent().unwrap()).unwrap();
+    let mut raw: Value = read_json(&a.inspection.report.path).unwrap();
+    raw["generation_fixture"] = json!(2);
+    atomic_json(&path, &raw).unwrap();
+    let i = inspect_record_with(
+        a.selection.clone(),
+        Artifact {
+            sha256: digest(&path).unwrap(),
+            path,
+        },
+        Origin::ManagedPreparation,
+        a.host.clone(),
+        a.source_manifest.clone(),
+    )
+    .unwrap();
+    prepared(
+        a.selection.clone(),
+        i,
+        a.native.clone(),
+        a.host.clone(),
+        a.source_manifest.clone(),
+        "bc".repeat(32),
+    )
+    .unwrap()
+}
+#[test]
+fn candidate_and_inspection_generations_coexist_and_actions_are_exact() {
+    let (f, a) = fixture();
+    record_candidate(&f.m, &a).unwrap();
+    retain_inspection(&f.m, &a.inspection).unwrap();
+    record_observation(
+        &f.m,
+        &a,
+        &random_id().unwrap(),
+        Area::ProcessingRestart,
+        TestStatus::Failed,
+        "Generated restart failure A",
+    )
+    .unwrap();
+    let b = next_generation(&f.m, &a);
+    retain_inspection(&f.m, &b.inspection).unwrap();
+    retain_lineage(&f.m, &b, "generated-preparation-B", Some(&a.id().unwrap())).unwrap();
+    record_candidate(&f.m, &b).unwrap();
+    assert_eq!(record_candidate(&f.m, &b).unwrap(), b.id().unwrap());
+    let history = view(&f.m, &a.selection, &a.host, &a.source_manifest.sha256).unwrap();
+    assert_eq!(history.candidates.len(), 2);
+    assert_eq!(history.inspections.len(), 2);
+    assert_eq!(
+        history.recommended_inspection,
+        Some(b.inspection.id().unwrap())
+    );
+    assert_eq!(history.candidates[0].disposition, "superseded");
+    assert_eq!(
+        history.candidates[1].lineage.predecessor,
+        Some(a.id().unwrap())
+    );
+    assert_eq!(
+        candidate(&f.m, &b.id().unwrap(), &b.host, &b.source_manifest.sha256).unwrap(),
+        b
+    );
+    assert!(observations(&f.m, &b).unwrap().is_empty());
+    assert!(exact_inspection(&f.m, &a.selection, &a.inspection.id().unwrap()).is_err());
+    assert_eq!(
+        inspection(&f.m, &a.selection).unwrap(),
+        Some(b.inspection.clone())
+    );
+    let published = enable(&f.m, &b, false).unwrap();
+    assert_eq!(
+        publication_state(&f.m, &a).unwrap(),
+        "another_configuration"
+    );
+    assert_eq!(publication_state(&f.m, &b).unwrap(), "experimental");
+    assert!(disable(&f.m, &a).is_err());
+    assert_eq!(
+        f.m.registry().unwrap().classes[&b.selection.class.id].managed_revision,
+        Some(published)
+    );
+    disable(&f.m, &b).unwrap();
+}
+#[test]
+fn exact_replacement_preserves_current_revision_and_refuses_stale_expectation() {
+    let (f, a) = fixture();
+    let current = enable(&f.m, &a, false).unwrap();
+    let b = next_generation(&f.m, &a);
+    record_candidate(&f.m, &b).unwrap();
+    let v = view(&f.m, &b.selection, &b.host, &b.source_manifest.sha256).unwrap();
+    assert_eq!(v.current_revision, Some(current.clone()));
+    assert_eq!(v.current_profile_revision, Some(1));
+    assert!(enable(&f.m, &b, false).is_err());
+    let mut stale = current.clone();
+    stale.id = "00".repeat(16);
+    assert!(replace(&f.m, &b, &stale).is_err());
+    assert_eq!(
+        f.m.registry().unwrap().classes[&a.selection.class.id].managed_revision,
+        Some(current.clone())
+    );
+    let new = replace(&f.m, &b, &current).unwrap();
+    assert_ne!(new, current);
+    assert_eq!(publication_state(&f.m, &b).unwrap(), "experimental");
+    disable(&f.m, &b).unwrap();
+}
+#[test]
+fn needs_attention_preserves_physical_facts_and_refuses_enable() {
+    let (f, c) = fixture();
+    let r = enable(&f.m, &c, false).unwrap();
+    fs::remove_file(f.m.link(&c.selection.class.id)).unwrap();
+    assert_eq!(publication_state(&f.m, &c).unwrap(), "needs_attention");
+    let v = view(&f.m, &c.selection, &c.host, &c.source_manifest.sha256).unwrap();
+    assert_eq!(v.current_revision, Some(r));
+    assert_eq!(v.current_profile_revision, Some(1));
+    assert_eq!(v.publication_facts["physical_present"], false);
+    assert!(enable(&f.m, &c, false).is_err());
+}
+#[test]
+fn ordinary_publication_acceptance_is_immutable_until_explicit_withdrawal() {
+    let (f, c) = fixture();
+    record_candidate(&f.m, &c).unwrap();
+    for area in AREAS {
+        record_observation(
+            &f.m,
+            &c,
+            &random_id().unwrap(),
+            area,
+            TestStatus::Passed,
+            "Generated product review fixture",
+        )
+        .unwrap();
+    }
+    review(
+        &f.m,
+        &c,
+        &random_id().unwrap(),
+        ReviewChoice::AcceptExactLocal,
+        "Generated exact local review",
+    )
+    .unwrap();
+    let reference = enable(&f.m, &c, true).unwrap();
+    record_observation(
+        &f.m,
+        &c,
+        &random_id().unwrap(),
+        Area::ProcessingRestart,
+        TestStatus::Failed,
+        "Later exact failure; explicit withdrawal remains available",
+    )
+    .unwrap();
+    assert!(accepted(&f.m, &c).is_err()); // No new acceptance/publication.
+    assert_eq!(publication_state(&f.m, &c).unwrap(), "ordinary");
+    let r =
+        f.m.load_revision(&c.selection.class.id, &reference)
+            .unwrap();
+    retained(&f.m, &r).unwrap(); // Same authority used by service admission.
+    let v = view(&f.m, &c.selection, &c.host, &c.source_manifest.sha256).unwrap();
+    assert!(v.candidates[0].publication_acceptance_sealed);
+    assert!(!v.ordinary_acceptance_current);
+    assert!(v.evidence.iter().any(|o| o.status == TestStatus::Failed));
+    withdraw(&f.m, &c, &reference).unwrap();
+    assert_eq!(publication_state(&f.m, &c).unwrap(), "removed");
+    assert!(retained(&f.m, &r).is_err());
+}
+#[test]
+fn durable_legacy_provenance_survives_current_host_inventory_advance() {
+    let (f, mut c) = fixture();
+    c.origin = Origin::RetainedSv1;
+    c.inspection.origin = Origin::RetainedSv1;
+    c.recipe_sha256 = "retained-sv1".into();
+    let on =
+        f.m.root
+            .join("onboarding")
+            .join(&c.selection.environment.id)
+            .join("record.json");
+    private_dir(on.parent().unwrap()).unwrap();
+    atomic_json(&on, &json!({"test":"original onboarding"})).unwrap();
+    let inv =
+        f.m.root
+            .join("inventory")
+            .join(format!("{}.json", c.selection.environment.id));
+    let b = json!({"environment_sha256":digest(&c.selection.environment.root.join("environment.json")).unwrap(),"onboarding_sha256":digest(&on).unwrap(),"inventory_sha256":digest(&inv).unwrap(),"inspection_sha256":c.inspection.report.sha256});
+    history::materialize_legacy(&f.m, &c, &b).unwrap();
+    let id = c.id().unwrap();
+    let before = fs::read(object(&f.m, "legacy", &id).unwrap().join("provenance.json")).unwrap();
+    atomic_json(&inv, &json!({"new":"scanner generation"})).unwrap();
+    fs::remove_file(&on).unwrap();
+    verify_legacy(&f.m, &c).unwrap(); // Never kit verification for retained-sv1.
+    assert_eq!(candidate(&f.m, &id, &c.host, &"ff".repeat(32)).unwrap(), c);
+    assert_eq!(
+        before,
+        fs::read(object(&f.m, "legacy", &id).unwrap().join("provenance.json")).unwrap()
+    );
+    let v = view(&f.m, &c.selection, &c.host, &"ff".repeat(32)).unwrap();
+    assert_eq!(v.candidates[0].disposition, "historical");
+    assert_eq!(v.candidates[0].origin, Origin::RetainedSv1);
+}
+#[test]
+fn processing_restart_is_required_and_is_not_normal_retirement() {
+    let (f, c) = fixture();
+    record_observation(
+        &f.m,
+        &c,
+        &random_id().unwrap(),
+        Area::ProcessingRestart,
+        TestStatus::Failed,
+        "Restart failed; terminal cleanup was positive",
+    )
+    .unwrap();
+    let observations = observations(&f.m, &c).unwrap();
+    assert_eq!(observations.len(), 1);
+    assert_eq!(observations[0].area, Area::ProcessingRestart);
+    assert!(!observations.iter().any(|o| o.area == Area::Retirement));
+    let missing = unmet(&observations, &Role::Instrument);
+    assert!(missing.iter().any(|s| s.starts_with("ProcessingRestart")));
+    assert!(missing.iter().any(|s| s.starts_with("Retirement")));
+}
+
+#[test]
+fn complete_build_identity_reuses_only_the_exact_generation() {
+    let (f, a) = fixture();
+    let kitpath = f.m.root.join("software/generated-kit.zip");
+    fs::write(&kitpath, b"generated immutable kit identity").unwrap();
+    fs::set_permissions(&kitpath, fs::Permissions::from_mode(0o400)).unwrap();
+    let kit = Artifact {
+        sha256: digest(&kitpath).unwrap(),
+        path: kitpath,
+    };
+    let dir = f.m.root.join("software/preparation-kits").join(&kit.sha256);
+    private_dir(&dir).unwrap();
+    let make = |name: &str, bytes: &[u8]| {
+        let path = dir.join(name);
+        fs::write(&path, bytes).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        Artifact {
+            sha256: digest(&path).unwrap(),
+            path,
+        }
+    };
+    let host = make("host.exe", &fs::read(&a.host.path).unwrap());
+    let manifest = make(
+        "host-source-manifest.json",
+        &fs::read(&a.source_manifest.path).unwrap(),
+    );
+    let builder = make("native_builder.py", b"exact source-owned builder");
+    let generator = make("ap8_descriptor.py", b"exact source-owned descriptor");
+    let runtime = build::Runtime {
+        kit: kit.clone(),
+        host: host.clone(),
+        source_manifest: manifest.clone(),
+        builder: Some(builder.clone()),
+        generator: Some(generator.clone()),
+    };
+    immutable(&dir.join("runtime.json"), &runtime).unwrap();
+    let i = inspect_record_with(
+        a.selection.clone(),
+        a.inspection.report.clone(),
+        Origin::ManagedPreparation,
+        host.clone(),
+        manifest.clone(),
+    )
+    .unwrap();
+    let c = prepared(
+        a.selection.clone(),
+        i.clone(),
+        a.native.clone(),
+        host,
+        manifest,
+        kit.sha256.clone(),
+    )
+    .unwrap();
+    let build = c.native.artifact.path.with_file_name("build.json");
+    atomic_json(&build,&json!({"kit_sha256":kit.sha256,"builder_sha256":builder.sha256,"generator_sha256":generator.sha256,"native_sha256":c.native.artifact.sha256,"descriptor_sha256":c.native.descriptor_sha256,"source_commit":c.native.source_commit})).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    assert_eq!(
+        build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(),
+        Some(c.clone())
+    );
+    assert!(build::reusable(&f.m, &c.selection, &i, &"ff".repeat(32))
+        .unwrap()
+        .is_none());
+    let different = next_generation(&f.m, &c);
+    assert!(
+        build::reusable(&f.m, &c.selection, &different.inspection, &kit.sha256)
+            .unwrap()
+            .is_none()
+    );
+    let mut row: Value = read_json(&build).unwrap();
+    row["generator_sha256"] = json!("00".repeat(32));
+    atomic_json(&build, &row).unwrap();
+    assert!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).is_err());
+}
+
+#[test]
+fn metadata_generation_binds_review_basis_without_rebuilding_identical_artifact() {
+    let (f, a) = fixture();
+    record_candidate(&f.m, &a).unwrap();
+    let basis = preparation_basis(&f.m, Some(&a)).unwrap();
+    let b = bind_preparation_basis(a.clone(), Some(basis.clone())).unwrap();
+    assert_ne!(a.id().unwrap(), b.id().unwrap());
+    assert_eq!(a.native, b.native);
+    assert_eq!(preparation_basis(&f.m, Some(&b)).unwrap(), basis);
+    assert_eq!(bind_preparation_basis(b.clone(), Some(basis)).unwrap(), b);
+    record_candidate(&f.m, &b).unwrap();
+    record_observation(
+        &f.m,
+        &b,
+        &random_id().unwrap(),
+        Area::Audio,
+        TestStatus::Unavailable,
+        "A new review basis retains this observation",
+    )
+    .unwrap();
+    let changed = preparation_basis(&f.m, Some(&b)).unwrap();
+    let next = bind_preparation_basis(b.clone(), Some(changed)).unwrap();
+    assert_ne!(next.id().unwrap(), b.id().unwrap());
+    assert_eq!(next.native, b.native);
+}
+
+#[test]
+fn original_sv1_projection_separates_restart_failure_from_terminal_cleanup() {
+    let (_f, mut c) = fixture();
+    let report: Value = serde_json::from_slice(include_bytes!(
+        "../../../evidence/sv1/first-operator-session.json"
+    ))
+    .unwrap();
+    c.selection.module.sha256 = report["module_sha256"].as_str().unwrap().into();
+    c.selection.class.id = report["class_id"].as_str().unwrap().into();
+    c.host.sha256 = report["host_sha256"].as_str().unwrap().into();
+    c.source_manifest.sha256 = report["host_source_manifest_sha256"]
+        .as_str()
+        .unwrap()
+        .into();
+    let rows = retained_sv1_observations(&c, &report).unwrap();
+    assert_eq!(
+        rows.iter()
+            .find(|r| r.area == Area::ProcessingRestart)
+            .unwrap()
+            .status,
+        TestStatus::Failed
+    );
+    assert_eq!(
+        rows.iter()
+            .find(|r| r.area == Area::Retirement)
+            .unwrap()
+            .status,
+        TestStatus::NotTested
+    );
+    assert_eq!(report["cleanup_confirmed"], true);
+    assert_eq!(report["transport_retired"], true);
+    c.selection.class.id = "00".repeat(16);
+    assert!(retained_sv1_observations(&c, &report).unwrap().is_empty());
+}

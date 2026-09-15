@@ -47,6 +47,8 @@ pub struct Candidate {
     pub source_manifest: Artifact,
     pub origin: Origin,
     pub recipe_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preparation_basis: Option<String>,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -58,9 +60,10 @@ pub enum Area {
     Parameters,
     Automation,
     StateRecall,
+    ProcessingRestart,
     Retirement,
 }
-pub const AREAS: [Area; 8] = [
+pub const AREAS: [Area; 9] = [
     Area::DawLoad,
     Area::Midi,
     Area::Audio,
@@ -68,6 +71,7 @@ pub const AREAS: [Area; 8] = [
     Area::Parameters,
     Area::Automation,
     Area::StateRecall,
+    Area::ProcessingRestart,
     Area::Retirement,
 ];
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -122,6 +126,12 @@ pub struct Decision {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct View {
+    pub candidates: Vec<CandidateView>,
+    pub inspections: Vec<InspectionView>,
+    pub recommended_inspection: Option<String>,
+    pub current_revision: Option<crate::publication::RevisionRef>,
+    pub current_profile_revision: Option<u32>,
+    pub publication_facts: serde_json::Value,
     pub selection: String,
     pub inspection: String,
     pub controller: Option<ControllerAssociation>,
@@ -175,5 +185,70 @@ impl Inspection {
             self.report.clone(),
             &self.selection.class.id,
         )
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CandidateLineage {
+    pub schema: u32,
+    pub candidate: String,
+    pub preparation_identity: String,
+    pub ordinal: u64,
+    pub predecessor: Option<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CandidateView {
+    pub id: String,
+    pub origin: Origin,
+    pub lineage: CandidateLineage,
+    pub inspection: String,
+    pub host_sha256: String,
+    pub source_sha256: String,
+    pub native_sha256: String,
+    pub descriptor_sha256: String,
+    pub recipe: String,
+    pub disposition: String,
+    pub current_inputs: bool,
+    pub publication: String,
+    pub evidence: Vec<Observation>,
+    pub unmet_requirements: Vec<String>,
+    pub review: Option<Decision>,
+    pub ordinary_acceptance_current: bool,
+    pub publication_acceptance_sealed: bool,
+    pub terminal_cleanup: serde_json::Value,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InspectionView {
+    pub id: String,
+    pub report_sha256: String,
+    pub host_sha256: String,
+    pub source_sha256: String,
+    pub origin: Origin,
+    pub recommended: bool,
+    pub candidate_bound: Vec<String>,
+    pub disposition: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LegacyProvenance {
+    pub schema: u32,
+    pub candidate: String,
+    pub authority: String,
+    pub profile: Profile,
+    pub native: NativeArtifact,
+    pub host: Artifact,
+    pub source_manifest: Artifact,
+    pub inspection: Inspection,
+    pub binding: serde_json::Value,
+    pub inputs: std::collections::BTreeMap<String, Artifact>,
+    pub environment: serde_json::Value,
+    pub onboarding: serde_json::Value,
+    pub inventory: serde_json::Value,
+    pub original_evidence: serde_json::Value,
+}
+impl Inspection {
+    pub fn id(&self) -> Result<String> {
+        super::key(self)
     }
 }

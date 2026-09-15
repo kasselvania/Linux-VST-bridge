@@ -54,3 +54,17 @@ readback adopts Serum's original candidate as prepared/unpublished and preserves
 FX inventory and installation history. No Serum product action was repeated.
 See `evidence/mf3/result.json` for exact identities, tests and preservation.
 PR #109 remains draft, stacked on the unchanged PR #107, for independent review.
+
+## Active rereview repair
+
+Repair the seven generation/provenance/publication/recipe findings against
+`4fd1cf6caac16265f2d7afbb54430a43d11b11c7` without changing PR #107. Operator
+model 4 and kit schema 2 are source-only. Use publication-time immutable acceptance
+until explicit withdrawal; retain later failure evidence without silently refusing
+an already accepted runtime. Candidate and inspection histories remain immutable;
+SV1 is durably adopted with original provenance. Processing restart, normal
+retirement and terminal cleanup are separate facts.
+
+Run affected generated manager/frontend/recipe/runtime tests, strict Clippy and
+AP8/AP12/PX2. Do not install, publish, launch Bitwig/Serum, rerun a live fixture or
+begin LC2. Preserve the original MF3/SV1 evidence. Return PR #109 draft/unmerged.

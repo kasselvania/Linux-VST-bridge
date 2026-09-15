@@ -8,10 +8,16 @@ pub struct Request {
     pub action: Action,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PublicationIdentity { pub id: String, pub sha256: String }
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
     PluginInspect { selection: String },
-    PluginPrepare { selection: String },
+    PluginPrepare { selection: String, inspection: String, recipe: String, predecessor: Option<String> },
+    PluginReinspect { selection: String },
+    ExperimentalReplace { candidate: String, expected_current: PublicationIdentity },
+    CandidateWithdraw { candidate: String, expected_current: PublicationIdentity },
     ExperimentalEnable { candidate: String },
     ExperimentalDisable { candidate: String },
     CandidateObserve { candidate: String, area: String, status: String, note: String },
@@ -211,7 +217,7 @@ impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::PluginInspect { .. } | Self::PluginPrepare { .. } | Self::ExperimentalEnable { .. } | Self::ExperimentalDisable { .. } | Self::CandidatePublishOrdinary { .. } | Self::InstallerEnvironmentCreate { .. }
+            Self::PluginReinspect { .. } | Self::ExperimentalReplace { .. } | Self::CandidateWithdraw { .. } | Self::PluginInspect { .. } | Self::PluginPrepare { .. } | Self::ExperimentalEnable { .. } | Self::ExperimentalDisable { .. } | Self::CandidatePublishOrdinary { .. } | Self::InstallerEnvironmentCreate { .. }
                 | Self::InstallerNewAttempt { .. }
                 | Self::InstallerStart { .. }
                 | Self::InstallerScan { .. }

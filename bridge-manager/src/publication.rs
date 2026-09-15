@@ -844,6 +844,14 @@ impl Manager {
         scope: (Option<Qualification>, bool),
         fail: Option<Boundary>,
     ) -> Result<RevisionRef> {
+        self.publish_with_expected(profile,census,registration,host,scope,fail,None)
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn publish_with_expected(
+        &self,profile:&Profile,census:&Census,registration:Registration,
+        host:(&Artifact,&str),scope:(Option<Qualification>,bool),fail:Option<Boundary>,
+        expected:Option<&RevisionRef>,
+    )->Result<RevisionRef> {
         let (qualification, global_inactive) = scope;
         let (installed_host, source) = host;
         let managed = qualification == Some(Qualification::ManagedExperimental) || crate::preparation::owns_profile(self,profile)?;
@@ -856,6 +864,12 @@ impl Manager {
         let key = registration.key();
         self.require_inactive(if global_inactive { None } else { Some(&key) })?;
         let mut db = self.registry()?;
+        if let Some(expected)=expected {
+            require(db.classes.get(&key).and_then(|e|e.managed_revision.as_ref())==Some(expected)
+                && db.classes[&key].publication==Publication::Published && !self.publication_pending(&key)?,"replacement_current_changed")?;
+            let prior=self.load_revision(&key,expected)?;
+            require(physical(&self.link(&key))?==Some(prior.target),"replacement_physical_changed")?;
+        }
         self.reconcile_revisions(&mut db)?;
         let purpose = if qualification.is_some() {
             SelectionPurpose::Qualification
@@ -871,6 +885,7 @@ impl Manager {
             let prior = self.load_revision(&key, current)?;
             require(
                 prior.qualification.is_none()
+                    || (managed && matches!(prior.qualification,Some(Qualification::ManagedExperimental | Qualification::Sv1Instrument)) && (expected.is_some() || db.classes[&key].publication==Publication::Removed))
                     || crate::preparation::permits_transition(self, profile, &prior, qualification)?
                     || (qualification.is_none() && db.classes[&key].publication == Publication::Removed
                         && crate::acceptance::pigments::accepted_predecessor(self, profile, &prior)?)

@@ -12,7 +12,7 @@ def main():
     if git('status','--porcelain'):raise SystemExit('Commit exact build inputs first')
     compiler=subprocess.check_output(['rustup','which','--toolchain','stable','rustc'],text=True).strip()
     subprocess.run(['rustup','run','stable','cargo','build','--manifest-path','native-vst3-proxy/backend/Cargo.toml','--release','--locked','--offline','--target','x86_64-unknown-linux-gnu','--features','registered'],cwd=ROOT,env={**os.environ,'RUSTC':compiler,'RUSTFLAGS':'-C relocation-model=pic'},check=True)
-    names=git('ls-files','CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0ModernGcc.cmake','native-vst3-proxy','vst-state').splitlines()
+    names=git('ls-files','CMakeLists.txt','cmake/HP0Vst3SdkLock.cmake','cmake/HP0ModernGcc.cmake','native-vst3-proxy','vst-state','tools/mf3/native_builder.py','tools/ap8_descriptor.py').splitlines()
     files={name:(ROOT/name).read_bytes() for name in names}
     files['libap2_backend.a']=(ROOT/'native-vst3-proxy/backend/target/x86_64-unknown-linux-gnu/release/libap2_backend.a').read_bytes()
     for name in ['host.exe','host-source-manifest.json']:
@@ -25,7 +25,7 @@ def main():
         # actions/checkout uses CRLF on Windows. Match the exact retained checkout
         # digest; permit only Git's declared text line-ending conversion.
         if sha not in {hashlib.sha256(data).hexdigest(),hashlib.sha256(data.replace(b'\n',b'\r\n')).hexdigest()}:raise SystemExit('Windows package source differs: '+name)
-    recipe=dict(schema=1,source_commit=git('rev-parse','HEAD'),sdk=SDK,sdk_runtime=SDK_RUNTIME,files={n:hashlib.sha256(v).hexdigest() for n,v in files.items()})
+    recipe=dict(schema=2,source_commit=git('rev-parse','HEAD'),sdk=SDK,sdk_runtime=SDK_RUNTIME,files={n:hashlib.sha256(v).hexdigest() for n,v in files.items()})
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(a.output,'x',compression=zipfile.ZIP_DEFLATED) as z:
         for name,data in files.items():z.writestr(name,data)

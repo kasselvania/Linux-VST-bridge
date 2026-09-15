@@ -163,7 +163,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         }
     }
     Ok(ui::Activity {
-        schema: 3,
+        schema: 4,
         system: ui::System {
             service: if cap.is_some() {
                 "active"
@@ -593,7 +593,7 @@ fn snapshot_for_operation(
     drop(recheck);
     Ok(ui::Snapshot {
         onboarding,
-        schema: 3,
+        schema: 4,
         state_token: after,
         system: live.system,
         environments,
@@ -680,7 +680,7 @@ fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(
-        request.schema == 3 && request.state_token == snapshot.state_token,
+        request.schema == 4 && request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
     let offered = available(snapshot)
@@ -817,7 +817,7 @@ fn launch_reserved(
         return Err("operator_worker_launch_failed".into());
     }
     Ok(ui::Receipt {
-        schema: 3,
+        schema: 4,
         accepted: true,
         operation: Some(id.into()),
         refusal: None,
@@ -842,7 +842,7 @@ fn dispatch_recorded(
                 false,
             )?;
             Ok(ui::Receipt {
-                schema: 3,
+                schema: 4,
                 accepted: false,
                 operation: Some(id),
                 refusal: Some(reason),
@@ -1033,7 +1033,7 @@ fn execute_with_receipt_policy(
 
     if preparation_cli::is_action(a) {
         let owner=operation.ok_or("operator_operation_identity")?;
-        if matches!(a,ui::Action::PluginInspect{..}|ui::Action::PluginPrepare{..}) {
+        if matches!(a,ui::Action::PluginReinspect{..}|ui::Action::PluginInspect{..}|ui::Action::PluginPrepare{..}) {
             let _environment=m.lock("operator-environment.lock")?;
             suspend(m,owner,None)?;
             drop(projection.take());
@@ -1044,7 +1044,7 @@ fn execute_with_receipt_policy(
         return preparation_cli::execute(m,a,owner);
     }
     match a {
-        ui::Action::PluginInspect{..}|ui::Action::PluginPrepare{..}|ui::Action::ExperimentalEnable{..}|ui::Action::ExperimentalDisable{..}|ui::Action::CandidateObserve{..}|ui::Action::CandidateReview{..}|ui::Action::CandidatePublishOrdinary{..}=>unreachable!(),
+        ui::Action::PluginReinspect{..}|ui::Action::PluginInspect{..}|ui::Action::PluginPrepare{..}|ui::Action::ExperimentalReplace{..}|ui::Action::CandidateWithdraw{..}|ui::Action::ExperimentalEnable{..}|ui::Action::ExperimentalDisable{..}|ui::Action::CandidateObserve{..}|ui::Action::CandidateReview{..}|ui::Action::CandidatePublishOrdinary{..}=>unreachable!(),
         ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. } => {
             unreachable!()
         }
@@ -1334,7 +1334,7 @@ fn resume_locked(
 fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
-    require(request.schema == 3, "operator_resume_request_schema")?;
+    require(request.schema == 4, "operator_resume_request_schema")?;
     Ok(request.action)
 }
 fn stop_vendor_with(
@@ -1381,7 +1381,7 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
             ui::Action::InstallerStart { .. }
                 | ui::Action::InstallerScan { .. }
                 | ui::Action::VendorApplicationOpen { .. }
-                | ui::Action::EnvironmentRescan { .. } | ui::Action::PluginInspect {..} | ui::Action::PluginPrepare {..}
+                | ui::Action::EnvironmentRescan { .. } | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..} | ui::Action::PluginPrepare {..}
         ),
         "operator_resume_action_mismatch",
     )?;
@@ -1685,7 +1685,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             let receipt = match dispatch(m, req) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
-                    schema: 3,
+                    schema: 4,
                     accepted: false,
                     operation: None,
                     refusal: Some(e.to_string()),
@@ -1719,7 +1719,7 @@ mod tests {
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
             onboarding: vec![],
-            schema: 3,
+            schema: 4,
             state_token: token.into(),
             system: ui::System {
                 service: "active".into(),
@@ -1749,7 +1749,7 @@ mod tests {
         };
         let s = view("current", action("Rollback", allowed.clone(), None));
         let mut r = ui::Request {
-            schema: 3,
+            schema: 4,
             state_token: "current".into(),
             action: allowed.clone(),
         };
@@ -1925,7 +1925,7 @@ mod tests {
     fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 3,
+            schema: 4,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -1957,7 +1957,7 @@ mod tests {
     fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 3,
+            schema: 4,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -2031,7 +2031,7 @@ mod tests {
         launch_queued(
             m,
             &ui::Request {
-                schema: 3,
+                schema: 4,
                 state_token: "fixture".into(),
                 action,
             },
@@ -2345,7 +2345,7 @@ mod tests {
         fs::write(&source, bytes).unwrap();
         let installer = installer_import::import(&f.m, file(&source).unwrap()).unwrap();
         let request = ui::Request {
-            schema: 3,
+            schema: 4,
             state_token: token(&f.m).unwrap(),
             action: ui::Action::InstallerEnvironmentCreate {
                 installer: installer.id,

@@ -40,7 +40,7 @@ def build(request, generator):
         names=z.namelist(); assert len(names)==len(set(names)) and len(names)<=512
         assert z.getinfo('recipe.json').file_size<=65536
         recipe=json.loads(z.read('recipe.json'))
-        assert recipe['schema']==1 and recipe['sdk']==SDK and recipe['sdk_runtime']==SDK_RUNTIME
+        assert recipe['schema']==2 and recipe['sdk']==SDK and recipe['sdk_runtime']==SDK_RUNTIME
         assert set(names)==set(recipe['files'])|{'recipe.json'}
         total=0
         for name,sha in recipe['files'].items():
@@ -67,4 +67,4 @@ def build(request, generator):
     data=artifact.read_bytes();assert data[:4]==b'\x7fELF' and len(data)<128*1024*1024
     (source/'native.so').write_bytes(data)
     return dict(schema=1,source_commit=recipe['source_commit'],native_sha256=digest(data),descriptor_sha256=digest(descriptor.encode()),dropped_bytes=drop_a+drop_b,sdk=SDK,sdk_runtime=SDK_RUNTIME)
-# entrypoint appended by the manager; generator is embedded from its exact source.
+# Invoked only by the verified kit loader with the same kit-owned generator.
