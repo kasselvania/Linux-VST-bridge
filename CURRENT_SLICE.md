@@ -37,8 +37,16 @@ service/keeper. Draft PR, independent review, no merge.
 
 ## Status
 
-MF1 prerequisite complete. Observer implementation and focused generated checks
-passed, including hosted Windows, pinned-Proton procedure/capture/detach and isolated
-XWayland source/release observation. Physical touch delivery is not generated proof.
-The operator has been asked to open ordinary18 for the two human-only actions.
-No UIO3 product interaction has occurred; no compatibility repair is selected.
+One human-only ordinary18 observation completed at source `0820ddb`. The single
+labeled attempt contained three unintended touch contacts. No held-note comparison
+or repeat occurred. X11 releases were present; Windows release processing continued
+at least 16.514 seconds after the last recorded X11 release while UI heartbeats
+continued. Internal cause remains unresolved. One GUI witness row was missing, so
+complete gesture coverage is not claimed. See `evidence/uio3/result.json` and `.md`.
+
+The user quit normally. All seven retirement milestones and positive cleanup were
+retained; leases, transactions, stale transport and held core input are zero,
+service/keeper healthy, capture off, observers detached. Ordinary18, rollback11,
+siblings10 and product artifacts are unchanged. Generated and hosted validation
+passed at the observation source; final offline report checks accompany the draft
+PR105 rereview. No additional live test or compatibility repair is selected.

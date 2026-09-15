@@ -77,13 +77,40 @@ were refused in the hosted fixture; those failed attempts are retained in
 is claimed. The Xvfb/XWayland fixture separately exercises actual libXi raw
 pointer events, exact-client X RECORD delivery and post-release button state.
 
-## Status
+## Physical result and status
 
-Generated validation passed: Windows hosted and pinned-runner observer fixture,
-Linux Xvfb and isolated Deck XWayland, plus 72 Python checks. The XWayland fixture
-first exposed asynchronous window placement and lazy pointer-source creation;
-those failures and the bounded repairs remain retained. No live UIO3 result yet.
-The operator has been asked to open one ordinary18 editor for the human-only test.
+The one human-only ordinary18 session produced a useful delay observation. The
+operator reported that touch followed their input but was massively delayed. The
+single labeled attempt contained three contacts, so it is not a controlled
+single-drag baseline. The held-note action was not attempted.
+
+All X11 releases were recorded by 17.740 seconds after the label. Windows release
+procedure observations continued at least 16.514 seconds beyond that last release.
+This stream-tail bound does not assume that Linux and Windows contact IDs share
+an identity namespace. UI heartbeats continued, with a maximum observed latency of
+42.955 ms; later mouse capture samples were clear. Translation, queueing, retrieval,
+vendor servicing and observer perturbation remain unresolved possible owners.
+
+X RECORD, raw XI2 and Windows rings reported zero drops. The GUI witness reported
+one missing row, with bootstrap versus live phase unavailable. Three gesture begins
+and ends were observed, but this is not complete gesture proof. The original
+private summary's incomplete-observation classification is preserved alongside
+the sanitized timing analysis in `evidence/uio3/result.json` and `result.md`.
+
+The user quit Bitwig normally. All seven process-scoped retirement milestones,
+positive cohort/transport cleanup, zero DSP/maintenance leases, no transaction or
+stale transport, zero held core buttons/modifiers and healthy service/keeper were
+confirmed. Capture remained off; observer hooks detached. No terminal record or
+Collector rejection occurred. No product input was injected by the agent.
+
+Generated validation includes Windows hosted and pinned-runner observer fixtures,
+Linux Xvfb and isolated Deck XWayland, and 74 Python checks (13 UIO1, 4 UIR1,
+32 UIO2, 25 UIO3). The XWayland fixture first exposed asynchronous placement and
+lazy pointer-source creation; failed attempts and bounded repairs remain retained.
+All three applicable workflows passed at the physical observation source
+`0820ddb017d909d4b55e16124038f2426fcc62f8`.
+
 No product host/native/profile revision or compatibility repair. Ordinary18,
 rollback11, siblings10 and inactive history remain unchanged. 512 recommended;
-256 unqualified. Independent review in draft PR105; do not merge.
+256 unqualified. Return draft PR105 for independent review; do not merge or
+repeat the product session.
