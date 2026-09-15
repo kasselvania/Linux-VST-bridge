@@ -163,7 +163,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         }
     }
     Ok(ui::Activity {
-        schema: 1,
+        schema: 2,
         system: ui::System {
             service: if cap.is_some() {
                 "active"
@@ -216,7 +216,7 @@ fn require_operator_inactive(m: &Manager, a: &ui::Action) -> Result<()> {
     let _admission = m.lock("registry.lock")?;
     if let Some(reason) = inactive_reason(
         Some(&cap),
-        vendor_retired(m)?,
+        vendor_retired(m)? && onboarding::all_retired(m)?,
         pending_transactions(m)?,
         matches!(a, ui::Action::TransactionReconcile {}),
     ) {
@@ -288,7 +288,7 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     let db = m.registry()?;
     let cap = live_capacity(m).ok();
     let pending = pending_transactions(m)?;
-    let retired = vendor_retired(m)?;
+    let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     let busy = inactive_reason(cap.as_ref(), retired, pending, false);
     let mut products = Vec::new();
     let profiles = profiles::installed_profiles()?;
@@ -337,15 +337,18 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     }
     let catalogue = sw.catalogue(m)?;
     let environments=catalogue.environments.iter().map(|e| -> Result<ui::Environment> { let scan=optional(&m.root.join("inventory").join(format!("{}.json",e.environment.id)))?; Ok(ui::Environment {id:e.environment.id.clone(),family:format!("{:?}",e.family),runner:e.environment.runner.id.clone(),revision:e.environment.revision,authorization:"Managed by the vendor and user; account state is not inspected".into(),last_scan:json!({"id":scan["id"],"completed_at":scan["completed_at"],"module_count":scan["modules"].as_array().map(Vec::len),"changes":scan["changes"]}),actions:vec![action("Rescan installed products",ui::Action::EnvironmentRescan{environment:e.environment.id.clone()},busy)]}) }).collect::<Result<Vec<_>>>()?;
-    for e in &catalogue.environments {
-        let path = m
-            .root
-            .join("inventory")
-            .join(format!("{}.json", e.environment.id));
+    let inventory_environments: Vec<Environment> = catalogue
+        .environments
+        .iter()
+        .map(|e| e.environment.clone())
+        .chain(onboarding::records(m)?.into_iter().map(|r| r.environment))
+        .collect();
+    for env in &inventory_environments {
+        let path = m.root.join("inventory").join(format!("{}.json", env.id));
         if path.exists() {
             let scan: inventory::Scan = read_json(&path)?;
             require(
-                scan.schema == 1 && scan.environment.id == e.environment.id,
+                scan.schema == 1 && scan.environment.id == env.id,
                 "inventory_environment_binding",
             )?;
             for module in scan.modules {
@@ -354,7 +357,7 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
                     &scan.environment,
                     &scan.host,
                     &scan.host_source_sha256,
-                    &e.environment,
+                    env,
                     &sw.host,
                     &sw.source_sha256,
                 );
@@ -388,7 +391,9 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
                 for class in module.classes {
                     if class.category != "Audio Module Class"
                         || products.iter().any(|p| {
-                            p.class_id == class.id && p.module_sha256 == module.artifact.sha256
+                            p.class_id == class.id
+                                && p.module_sha256 == module.artifact.sha256
+                                && p.environment == scan.environment.id
                         })
                     {
                         continue;
@@ -491,8 +496,10 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
     let after = token(m)?;
     require(before == after, "operator_state_changed_refresh")?;
     let live = activity_with_capacity(m, cap.as_ref())?;
+    let onboarding = onboarding::projection(m, busy)?;
     Ok(ui::Snapshot {
-        schema: 1,
+        onboarding,
+        schema: 2,
         state_token: after,
         system: live.system,
         environments,
@@ -522,6 +529,7 @@ fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
     snapshot
         .actions
         .iter()
+        .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.environments.iter().flat_map(|p| p.actions.iter()))
         .chain(
@@ -540,7 +548,7 @@ fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(
-        request.schema == 1 && request.state_token == snapshot.state_token,
+        request.schema == 2 && request.state_token == snapshot.state_token,
         "operator_stale_request_refresh",
     )?;
     let offered = available(snapshot)
@@ -595,6 +603,17 @@ fn refuse_unfinished(m: &Manager, id: &str, reason: &str) -> Result<()> {
     )
 }
 fn finish_operation(m: &Manager, id: &str) -> Result<()> {
+    let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
+    if let ui::Action::InstallerStart {
+        onboarding: ref key,
+    } = request.action
+    {
+        let r = onboarding::load(m, key)?;
+        if r.installation_operation.as_deref() == Some(id) {
+            if onboarding::live(id)? {let _ = onboarding::stop(m, key, id);}
+            onboarding::mark_dead(m,&r)?;
+        }
+    }
     finish_operation_with(m, id, |saved| restore_service(m, saved))
 }
 fn finish_operation_with(
@@ -628,7 +647,7 @@ fn launch_queued(
         return Err("operator_worker_launch_failed".into());
     }
     Ok(ui::Receipt {
-        schema: 1,
+        schema: 2,
         accepted: true,
         operation: Some(id),
         refusal: None,
@@ -675,6 +694,75 @@ fn execute_with_receipt(m: &Manager, a: &ui::Action, operation: Option<&str>) ->
     require_operator_inactive(m, a)?;
 
     match a {
+        ui::Action::InstallerEnvironmentCreate { installer, runner } => onboarding::create(
+            m,
+            installer,
+            runner,
+            operation.ok_or("operator_operation_identity")?,
+        ),
+        ui::Action::InstallerStart { onboarding: id } => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let prior = onboarding::load(m, id)?;
+            require(
+                prior.installation_operation.is_none(),
+                "installer_initial_transaction_already_used",
+            )?;
+            suspend(m, owner, None)?;
+            let reserved = onboarding::reserve(m, id, owner);
+            let r = match reserved {
+                Ok(r) => r,
+                Err(e) => {
+                    let _ = resume_owned(m, owner);
+                    return Err(e);
+                }
+            };
+            let launched = onboarding::launch(m, &r);
+            drop(projection.take());
+            if launched.is_ok() {
+                write_operation(
+                    m,
+                    owner,
+                    &json!({"schema":2,"operation":owner,"state":"vendor_running","action":a}),
+                    false,
+                )?;
+                while onboarding::live(owner)? {
+                    std::thread::sleep(Duration::from_millis(500));
+                }
+            }
+            let v = onboarding::result(m, &r)?;
+            require(onboarding::retired(&v), "installer_cleanup_unconfirmed")?;
+            resume_owned(m, owner)?;
+            launched?;
+            Ok(v)
+        }
+        ui::Action::InstallerFocus {
+            onboarding: id,
+            operation: owner,
+        } => onboarding::focus(m, id, owner),
+        ui::Action::InstallerStop {
+            onboarding: id,
+            operation: owner,
+        } => {
+            let v = onboarding::stop(m, id, owner)?;
+            resume_owned(m, owner)?;
+            Ok(v)
+        }
+        ui::Action::InstallerScan { onboarding: id } => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let r = onboarding::load(m, id)?;
+            require(
+                onboarding::retired(&onboarding::result(m, &r)?),
+                "installer_retirement_required",
+            )?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m, owner, None)?;
+            let result = rescan_environment(m, r.environment);
+            let cleanup = resume_owned(m, owner);
+            let value = result?;
+            cleanup?;
+            Ok(value)
+        }
         ui::Action::CaptureArm { class_id } => {
             crash_capture::arm(m, Some(class_id))?;
             Ok(json!({"capture":"armed"}))
@@ -896,7 +984,7 @@ fn resume_locked(
 fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
-    require(request.schema == 1, "operator_resume_request_schema")?;
+    require(request.schema == 2, "operator_resume_request_schema")?;
     Ok(request.action)
 }
 fn stop_vendor_with(
@@ -940,7 +1028,10 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
     require(
         matches!(
             recovery_request(m, &saved)?,
-            ui::Action::VendorApplicationOpen { .. } | ui::Action::EnvironmentRescan { .. }
+            ui::Action::InstallerStart { .. }
+                | ui::Action::InstallerScan { .. }
+                | ui::Action::VendorApplicationOpen { .. }
+                | ui::Action::EnvironmentRescan { .. }
         ),
         "operator_resume_action_mismatch",
     )?;
@@ -953,6 +1044,10 @@ fn resume_interrupted(m: &Manager) -> Result<()> {
     resume_locked(m, &saved.owner_operation, |saved| restore_service(m, saved))
 }
 fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
+    require(
+        onboarding::all_retired(m)?,
+        "operator_installer_cleanup_unconfirmed",
+    )?;
     require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")?;
     require(
         saved.software == software(m)?.manager.sha256,
@@ -996,6 +1091,14 @@ fn rescan(m: &Manager, environment: &str) -> Result<Value> {
         .ok_or("operator_environment_absent")?
         .environment
         .clone();
+    drop(_lock);
+    rescan_environment(m, env)
+}
+fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
+    let _lock = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    let sw = software(m)?;
+    let environment = env.id.clone();
     let modules = managed_cli::modules(&env)?;
     require(modules.len() <= 64, "operator_scan_module_bound")?;
     let prior_path = m.root.join("inventory").join(format!("{environment}.json"));
@@ -1123,7 +1226,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             let receipt = match dispatch(m, req) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
-                    schema: 1,
+                    schema: 2,
                     accepted: false,
                     operation: None,
                     refusal: Some(e.to_string()),
@@ -1143,7 +1246,8 @@ mod tests {
     use super::*;
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
-            schema: 1,
+            onboarding: vec![],
+            schema: 2,
             state_token: token.into(),
             system: ui::System {
                 service: "active".into(),
@@ -1173,7 +1277,7 @@ mod tests {
         };
         let s = view("current", action("Rollback", allowed.clone(), None));
         let mut r = ui::Request {
-            schema: 1,
+            schema: 2,
             state_token: "current".into(),
             action: allowed.clone(),
         };
@@ -1181,9 +1285,9 @@ mod tests {
         r.state_token = "previous software or registry".into();
         assert!(validate(&r, &s).is_err());
         r.state_token = "current".into();
-        r.schema = 2;
-        assert!(validate(&r, &s).is_err());
         r.schema = 1;
+        assert!(validate(&r, &s).is_err());
+        r.schema = 2;
         r.action = ui::Action::OrdinaryRollback {
             class_id: "a".repeat(32),
             publication: "c".repeat(32),
@@ -1262,6 +1366,9 @@ mod tests {
         let f = test_fixture::Fixture::new();
         atomic_json(&f.m.root.join("sentinel.json"), &json!({"unchanged":true})).unwrap();
         let actions = [
+            ui::Action::InstallerEnvironmentCreate{installer:"ab".repeat(32),runner:"cd".repeat(32)},
+            ui::Action::InstallerStart{onboarding:"ef".repeat(16)},
+            ui::Action::InstallerScan{onboarding:"ef".repeat(16)},
             ui::Action::TransactionReconcile {},
             ui::Action::EnvironmentRescan {
                 environment: f.r.environment.id.clone(),
@@ -1323,7 +1430,7 @@ mod tests {
     fn terminal_receipt_waits_for_an_existing_writer_instead_of_leaving_running() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 1,
+            schema: 2,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -1355,7 +1462,7 @@ mod tests {
     fn failed_launch_and_dead_worker_have_terminal_receipts_without_overwriting_new_jobs() {
         let f = test_fixture::Fixture::new();
         let request = ui::Request {
-            schema: 1,
+            schema: 2,
             state_token: "t".into(),
             action: ui::Action::CaptureDisarm {},
         };
@@ -1429,7 +1536,7 @@ mod tests {
         launch_queued(
             m,
             &ui::Request {
-                schema: 1,
+                schema: 2,
                 state_token: "fixture".into(),
                 action,
             },

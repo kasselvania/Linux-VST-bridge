@@ -10,9 +10,12 @@ pub enum Reply {
     Snapshot(Box<Snapshot>),
     Activity(Activity),
     Receipt(Receipt),
+    Imported,
+    Cancelled,
     Error(String),
 }
 pub enum Query {
+    PickInstaller,
     Snapshot,
     Activity,
     Action(Request),
@@ -20,25 +23,45 @@ pub enum Query {
 fn call(query: Query) -> Result<Reply, String> {
     let home = std::env::var_os("HOME").ok_or("Home directory unavailable")?;
     let executable = std::path::PathBuf::from(home).join(".local/bin/linux-vst-bridge");
+    let selected = if matches!(query, Query::PickInstaller) {
+        let selected = rfd::FileDialog::new()
+            .set_title("Add Windows installer")
+            .add_filter("Windows installers", &["exe", "msi"])
+            .pick_file();
+        let Some(path) = selected else {
+            return Ok(Reply::Cancelled);
+        };
+        Some(open_selected(&path)?)
+    } else {
+        None
+    };
     let verb = match &query {
+        Query::PickInstaller => "import-installer",
         Query::Snapshot => "snapshot",
         Query::Activity => "activity",
         Query::Action(_) => "request",
     };
-    let mut child = Command::new(executable)
-        .args(["operator", verb])
-        .stdin(Stdio::piped())
+    let mut command = Command::new(executable);
+    if matches!(query, Query::PickInstaller) {
+        command.arg(verb);
+    } else {
+        command.args(["operator", verb]);
+    }
+    let mut child = command
+        .stdin(selected.map(Stdio::from).unwrap_or_else(Stdio::piped))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|_| "Installed manager is unavailable")?;
-    let mut input = child.stdin.take().ok_or("Manager input unavailable")?;
     if let Query::Action(request) = &query {
-        input
+        child
+            .stdin
+            .as_mut()
+            .ok_or("Manager input unavailable")?
             .write_all(&serde_json::to_vec(request).map_err(|_| "Request encoding failed")?)
             .map_err(|_| "Request delivery failed")?;
     }
-    drop(input);
+    drop(child.stdin.take());
     let collect = |mut pipe: Box<dyn Read + Send>, limit: u64| {
         std::thread::spawn(move || {
             let mut data = Vec::new();
@@ -56,7 +79,12 @@ fn call(query: Query) -> Result<Reply, String> {
         Box::new(child.stderr.take().ok_or("Manager error unavailable")?),
         4096,
     );
-    let deadline = Instant::now() + Duration::from_secs(45);
+    let deadline = Instant::now()
+        + Duration::from_secs(if matches!(query, Query::PickInstaller) {
+            300
+        } else {
+            45
+        });
     let status = loop {
         if let Some(s) = child.try_wait().map_err(|_| "Manager wait failed")? {
             break s;
@@ -78,7 +106,16 @@ fn call(query: Query) -> Result<Reply, String> {
     if overflow || !read {
         return Err("Manager response exceeded its bound".into());
     }
+    if matches!(query, Query::PickInstaller) {
+        let value: serde_json::Value =
+            serde_json::from_slice(&data).map_err(|_| "Invalid import receipt")?;
+        if value["schema"] != 1 || value["import_result"] != "imported" {
+            return Err("Installer import refused".into());
+        }
+        return Ok(Reply::Imported);
+    }
     match query {
+        Query::PickInstaller => unreachable!(),
         Query::Snapshot => {
             serde_json::from_slice::<Snapshot>(&data).map(|s| Reply::Snapshot(Box::new(s)))
         }
@@ -93,4 +130,35 @@ pub fn send(query: Query, sender: Sender<Reply>, ctx: eframe::egui::Context) {
         let _ = sender.send(result);
         ctx.request_repaint();
     });
+}
+
+fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    let f = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|_| "Choose a regular local installer file; links are not accepted")?;
+    let md = f.metadata().map_err(|_| "Cannot read selected file")?;
+    if !md.is_file() || md.uid() != unsafe { libc::getuid() } {
+        return Err("Choose an owned regular installer file".into());
+    }
+    Ok(f)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn selected_descriptor_refuses_links_and_directories() {
+        let root = std::env::temp_dir().join(format!("mf2-picker-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let p = root.join("selected.exe");
+        std::fs::write(&p, b"bytes").unwrap();
+        assert!(open_selected(&p).is_ok());
+        let l = root.join("link");
+        std::os::unix::fs::symlink(&p, &l).unwrap();
+        assert!(open_selected(&l).is_err());
+        assert!(open_selected(&root).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

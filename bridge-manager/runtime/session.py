@@ -791,7 +791,11 @@ class IncidentCapture:
 def run(spec,peer=None):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg);transport_environment(spec,env);delivery_trace(spec,env);stop=False
+    cmd,binding=command(spec);env=environment(reg)
+    if spec.get('onboarding_home'):
+        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('shared_runtime'):raise RuntimeError('onboarding requires isolated inspection')
+        env['HOME']=str(pathlib.Path(reg['environment']['root'])/'home')
+    transport_environment(spec,env);delivery_trace(spec,env);stop=False
     capture=None;capture_error=None
     if spec.get('crash_capture'):
         try:
@@ -1050,6 +1054,7 @@ def keep(spec):
     return {'cleanup_confirmed':clean}
 
 def install(spec):
+    if spec.get('schema')==2:return managed_install(spec)
     env=spec['environment'];rootdir=pathlib.Path(env['root']);lock=(rootdir/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     for a in [spec['installer'],*env['runner']['files']]:verify(a)
     reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}};runner=env['runner'];command=[runner['entry_point'],'--verb=run','--',runner['proton'],'run',spec['installer']['path']]
@@ -1073,6 +1078,84 @@ def install(spec):
         atomic(pathlib.Path(spec['report']),{'installer':spec['installer'],'raw_exit':code,'cleanup_confirmed':clean,'error':failure,'discarded_diagnostic_bytes':discarded,'private_log':log.decode(errors='replace')})
         lock.close()
     return code==0 and clean and failure is None
+
+def managed_install(spec):
+    """MF2 initial installer, exact dedicated unit. No product admission authority."""
+    op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
+    if not re.fullmatch('[0-9a-f]{32}',op):raise RuntimeError('installer operation identity')
+    lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;discarded=0
+    sel=selectors.DefaultSelector();start=time.monotonic()
+    def stopping(*_):
+        nonlocal stop
+        stop=True
+    signal.signal(signal.SIGTERM,stopping);signal.signal(signal.SIGINT,stopping)
+    def reap():
+        if child:child.poll()
+        while True:
+            try:
+                pid,_=os.waitpid(-1,os.WNOHANG)
+                if not pid:break
+            except ChildProcessError:break
+    def drain(wait):
+        nonlocal discarded
+        for key,_ in sel.select(wait):
+            data=os.read(key.fileobj.fileno(),65536)
+            if data:discarded+=len(data)
+            else:sel.unregister(key.fileobj)
+    def value(state,live):
+        return {'schema':2,'operation':op,'state':state,'raw_exit':child.returncode if child else None,
+                'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':discarded,
+                'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
+    try:
+        for a in [spec['installer'],*env['runner']['files']]:verify(a)
+        scope=CompanionCgroup(installer_operation=op)
+        if scope.members():raise RuntimeError('installer cgroup initially occupied')
+        if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('installer subreaper unavailable')
+        runner=env['runner'];argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'run']
+        if spec['format']=='pe_executable':argv.append(spec['installer']['path'])
+        elif spec['format']=='msi_compound':argv+=['msiexec','/i',windows(spec['installer']['path'],root/'compatdata/pfx')]
+        else:raise RuntimeError('installer format unsupported')
+        reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
+        launch_env=environment(reg);launch_env['HOME']=str(root/'home')
+        child=subprocess.Popen(argv,env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        for pipe in (child.stdout,child.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
+        last=0
+        while not stop:
+            reap();live=[r for r in scope.members() if r['state']!='Z']
+            state=vendor_operation_state(child.returncode,len(live))
+            if state in ('completed','failed'):
+                clean=True
+                if state=='failed':error='installer_launcher_failed'
+                break
+            request_path=report.parent/(op+'-focus.json')
+            if request_path.exists():
+                req=None
+                try:
+                    with os.fdopen(os.open(request_path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+                        md=os.fstat(f.fileno())
+                        if not stat.S_ISREG(md.st_mode) or md.st_uid!=os.getuid() or md.st_size>512:raise RuntimeError('focus request bound')
+                        req=json.loads(f.read(513))
+                    request_path.unlink()
+                    if set(req)!=set(('operation','request')) or req['operation']!=op or not re.fullmatch('[0-9a-f]{32}',req['request']):raise RuntimeError('focus owner changed')
+                    result=vendor_focus(scope,None,installer=True)
+                except Exception:result='refused_exact_window_unavailable'
+                focus_result={'request':req.get('request') if isinstance(req,dict) else None,'result':result}
+            if time.monotonic()-start>3600:error='installer_time_bound';break
+            if time.monotonic()-last>.5:atomic(report,value(state,len(live)));last=time.monotonic()
+            drain(.05)
+    except Exception as exc:error='installer_owner_'+type(exc).__name__
+    finally:
+        if scope is not None and not clean:
+            try:clean=scope.cleanup(reap)
+            except Exception:error='installer_cleanup_failed'
+        if child:
+            for _ in range(64):drain(0)
+            child.stdout.close();child.stderr.close()
+        sel.close()
+        state='cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed'
+        atomic(report,value(state,0 if clean else None));lock.close()
+    return clean and error is None
 
 def vendor_operation_state(launcher_exit, owned_live):
     if launcher_exit is None:return 'running'
@@ -1159,7 +1242,7 @@ def vendor_process_metadata(scope, record, app):
             {'pid':parent['pid'],'start_ticks':parent['start_ticks']} if parent else None}
 
 
-def vendor_focus(scope,app):
+def vendor_focus(scope,app,installer=False):
     """Application-origin EWMH focus request, bound to current owned main image.
 
     No title matching, arbitrary PID, forced input focus or synthetic user input.
@@ -1167,10 +1250,12 @@ def vendor_focus(scope,app):
     """
     candidates=[]
     for record in scope.members():
+        if installer:
+            candidates.append(record);continue
         metadata=vendor_process_metadata(scope,record,app)
         if any(v['path']==app['executable']['path'] and v['sha256']==app['executable']['sha256'] for v in metadata['registered_images']):
             candidates.append(record)
-    if len(candidates)!=1:raise RuntimeError('focus main identity ambiguous')
+    if not candidates or (not installer and len(candidates)!=1):raise RuntimeError('focus main identity ambiguous')
     target=candidates[0]
     def identity():
         now=scope.identity(target['pid'])
@@ -1198,8 +1283,12 @@ def vendor_focus(scope,app):
         finally:
             if data:x.XFree(data)
     try:
-        root=x.XDefaultRootWindow(display);identity()
-        windows=[w for w in prop(root,'_NET_CLIENT_LIST') if prop(w,'_NET_WM_PID')==[target['pid']] and prop(w,'WM_STATE')[:1]==[1]]
+        root=x.XDefaultRootWindow(display)
+        owned={r['pid']:r for r in candidates}
+        windows=[(w,prop(w,'_NET_WM_PID')) for w in prop(root,'_NET_CLIENT_LIST') if prop(w,'WM_STATE')[:1]==[1]]
+        windows=[(w,ids[0]) for w,ids in windows if len(ids)==1 and ids[0] in owned]
+        if len(windows)!=1:raise RuntimeError('focus window absent or ambiguous')
+        target=owned[windows[0][1]];windows=[windows[0][0]];identity()
         if len(windows)!=1:raise RuntimeError('focus window absent or ambiguous')
         window=windows[0];identity()
         if prop(window,'_NET_WM_PID')!=[target['pid']]:raise RuntimeError('focus X11 identity changed')

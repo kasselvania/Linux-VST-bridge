@@ -10,6 +10,24 @@ pub struct Request {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    InstallerEnvironmentCreate {
+        installer: String,
+        runner: String,
+    },
+    InstallerStart {
+        onboarding: String,
+    },
+    InstallerFocus {
+        onboarding: String,
+        operation: String,
+    },
+    InstallerStop {
+        onboarding: String,
+        operation: String,
+    },
+    InstallerScan {
+        onboarding: String,
+    },
     VendorApplicationOpen {
         application: String,
     },
@@ -116,6 +134,7 @@ pub struct System {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
+    pub onboarding: Vec<Onboarding>,
     pub schema: u32,
     pub state_token: String,
     pub system: System,
@@ -127,6 +146,19 @@ pub struct Snapshot {
     pub recent_incidents: Vec<Incident>,
     pub actions: Vec<AvailableAction>,
     pub operation: Option<serde_json::Value>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Onboarding {
+    pub installer: String,
+    pub name: String,
+    pub byte_size: u64,
+    pub format: String,
+    pub environment: Option<String>,
+    pub state: String,
+    pub required_human_action: String,
+    pub details: serde_json::Value,
+    pub actions: Vec<AvailableAction>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -166,7 +198,10 @@ impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::VendorApplicationOpen { .. }
+            Self::InstallerEnvironmentCreate { .. }
+                | Self::InstallerStart { .. }
+                | Self::InstallerScan { .. }
+                | Self::VendorApplicationOpen { .. }
                 | Self::EnvironmentRescan { .. }
                 | Self::OrdinaryRollback { .. }
                 | Self::OrdinaryRestoreRecommended { .. }
@@ -205,6 +240,9 @@ mod tests {
     fn action_vocabulary_cannot_carry_a_command_path_or_pid() {
         for raw in [
             r#"{"kind":"run","command":"anything"}"#,
+            r#"{"kind":"installer_start","onboarding":"a","path":"/tmp/x"}"#,
+            r#"{"kind":"installer_environment_create","installer":"a","runner":"b","environment":".wine"}"#,
+            r#"{"kind":"inspect_and_publish","class_id":"a"}"#,
             r#"{"kind":"capture_disarm","path":"/tmp/other"}"#,
             r#"{"kind":"vendor_application_focus","application":"asc","pid":42}"#,
             r#"{"kind":"ordinary_activate_candidate","class_id":"a"}"#,

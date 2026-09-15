@@ -79,7 +79,7 @@ impl eframe::App for Operator {
             self.pending = false;
             match reply {
                 Reply::Snapshot(s) => {
-                    if s.schema != 1 {
+                    if s.schema != 2 {
                         self.message = "Unsupported manager schema".into();
                     } else {
                         self.snapshot = Some(*s);
@@ -121,6 +121,14 @@ impl eframe::App for Operator {
                         s.operation = a.operation;
                     }
                 }
+                Reply::Imported => {
+                    self.message =
+                        "Installer imported. Review its identity and choose a runner below.".into();
+                    self.refresh_after = true;
+                }
+                Reply::Cancelled => {
+                    self.message = "Installer selection cancelled".into();
+                }
                 Reply::Error(e) => {
                     self.message = e;
                     if let Some(s) = &mut self.snapshot {
@@ -131,6 +139,7 @@ impl eframe::App for Operator {
             }
         }
         let mut refresh = false;
+        let mut pick = false;
         let mut chosen = None;
         egui::CentralPanel::default().show(ui,|ui|{
             ui.heading("Linux Audio Compatibility Manager");
@@ -151,6 +160,16 @@ impl eframe::App for Operator {
                     for app in &s.vendor_applications{ui.heading(&app.name);ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,self.pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,self.pending,&mut chosen);}
                 });
+                ui.separator();ui.heading("Add a plug-in");
+                if ui.add_enabled(!self.pending,egui::Button::new("Add Windows installer").min_size(egui::vec2(240.0,48.0))).clicked(){pick=true;}
+                ui.small("Select a local installer → review → create isolated environment → install → scan. New products stay unpublished.");
+                for o in &s.onboarding {egui::Frame::group(ui.style()).show(ui,|ui|{
+                    ui.heading(o.state.replace('_'," "));ui.label(format!("{} · {} bytes · {}",o.name,o.byte_size,o.format));
+                    ui.label(&o.required_human_action);
+                    ui.small(format!("SHA-256: {}",o.installer));if let Some(id)=&o.environment{ui.small(format!("Isolated environment: {id}"));}
+                    Self::buttons(ui,&o.actions,busy,self.pending,&mut chosen);
+                    egui::CollapsingHeader::new("Installation and scan details").id_salt((&o.installer,&o.environment)).show(ui,|ui|Self::value(ui,&o.details));
+                });}
                 ui.separator();ui.horizontal(|ui|{ui.label("Find a product");ui.text_edit_singleline(&mut self.filter);});
                 for (state,label) in [("ready","Ready"),("needs_attention","Needs attention"),("installed_unqualified","Installed but unqualified"),("quarantined","Quarantined")]{
                     let products:Vec<_>=s.products.iter().filter(|p|p.disposition==state && format!("{} {}",p.name,p.vendor).to_lowercase().contains(&self.filter.to_lowercase())).collect();
@@ -178,11 +197,13 @@ impl eframe::App for Operator {
                 ui.separator();ui.small("Closing this window does not stop bridged audio or vendor applications. Vendor sign-in and authorization stay in the vendor's own interface.");
             });
         });
-        if let Some(a) = chosen {
+        if pick {
+            self.request(Query::PickInstaller, ui.ctx());
+        } else if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.request(
                     Query::Action(Request {
-                        schema: 1,
+                        schema: 2,
                         state_token: s.state_token.clone(),
                         action: a,
                     }),

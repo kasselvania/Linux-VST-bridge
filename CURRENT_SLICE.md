@@ -409,3 +409,11 @@ Return the same draft PR with:
 
 Keep the PR open and unmerged for independent review. Do not ordinary-publish or
 prepare a Serum candidate in MF2.
+
+## Implementation progress
+
+MF2 adds operator model 2, inherited-file installer ingress, unpublished initial
+installation records, operation-bound supervised installer units, native picker
+and durable wizard, and existing-scanner reuse for onboarding environments.
+See docs/MF2.md. Generated checks and Linux packaging precede the one human-only
+Xfer workflow. No installer or product operation has been run by this source cut.
