@@ -14,6 +14,8 @@ pub struct Record {
     pub creation_operation: String,
     pub installation_operation: Option<String>,
     pub published: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_attempt: Option<String>,
 }
 pub fn directory(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "onboarding_identity")?;
@@ -42,6 +44,20 @@ pub fn load(m: &Manager, id: &str) -> Result<Record> {
             .any(|e| e.registration.environment.id == id),
         "onboarding_environment_qualified",
     )?;
+    if let Some(previous) = &r.previous_attempt {
+        require(
+            valid_hex(previous, 32) && previous != id,
+            "onboarding_previous_identity",
+        )?;
+        let prior: Record = read_json(&directory(m, previous)?.join("record.json"))?;
+        require(
+            prior.id == *previous
+                && prior.installer == r.installer
+                && !prior.published
+                && prior.installation_operation.is_some(),
+            "onboarding_previous_binding",
+        )?;
+    }
     installer_import::load(m, &r.installer)?;
     r.environment.runner.verify()?;
     Ok(r)
@@ -112,6 +128,7 @@ pub struct PreparedCreation {
     installer: installer_import::Installer,
     runner: Runner,
     files: Vec<(PathBuf, FileIdentity)>,
+    previous_attempt: Option<String>,
 }
 pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<PreparedCreation> {
     require(valid_hex(installer, 64), "installer_identity")?;
@@ -154,7 +171,37 @@ pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<Pr
         installer: artifact,
         runner: r,
         files,
+        previous_attempt: None,
     };
+    prepared.recheck(m)?;
+    Ok(prepared)
+}
+pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<PreparedCreation> {
+    let r = load(m, previous)?;
+    let record = directory(m, previous)?.join("record.json");
+    let op = r
+        .installation_operation
+        .as_ref()
+        .ok_or("previous_installer_not_started")?;
+    let result_path = directory(m, previous)?.join(format!("{op}-result.json"));
+    let stamps = vec![
+        (record.clone(), FileIdentity::read(&record)?),
+        (result_path.clone(), FileIdentity::read(&result_path)?),
+    ];
+    let v = result(m, &r)?;
+    require(
+        retired(&v) && matches!(v["state"].as_str(), Some("failed" | "cancelled")),
+        "previous_attempt_not_failed_and_retired",
+    )?;
+    require(
+        !records(m)?
+            .iter()
+            .any(|x| x.previous_attempt.as_deref() == Some(previous)),
+        "fresh_attempt_already_created",
+    )?;
+    let mut prepared = prepare_creation(m, &r.installer, runner)?;
+    prepared.files.extend(stamps);
+    prepared.previous_attempt = Some(previous.into());
     prepared.recheck(m)?;
     Ok(prepared)
 }
@@ -181,7 +228,14 @@ pub fn create_prepared(
 ) -> Result<Value> {
     guard.require_registry(m)?;
     prepared.recheck(m)?;
-    create_exact(m, &prepared.installer, prepared.runner, owner, guard)
+    create_exact(
+        m,
+        &prepared.installer,
+        prepared.runner,
+        owner,
+        guard,
+        prepared.previous_attempt,
+    )
 }
 fn create_exact(
     m: &Manager,
@@ -189,6 +243,7 @@ fn create_exact(
     runner: Runner,
     owner: &str,
     guard: &Lock,
+    previous_attempt: Option<String>,
 ) -> Result<Value> {
     guard.require_registry(m)?;
     require(valid_hex(owner, 32), "onboarding_creation_operation")?;
@@ -230,6 +285,7 @@ fn create_exact(
         creation_operation: owner.into(),
         installation_operation: None,
         published: false,
+        previous_attempt,
     };
     let dir = directory(m, &id)?;
     private_dir(&dir)?;
@@ -444,6 +500,10 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                 state = v["state"].as_str().unwrap_or("cleanup_unconfirmed").into();
                 if live(op)? {
                     human = "Use the real installer. Closing this manager does not stop it";
+                    if !v["startup"]["first_problem"].is_null() {
+                        state = "needs_attention".into();
+                        human = "Runtime startup reported a problem. Stop this exact installer; cancellation will preserve its diagnostics";
+                    }
                     for (label, a) in [
                         (
                             "Focus installer",
@@ -488,6 +548,23 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                     disabled_reason: busy.map(Into::into),
                 });
             }
+            if retired(&v)
+                && matches!(v["state"].as_str(), Some("failed" | "cancelled"))
+                && !records
+                    .iter()
+                    .any(|x| x.previous_attempt.as_deref() == Some(&r.id))
+            {
+                for (key, runner) in &runners {
+                    actions.push(ui::AvailableAction {
+                        label: format!("New isolated attempt · {}", runner.version),
+                        action: ui::Action::InstallerNewAttempt {
+                            previous: r.id.clone(),
+                            runner: key.clone(),
+                        },
+                        disabled_reason: busy.map(Into::into),
+                    });
+                }
+            }
             let scan_path = m.root.join("inventory").join(format!("{}.json", r.id));
             let scan: Value = if scan_path.exists() {
                 read_json(&scan_path)?
@@ -500,7 +577,7 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                 state = scan_state(&parsed, &r.environment, &sw.host, &sw.source_sha256).into();
                 human = "Review discovery below. No class has been published to Bitwig";
             }
-            rows.push(ui::Onboarding{failure:None,installer:installer.id.clone(),name:installer.name_hint.clone(),byte_size:installer.byte_size,format:installer.format.clone(),environment:Some(r.id.clone()),state,required_human_action:human.into(),details:json!({"installation":v,"scan":scan,"runner":r.environment.runner.id,"published":false}),actions});
+            rows.push(ui::Onboarding{failure:None,installer:installer.id.clone(),name:installer.name_hint.clone(),byte_size:installer.byte_size,format:installer.format.clone(),environment:Some(r.id.clone()),state,required_human_action:human.into(),details:json!({"installation":v,"scan":scan,"runner":r.environment.runner.id,"published":false,"previous_attempt":r.previous_attempt}),actions});
         }
     }
     Ok(rows)
@@ -573,6 +650,7 @@ mod tests {
             f.r.environment.runner.clone(),
             &"ab".repeat(16),
             &f.m.lock("registry.lock").unwrap(),
+            None,
         )
         .unwrap();
         let id = v["onboarding"].as_str().unwrap();
@@ -608,6 +686,64 @@ mod tests {
         assert!(load(&f.m, "yabridge").is_err());
     }
     #[test]
+    fn fresh_attempt_retains_cancelled_history_and_cannot_replay_it() {
+        let (f, i) = fixture();
+        let v = create_exact(
+            &f.m,
+            &i,
+            f.r.environment.runner.clone(),
+            &"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(),
+            None,
+        )
+        .unwrap();
+        let id = v["onboarding"].as_str().unwrap();
+        let op = "cd".repeat(16);
+        let parent = reserve(&f.m, id, &op).unwrap();
+        let rp = directory(&f.m, id)
+            .unwrap()
+            .join(format!("{op}-result.json"));
+        let record = directory(&f.m, id).unwrap().join("record.json");
+        let key = runner_key(&parent.environment.runner).unwrap();
+        assert!(prepare_attempt(&f.m, id, &key).is_err());
+        atomic_json(&rp,&json!({"schema":2,"operation":op,"state":"cancelled","raw_exit":-15,"cleanup_confirmed":true,"owned_live":0})).unwrap();
+        let bytes = fs::read(&record).unwrap();
+        let result_bytes = fs::read(&rp).unwrap();
+        // Fixture catalogue setup is shared with ordinary installed software.
+        let prepared = PreparedCreation {
+            installer: i.clone(),
+            runner: parent.environment.runner.clone(),
+            files: vec![
+                (record.clone(), FileIdentity::read(&record).unwrap()),
+                (rp.clone(), FileIdentity::read(&rp).unwrap()),
+            ],
+            previous_attempt: Some(id.into()),
+        };
+        let next = create_prepared(
+            &f.m,
+            prepared,
+            &"ef".repeat(16),
+            &f.m.lock("registry.lock").unwrap(),
+        )
+        .unwrap();
+        let next_id = next["onboarding"].as_str().unwrap();
+        let r = load(&f.m, next_id).unwrap();
+        assert_ne!(id, next_id);
+        assert_eq!(r.previous_attempt.as_deref(), Some(id));
+        assert_eq!(r.installer, parent.installer);
+        assert!(r.installation_operation.is_none());
+        assert!(!r.published);
+        assert_eq!(fs::read(&record).unwrap(), bytes);
+        assert_eq!(fs::read(&rp).unwrap(), result_bytes);
+        assert!(reserve(&f.m, id, &"ef".repeat(16)).is_err());
+        assert!(prepare_attempt(&f.m, id, &key)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("fresh_attempt_already_created"));
+        assert!(!f.m.publications.exists());
+    }
+    #[test]
     fn replaced_runner_foreign_environment_and_result_owner_refuse() {
         let (f, i) = fixture();
         let v = create_exact(
@@ -616,6 +752,7 @@ mod tests {
             f.r.environment.runner.clone(),
             &"ab".repeat(16),
             &f.m.lock("registry.lock").unwrap(),
+            None,
         )
         .unwrap();
         let id = v["onboarding"].as_str().unwrap();

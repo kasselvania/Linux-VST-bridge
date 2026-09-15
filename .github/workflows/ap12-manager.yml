@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'tools/mf2/**'
       - 'bridge-manager/**'
       - 'native-audio-client/**'
       - 'compatibility/**'

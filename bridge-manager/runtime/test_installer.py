@@ -38,17 +38,20 @@ class InstallerTests(unittest.TestCase):
     def test_actual_installer_loop_waits_for_descendants_and_separates_failure(self):
         for code in [0,23]:
             with self.subTest(code=code),tempfile.TemporaryDirectory() as tmp:
-                root=pathlib.Path(tmp);(root/'operation.lock').touch();(root/'home').mkdir();artifact=root/'installer';artifact.write_bytes(b'fixture')
+                root=pathlib.Path(tmp);(root/'operation.lock').touch();(root/'home').mkdir();(root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch();artifact=root/'installer';artifact.write_bytes(b'fixture')
                 a={'path':str(artifact),'sha256':session.hashlib.sha256(b'fixture').hexdigest()}
                 spec={'schema':2,'operation':'ab'*16,'environment':{'root':str(root),'runner':{'entry_point':'fixed-runner','proton':'fixed-proton','files':[]}},'installer':a,'format':'pe_executable','report':str(root/'result.json')}
-                child=subprocess.Popen([sys.executable,'-c',f'import time;time.sleep(.05);print("private installer payload");raise SystemExit({code})'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                bootstrap=subprocess.Popen([sys.executable,'-c','print("prefix ready")'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                child=subprocess.Popen([sys.executable,'-c',f'import time;time.sleep(.15);print("private installer payload");raise SystemExit({code})'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                 scope=Scope(child,tail=4);old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]
                 try:
-                    with patch.object(session,'CompanionCgroup',return_value=scope),patch.object(session.subprocess,'Popen',return_value=child) as launch,patch.object(session,'environment',return_value={}):
+                    with patch.object(session,'CompanionCgroup',return_value=scope),patch.object(session.subprocess,'Popen',side_effect=[bootstrap,child]) as launch,patch.object(session,'environment',return_value={}):
                         self.assertEqual(session.install(spec),code==0)
                     self.assertIn((code,1),scope.samples);v=json.loads((root/'result.json').read_text());self.assertTrue(v['cleanup_confirmed']);self.assertEqual(v['owned_live'],0);self.assertEqual(v['raw_exit'],code);self.assertEqual(v['state'],'completed' if code==0 else 'failed');self.assertNotIn('private installer payload',(root/'result.json').read_text());self.assertGreater(v['retained_diagnostic_bytes'],0);self.assertTrue(v['private_diagnostics_written'])
-                    self.assertEqual(launch.call_args.args[0],['fixed-runner','--verb=run','--','fixed-proton','run',str(artifact)])
+                    self.assertEqual(launch.call_args.args[0],['fixed-runner','--verb=run','--','fixed-proton','runinprefix',str(artifact)])
                     self.assertEqual(launch.call_args.kwargs['env']['HOME'],str(root/'home'))
+                    self.assertEqual(launch.call_args_list[0].args[0],['fixed-runner','--verb=run','--','fixed-proton','getcompatpath','/'])
+                    self.assertEqual(launch.call_count,2)
                 finally:
                     for sig,handler in zip((signal.SIGTERM,signal.SIGINT),old):signal.signal(sig,handler)
                     if child.poll() is None:child.kill();child.wait()
@@ -69,3 +72,32 @@ class InstallerTests(unittest.TestCase):
                 finally:
                     for sig,handler in zip((signal.SIGTERM,signal.SIGINT),old):signal.signal(sig,handler)
                     session.ctypes.CDLL(None).prctl(36,0,0,0,0)
+
+class StartupTests(unittest.TestCase):
+    def test_fault_survives_modal_lifetime_cancellation_and_cleanup(self):
+        s=session.InstallerStartup('ab'*16,{'path':'/unused','sha256':'cd'*32},'/private')
+        for chunk in [b'0040:err:steamclient:steamclient_init unable to load ',b'native steamclient library\n']:
+            s.feed(chunk)
+        first=s.value()['first_problem'].copy()
+        self.assertEqual(first['code'],'native_steamclient_load_failed')
+        self.assertIsNone(s.value()['cancellation'])
+        s.feed(b'Assertion failed!\n');s.cancellation();s.cancellation();s.stage('cohort_retired',outer_exit=-15)
+        self.assertEqual(s.value()['first_problem'],first)
+        self.assertEqual(sum(x['stage']=='cancellation_requested' for x in s.rows),1)
+        self.assertEqual(s.value()['target_observation'],'unknown')
+        self.assertEqual(s.value()['exception_stack'],'unavailable')
+    def test_missing_diagnostics_and_saturation_never_infer_assertion(self):
+        s=session.InstallerStartup('ab'*16,{'path':'/unused','sha256':'cd'*32},'/private')
+        s.feed(b'x'*8000+b'\n');s.cancellation();s.stage('cohort_retired',outer_exit=-15)
+        self.assertIsNone(s.value()['first_problem']);self.assertEqual(s.line_drops,1)
+        for _ in range(1000):s.stage('bounded')
+        self.assertEqual(len(s.rows),48);self.assertGreater(s.dropped,0)
+        self.assertNotIn('/private',json.dumps(s.value()))
+
+    def test_stdout_and_stderr_fragments_cannot_fabricate_loader_failure(self):
+        s=session.InstallerStartup('ab'*16,{'path':'/unused','sha256':'cd'*32},'/private')
+        s.feed(b'0040:err:steamclient:steamclient_init unable to load ', 'stdout')
+        s.feed(b'native steamclient library\n','stderr')
+        self.assertIsNone(s.value()['first_problem'])
+        s.feed(b'native steamclient library\n','stdout')
+        self.assertEqual(s.value()['first_problem']['code'],'native_steamclient_load_failed')

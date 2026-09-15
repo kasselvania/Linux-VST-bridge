@@ -627,11 +627,17 @@ fn project_onboarding_failure(
     } else {
         Some(serde_json::from_value(receipt["failure"].clone())?)
     };
-    if let ui::Action::InstallerEnvironmentCreate { installer, .. } = request.action {
-        for row in rows
-            .iter_mut()
-            .filter(|r| r.installer == installer && r.environment.is_none())
-        {
+    let matches = |r: &&mut ui::Onboarding| match &request.action {
+        ui::Action::InstallerEnvironmentCreate { installer, .. } => {
+            r.installer == *installer && r.environment.is_none()
+        }
+        ui::Action::InstallerNewAttempt { previous, .. } => {
+            r.environment.as_ref() == Some(previous)
+        }
+        _ => false,
+    };
+    {
+        for row in rows.iter_mut().filter(matches) {
             row.failure = failure.clone();
             if receipt["stage"] == "operator_request_admission"
                 && receipt["worker_started"] == false
@@ -924,15 +930,22 @@ fn creation_control_stamp(m: &Manager) -> Result<Vec<(PathBuf, onboarding::FileI
 }
 fn create_environment_owned(
     m: &Manager,
-    installer: &str,
-    runner: &str,
+    selection: &ui::Action,
     owner: &str,
     timeout: Duration,
     waits: &mut Vec<ui::LockFacts>,
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
 ) -> Result<Value> {
     let before = token(m)?;
-    let prepared = onboarding::prepare_creation(m, installer, runner)?;
+    let prepared = match selection {
+        ui::Action::InstallerEnvironmentCreate { installer, runner } => {
+            onboarding::prepare_creation(m, installer, runner)?
+        }
+        ui::Action::InstallerNewAttempt { previous, runner } => {
+            onboarding::prepare_attempt(m, previous, runner)?
+        }
+        _ => return Err("onboarding_creation_action".into()),
+    };
     let controls = creation_control_stamp(m)?;
     let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     require(
@@ -992,11 +1005,13 @@ fn execute_with_receipt_policy(
         timeout,
         waits,
     )?);
-    if let ui::Action::InstallerEnvironmentCreate { installer, runner } = a {
+    if matches!(
+        a,
+        ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. }
+    ) {
         return create_environment_owned(
             m,
-            installer,
-            runner,
+            a,
             operation.ok_or("operator_operation_identity")?,
             timeout,
             waits,
@@ -1006,7 +1021,9 @@ fn execute_with_receipt_policy(
     require_operator_inactive_with(m, a, capacity_read)?;
 
     match a {
-        ui::Action::InstallerEnvironmentCreate { .. } => unreachable!(),
+        ui::Action::InstallerEnvironmentCreate { .. } | ui::Action::InstallerNewAttempt { .. } => {
+            unreachable!()
+        }
         ui::Action::InstallerStart { onboarding: id } => {
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
@@ -1555,6 +1572,7 @@ fn worker_with_capacity(
             if matches!(
                 request.action,
                 ui::Action::InstallerEnvironmentCreate { .. }
+                    | ui::Action::InstallerNewAttempt { .. }
             ) {
                 "Manager busy validating state. Environment creation did not start; installer was not launched. Retry after canonical state is healthy.".to_owned()
             } else {
@@ -1602,6 +1620,7 @@ fn worker_with_capacity(
                     matches!(
                         request.action,
                         ui::Action::InstallerEnvironmentCreate { .. }
+                            | ui::Action::InstallerNewAttempt { .. }
                     )
                 })
                 .map(|f| ui::OperationFailure {
@@ -2306,6 +2325,65 @@ mod tests {
     }
     fn worker_receipt(m: &Manager, id: &str) -> Value {
         read_json(&job_dir(m, id).unwrap().join("result.json")).unwrap()
+    }
+    #[test]
+    fn new_attempt_uses_production_creation_owner_and_preserves_parent() {
+        let (f, first) = onboarding_worker_fixture();
+        let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let request: ui::Request =
+            read_json(&job_dir(&f.m, &first).unwrap().join("request.json")).unwrap();
+        let v = execute_with_receipt_policy(
+            &f.m,
+            &request.action,
+            Some(&first),
+            &|| capacity_fixture(&f.m),
+            OPERATOR_WAIT,
+            &mut vec![],
+        )
+        .unwrap();
+        let parent = v["onboarding"].as_str().unwrap();
+        let old_op = "cd".repeat(16);
+        let r = onboarding::reserve(&f.m, parent, &old_op).unwrap();
+        let result_path = onboarding::directory(&f.m, parent)
+            .unwrap()
+            .join(format!("{old_op}-result.json"));
+        atomic_json(&result_path,&json!({"schema":2,"operation":old_op,"state":"cancelled","cleanup_confirmed":true,"owned_live":0,"raw_exit":-15})).unwrap();
+        let record_path = onboarding::directory(&f.m, parent)
+            .unwrap()
+            .join("record.json");
+        let before = fs::read(&record_path).unwrap();
+        let before_result = fs::read(&result_path).unwrap();
+        let action = ui::Action::InstallerNewAttempt {
+            previous: parent.into(),
+            runner: onboarding::runner_key(&r.environment.runner).unwrap(),
+        };
+        let next = execute_with_receipt_policy(
+            &f.m,
+            &action,
+            Some(&"ef".repeat(16)),
+            &|| capacity_fixture(&f.m),
+            OPERATOR_WAIT,
+            &mut vec![],
+        )
+        .unwrap();
+        assert_ne!(next["onboarding"], parent);
+        assert_eq!(onboarding::records(&f.m).unwrap().len(), 2);
+        assert_eq!(fs::read(&record_path).unwrap(), before);
+        assert_eq!(fs::read(&result_path).unwrap(), before_result);
+        assert!(execute_with_receipt_policy(
+            &f.m,
+            &action,
+            Some(&"01".repeat(16)),
+            &|| capacity_fixture(&f.m),
+            OPERATOR_WAIT,
+            &mut vec![]
+        )
+        .is_err());
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        assert_eq!(
+            fs::read(f.m.root.join("registry.json")).unwrap(),
+            registry_before
+        );
     }
     #[test]
     fn projection_recheck_refuses_registry_change_during_expensive_work() {

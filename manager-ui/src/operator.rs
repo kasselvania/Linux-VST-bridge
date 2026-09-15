@@ -15,6 +15,8 @@ struct RequestFeedback {
     terminal: bool,
     blocking: bool,
     release_after_snapshot: bool,
+    acknowledgment_uncertain: bool,
+    transitions: Vec<String>,
 }
 impl RequestFeedback {
     fn captured(action: Action) -> Self {
@@ -26,9 +28,21 @@ impl RequestFeedback {
             terminal: false,
             blocking: true,
             release_after_snapshot: false,
+            acknowledgment_uncertain: false,
+            transitions: vec!["captured".into()],
+        }
+    }
+    fn transition(&mut self, state: &str) {
+        if self.transitions.last().is_none_or(|s| s != state) {
+            if self.transitions.len() == 12 {
+                self.transitions.remove(0);
+            }
+            self.transitions.push(state.into());
         }
     }
     fn receipt(&mut self, r: &Receipt) {
+        self.acknowledgment_uncertain = r.accepted && r.operation.is_none();
+        self.transition(if r.accepted { "accepted" } else { "refused" });
         self.operation = r.operation.clone();
         self.terminal = !r.accepted;
         self.release_after_snapshot = !r.accepted;
@@ -50,6 +64,13 @@ impl RequestFeedback {
             || self.operation.is_none()
         {
             return;
+        }
+        if let Some(
+            state @ ("refused" | "completed" | "waiting" | "validating" | "vendor_running"
+            | "queued" | "running"),
+        ) = op["state"].as_str()
+        {
+            self.transition(state);
         }
         self.text = match op["state"].as_str() {
             Some("refused") => {
@@ -82,6 +103,53 @@ impl RequestFeedback {
         if self.release_after_snapshot {
             self.blocking = false;
             self.release_after_snapshot = false;
+            if self.text == "This operation completed. Refreshing its result…" {
+                self.text = "This operation completed. Its current result is shown below.".into();
+            } else if self.text == "Vendor operation is running. Refreshing its controls…" {
+                self.text = "Installer is supervised and running. Use its exact Focus or Stop control below.".into();
+            }
+        }
+    }
+    fn reconcile_snapshot(&mut self, s: &Snapshot) {
+        // A lost acknowledgment is not a failed operation. Only exact canonical
+        // onboarding ownership plus its offered recovery action can resolve it.
+        if self.acknowledgment_uncertain && self.operation.is_none() {
+            if let Action::InstallerStart { onboarding } = &self.action {
+                let owners: Vec<_> = s.onboarding.iter().filter(|r| r.environment.as_ref() == Some(onboarding))
+                    .filter_map(|r| {
+                        let op = r.details["installation"]["operation"].as_str()?;
+                        let exact = r.actions.iter().any(|a| matches!(&a.action,
+                            Action::InstallerStop { onboarding: id, operation } if id == onboarding && operation == op));
+                        (exact && matches!(r.details["installation"]["state"].as_str().unwrap_or(r.state.as_str()), "starting" | "running" | "unknown")).then_some(op.to_owned())
+                    }).collect();
+                if owners.len() == 1 {
+                    self.operation = Some(owners[0].clone());
+                    self.transition("live_owner_reconciled");
+                    self.release_after_snapshot = true;
+                    self.text = "Submission acknowledgment was unavailable. The manager confirms this exact live installer; recovery controls are available. No request was resubmitted.".into();
+                }
+            }
+        }
+        let matching_operation = self.operation.is_some()
+            && s.operation
+                .as_ref()
+                .is_some_and(|op| op["operation"].as_str() == self.operation.as_deref());
+        let exact_recovery = if let Action::InstallerStart { onboarding } = &self.action {
+            s.onboarding.iter().any(|r| {
+                r.environment.as_ref() == Some(onboarding)
+                    && r.actions.iter().any(|a| {
+                        matches!(&a.action, Action::InstallerStop{onboarding:id,operation}
+                    if id==onboarding && Some(operation.as_str())==self.operation.as_deref())
+                    })
+            })
+        } else {
+            false
+        };
+        if let Some(op) = &s.operation {
+            self.observe(op);
+        }
+        if self.terminal || matching_operation || exact_recovery {
+            self.refreshed();
         }
     }
     fn for_installer(&self, id: &str) -> bool {
@@ -169,9 +237,94 @@ impl Operator {
             if response.clicked() {
                 *chosen = Some(a.action.clone());
             }
-            if let Some(reason) = reason {
+            if let Some(reason) = reason.or(pending.then_some(
+                "Waiting for this request or canonical readback; duplicate submission is blocked",
+            )) {
                 response.on_disabled_hover_text(reason);
                 ui.small(reason);
+            }
+        }
+    }
+    fn handle_reply(&mut self, reply: Reply) {
+        let was_action = self.action_inflight;
+        self.pending = false;
+        self.background_poll = false;
+        self.action_inflight = false;
+        match reply {
+            Reply::Snapshot(s) => {
+                if s.schema != 2 {
+                    self.message = "Unsupported manager schema".into();
+                } else {
+                    if let Some(f) = &mut self.feedback {
+                        f.reconcile_snapshot(&s);
+                    }
+                    self.snapshot = Some(*s);
+                    self.message = "Canonical installed state refreshed".into();
+                }
+            }
+            Reply::Receipt(r) => {
+                if let Some(f) = &mut self.feedback {
+                    f.receipt(&r);
+                }
+                self.message = if r.accepted {
+                    format!("Operation accepted: {}", r.operation.unwrap_or_default())
+                } else {
+                    r.refusal.unwrap_or_else(|| "Operation refused".into())
+                };
+                // Do not race a newly dispatched mutation for registry.lock.
+                // The lightweight receipt poll selects the completed readback.
+                self.refresh_after = !r.accepted;
+            }
+            Reply::Activity(a) => {
+                if let Some(op) = &a.operation {
+                    if let Some(f) = &mut self.feedback {
+                        f.observe(op);
+                    }
+                    if op["state"] == "refused" {
+                        self.message = format!(
+                            "Last operation refused: {}",
+                            op["reason"].as_str().unwrap_or("see receipt")
+                        );
+                    } else if op["state"] == "completed" {
+                        self.message = "Operation completed".into();
+                    }
+                }
+                if let Some(s) = &mut self.snapshot {
+                    if s.system.capacity_available() != a.system.capacity_available()
+                        || s.system.dsp != a.system.dsp
+                        || s.system.maintenance != a.system.maintenance
+                        || s.system.cleanup_unconfirmed != a.system.cleanup_unconfirmed
+                        || refresh_for_receipt(&s.operation, &a.operation)
+                    {
+                        self.refresh_after = true;
+                    }
+                    s.system = a.system;
+                    s.capture = a.capture;
+                    s.operation = a.operation;
+                }
+            }
+            Reply::Imported => {
+                self.message =
+                    "Installer imported. Review its identity and choose a runner below.".into();
+                self.refresh_after = true;
+            }
+            Reply::Cancelled => {
+                self.message = "Installer selection cancelled".into();
+            }
+            Reply::Error(e) => {
+                if was_action {
+                    if let Some(f) = &mut self.feedback {
+                        f.acknowledgment_uncertain = true;
+                        f.transition("acknowledgment_unconfirmed");
+                        f.text=format!("Request acknowledgment is unavailable: {e}. Reconciling manager ownership; no automatic resubmission.");
+                        self.refresh_after = true;
+                    }
+                }
+                self.message = e;
+                if let Some(s) = &mut self.snapshot {
+                    s.system.service = "capacity unavailable".into();
+                    s.system.cleanup_unconfirmed = true;
+                }
             }
         }
     }
@@ -188,86 +341,9 @@ impl Operator {
 impl eframe::App for Operator {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         while let Ok(reply) = self.receiver.try_recv() {
-            let was_action = self.action_inflight;
-            self.pending = false;
-            self.background_poll = false;
-            self.action_inflight = false;
-            match reply {
-                Reply::Snapshot(s) => {
-                    if s.schema != 2 {
-                        self.message = "Unsupported manager schema".into();
-                    } else {
-                        if let Some(f) = &mut self.feedback {
-                            f.refreshed();
-                        }
-                        self.snapshot = Some(*s);
-                        self.message = "Canonical installed state refreshed".into();
-                    }
-                }
-                Reply::Receipt(r) => {
-                    if let Some(f) = &mut self.feedback {
-                        f.receipt(&r);
-                    }
-                    self.message = if r.accepted {
-                        format!("Operation accepted: {}", r.operation.unwrap_or_default())
-                    } else {
-                        r.refusal.unwrap_or_else(|| "Operation refused".into())
-                    };
-                    // Do not race a newly dispatched mutation for registry.lock.
-                    // The lightweight receipt poll selects the completed readback.
-                    self.refresh_after = !r.accepted;
-                }
-                Reply::Activity(a) => {
-                    if let Some(op) = &a.operation {
-                        if let Some(f) = &mut self.feedback {
-                            f.observe(op);
-                        }
-                        if op["state"] == "refused" {
-                            self.message = format!(
-                                "Last operation refused: {}",
-                                op["reason"].as_str().unwrap_or("see receipt")
-                            );
-                        } else if op["state"] == "completed" {
-                            self.message = "Operation completed".into();
-                        }
-                    }
-                    if let Some(s) = &mut self.snapshot {
-                        if s.system.capacity_available() != a.system.capacity_available()
-                            || s.system.dsp != a.system.dsp
-                            || s.system.maintenance != a.system.maintenance
-                            || s.system.cleanup_unconfirmed != a.system.cleanup_unconfirmed
-                            || refresh_for_receipt(&s.operation, &a.operation)
-                        {
-                            self.refresh_after = true;
-                        }
-                        s.system = a.system;
-                        s.capture = a.capture;
-                        s.operation = a.operation;
-                    }
-                }
-                Reply::Imported => {
-                    self.message =
-                        "Installer imported. Review its identity and choose a runner below.".into();
-                    self.refresh_after = true;
-                }
-                Reply::Cancelled => {
-                    self.message = "Installer selection cancelled".into();
-                }
-                Reply::Error(e) => {
-                    if was_action {
-                        if let Some(f) = &mut self.feedback {
-                            f.terminal = true;
-                            f.text=format!("Request result could not be confirmed: {e}. Do not click again without checking its receipt.");
-                        }
-                    }
-                    self.message = e;
-                    if let Some(s) = &mut self.snapshot {
-                        s.system.service = "capacity unavailable".into();
-                        s.system.cleanup_unconfirmed = true;
-                    }
-                }
-            }
+            self.handle_reply(reply);
         }
+
         let controls_pending = self.controls_pending();
         let mut refresh = false;
         let mut pick = false;
@@ -275,6 +351,12 @@ impl eframe::App for Operator {
         egui::CentralPanel::default().show(ui,|ui|{
             ui.heading("Linux Audio Compatibility Manager");
             ui.horizontal(|ui|{if ui.add_enabled(!self.pending,egui::Button::new("Refresh")).clicked(){refresh=true;}ui.label(self.feedback.as_ref().map_or(self.message.as_str(),|f|f.text.as_str()));if self.pending{ui.spinner();}});
+            if let Some(f) = &self.feedback {
+                ui.collapsing("Request status", |ui| {
+                    ui.label(f.operation.as_deref().unwrap_or("Operation identity not yet confirmed"));
+                    ui.label(f.transitions.join(" → "));
+                });
+            }
             ui.separator();
             egui::ScrollArea::vertical().show(ui,|ui|{
                 let Some(s)=&self.snapshot else{ui.label("The installed Rust manager is the state authority. Waiting for readback.");return;};
@@ -297,7 +379,7 @@ impl eframe::App for Operator {
                 for o in &s.onboarding {egui::Frame::group(ui.style()).show(ui,|ui|{
                     ui.heading(o.state.replace('_'," "));ui.label(format!("{} · {} bytes · {}",o.name,o.byte_size,o.format));
                     ui.label(&o.required_human_action);
-                    if let Some(f)=self.feedback.as_ref().filter(|f|f.for_installer(&o.installer)) {ui.colored_label(egui::Color32::YELLOW,&f.text);}
+                    if let Some(f)=self.feedback.as_ref().filter(|f|f.for_installer(&o.installer) || matches!(&f.action, Action::InstallerNewAttempt {previous,..} if o.environment.as_ref()==Some(previous))) {ui.colored_label(egui::Color32::YELLOW,&f.text);}
                     else if let Some(reason)=o.details["request_result"]["reason"].as_str(){ui.colored_label(egui::Color32::YELLOW,format!("Last request refused before worker launch: {reason}"));}
                     if let Some(failure)=&o.failure { for line in failure_lines(failure) { ui.colored_label(egui::Color32::YELLOW,line); } }
                     ui.small(format!("SHA-256: {}",o.installer));if let Some(id)=&o.environment{ui.small(format!("Isolated environment: {id}"));}
@@ -453,6 +535,183 @@ mod tests {
                 runner: "cd".repeat(32),
             },
         }
+    }
+    fn running_snapshot(operation: &str) -> Snapshot {
+        let id = "aa".repeat(16);
+        Snapshot {
+            schema: 2,
+            state_token: "current".into(),
+            system: System {
+                service: "capacity unavailable".into(),
+                keepers: 0,
+                dsp: 0,
+                maintenance: 0,
+                ceiling: 0,
+                pending_transactions: 0,
+                stale_transports: 0,
+                cleanup_unconfirmed: true,
+            },
+            onboarding: vec![Onboarding {
+                failure: None,
+                installer: "bb".repeat(32),
+                name: "Installer".into(),
+                byte_size: 10,
+                format: "pe_executable".into(),
+                environment: Some(id.clone()),
+                state: "running".into(),
+                required_human_action: "installer_ui".into(),
+                details: serde_json::json!({"installation":{"operation":operation}}),
+                actions: vec![AvailableAction {
+                    label: "Stop installer".into(),
+                    action: Action::InstallerStop {
+                        onboarding: id,
+                        operation: operation.into(),
+                    },
+                    disabled_reason: None,
+                }],
+            }],
+            environments: vec![],
+            vendor_applications: vec![],
+            products: vec![],
+            active_sessions: vec![],
+            capture: serde_json::Value::Null,
+            recent_incidents: vec![],
+            actions: vec![],
+            operation: Some(serde_json::json!({"operation":operation,"state":"vendor_running"})),
+        }
+    }
+    fn start_feedback(o: &mut Operator, acknowledged: bool) {
+        o.feedback = Some(RequestFeedback::captured(Action::InstallerStart {
+            onboarding: "aa".repeat(16),
+        }));
+        if acknowledged {
+            o.handle_reply(Reply::Receipt(Receipt {
+                schema: 2,
+                accepted: true,
+                operation: Some("current-op".into()),
+                refusal: None,
+            }));
+        } else {
+            o.action_inflight = true;
+            o.handle_reply(Reply::Error("ack lost".into()));
+        }
+    }
+    fn activity_from(s: &Snapshot) -> Reply {
+        Reply::Activity(Activity {
+            schema: 2,
+            system: s.system.clone(),
+            capture: s.capture.clone(),
+            operation: s.operation.clone(),
+        })
+    }
+    #[test]
+    fn integrated_snapshot_first_and_activity_first_reconcile_stop() {
+        for snapshot_first in [true, false] {
+            let mut o = state_fixture();
+            start_feedback(&mut o, true);
+            assert!(o.controls_pending());
+            let s = running_snapshot("current-op");
+            if !snapshot_first {
+                o.handle_reply(activity_from(&s));
+                assert!(o.controls_pending());
+            }
+            o.handle_reply(Reply::Snapshot(Box::new(s.clone())));
+            assert!(!o.controls_pending());
+            o.handle_reply(activity_from(&s));
+            assert!(
+                !o.controls_pending(),
+                "equal running must not require another transition"
+            );
+            let ctx = egui::Context::default();
+            let mut chosen = None;
+            let mut point = egui::Pos2::ZERO;
+            for pressed in [None, Some(true), Some(false)] {
+                o.pending = pressed == Some(false);
+                o.background_poll = o.pending;
+                let events = pressed
+                    .map(|pressed| {
+                        vec![
+                            egui::Event::PointerMoved(point),
+                            egui::Event::PointerButton {
+                                pos: point,
+                                button: egui::PointerButton::Primary,
+                                pressed,
+                                modifiers: egui::Modifiers::NONE,
+                            },
+                        ]
+                    })
+                    .unwrap_or_default();
+                let mut output = ctx.run_ui(
+                    egui::RawInput {
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
+                        Operator::buttons(
+                            ui,
+                            &s.onboarding[0].actions,
+                            s.system.inactive_reason(),
+                            o.controls_pending(),
+                            &mut chosen,
+                        );
+                    },
+                );
+                output.textures_delta.clear();
+            }
+            assert!(matches!(chosen, Some(Action::InstallerStop { .. })));
+            assert!(!s.onboarding[0]
+                .actions
+                .iter()
+                .any(|a| matches!(a.action, Action::InstallerStart { .. })));
+        }
+    }
+    #[test]
+    fn integrated_unrelated_snapshot_cannot_unlock_request() {
+        let mut o = state_fixture();
+        start_feedback(&mut o, true);
+        o.handle_reply(Reply::Snapshot(Box::new(running_snapshot("old-op"))));
+        assert!(o.controls_pending());
+        assert!(!o.feedback.as_ref().unwrap().terminal);
+        o.handle_reply(activity_from(&running_snapshot("old-op")));
+        assert!(o.controls_pending());
+        o.handle_reply(activity_from(&running_snapshot("current-op")));
+        o.handle_reply(Reply::Snapshot(Box::new(running_snapshot("old-op"))));
+        assert!(
+            o.controls_pending(),
+            "unrelated snapshot cannot release a prior running transition"
+        );
+    }
+    #[test]
+    fn uncertain_ack_reconciles_exact_live_owner_without_resubmission() {
+        let mut o = state_fixture();
+        start_feedback(&mut o, false);
+        assert!(!o.feedback.as_ref().unwrap().terminal);
+        assert!(o.controls_pending());
+        let mut unrelated = running_snapshot("other-op");
+        unrelated.onboarding[0].environment = Some("cc".repeat(16));
+        o.handle_reply(Reply::Snapshot(Box::new(unrelated)));
+        assert!(o.controls_pending());
+        let s = running_snapshot("current-op");
+        o.handle_reply(Reply::Snapshot(Box::new(s)));
+        assert!(!o.controls_pending());
+        assert!(o.next_action().is_none());
+        assert_eq!(
+            o.feedback.as_ref().unwrap().operation.as_deref(),
+            Some("current-op")
+        );
+        assert!(o
+            .feedback
+            .as_ref()
+            .unwrap()
+            .transitions
+            .iter()
+            .any(|s| s == "live_owner_reconciled"));
+        for _ in 0..100 {
+            o.feedback.as_mut().unwrap().transition("running");
+            o.feedback.as_mut().unwrap().transition("validating");
+        }
+        assert_eq!(o.feedback.as_ref().unwrap().transitions.len(), 12);
     }
     #[test]
     fn background_poll_click_is_captured_then_submitted_once() {

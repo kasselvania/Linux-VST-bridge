@@ -14,6 +14,10 @@ pub enum Action {
         installer: String,
         runner: String,
     },
+    InstallerNewAttempt {
+        previous: String,
+        runner: String,
+    },
     InstallerStart {
         onboarding: String,
     },
@@ -201,6 +205,7 @@ impl Action {
         matches!(
             self,
             Self::InstallerEnvironmentCreate { .. }
+                | Self::InstallerNewAttempt { .. }
                 | Self::InstallerStart { .. }
                 | Self::InstallerScan { .. }
                 | Self::VendorApplicationOpen { .. }

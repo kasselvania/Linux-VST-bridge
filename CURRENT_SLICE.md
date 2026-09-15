@@ -464,3 +464,14 @@ cleanup, restored service/keeper and left zero leases/transactions/transports.
 No retry, scan, runner change or product publication followed. Preserve
 `evidence/mf2/installer-start-boundary.json` alongside immutable historical results.
 These startup and frontend-control boundaries remain open for review.
+
+### MF2-R2 — reliable recovery controls and pinned startup
+
+Continue from evidence head `a0e8284`; installed implementation remains `8e50cd3`
+until verified replacement. Repair Snapshot/Activity operation reconciliation,
+source-ground the private-home Proton installer bootstrap with a harmless owned
+Windows payload, retain startup faults separately from cancellation, and offer an
+explicit new isolated attempt with immutable predecessor history. Preserve the
+original cancelled attempt. The operator authorizes in-scope generated debugging
+and immutable installation followed by a human-only fresh Xfer attempt. No product
+publication, runner replacement, private-home expansion or historical replay.
