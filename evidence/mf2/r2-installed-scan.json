@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "implementation_head": "3c23d8ef00440b0464231fee81104e44185ba314",
+  "implementation_tree": "1c56d80bd6160a279b2caec915e009aab4f2ddc6",
+  "prior_evidence_head": "fc34f2b05951ba529784ae582c07ee00317a26c8",
+  "disposition": "MF2_R2_HUMAN_INSTALL_AND_FACTORY_DISCOVERY_COMPLETE_FOCUS_UNCONFIRMED",
+  "installed": {
+    "operator_frontend_sha256": "1fce3670189f887c80a1c22adbedcd5aec55aa6c578b0e324a1fc5a492d6b6cd",
+    "manager_sha256": "bc47be6c96187abd90d3aa21735d4b12ab3d85f56917679d853ab827982f5bbb",
+    "supervisor_sha256": "ea8762295b5c93bdbb6ef0d5b19e0b40b8c220ed78d5ecd8096b3527718b140d",
+    "ownership_sha256": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+    "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue_sha256": "07ae89f353bd100f3f97a0ee04ba9f118e7870cfe99053f1f14f000b135d392f"
+  },
+  "installer": {
+    "sha256": "507b726d97bf78920157f3817aff003b9ee38ee961f4efd318cf43216370f695",
+    "byte_size": 1313084056,
+    "import_record_unchanged": true,
+    "reimported": false,
+    "vendor_at_import": null,
+    "product_at_import": null
+  },
+  "environment": {
+    "id": "4db060b14388e41103834fc4dfdd023a",
+    "revision": 1,
+    "previous_attempt": "7c443d01a0f33215c3f7368665a66780",
+    "new_attempt_count": 1,
+    "total_retained_attempts": 2,
+    "published": false,
+    "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769"
+  },
+  "human_installer": {
+    "operation": "bb01c56fdc59cde3be40946ef5d3c5c0",
+    "operator_report": "installation completed",
+    "state": "completed",
+    "outer_exit": 0,
+    "owned_live": 0,
+    "cleanup_confirmed": true,
+    "first_startup_problem": null,
+    "cancellation": null,
+    "retirement_elapsed_ns": 603494738272,
+    "agent_keyboard_mouse_input": false,
+    "account_license_contents_observed": false,
+    "diagnostic_bytes": 1074,
+    "diagnostic_dropped_bytes": 0
+  },
+  "scan": {
+    "operation": "8253f21d807200f9f9dd926de4863f66",
+    "target_environment": "4db060b14388e41103834fc4dfdd023a",
+    "state": "completed",
+    "id": "993ea0d2864f7d8bbbadddd4ec7f5a34",
+    "module_count": 1,
+    "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+    "module_byte_size": 19236864,
+    "module_relative_to_vst3_root": "Serum2.vst3/Contents/x86_64-win/Serum2.vst3",
+    "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "host_source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "report_sha256": "800077ba72233c9ad449b402587387e22f48d9871eb7454098ba7dc939252f0c",
+    "factory_count": 4,
+    "classes": [
+      {
+        "id": "56534558667350736572756D20320000",
+        "name": "Serum 2",
+        "vendor": "Xfer Records",
+        "version": "2.1.5",
+        "category": "Audio Module Class",
+        "subcategories": "Instrument|Synth",
+        "role": "instrument"
+      },
+      {
+        "id": "56534558667343736572756D20320000",
+        "name": "Serum 2",
+        "vendor": "Xfer Records",
+        "version": "2.1.5",
+        "category": "Component Controller Class",
+        "subcategories": "",
+        "role": "other"
+      },
+      {
+        "id": "56534558667351736572756D20322066",
+        "name": "Serum 2 FX",
+        "vendor": "Xfer Records",
+        "version": "2.1.5",
+        "category": "Audio Module Class",
+        "subcategories": "Fx",
+        "role": "effect"
+      },
+      {
+        "id": "56534558667344736572756D20322066",
+        "name": "Serum 2 FX",
+        "vendor": "Xfer Records",
+        "version": "2.1.5",
+        "category": "Component Controller Class",
+        "subcategories": "",
+        "role": "other"
+      }
+    ],
+    "changes": {
+      "initial_scan": true,
+      "added": 1,
+      "changed": 0,
+      "removed": 0,
+      "unchanged": 0
+    },
+    "quarantine_reason": null,
+    "inspection": {
+      "state": "explicit_class_selection_required",
+      "reason": "multiple audio classes require explicit selection",
+      "inspection_exit_code": 90,
+      "raw_report_error": "Windows SDK host failed: 90",
+      "component_initialization_proved": false,
+      "crash_inferred": false,
+      "extra_inspection_run": false
+    },
+    "module_exit_succeeded": true,
+    "module_unloaded": true,
+    "supervisor_outer_exit": -15,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "activation_permitted": false
+  },
+  "canonical_product_projection": [
+    {
+      "name": "Serum 2",
+      "class_id": "56534558667350736572756D20320000",
+      "version": "2.1.5",
+      "role": "instrument",
+      "disposition": "installed_unqualified",
+      "current_evidence": true,
+      "active_revision": null,
+      "activation_permitted": false
+    },
+    {
+      "name": "Serum 2 FX",
+      "class_id": "56534558667351736572756D20322066",
+      "version": "2.1.5",
+      "role": "effect",
+      "disposition": "installed_unqualified",
+      "current_evidence": true,
+      "active_revision": null,
+      "activation_permitted": false
+    }
+  ],
+  "deferred_issues": {
+    "installer_focus": {
+      "result": "active-window confirmation absent within 750ms",
+      "explicit_wm_negative_ack": false,
+      "later_window_state": "normal, demands attention, not active",
+      "repeat": false
+    },
+    "history_card_and_result_visibility": {
+      "operator_report": "scan click appeared to make no difference; cancelled card remained visible",
+      "old_environment_scan_operation": "eb73a4b10ab0c69207cc0dec66391425",
+      "old_environment_scan_target": "7c443d01a0f33215c3f7368665a66780",
+      "old_scan_refusal": "Operator action: No such file or directory (os error 2)",
+      "old_vst3_directory_absent": true,
+      "current_environment_scan_successful": true,
+      "user_directed_deferral": true,
+      "ui_fix_made": false
+    },
+    "inspection_warning_presentation": "Exit 90 is explicit multi-class selection refusal after complete factory discovery; current UI retains generic Windows SDK host failed wording."
+  },
+  "final_state": {
+    "system": {
+      "service": "active",
+      "keepers": 1,
+      "dsp": 0,
+      "maintenance": 0,
+      "ceiling": 6,
+      "pending_transactions": 0,
+      "stale_transports": 0,
+      "cleanup_unconfirmed": false
+    },
+    "capture": "off",
+    "pending_resume_record": false,
+    "installer_or_fixture_units_running": 0,
+    "original_products_unchanged": true,
+    "projects_unchanged": true,
+    "original_cancelled_history_retained": true,
+    "ordinary_pigments": 18,
+    "rollback_pigments": 11,
+    "ordinary_lofi": 10,
+    "ordinary_fragments": 10,
+    "all_candidate_history_unchanged": true,
+    "serum_publication": false,
+    "serum_candidate_created": false,
+    "native_proxy_created": false,
+    "manager_frontend": "operator-owned; may remain open"
+  },
+  "validation": {
+    "implementation_head_all_applicable_ci_passed": true,
+    "retained_evidence_head": "fc34f2b05951ba529784ae582c07ee00317a26c8",
+    "workflows": {
+      "AP8": 35016407408,
+      "AP12": 35016407372,
+      "PX2": 35016407317
+    },
+    "code_or_installed_bytes_changed_for_this_report": false,
+    "new_product_test_or_repeated_scan_by_agent": false
+  },
+  "nonclaims": [
+    "Factory discovery does not qualify component, controller, editor, audio or state behavior.",
+    "No claim about completed authorization or license validity.",
+    "No automatic selection between instrument and FX class.",
+    "No Serum candidate, ordinary admission or Bitwig publication.",
+    "Focus control remains unconfirmed and UI follow-up is deferred.",
+    "Historical failed attempts remain unchanged."
+  ]
+}

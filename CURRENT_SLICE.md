@@ -483,3 +483,13 @@ Historical failure records and the original cancelled environment remain intact.
 Service/keeper and zero-lease idle state were verified. One human New isolated
 attempt is requested; Run installer waits for exact environment readback.
 See `docs/MF2-R2.md` and `evidence/mf2/r2-recovery-startup.json`.
+
+R2 human continuation now completed installation (exit0, positive cleanup) and
+factory discovery in the one new environment. Serum 2 and Serum 2 FX version2.1.5
+are current **Installed but unqualified**, unpublished. Complete four-class
+factory enumeration is retained separately from inspector exit90 requiring an
+explicit audio-class selection. No component qualification or candidate followed.
+Focus remained unconfirmed; the operator deferred card/history/result-visibility
+work. Retain both for review, with the old cancelled-environment Scan refusal.
+Final service/keeper/ownership/product/project checks passed. PR108 remains draft,
+open and unmerged. See `evidence/mf2/r2-installed-scan.json`.

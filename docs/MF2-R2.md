@@ -130,3 +130,36 @@ operator was unsure whether focus moved. No retry occurred, and no exact desktop
 policy cause is claimed. The installer remains live under its original operation;
 startup success is retained separately from this recovery-control boundary.
 See `evidence/mf2/r2-human-start-focus.json`.
+
+### Human installation and discovery completed
+
+The same human-operated Xfer installer finished with outer exit0, zero owned
+survivors, positive cleanup and no startup problem or cancellation. Its exact
+operation survived manager close/reopen. No agent sent installer/account/license
+input, and no account or authorization material was inspected.
+
+The first Scan click targeted the historical cancelled environment. Its missing
+VST3 directory produced an OS error2 refusal. This is separate from the successful
+new environment. The next human click targeted that completed environment and
+completed one factory scan: Serum2.vst3 SHA-256
+`501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`,
+19,236,864 bytes, Xfer Records version2.1.5, four exported classes: instrument,
+instrument controller, FX, and FX controller. The two audio products project as
+**Installed but unqualified**, current evidence, no active revision, and no
+activation/publication permission.
+
+The generic inspector then refused to select automatically between two audio
+classes: `multiple audio classes require explicit selection`, exit90. Factory
+enumeration was complete; module exit/unload and supervisor cleanup/transport
+retirement succeeded. This is not a crash or component-lifecycle qualification.
+No extra class inspection, candidate, native proxy or Bitwig launch was attempted.
+The final report retains the supervisor's separate cleanup exit -15 without
+confusing it with inspector exit90 or the successful installer's exit0.
+
+The user deferred the history-card/result-visibility issue. Retain that follow-up,
+the unconfirmed Focus request and the generic inspection-warning wording. No UI
+or focus workaround was introduced during this session. Final readback verifies
+healthy service/keeper, capture off, zero DSP/maintenance/transactions/stale
+transports, no resume record, and no installer/generated-fixture unit active.
+Existing products, imported installer record and protected project hashes match
+the pre-session state. See `evidence/mf2/r2-installed-scan.json`.
