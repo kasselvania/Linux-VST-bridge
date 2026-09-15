@@ -222,6 +222,26 @@ pub fn binding(m: &Manager) -> Result<Registration> {
     r.verify(&m.root)?;
     Ok(r)
 }
+/// Candidate sessions use their sealed installation binding, not the MF2
+/// initial-install owner (which correctly refuses registered environments).
+pub fn check_session(
+    m: &Manager,
+    class: &str,
+    environment: &Environment,
+    module: &Artifact,
+    host: &Artifact,
+    source: &str,
+) -> Result<()> {
+    let expected = binding(m)?;
+    require(
+        class == expected.metadata.class_id
+            && *environment == expected.environment
+            && *module == expected.module
+            && host.sha256 == expected.host.sha256
+            && source == expected.host_source_sha256,
+        "candidate_session_binding",
+    )
+}
 pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> Result<()> {
     require(
         *p == candidate()? && *r == binding(m)?,
@@ -418,6 +438,25 @@ mod tests {
         let p = candidate().unwrap();
         assert!(p.claim.require(SelectionPurpose::Activation).is_err());
         let reference = publish(&f.m).unwrap();
+        let r = binding(&f.m).unwrap();
+        check_session(
+            &f.m,
+            &r.metadata.class_id,
+            &r.environment,
+            &r.module,
+            &r.host,
+            &r.host_source_sha256,
+        )
+        .unwrap();
+        assert!(check_session(
+            &f.m,
+            &"ff".repeat(16),
+            &r.environment,
+            &r.module,
+            &r.host,
+            &r.host_source_sha256
+        )
+        .is_err());
         let revision = f.m.load_revision(&p.class.class_id, &reference).unwrap();
         assert!(revision.parent.is_none());
         assert_eq!(revision.qualification, Some(Qualification::Sv1Instrument));

@@ -60,3 +60,10 @@ engineering publication/retirement, all 16 publication interruption boundaries,
 and private-home isolation. Existing manager/runtime suites and CI remain required.
 The native artifact was built from the current registered backend and official
 SDK with the new inspection-derived descriptor; no historical Serum proxy is used.
+
+The initial-install owner continues refusing registered environments. Their
+onboarding records remain byte-for-byte history; initial-install cards/actions
+are omitted once qualification/product management owns that environment. The
+candidate session instead validates its sealed installation binding. This avoids
+reimporting or hashing the large installer during candidate startup. It does not
+make the environment eligible for another initial installation.
