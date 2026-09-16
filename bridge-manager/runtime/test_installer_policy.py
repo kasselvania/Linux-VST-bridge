@@ -38,10 +38,11 @@ class PolicyTests(unittest.TestCase):
         def a(p):return {'path':str(p),'sha256':hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()}
         # Source-owned manager artifact sufficient for identity test; no launch.
         artifact=a(__file__)
-        spec={'schema':3,'operation':'ab'*16,'environment':{'id':'cd'*16,'revision':1},'installer':artifact}
+        spec={'schema':3,'operation':'ab'*16,'environment':{'id':'cd'*16,'revision':1},'installer':artifact,'format':'pe_executable','installer_launch':artifact}
         policy=self.policy();policy.update(installer=artifact,owners={'manager':artifact,
             'supervisor':a(session.__file__),'ownership':a(session.sys.modules['ownership'].__file__)})
-        policy['software']=dict(policy['owners'])
+        policy['format']='pe_executable';policy['installer_launch']=artifact
+        policy['software']=dict(policy['owners'],installer_launch=artifact)
         policy['software_sha256']=hashlib.sha256(json.dumps(policy['software'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
         spec['installer_capability']=policy
         return spec
@@ -66,6 +67,39 @@ class PolicyTests(unittest.TestCase):
         good.pop('installer_capability')
         with self.assertRaises(ValueError):session.installer_policy_validate(good)
         good['schema']=2;self.assertIsNone(session.installer_policy_validate(good))
+    def test_qualified_route_refuses_before_any_process_creation(self):
+        good=self.bound()
+        cases=[]
+        for field,value in [('installer_launch',None),('format','msi_compound'),('format','other')]:
+            bad=copy.deepcopy(good);bad[field]=value;cases.append(bad)
+        for location in ('spec','policy','software'):
+            bad=copy.deepcopy(good)
+            obj=bad if location=='spec' else bad['installer_capability'] if location=='policy' else bad['installer_capability']['software']
+            obj['installer_launch']={'path':__file__,'sha256':'0'*64}
+            cases.append(bad)
+        bad=copy.deepcopy(good);bad['installer_launch']=None
+        bad['installer_capability']['installer_launch']=None
+        bad['installer_capability']['software']['installer_launch']=None
+        bad['installer_capability']['software_sha256']=hashlib.sha256(json.dumps(bad['installer_capability']['software'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        cases.append(bad)
+        # Even a consistently rebound but changed artifact must verify its bytes.
+        bad=copy.deepcopy(good);artifact={'path':__file__,'sha256':'0'*64}
+        bad['installer_launch']=artifact;bad['installer_capability']['installer_launch']=artifact
+        bad['installer_capability']['software']['installer_launch']=artifact
+        bad['installer_capability']['software_sha256']=hashlib.sha256(json.dumps(bad['installer_capability']['software'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        cases.append(bad)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);(root/'operation.lock').touch()
+            for n,bad in enumerate(cases):
+                bad['environment']['root']=str(root);bad['installer_capability']['environment']=bad['environment'];bad['report']=str(root/f'result-{n}.json')
+                with patch.object(session.subprocess,'Popen') as launch, patch.object(session.signal,'signal'):
+                    self.assertFalse(session.install(bad));launch.assert_not_called()
+                result=json.loads(pathlib.Path(bad['report']).read_text())
+                self.assertIsNone(result['installer_capability']['effective'])
+                self.assertFalse((root/(bad['operation']+'-installer-policy.private.json')).exists())
+        ordinary=copy.deepcopy(good);ordinary['schema']=2;ordinary.pop('installer_capability');ordinary.pop('installer_launch')
+        before=copy.deepcopy(ordinary);self.assertIsNone(session.installer_policy_validate(ordinary));self.assertEqual(ordinary,before)
+
     def test_policy_application_is_after_initialization_before_target(self):
         source=inspect.getsource(session.managed_install)
         self.assertLess(source.index("child=launch(base+['getcompatpath'"),source.index('installer_policy_environment(policy,launch_env)'))

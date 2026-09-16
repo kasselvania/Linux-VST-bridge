@@ -84,6 +84,10 @@ def run(package, output, mode, seal, source):
     generated=read_json(output/'generated-software.private.json')
     if bound['operation']!=operation or bound['environment']!=read_json(spec)['environment'] or bound['installer']!=read_json(spec)['installer']:
         raise ValueError('production_binding_drift')
+    if bound['format']!='pe_executable' or bound['installer_launch']!=software['installer_launch'] or bound['installer_launch']!=read_json(spec)['installer_launch']:
+        raise ValueError('production_adapter_route_drift')
+    if result['installer_capability']['effective']!=proof['policy']:
+        raise ValueError('production_effective_receipt_drift')
     expected_owners={k:manifest['files'][f] for k,f in [('manager','policy-owner'),('supervisor','session.py'),('ownership','ownership.py')]}
     if {k:v['sha256'] for k,v in bound['owners'].items()}!=expected_owners or bound['software']!=generated:
         raise ValueError('production_owner_drift')

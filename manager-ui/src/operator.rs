@@ -1232,8 +1232,9 @@ mod tests {
 mod is4_presentation_tests {
     #[test]
     fn requested_does_not_imply_effective_or_vendor_success() {
-        let mut v=serde_json::json!({"installer_capability":{"requested":{"powershell":"intentionally_unavailable"},"effective":null}});
+        let mut v=serde_json::json!({"state":"failed","raw_exit":null,"cleanup_confirmed":true,"owned_live":0,"installer_capability":{"requested":{"powershell":"intentionally_unavailable"},"effective":null}});
         let lines=super::installer_policy_lines(&v);assert!(lines[1].contains("not been confirmed"));
+        assert!(!lines.iter().any(|s| s.contains("Applied at target launch")));
         v["installer_capability"]["effective"]=serde_json::json!({"effective":{"windows_scripting":{"powershell":"intentionally_unavailable"}}});
         assert!(super::installer_policy_lines(&v)[1].contains("not yet established"));
         assert!(super::installer_policy_lines(&serde_json::json!({})).is_empty());

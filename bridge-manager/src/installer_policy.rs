@@ -4,12 +4,22 @@ use serde_json::{json, Value};
 
 pub use crate::operator_model::Powershell;
 
+/// The production policy is qualified only for the exact PE/IS2 adapter route.
+pub fn eligible_adapter<'a>(format: &str, software: &'a Software) -> Result<&'a Artifact> {
+    require(format == "pe_executable", "installer_policy_format")?;
+    let adapter = software.installer_launch.as_ref().ok_or("installer_policy_adapter_missing")?;
+    adapter.verify()?;
+    Ok(adapter)
+}
+
 /// Called by the existing manager launch owner after canonical inactivity and
 /// onboarding admission. No caller environment strings or paths are accepted.
 /// The generated qualification helper uses this identical construction owner.
 pub fn bind(spec: &mut Value, software: &Software, powershell: Powershell) -> Result<()> {
     require(spec["schema"] == 2 && spec.get("installer_capability").is_none(), "installer_policy_spec")?;
     require(spec["operation"].as_str().is_some_and(|v| valid_hex(v,32)), "installer_policy_operation")?;
+    let adapter = eligible_adapter(spec["format"].as_str().unwrap_or(""), software)?;
+    require(spec["installer_launch"] == serde_json::to_value(adapter)?, "installer_policy_adapter_mismatch")?;
     let environment: Environment = serde_json::from_value(spec["environment"].clone())?;
     require(valid_hex(&environment.id,32) && environment.revision > 0, "installer_policy_environment")?;
     let installer: Artifact = serde_json::from_value(spec["installer"].clone())?;
@@ -19,7 +29,7 @@ pub fn bind(spec: &mut Value, software: &Software, powershell: Powershell) -> Re
     let software_record = serde_json::to_value(software)?;
     let software_sha256 = hex(&sha2::Sha256::digest(serde_json::to_vec(&software_record)?));
     spec["installer_capability"] = json!({"schema":1,"operation":spec["operation"],
-        "environment":environment,"installer":installer,
+        "environment":environment,"installer":installer,"format":"pe_executable","installer_launch":adapter,
         "software_sha256":software_sha256,"software":software_record,
         "owners":{"manager":software.manager,"supervisor":software.supervisor,"ownership":software.ownership},
         "windows_scripting":{"powershell":powershell}});

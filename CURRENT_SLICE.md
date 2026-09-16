@@ -28,3 +28,15 @@ project change. Generated runs use fresh owned disposable prefixes only. Preserv
 all IS1–IS3 evidence. Return one draft implementation PR for independent review;
 do not merge/install or bundle a vendor continuation. Only subsequent acceptance,
 merge, deliberate installation and separate human authorization permit that run.
+
+## Focused rereview repair
+
+Preserve the accepted campaign at `c0e4edb427f39382362978910b2603ceab9f63b9`.
+Schema-3 policy now requires the qualified PE route and exact verified IS2
+adapter, explicitly bound alongside format. Schema-2 direct launch stays unchanged.
+Environment preparation is not application authority: effective policy is committed
+only after the target runner is created and registered with the existing ledger.
+Prove failed target creation after successful prefix initialization retains requested
+but no effective policy. Repeat only the three sealed source-owned sessions after
+these owners are committed; retain their new evidence separately. No installation
+or commercial retry is authorized.

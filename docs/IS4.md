@@ -10,16 +10,24 @@ Operator model 5 adds `installer_start_with_policy`, with exact offered onboardi
 identity and a closed PowerShell enum: `inherited` or `intentionally_unavailable`.
 `required_interpreter` and arbitrary environment values are rejected. Existing
 `installer_start` remains the unchanged schema-2 inherited launch, without policy
-metadata. The UI offers a separate clearly labelled intentional-absence action.
+metadata. The UI offers a separate clearly labelled intentional-absence action
+only for a PE import under software with an exact verified IS2 adapter.
 It uses the same inactivity, stale-token, initial-transaction, unit, cgroup, exact
 Focus/Stop, cleanup and operation-bound service recovery owners.
 
 `installer_policy::bind` constructs schema-3 installer specs. The binding includes
 operation, complete environment/revision, exact installer, full software-record
-SHA-256 and exact manager/supervisor/ownership artifacts. It does not mutate any
+SHA-256 and exact manager/supervisor/ownership artifacts. Format must be
+`pe_executable`; the adapter artifact is explicitly bound and must equal both
+the installer spec and software record. Rust and Python verify its bytes. A
+schema-3 policy cannot use the legacy direct-PE or MSI route. It does not mutate any
 software, environment, import or historical attempt. The supervisor verifies the
 binding and executing session/ownership identities before bootstrap. It applies
 only after successful prefix initialization, immediately before target launch.
+The transformed environment remains private preparation until target-runner
+creation and ledger registration succeed. Only then is the effective receipt
+committed. A failed target creation after successful prefix initialization retains
+requested policy, null effective policy, terminal failure and positive cleanup.
 Requested policy and effective environment identity are separate in the result;
 effective launch configuration alone does not prove loader or vendor behavior.
 Bounded public receipts contain hashes and lengths, not inherited environment

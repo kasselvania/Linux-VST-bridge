@@ -322,10 +322,25 @@ mod tests {
         let sw_before=fs::read(f.m.root.join("software.json")).unwrap();
         let mut environment=f.r.environment.clone();environment.id="ab".repeat(16);
         let env_before=serde_json::to_vec(&environment).unwrap();
-        let mut spec=serde_json::json!({"schema":2,"operation":"cd".repeat(16),"environment":environment,"installer":f.r.module,"installer_launch":current.installer_launch});
+        let mut spec=serde_json::json!({"schema":2,"operation":"cd".repeat(16),"environment":environment,"installer":f.r.module,"format":"pe_executable","installer_launch":current.installer_launch});
+        for format in ["msi_compound", "unknown", ""] {
+            let mut bad=spec.clone();bad["format"]=serde_json::json!(format);
+            assert!(bind(&mut bad,&current,Powershell::Inherited).is_err());
+            assert_eq!(bad["schema"],2);
+        }
+        let mut missing=current.clone();missing.installer_launch=None;
+        assert!(bind(&mut spec.clone(),&missing,Powershell::Inherited).is_err());
+        let mut bad=spec.clone();bad["installer_launch"]=serde_json::json!(current.manager);
+        assert!(bind(&mut bad,&current,Powershell::Inherited).is_err());
+        let adapter=current.installer_launch.as_ref().unwrap();let bytes=fs::read(&adapter.path).unwrap();
+        fs::write(&adapter.path,b"changed adapter bytes").unwrap();
+        assert!(bind(&mut spec.clone(),&current,Powershell::Inherited).is_err());
+        fs::write(&adapter.path,bytes).unwrap();
         let original=spec.clone();
         bind(&mut spec,&current,Powershell::IntentionallyUnavailable).unwrap();
         assert_eq!(spec["schema"],3);
+        assert_eq!(spec["installer_capability"]["format"],"pe_executable");
+        assert_eq!(spec["installer_capability"]["installer_launch"],original["installer_launch"]);
         assert_eq!(spec["installer_capability"]["operation"],original["operation"]);
         assert_eq!(spec["installer_capability"]["environment"],original["environment"]);
         assert_eq!(spec["installer_capability"]["owners"]["supervisor"],serde_json::to_value(&current.supervisor).unwrap());

@@ -1729,7 +1729,7 @@ def installer_policy_validate(spec):
     if policy is None:
         if spec.get('schema')==3:raise ValueError('installer_policy_missing')
         return None
-    if spec.get('schema')!=3 or not isinstance(policy,dict) or set(policy)!={'schema','operation','environment','installer','software_sha256','software','owners','windows_scripting'}:
+    if spec.get('schema')!=3 or not isinstance(policy,dict) or set(policy)!={'schema','operation','environment','installer','software_sha256','software','owners','windows_scripting','format','installer_launch'}:
         raise ValueError('installer_policy_schema')
     if policy['schema']!=1 or policy['operation']!=spec['operation'] or policy['environment']!=spec['environment'] or policy['installer']!=spec['installer']:
         raise ValueError('installer_policy_binding')
@@ -1739,6 +1739,12 @@ def installer_policy_validate(spec):
         raise ValueError('installer_policy_software_digest')
     if policy['owners']!={k:software[k] for k in ('manager','supervisor','ownership')} or software.get('installer_launch')!=spec.get('installer_launch'):
         raise ValueError('installer_policy_software_owners')
+    if policy['format']!='pe_executable' or spec.get('format')!=policy['format']:
+        raise ValueError('installer_policy_format')
+    adapter=policy['installer_launch']
+    if not isinstance(adapter,dict) or set(adapter)!={'path','sha256'} or adapter!=spec.get('installer_launch') or adapter!=software.get('installer_launch'):
+        raise ValueError('installer_policy_adapter')
+    verify(adapter)
     scripting=policy['windows_scripting']
     if not isinstance(scripting,dict) or set(scripting)!={'powershell'} or scripting['powershell'] not in ('inherited','intentionally_unavailable'):
         raise ValueError('installer_policy_capability')
@@ -1891,10 +1897,14 @@ def managed_install(spec, *, source_owned_is3=None):
         transaction.before=transaction.witness.snapshot();ledger.commit()
         launch_env,is3_receipt=is3_target_environment(spec,source_owned_is3,launch_env)
         if is3_receipt is not None:atomic(report.parent/(op+'-is3-unix.private.json'),is3_receipt)
-        launch_env,policy_receipt=installer_policy_environment(policy,launch_env)
-        if policy_receipt is not None:
-            atomic(report.parent/(op+'-installer-policy.private.json'),policy_receipt)
+        launch_env,prepared_policy=installer_policy_environment(policy,launch_env)
         child=launch(argv,'target_runner')
+        # launch() has created and registered the exact owned child. Preparation
+        # alone is never public authority that a target launch received policy.
+        if prepared_policy is not None:
+            prepared_policy['monotonic_ns']=time.monotonic_ns()
+            atomic(report.parent/(op+'-installer-policy.private.json'),prepared_policy)
+            policy_receipt=prepared_policy
         last=0
         while not stop:
             live=reap();startup.observe(live);transaction.images()
