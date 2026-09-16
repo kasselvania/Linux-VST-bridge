@@ -22,10 +22,9 @@ pub fn project(
         };
         let v = prep::view(m, &s, &sw.host, &sw.source_sha256)?;
         // Ordinary registry readback remains authority; MF3 augments that card.
-        let canonical = p.disposition == "needs_attention"
-            || (p.disposition == "ready"
-                && (v.candidates.is_empty()
-                    || p.details["profile"]["claim"] == "verified_exact_fixture"));
+        let canonical = matches!(p.disposition.as_str(), "ready" | "needs_attention")
+            && (v.candidates.is_empty()
+                || p.details["profile"]["claim"] == "verified_exact_fixture");
         if !canonical {
             p.active_revision = v.current_profile_revision;
         }
@@ -816,6 +815,35 @@ mod tests {
         project(&f.m, &sw, &mut products, None).unwrap();
         assert_eq!(products[0].disposition, "needs_attention");
         assert_eq!(products[0].active_revision, Some(18));
+    }
+    #[test]
+    fn removed_experimental_candidate_does_not_inherit_ordinary_admission_warning() {
+        let (f, c) = projection_fixture();
+        prep::record_candidate(&f.m, &c).unwrap();
+        prep::enable(&f.m, &c, false).unwrap();
+        prep::disable(&f.m, &c).unwrap();
+        let mut product = projection_product(&c);
+        // Ordinary readback correctly refuses a removed review candidate. It is
+        // history, not a currently active ordinary product needing recovery.
+        product.disposition = "needs_attention".into();
+        product.active_revision = Some(c.profile.revision);
+        product.details = json!({"profile":{"claim":"review_candidate"}});
+        let mut products = vec![product];
+        project(&f.m, &projection_software(&c), &mut products, None).unwrap();
+        assert_eq!(products[0].disposition, "prepared");
+        assert_eq!(products[0].active_revision, None);
+        assert_eq!(products[0].details["preparation"]["publication"], "removed");
+        assert!(!f.m.publications.join(format!("LVB_{}.vst3", c.selection.class.id)).exists());
+        assert!(products[0].actions.iter().any(|a| matches!(&a.action,
+            ui::Action::ExperimentalEnable { candidate } if *candidate == c.id().unwrap())));
+        // An actual physical/publication disagreement still needs attention and
+        // must not expose Enable merely because this is an experimental product.
+        std::os::unix::fs::symlink(f.outer.join("foreign-target"), f.m.publications.join(format!("LVB_{}.vst3", c.selection.class.id))).unwrap();
+        let mut products = vec![projection_product(&c)];
+        project(&f.m, &projection_software(&c), &mut products, None).unwrap();
+        assert_eq!(products[0].disposition, "needs_attention");
+        assert!(!products[0].actions.iter().any(|a| matches!(&a.action,
+            ui::Action::ExperimentalEnable { .. })));
     }
     #[test]
     fn current_selection_projects_once_with_old_candidate_and_inspection_history() {
