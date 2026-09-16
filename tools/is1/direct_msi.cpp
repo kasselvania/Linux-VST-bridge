@@ -1,5 +1,6 @@
 // Build an account-free empty MSI database using the Windows Installer API.
 #include <windows.h>
+#include <oleauto.h>
 #include <msi.h>
 #include <msiquery.h>
 #include <cstdio>
