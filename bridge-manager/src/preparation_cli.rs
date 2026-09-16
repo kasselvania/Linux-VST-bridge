@@ -318,6 +318,12 @@ fn parse<T: serde::de::DeserializeOwned>(s: &str) -> Result<T> {
 fn text(s: &str) -> bool {
     !s.trim().is_empty() && s.len() <= 512 && !s.chars().any(char::is_control)
 }
+// Exact class selection must survive the manager-to-supervisor crossing. Module
+// census uses first_audio separately; selecting an instrument may never guess.
+fn selected_inspection_spec(m: &Manager, binding: HostBinding) -> Result<(SessionSpec, PathBuf)> {
+    require(valid_hex(&binding.metadata.class_id, 32), "inspection_class_selection")?;
+    spec(m, binding, true, false, false)
+}
 pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::Inspection> {
     prep::verify_selection(m, s, &sw.host, &sw.source_sha256)?;
     let runtime = prep::build::stage_runtime(m)?;
@@ -325,7 +331,7 @@ pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::
     let (job, path) = {
         let _guard = m.lock("registry.lock")?;
         m.require_inactive(None)?;
-        spec(
+        selected_inspection_spec(
             m,
             HostBinding {
                 metadata: ClassSelection {
@@ -337,9 +343,6 @@ pub fn inspect(m: &Manager, s: &prep::Selection, sw: &Software) -> Result<prep::
                 host_source_sha256: runtime.source_manifest.sha256.clone(),
                 compatibility: Compatibility::default(),
             },
-            true,
-            true,
-            false,
         )?
     };
     let mut pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
@@ -585,6 +588,21 @@ mod tests {
         };
         let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
         (f, c)
+    }
+    #[test]
+    fn selected_inspection_preserves_exact_class_in_supervisor_job() {
+        let f = test_fixture::Fixture::new();
+        let expected = f.r.metadata.class_id.clone();
+        let (job, path) = selected_inspection_spec(&f.m, f.r.clone().into()).unwrap();
+        assert!(job.inspect);
+        assert!(!job.first_audio, "selected instrument must not use factory-first guessing");
+        assert_eq!(job.registration.metadata.class_id, expected);
+        let saved: SessionSpec = read_json(&path).unwrap();
+        assert!(!saved.first_audio);
+        assert_eq!(saved.registration.metadata.class_id, expected);
+        let mut missing: HostBinding = f.r.clone().into();
+        missing.metadata.class_id.clear();
+        assert!(selected_inspection_spec(&f.m, missing).is_err());
     }
     #[test]
     fn attention_and_alternative_never_offer_generic_enable() {
