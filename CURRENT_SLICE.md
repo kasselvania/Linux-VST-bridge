@@ -1,6 +1,24 @@
 # IS1 — Multi-stage installer custody and post-prerequisite attribution
 
-## Active focused rereview repair
+## Active authorized real-attempt handoff
+
+The focused repair at `0543c3d3d021a5d9821302c085ec93fdd69ae92b` / tree
+`697a47c517109457b0fb12533525f09741ee53ad` received independent install clearance.
+The operator then explicitly authorized immutable installation and one linked,
+human-operated Native Access attempt. That continuation superseded the repair's
+no-install/no-live-run restriction below; it did not authorize another attempt.
+
+Exact reviewed software is installed. The single successor ended with partial
+installation, outer exit 2 and positive cleanup. Operator screenshots locate the
+visible boundary at running-application detection and failure to close it. The
+Windows trace has no imported-target root chain, so child failure attribution
+remains unavailable. No cause or crash is proved. Preserve this result separately
+in `evidence/is1/native-access-attempt-3.json`, its ledger projection and narrative.
+No runtime source changes, further commercial attempt, first launch or speculative
+compatibility repair belongs to this handoff. Commit/push evidence, retain exact
+installed identities and final state, and keep PR #112 draft/unmerged for review.
+
+## Accepted focused rereview repair
 
 Continue PR #112 from reviewed head `55ffc7c0bc3bbf8f14514a6139193fea6abbc1ee`
 (tree `95a4302701e978d34910cf88ffd80d751f19e577`). The process ledger,
