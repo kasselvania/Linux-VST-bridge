@@ -671,6 +671,17 @@ mod tests {
         v["transaction"]["outcome"]="installed".into();v["transaction"]["schema"]=2.into();
         assert!(validate_installer_transaction(&v,"a").is_err());
     }
+    #[test]
+    fn installed_witness_refuses_reinstallation_without_mutation() {
+        let (f,i)=fixture();
+        let v=create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let id=v["onboarding"].as_str().unwrap();let op="cd".repeat(16);let r=reserve(&f.m,id,&op).unwrap();
+        let path=directory(&f.m,id).unwrap().join(format!("{op}-result.json"));
+        atomic_json(&path,&json!({"schema":2,"operation":op,"state":"failed","cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,"operation":op,"outcome":"installed_dependency_failed","durable_installation":"installed"}})).unwrap();
+        let before=fs::read(&path).unwrap();
+        assert!(prepare_attempt(&f.m,id,&runner_key(&r.environment.runner).unwrap()).err().unwrap().to_string().contains("previous_attempt_not_failed_and_retired"));
+        assert_eq!(fs::read(&path).unwrap(),before);assert_eq!(records(&f.m).unwrap().len(),1);
+    }
     fn fixture() -> (test_fixture::Fixture, installer_import::Installer) {
         let f = test_fixture::Fixture::new();
         let mut b = vec![0; 1024];

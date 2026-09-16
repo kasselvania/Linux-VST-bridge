@@ -518,6 +518,7 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
     }
     let outcome=match t["outcome"].as_str() {
         Some("outer_nonzero_stage_unknown")=>"The outer installer route exited nonzero. The failing child or stage is not established.",
+        Some("installed_dependency_failed")=>"Application files are installed, but a process performing service/dependency work exited nonzero. Review that stage before reinstalling.",
         Some("child_failed")=>"An owned child exited nonzero. Its role and underlying cause may still be unknown.",
         Some("cancelled")=>"This attempt was cancelled. Earlier failure observations remain retained.",
         Some("cleanup_unconfirmed")=>"Installer cleanup is unconfirmed. Further work is blocked.",

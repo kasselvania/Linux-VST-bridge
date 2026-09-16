@@ -86,3 +86,50 @@ class WitnessTests(unittest.TestCase):
             path=pathlib.Path(tmp)/'record.json';path.with_suffix('.json.tmp').write_text('partial')
             session.installer_atomic(path,{'first_failure':37});session.installer_atomic(path,{'first_failure':37,'cleanup':True})
             self.assertEqual(json.loads(path.read_text())['first_failure'],37);self.assertEqual(path.stat().st_mode&0o777,0o600)
+
+class WindowsTraceTests(unittest.TestCase):
+    def test_exact_created_child_self_exit_is_separate_from_outer_and_noise(self):
+        w=session.InstallerWindowsTrace({'path':'/fixture.exe','sha256':'ab'*32},'/private');w.begin()
+        lines=[
+            r'1.000:0020:0024:trace:process:CreateProcessInternalW app L"Z:\\fixture.exe" cmdline L"private arguments", inherit 1, flags 0, env 0',
+            '1.010:0020:0024:trace:process:CreateProcessInternalW started process pid 00e8 tid 00ec',
+            r'1.020:00e8:00ec:trace:process:CreateProcessInternalW app (null) cmdline L"\"Z:\\fixture.exe\" --child secret", inherit 0, flags 0, env 0',
+            '1.030:00e8:00ec:trace:process:CreateProcessInternalW started process pid 00f0 tid 00f4',
+            '1.040:00f0:00f4:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 37, process_exiting 1.',
+            'Xalia exit_code 2 failure',
+            '1.050:00e8:00ec:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 2, process_exiting 1.',
+        ]
+        for line in lines:w.feed(line.encode()+b'\n')
+        self.assertEqual(w.first_failure['status'],37);self.assertEqual(w.first_failure['domain'],'wine_self_exit_observation')
+        self.assertEqual(w.rows[1]['parent_ordinal'],w.rows[0]['creation_ordinal']);self.assertNotIn('secret',json.dumps(w.value()))
+        w.cancelled=True;first=w.first_failure.copy();w.begin()
+        w.feed(b'2.040:00f0:00f4:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 99, process_exiting 1.\n')
+        self.assertEqual(w.first_failure,first);self.assertEqual(len(w.rows),2)
+    def test_unassociated_exit_is_not_a_cgroup_or_stage_fact(self):
+        w=session.InstallerWindowsTrace({'path':'/fixture.exe','sha256':'ab'*32},'/private');w.begin()
+        w.feed(b'1.040:00f0:00f4:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 37, process_exiting 1.\n')
+        self.assertIsNone(w.first_failure);self.assertEqual(w.rows,[])
+
+class InstallerBoundaries(unittest.TestCase):
+    def test_no_follow_parent_alias_and_oversized_image(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp).resolve();real=root/'real';real.mkdir();(real/'app.exe').write_bytes(b'MZsafe')
+            (root/'alias').symlink_to(real,target_is_directory=True)
+            with self.assertRaises(OSError):session.installer_digest(root/'alias/app.exe')
+            with self.assertRaises(ValueError):session.installer_digest(real/'app.exe',2)
+    def test_service_role_requires_exact_same_created_process_api_evidence(self):
+        w=session.InstallerWindowsTrace({'path':'/fixture.exe','sha256':'ab'*32},'/private');w.begin()
+        for line in [r'1.000:0020:0024:trace:process:CreateProcessInternalW app L"Z:\\fixture.exe" cmdline (null), inherit 0',
+            '1.010:0020:0024:trace:process:CreateProcessInternalW started process pid 00e8 tid 00ec',
+            r'1.020:00e8:00ec:trace:process:CreateProcessInternalW app L"Z:\\fixture.exe" cmdline (null), inherit 0',
+            '1.030:00e8:00ec:trace:process:CreateProcessInternalW started process pid 00f0 tid 00f4',
+            '1.040:00f0:00f4:trace:service:StartServiceW 0000000000704540 0 0000000000000000',
+            '1.050:00f0:00f4:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 73, process_exiting 1.']:
+            w.feed(line.encode()+b'\n')
+        self.assertEqual(w.first_failure['role'],'service_dependency')
+        self.assertEqual(w.rows[-1]['role_evidence'][0]['function'],'StartServiceW')
+
+    def test_accessibility_assertion_prose_does_not_become_startup_failure(self):
+        s=session.InstallerStartup('ab'*16,{'path':'/unused','sha256':'cd'*32},'/private')
+        s.feed(b'Xalia Assertion failed after process exited\n')
+        self.assertIsNone(s.first_problem)
