@@ -338,7 +338,7 @@ pub fn result(m: &Manager, r: &Record) -> Result<Value> {
 fn validate_installer_transaction(v: &Value, op: &str) -> Result<()> {
     let Some(t) = v.get("transaction") else { return Ok(()) }; // retained MF2
     require(t["schema"] == 1 && t["operation"] == op, "installer_transaction_identity")?;
-    require(matches!(t["outcome"].as_str(), Some("completed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
+    require(matches!(t["outcome"].as_str(), Some("in_progress" | "completed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
     require(matches!(t["durable_installation"].as_str(), Some("installed" | "partial_installation" | "not_installed" | "indeterminate" | "unavailable")), "installer_transaction_witness")?;
     Ok(())
 }

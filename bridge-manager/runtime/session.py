@@ -1552,10 +1552,11 @@ class InstallerTransaction:
                     f.flush();os.fsync(f.fileno())
             except OSError:self.private_errors+=1
         if self.ledger:self.ledger.commit()
-    def summary(self,outer,clean,cancelled):
+    def summary(self,outer,clean,cancelled,ongoing=False):
         ledger=self.ledger;failure=self.windows_trace.first_failure or (ledger.first_failure if ledger else None)
         durable=self.durable['classification'] if self.durable else 'unavailable'
-        if not clean:outcome='cleanup_unconfirmed'
+        if ongoing:outcome='in_progress'
+        elif not clean:outcome='cleanup_unconfirmed'
         elif cancelled:outcome='cancelled'
         elif outer not in (None,0) and failure and failure['relationship']=='descendant':outcome='installed_dependency_failed' if durable=='installed' and failure['role']=='service_dependency' else 'child_failed'
         elif outer not in (None,0):outcome='outer_nonzero_stage_unknown'
@@ -1572,7 +1573,7 @@ class InstallerTransaction:
             'unattributed_adopted_exits':ledger.unattributed_waits if ledger else 0,
             'private_record_written':self.path.is_file(),'persistence_failures':(ledger.persistence_failures if ledger else 0)+self.private_errors,
             'diagnostics':self.diagnostics(),
-            'safe_next_action':'review_retained_outcome_before_retry' if outcome!='installed' or failure else 'managed_first_launch_required_not_authorized_by_installation'}
+            'safe_next_action':'exact_owned_focus_or_stop' if ongoing else 'review_retained_outcome_before_retry' if outcome!='installed' or failure else 'managed_first_launch_required_not_authorized_by_installation'}
 
 def managed_install(spec):
     """MF2 initial installer, exact dedicated unit. No product admission authority."""
@@ -1606,7 +1607,7 @@ def managed_install(spec):
     def value(state,live):
         return {'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
-                'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
+                'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop,state in ('starting','running','unknown')),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
     try:
         for a in [spec['installer'],*env['runner']['files']]:verify(a)
         scope=CompanionCgroup(installer_operation=op)

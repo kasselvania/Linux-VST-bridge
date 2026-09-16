@@ -517,6 +517,7 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
         } else {vec![]};
     }
     let outcome=match t["outcome"].as_str() {
+        Some("in_progress")=>"Installer supervision is ongoing. Exact Focus and Stop controls remain available; cleanup will be checked after retirement.",
         Some("outer_nonzero_stage_unknown")=>"The outer installer route exited nonzero. The failing child or stage is not established.",
         Some("installed_dependency_failed")=>"Application files are installed, but a process performing service/dependency work exited nonzero. Review that stage before reinstalling.",
         Some("child_failed")=>"An owned child exited nonzero. Its role and underlying cause may still be unknown.",
@@ -623,6 +624,8 @@ mod tests {
         let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"startup":{"first_problem":{"code":"runtime_assertion_observed"}},"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
         let lines=super::installer_lines(&v).join(" ");
         assert!(lines.contains("runtime assertion observed") && lines.contains("cancelled") && lines.contains("status 37") && lines.contains("partial installation") && lines.contains("cleanup confirmed"));
+        v["transaction"]["outcome"]="in_progress".into();
+        let ongoing=super::installer_lines(&v).join(" ");assert!(ongoing.contains("Exact Focus and Stop"));assert!(!ongoing.contains("Further work is blocked"));
         v["transaction"]["operation"]="other".into();assert!(super::installer_lines(&v).is_empty());
         let legacy=serde_json::json!({"error":"installer_launcher_failed"});
         assert!(super::installer_lines(&legacy)[0].contains("failing later stage"));

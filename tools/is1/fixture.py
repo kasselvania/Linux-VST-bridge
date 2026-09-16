@@ -3,7 +3,7 @@
 Run on the declared Deck with staged source, never install it as manager software.
 Only scratch prefixes and exact generated cgroups are created. No GUI input.
 """
-import argparse,hashlib,json,os,pathlib,shutil,subprocess,time
+import argparse,hashlib,json,os,pathlib,re,shutil,subprocess,time
 CASES=('success','payload_failure','service_failure','postlaunch_failure','outer_first','failure_while_alive','short_lived','handoff','same_names','cancel_after_failure','noise','nothing_installed')
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def run(runtime,payload,output,case,legacy=False,direct_msi=False):
@@ -80,6 +80,36 @@ def verify(case,proof,private):
     trace=[r for r in private['windows_trace']['processes'] if r['target_tree']]
     assert len({(r['epoch'],r['windows_pid'],r['creation_ordinal']) for r in trace})==len(trace)
     assert all(r['linux_identity']=='unavailable_no_cross_id_inference' for r in trace)
+    # Independent source-owned oracle. These are Windows IDs on both sides,
+    # never a numeric Windows/Linux identity join or production role authority.
+    events=[]
+    for line in proof['fixture_events']:
+        match=re.fullmatch(r'IS1_FIXTURE_V1 kind=(\w+) pid=(\d+) role=(\w+) code=(\d+) tick=(\d+)',line)
+        assert match,line
+        kind,pid,role,code,tick=match.groups()
+        events.append(dict(kind=kind,pid=int(pid),role=role,code=int(code),tick=int(tick)))
+    prerequisite=[e for e in events if e['role']=='prerequisite' and e['kind']=='exit']
+    assert len(prerequisite)==1 and prerequisite[0]['code']==0
+    for event in [e for e in events if e['kind']=='exit']:
+        observed=[r for r in trace if r['windows_pid']==event['pid'] and r['self_exit']]
+        assert len(observed)==1 and observed[0]['self_exit']['status']==event['code'],(case,event)
+    if case=='same_names':
+        children=[r for r in trace if any(e['kind']=='exit' and e['role']=='payload' and e['pid']==r['windows_pid'] for e in events)]
+        assert len(children)==2 and children[0]['windows_pid']!=children[1]['windows_pid']
+        assert children[0]['image_request']==children[1]['image_request']
+    if case=='postlaunch_failure':
+        post=[r for r in trace if any(e['kind']=='exit' and e['role']=='postinstall_launch' and e['pid']==r['windows_pid'] for e in events)]
+        assert len(post)==1 and post[0]['image_identity']['authority']=='same_open_file_at_launch_request_not_mapped'
+        assert any(post[0]['image_identity']['sha256']==private['after']['files'][p]['sha256'] for a in private['durable_installation']['application_registrations'] for p in a['images'])
+    if case=='handoff':
+        relaunch=[r for r in trace if any(e['kind']=='exit' and e['role']=='relaunch' and e['pid']==r['windows_pid'] for e in events)]
+        assert len(relaunch)==1
+        assert any(r['creation_ordinal']==relaunch[0]['parent_ordinal'] and not r['target_root'] for r in trace)
+    if case=='failure_while_alive':
+        root=next(r for r in trace if r['target_root']);failed=next(r for r in trace if r['self_exit'] and r['self_exit']['status']==39)
+        assert float(root['self_exit']['timestamp'])-float(failed['self_exit']['timestamp'])>=1
+    if case=='cancel_after_failure':
+        assert any(e['kind']=='holding' for e in events) and private['ledger']['first_failure'] is None
     if case in ('outer_first','handoff'):
         roots=[r for r in trace if r['target_root']];children=[r for r in trace if not r['target_root'] and r['self_exit']]
         assert roots and children and max(float(r['self_exit']['timestamp']) for r in children)>float(roots[-1]['self_exit']['timestamp'])

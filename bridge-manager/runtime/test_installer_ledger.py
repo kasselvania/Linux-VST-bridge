@@ -58,6 +58,13 @@ class LedgerTests(unittest.TestCase):
         self.assertTrue(all(r['role']=='unknown' for r in ledger.records.values()))
 
 class WitnessTests(unittest.TestCase):
+    def test_live_operation_is_not_a_cleanup_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tx=session.InstallerTransaction('ab'*16,tmp,pathlib.Path(tmp)/'r')
+            live=tx.summary(None,False,False,ongoing=True)
+            self.assertEqual(live['outcome'],'in_progress')
+            self.assertEqual(live['safe_next_action'],'exact_owned_focus_or_stop')
+            self.assertEqual(tx.summary(None,False,False)['outcome'],'cleanup_unconfirmed')
     def test_durable_installed_partial_and_not_installed_independent_of_exit(self):
         empty={k:{} for k in ('files','logs','services','uninstall')};empty['incomplete']=[]
         self.assertEqual(session.InstallerWitnesses.compare(empty,empty)['classification'],'not_installed')
