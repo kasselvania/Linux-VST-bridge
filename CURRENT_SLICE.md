@@ -84,3 +84,14 @@ Verify schema-4 snapshot, candidate/history facts, unpublished instrument and
 separate unqualified FX, ordinary products/projects and healthy zero ownership.
 No commercial session, reinspection, candidate rebuild or LC2 repair in this cut.
 The failed merged-install readback remains immutable evidence.
+
+### Installed repair result
+
+Implementation `f4a2e8888d3b40652173db3985ff8b2362119266` is installed through
+immutable setup. Full schema-4 readback passes; historical SV1 candidate A and
+its failed processing-restart evidence remain exact. One checked disable removed
+the pre-existing Serum experimental publication. The corrected card is prepared
+and unpublished; FX remains separately unqualified. Ordinary products and five
+projects are preserved, service/two keepers healthy, all ownership counts zero.
+See `evidence/mf3/upgrade-repair-result.*`. PR #110 is draft for review; LC2 remains
+separate and no new product session was performed.
