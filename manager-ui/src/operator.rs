@@ -114,7 +114,7 @@ impl RequestFeedback {
         // A lost acknowledgment is not a failed operation. Only exact canonical
         // onboarding ownership plus its offered recovery action can resolve it.
         if self.acknowledgment_uncertain && self.operation.is_none() {
-            if let Action::InstallerStart { onboarding } = &self.action {
+            if let Action::InstallerStart { onboarding } | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action {
                 let owners: Vec<_> = s.onboarding.iter().filter(|r| r.environment.as_ref() == Some(onboarding))
                     .filter_map(|r| {
                         let op = r.details["installation"]["operation"].as_str()?;
@@ -134,7 +134,7 @@ impl RequestFeedback {
             && s.operation
                 .as_ref()
                 .is_some_and(|op| op["operation"].as_str() == self.operation.as_deref());
-        let exact_recovery = if let Action::InstallerStart { onboarding } = &self.action {
+        let exact_recovery = if let Action::InstallerStart { onboarding } | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action {
             s.onboarding.iter().any(|r| {
                 r.environment.as_ref() == Some(onboarding)
                     && r.actions.iter().any(|a| {
@@ -296,7 +296,7 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Snapshot(s) => {
-                if s.schema != 4 {
+                if s.schema != 5 {
                     self.message = "Unsupported manager schema".into();
                 } else {
                     if let Some(f) = &mut self.feedback {
@@ -443,6 +443,7 @@ impl eframe::App for Operator {
                 for o in s.onboarding.iter().rev() {let historical=matches!(o.state.as_str(),"cancelled"|"failed"|"no_audio_plugin_discovered");egui::CollapsingHeader::new(if historical{format!("Earlier attempt — {}",o.state.replace('_'," "))}else{format!("Current attempt — {}",o.state.replace('_'," "))}).id_salt((&o.installer,&o.environment,"attempt")).default_open(!historical).show(ui,|ui|{
                     ui.heading(o.state.replace('_'," "));ui.label(format!("{} · {} bytes · {}",o.name,o.byte_size,o.format));
                     ui.label(&o.required_human_action);
+                    for line in installer_policy_lines(&o.details["installation"]) { ui.small(line); }
                     for line in installer_lines(&o.details["installation"]) { ui.label(line); }
                     if let Some(f)=self.feedback.as_ref().filter(|f|f.for_installer(&o.installer) || matches!(&f.action, Action::InstallerNewAttempt {previous,..} if o.environment.as_ref()==Some(previous))) {ui.colored_label(egui::Color32::YELLOW,&f.text);}
                     else if let Some(reason)=o.details["request_result"]["reason"].as_str(){ui.colored_label(egui::Color32::YELLOW,format!("Last request refused before worker launch: {reason}"));}
@@ -492,7 +493,7 @@ impl eframe::App for Operator {
         } else if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.capture_action(Request {
-                    schema: 4,
+                    schema: 5,
                     state_token: s.state_token.clone(),
                     action: a,
                 });
@@ -560,6 +561,21 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
     }
     lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
     lines
+}
+
+fn installer_policy_lines(v: &serde_json::Value) -> Vec<&'static str> {
+    let Some(policy)=v.get("installer_capability") else { return vec![] };
+    let requested=policy["requested"]["powershell"].as_str();
+    let applied=policy["effective"]["effective"]["windows_scripting"]["powershell"].as_str();
+    vec![match requested {
+        Some("intentionally_unavailable")=>"Requested: PowerShell intentionally unavailable for this installer only.",
+        Some("inherited")=>"Requested: inherited scripting behavior.",
+        _=>"Scripting policy request could not be verified.",
+    }, match applied {
+        Some("intentionally_unavailable")=>"Applied at target launch: PowerShell intentionally unavailable. Installer fallback success is not yet established.",
+        Some("inherited")=>"Applied at target launch: inherited scripting behavior.",
+        _=>"Target-launch policy has not been confirmed applied.",
+    }]
 }
 
 fn failure_lines(f: &crate::model::OperationFailure) -> Vec<String> {
@@ -699,7 +715,7 @@ mod tests {
     }
     fn create_request() -> Request {
         Request {
-            schema: 4,
+            schema: 5,
             state_token: "snapshot".into(),
             action: Action::InstallerEnvironmentCreate {
                 installer: "ab".repeat(32),
@@ -710,7 +726,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
-            schema: 4,
+            schema: 5,
             state_token: "current".into(),
             system: System {
                 service: "capacity unavailable".into(),
@@ -757,7 +773,7 @@ mod tests {
         }));
         if acknowledged {
             o.handle_reply(Reply::Receipt(Receipt {
-                schema: 4,
+                schema: 5,
                 accepted: true,
                 operation: Some("current-op".into()),
                 refusal: None,
@@ -769,7 +785,7 @@ mod tests {
     }
     fn activity_from(s: &Snapshot) -> Reply {
         Reply::Activity(Activity {
-            schema: 4,
+            schema: 5,
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
@@ -827,6 +843,71 @@ mod tests {
         for snapshot_first in [true, false] {
             let mut o = state_fixture();
             start_feedback(&mut o, true);
+            assert!(o.controls_pending());
+            let s = running_snapshot("current-op");
+            if !snapshot_first {
+                o.handle_reply(activity_from(&s));
+                assert!(o.controls_pending());
+            }
+            o.handle_reply(Reply::Snapshot(Box::new(s.clone())));
+            assert!(!o.controls_pending());
+            o.handle_reply(activity_from(&s));
+            assert!(
+                !o.controls_pending(),
+                "equal running must not require another transition"
+            );
+            let ctx = egui::Context::default();
+            let mut chosen = None;
+            let mut point = egui::Pos2::ZERO;
+            for pressed in [None, Some(true), Some(false)] {
+                o.pending = pressed == Some(false);
+                o.background_poll = o.pending;
+                let events = pressed
+                    .map(|pressed| {
+                        vec![
+                            egui::Event::PointerMoved(point),
+                            egui::Event::PointerButton {
+                                pos: point,
+                                button: egui::PointerButton::Primary,
+                                pressed,
+                                modifiers: egui::Modifiers::NONE,
+                            },
+                        ]
+                    })
+                    .unwrap_or_default();
+                let mut output = ctx.run_ui(
+                    egui::RawInput {
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
+                        Operator::buttons(
+                            ui,
+                            &s.onboarding[0].actions,
+                            s.system.inactive_reason(),
+                            o.controls_pending(),
+                            &mut chosen,
+                        );
+                    },
+                );
+                output.textures_delta.clear();
+            }
+            assert!(matches!(chosen, Some(Action::InstallerStop { .. })));
+            assert!(!s.onboarding[0]
+                .actions
+                .iter()
+                .any(|a| matches!(a.action, Action::InstallerStart { .. })));
+        }
+    }
+    #[test]
+    fn policy_start_keeps_exact_stop_usable_across_reply_orders() {
+        for snapshot_first in [true, false] {
+            let mut o = state_fixture();
+            start_feedback(&mut o, true);
+            let feedback=o.feedback.as_mut().unwrap();
+            let onboarding=match &feedback.action { Action::InstallerStart{onboarding}=>onboarding.clone(), _=>panic!("fixture") };
+            feedback.action=Action::InstallerStartWithPolicy{onboarding,powershell:Powershell::IntentionallyUnavailable};
             assert!(o.controls_pending());
             let s = running_snapshot("current-op");
             if !snapshot_first {
@@ -956,7 +1037,7 @@ mod tests {
         let old =
             serde_json::json!({"operation":"old","state":"refused","reason":"old lock failure"});
         f.receipt(&Receipt {
-            schema: 4,
+            schema: 5,
             accepted: false,
             operation: Some("new".into()),
             refusal: Some("fresh refusal".into()),
@@ -968,7 +1049,7 @@ mod tests {
         assert!(!f.for_installer(&"ef".repeat(32)));
         f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 4,
+            schema: 5,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -984,7 +1065,7 @@ mod tests {
     fn vendor_controls_unlock_only_after_current_snapshot_without_losing_feedback() {
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 4,
+            schema: 5,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -997,7 +1078,7 @@ mod tests {
         assert!(f.terminal);
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 4,
+            schema: 5,
             accepted: false,
             operation: Some("refused".into()),
             refusal: Some("reason".into()),
@@ -1131,13 +1212,13 @@ mod tests {
     #[test]
     fn matching_product_receipt_survives_a_newer_unrelated_latest_operation() {
         let mut f=RequestFeedback::captured(Action::PluginPrepare{selection:"ab".repeat(32),inspection:"cd".repeat(32),recipe:"ef".repeat(32),predecessor:None});
-        f.receipt(&Receipt{schema:4,accepted:true,operation:Some("11".repeat(16)),refusal:None});
+        f.receipt(&Receipt{schema:5,accepted:true,operation:Some("11".repeat(16)),refusal:None});
         let mut s=running_snapshot(&"22".repeat(16));
         s.operation=Some(serde_json::json!({"operation":"22".repeat(16),"state":"completed"}));
         s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
         f.reconcile_snapshot(&s);assert!(f.terminal);assert!(!f.blocking);
         let mut other=RequestFeedback::captured(Action::CandidateObserve{candidate:"bc".repeat(32),area:"processing_restart".into(),status:"failed".into(),note:"Exact candidate observation".into()});
-        other.receipt(&Receipt{schema:4,accepted:true,operation:Some("33".repeat(16)),refusal:None});
+        other.receipt(&Receipt{schema:5,accepted:true,operation:Some("33".repeat(16)),refusal:None});
         s.products[0].details["preparation"]["candidates"]=serde_json::json!([
             {"id":"aa".repeat(32),"operation":{"operation":"11".repeat(16),"state":"completed"}},
             {"id":"bc".repeat(32),"operation":{"operation":"33".repeat(16),"state":"refused"}}
@@ -1145,4 +1226,16 @@ mod tests {
         other.reconcile_snapshot(&s);assert!(other.terminal);assert!(!other.blocking);assert_eq!(other.transitions.last().map(String::as_str),Some("refused"));
     }
 
+}
+
+#[cfg(test)]
+mod is4_presentation_tests {
+    #[test]
+    fn requested_does_not_imply_effective_or_vendor_success() {
+        let mut v=serde_json::json!({"installer_capability":{"requested":{"powershell":"intentionally_unavailable"},"effective":null}});
+        let lines=super::installer_policy_lines(&v);assert!(lines[1].contains("not been confirmed"));
+        v["installer_capability"]["effective"]=serde_json::json!({"effective":{"windows_scripting":{"powershell":"intentionally_unavailable"}}});
+        assert!(super::installer_policy_lines(&v)[1].contains("not yet established"));
+        assert!(super::installer_policy_lines(&serde_json::json!({})).is_empty());
+    }
 }

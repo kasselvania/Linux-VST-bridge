@@ -313,6 +313,41 @@ mod tests {
         old.installer_launch.as_ref().unwrap().verify().unwrap();
     }
     #[test]
+    fn is4_operation_policy_never_leaks_into_legacy_software_or_environment() {
+        use linux_vst_bridge::installer_policy::{bind, Powershell};
+        let f=test_fixture::Fixture::new();let home=f.outer.join("home");
+        let current=with_adapter(software_fixture(&f,"is4"));
+        let before=generation_bytes(current.manager.path.parent().unwrap());
+        commit(&f.m,&home,&current,None,None).unwrap();
+        let sw_before=fs::read(f.m.root.join("software.json")).unwrap();
+        let mut environment=f.r.environment.clone();environment.id="ab".repeat(16);
+        let env_before=serde_json::to_vec(&environment).unwrap();
+        let mut spec=serde_json::json!({"schema":2,"operation":"cd".repeat(16),"environment":environment,"installer":f.r.module,"installer_launch":current.installer_launch});
+        let original=spec.clone();
+        bind(&mut spec,&current,Powershell::IntentionallyUnavailable).unwrap();
+        assert_eq!(spec["schema"],3);
+        assert_eq!(spec["installer_capability"]["operation"],original["operation"]);
+        assert_eq!(spec["installer_capability"]["environment"],original["environment"]);
+        assert_eq!(spec["installer_capability"]["owners"]["supervisor"],serde_json::to_value(&current.supervisor).unwrap());
+        let policy_spec=serde_json::to_vec(&spec).unwrap();
+        assert!(bind(&mut spec,&current,Powershell::Inherited).is_err());
+        assert_eq!(serde_json::to_vec(&spec).unwrap(),policy_spec);
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(),sw_before);
+        assert_eq!(serde_json::to_vec(&environment).unwrap(),env_before);
+        let legacy=software_fixture(&f,"pre-policy");
+        commit(&f.m,&home,&legacy,Some(&current),None).unwrap();
+        let bytes=fs::read(f.m.root.join("software.json")).unwrap();
+        let _:LegacySoftware=serde_json::from_slice(&bytes).unwrap();
+        let value:serde_json::Value=serde_json::from_slice(&bytes).unwrap();
+        assert!(value.get("installer_capability").is_none());
+        assert_eq!(generation_bytes(current.manager.path.parent().unwrap()),before);
+        assert_eq!(serde_json::to_vec(&spec).unwrap(),policy_spec);
+        // A new legacy launch has its unchanged schema-2 input; no environment
+        // default or software field can transfer the old operation's selection.
+        assert!(original.get("installer_capability").is_none());
+        assert_eq!(original["schema"],2);
+    }
+    #[test]
     fn explicit_current_package_selects_its_exact_adapter_not_the_prior_one() {
         let f = test_fixture::Fixture::new();
         let home = f.outer.join("home");

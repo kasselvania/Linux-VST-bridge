@@ -1,58 +1,30 @@
-# IS3 — Truthful Windows scripting capability
+# IS4 — Manager-owned installer capability policy
 
-Base: merged main `8d306d8f211a66ff5f140705b8c7bc1f5bcd1de9`, tree
-`cf3cd37a5a34653142e93d6e3c0bdf49743fcc30`. PRs #110–#113 are accepted and
-merged. IS2 immutable installation and idle readback passed; see
-`evidence/is2/integration-installation.json`.
+Base: merged main `60eb1736e52b4894ecabd499489471aab8685a79`, tree
+`9bb4d62f2d16dc1e0fcb1a177d655e6a0f8c28bf`. IS3 is accepted and merged.
 
-Primary claim: executable availability and helper exit status are separate from
-verified script behavior. A source-owned capability consumer must not interpret
-missing side effects or unexecuted predicates as a successful capability.
+Primary claim: a closed, versioned manager-selected installer policy can make
+PowerShell intentionally unavailable for one exact operation after prefix
+initialization, preserving unrelated overrides and normal inherited behavior.
 
-Reuse IS2's accepted pinned-runner baseline, exact adapter, installer ownership,
-private HOME and scratch-prefix supervision. Compare the pinned false-success
-stub with honestly unavailable scripting and, only where selected as necessary,
-a genuine managed scripting dependency. Any genuine interpreter must prove the
-requested side effect, exit code, process query and exact close; a mock cannot
-stand in for that proof. Missing or unperformed comparisons remain explicit.
+Scope: manager/operator installer ownership, frontend closed action presentation,
+Python installer supervisor, source-owned IS4 proof and affected CI. Reuse IS1
+ledger, IS2 adapter and IS3 sealed source-owned capability consumer. Rust owns
+selection and binding; Python applies the fixed target-launch policy. No arbitrary
+environment key/value crosses the operator boundary. Required interpreter is
+unsupported. No native/audio behavior changes.
 
-The first implementation cut supplies a bounded source-owned A/B probe and
-truthful result classification. It tests a documented Wine loader override only
-inside a generated child environment, never in an installed product profile or
-managed prefix registry. No vendor-name dispatch, patched installer, fake
-interpreter, privileged operation, account dependency or runner replacement.
+Acceptance: inherited / intentionally unavailable / restored inherited through
+production policy; exact refusal 126 and source-owned fallback 43; preserve all
+unrelated overrides; duplicate/conflicting rules follow a documented closed law;
+exact operation/environment/software binding; legacy software rollback stays
+readable and cannot inherit a selected policy. Retain requested versus effective
+policy and positive cleanup. Focused manager/frontend/runtime tests, strict Clippy,
+AP8 where source-owned fixture inputs change, AP12 and PX2.
 
-Scope: `tools/is3`, source-owned Windows fixture build/CI, sanitized evidence and
-documentation. No product/native/audio source changes. No Native Access,
-Bitwig, Serum, ASC, installation, discovery, or commercial UI session. Preserve
-all old attempts/imports, product publications, both keepers, and protected
-projects. A future commercial confirmation requires independent review and
-separate authorization; none belongs to this initial comparison.
-
-Use exact operation/root binding, bounded records and positive cgroup cleanup.
-Run source-owned parser/negative tests before the pinned fixture, AP8 for Windows
-source inputs, AP12 and PX2. Keep the new implementation PR draft and unmerged.
-Do not label source-owned fallback selection as proof of vendor fallback behavior.
-
-## Continued checkpoint: Windows delivery and Unix loader authority
-
-Preserve checkpoint `e173c998321d19c3f966ac9ca49ed21faf718a2b` and all prior
-receipts. Canonicalize and verify the Windows child environment separately from
-loader authority. Compare three new independent source-owned sessions: baseline,
-fixed Unix target-runner override after prefix initialization, restored baseline.
-The only runtime seam is a keyword-only development fixture invocation; normal
-installer specs, CLI and operator actions cannot select it. It binds the staged
-source-owned payload digest and exact operation. No replacement software install.
-If this operation-scoped route is ineffective, a separate disposable-prefix
-registry comparison is permitted. Do not install a genuine interpreter before
-honest absence is established. Add x86 and x64 CI self-tests and keep PR #114 draft.
-
-## Proof custody rereview repair
-
-Preserve `ce0b9f9a9354ad2091898bb0d84e3c1792122ef8` and its credible behavioral
-observation byte-for-byte. Seal the complete cross-session identity, replace the
-unretained open manifest with a closed committed package/campaign owner, and move
-AP8 inventory generation after both architectures. Commit code before packaging;
-retain its exact head/tree and the generated manifest in the later evidence commit.
-Repeat only baseline, Unix override, restored through that sealed campaign.
-No Native Access, runtime installation, registry mutation or product changes.
+No Native Access or other commercial session, installation of replacement software
+or scripting runtime, registry mutation, runner change, publication, product or
+project change. Generated runs use fresh owned disposable prefixes only. Preserve
+all IS1–IS3 evidence. Return one draft implementation PR for independent review;
+do not merge/install or bundle a vendor continuation. Only subsequent acceptance,
+merge, deliberate installation and separate human authorization permit that run.

@@ -454,7 +454,7 @@ pub fn reserve(m: &Manager, id: &str, op: &str) -> Result<Record> {
     atomic_json(&dir.join("record.json"), &r)?;
     Ok(r)
 }
-pub fn launch(m: &Manager, r: &Record) -> Result<()> {
+pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<()> {
     let op = r
         .installation_operation
         .as_deref()
@@ -463,11 +463,12 @@ pub fn launch(m: &Manager, r: &Record) -> Result<()> {
     let installer = installer_import::load(m, &r.installer)?;
     let dir = directory(m, &r.id)?;
     let path = dir.join(format!("{op}-spec.json"));
-    atomic_json(
-        &path,
-        &json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
-        "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))}),
-    )?;
+    let mut spec = json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
+        "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))});
+    if let Some(policy) = policy {
+        linux_vst_bridge::installer_policy::bind(&mut spec, &sw, policy)?;
+    }
+    atomic_json(&path, &spec)?;
     let status = Command::new("systemd-run")
         .args([
             "--user",
@@ -628,6 +629,14 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                     action: ui::Action::InstallerStart {
                         onboarding: r.id.clone(),
                     },
+                    disabled_reason: busy.map(Into::into),
+                });
+            }
+            if r.installation_operation.is_none() {
+                actions.push(ui::AvailableAction {
+                    label: "Run installer with PowerShell intentionally unavailable".into(),
+                    action: ui::Action::InstallerStartWithPolicy { onboarding: r.id.clone(),
+                        powershell: linux_vst_bridge::installer_policy::Powershell::IntentionallyUnavailable },
                     disabled_reason: busy.map(Into::into),
                 });
             }

@@ -8,6 +8,7 @@ pub mod crash_capture;
 mod managed_tests;
 pub mod observation;
 pub mod operator_model;
+pub mod installer_policy;
 pub mod operator_lock;
 pub mod inventory;
 pub mod profiles;
