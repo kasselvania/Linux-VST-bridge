@@ -31,8 +31,9 @@ def proofs():
         selected='intentionally_unavailable' if i==1 else 'inherited'
         before={'present':False,'length':0,'sha256':hashlib.sha256(b'').hexdigest()}
         p['policy_owner_digests']={k:p['identity']['sources'][f] for k,f in [('manager','policy-owner'),('supervisor','session.py'),('ownership','ownership.py')]}
+        p['policy_binding_sha256']='b'*64
         p['policy']={'schema':1,'operation':p['binding']['operation'],'phase':'target_runner_after_prefix_initialization',
-            'environment':p['binding']['operation'],'environment_revision':1,'software_sha256':'f'*64,
+            'environment':p['binding']['operation'],'environment_revision':1,'software_sha256':'f'*64,'monotonic_ns':1,'authority':'supervisor_Popen_environment','behavior':'unproved_without_child_observation',
             'requested':{'windows_scripting':{'powershell':selected}},'effective':{'windows_scripting':{'powershell':selected}},
             'before':before,'after':{'present':True,'length':15,'sha256':hashlib.sha256(b'powershell.exe=').hexdigest()} if i==1 else before}
     return result
@@ -71,7 +72,7 @@ class ComparisonTests(unittest.TestCase):
         with self.assertRaises(ValueError):compare(p)
 
     def test_production_binding_and_effective_policy_drift_refuse(self):
-        for field,bad in [('operation','a'*32),('software_sha256','0'*64),('requested',{}),('effective',{}),('after',{})]:
+        for field,bad in [('operation','a'*32),('software_sha256','0'*64),('requested',{}),('effective',{}),('after',{}),('environment','ff'*16),('environment_revision',2)]:
             p=proofs();p[1]['policy'][field]=bad
             with self.assertRaises(ValueError):compare(p)
         p=proofs();p[1]['policy_owner_digests']['manager']='0'*64

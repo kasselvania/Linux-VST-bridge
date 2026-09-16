@@ -1,7 +1,7 @@
 """Cross-session decision. Configuration intent alone cannot prove absence."""
 from environment import validate
 from report import summarize
-from identity import canonical,validate_identity,hashed
+from identity import canonical,validate_identity,hashed,exact,sha
 
 def compare(proofs):
     if [p['session_mode'] for p in proofs]!=['baseline','unix_override','restored']:raise ValueError('session_order')
@@ -35,6 +35,10 @@ def compare(proofs):
         expected_owners={k:p['identity']['sources'][f] for k,f in [('manager','policy-owner'),('supervisor','session.py'),('ownership','ownership.py')]}
         if p['policy_owner_digests']!=expected_owners:raise ValueError('policy_owner_drift')
         policy=p['policy'];expected='intentionally_unavailable' if p['session_mode']=='unix_override' else 'inherited'
+        exact(policy,('schema','operation','environment','environment_revision','software_sha256','requested','effective','phase','monotonic_ns','before','after','authority','behavior'))
+        sha(policy['software_sha256']);sha(p['policy_binding_sha256'])
+        if policy['schema']!=1 or policy['environment']!=p['binding']['operation'] or policy['environment_revision']!=1 or type(policy['monotonic_ns'])!=int or policy['monotonic_ns']<=0:raise ValueError('policy_fixture_environment')
+        if policy['authority']!='supervisor_Popen_environment' or policy['behavior']!='unproved_without_child_observation':raise ValueError('policy_claim_boundary')
         if policy['operation']!=p['binding']['operation'] or policy['phase']!='target_runner_after_prefix_initialization' or policy['requested']!={'windows_scripting':{'powershell':expected}} or policy['effective']!=policy['requested']:
             raise ValueError('production_policy_binding')
         if policy['before']['present']:raise ValueError('unexpected_fixture_baseline')

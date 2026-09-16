@@ -21,10 +21,10 @@ def build(repo,output,context,zig):
         built=pathlib.Path(temp)/'payload.exe'
         subprocess.run([str(zig),'c++','-target','x86-windows-gnu','-std=c++20','-O2','-municode','-DUNICODE','-D_UNICODE',str(output/'capability.cpp'),'-lbcrypt','-o',str(built)],check=True,timeout=120)
         shutil.copyfile(built,output/'payload.exe')
-    rustc=subprocess.check_output(['rustup','which','rustc']).decode().strip()
+    rustc=subprocess.check_output(['rustup','which','--toolchain','1.95.0','rustc']).decode().strip()
     rust_version=subprocess.check_output([rustc,'--version']).decode().strip()
-    env=dict(os.environ,IS4_ZIG=str(zig),CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=str(repo/'tools/is4/linker.py'))
-    subprocess.run(['cargo','build','--manifest-path',str(repo/'bridge-manager/Cargo.toml'),'--locked','--release','--target','x86_64-unknown-linux-gnu','--example','is4_policy'],env=env,check=True,timeout=240)
+    env=dict(os.environ,RUSTC=rustc,IS4_ZIG=str(zig),CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=str(repo/'tools/is4/linker.py'))
+    subprocess.run(['rustup','run','1.95.0','cargo','build','--manifest-path',str(repo/'bridge-manager/Cargo.toml'),'--locked','--release','--target','x86_64-unknown-linux-gnu','--example','is4_policy'],env=env,check=True,timeout=240)
     shutil.copyfile(repo/'bridge-manager/target/x86_64-unknown-linux-gnu/release/examples/is4_policy',output/'policy-owner')
     c=read_json(context)
     if set(c)!={'runner','installed','powershell_images','baseline_windows_environment'}:raise ValueError('context_schema')
