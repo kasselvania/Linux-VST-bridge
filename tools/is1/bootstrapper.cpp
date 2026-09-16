@@ -45,7 +45,7 @@ int wmain(int argc,wchar_t** argv) {
     }
     if(argc==2 && std::wstring(argv[1])==L"--self-test")return join(spawn(L"payload",0,1))==0?0:1;
     // Fixed source-owned case mailbox: fixture input, never a manager launch flag.
-    FILE* f=nullptr;_wfopen_s(&f,L"C:\\is1-case.txt",L"rb");if(!f)return 120;
+    FILE* f=nullptr;_wfopen_s(&f,(image()+L".case").c_str(),L"rb");if(!f)return 120;
     char b[64]{};const size_t n=fread(b,1,sizeof(b)-1,f);fclose(f);std::string test(b,n);
     while(!test.empty()&&(test.back()=='\n'||test.back()=='\r'))test.pop_back();
     event("ready",L"bootstrapper",0);
