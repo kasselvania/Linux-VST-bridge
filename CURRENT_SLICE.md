@@ -34,3 +34,12 @@ Independent source review and immutable installation are required before any
 commercial confirmation. At most one later linked human-only attempt is possible;
 none is authorized during this implementation. Keep all dependencies and IS2
 unmerged.
+
+Exact-head rereview at `e7c2a9547fd025a45ab07e67bde447dffeb8e21f` accepts the
+Windows/root/close evidence and requests only setup rollback compatibility:
+explicit packages select their own installer adapter capability; an omitted
+adapter must omit `installer_launch` from Software for legacy schema readers.
+Only `package=None` acceptance retains the verified prior adapter. Preserve prior
+immutable generations. Verify strict legacy deserialization, current-package and
+acceptance retention, and unchanged old bytes. No installation, commercial run,
+Windows matrix replay, IS3 implementation or merge belongs to this repair.

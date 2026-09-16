@@ -4,6 +4,24 @@ use std::os::unix::fs::MetadataExt;
 const DESKTOP_OWNER: &str = "[Desktop Entry]\nX-LinuxVSTBridge-Owner=MF1\n";
 const SERVICE_OWNER: &str = "[Unit]\nDescription=Linux VST Bridge registered host\n";
 
+/// Explicit packages select their own schema/capabilities. Only an in-generation
+/// acceptance transition may retain the prior adapter: a legacy manager rejects
+/// the newer Software field even when it names an otherwise valid artifact.
+pub(super) fn installer_launch_inputs(
+    package: Option<&Path>,
+    prior: Option<&Software>,
+) -> Result<(Option<PathBuf>, Option<Artifact>)> {
+    if let Some(package) = package {
+        let input = package.join("installer-launch.exe");
+        return Ok((input.try_exists()?.then_some(input), None));
+    }
+    let retained = prior.and_then(|s| s.installer_launch.clone());
+    if let Some(a) = &retained {
+        a.verify()?;
+    }
+    Ok((None, retained))
+}
+
 pub(super) fn retained_frontend(
     input: Option<&Path>,
     prior: Option<&Software>,
@@ -225,6 +243,120 @@ mod tests {
             }
         })
         .collect()
+    }
+    // Exact pre-IS2 Software schema, including its unknown-field refusal.
+    #[derive(Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct LegacySoftware {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        preparation_kit: Option<Artifact>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        operator_frontend: Option<Artifact>,
+        manager: Artifact,
+        supervisor: Artifact,
+        ownership: Artifact,
+        host: Artifact,
+        source_manifest: Artifact,
+        source_sha256: String,
+        #[serde(default)]
+        native_catalogue: Option<Artifact>,
+    }
+    fn with_adapter(mut software: Software) -> Software {
+        let path = software.manager.path.with_file_name("installer-launch.exe");
+        fs::write(&path, b"source-owned adapter fixture").unwrap();
+        software.installer_launch = Some(Artifact {
+            sha256: digest(&path).unwrap(),
+            path,
+        });
+        software
+    }
+    fn generation_bytes(dir: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
+        fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| {
+                let path = entry.unwrap().path();
+                let bytes = fs::read(&path).unwrap();
+                (path, bytes)
+            })
+            .collect()
+    }
+    #[test]
+    fn explicit_legacy_package_omits_adapter_and_remains_legacy_readable() {
+        let f = test_fixture::Fixture::new();
+        let home = f.outer.join("home");
+        let old = with_adapter(software_fixture(&f, "is2"));
+        let old_dir = old.manager.path.parent().unwrap();
+        for path in generation_bytes(old_dir).keys() {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        let before = generation_bytes(old_dir);
+        commit(&f.m, &home, &old, None, None).unwrap();
+        assert!(serde_json::from_slice::<LegacySoftware>(
+            &fs::read(f.m.root.join("software.json")).unwrap()
+        )
+        .is_err());
+
+        let mut legacy = software_fixture(&f, "legacy");
+        let package = legacy.manager.path.parent().unwrap();
+        let (input, retained) = installer_launch_inputs(Some(package), Some(&old)).unwrap();
+        assert!(input.is_none());
+        assert!(retained.is_none());
+        legacy.installer_launch = retained;
+        commit(&f.m, &home, &legacy, Some(&old), None).unwrap();
+        let bytes = fs::read(f.m.root.join("software.json")).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(value.get("installer_launch").is_none());
+        let parsed: LegacySoftware = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+        assert_eq!(software(&f.m).unwrap().manager, legacy.manager);
+        assert_eq!(generation_bytes(old_dir), before);
+        old.installer_launch.as_ref().unwrap().verify().unwrap();
+    }
+    #[test]
+    fn explicit_current_package_selects_its_exact_adapter_not_the_prior_one() {
+        let f = test_fixture::Fixture::new();
+        let home = f.outer.join("home");
+        let old = with_adapter(software_fixture(&f, "old"));
+        let mut new = with_adapter(software_fixture(&f, "current"));
+        let expected = new.installer_launch.clone().unwrap();
+        fs::write(&expected.path, b"distinct current adapter").unwrap();
+        let expected = Artifact {
+            sha256: digest(&expected.path).unwrap(),
+            path: expected.path,
+        };
+        let (input, retained) =
+            installer_launch_inputs(new.manager.path.parent(), Some(&old)).unwrap();
+        assert!(retained.is_none());
+        let input = input.unwrap();
+        // Production setup copies this input into the new immutable generation
+        // and constructs its Artifact from those staged bytes.
+        new.installer_launch = Some(Artifact {
+            sha256: digest(&input).unwrap(),
+            path: input,
+        });
+        assert_eq!(new.installer_launch.as_ref(), Some(&expected));
+        assert_ne!(new.installer_launch, old.installer_launch);
+        commit(&f.m, &home, &old, None, None).unwrap();
+        commit(&f.m, &home, &new, Some(&old), None).unwrap();
+        assert_eq!(software(&f.m).unwrap().installer_launch, Some(expected));
+    }
+    #[test]
+    fn acceptance_without_package_preserves_verified_adapter_exactly() {
+        let f = test_fixture::Fixture::new();
+        let home = f.outer.join("home");
+        let old = with_adapter(software_fixture(&f, "old"));
+        let mut accepted = software_fixture(&f, "accepted");
+        let before = generation_bytes(old.manager.path.parent().unwrap());
+        let (input, retained) = installer_launch_inputs(None, Some(&old)).unwrap();
+        assert!(input.is_none());
+        assert_eq!(retained, old.installer_launch);
+        accepted.installer_launch = retained;
+        commit(&f.m, &home, &old, None, None).unwrap();
+        commit(&f.m, &home, &accepted, Some(&old), None).unwrap();
+        assert_eq!(software(&f.m).unwrap().installer_launch, old.installer_launch);
+        assert_eq!(generation_bytes(old.manager.path.parent().unwrap()), before);
+        fs::write(&old.installer_launch.as_ref().unwrap().path, b"changed").unwrap();
+        assert!(installer_launch_inputs(None, Some(&old)).is_err());
     }
     #[test]
     fn foreign_preflight_and_each_commit_failure_leave_all_stable_surfaces_unchanged() {

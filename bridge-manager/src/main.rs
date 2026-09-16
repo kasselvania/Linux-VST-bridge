@@ -308,9 +308,8 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
     let retained_kit=previous.as_ref().and_then(|s|s.preparation_kit.clone()).filter(|_|kit.is_none());
     if let Some(a)=&retained_kit {a.verify()?;}
     if let Some(path)=kit {files.push(("preparation-kit.zip",path));}
-    let adapter=package.map(|p|p.join("installer-launch.exe")).filter(|p|p.exists());
-    let retained_adapter=previous.as_ref().and_then(|s|s.installer_launch.clone()).filter(|_|adapter.is_none());
-    if let Some(a)=&retained_adapter {a.verify()?;}
+    let (adapter, retained_adapter) =
+        setup_install::installer_launch_inputs(package, previous.as_ref())?;
     if let Some(path)=adapter {files.push(("installer-launch.exe",path));}
     let mut identity = String::new();
     if let Some(a)=&retained_adapter {identity.push_str(&serde_json::to_string(a)?);}
