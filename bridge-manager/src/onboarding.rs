@@ -212,7 +212,8 @@ pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<Prep
     ];
     let v = result(m, &r)?;
     require(
-        retired(&v) && matches!(v["state"].as_str(), Some("failed" | "cancelled")),
+        retired(&v) && matches!(v["state"].as_str(), Some("failed" | "cancelled"))
+            && v["transaction"]["durable_installation"] != "installed",
         "previous_attempt_not_failed_and_retired",
     )?;
     require(
@@ -331,7 +332,15 @@ pub fn result(m: &Manager, r: &Record) -> Result<Value> {
         v["schema"] == 2 && v["operation"] == *op,
         "installer_result_identity",
     )?;
+    validate_installer_transaction(&v, op)?;
     Ok(v)
+}
+fn validate_installer_transaction(v: &Value, op: &str) -> Result<()> {
+    let Some(t) = v.get("transaction") else { return Ok(()) }; // retained MF2
+    require(t["schema"] == 1 && t["operation"] == op, "installer_transaction_identity")?;
+    require(matches!(t["outcome"].as_str(), Some("completed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
+    require(matches!(t["durable_installation"].as_str(), Some("installed" | "partial_installation" | "not_installed" | "indeterminate" | "unavailable")), "installer_transaction_witness")?;
+    Ok(())
 }
 pub fn retired(v: &Value) -> bool {
     v["cleanup_confirmed"] == true
@@ -523,9 +532,9 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                 state = v["state"].as_str().unwrap_or("cleanup_unconfirmed").into();
                 if live(op)? {
                     human = "Use the real installer. Closing this manager does not stop it";
-                    if !v["startup"]["first_problem"].is_null() {
+                    if !v["startup"]["first_problem"].is_null() || !v["transaction"]["first_failure"].is_null() {
                         state = "needs_attention".into();
-                        human = "Runtime startup reported a problem. Stop this exact installer; cancellation will preserve its diagnostics";
+                        human = "An installer-stage problem was observed. Exact Stop remains available; cancellation preserves the earlier result";
                     }
                     for (label, a) in [
                         (
@@ -550,7 +559,7 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                         });
                     }
                 } else if retired(&v) {
-                    human = "Scan the isolated environment; discovery does not publish to Bitwig";
+                    human = if v["transaction"]["durable_installation"] == "installed" { "Installation files and registration are present. Review post-install status before reinstalling; scanning does not publish to Bitwig" } else { "Review retained installation outcome, then scan this isolated environment. A nonzero outer exit does not prove nothing was installed" };
                     actions.push(ui::AvailableAction {
                         label: "Scan installed products".into(),
                         action: ui::Action::InstallerScan {
@@ -573,6 +582,7 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
             }
             if retired(&v)
                 && matches!(v["state"].as_str(), Some("failed" | "cancelled"))
+                && v["transaction"]["durable_installation"] != "installed"
                 && !records
                     .iter()
                     .any(|x| x.previous_attempt.as_deref() == Some(&r.id))
@@ -649,6 +659,18 @@ fn scan_state(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn installer_transaction_is_operation_bound_and_legacy_stays_readable() {
+        let mut v=json!({"schema":2,"operation":"a","state":"failed","error":"installer_launcher_failed"});
+        assert!(validate_installer_transaction(&v,"a").is_ok());
+        v["transaction"]=json!({"schema":1,"operation":"a","outcome":"outer_nonzero_stage_unknown","durable_installation":"partial_installation"});
+        assert!(validate_installer_transaction(&v,"a").is_ok());
+        assert!(validate_installer_transaction(&v,"b").is_err());
+        v["transaction"]["outcome"]="guessed_vendor_cause".into();
+        assert!(validate_installer_transaction(&v,"a").is_err());
+        v["transaction"]["outcome"]="installed".into();v["transaction"]["schema"]=2.into();
+        assert!(validate_installer_transaction(&v,"a").is_err());
+    }
     fn fixture() -> (test_fixture::Fixture, installer_import::Installer) {
         let f = test_fixture::Fixture::new();
         let mut b = vec![0; 1024];

@@ -443,6 +443,7 @@ impl eframe::App for Operator {
                 for o in s.onboarding.iter().rev() {let historical=matches!(o.state.as_str(),"cancelled"|"failed"|"no_audio_plugin_discovered");egui::CollapsingHeader::new(if historical{format!("Earlier attempt — {}",o.state.replace('_'," "))}else{format!("Current attempt — {}",o.state.replace('_'," "))}).id_salt((&o.installer,&o.environment,"attempt")).default_open(!historical).show(ui,|ui|{
                     ui.heading(o.state.replace('_'," "));ui.label(format!("{} · {} bytes · {}",o.name,o.byte_size,o.format));
                     ui.label(&o.required_human_action);
+                    for line in installer_lines(&o.details["installation"]) { ui.label(line); }
                     if let Some(f)=self.feedback.as_ref().filter(|f|f.for_installer(&o.installer) || matches!(&f.action, Action::InstallerNewAttempt {previous,..} if o.environment.as_ref()==Some(previous))) {ui.colored_label(egui::Color32::YELLOW,&f.text);}
                     else if let Some(reason)=o.details["request_result"]["reason"].as_str(){ui.colored_label(egui::Color32::YELLOW,format!("Last request refused before worker launch: {reason}"));}
                     if let Some(failure)=&o.failure { for line in failure_lines(failure) { ui.colored_label(egui::Color32::YELLOW,line); } }
@@ -508,6 +509,31 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(Duration::from_millis(500));
     }
 }
+fn installer_lines(v: &serde_json::Value) -> Vec<String> {
+    let t=&v["transaction"];
+    if t["schema"] != 1 || t["operation"] != v["operation"] {
+        return if v["error"] == "installer_launcher_failed" {
+            vec!["Earlier installer result: outer launch route exited nonzero; the failing later stage and installation completeness were not captured.".into()]
+        } else {vec![]};
+    }
+    let outcome=match t["outcome"].as_str() {
+        Some("outer_nonzero_stage_unknown")=>"The outer installer route exited nonzero. The failing child or stage is not established.",
+        Some("child_failed")=>"An owned child exited nonzero. Its role and underlying cause may still be unknown.",
+        Some("cancelled")=>"This attempt was cancelled. Earlier failure observations remain retained.",
+        Some("cleanup_unconfirmed")=>"Installer cleanup is unconfirmed. Further work is blocked.",
+        Some("installed")=>"Application files and installation registration were observed. First launch and dependency health remain unproved.",
+        Some("partial_installation")=>"Partial installation: durable changes exist, but a complete application installation is not established.",
+        Some("not_installed")=>"No durable installation was found in the inspected surfaces.",
+        _=>"Review the installer stage record; completion does not qualify or publish a plug-in.",
+    };
+    let mut lines=vec![outcome.into()];
+    if let Some(n)=t["outer_launcher_exit"].as_i64(){lines.push(format!("Outer launcher exit: {n} (separate from payload and service exits)"));}
+    lines.push(format!("Durable installation: {}",t["durable_installation"].as_str().unwrap_or("unavailable").replace('_'," ")));
+    if !t["first_failure"].is_null() {lines.push(format!("First retained process result: {} · status {} · cause unestablished",t["first_failure"]["domain"].as_str().unwrap_or("unknown"),t["first_failure"]["status"]));}
+    lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
+    lines
+}
+
 fn failure_lines(f: &crate::model::OperationFailure) -> Vec<String> {
     let mut lines = vec![match f.stage {
         crate::model::FailureStage::OperatorValidationReadback => {
@@ -581,6 +607,16 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn installer_partial_nonzero_cancellation_and_cleanup_stay_separate() {
+        let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
+        let lines=super::installer_lines(&v).join(" ");
+        assert!(lines.contains("cancelled") && lines.contains("status 37") && lines.contains("partial installation") && lines.contains("cleanup confirmed"));
+        v["transaction"]["operation"]="other".into();assert!(super::installer_lines(&v).is_empty());
+        let legacy=serde_json::json!({"error":"installer_launcher_failed"});
+        assert!(super::installer_lines(&legacy)[0].contains("failing later stage"));
+    }
+
     use super::*;
     fn state_fixture() -> Operator {
         let (sender, receiver) = mpsc::channel();
