@@ -89,3 +89,9 @@ fixed failure fixture), so generic candidate capture is unavailable and remains
 off; IF1/IF2 terminal and cleanup records remain available. No bypass was used.
 Product result is pending the human session. This supersedes only the current
 unpublished resting state, not the immutable preparation evidence.
+
+The human has now used candidate B successfully and quit Bitwig. Its exact host
+report confirms the activation-only restart, subsequent processing, full module
+unload and positive cleanup. The result and retained delivery-gap limitation are
+in `evidence/lc2/operator-session.json`. B remains experimentally published; no
+ordinary promotion. PRs #110 and #111 remain draft and unmerged pending review.

@@ -93,3 +93,24 @@ This completes the lifecycle attribution, generated restart proof and corrected
 candidate preparation. Product behavior of B is deliberately untested. The
 manager's experimental controls still allow exact historical A; a later test must
 select B explicitly and retain its own product evidence.
+
+## First candidate-B operator session
+
+After explicit operator authorization, B was experimentally published. The user
+reported “serum works great” and then quit Bitwig. The exact corrected-host report
+independently retained 35,996 processing blocks, a zero-block activation-only
+interval (Activate/Deactivate at sequence 36000), then 3,880 processing blocks.
+The previous restart boundary therefore passed in this real Serum session.
+Four gestures ended; editor failure was zero. Full component/controller/module
+teardown and mapping unmap completed, with positive cleanup and transport
+retirement. This is not the seven-milestone process-scoped retirement shortcut.
+The before-containment snapshot contained no terminal record or Collector
+rejection. Its existence as `fault.json` does not itself identify a fault.
+
+There were 20 delivery gaps and 93,184 missing/expired frames; no performance or
+gap-free claim is made. No state/save/reopen campaign occurred. CA1 was off because
+its current arm owner does not support generic experimental candidates. Final
+readback had no Bitwig process, zero leases/transactions/stale transports, healthy
+service and two keepers. B remains experimentally published under operator
+control. `evidence/lc2/operator-session.json` separates the human report, machine
+lifecycle result, cleanup and limitations. No ordinary acceptance was granted.

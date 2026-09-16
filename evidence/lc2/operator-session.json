@@ -1,0 +1,208 @@
+{
+  "schema": 1,
+  "candidate": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+  "publication": {
+    "id": "6105dee8ac8aa27855fc611abb794e7c",
+    "sha256": "2d8ff9572fd837d7b3ebe98c585c92c00c918ad839130c6c0efe231b272e2024"
+  },
+  "operator_observation": {
+    "statement": "serum works great. I\u2019m shocked",
+    "normal_quit_reported": true,
+    "provenance": "human operator, same authorized candidate-B session; no agent input"
+  },
+  "readiness": {
+    "event": "lifecycle",
+    "sequence": 2,
+    "state": "readiness_announced",
+    "scanner_sha256": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+    "bundle_manifest_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+    "implementation_source_manifest_sha256": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+    "mode": "ap9-commercial",
+    "component_case": "class:56534558667350736572756D20320000",
+    "run_ordinal": 1
+  },
+  "lifecycle_rows": [
+    {
+      "event": "lifecycle",
+      "sequence": 190,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 194,
+      "state": "ap2_lifecycle_ack",
+      "kind": 11,
+      "next_sequence": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 202,
+      "state": "ap2_lifecycle_ack",
+      "kind": 13,
+      "next_sequence": 36000
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 203,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 35996,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 206,
+      "state": "ap2_lifecycle_ack",
+      "kind": 15,
+      "next_sequence": 36000
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 213,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 36000
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 214,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 0,
+      "intervals": 0,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 217,
+      "state": "ap2_lifecycle_ack",
+      "kind": 15,
+      "next_sequence": 36000
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 222,
+      "state": "ap2_lifecycle_ack",
+      "kind": 9,
+      "next_sequence": 36000
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 226,
+      "state": "ap2_lifecycle_ack",
+      "kind": 11,
+      "next_sequence": 36000
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 238,
+      "state": "ap2_lifecycle_ack",
+      "kind": 13,
+      "next_sequence": 39882
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 239,
+      "state": "ap3_processing_summary",
+      "processed_blocks": 3880,
+      "intervals": 1,
+      "process_mode": "kRealtime"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 242,
+      "state": "ap2_lifecycle_ack",
+      "kind": 15,
+      "next_sequence": 39882
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 243,
+      "state": "ap11_editor_summary",
+      "opens": 1,
+      "closes": 1,
+      "focuses": 1,
+      "removal_messages": 12,
+      "gestures": 4,
+      "values": 44,
+      "ends": 4,
+      "host_updates": 346,
+      "stale_updates": 0,
+      "suppressed_echoes": 0,
+      "scale_supported": true,
+      "scale": 0.921622,
+      "failure": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 254,
+      "state": "ap8_inspection_closed",
+      "exit_code": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 263,
+      "state": "module_exit_succeeded"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 266,
+      "state": "module_unloaded"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 267,
+      "state": "ap1_endpoint_closed",
+      "mapping_unmapped": true,
+      "instance_count": 1
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 268,
+      "state": "scanner_completed",
+      "inspection_complete": true
+    }
+  ],
+  "first_terminal_record": null,
+  "collector_rejection": null,
+  "editor_failure": 0,
+  "vendor_retirement": null,
+  "retirement_route": "Full component/controller/module teardown and mapping unmap observed; not the seven-milestone process_scoped_vendor_retirement shortcut.",
+  "outer_cleanup_exit": -15,
+  "error": null,
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "delivery_counters": {
+    "admitted_frames": 10208256,
+    "missing_frames": 93184,
+    "gaps": 20,
+    "expired_frames": 93184,
+    "delivered_frames": 10114048,
+    "priming_frames": 1024
+  },
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "bitwig_process_count": 0,
+  "resume_present": false,
+  "experimental_publication": "Remains enabled under operator control; no ordinary promotion or automatic removal.",
+  "nonclaims": [
+    "No full CA1 capture was armed.",
+    "No gap-free audio or performance claim; 20 delivery gaps and 93184 missing/expired frames were retained.",
+    "No save/reopen or long-term stability qualification.",
+    "Candidate A and its previous failure remain immutable."
+  ]
+}
