@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tools/mf2/**'
+      - 'tools/mf3/**'
       - '.github/workflows/ap8-windows.yml'
       - 'windows-factory-probe/**'
       - 'vst-state/**'
@@ -75,6 +76,8 @@ jobs:
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/uir2-touch-fixture.exe" --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/mf2-bootstrap-ready.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/mf3/windows_inspection_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git rev-parse HEAD | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SOURCE_COMMIT.txt"
           Get-FileHash "${{ runner.temp }}/ap8-build/wf0/bin/Release/*.exe" -Algorithm SHA256 | Format-List | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SHA256.txt"

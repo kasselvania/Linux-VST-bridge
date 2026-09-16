@@ -118,6 +118,16 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
     let additional_verified = extended && verified_additional(m)?;
     let mut engineering_classes = if extended && !additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     if extended { engineering_classes.push(limits.classes[3].clone()); }
+    let mut current_classes=limits.classes.clone();
+    for (key,e) in m.registry()?.classes {
+        if e.publication!=Publication::Published || current_classes.iter().any(|c|c.class_id==key){continue;}
+        let Some(reference)=e.managed_revision else {continue};
+        let r=m.load_revision(&key,&reference)?;
+        if crate::preparation::owns_profile(m,&r.profile)? {
+            let limit=ClassLimit{class_id:key,dsp:1};
+            engineering_classes.push(limit.clone());current_classes.push(limit);
+        }
+    }
     let verified_additional_classes = if additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     let owners = owners(m)?;
     let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();
@@ -126,8 +136,7 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
         .filter(|o| matches!(o.kind, Kind::Inspection | Kind::VendorAccess))
         .count();
     let keepers = owners.iter().filter(|o| o.kind == Kind::Keeper).count();
-    let per_class: BTreeMap<_, _> = limits
-        .classes
+    let per_class: BTreeMap<_, _> = current_classes
         .iter()
         .map(|c| {
             (
@@ -145,8 +154,7 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
             0
         } else {
             limits.global_dsp.saturating_sub(dsp).min(
-                limits
-                    .classes
+                current_classes
                     .iter()
                     .map(|c| c.dsp.saturating_sub(per_class[&c.class_id]))
                     .sum(),
@@ -359,7 +367,7 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     Ok(result)
 }
 
-fn check(owners: &[Owner], limits: &Limits, class: Option<&str>) -> Result<()> {
+fn check_selected(owners: &[Owner], limits: &Limits, class: Option<&str>, managed:bool) -> Result<()> {
     limits.verify()?;
     if owners
         .iter()
@@ -378,8 +386,8 @@ fn check(owners: &[Owner], limits: &Limits, class: Option<&str>) -> Result<()> {
     let policy = limits
         .classes
         .iter()
-        .find(|c| c.class_id == class)
-        .ok_or(Refusal::BindingInvalid)?;
+        .find(|c| c.class_id == class);
+    let ceiling=policy.map(|p|p.dsp).or(if managed{Some(1)}else{None}).ok_or(Refusal::BindingInvalid)?;
     if dsp >= limits.global_dsp {
         return Err(Refusal::GlobalCapacity.into());
     }
@@ -387,7 +395,7 @@ fn check(owners: &[Owner], limits: &Limits, class: Option<&str>) -> Result<()> {
         .iter()
         .filter(|o| o.kind == Kind::Dsp && o.class_id == class)
         .count()
-        >= policy.dsp
+        >= ceiling
     {
         return Err(Refusal::ClassCapacity.into());
     }
@@ -410,7 +418,14 @@ pub fn reserve(m: &Manager, limits: &Limits, class: Option<&str>, blocked: bool)
         }
     })?;
     let records = owners(m).map_err(|_| Refusal::CleanupUnconfirmed)?;
-    check(&records, limits, class)?;
+    let managed = if let Some(class)=class.filter(|class|!limits.classes.iter().any(|c|c.class_id==*class)) {
+        let db=m.registry()?;
+        if let Some(e)=db.classes.get(class).filter(|e|e.publication==Publication::Published) {
+            let r=m.load_revision(class,e.managed_revision.as_ref().ok_or(Refusal::BindingInvalid)?)?;
+            crate::preparation::owns_profile(m,&r.profile)?
+        } else {false}
+    }else{false};
+    check_selected(&records, limits, class,managed)?;
     Ok(lock)
 }
 

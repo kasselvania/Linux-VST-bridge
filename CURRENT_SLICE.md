@@ -1,67 +1,71 @@
-# SV1 — Serum 2 instrument test preparation
+# MF3 — Managed plug-in preparation and qualification
 
-Base: accepted MF2 merge `3aa26d11f401abfabf86b0b574d4cc7f8436810a`.
-MF2 reviewed head: `11e875b5de7726503fcb5c574683e060369c8170`.
-Continue the existing `codex/sv1-serum-managed-admission` branch and PR #107.
+Selected by the operator. This implementation is stacked on unmerged SV1 PR #107
+at `d4b863837814b6e5f889952226dadb28798caae2` (tree
+`db25a2e7b0475513d94cc28cdbe87ffa4a896086`), after accepted MF2 merge
+`3aa26d11f401abfabf86b0b574d4cc7f8436810a`. Work only in the separate MF3
+worktree/branch. Do not merge, reset or modify the SV1 checkout.
 
-## Selected outcome
+## Outcome
 
-Prepare one reversible review candidate for Serum 2 **instrument** version 2.1.5
-from the exact new managed installation. The operator has asked to see the actual
-instrument, and the tech lead has accepted MF2 and directed this continuation.
-No installer or inventory scan is repeated. Serum 2 FX is excluded.
+Expose exact audio-class selection, preliminary inspection, immutable native
+candidate preparation, deliberate experimental publication/removal, attributed
+test results, explicit exact-configuration review and ordinary publication in
+the native manager. Reuse existing inspector, descriptor/build, publication,
+rollback, service admission and operation-recovery owners. A generated generic
+selection must use the same path without adding a product-specific route.
 
-The current preparation is: exact selected component inspection, retained bus /
-event / parameter / state / editor contract, exact descriptor and native proxy,
-and an inactive review candidate. A following human-owned Bitwig check may use
-one instance, one MIDI note, nonzero audio, the real authorized editor, one safe
-control and normal retirement. Do not claim those results before they occur.
+Discovery, inspection, preparation, publication, qualification and live ownership
+remain separate. A prepared or experimentally published candidate is not supported.
+No arbitrary command, path, PID, compatibility manifest or guessed controller pair
+is admitted from the frontend. Hashing/build work stays outside registry locks.
 
-## Exact fixture
+## Current fixture and concurrency
 
-- Managed environment: `4db060b14388e41103834fc4dfdd023a`.
-- Module SHA-256: `501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`.
-- Module size: 19,236,864 bytes; factory version: 2.1.5.
-- Instrument: `56534558667350736572756D20320000`.
-- Controller: `56534558667343736572756D20320000`.
-- Reuse the installed pinned runner and existing managed installation.
-- Reuse the current Windows host and IF1/IF2/UIR1 runtime where its contract fits.
-- No historical .wine/yabridge environment, old Serum proxy, or copied license.
+Read-only entry observation: Serum's one session has already failed and retired;
+the candidate is retained but unpublished. Service and two keepers are healthy,
+all DSP/maintenance/transaction/stale counts zero, capture off. This observation
+is not permission to overwrite concurrent changes. Adopt exact current SV1
+records/artifacts without reinstall, scan, rebuild, publication replay or retest.
+Keep Serum FX inventory visible and installation history readable.
 
-## Engineering boundary
+## Scope and verification
 
-Use existing exact inspection, descriptor generation, native build, publication
-and supervised runtime owners. Extend only the missing managed candidate route
-needed to represent this new class/environment; do not disguise it as Arturia.
-Installation or discovery grants no ordinary activation right. Candidate identity
-must retain exact module, class/controller, runner/environment, host, descriptor,
-native artifact and evidence. Keep the candidate inactive until deliberately
-selected for the bounded human test. Preserve prior immutable records.
+Manager operator model/dispatch, generic preparation custody, bounded build recipe,
+frontend and relevant inspector metadata are in scope. No processing/preset/crash
+compatibility repair, audio callback change or automatic supported-product claim.
+Prove exact selection and reuse; stale/duplicate/interrupted work; experimental
+versus ordinary authority; rollback/history/sibling preservation; attributed
+results/review omissions; durable UI feedback. Run affected tests, strict Clippy,
+AP12/PX2; AP8 for Windows observer inputs, AP10 only for native/audio behavior.
+Coordinate an idle immutable installation window before any live frontend update.
+Human owns GUI/account input; no live product or installer campaign is required.
 
-Inspection/refusal/crash is a useful boundary: retain its exact source and cleanup
-before choosing a repair. Do not infer an accessibility, graphics or runner
-workaround from another product. Authorization is exclusively the operator/vendor.
-No agent keyboard/mouse or credential input. No broad qualification campaign.
+Preserve Pigments18/rollback11, LoFi10, FRAGMENTS10, runner, environments, import,
+authorization, projects and original evidence. Keep the implementation PR draft
+and unmerged. Record actual results and remaining limits in the same PR.
 
-## Verification and preservation
+## Implemented result
 
-Run focused tests of changed owners, strict relevant Clippy and applicable CI.
-Build product bytes only when required by the exact Serum descriptor or an actual
-runtime change. Preserve MF2 evidence byte-for-byte, ordinary Pigments18 and
-rollback11, LoFi10, FRAGMENTS10, Arturia environment/authorization, projects,
-all candidate history, 512 recommended and 256 unqualified. Do not ordinary-publish
-Serum or alter Serum FX. Stop observers and exact owned test processes; require
-positive cleanup, zero leases/transactions/stale transports and healthy service /
-keeper at handoff. Keep the SV1 PR draft and unmerged for independent review.
+The operator workflow is implemented and installed from `f56734ed58ac0a0af7ea1e96be19e26fa0c94247`.
+Source-owned native preparation, exact class exports, private experimental
+publication/removal and incomplete-qualification refusal passed. Installed
+readback adopts Serum's original candidate as prepared/unpublished and preserves
+FX inventory and installation history. No Serum product action was repeated.
+See `evidence/mf3/result.json` for exact identities, tests and preservation.
+PR #109 remains draft, stacked on the unchanged PR #107, for independent review.
 
-## Retained operator result and resting state
+## Active rereview repair
 
-The one operator session opened a responsive real editor, then failed at the
-bridge processing-restart `lifecycle correlation` check after preset use. Exact
-IF1 custody and positive cleanup are retained; no Serum exception was established.
-After the operator closed Bitwig, the temporary publication was removed through
-the manager. Candidate/history and installation remain intact, ordinary products
-and projects unchanged, capture off, service/keepers healthy and all DSP,
-maintenance, transaction and stale-transport counts zero. No relaunch or
-compatibility repair has been performed. See `evidence/sv1/first-operator-session.json`
-and `evidence/sv1/closed-restored.json`.
+The seven generation/provenance/publication/recipe repairs at
+`cd14513b32a98b29e56b557ed372c79c6637daad` are accepted. Repair only three
+remaining findings: project each logical environment/module/class once while
+preserving canonical ordinary status; refuse repeated exact ordinary publication
+without mutation; and make SV1 raw snapshots/provenance atomically installed and
+retryable at each interruption boundary.
+
+Preserve operator model 4, kit schema 2, immutable histories, policy-A acceptance,
+processing-restart evidence and the original MF3/SV1 result bytes. Run affected
+manager/frontend/recipe/runtime tests, strict Clippy, AP12 and PX2. AP8 only if
+Windows or build inputs change. No installation, publication, Bitwig/Serum session,
+LC2 work or changes to PR #107. Return PR #109 draft and unmerged.

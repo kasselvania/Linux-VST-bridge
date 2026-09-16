@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "scope": "source_only_mf3_independent_review_repairs",
+  "reviewed_head": "4fd1cf6caac16265f2d7afbb54430a43d11b11c7",
+  "dependency_head": "d4b863837814b6e5f889952226dadb28798caae2",
+  "operator_model": 4,
+  "preparation_kit_schema": 2,
+  "acceptance_policy": "publication_time_until_explicit_withdrawal",
+  "repairs": [
+    "immutable_candidate_generations_and_exact_actions",
+    "versioned_inspection_history_and_explicit_refresh",
+    "durable_original_sv1_provenance",
+    "exact_publication_state_and_expected_current_replacement",
+    "coherent_sealed_publication_acceptance_and_explicit_withdrawal",
+    "kit_owned_hashed_builder_and_descriptor_generator",
+    "processing_restart_separate_from_normal_retirement_and_terminal_cleanup"
+  ],
+  "local_validation": {
+    "manager_library": {
+      "passed": 118
+    },
+    "manager_binary": {
+      "passed": 57
+    },
+    "frontend": {
+      "passed": 14
+    },
+    "build_recipe": {
+      "passed": 7
+    },
+    "runtime": {
+      "run": 70,
+      "skipped_linux_only_on_macos": 36
+    },
+    "strict_manager_clippy": "passed",
+    "strict_frontend_clippy": "passed"
+  },
+  "final_head_ci": "AP8, AP12 and PX2 check runs attached to the amended PR head; final disposition recorded in PR handoff",
+  "preserved_git_objects": {
+    "evidence/mf3/result.json": "a574013a7e55c50f2cea8ef2cd00cd17e0235c09",
+    "evidence/mf3/result.md": "b604736d64b745604767d29be82c884750b7e225",
+    "evidence/sv1/first-operator-session.json": "cf312744539cb3bf445ff29b534df0393ec6c3e9"
+  },
+  "product_actions": {
+    "installation": false,
+    "commercial_session": false,
+    "publication": false,
+    "live_build_fixture": false,
+    "serum_repair": false
+  },
+  "limitations": [
+    "source-only repair is not installed",
+    "existing commercial evidence is reused with original provenance",
+    "no new Serum compatibility or lifecycle result",
+    "AP10 native/audio runtime behavior unchanged"
+  ]
+}

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tools/mf2/**'
+      - 'tools/mf3/**'
       - 'bridge-manager/**'
       - 'native-audio-client/**'
       - 'compatibility/**'
@@ -40,6 +41,7 @@ jobs:
       - run: cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings
       - run: python3 -m unittest discover -s bridge-manager/runtime -v
       - run: python3 tools/test_ap10_descriptor.py
+      - run: python3 -m unittest discover -s tools/mf3 -v
       - run: python3 -m unittest discover -s tools/uio1 -v
       - run: python3 -m unittest discover -s tools/uir1 -v
       - run: python3 -m unittest discover -s tools/uio2 -v

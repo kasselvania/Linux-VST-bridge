@@ -145,6 +145,10 @@ impl RequestFeedback {
         } else {
             false
         };
+        for product in &s.products {
+            if let Some(op)=product.details["preparation"].get("operation") {self.observe(op);}
+            if let Some(rows)=product.details["preparation"]["candidates"].as_array(){for row in rows{if let Some(op)=row.get("operation"){self.observe(op);}}}
+        }
         if let Some(op) = &s.operation {
             self.observe(op);
         }
@@ -169,6 +173,7 @@ pub struct Operator {
     message: String,
     filter: String,
     refresh_after: bool,
+    product_form: Option<Action>,
 }
 impl Operator {
     pub fn new(ctx: &egui::Context) -> Self {
@@ -187,7 +192,46 @@ impl Operator {
             message: "Reading installed manager…".into(),
             filter: String::new(),
             refresh_after: false,
+            product_form: None,
         }
+    }
+    fn preparation_details(ui:&mut egui::Ui,v:&serde_json::Value) {
+        if v["publication"]=="ordinary" {ui.strong("Ordinarily published");}
+        if let Some(history)=v["candidates"].as_array(){
+            egui::CollapsingHeader::new("Candidate generations and their own results").id_salt((v["selection"].as_str(),"candidate-history")).default_open(history.len()>1).show(ui,|ui|{
+                for c in history {ui.group(|ui|{ui.label(format!("Candidate {} · {} · {}",c["id"].as_str().unwrap_or("?"),c["disposition"].as_str().unwrap_or("?"),c["publication"].as_str().unwrap_or("?")));if c["publication_acceptance_sealed"]==true && c["unmet_requirements"].as_array().is_some_and(|r|!r.is_empty()){ui.colored_label(egui::Color32::YELLOW,"This publication retains its original acceptance. New evidence needs review; use Withdraw to disable it.");}Self::value(ui,c);});}
+            });
+        }
+        if let Some(reason)=v["recovery"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
+        if let Some(reason)=v["build_prerequisite"].as_str(){ui.label(reason);}
+        egui::CollapsingHeader::new("Inspection generations").id_salt((v["selection"].as_str(),"inspection-history")).show(ui,|ui|Self::value(ui,&v["inspections"]));
+        ui.label(format!("Inspection: {} · Preparation: {} · Publication: {}",v["inspection"].as_str().unwrap_or("unknown"),v["preparation"].as_str().unwrap_or("unknown"),v["publication"].as_str().unwrap_or("unknown")));
+        ui.small("Preliminary inspection is not a guarantee of DAW audio, editor, automation, or state recall.");
+        if v["origin"]=="retained_sv1" {ui.small("Adopted exact SV1 work; originally prepared through the engineering CLI.");}
+        if let Some(reason)=v["controller"]["reason"].as_str(){ui.small(reason);}
+        if !v["preliminary"].is_null() {
+            egui::CollapsingHeader::new("Preliminary compatibility details").id_salt(("inspection",v["selection"].as_str())).show(ui,|ui|{
+                let f=&v["preliminary"];
+                ui.label(format!("Parameters: {} · Positive inspection cleanup: {}",f["parameter_count"],f["cleanup_confirmed"]));
+                if f["editor_interface"].is_null(){ui.label("Editor interface: not retained by the original inspector");}
+                else {ui.label(format!("Editor created: {} · HWND interface result: {} · Not attached",f["editor_interface"]["created"],f["editor_interface"]["hwnd_result"]));}
+                ui.monospace(serde_json::to_string_pretty(f).unwrap_or_default());
+            });
+        }
+        if let Some(op)=v.get("operation").filter(|o|!o.is_null()) {
+            ui.label(format!("This product's operation: {}",op["state"].as_str().unwrap_or("unknown")));
+            if let Some(stage)=op["preparation_failure"]["attempted_stage"].as_str(){ui.label(format!("Stopped during {}",stage.replace('_'," ")));}
+            if let Some(reason)=op["reason"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
+            if let Some(recovery)=op["preparation_failure"]["recovery"].as_str(){ui.small(recovery);}
+        }
+        egui::CollapsingHeader::new("Recorded tests and remaining qualification").id_salt(v["selection"].as_str()).default_open(false).show(ui,|ui|{
+            for area in ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"] {
+                let latest=v["evidence"].as_array().and_then(|rows|rows.iter().rev().find(|r|r["area"]==area));
+                ui.label(format!("{}: {}",area.replace('_'," "),latest.and_then(|r|r["status"].as_str()).unwrap_or("not tested")));
+                if let Some(row)=latest{ui.small(format!("{} · {}",row["witness"].as_str().unwrap_or("unavailable"),row["detail"].as_str().unwrap_or("")));}
+            }
+            if let Some(rows)=v["unmet_requirements"].as_array(){for row in rows{if let Some(text)=row.as_str(){ui.small(text);}}}
+        });
     }
     fn request(&mut self, q: Query, ctx: &egui::Context) {
         self.pending = true;
@@ -252,7 +296,7 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Snapshot(s) => {
-                if s.schema != 2 {
+                if s.schema != 4 {
                     self.message = "Unsupported manager schema".into();
                 } else {
                     if let Some(f) = &mut self.feedback {
@@ -369,6 +413,26 @@ impl eframe::App for Operator {
                 ui.label(if s.capture["armed"]==true{"Crash capture: armed for next admitted launch"}else if s.capture["active_retention"].as_u64().unwrap_or(0)>0{"Crash capture: retaining an active instance"}else{"Crash capture: off"});
                 if s.capture["armed"]==true { for action in &s.actions { if matches!(action.action,Action::CaptureDisarm{}) { Self::buttons(ui,std::slice::from_ref(action),busy,controls_pending,&mut chosen); } } }
                 if let Some(op)=&s.operation{egui::CollapsingHeader::new("Last operation receipt").show(ui,|ui|Self::value(ui,op));}
+                ui.separator();ui.horizontal(|ui|{ui.label("Find a product");ui.text_edit_singleline(&mut self.filter);});
+                for (state,label) in [("another_configuration","Another configuration published"),("experimental","Experimental use enabled"),("prepared","Test instances prepared"),("ready","Ready"),("needs_attention","Needs attention"),("installed_unqualified","Installed but unqualified"),("quarantined","Quarantined")]{
+                    let products:Vec<_>=s.products.iter().filter(|p|p.disposition==state && format!("{} {}",p.name,p.vendor).to_lowercase().contains(&self.filter.to_lowercase())).collect();
+                    ui.heading(format!("{} ({})",label,products.len()));
+                    for p in products{egui::Frame::group(ui.style()).show(ui,|ui|{
+                        ui.heading(&p.name);ui.label(format!("{} · {} · {}",p.vendor,p.role,p.version));
+                        let live=s.active_sessions.iter().filter(|o|o["class_id"]==p.class_id).count();if live>0{ui.label(format!("Live instances: {live}. Closing the manager leaves them running."));}
+                        if let Some(rev)=p.active_revision{ui.label(format!("Published revision: {rev} · Recommended: {}",p.recommended_revision.map(|v|v.to_string()).unwrap_or_else(||"none".into())));}
+                        for limit in &p.limitations{ui.small(limit.replace('_'," "));}
+                        if let Some(hint)=p.details["inspection_hint"].as_str(){ui.label(hint);}
+                        Self::buttons(ui,&p.actions,busy,controls_pending,&mut chosen);
+                        if let Some(v)=p.details.get("preparation") { Self::preparation_details(ui,v); }
+                        if let Some(reason)=p.details["preparation_failure"].as_str(){ui.colored_label(egui::Color32::YELLOW,reason);}
+                        egui::CollapsingHeader::new("Revision history and exact details").id_salt((&p.class_id,&p.module_sha256)).show(ui,|ui|{
+                            for h in &p.history{ui.label(format!("Revision {} · {}{}{}",h.revision,h.claim,if h.active{" · active"}else{""},if h.rollback_allowed && !h.active{" · rollback available"}else{""}));}
+                            ui.small("Experimental publication is a separate explicit choice. Candidate history is not a qualification decision.");
+                            ui.label(format!("Class: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",p.class_id,p.module_sha256,p.environment,p.runner));Self::value(ui,&p.details);
+                        });
+                    });}
+                }
                 egui::CollapsingHeader::new("Arturia environment and software center").default_open(true).show(ui,|ui|{
                     for app in &s.vendor_applications{ui.heading(&app.name);ui.label(format!("{} · {}",app.version,app.state));Self::buttons(ui,&app.actions,busy,controls_pending,&mut chosen);}
                     for e in &s.environments{ui.label(format!("{} · revision {} · pinned runner {}",e.family,e.revision,e.runner));ui.small(&e.authorization);if !e.last_scan["id"].is_null(){ui.small(format!("Last scan: {} modules · completed at {}",e.last_scan["module_count"],e.last_scan["completed_at"]));ui.small(format!("Changes: {} added · {} changed · {} removed · {} unchanged",e.last_scan["changes"]["added"],e.last_scan["changes"]["changed"],e.last_scan["changes"]["removed"],e.last_scan["changes"]["unchanged"]));}Self::buttons(ui,&e.actions,busy,controls_pending,&mut chosen);}
@@ -376,7 +440,7 @@ impl eframe::App for Operator {
                 ui.separator();ui.heading("Add a plug-in");
                 if ui.add_enabled(!self.pending,egui::Button::new("Add Windows installer").min_size(egui::vec2(240.0,48.0))).clicked(){pick=true;}
                 ui.small("Select a local installer → review → create isolated environment → install → scan. New products stay unpublished.");
-                for o in &s.onboarding {egui::Frame::group(ui.style()).show(ui,|ui|{
+                for o in s.onboarding.iter().rev() {let historical=matches!(o.state.as_str(),"cancelled"|"failed"|"no_audio_plugin_discovered");egui::CollapsingHeader::new(if historical{format!("Earlier attempt — {}",o.state.replace('_'," "))}else{format!("Current attempt — {}",o.state.replace('_'," "))}).id_salt((&o.installer,&o.environment,"attempt")).default_open(!historical).show(ui,|ui|{
                     ui.heading(o.state.replace('_'," "));ui.label(format!("{} · {} bytes · {}",o.name,o.byte_size,o.format));
                     ui.label(&o.required_human_action);
                     if let Some(f)=self.feedback.as_ref().filter(|f|f.for_installer(&o.installer) || matches!(&f.action, Action::InstallerNewAttempt {previous,..} if o.environment.as_ref()==Some(previous))) {ui.colored_label(egui::Color32::YELLOW,&f.text);}
@@ -386,22 +450,6 @@ impl eframe::App for Operator {
                     Self::buttons(ui,&o.actions,busy,controls_pending,&mut chosen);
                     egui::CollapsingHeader::new("Installation and scan details").id_salt((&o.installer,&o.environment)).show(ui,|ui|Self::value(ui,&o.details));
                 });}
-                ui.separator();ui.horizontal(|ui|{ui.label("Find a product");ui.text_edit_singleline(&mut self.filter);});
-                for (state,label) in [("ready","Ready"),("needs_attention","Needs attention"),("installed_unqualified","Installed but unqualified"),("quarantined","Quarantined")]{
-                    let products:Vec<_>=s.products.iter().filter(|p|p.disposition==state && format!("{} {}",p.name,p.vendor).to_lowercase().contains(&self.filter.to_lowercase())).collect();
-                    ui.heading(format!("{} ({})",label,products.len()));
-                    for p in products{egui::Frame::group(ui.style()).show(ui,|ui|{
-                        ui.heading(&p.name);ui.label(format!("{} · {} · {}",p.vendor,p.role,p.version));
-                        if let Some(rev)=p.active_revision{ui.label(format!("Active ordinary revision: {rev} · Recommended: {}",p.recommended_revision.map(|v|v.to_string()).unwrap_or_else(||"none".into())));}
-                        for limit in &p.limitations{ui.small(limit.replace('_'," "));}
-                        Self::buttons(ui,&p.actions,busy,controls_pending,&mut chosen);
-                        egui::CollapsingHeader::new("Revision history and exact details").id_salt((&p.class_id,&p.module_sha256)).show(ui,|ui|{
-                            for h in &p.history{ui.label(format!("Revision {} · {}{}{}",h.revision,h.claim,if h.active{" · active"}else{""},if h.rollback_allowed && !h.active{" · rollback available"}else{""}));}
-                            ui.small("Review candidates are retained history and cannot be activated here.");
-                            ui.label(format!("Class: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",p.class_id,p.module_sha256,p.environment,p.runner));Self::value(ui,&p.details);
-                        });
-                    });}
-                }
                 ui.separator();egui::CollapsingHeader::new("Recent incidents").show(ui,|ui|{
                     for incident in s.recent_incidents.iter().rev(){egui::CollapsingHeader::new(format!("{} · {}",incident.state,incident.id)).show(ui,|ui|{
                         for line in incident_lines(&incident.summary){ui.label(line);}
@@ -413,12 +461,37 @@ impl eframe::App for Operator {
                 ui.separator();ui.small("Closing this window does not stop bridged audio or vendor applications. Vendor sign-in and authorization stay in the vendor's own interface.");
             });
         });
+        if let Some(a)=chosen.take() {
+            if matches!(a,Action::CandidateObserve{..}|Action::CandidateReview{..}) {self.product_form=Some(a);} else {chosen=Some(a);}
+        }
+        if let Some(form)=self.product_form.as_mut() {
+            let mut submit=false;let mut cancel=false;
+            egui::Window::new("Exact candidate observation / review").collapsible(false).show(ui.ctx(),|ui|{
+                match form {
+                    Action::CandidateObserve{area,status,note,..}=>{
+                        ui.label("This records your observation. It does not create a machine measurement or qualification decision.");
+                        egui::ComboBox::from_id_salt("area").selected_text(area.as_str()).show_ui(ui,|ui|{for a in ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"]{ui.selectable_value(area,a.into(),a.replace('_'," "));}});
+                        egui::ComboBox::from_id_salt("status").selected_text(status.as_str()).show_ui(ui,|ui|{for a in ["passed","failed","not_tested","unavailable","not_applicable"]{ui.selectable_value(status,a.into(),a.replace('_'," "));}});
+                        ui.add(egui::TextEdit::multiline(note).char_limit(512));
+                        submit=ui.add_enabled(!note.trim().is_empty(),egui::Button::new("Record operator observation")).clicked();
+                    }
+                    Action::CandidateReview{accept,rationale,..}=>{
+                        ui.label(if *accept{"Maintainer review: accept this exact local configuration against the retained results. This is not a project-wide support claim. Publication remains a separate action."}else{"Record why this exact configuration needs more work. Publication is unchanged."});
+                        ui.add(egui::TextEdit::multiline(rationale).char_limit(512));
+                        submit=ui.add_enabled(!rationale.trim().is_empty(),egui::Button::new("Record explicit review decision")).clicked();
+                    }
+                    _=>cancel=true,
+                }
+                cancel|=ui.button("Cancel").clicked();
+            });
+            if submit{chosen=self.product_form.take();}else if cancel{self.product_form=None;}
+        }
         if pick {
             self.request(Query::PickInstaller, ui.ctx());
         } else if let Some(a) = chosen {
             if let Some(s) = &self.snapshot {
                 self.capture_action(Request {
-                    schema: 2,
+                    schema: 4,
                     state_token: s.state_token.clone(),
                     action: a,
                 });
@@ -524,11 +597,12 @@ mod tests {
             message: String::new(),
             filter: String::new(),
             refresh_after: false,
+            product_form: None,
         }
     }
     fn create_request() -> Request {
         Request {
-            schema: 2,
+            schema: 4,
             state_token: "snapshot".into(),
             action: Action::InstallerEnvironmentCreate {
                 installer: "ab".repeat(32),
@@ -539,7 +613,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
-            schema: 2,
+            schema: 4,
             state_token: "current".into(),
             system: System {
                 service: "capacity unavailable".into(),
@@ -586,7 +660,7 @@ mod tests {
         }));
         if acknowledged {
             o.handle_reply(Reply::Receipt(Receipt {
-                schema: 2,
+                schema: 4,
                 accepted: true,
                 operation: Some("current-op".into()),
                 refusal: None,
@@ -598,7 +672,7 @@ mod tests {
     }
     fn activity_from(s: &Snapshot) -> Reply {
         Reply::Activity(Activity {
-            schema: 2,
+            schema: 4,
             system: s.system.clone(),
             capture: s.capture.clone(),
             operation: s.operation.clone(),
@@ -738,7 +812,7 @@ mod tests {
         let old =
             serde_json::json!({"operation":"old","state":"refused","reason":"old lock failure"});
         f.receipt(&Receipt {
-            schema: 2,
+            schema: 4,
             accepted: false,
             operation: Some("new".into()),
             refusal: Some("fresh refusal".into()),
@@ -750,7 +824,7 @@ mod tests {
         assert!(!f.for_installer(&"ef".repeat(32)));
         f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 2,
+            schema: 4,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -766,7 +840,7 @@ mod tests {
     fn vendor_controls_unlock_only_after_current_snapshot_without_losing_feedback() {
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 2,
+            schema: 4,
             accepted: true,
             operation: Some("new".into()),
             refusal: None,
@@ -779,7 +853,7 @@ mod tests {
         assert!(f.terminal);
         let mut f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
-            schema: 2,
+            schema: 4,
             accepted: false,
             operation: Some("refused".into()),
             refusal: Some("reason".into()),
@@ -910,4 +984,21 @@ mod tests {
             assert!(!refresh_for_receipt(&value, &value));
         }
     }
+    #[test]
+    fn matching_product_receipt_survives_a_newer_unrelated_latest_operation() {
+        let mut f=RequestFeedback::captured(Action::PluginPrepare{selection:"ab".repeat(32),inspection:"cd".repeat(32),recipe:"ef".repeat(32),predecessor:None});
+        f.receipt(&Receipt{schema:4,accepted:true,operation:Some("11".repeat(16)),refusal:None});
+        let mut s=running_snapshot(&"22".repeat(16));
+        s.operation=Some(serde_json::json!({"operation":"22".repeat(16),"state":"completed"}));
+        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
+        f.reconcile_snapshot(&s);assert!(f.terminal);assert!(!f.blocking);
+        let mut other=RequestFeedback::captured(Action::CandidateObserve{candidate:"bc".repeat(32),area:"processing_restart".into(),status:"failed".into(),note:"Exact candidate observation".into()});
+        other.receipt(&Receipt{schema:4,accepted:true,operation:Some("33".repeat(16)),refusal:None});
+        s.products[0].details["preparation"]["candidates"]=serde_json::json!([
+            {"id":"aa".repeat(32),"operation":{"operation":"11".repeat(16),"state":"completed"}},
+            {"id":"bc".repeat(32),"operation":{"operation":"33".repeat(16),"state":"refused"}}
+        ]);
+        other.reconcile_snapshot(&s);assert!(other.terminal);assert!(!other.blocking);assert_eq!(other.transitions.last().map(String::as_str),Some("refused"));
+    }
+
 }

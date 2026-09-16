@@ -84,6 +84,23 @@ pub fn records(m: &Manager) -> Result<Vec<Record>> {
     rows.sort_by_key(|r| r.created_at);
     Ok(rows)
 }
+/// Read-only installation history remains visible after product registration.
+/// Mutation entry points continue to use load(), which refuses registered environments.
+pub fn history_records(m: &Manager) -> Result<Vec<Record>> {
+    let dir=m.root.join("onboarding"); if !dir.exists(){return Ok(vec![])}
+    let mut out=vec![];
+    for entry in fs::read_dir(dir)?.take(129) {
+        require(out.len()<128,"onboarding_count_bound")?;
+        let path=entry?.path();let id=path.file_name().and_then(|v|v.to_str()).ok_or("onboarding_identity")?;
+        if !valid_hex(id,32){continue}
+        let r:Record=read_json(&path.join("record.json"))?;
+        require(r.schema==1 && r.id==id && r.environment.id==id && r.environment.root==m.root.join("environments").join(id)
+           && read_json::<Environment>(&r.environment.root.join("environment.json"))?==r.environment,
+           "onboarding_history_binding")?;
+        out.push(r);
+    }
+    out.sort_by_key(|r|r.created_at);Ok(out)
+}
 pub fn runner_key(r: &Runner) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(r)?)))
 }
@@ -465,7 +482,7 @@ pub fn stop(m: &Manager, id: &str, op: &str) -> Result<Value> {
 pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>> {
     let mut rows = vec![];
     let runners = runners(m)?;
-    let records = records(m)?;
+    let records = history_records(m)?;
     for installer in installer_import::list(m)? {
         let bound: Vec<_> = records
             .iter()
@@ -497,6 +514,7 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
             });
         }
         for r in bound {
+            let managed=m.registry()?.classes.values().any(|e|e.registration.environment.id==r.id);
             let v = result(m, r)?;
             let mut actions = vec![];
             let mut state = "environment_ready".to_owned();
@@ -582,7 +600,8 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                 state = scan_state(&parsed, &r.environment, &sw.host, &sw.source_sha256).into();
                 human = "Review discovery below. No class has been published to Bitwig";
             }
-            rows.push(ui::Onboarding{failure:None,installer:installer.id.clone(),name:installer.name_hint.clone(),byte_size:installer.byte_size,format:installer.format.clone(),environment:Some(r.id.clone()),state,required_human_action:human.into(),details:json!({"installation":v,"scan":scan,"runner":r.environment.runner.id,"published":false,"previous_attempt":r.previous_attempt}),actions});
+            if managed { actions.clear(); human="Installation retained; manage the exact discovered products below. Initial installation is closed"; }
+            rows.push(ui::Onboarding{failure:None,installer:installer.id.clone(),name:installer.name_hint.clone(),byte_size:installer.byte_size,format:installer.format.clone(),environment:Some(r.id.clone()),state,required_human_action:human.into(),details:json!({"installation":v,"scan":scan,"runner":r.environment.runner.id,"published":false,"previous_attempt":r.previous_attempt,"created_at":r.created_at,"managed_product":managed}),actions});
         }
     }
     Ok(rows)
@@ -596,7 +615,7 @@ fn scan_state(
 ) -> &'static str {
     if scan.schema != 1
         || &scan.environment != environment
-        || &scan.host != host
+        || scan.host.sha256 != host.sha256
         || scan.host_source_sha256 != source
         || scan.modules.iter().any(|m| {
             inventory::stale_reason(

@@ -179,7 +179,7 @@ pub fn stale_reason(
     host: &Artifact,
     source: &str,
 ) -> Option<&'static str> {
-    if observed_host != host || observed_source != source {
+    if observed_host.sha256 != host.sha256 || observed_source != source || observed_host.verify().is_err() || host.verify().is_err() {
         Some("Scanner host changed — rescan under current scanner host")
     } else if observed_environment != environment {
         Some("Environment changed — rescan required")
@@ -188,6 +188,15 @@ pub fn stale_reason(
     } else {
         None
     }
+}
+
+/// A specific complete factory result, never an exit-code-only reinterpretation.
+pub fn inspection_hint(module: &Module) -> Result<Option<&'static str>> {
+    module.report.verify()?;
+    let raw:Value=read_json(&module.report.path)?;
+    let all=classes(&raw)?;
+    let explicit=raw["records"].as_array().is_some_and(|rows|rows.iter().any(|r|r["state"]=="ap8_failure" && r["reason"]=="multiple audio classes require explicit selection"));
+    Ok(if all.iter().filter(|c|c.category=="Audio Module Class").count()>1 && explicit {Some("Discovery succeeded. Select an audio class for deeper inspection.")}else{None})
 }
 
 #[cfg(test)]

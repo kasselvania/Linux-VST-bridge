@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "scope": "source_only_projection_publication_and_atomic_adoption",
+  "reviewed_head": "cd14513b32a98b29e56b557ed372c79c6637daad",
+  "dependency_head": "d4b863837814b6e5f889952226dadb28798caae2",
+  "logical_product_key": [
+    "environment_id",
+    "module_sha256",
+    "audio_class_id"
+  ],
+  "projection_policy": "one_current_inventory_selection_with_candidate_bound_history; preserve_canonical_ordinary_and_needs_attention",
+  "repeated_ordinary_publication": "candidate_already_ordinary_before_durable_mutation",
+  "snapshot_install": "private_temporary_complete_write_fsync_atomic_no_replace_parent_fsync",
+  "interruption_boundaries": [
+    "environment_snapshot",
+    "onboarding_snapshot",
+    "inventory_snapshot",
+    "provenance_staged",
+    "provenance_installed",
+    "lineage_record",
+    "candidate_record"
+  ],
+  "immutable_conflicts": "refused_without_replacement",
+  "validation": "Manager, frontend, recipe, runtime, strict Clippy and exact-head AP12/PX2 results recorded in the PR handoff",
+  "AP8": "Windows, inspection and build inputs unchanged from accepted cd14513; no new run required",
+  "AP10": "native/audio behavior unchanged",
+  "preserved_evidence": [
+    "evidence/mf3/result.json",
+    "evidence/mf3/result.md",
+    "evidence/mf3/generation-repair.json",
+    "evidence/sv1/first-operator-session.json"
+  ],
+  "installation": false,
+  "product_launch": false,
+  "publication": false,
+  "compatibility_claim": false,
+  "local_validation": {
+    "manager_library_passed": 122,
+    "manager_binary_passed": 60,
+    "frontend_passed": 14,
+    "recipe_passed": 7,
+    "runtime_run": 70,
+    "runtime_linux_only_skipped_on_macos": 36,
+    "strict_manager_clippy": "passed",
+    "strict_frontend_clippy": "passed"
+  }
+}
