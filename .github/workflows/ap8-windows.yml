@@ -87,6 +87,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/is2-fixture.exe" --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/is2/windows_launch_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/mf3/windows_inspection_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git rev-parse HEAD | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SOURCE_COMMIT.txt"

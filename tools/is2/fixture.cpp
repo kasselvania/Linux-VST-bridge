@@ -62,7 +62,7 @@ int wmain(int argc,wchar_t** argv){
   emit(test,"presence",0,0,0,mutex?"mutex_without_process":"absent");emit(test,"close",0,0,0,"not_requested");emit(test,"recheck",0,0,0,"absent");if(mutex)CloseHandle(mutex);return 0;
  }
  if(test=="self"){
-  emit(test,"presence",GetCurrentProcessId(),born(GetCurrentProcess()),1,"self_match");emit(test,"close",GetCurrentProcessId(),born(GetCurrentProcess()),1,"refused_self");return 0;
+  emit(test,"presence",GetCurrentProcessId(),born(GetCurrentProcess()),1,"self_match");PROCESS_INFORMATION self{};self.dwProcessId=GetCurrentProcessId();self.hProcess=GetCurrentProcess();close_exact(test,self,nullptr,born(self.hProcess),false);return 0;
  }
  bool ignore=test=="ignores"||test=="helper_zero"||test=="cancel_after"||test=="cleanup_preserves";
  auto child=spawn(ignore?L"--app ignore":L"--app cooperative");if(!child.hProcess)return 243;

@@ -707,6 +707,22 @@ mod tests {
         assert!(validate_installer_transaction(&v,"a").is_err());
     }
     #[test]
+    fn is2_nested_custody_is_operation_bound_and_cannot_claim_helper_success() {
+        let mut v=json!({"transaction":{"schema":1,"operation":"a","outcome":"completed","durable_installation":"not_installed",
+            "launch_binding":{"schema":1,"operation":"a","epoch":2,"artifact_sha256":"a".repeat(64),"token_sha256":"b".repeat(64),"status":"bound","root_ordinal":1},
+            "presence_close":{"schema":1,"observation_count":2,"operation_classes":["presence_query","close_request"],"actual_match_or_close_result":"unavailable_without_exact_object_observation"}}});
+        assert!(validate_installer_transaction(&v,"a").is_ok());
+        for (field,bad) in [("operation",json!("b")),("epoch",json!(1)),("root_ordinal",json!(0)),("token_sha256",json!("raw token"))] {
+            let mut changed=v.clone();changed["transaction"]["launch_binding"][field]=bad;
+            assert!(validate_installer_transaction(&changed,"a").is_err());
+        }
+        v["transaction"]["presence_close"]["actual_match_or_close_result"]="helper_zero_means_closed".into();
+        assert!(validate_installer_transaction(&v,"a").is_err());
+        v["transaction"]["presence_close"]["actual_match_or_close_result"]="unavailable_without_exact_object_observation".into();
+        v["transaction"]["presence_close"]["observation_count"]=65.into();
+        assert!(validate_installer_transaction(&v,"a").is_err());
+    }
+    #[test]
     fn installed_witness_refuses_reinstallation_without_mutation() {
         let (f,i)=fixture();
         let v=create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();

@@ -1408,7 +1408,7 @@ class InstallerWindowsTrace:
     def root_frame(self,line):
         if line.startswith(b'IS2_REFUSED_V1 ') and self.binding is not None:
             m=re.fullmatch(rb'IS2_REFUSED_V1 ([0-9a-f]{32}) ([0-9a-f]{64}) 2 ([0-9]{1,10})\r?\n',line)
-            if m and m[1].decode()==self.binding['operation'] and m[2].decode()==self.binding_token and int(m[3])<2**32 and self.binding_frames==0:
+            if m and m[1].decode()==self.binding['operation'] and m[2].decode()==self.binding_token and int(m[3])<2**32 and self.binding_frames==0 and self.epoch==2:
                 self.binding.update(status='unavailable',reason='windows_creation_refused',status_domain='win32_create_process_error',status_code=int(m[3]));self.binding_frames+=1
             return True
         if not line.startswith(b'IS2_ROOT_V1 '):return False

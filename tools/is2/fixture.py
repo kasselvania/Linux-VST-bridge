@@ -4,7 +4,44 @@ Each run uses production --install, one dedicated cgroup and disposable prefix.
 """
 import argparse,hashlib,json,os,pathlib,re,shutil,subprocess,time
 CASES=('no_app','cooperative','ignores','exit_between','stale_pid','same_name','self','stale_mutex','stale_window','helper_zero','stale_recheck','access_denied','cancel_after','cleanup_preserves','powershell','wrapper1','wrapper3','exit23','contract')
-def digest(p):return hashlib.file_digest(p.open('rb'),'sha256').hexdigest()
+def digest(p):
+    with p.open('rb') as source:return hashlib.file_digest(source,'sha256').hexdigest()
+def check_oracle(case, lines):
+    rows=[]
+    for line in lines:
+        if line.startswith('IS2_CONTRACT'):continue
+        match=re.fullmatch(r'IS2_API_V1 case=([a-z0-9_]+) stage=([a-z_]+) pid=([0-9]+) generation=([0-9]+) matches=(-?[0-9]+) outcome=([a-z0-9_]+) status=([0-9]+) tick=([0-9]+)',line)
+        assert match and match[1]==case, 'malformed or cross-case oracle'
+        rows.append(dict(zip(('case','stage','pid','generation','matches','outcome','status','tick'),match.groups())))
+    def one(stage):
+        found=[r for r in rows if r['stage']==stage];assert len(found)==1,(stage,found);return found[0]
+    assert rows and rows[0]['stage']=='ready'
+    if case in ('contract','exit23','wrapper1','wrapper3'):return {'schema':1,'case':case,'authority':'source_owned_fixture_only','result':'observed'}
+    if case=='powershell':
+        scripts=[r for r in rows if r['stage']=='script'];assert len(scripts)==4
+        assert [r['outcome'] for r in scripts]==['probe0','probe1','probe2','probe3']
+        sentinel=one('sentinel')
+        return {'schema':1,'case':case,'authority':'source_owned_fixture_only','script_exit_statuses':[int(r['status']) for r in scripts], 'sentinel_created':sentinel['matches']=='1','requested_first_exit':37}
+    present=one('presence');close=one('close')
+    if case in ('no_app','stale_mutex'):
+        assert present['matches']=='0' and close['outcome']=='not_requested' and one('recheck')['matches']=='0'
+    elif case=='self':assert present['matches']=='1' and close['outcome']=='refused_identity'
+    else:
+        assert present['matches']=='1' and int(present['pid'])>0 and int(present['generation'])>0
+        assert close['pid']==present['pid']
+        recheck=one('recheck');assert (recheck['pid'],recheck['generation'])==(present['pid'],present['generation'])
+        absent=case in ('cooperative','same_name','exit_between','stale_window','stale_recheck')
+        assert recheck['matches']==('0' if absent else '1'),recheck
+        expected=('refused_identity' if case in ('exit_between','stale_pid','stale_window') else 'access_denied' if case=='access_denied' else 'helper_zero_no_close' if case=='helper_zero' else 'request_accepted')
+        assert close['outcome']==expected,close
+        if case=='access_denied':assert int(close['status'])==5
+        if case=='same_name':
+            other=one('unrelated');assert other['matches']=='1' and other['pid']!=present['pid']
+        if case=='stale_recheck':assert one('cached_recheck')['outcome']=='rejected_stale_snapshot'
+        if case=='cancel_after':assert one('holding')['matches']=='1'
+        else:assert one('cleanup')['matches']=='0'
+    # Sanitized exact source-owned result. Never input to vendor classification.
+    return {'schema':1,'case':case,'authority':'source_owned_fixture_only','presence_count':int(present['matches']),'close':close['outcome'],'close_status_domain':'win32_api' if case=='access_denied' else 'fixture_observation','close_status':int(close['status']),'recheck':[r['outcome'] for r in rows if r['stage']=='recheck'],'first_close_failure':case in ('ignores','stale_pid','self','stale_window','helper_zero','access_denied','cancel_after','cleanup_preserves'),'cause':'unestablished'}
 def run(runtime,payload,adapter,output,case):
     os.umask(0o077);assert case in CASES;assert shutil.disk_usage(output.parent).free>2*1024**3
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -44,7 +81,13 @@ def finish(runtime,adapter,output,case,began,cancel):
             if int((pathlib.Path('/proc')/str(r['pid'])/'stat').read_text().rsplit(')',1)[1].split()[19])==r['start_ticks']:survivors.append(r)
         except FileNotFoundError:pass
     assert not survivors
-    proof={'case':case,'source':{n:digest(runtime/n) for n in ('session.py','ownership.py')},'adapter_sha256':digest(adapter) if adapter else None,'payload_sha256':digest(exe),'result':final,'fixture_api_oracle':events,'oracle_is_not_production_authority':True,'cancel_requested':cancel,'duration_seconds':time.monotonic()-began if began is not None else None,'same_identity_survivors':0}
+    contract=exe.with_suffix('.exe.contract')
+    contract_hash=digest(contract) if contract.exists() else None
+    runtime_images={}
+    for arch in ('system32','syswow64'):
+        image=root/'compatdata/pfx/drive_c/windows'/arch/'WindowsPowerShell/v1.0/powershell.exe'
+        if image.exists():runtime_images[arch]={'sha256':digest(image),'size':image.stat().st_size}
+    proof={'case':case,'contract_sha256':contract_hash,'powershell_images':runtime_images,'source':{n:digest(runtime/n) for n in ('session.py','ownership.py')},'adapter_sha256':digest(adapter) if adapter else None,'payload_sha256':digest(exe),'result':final,'fixture_api_oracle':events,'oracle_is_not_production_authority':True,'cancel_requested':cancel,'duration_seconds':time.monotonic()-began if began is not None else None,'same_identity_survivors':0}
     (output/'proof-private.json').write_text(json.dumps(proof,indent=2))
     # Cleanup is owned even when an attribution assertion fails; retain proof.
     assert root.resolve()==root;shutil.rmtree(root);proof['scratch_prefix_removed']=True;(output/'proof-private.json').write_text(json.dumps(proof,indent=2))
@@ -53,6 +96,8 @@ def finish(runtime,adapter,output,case,began,cancel):
     elif case=='cancel_after':assert final['state']=='cancelled'
     else:assert final['raw_exit']==0
     assert events,'source-owned payload did not report'
-    print(json.dumps({'case':case,'outer':final['raw_exit'],'binding':final['transaction'].get('launch_binding'),'windows_roots':sum(r['target_root'] for r in private['windows_trace']['processes']),'presence_classes':final['transaction'].get('presence_close'),'cleanup':final['cleanup_confirmed'],'oracle':events}))
+    proof['verified_oracle']=check_oracle(case,events)
+    (output/'proof-private.json').write_text(json.dumps(proof,indent=2))
+    print(json.dumps({'case':case,'outer':final['raw_exit'],'binding':final['transaction'].get('launch_binding'),'windows_roots':sum(r['target_root'] for r in private['windows_trace']['processes']),'presence_classes':final['transaction'].get('presence_close'),'cleanup':final['cleanup_confirmed'],'oracle':proof['verified_oracle']}))
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--runtime',type=pathlib.Path,required=True);p.add_argument('--payload',type=pathlib.Path,required=True);p.add_argument('--adapter',type=pathlib.Path);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--case',choices=CASES,required=True);a=p.parse_args();run(a.runtime.resolve(),a.payload.resolve(),a.adapter.resolve() if a.adapter else None,a.output.resolve(),a.case)
