@@ -16,6 +16,18 @@ class IS2Tests(unittest.TestCase):
         row=self.create(t,32,48);self.assertTrue(row['target_tree']);self.exit(t,48,37);self.assertEqual(t.first_failure['status'],37)
         t.root_frame(self.frame());self.assertEqual(t.binding['status'],'unavailable')
         self.assertFalse(self.create(t,32,64)['target_tree'])
+    def test_alias_unknown_trace_path_uses_exact_adapter_handle_proof(self):
+        t=self.trace();row=self.create(t,16,32)
+        self.assertIsNone(row['image_identity']);t.root_frame(self.frame())
+        self.assertEqual(t.binding['status'],'bound');self.assertEqual(len(t.rows),1)
+        t=self.trace();row=self.create(t,16,32);row['image_identity']={'sha256':'f'*64}
+        t.root_frame(self.frame());self.assertEqual(t.binding['status'],'unavailable')
+    def test_wrong_creator_and_creation_refusal_do_not_bind(self):
+        t=self.trace();self.create(t,17,32);t.root_frame(self.frame());self.assertEqual(t.binding['status'],'unavailable')
+        t=self.trace();t.root_frame(f'IS2_REFUSED_V1 {self.op} {self.token} 2 740\n'.encode())
+        self.assertEqual(t.binding['status_domain'],'win32_create_process_error');self.assertEqual(t.binding['status_code'],740)
+        self.assertEqual(t.rows,[])
+        t.root_frame(self.frame());self.assertEqual(t.binding['status'],'unavailable')
     def test_unbound_wrong_token_artifact_truncated_epoch(self):
         for frame in [self.frame().replace(self.token.encode(),b'd'*64),self.frame().replace(self.digest.encode(),b'e'*64),self.frame()[:-1],b'IS2_ROOT_V1 bad\n']:
             t=self.trace();t.root_frame(frame);self.assertEqual(t.binding['status'],'unavailable');self.assertFalse(self.create(t,32,48)['target_tree'])

@@ -11,13 +11,14 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run(adapter, image, directory, expected=None):
+def run(adapter, image, directory, expected=None, wrapper=None, depth=0):
     operation, token = os.urandom(16).hex(), os.urandom(32).hex()
     digest = expected or sha(image)
     request = directory / 'request.private'
     request.write_bytes(('\n'.join(('IS2_LAUNCH_V1', operation, token, '2', digest,
                                   str(image.stat().st_size), str(image), ''))).encode('utf-16le'))
-    result = subprocess.run([str(adapter), str(request)], cwd=directory,
+    argv = [str(wrapper), "--adapter", str(depth), str(adapter), str(request)] if wrapper else [str(adapter), str(request)]
+    result = subprocess.run(argv, cwd=directory,
                             capture_output=True, timeout=30)
     frames = [v.split() for v in result.stderr.decode().splitlines() if v.startswith('IS2_ROOT_V1 ')]
     if frames:
@@ -47,7 +48,11 @@ def main(directory):
         for test, code in (('exit23', 23), ('wrapper1', 0), ('wrapper3', 0)):
             case.write_text(test + '\n')
             result, frames = run(adapter, target, root)
-            assert result.returncode == code and len(frames) == 1
+            assert result.returncode == code and len(frames) == 1, (test, result.returncode, result.stdout, result.stderr)
+        case.write_text('exit23\n')
+        for depth in (1, 3):
+            result, frames = run(adapter, target, root, wrapper=source, depth=depth)
+            assert result.returncode == 23 and len(frames) == 1
         alias = root / 'alias.exe'
         os.link(target, alias)
         Path(str(alias) + '.case').write_text('exit23\n')

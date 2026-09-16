@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "basis": {
+    "is1_head": "a0fde40e4c2a0536aa9b3271c3b945a94aa60d9b",
+    "installed_source": "0543c3d3d021a5d9821302c085ec93fdd69ae92b"
+  },
+  "commercial_attempts_in_is2": 0,
+  "original_result_unchanged": {
+    "result_sha256": "4e66ab1dcaf37163d79f18ffb97ce41b11b2923c1c2e4fce47d27ab3637a2555",
+    "transaction_sha256": "cca7d8ad1e8a3461efac2ec384a636a9464821ae863b5d470cf03f80f0a63ca9",
+    "outer_exit": 2,
+    "durable_installation": "partial_installation",
+    "cleanup_confirmed": true,
+    "manager_cancel_requested": false,
+    "exception_or_stack": "unavailable"
+  },
+  "import": {
+    "sha256": "82d7b7977d4fbc19db32aee8778c75906f6ddf935bcf2958f2d8d45141b2b2cc",
+    "size": 179877344,
+    "architecture": "x86",
+    "container": "NSIS 3 Unicode Deflate",
+    "requested_execution_level": "requireAdministrator",
+    "proprietary_payloads_unpacked": false
+  },
+  "metadata_header": {
+    "sha256": "904488499b0f882a777d2fc7346ac5680e1f3ed8816283bf17ac8e84815b0223",
+    "size": 125336,
+    "both_dialog_strings_present": true,
+    "metadata_only_private": true
+  },
+  "retained_command_observations": [
+    {
+      "query_class": "process_presence_query",
+      "command_observation_sha256": "b721274996f585fb408b0048bb244301b29ad2e8dfc71f13b3dc3008f3af634a",
+      "invocation_line_sha256": "a903bb86f121ad41dd4ec4935430bc621d53b28797e278d657e249b813184607",
+      "path_scope": "installation_directory_prefix",
+      "relative_to_first_retained_query_s": 0.0
+    },
+    {
+      "query_class": "process_close_request",
+      "command_observation_sha256": "ad77a7d64aba292e9ed161bdb310e9a363687a411a9367e01368d30017ea0fdb",
+      "invocation_line_sha256": "d09f15f5784e348e156762f3ea3dfada638731d56cedd045ec978f5ddd1246d9",
+      "path_scope": "installation_directory_prefix",
+      "relative_to_first_retained_query_s": 1.143
+    },
+    {
+      "query_class": "process_presence_query",
+      "command_observation_sha256": "b721274996f585fb408b0048bb244301b29ad2e8dfc71f13b3dc3008f3af634a",
+      "invocation_line_sha256": "eafee316f64deea69bec80bf0dea32117d9789b5381fcec3b8f3c17e2c9f5595",
+      "path_scope": "installation_directory_prefix",
+      "relative_to_first_retained_query_s": 1.278
+    },
+    {
+      "query_class": "process_presence_query",
+      "command_observation_sha256": "b721274996f585fb408b0048bb244301b29ad2e8dfc71f13b3dc3008f3af634a",
+      "invocation_line_sha256": "d6a5300681a9b26f5322523fe328b97b053e9feffad5dba3a3dc26ae62c70074",
+      "path_scope": "installation_directory_prefix",
+      "relative_to_first_retained_query_s": 43.299
+    },
+    {
+      "query_class": "process_close_request",
+      "command_observation_sha256": "ad77a7d64aba292e9ed161bdb310e9a363687a411a9367e01368d30017ea0fdb",
+      "invocation_line_sha256": "0a88820c32096a15f4f5036407e3d340858a199559dce9f41dc038b73279747a",
+      "path_scope": "installation_directory_prefix",
+      "relative_to_first_retained_query_s": 44.443
+    },
+    {
+      "query_class": "process_presence_query",
+      "command_observation_sha256": "b721274996f585fb408b0048bb244301b29ad2e8dfc71f13b3dc3008f3af634a",
+      "invocation_line_sha256": "1935a0f2507d65d1e3a30d62c3294d5dbb547834e22eff9a208396896b244a88",
+      "path_scope": "installation_directory_prefix",
+      "relative_to_first_retained_query_s": 44.578
+    }
+  ],
+  "mechanism": {
+    "presence": "powershell_cim_Win32_Process_executable_path_prefix_count",
+    "close": "powershell_Stop_Process_exact_query_result_ProcessId_force",
+    "recheck": "same_presence_query",
+    "static_fallback_taskkill": "present_not_observed_executed",
+    "matched_object_count": null,
+    "selected_object": null,
+    "before_after_object_generation": null,
+    "actual_script_execution": "unproved_in_retained_commercial_record",
+    "helper_exit_is_not_query_result": true
+  },
+  "post_retirement_census": {
+    "files_examined": 1939,
+    "enumeration_incomplete": [],
+    "retained_standalone_scripts": 0,
+    "surviving_relevant_files": [
+      {
+        "category": "vendor_version_metadata",
+        "size": 943,
+        "sha256": "9ab2acf9fc46ea670ffdfb26490f1b47bf8d35d4bae193e7c3de6c7f4462c6a9"
+      },
+      {
+        "category": "prerequisite_log",
+        "size": 17222,
+        "sha256": "3efcd903f90a85923ac1822d463be53b7900c7957c70425695796c8c396ab5a5"
+      },
+      {
+        "category": "prerequisite_log",
+        "size": 18463,
+        "sha256": "18282d66bb346d001bc902255631f9eb487b5e2600637e369a7f1b5603264387"
+      },
+      {
+        "category": "prerequisite_log",
+        "size": 18069,
+        "sha256": "3deff5801fcbc101301c3450202e3cf2a5431c72c8b42e511e6fec32b04cd66c"
+      }
+    ]
+  },
+  "runtime_images": [
+    {
+      "architecture": "x64",
+      "sha256": "7daff50bfca785dca40ed5d55caf1b5c6d81116b651482b258981d0df0a1f3e8",
+      "size": 59911,
+      "prefix_equals_runner_bytes": true
+    },
+    {
+      "architecture": "x86",
+      "sha256": "663ff187203f464822e322b98c506b297a72fb00df004aedb0603bc63a59b3e6",
+      "size": 53457,
+      "prefix_equals_runner_bytes": true
+    }
+  ],
+  "nonclaims": [
+    "No exact matched process, window, mutex, lock or service was recovered for the old dialog.",
+    "No commercial child status is manufactured from the generated fixture.",
+    "No cancellation exit is relabelled as a crash or exception.",
+    "Static fallback strings do not establish execution.",
+    "Upstream source references do not prove the deployed binary source commit."
+  ]
+}

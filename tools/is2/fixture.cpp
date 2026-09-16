@@ -16,7 +16,7 @@ static PROCESS_INFORMATION spawn(const std::wstring& args,const std::wstring& ex
 }
 static DWORD join(PROCESS_INFORMATION p,DWORD wait=15000){if(!p.hProcess)return 250;if(WaitForSingleObject(p.hProcess,wait)!=WAIT_OBJECT_0)return 251;DWORD code=252;GetExitCodeProcess(p.hProcess,&code);CloseHandle(p.hProcess);return code;}
 struct Find {DWORD pid;HWND hwnd;unsigned count;};
-static BOOL CALLBACK enumerate(HWND hwnd,LPARAM v){auto f=reinterpret_cast<Find*>(v);DWORD pid=0;GetWindowThreadProcessId(hwnd,&pid);if(pid==f->pid){f->hwnd=hwnd;f->count++;}return TRUE;}
+static BOOL CALLBACK enumerate(HWND hwnd,LPARAM v){auto f=reinterpret_cast<Find*>(v);DWORD pid=0;GetWindowThreadProcessId(hwnd,&pid);wchar_t type[80]{};if(pid==f->pid&&GetClassNameW(hwnd,type,80)&&std::wstring(type)==L"IS2SourceOwned"){f->hwnd=hwnd;f->count++;}return TRUE;}
 static HWND find(DWORD pid){Find f{pid,nullptr,0};EnumWindows(enumerate,reinterpret_cast<LPARAM>(&f));return f.count==1?f.hwnd:nullptr;}
 static void emit(const std::string& test,const char* stage,DWORD pid,unsigned long long creation,int count,const char* outcome,DWORD status=0){
  std::printf("IS2_API_V1 case=%s stage=%s pid=%lu generation=%llu matches=%d outcome=%s status=%lu tick=%llu\n",test.c_str(),stage,pid,creation,count,outcome,status,GetTickCount64());std::fflush(stdout);
@@ -36,8 +36,14 @@ int wmain(int argc,wchar_t** argv){
   MSG m{};while(GetMessageW(&m,nullptr,0,0)>0){TranslateMessage(&m);DispatchMessageW(&m);}return 0;
  }
  if(argc==3&&std::wstring(argv[1])==L"--wrap"){auto n=wcstoul(argv[2],nullptr,10);return static_cast<int>(join(spawn(n?L"--wrap "+std::to_wstring(n-1):L"--payload")));}
+ if(argc==5&&std::wstring(argv[1])==L"--adapter"){
+  auto n=wcstoul(argv[2],nullptr,10);if(n>3)return 248;
+  std::wstring args=n?L"--adapter "+std::to_wstring(n-1)+L" \""+argv[3]+L"\" \""+argv[4]+L"\"":L"\""+std::wstring(argv[4])+L"\"";
+  return static_cast<int>(join(spawn(args,n?L"":std::wstring(argv[3]))));
+ }
  std::string test=case_file();if(test.empty())return 240;
  emit(test,"ready",GetCurrentProcessId(),born(GetCurrentProcess()),-1,"source_owned");
+ if(argc==2&&std::wstring(argv[1])==L"--payload")return 0;
  if(test=="wrapper1"&&argc==1)return static_cast<int>(join(spawn(L"--wrap 0")));
  if(test=="wrapper3"&&argc==1)return static_cast<int>(join(spawn(L"--wrap 2")));
  if(test=="exit23")return 23;

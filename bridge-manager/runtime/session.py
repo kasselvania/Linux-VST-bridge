@@ -1428,7 +1428,10 @@ class InstallerWindowsTrace:
             if len(self.rows)>=512:return refuse('root_observation_capacity')
             row={'epoch':self.epoch,'creation_ordinal':len(self.rows)+1,'windows_pid':pid,'windows_tid':None,'created_timestamp':None,'parent_ordinal':None,'creator_windows_pid':adapter,'creator_windows_tid':None,'target_tree':False,'target_root':False,'image_request':None,'image_identity':None,'role':'unknown','self_exit':None,'linux_identity':'unavailable_no_cross_id_inference'}
             self.rows.append(row);self.current[pid]=row;self.seen.add(pid)
-        elif row['creator_windows_pid']!=adapter or row['image_identity'] is None or row['image_identity'].get('sha256')!=b['artifact_sha256']:return refuse('trace_root_creator_or_image_not_exact')
+        elif row['creator_windows_pid']!=adapter or (row['image_identity'] is not None and row['image_identity'].get('sha256')!=b['artifact_sha256']):return refuse('trace_root_creator_or_image_conflict')
+        # The adapter proves the mapped image via the retained child handle and
+        # file ID. An unavailable/aliased Wine path observation is not stronger
+        # than that proof; a positively conflicting identity still refuses.
         row.update(target_root=True,target_tree=True,windows_creation_time=created,root_authority='verified_launch_adapter_exact_handle_image_and_creation_time')
         row['image_identity']={'sha256':digest,'size':int(size),'authority':'launch_adapter_same_open_file_hash_and_child_image_file_id'}
         b.update(status='bound',reason=None,root_ordinal=row['creation_ordinal'],windows_pid=pid,windows_creation_time=created,adapter_windows_pid=adapter,adapter_windows_creation_time=adapter_created)
