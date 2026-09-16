@@ -63,7 +63,7 @@ class WitnessTests(unittest.TestCase):
         self.assertEqual(session.InstallerWitnesses.compare(empty,empty)['classification'],'not_installed')
         partial={**empty,'files':{'ProgramData/cache/prerequisite.msi':{'sha256':'ab'}}}
         self.assertEqual(session.InstallerWitnesses.compare(empty,partial)['classification'],'partial_installation')
-        installed={**partial,'files':{'Program Files/fixture/app.exe':{'sha256':'cd'}},'uninstall':{'key':{'InstallLocation':'C:\\Program Files\\fixture'}}}
+        installed={**partial,'files':{'Program Files/fixture/app.exe':{'sha256':'cd','format':'pe_executable'}},'uninstall':{'key':{'InstallLocation':'C:\\Program Files\\fixture'}}}
         self.assertEqual(session.InstallerWitnesses.compare(empty,installed)['classification'],'installed')
         with tempfile.TemporaryDirectory() as tmp:
             tx=session.InstallerTransaction('ab'*16,tmp,pathlib.Path(tmp)/'r');tx.durable={'classification':'installed'}
@@ -133,3 +133,13 @@ class InstallerBoundaries(unittest.TestCase):
         s=session.InstallerStartup('ab'*16,{'path':'/unused','sha256':'cd'*32},'/private')
         s.feed(b'Xalia Assertion failed after process exited\n')
         self.assertIsNone(s.first_problem)
+
+    def test_nonzero_child_does_not_override_successful_outer_with_guessed_error_domain(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tx=session.InstallerTransaction('ab'*16,tmp,pathlib.Path(tmp)/'r')
+            tx.durable={'classification':'installed'}
+            tx.windows_trace.first_failure={'role':'unknown','phase':'target_runner','relationship':'descendant','domain':'wine_self_exit_observation','status':3010,'cause':'unestablished'}
+            value=tx.summary(0,True,False)
+            self.assertEqual(value['outcome'],'installed')
+            self.assertEqual(value['first_failure']['status'],3010)
+            self.assertEqual(value['safe_next_action'],'review_retained_outcome_before_retry')

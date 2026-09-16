@@ -1216,17 +1216,47 @@ def installer_open(path):
         for part in path.parts[1:-1]:
             next_fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
             os.close(fd);fd=next_fd
-        return os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=fd)
+        result=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=fd)
+        if not stat.S_ISREG(os.fstat(result).st_mode):
+            os.close(result);raise ValueError('installer observation requires regular file')
+        return result
     finally:os.close(fd)
 
 def installer_digest(path, maximum=64*1024*1024):
     with os.fdopen(installer_open(path),'rb') as f:
         a=os.fstat(f.fileno())
         if not stat.S_ISREG(a.st_mode) or a.st_size>maximum:raise ValueError('installer image bound/type')
-        digest=hashlib.file_digest(f,'sha256').hexdigest();b=os.fstat(f.fileno())
+        header=f.read(64);kind='unknown';pe=None
+        if header[:2]==b'MZ' and len(header)==64:
+            offset=struct.unpack_from('<I',header,60)[0]
+            if offset<=min(a.st_size-24,262144):
+                f.seek(offset);coff=f.read(24)
+                if coff[:4]==b'PE\0\0':
+                    kind='pe_executable';pe={'machine':struct.unpack_from('<H',coff,4)[0],'characteristics':struct.unpack_from('<H',coff,22)[0]}
+        elif header[:8]==bytes.fromhex('d0cf11e0a1b11ae1'):kind='compound_file'
+        f.seek(0);digest=hashlib.file_digest(f,'sha256').hexdigest();b=os.fstat(f.fileno())
         stamp=lambda m:(m.st_dev,m.st_ino,m.st_size,m.st_mtime_ns,m.st_ctime_ns)
         if stamp(a)!=stamp(b):raise ValueError('installer image changed')
-        return {'sha256':digest,'size':a.st_size,'device':a.st_dev,'inode':a.st_ino}
+        return {'sha256':digest,'size':a.st_size,'device':a.st_dev,'inode':a.st_ino,'format':kind,'pe':pe}
+
+def installer_walk(root,incomplete,deadline,limit=8192):
+    # os.walk materializes an entire directory before a caller can enforce a
+    # bound. Use a capped iterator instead; no filesystem-wide enumeration.
+    pending=[root];visited=0
+    while pending:
+        directory=pending.pop();files=[]
+        try:
+            if directory.resolve()!=directory:incomplete.append('aliased_directory');continue
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    visited+=1
+                    if visited>limit or time.monotonic()>deadline:
+                        incomplete.append('file_count_or_time_bound');return
+                    if entry.is_dir(follow_symlinks=False):pending.append(pathlib.Path(entry.path))
+                    elif entry.is_file(follow_symlinks=False):files.append(entry.name)
+            yield directory,[],files
+        except FileNotFoundError:continue
+        except OSError:incomplete.append('directory_unavailable')
 
 class InstallerWitnesses:
     """Allowlisted installation metadata, not a prefix/account-data export.
@@ -1237,7 +1267,7 @@ class InstallerWitnesses:
     def __init__(self, root):self.prefix=pathlib.Path(root)/'compatdata/pfx'
     def snapshot(self):
         out={'files':{},'logs':{},'uninstall':{},'services':{},'incomplete':[]}
-        c=self.prefix/'drive_c';count=0;budget=256*1024*1024
+        c=self.prefix/'drive_c';count=0;budget=256*1024*1024;deadline=time.monotonic()+5
         roots=[c/'Program Files',c/'Program Files (x86)',c/'ProgramData',c/'windows/temp']
         users=c/'users'
         if users.is_dir():
@@ -1245,10 +1275,10 @@ class InstallerWitnesses:
                 if not user.is_symlink():roots.append(user/'Temp');roots.append(user/'AppData/Local/Temp')
         for root in roots:
             if root.resolve()!=root:out['incomplete'].append('aliased_root');continue
-            for directory,dirs,files in os.walk(root,followlinks=False):
+            for directory,dirs,files in installer_walk(root,out["incomplete"],deadline,max(0,8192-count)):
                 dirs[:]=sorted(d for d in dirs if not (pathlib.Path(directory)/d).is_symlink())
                 count+=len(files)+1
-                if count>8192:out['incomplete'].append('file_count_bound');break
+                if count>8192 or time.monotonic()>deadline:out['incomplete'].append('file_count_or_time_bound');break
                 for name in sorted(files):
                     p=pathlib.Path(directory)/name;suffix=p.suffix.lower()
                     if suffix not in ('.exe','.dll','.msi','.log'):continue
@@ -1266,13 +1296,13 @@ class InstallerWitnesses:
                         else:out['incomplete'].append('image_hash_bound')
                         out['files'][relative]=row
                     except (OSError,ValueError):out['incomplete'].append('file_unavailable_or_changed')
-            if count>8192:break
+            if count>8192 or time.monotonic()>deadline:break
         for registry in ('system.reg','user.reg'):
             path=self.prefix/registry
             try:
                 with os.fdopen(installer_open(path),'rb') as f:data=f.read(8*1024*1024+1)
                 if len(data)>8*1024*1024:out['incomplete'].append('registry_bound');continue
-            except OSError:out['incomplete'].append('registry_unavailable');continue
+            except (OSError,ValueError):out['incomplete'].append('registry_unavailable');continue
             kind=None;key=None
             for line in data.decode(errors='replace').splitlines():
                 if line.startswith('['):
@@ -1308,7 +1338,7 @@ class InstallerWitnesses:
             location=after['uninstall'][key].get('InstallLocation','').replace('\\','/').rstrip('/')
             if not location.lower().startswith('c:/'):continue
             relative=location[3:].lower()+'/'
-            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith('.exe') and after['files'][p].get('sha256')]
+            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith('.exe') and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
             if images:registrations.append({'registration':key,'images':images})
         changed=any(delta[k]['added'] or delta[k]['changed'] for k in ('files','uninstall','services'))
         return {'delta':delta,'application_registrations':registrations,
@@ -1325,7 +1355,7 @@ class InstallerWindowsTrace:
     """
     HEADER=re.compile(r'^(\d+\.\d+):([0-9a-fA-F]+):([0-9a-fA-F]+):(trace|warn|err|fixme):([a-z0-9_]+):([A-Za-z0-9_]+) (.*)$')
     def __init__(self,artifact,root):
-        self.artifact=artifact;self.root=pathlib.Path(root);self.epoch=0;self.pending={};self.rows=[];self.current={};self.dropped=0;self.first_failure=None;self.cancelled=False;self.image_budget=256*1024*1024
+        self.artifact=artifact;self.root=pathlib.Path(root);self.epoch=0;self.pending={};self.rows=[];self.current={};self.dropped=0;self.first_failure=None;self.cancelled=False;self.image_budget=256*1024*1024;self.service_results=[]
     def begin(self):self.epoch+=1;self.pending={};self.current={}
     @staticmethod
     def image(body):
@@ -1346,6 +1376,12 @@ class InstallerWindowsTrace:
         match=self.HEADER.fullmatch(line.decode(errors='replace').rstrip('\r\n'))
         if not match:return False
         ts,pid,tid,level,channel,function,body=match.groups();pid=int(pid,16);tid=int(tid,16);key=(pid,tid)
+        if channel=='service' and function=='service_start':
+            result=re.fullmatch(r'returning (\d{1,10})',body)
+            if result and int(result[1])<2**32:
+                if len(self.service_results)<64:self.service_results.append({'epoch':self.epoch,'windows_pid':pid,'windows_tid':tid,'timestamp':ts,'function':function,'status':int(result[1]),'child_association':'unavailable_no_rpc_identity'})
+                else:self.dropped+=1
+            return True
         if channel=='service' and function in ('CreateServiceW','StartServiceW'):
             row=self.current.get(pid)
             if row and row['target_tree']:
@@ -1397,7 +1433,7 @@ class InstallerWindowsTrace:
                     'cause':'unestablished','epoch':self.epoch,'creation_ordinal':row['creation_ordinal'],'timestamp':ts,'windows_pid':pid}
             return True
         return True # exclude other process lines/arguments from private log projection
-    def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure}
+    def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results}
 
 class InstallerTransaction:
     def __init__(self,op,root,report,artifact=None):
@@ -1495,14 +1531,14 @@ class InstallerTransaction:
                 name=hashlib.sha256(rel.encode()).hexdigest()
                 fd=os.open(self.report.parent/(self.op+'-log-'+name),os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
                 with os.fdopen(fd,'wb') as out:out.write(data);out.flush();os.fsync(out.fileno())
-            except OSError:self.private_errors+=1
+            except (OSError,ValueError):self.private_errors+=1
         if self.ledger:self.ledger.commit()
     def summary(self,outer,clean,cancelled):
         ledger=self.ledger;failure=self.windows_trace.first_failure or (ledger.first_failure if ledger else None)
         durable=self.durable['classification'] if self.durable else 'unavailable'
         if not clean:outcome='cleanup_unconfirmed'
         elif cancelled:outcome='cancelled'
-        elif failure and failure['relationship']=='descendant':outcome='installed_dependency_failed' if durable=='installed' and failure['role']=='service_dependency' else 'child_failed'
+        elif outer not in (None,0) and failure and failure['relationship']=='descendant':outcome='installed_dependency_failed' if durable=='installed' and failure['role']=='service_dependency' else 'child_failed'
         elif outer not in (None,0):outcome='outer_nonzero_stage_unknown'
         elif durable=='installed':outcome='installed'
         elif durable in ('partial_installation','not_installed'):outcome=durable
@@ -1517,7 +1553,7 @@ class InstallerTransaction:
             'unattributed_adopted_exits':ledger.unattributed_waits if ledger else 0,
             'private_record_written':self.path.is_file(),'persistence_failures':(ledger.persistence_failures if ledger else 0)+self.private_errors,
             'diagnostics':self.diagnostics(),
-            'safe_next_action':'review_retained_outcome_before_retry' if outcome!='installed' else 'managed_first_launch_required_not_authorized_by_installation'}
+            'safe_next_action':'review_retained_outcome_before_retry' if outcome!='installed' or failure else 'managed_first_launch_required_not_authorized_by_installation'}
 
 def managed_install(spec):
     """MF2 initial installer, exact dedicated unit. No product admission authority."""
@@ -1602,7 +1638,6 @@ def managed_install(spec):
             if state in ('completed','failed'):
                 clean=True
                 if state=='failed':error='outer_nonzero_stage_unknown'
-                elif transaction.windows_trace.first_failure or ledger.first_failure:error='installer_child_failure_observed'
                 break
             request_path=report.parent/(op+'-focus.json')
             if request_path.exists():
