@@ -68,3 +68,12 @@ PR #110 at `e662c2d3b6a47428c559512ef14fef891213edbd` is an explicit source
 integration dependency (local merge only; PR #110 stays unmerged). Keep LC2's
 implementation PR stacked on that exact branch until independent review resolves
 it. Do not duplicate or discard the installed history/projection repairs.
+
+## Current result
+
+Generated real native/Windows restart proof passed. Exact selected Serum inspection
+and manager-owned candidate-B construction completed after the handoff repair.
+B `f6af02eb…` is prepared and unpublished; failed A and all original product history
+remain immutable. `evidence/lc2/result.json` records installed source/artifacts,
+lineage and healthy idle readback. Return draft PR #111 for review; no commercial
+launch or publication was performed and B's product behavior remains untested.

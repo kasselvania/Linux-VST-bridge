@@ -77,3 +77,19 @@ No ordinary publication or commercial session is part of this preparation proof.
 The source-owned restart result is not a claim that all observed Serum crashes
 are fixed. A later deliberately enabled candidate-B session must establish its
 real product behavior, preserving IF1/IF2/CA1 and positive retirement custody.
+
+## Completed preparation
+
+The corrected selected inspection completed with a separate exact controller.
+The installed manager then created candidate B
+`f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44` through
+its offered `PluginPrepare` operation, using the schema-2 kit without another
+product-specific route. B is a distinct immutable generation with candidate A as
+predecessor. Neither candidate is published. The new native hash, descriptor,
+inspection, source/recipe identities and healthy final state are in
+`evidence/lc2/result.json`. The old failed inspection is retained separately.
+
+This completes the lifecycle attribution, generated restart proof and corrected
+candidate preparation. Product behavior of B is deliberately untested. The
+manager's experimental controls still allow exact historical A; a later test must
+select B explicitly and retain its own product evidence.

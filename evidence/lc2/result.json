@@ -1,0 +1,258 @@
+{
+  "schema": 1,
+  "disposition": "LC2_CORRECTED_RUNTIME_CANDIDATE_PREPARED_UNPUBLISHED",
+  "implementation_head": "1228ad8e82c0f36ef49f8e3a384f166382d12f02",
+  "implementation_tree": "f2dfa41293c4ba39d0c627f48f30c7e9438aa73c",
+  "dependency_pr": 110,
+  "dependency_head": "e662c2d3b6a47428c559512ef14fef891213edbd",
+  "installed": {
+    "manager": "a092795ea43695abb4c9d8cffc404426ecc1a747d5f9498375e979736a87a1bc",
+    "operator_frontend": "621599fe477358dfe3265b87470b20525c3d87d6c791696c91b9281b1bfe6f2d",
+    "supervisor": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab",
+    "ownership": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2"
+  },
+  "kit_schema": 2,
+  "build": {
+    "builder_sha256": "8af097a89211fd51596cb3f0f36495016f95576bc460d97f405a7d6c34c4b265",
+    "descriptor_sha256": "402c52381dd2fee2678aa2d357aeba96a37a5d6a7acbed2b2e4322259bb159b5",
+    "dropped_bytes": 0,
+    "generator_sha256": "05ab8308c50d48871818b6906e7c6a2023c453bf225ae7733dd408686f504970",
+    "kit_sha256": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "native_sha256": "afd9bdac62b0f63a0e2353f97aa11048945823c35cc2abbea936ee6d255bfd77",
+    "schema": 1,
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "sdk_runtime": "b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8",
+    "source_commit": "be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec"
+  },
+  "candidate_B": {
+    "id": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+    "origin": "managed_preparation",
+    "module": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+    "environment": "4db060b14388e41103834fc4dfdd023a",
+    "class_id": "56534558667350736572756D20320000",
+    "host": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "source_manifest": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+    "native": "afd9bdac62b0f63a0e2353f97aa11048945823c35cc2abbea936ee6d255bfd77",
+    "descriptor": "402c52381dd2fee2678aa2d357aeba96a37a5d6a7acbed2b2e4322259bb159b5",
+    "external_ids": [
+      "b7e8c3508fc755db9fdc29f971604942",
+      "f52ccadd0aff58ea8bcad3d50cfc70b9"
+    ],
+    "inspection_report": "fde9aa92d5b37439a32e18234ed08b8783b599290604b10e640b8dd1213adee9",
+    "inspection_controller": {
+      "kind": "separate",
+      "class_id": "56534558667343736572756D20320000"
+    },
+    "recipe_sha256": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "profile_claim": "review_candidate",
+    "profile_revision": 1
+  },
+  "candidate_history": [
+    {
+      "id": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+      "origin": "retained_sv1",
+      "disposition": "superseded",
+      "publication": "removed",
+      "lineage": {
+        "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+        "ordinal": 1,
+        "predecessor": null,
+        "preparation_identity": "sv1:a93ee5b13e4dc759cb55e90005c08b615cfe00cd:121c38272d670aaeace5c526dff0460178a9a6593267f596ecf28e96b83ee381",
+        "schema": 1
+      },
+      "unmet_requirements": [
+        "Midi: a retained passing product observation is required",
+        "Audio: a retained passing product observation is required",
+        "Automation: a retained passing product observation is required",
+        "StateRecall: a retained passing product observation is required",
+        "ProcessingRestart: a retained passing product observation is required",
+        "Retirement: a retained passing product observation is required"
+      ]
+    },
+    {
+      "id": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+      "origin": "managed_preparation",
+      "disposition": "prepared",
+      "publication": "removed",
+      "lineage": {
+        "candidate": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+        "ordinal": 2,
+        "predecessor": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+        "preparation_identity": "8e9e58844da819842397951882e7d1e1",
+        "schema": 1
+      },
+      "unmet_requirements": [
+        "DawLoad: a retained passing product observation is required",
+        "Midi: a retained passing product observation is required",
+        "Audio: a retained passing product observation is required",
+        "Editor: a retained passing product observation is required",
+        "Parameters: a retained passing product observation is required",
+        "Automation: a retained passing product observation is required",
+        "StateRecall: a retained passing product observation is required",
+        "ProcessingRestart: a retained passing product observation is required",
+        "Retirement: a retained passing product observation is required"
+      ]
+    }
+  ],
+  "preparation_receipt": {
+    "lock_waits": [
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 42,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "8e9e58844da819842397951882e7d1e1",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 32,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "8e9e58844da819842397951882e7d1e1",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 9878
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 31,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "8e9e58844da819842397951882e7d1e1",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 53,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "8e9e58844da819842397951882e7d1e1",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      }
+    ],
+    "operation": "8e9e58844da819842397951882e7d1e1",
+    "result": {
+      "artifact_reused": false,
+      "candidate": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+      "candidate_reused": false,
+      "prepared": true,
+      "publication_changed": false,
+      "selection": "1fe79af459cc358a5828aac1ff226bd2d738c52f44822d529a57e62c3d2e7c0f"
+    },
+    "schema": 1,
+    "state": "completed"
+  },
+  "products": [
+    {
+      "name": "Pigments",
+      "class_id": "41727475415649534B61743150726F63",
+      "disposition": "ready",
+      "active_revision": 18,
+      "rollback_revision": null
+    },
+    {
+      "name": "Pure LoFi",
+      "class_id": "417274754156495350724C4650726F63",
+      "disposition": "ready",
+      "active_revision": 10,
+      "rollback_revision": null
+    },
+    {
+      "name": "Efx FRAGMENTS",
+      "class_id": "41727475415649536772616E50726F63",
+      "disposition": "ready",
+      "active_revision": 10,
+      "rollback_revision": null
+    },
+    {
+      "name": "Serum 2",
+      "class_id": "56534558667350736572756D20320000",
+      "disposition": "prepared",
+      "active_revision": null,
+      "rollback_revision": null
+    },
+    {
+      "name": "Serum 2 FX",
+      "class_id": "56534558667351736572756D20322066",
+      "disposition": "installed_unqualified",
+      "active_revision": null,
+      "rollback_revision": null
+    }
+  ],
+  "preservation": {
+    "files": 222,
+    "changed": [],
+    "projects": 5
+  },
+  "final_system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "operator_model": 4,
+  "owned_units": [
+    {
+      "active": "inactive",
+      "cohort_empty": true
+    },
+    {
+      "active": "inactive",
+      "cohort_empty": true
+    },
+    {
+      "active": "inactive",
+      "cohort_empty": true
+    },
+    {
+      "active": "inactive",
+      "cohort_empty": true
+    },
+    {
+      "active": "inactive",
+      "cohort_empty": true
+    },
+    {
+      "active": "inactive",
+      "cohort_empty": true
+    }
+  ],
+  "resume_absent": true,
+  "serum_physical_link_absent": true,
+  "new_product_session": false,
+  "new_publication": false,
+  "nonclaims": [
+    "Generated lifecycle proof does not establish Serum Bitwig behavior or universal crash repair.",
+    "Candidate B has no new DAW/audio/editor/state/retirement product evidence.",
+    "Candidate A remains immutable. Its failed ProcessingRestart and unproved normal Retirement are not transferred to B.",
+    "Existing manager still offers exact experimental enable for historical A; the prepared successor is B, not A.",
+    "Removed is the canonical class publication tombstone; candidate B has never been published.",
+    "No ordinary qualification or promotion."
+  ]
+}
