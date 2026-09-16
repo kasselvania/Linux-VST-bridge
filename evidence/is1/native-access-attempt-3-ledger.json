@@ -1,0 +1,1206 @@
+{
+  "schema": 1,
+  "source_private_record_sha256": "cca7d8ad1e8a3461efac2ec384a636a9464821ae863b5d470cf03f80f0a63ca9",
+  "privacy": "separate_per_domain_ordinals_only_no_cross_system_join",
+  "linux": [
+    {
+      "ordinal": 1,
+      "relationship": "direct_launcher",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "observed",
+      "linux_exit": {
+        "domain": "linux_wait",
+        "status": 0,
+        "source": "proc_zombie_wait_status",
+        "reaped": true
+      }
+    },
+    {
+      "ordinal": 2,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 3,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 4,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 5,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 6,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 7,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 8,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 9,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 10,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 11,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 12,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 13,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 14,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 15,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 16,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 17,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 18,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 19,
+      "relationship": "descendant",
+      "phase": "prefix_initialization",
+      "role": "unknown",
+      "exit_availability": "observed",
+      "linux_exit": {
+        "domain": "linux_wait",
+        "status": 0,
+        "source": "proc_zombie_wait_status",
+        "reaped": false
+      }
+    },
+    {
+      "ordinal": 20,
+      "relationship": "direct_launcher",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "observed",
+      "linux_exit": {
+        "domain": "linux_wait",
+        "status": 2,
+        "source": "proc_zombie_wait_status",
+        "reaped": true
+      }
+    },
+    {
+      "ordinal": 21,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 22,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 23,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 24,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 25,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 26,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 27,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 28,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 29,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 30,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 31,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 32,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 33,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 34,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 35,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 36,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 37,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "observed",
+      "linux_exit": {
+        "domain": "linux_wait",
+        "status": 0,
+        "source": "proc_zombie_wait_status",
+        "reaped": false
+      }
+    },
+    {
+      "ordinal": 38,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 39,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 40,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 41,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 42,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 43,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 44,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 45,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 46,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 47,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 48,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 49,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 50,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 51,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 52,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 53,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 54,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 55,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 56,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 57,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 58,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 59,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 60,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 61,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 62,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 63,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 64,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 65,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 66,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 67,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 68,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 69,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    },
+    {
+      "ordinal": 70,
+      "relationship": "descendant",
+      "phase": "target_runner",
+      "role": "unknown",
+      "exit_availability": "unavailable_parent_reaped_or_unobserved",
+      "linux_exit": null
+    }
+  ],
+  "windows": [
+    {
+      "ordinal": 1,
+      "epoch": 1,
+      "parent_ordinal": null,
+      "image_label": "services.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 2,
+      "epoch": 1,
+      "parent_ordinal": 1,
+      "image_label": "winedevice.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 3,
+      "epoch": 1,
+      "parent_ordinal": 1,
+      "image_label": "plugplay.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 4,
+      "epoch": 1,
+      "parent_ordinal": 1,
+      "image_label": "svchost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 5,
+      "epoch": 1,
+      "parent_ordinal": 1,
+      "image_label": "winedevice.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 6,
+      "epoch": 1,
+      "parent_ordinal": null,
+      "image_label": "unavailable_or_other",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 7,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "services.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 8,
+      "epoch": 2,
+      "parent_ordinal": 7,
+      "image_label": "winedevice.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 9,
+      "epoch": 2,
+      "parent_ordinal": 7,
+      "image_label": "plugplay.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 10,
+      "epoch": 2,
+      "parent_ordinal": 7,
+      "image_label": "svchost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 11,
+      "epoch": 2,
+      "parent_ordinal": 7,
+      "image_label": "winedevice.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 12,
+      "epoch": 2,
+      "parent_ordinal": 7,
+      "image_label": "rpcss.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 13,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "tabtip.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": null
+    },
+    {
+      "ordinal": 14,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "xalia.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 15,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "VC_redist.x64.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": {
+        "sha256": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b",
+        "size": 25635768,
+        "authority": "same_open_file_at_launch_request_not_mapped"
+      },
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 16,
+      "epoch": 2,
+      "parent_ordinal": 15,
+      "image_label": "VC_redist.x64.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": {
+        "sha256": "568c9ba533624084ea18f7a562b4aa2249ed4e41281524a061a0d0b1008cf6bd",
+        "size": 686152,
+        "authority": "same_open_file_at_launch_request_not_mapped"
+      },
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 17,
+      "epoch": 2,
+      "parent_ordinal": 16,
+      "image_label": "VC_redist.x64.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": {
+        "sha256": "568c9ba533624084ea18f7a562b4aa2249ed4e41281524a061a0d0b1008cf6bd",
+        "size": 686152,
+        "authority": "same_open_file_at_launch_request_not_mapped"
+      },
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 18,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 19,
+      "epoch": 2,
+      "parent_ordinal": 18,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 20,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 21,
+      "epoch": 2,
+      "parent_ordinal": 20,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 22,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 23,
+      "epoch": 2,
+      "parent_ordinal": 22,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 24,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 25,
+      "epoch": 2,
+      "parent_ordinal": 24,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 26,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 27,
+      "epoch": 2,
+      "parent_ordinal": 26,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 28,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 29,
+      "epoch": 2,
+      "parent_ordinal": 28,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 30,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 31,
+      "epoch": 2,
+      "parent_ordinal": 30,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 32,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 33,
+      "epoch": 2,
+      "parent_ordinal": 32,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 34,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 35,
+      "epoch": 2,
+      "parent_ordinal": 34,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 36,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 37,
+      "epoch": 2,
+      "parent_ordinal": 36,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 38,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 39,
+      "epoch": 2,
+      "parent_ordinal": 38,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 40,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 41,
+      "epoch": 2,
+      "parent_ordinal": 40,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 42,
+      "epoch": 2,
+      "parent_ordinal": null,
+      "image_label": "powershell.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    },
+    {
+      "ordinal": 43,
+      "epoch": 2,
+      "parent_ordinal": 42,
+      "image_label": "conhost.exe",
+      "target_root": false,
+      "target_tree": false,
+      "role": "unknown",
+      "image_identity": null,
+      "self_exit": {
+        "domain": "wine_self_exit_observation",
+        "status": 0,
+        "source": "Wine NtTerminateProcess self pseudo-handle"
+      }
+    }
+  ]
+}

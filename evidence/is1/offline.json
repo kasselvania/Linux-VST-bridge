@@ -1,0 +1,407 @@
+{
+  "schema": 1,
+  "phase": "A_read_only_before_implementation",
+  "import": {
+    "sha256": "82d7b7977d4fbc19db32aee8778c75906f6ddf935bcf2958f2d8d45141b2b2cc",
+    "size": 179877344,
+    "pe": {
+      "type": "pe",
+      "machine": "0x14c",
+      "characteristics": 271,
+      "timestamp": 1544912774,
+      "subsystem": 2,
+      "resources": [
+        {
+          "type": 16,
+          "size": 796,
+          "sha256": "83f4d3b5cef7d993a61d414dad6fa8b3c7b21c8c547c638963fd250a0b698ff8",
+          "strings": [
+            "VS_VERSION_INFO",
+            "StringFileInfo",
+            "040904e4",
+            "CompanyName",
+            "Native Instruments",
+            "FileDescription",
+            "Native Access is your one-stop hub for easy product installation, registration, and updates.",
+            "FileVersion",
+            "3.26.0.962",
+            "LegalCopyright",
+            "Copyright ",
+            " 2026 Native Instruments",
+            "ProductName",
+            "Native Access",
+            "ProductVersion",
+            "3.26.0",
+            "VarFileInfo",
+            "Translation"
+          ]
+        },
+        {
+          "type": 24,
+          "size": 1070,
+          "sha256": "97d9168ab7ed15bc99cd4a0a3ef30197cc1c0d2613f2c8bb136aa0ac6e266270",
+          "execution_level": [
+            "requireAdministrator"
+          ],
+          "assembly_identity": [
+            "<assemblyIdentity version=\"1.0.0.0\" processorArchitecture=\"*\" name=\"Nullsoft.NSIS.exehead\" type=\"win32\"/",
+            "<assemblyIdentity type=\"win32\" name=\"Microsoft.Windows.Common-Controls\" version=\"6.0.0.0\" processorArchitecture=\"*\" publicKeyToken=\"6595b64144ccf1df\" language=\"*\" /"
+          ]
+        }
+      ],
+      "overlay_bytes": 179663840,
+      "container_markers": [
+        "nsis"
+      ]
+    }
+  },
+  "attempts": [
+    {
+      "attempt": "44c66a0541510c3c84ef3707f592a5cd",
+      "outcome": "partial_installation",
+      "basis": [
+        "VC prerequisite packages and uninstall entries retained",
+        "Native Access 3.26.0 version markers retained",
+        "No application executable found in inspected installation surfaces",
+        "No NTK service registration found"
+      ],
+      "observed_files": [
+        {
+          "category": "prerequisite_cache",
+          "name": "VC_redist.x64.exe",
+          "size": 686152,
+          "sha256": "568c9ba533624084ea18f7a562b4aa2249ed4e41281524a061a0d0b1008cf6bd",
+          "pe": {
+            "type": "pe",
+            "machine": "0x14c",
+            "characteristics": 3330,
+            "timestamp": 1711145683,
+            "subsystem": 2,
+            "resources": [
+              {
+                "type": 16,
+                "size": 1036,
+                "sha256": "173af341ecc35e2d4a53548385918747608a7eabf69b214b28d47c643c1e0c60",
+                "strings": [
+                  "VS_VERSION_INFO",
+                  "StringFileInfo",
+                  "040904E4",
+                  "CompanyName",
+                  "Microsoft Corporation",
+                  "FileDescription",
+                  "Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211",
+                  "FileVersion",
+                  "14.44.35211.0",
+                  "InternalName",
+                  "setup",
+                  "LegalCopyright",
+                  "Copyright (c) Microsoft Corporation. All rights reserved.",
+                  "OriginalFilename",
+                  "VC_redist.x64.exe",
+                  "ProductName",
+                  "Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211",
+                  "ProductVersion",
+                  "14.44.35211.0",
+                  "VarFileInfo",
+                  "Translation"
+                ]
+              },
+              {
+                "type": 24,
+                "size": 1234,
+                "sha256": "409b7a72f95793e29fe6b03ef2c28effbc5b80ffe57fb7a974439022cc7a0e75",
+                "execution_level": [
+                  "asInvoker"
+                ],
+                "assembly_identity": [
+                  "<assemblyIdentity name=\"setup.exe\" version=\"1.0.0.0\" processorArchitecture=\"x86\" type=\"win32\"",
+                  "<assemblyIdentity type=\"win32\" name=\"Microsoft.Windows.Common-Controls\" version=\"6.0.0.0\" processorArchitecture=\"X86\" publicKeyToken=\"6595b64144ccf1df\" language=\"*\""
+                ]
+              }
+            ],
+            "overlay_bytes": 206408,
+            "container_markers": [
+              "cabinet"
+            ]
+          }
+        },
+        {
+          "category": "prerequisite_cache",
+          "name": "vc_runtimeMinimum_x64.msi",
+          "size": 212992,
+          "sha256": "fe5af8f2efc9bbdd2c23f22f2d3daf480a4047acf3b1edc6ecda81147c1ec14f",
+          "pe": null
+        },
+        {
+          "category": "prerequisite_cache",
+          "name": "vc_runtimeAdditional_x64.msi",
+          "size": 212992,
+          "sha256": "7df26ee2169ef6c61c17675e1a2edbaf01bca2ed1a0bdc0f8396d029a336c1f7",
+          "pe": null
+        },
+        {
+          "category": "installer_log",
+          "name": "dd_vcredist_amd64_<attempt-time>_000_vcRuntimeMinimum_x64.log",
+          "size": 18069,
+          "sha256": "cc31a989ef5c99ecccd1197f045d8e81f68f92a8ec900c2935839a740c842c64",
+          "pe": null
+        },
+        {
+          "category": "installer_log",
+          "name": "dd_vcredist_amd64_<attempt-time>_001_vcRuntimeAdditional_x64.log",
+          "size": 18463,
+          "sha256": "f19032c6c3711c939ee1f9bcedac40be54ad3521e62d6f66cb3c4ab92140a16a",
+          "pe": null
+        },
+        {
+          "category": "installer_log",
+          "name": "dd_vcredist_amd64_<attempt-time>.log",
+          "size": 17222,
+          "sha256": "3530edf443e586921936df4b0f8b3fd75d5e05e4600266f1cd3c8d04ad90aca6",
+          "pe": null
+        }
+      ],
+      "uninstall_entries": {
+        "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{43B0D101-A022-48F4-9D04-BA404CEB1D53}": [
+          "\"DisplayName\"=\"Microsoft Visual C++ 2022 X64 Minimum Runtime - 14.44.35211\"",
+          "\"DisplayVersion\"=\"14.44.35211\"",
+          "\"InstallLocation\"=\"\"",
+          "\"Publisher\"=\"Microsoft Corporation\"",
+          "\"UninstallString\"=str(2):\"MsiExec.exe /I{43B0D101-A022-48F4-9D04-BA404CEB1D53}\""
+        ],
+        "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{86AB2CC9-08BD-4643-B0F9-F82D006D72FF}": [
+          "\"DisplayName\"=\"Microsoft Visual C++ 2022 X64 Additional Runtime - 14.44.35211\"",
+          "\"DisplayVersion\"=\"14.44.35211\"",
+          "\"InstallLocation\"=\"\"",
+          "\"Publisher\"=\"Microsoft Corporation\"",
+          "\"UninstallString\"=str(2):\"MsiExec.exe /I{86AB2CC9-08BD-4643-B0F9-F82D006D72FF}\""
+        ],
+        "Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{D535B019-7406-58F2-8408-EA9A188713EF}": [
+          "\"DisplayName\"=\"Wine Mono Windows Support\"",
+          "\"DisplayVersion\"=\"11.2.0\"",
+          "\"InstallLocation\"=\"\"",
+          "\"Publisher\"=\"The Wine Project\"",
+          "\"UninstallString\"=str(2):\"MsiExec.exe /I{D535B019-7406-58F2-8408-EA9A188713EF}\""
+        ],
+        "Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{d8bbe9f9-7c5b-42c6-b715-9ee898a2e515}": [
+          "\"DisplayName\"=\"Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211\"",
+          "\"DisplayVersion\"=\"14.44.35211.0\"",
+          "\"Publisher\"=\"Microsoft Corporation\"",
+          "\"UninstallString\"=\"\\\"C:\\\\ProgramData\\\\Package Cache\\\\{d8bbe9f9-7c5b-42c6-b715-9ee898a2e515}\\\\VC_redist.x64.exe\\\"  /uninstall\""
+        ]
+      },
+      "bounds": {
+        "visited": 24,
+        "truncated": false
+      },
+      "prior_manager_records": {
+        "121f66301954b835d216c76bc9de23be-spec.json": "9ca7f93bfbfe31e74ce9de7abc523478ff466f4b42300a2a0cd78a7f60c5e6c1",
+        "record.json": "ed8ae0793e49ce3d8d2c559b3059e801411648d255e5ae87c132b649e6cb9efc",
+        "121f66301954b835d216c76bc9de23be-result.json": "7451acfc6614e65f330e0eb601816a9c3ebe43ac01163e722891f776cc6044e7",
+        "121f66301954b835d216c76bc9de23be-private.log": "ebd0273b13694847f5915c6135ed5c47080bb11432b159591d76383a269aecad"
+      },
+      "outer_exit": 2,
+      "duration_ns": 42483154746,
+      "cleanup_confirmed": true,
+      "native_access_version_markers": {
+        "Software\\\\Native Instruments\\\\Native Access": [
+          "\"DisplayVersion\"=\"3.26.0\""
+        ],
+        "Software\\\\Wow6432Node\\\\Native Instruments\\\\Native Access": [
+          "\"DisplayVersion\"=\"3.26.0\""
+        ]
+      },
+      "service_configuration": "same 24 default service configurations in both attempts; no Native/NTK service"
+    },
+    {
+      "attempt": "49c19ffeb4e01fc11f8a26e2edbead82",
+      "outcome": "partial_installation",
+      "basis": [
+        "VC prerequisite packages and uninstall entries retained",
+        "Native Access 3.26.0 version markers retained",
+        "No application executable found in inspected installation surfaces",
+        "No NTK service registration found"
+      ],
+      "observed_files": [
+        {
+          "category": "prerequisite_cache",
+          "name": "VC_redist.x64.exe",
+          "size": 686152,
+          "sha256": "568c9ba533624084ea18f7a562b4aa2249ed4e41281524a061a0d0b1008cf6bd",
+          "pe": {
+            "type": "pe",
+            "machine": "0x14c",
+            "characteristics": 3330,
+            "timestamp": 1711145683,
+            "subsystem": 2,
+            "resources": [
+              {
+                "type": 16,
+                "size": 1036,
+                "sha256": "173af341ecc35e2d4a53548385918747608a7eabf69b214b28d47c643c1e0c60",
+                "strings": [
+                  "VS_VERSION_INFO",
+                  "StringFileInfo",
+                  "040904E4",
+                  "CompanyName",
+                  "Microsoft Corporation",
+                  "FileDescription",
+                  "Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211",
+                  "FileVersion",
+                  "14.44.35211.0",
+                  "InternalName",
+                  "setup",
+                  "LegalCopyright",
+                  "Copyright (c) Microsoft Corporation. All rights reserved.",
+                  "OriginalFilename",
+                  "VC_redist.x64.exe",
+                  "ProductName",
+                  "Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211",
+                  "ProductVersion",
+                  "14.44.35211.0",
+                  "VarFileInfo",
+                  "Translation"
+                ]
+              },
+              {
+                "type": 24,
+                "size": 1234,
+                "sha256": "409b7a72f95793e29fe6b03ef2c28effbc5b80ffe57fb7a974439022cc7a0e75",
+                "execution_level": [
+                  "asInvoker"
+                ],
+                "assembly_identity": [
+                  "<assemblyIdentity name=\"setup.exe\" version=\"1.0.0.0\" processorArchitecture=\"x86\" type=\"win32\"",
+                  "<assemblyIdentity type=\"win32\" name=\"Microsoft.Windows.Common-Controls\" version=\"6.0.0.0\" processorArchitecture=\"X86\" publicKeyToken=\"6595b64144ccf1df\" language=\"*\""
+                ]
+              }
+            ],
+            "overlay_bytes": 206408,
+            "container_markers": [
+              "cabinet"
+            ]
+          }
+        },
+        {
+          "category": "prerequisite_cache",
+          "name": "vc_runtimeMinimum_x64.msi",
+          "size": 212992,
+          "sha256": "fe5af8f2efc9bbdd2c23f22f2d3daf480a4047acf3b1edc6ecda81147c1ec14f",
+          "pe": null
+        },
+        {
+          "category": "prerequisite_cache",
+          "name": "vc_runtimeAdditional_x64.msi",
+          "size": 212992,
+          "sha256": "7df26ee2169ef6c61c17675e1a2edbaf01bca2ed1a0bdc0f8396d029a336c1f7",
+          "pe": null
+        },
+        {
+          "category": "installer_log",
+          "name": "dd_vcredist_amd64_<attempt-time>_001_vcRuntimeAdditional_x64.log",
+          "size": 18463,
+          "sha256": "e6930e30723cb61418bafc3deb28431e71f824ef0fd2c1f1053079350e0d7533",
+          "pe": null
+        },
+        {
+          "category": "installer_log",
+          "name": "dd_vcredist_amd64_<attempt-time>.log",
+          "size": 17222,
+          "sha256": "4a954e2fdc59301b1e464dd1601a76b4be1ef1d8d4ddf65d32141b59dd45e0ac",
+          "pe": null
+        },
+        {
+          "category": "installer_log",
+          "name": "dd_vcredist_amd64_<attempt-time>_000_vcRuntimeMinimum_x64.log",
+          "size": 18069,
+          "sha256": "08f3d117ea7868c6879a17e4251307779157f054b67570e1c5801ed1735753ae",
+          "pe": null
+        }
+      ],
+      "uninstall_entries": {
+        "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{43B0D101-A022-48F4-9D04-BA404CEB1D53}": [
+          "\"DisplayName\"=\"Microsoft Visual C++ 2022 X64 Minimum Runtime - 14.44.35211\"",
+          "\"DisplayVersion\"=\"14.44.35211\"",
+          "\"InstallLocation\"=\"\"",
+          "\"Publisher\"=\"Microsoft Corporation\"",
+          "\"UninstallString\"=str(2):\"MsiExec.exe /I{43B0D101-A022-48F4-9D04-BA404CEB1D53}\""
+        ],
+        "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{86AB2CC9-08BD-4643-B0F9-F82D006D72FF}": [
+          "\"DisplayName\"=\"Microsoft Visual C++ 2022 X64 Additional Runtime - 14.44.35211\"",
+          "\"DisplayVersion\"=\"14.44.35211\"",
+          "\"InstallLocation\"=\"\"",
+          "\"Publisher\"=\"Microsoft Corporation\"",
+          "\"UninstallString\"=str(2):\"MsiExec.exe /I{86AB2CC9-08BD-4643-B0F9-F82D006D72FF}\""
+        ],
+        "Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{D535B019-7406-58F2-8408-EA9A188713EF}": [
+          "\"DisplayName\"=\"Wine Mono Windows Support\"",
+          "\"DisplayVersion\"=\"11.2.0\"",
+          "\"InstallLocation\"=\"\"",
+          "\"Publisher\"=\"The Wine Project\"",
+          "\"UninstallString\"=str(2):\"MsiExec.exe /I{D535B019-7406-58F2-8408-EA9A188713EF}\""
+        ],
+        "Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{d8bbe9f9-7c5b-42c6-b715-9ee898a2e515}": [
+          "\"DisplayName\"=\"Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211\"",
+          "\"DisplayVersion\"=\"14.44.35211.0\"",
+          "\"Publisher\"=\"Microsoft Corporation\"",
+          "\"UninstallString\"=\"\\\"C:\\\\ProgramData\\\\Package Cache\\\\{d8bbe9f9-7c5b-42c6-b715-9ee898a2e515}\\\\VC_redist.x64.exe\\\"  /uninstall\""
+        ]
+      },
+      "bounds": {
+        "visited": 24,
+        "truncated": false
+      },
+      "prior_manager_records": {
+        "eb89de81b825e72f0b9acdc510bf2230-spec.json": "79bfd28b02aa5421aae7848d75c04fec6ee1f62a911ff3508677683f2992c797",
+        "eb89de81b825e72f0b9acdc510bf2230-result.json": "335bc7681733a8a7bc2c9c8c100180628aa5dc229bafc86cefd6391b2b37645c",
+        "record.json": "48954e831ab10491c3ea3c2d62aedbf8354260148bd035f3049e29baafe6bccb",
+        "eb89de81b825e72f0b9acdc510bf2230-private.log": "6adb46bd03047113f82814d5e3ab04721378b657460ce1f459160ecda801eb78"
+      },
+      "outer_exit": 2,
+      "duration_ns": 90389879789,
+      "cleanup_confirmed": true,
+      "native_access_version_markers": {
+        "Software\\\\Native Instruments\\\\Native Access": [
+          "\"DisplayVersion\"=\"3.26.0\""
+        ],
+        "Software\\\\Wow6432Node\\\\Native Instruments\\\\Native Access": [
+          "\"DisplayVersion\"=\"3.26.0\""
+        ]
+      },
+      "service_configuration": "same 24 default service configurations in both attempts; no Native/NTK service"
+    }
+  ],
+  "comparison": {
+    "cached_prerequisite_bytes_identical": true,
+    "uninstall_metadata_identical": true,
+    "service_metadata_identical": true,
+    "logs": "Different timestamps/process observations and hashes; same successful prerequisite results, outer exit 2.",
+    "pre_attempt_full_prefix_baseline": "unavailable; no historical file delta invented"
+  },
+  "selected_boundary": "reporting/custody defect established; exact post-prerequisite failing stage remains unknown",
+  "nonclaims": [
+    "RequireAdministrator is PE metadata, not proof of elevation failure.",
+    "No NTK service found does not prove service installation was attempted.",
+    "No Xalia, graphics, Wine or vendor root cause established.",
+    "No payload unpacked or rerun.",
+    "No complete application/dependency installation proved."
+  ],
+  "inspected_surfaces": [
+    "Program Files",
+    "Program Files (x86)",
+    "ProgramData",
+    "managed temporary directories",
+    "managed-user installation and vendor directories",
+    "uninstall/service registry sections"
+  ],
+  "installed_software": {
+    "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+    "operator_frontend": "621599fe477358dfe3265b87470b20525c3d87d6c791696c91b9281b1bfe6f2d",
+    "manager": "a092795ea43695abb4c9d8cffc404426ecc1a747d5f9498375e979736a87a1bc",
+    "supervisor": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab",
+    "ownership": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+    "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+    "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+    "native_catalogue": "fec53cf54f713407a9be055a43e9b03c2b477f9329eb8dcd9dc1a5c6e277eca8"
+  }
+}

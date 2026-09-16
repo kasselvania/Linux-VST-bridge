@@ -172,3 +172,18 @@ add_executable(mf2-bootstrap-ready ../tools/mf2/bootstrap_ready.cpp)
 target_compile_options(mf2-bootstrap-ready PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(mf2-bootstrap-ready PRIVATE /Brepro /INCREMENTAL:NO)
 set_target_properties(mf2-bootstrap-ready PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# IS1 account-free multistage installer; never linked into a product host.
+add_executable(is1-bootstrapper ../tools/is1/bootstrapper.cpp)
+target_compile_definitions(is1-bootstrapper PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(is1-bootstrapper PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(is1-bootstrapper PRIVATE /Brepro /INCREMENTAL:NO)
+target_link_libraries(is1-bootstrapper PRIVATE advapi32)
+set_target_properties(is1-bootstrapper PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(is1-direct-msi ../tools/is1/direct_msi.cpp)
+target_compile_definitions(is1-direct-msi PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(is1-direct-msi PRIVATE /W4 /permissive- /EHsc /Brepro)
+target_link_options(is1-direct-msi PRIVATE /Brepro /INCREMENTAL:NO)
+target_link_libraries(is1-direct-msi PRIVATE msi)
+set_target_properties(is1-direct-msi PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

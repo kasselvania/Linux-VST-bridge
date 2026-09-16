@@ -1,0 +1,1134 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-09-16T04:26:19.401106+00:00",
+  "base_commit": "0d1c644a182c98e326ee4697f49b4d0c1dfc45a0",
+  "base_tree": "c9d126b541fefd59842da6f96e4362d2d26fe9f4",
+  "implementation_commit": "f3997a2b58dc7cf85d912fc2266146d6fc258a9d",
+  "implementation_tree": "11449b3c7a2748a08b207e4015de4176cd5d75d8",
+  "dependency": "PR #111 and its #110 dependency remain separate and unmerged",
+  "disposition": "IS1_SOURCE_IMPLEMENTED_PENDING_INDEPENDENT_REVIEW",
+  "generic_owner": "installer process custody and reporting",
+  "native_access_cause": "unresolved post-prerequisite boundary",
+  "commercial_attempts_in_is1": 0,
+  "installed_software_changed": false,
+  "runner": {
+    "id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "version": "1788504981 proton-11.0-2c-x86_64; SLR 4.0.20260805.254769",
+    "verified_artifact_digest_set_sha256": "b1396f144c7c09798dce3ca2281816cea37cb30fa9f0070477841db0bc7b65e9"
+  },
+  "platform": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45"
+  },
+  "windows_fixture": {
+    "ap8_run": 35053586860,
+    "head": "566bbbad167608630624bae44779780fc046f9d1",
+    "bootstrapper_source_sha256": "3c9885ec8e1b68b631f69d184fed3c725916b33628c5fd645e5f9b7608dc2248",
+    "direct_msi_source_sha256": "e3d0ad1e2ff2a7768da3daae832959cedfb25269faa5fd5689e7118b8da9ba4a",
+    "unchanged_cpp_since_build": true
+  },
+  "execution_note": "Twelve cases plus direct MSI executed with source 7d0e1b4; later live in_progress presentation change is covered by generated tests and a production cancellation case at f3997a2. The strengthened independent oracle verified all twelve retained process chains without relaunching them.",
+  "cases": [
+    {
+      "case": "cancel_after_failure",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "3d5ff85a3241caf6c4c198c6a8ef387a955c86112cb1836894eaa08e00455798",
+      "duration_seconds": 10.483208,
+      "target_ready_marker": true,
+      "state": "cancelled",
+      "outer_linux_exit": -15,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": true,
+      "outcome": "cancelled",
+      "durable_installation": "not_installed",
+      "first_child_observation": {
+        "role": "unknown",
+        "phase": "target_runner",
+        "relationship": "descendant",
+        "domain": "wine_self_exit_observation",
+        "status": 39,
+        "cause": "unestablished"
+      },
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 27685,
+          "dropped_bytes": 163351,
+          "dropped_records": 1623
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 38,
+      "unavailable_linux_exits": 34,
+      "windows_self_exits": 4,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "handoff",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "f339c721980d0db79b323c890ec982f4dc2d0232f49713b7bf6c719f8411cf24",
+      "duration_seconds": 9.73863,
+      "target_ready_marker": true,
+      "state": "completed",
+      "outer_linux_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "not_installed",
+      "durable_installation": "not_installed",
+      "first_child_observation": null,
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 29232,
+          "dropped_bytes": 168017,
+          "dropped_records": 1676
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 43,
+      "unavailable_linux_exits": 39,
+      "windows_self_exits": 7,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "payload_failure",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "b218c506439d9233fb69ad0ff4c045b7e74dc4fa932c074b3107ad3146b1956a",
+      "duration_seconds": 7.912245,
+      "target_ready_marker": true,
+      "state": "failed",
+      "outer_linux_exit": 2,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "child_failed",
+      "durable_installation": "not_installed",
+      "first_child_observation": {
+        "role": "unknown",
+        "phase": "target_runner",
+        "relationship": "descendant",
+        "domain": "wine_self_exit_observation",
+        "status": 37,
+        "cause": "unestablished"
+      },
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 27962,
+          "dropped_bytes": 165960,
+          "dropped_records": 1653
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 41,
+      "unavailable_linux_exits": 36,
+      "windows_self_exits": 6,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "nothing_installed",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "9a1c9fdee1f172d6fba71d0ea72e0b7b660a1d199844fbdfcb31a8c1bcd8407b",
+      "duration_seconds": 7.962129,
+      "target_ready_marker": true,
+      "state": "completed",
+      "outer_linux_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "not_installed",
+      "durable_installation": "not_installed",
+      "first_child_observation": null,
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 26473,
+          "dropped_bytes": 163835,
+          "dropped_records": 1629
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 39,
+      "unavailable_linux_exits": 35,
+      "windows_self_exits": 5,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "same_names",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "8e51b32ba547552caefe79e9fb75eaecd46f28dbd1a65e96fe65e35824fd82d3",
+      "duration_seconds": 8.482614,
+      "target_ready_marker": true,
+      "state": "failed",
+      "outer_linux_exit": 2,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "child_failed",
+      "durable_installation": "not_installed",
+      "first_child_observation": {
+        "role": "unknown",
+        "phase": "target_runner",
+        "relationship": "descendant",
+        "domain": "wine_self_exit_observation",
+        "status": 47,
+        "cause": "unestablished"
+      },
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 29326,
+          "dropped_bytes": 168104,
+          "dropped_records": 1677
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 40,
+      "unavailable_linux_exits": 36,
+      "windows_self_exits": 7,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "success",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "134ee7b7b74c79abd3a26f25f40872fff091c97dc5280b7d7c9043f00e74cf14",
+      "duration_seconds": 8.921191,
+      "target_ready_marker": true,
+      "state": "completed",
+      "outer_linux_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "installed",
+      "durable_installation": "installed",
+      "first_child_observation": null,
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 27813,
+          "dropped_bytes": 165944,
+          "dropped_records": 1653
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 42,
+      "unavailable_linux_exits": 37,
+      "windows_self_exits": 6,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "msi",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "38cb63ecbee11b01cb42ae2b57c2db240a0cc86f2efe6344c76aee39aae296c5",
+      "private_proof_sha256": "5801b37e43aa5b4eb9a8acb257d80d2b76d5b1fe46d0b68c8b2da2b7e8eb37cf",
+      "duration_seconds": 9.737283,
+      "target_ready_marker": false,
+      "state": "completed",
+      "outer_linux_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "not_installed",
+      "durable_installation": "not_installed",
+      "first_child_observation": null,
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 26469,
+          "dropped_bytes": 484815,
+          "dropped_records": 5304
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 5271,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 46,
+      "unavailable_linux_exits": 41,
+      "windows_self_exits": 5,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "failure_while_alive",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "423b7576402b686c6a3f6af0203b0877692843294c6a4f3373ce7b81fb1fccd6",
+      "duration_seconds": 11.234402,
+      "target_ready_marker": true,
+      "state": "failed",
+      "outer_linux_exit": 2,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "child_failed",
+      "durable_installation": "not_installed",
+      "first_child_observation": {
+        "role": "unknown",
+        "phase": "target_runner",
+        "relationship": "descendant",
+        "domain": "wine_self_exit_observation",
+        "status": 39,
+        "cause": "unestablished"
+      },
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28017,
+          "dropped_bytes": 166062,
+          "dropped_records": 1654
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 39,
+      "unavailable_linux_exits": 36,
+      "windows_self_exits": 6,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "postlaunch_failure",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "97207d7995e809c7b7d32f56b6a510e3ea6170ab74b6fbfacfb7048f205a6473",
+      "duration_seconds": 9.121271,
+      "target_ready_marker": true,
+      "state": "failed",
+      "outer_linux_exit": 2,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "child_failed",
+      "durable_installation": "installed",
+      "first_child_observation": {
+        "role": "unknown",
+        "phase": "target_runner",
+        "relationship": "descendant",
+        "domain": "wine_self_exit_observation",
+        "status": 41,
+        "cause": "unestablished"
+      },
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 27453,
+          "dropped_bytes": 165966,
+          "dropped_records": 1653
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 44,
+      "unavailable_linux_exits": 39,
+      "windows_self_exits": 6,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "baseline-payload",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab",
+        "ownership.py": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "d0752ecfeb8c0796451a1fd420e9dbe6813a734467d4f07a11fa4900653c26d3",
+      "duration_seconds": 8.712719,
+      "target_ready_marker": true,
+      "state": "failed",
+      "outer_linux_exit": 2,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "legacy_error": "installer_launcher_failed",
+      "child_exit_attribution": "unavailable"
+    },
+    {
+      "case": "outer_first",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "adef112d85eb41fcfe894590d77b4093fb35c35c63e7d06f120185bb1c4c89a2",
+      "duration_seconds": 9.622912,
+      "target_ready_marker": true,
+      "state": "completed",
+      "outer_linux_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "not_installed",
+      "durable_installation": "not_installed",
+      "first_child_observation": null,
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 27907,
+          "dropped_bytes": 165827,
+          "dropped_records": 1652
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 39,
+      "unavailable_linux_exits": 34,
+      "windows_self_exits": 6,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "noise",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "1a945e1dba3dd987f0b065dded490cdbe9f3660505f41a839b3aaaa1d8646d94",
+      "duration_seconds": 8.416363,
+      "target_ready_marker": true,
+      "state": "completed",
+      "outer_linux_exit": 0,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "installed",
+      "durable_installation": "installed",
+      "first_child_observation": null,
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 26328,
+          "dropped_bytes": 163811,
+          "dropped_records": 1629
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 64,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 40,
+      "unavailable_linux_exits": 36,
+      "windows_self_exits": 5,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "short_lived",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "8db9875821b7d1c9a507b76be82f13a164c707705fb0ca86ee7b1abbe70456e3",
+      "duration_seconds": 8.331349,
+      "target_ready_marker": true,
+      "state": "failed",
+      "outer_linux_exit": 2,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "child_failed",
+      "durable_installation": "not_installed",
+      "first_child_observation": {
+        "role": "unknown",
+        "phase": "target_runner",
+        "relationship": "descendant",
+        "domain": "wine_self_exit_observation",
+        "status": 43,
+        "cause": "unestablished"
+      },
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 27886,
+          "dropped_bytes": 165952,
+          "dropped_records": 1653
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 41,
+      "unavailable_linux_exits": 38,
+      "windows_self_exits": 6,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "service_failure",
+      "source_archive_sha256": "1cb0ce80bad88be35a6d5612177819ec54bcaf1d58226889a5883156c472f917",
+      "source": {
+        "session.py": "a8fb86267a55b05db58a72a0c10262d76cbb7d6342430c684677513a659dd1a5",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "02f24b9a3ed40d5961426efed954cdc085f8645f1763eee8494f93a66a9555d3",
+      "duration_seconds": 8.112864,
+      "target_ready_marker": true,
+      "state": "failed",
+      "outer_linux_exit": 2,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": false,
+      "outcome": "installed_dependency_failed",
+      "durable_installation": "installed",
+      "first_child_observation": {
+        "role": "service_dependency",
+        "phase": "target_runner",
+        "relationship": "descendant",
+        "domain": "wine_self_exit_observation",
+        "status": 73,
+        "cause": "unestablished"
+      },
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 28466,
+          "dropped_bytes": 167490,
+          "dropped_records": 1671
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 42,
+      "unavailable_linux_exits": 36,
+      "windows_self_exits": 6,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    },
+    {
+      "case": "cancel_after_failure",
+      "source_archive_sha256": "ae53f03b5d42ecad3bbda0b620a407e810d234681bd2be0712dcb7dae68a1508",
+      "source": {
+        "session.py": "05b262ca7f16a7284f0ec6508a8eefe9cf9296ec0d0f3f72656412cf9d2ab45f",
+        "ownership.py": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377"
+      },
+      "payload_sha256": "57004befb646c9eca6c606e754657371cab2153e63d4fef886cd37c10d0ccb2c",
+      "private_proof_sha256": "2fcad796ff693c064b1f044542bf32c96b19675139fbc77dd163347143b49261",
+      "duration_seconds": 10.887109,
+      "target_ready_marker": true,
+      "state": "cancelled",
+      "outer_linux_exit": -15,
+      "cleanup_confirmed": true,
+      "owned_live": 0,
+      "same_identity_survivors": 0,
+      "unit_inactive": true,
+      "scratch_prefix_removed": true,
+      "cancellation_requested": true,
+      "outcome": "cancelled",
+      "durable_installation": "not_installed",
+      "first_child_observation": {
+        "role": "unknown",
+        "phase": "target_runner",
+        "relationship": "descendant",
+        "domain": "wine_self_exit_observation",
+        "status": 39,
+        "cause": "unestablished"
+      },
+      "diagnostic_counts": {
+        "runner": {
+          "capacity": 262144,
+          "record_capacity": 256,
+          "retained_bytes": 27685,
+          "dropped_bytes": 163351,
+          "dropped_records": 1623
+        },
+        "accessibility_observer": {
+          "capacity": 32768,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "msi": {
+          "capacity": 131072,
+          "record_capacity": 64,
+          "retained_bytes": 0,
+          "dropped_bytes": 0,
+          "dropped_records": 0
+        },
+        "line_drops": 0,
+        "retained_private_log_bytes": 0,
+        "dropped_private_log_bytes": 0,
+        "dropped_private_log_records": 0,
+        "unfinished_line_bytes": 0,
+        "availability": "bounded_runner_pipes",
+        "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+      },
+      "linux_processes_observed": 41,
+      "unavailable_linux_exits": 37,
+      "windows_self_exits": 4,
+      "dropped_process_observations": 0,
+      "persistence_failures": 0,
+      "stage_roles": "unknown unless exact service API evidence",
+      "witness_incomplete": []
+    }
+  ],
+  "oracle_verification": [
+    {
+      "case": "success",
+      "result": "passed"
+    },
+    {
+      "case": "payload_failure",
+      "result": "passed"
+    },
+    {
+      "case": "service_failure",
+      "result": "passed"
+    },
+    {
+      "case": "postlaunch_failure",
+      "result": "passed"
+    },
+    {
+      "case": "outer_first",
+      "result": "passed"
+    },
+    {
+      "case": "failure_while_alive",
+      "result": "passed"
+    },
+    {
+      "case": "short_lived",
+      "result": "passed"
+    },
+    {
+      "case": "handoff",
+      "result": "passed"
+    },
+    {
+      "case": "same_names",
+      "result": "passed"
+    },
+    {
+      "case": "cancel_after_failure",
+      "result": "passed"
+    },
+    {
+      "case": "noise",
+      "result": "passed"
+    },
+    {
+      "case": "nothing_installed",
+      "result": "passed"
+    }
+  ],
+  "validation": {
+    "manager_library_tests": 125,
+    "manager_binary_tests": 64,
+    "frontend_tests": 15,
+    "linux_runtime_tests": 91,
+    "manager_clippy": "passed -D warnings",
+    "frontend_clippy": "passed -D warnings",
+    "deck_staging_correction": "Initial broad run lacked repository profile data and used tmpfs cwd where a test requires disk. Corrected test staging passes all 91; production behavior was not altered for those assumptions.",
+    "ci_implementation_head": {
+      "AP8": 35055284194,
+      "AP12": 35055284154,
+      "PX2": 35055284162
+    },
+    "AP10": "not applicable; native/audio sources unchanged"
+  },
+  "final_state": {
+    "system": {
+      "service": "active",
+      "keepers": 2,
+      "dsp": 0,
+      "maintenance": 0,
+      "ceiling": 6,
+      "pending_transactions": 0,
+      "stale_transports": 0,
+      "cleanup_unconfirmed": false
+    },
+    "capture": {
+      "active_retention": 0,
+      "armed": false
+    },
+    "products": [
+      {
+        "name": "Pigments",
+        "revision": 18,
+        "claim": "verified_exact_fixture",
+        "publication": {
+          "id": "23cbf3bdbe4cf6d4ee3d2056103557ea",
+          "sha256": "9909092ab38a07cef970122d7e451d98828ac7864e477b5c6401ec00da064630"
+        },
+        "physical_link_verified": true,
+        "native_sha256": "56987399359d05b4b113f1818c48e6c57142cc8bf073dae255606d1e663ecc38",
+        "parent": {
+          "id": "bf9d2e4a96e4a7169f6a72bcf0937ebd",
+          "sha256": "2caa6d681261bb9ad07b75cadf04e824e6503169de58185c4445920ef8f67fd4"
+        }
+      },
+      {
+        "name": "Pure LoFi",
+        "revision": 10,
+        "claim": "verified_exact_fixture",
+        "publication": {
+          "id": "51f241c4da508aa1fbbc9d6d172eb123",
+          "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+        },
+        "physical_link_verified": true,
+        "native_sha256": "ce7531e4c76e53e85abe1153354fac890a6ba641b3b6333f5891a25f49843d59",
+        "parent": {
+          "id": "90e23e3e71322c27e3f9e4ce1021b9d8",
+          "sha256": "01abb8019e422c5f8b25a176c27ceb0d0e4018c9f99228928cbaaf582185cba2"
+        }
+      },
+      {
+        "name": "Efx FRAGMENTS",
+        "revision": 10,
+        "claim": "verified_exact_fixture",
+        "publication": {
+          "id": "e340c6f8ad5ca494d2fb477214c9937e",
+          "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+        },
+        "physical_link_verified": true,
+        "native_sha256": "11615d88cb253e22ca6f6beecbe946bdb5efd46882d091b65f9c461cd6757428",
+        "parent": {
+          "id": "d7c50af638553b3387f89a1064546aca",
+          "sha256": "e62c353565d4271f648c6831755ef6c95a764bec3a4141cf21bc6a5013fa2b4a"
+        }
+      },
+      {
+        "name": "Serum 2",
+        "revision": 1,
+        "claim": "review_candidate",
+        "publication": {
+          "id": "6105dee8ac8aa27855fc611abb794e7c",
+          "sha256": "2d8ff9572fd837d7b3ebe98c585c92c00c918ad839130c6c0efe231b272e2024"
+        },
+        "physical_link_verified": true,
+        "native_sha256": "afd9bdac62b0f63a0e2353f97aa11048945823c35cc2abbea936ee6d255bfd77",
+        "parent": {
+          "id": "19f3ec1079002f25b5ee2736a3ad06af",
+          "sha256": "19ebba3bc2ccee7b4a3be3c608637e01edc0d3d3667a5318d571fc194dc454e4"
+        }
+      }
+    ],
+    "pigments_rollback11_retained": true,
+    "native_access_attempts": [
+      {
+        "records_unchanged": true,
+        "registry_unchanged": true,
+        "observed_files_unchanged": true
+      },
+      {
+        "records_unchanged": true,
+        "registry_unchanged": true,
+        "observed_files_unchanged": true
+      }
+    ],
+    "native_access_import_sha256": "82d7b7977d4fbc19db32aee8778c75906f6ddf935bcf2958f2d8d45141b2b2cc",
+    "native_access_import_bytes": 179877344,
+    "installed_artifacts_verified_unchanged": {
+      "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+      "operator_frontend": "621599fe477358dfe3265b87470b20525c3d87d6c791696c91b9281b1bfe6f2d",
+      "manager": "a092795ea43695abb4c9d8cffc404426ecc1a747d5f9498375e979736a87a1bc",
+      "supervisor": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab",
+      "ownership": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "fec53cf54f713407a9be055a43e9b03c2b477f9329eb8dcd9dc1a5c6e277eca8"
+    },
+    "protected_projects_verified_unchanged": 5,
+    "historical_files_verified_unchanged": 221,
+    "comparison_note": "The older pre-LC2 registry baseline differs only as expected for the already-published Serum B state; current exact Serum publication matches the IS1 initial readback. No IS1 publication mutation occurred.",
+    "generated_units_verified_retired": 29,
+    "all_generated_prefixes_removed": true,
+    "resume_record_absent": true
+  },
+  "nonclaims": [
+    "No Native Access causality, exception stack, NTK/service/elevation/graphics/Xalia/runner defect is selected.",
+    "Exit statuses already reaped by Wine are unavailable to Linux wait custody. Windows create/self-exit traces are separately attributed diagnostics, never Linux PID identity or signal authority.",
+    "Roles not established by exact retained evidence remain unknown, including generic prerequisite/payload/updater semantics. Source-owned oracle labels are not production authority.",
+    "An installed file/registration witness does not prove dependency health, authorization or successful application first launch.",
+    "No real attempt or repaired software installation before independent source review; future managed first-launch capability is not implicitly authorized by this receipt.",
+    "No Serum, DAW, audio, runner, accessibility-policy, ordinary publication or project changes."
+  ]
+}

@@ -1,97 +1,70 @@
-# LC2 — Processing restart lifecycle repair
+# IS1 — Multi-stage installer custody and post-prerequisite attribution
 
-Selected by the operator after MF3 installation/readback. Base merged main:
-`be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec`, tree
-`b6664b8f0972861309d62e7f59e99e35061a45c3`. Separate branch/worktree; PR #110's
-installed manager history/readback corrections remain under review and must not
-be overwritten by an older manager installation.
+## Active authorized real-attempt handoff
 
-## Outcome
+The focused repair at `0543c3d3d021a5d9821302c085ec93fdd69ae92b` / tree
+`697a47c517109457b0fb12533525f09741ee53ad` received independent install clearance.
+The operator then explicitly authorized immutable installation and one linked,
+human-operated Native Access attempt. That continuation superseded the repair's
+no-install/no-live-run restriction below; it did not authorize another attempt.
 
-Identify and repair the exact bridge lifecycle boundary behind the retained SV1
-processing-restart correlation failure. Prove the repair through the real native
-queued worker and Windows processing owner with source-owned fixtures. Preserve
-all protocol identity, ordered lifecycle, thread ownership, terminal containment
-and cleanup laws. Changed product bytes belong to a new immutable candidate B;
-failed candidate A and its original evidence remain untouched.
+Exact reviewed software is installed. The single successor ended with partial
+installation, outer exit 2 and positive cleanup. Operator screenshots locate the
+visible boundary at running-application detection and failure to close it. The
+Windows trace has no imported-target root chain, so child failure attribution
+remains unavailable. No cause or crash is proved. Preserve this result separately
+in `evidence/is1/native-access-attempt-3.json`, its ledger projection and narrative.
+No runtime source changes, further commercial attempt, first launch or speculative
+compatibility repair belongs to this handoff. Commit/push evidence, retain exact
+installed identities and final state, and keep PR #112 draft/unmerged for review.
 
-## Basis and fixture
+## Accepted focused rereview repair
 
-`docs/SV1.md` First operator session and resting state; `docs/AP18.md` LC1;
-`evidence/sv1/first-operator-session.json`; current MappedSession, processing owner,
-native Session/queued worker and exact lifecycle fixtures. Serum 2 instrument
-2.1.5, class `56534558667350736572756D20320000`, exact accepted module
-`501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283`,
-managed environment `4db060b14388e41103834fc4dfdd023a`. Retained evidence establishes
-16,508 blocks followed by clean Stop/Deactivate and failure on restart, but does
-not identify the differing correlation field or prove a vendor exception.
+Continue PR #112 from reviewed head `55ffc7c0bc3bbf8f14514a6139193fea6abbc1ee`
+(tree `95a4302701e978d34910cf88ffd80d751f19e577`). The process ledger,
+Windows trace, durable witnesses, schemas, private diagnostics and retained
+fixture evidence are accepted. Repair only terminal new-attempt eligibility,
+Windows active-generation retirement, removal-only durable changes and complete
+first-failure presentation. Preserve all historical evidence bytes.
 
-## Scope and proof
+Run affected runtime/ownership, manager library/binary, frontend and strict
+Clippy checks, plus AP12/PX2. No Windows/build inputs change, so no AP8 rerun is
+required. No installation, Native Access attempt, twelve-case pinned Windows
+matrix, product mutation, dependency-PR change or merge belongs to this repair.
 
-Relevant Windows/native lifecycle owner and source-owned paired regressions,
-bounded mismatch diagnostics, exact build/candidate custody and review evidence.
-First inspect source and retained facts; reproduce before selecting a repair.
-Prove stop/start, deactivate/configure/reactivate, activation-only intervals,
-sequence/epoch continuity, state-control interleaving, malformed identity refusal,
-and positive cleanup as relevant to the discovered boundary. Run affected native,
-Windows, manager/runtime tests, strict Clippy, AP8/AP10/AP12/PX2 as their inputs
-require. Keep control-plane work out of audio callbacks.
+## Original implementation scope and retained basis
 
-## Preservation and delivery
+Operator-selected implementation. Exact integration base:
+`0d1c644a182c98e326ee4697f49b4d0c1dfc45a0`, tree
+`c9d126b541fefd59842da6f96e4362d2d26fe9f4`. PR #111 and its #110 dependency
+remain separate/unmerged. IS1 stacks on #111 because installed manager source
+`1228ad8` includes those fixes. No change to either dependency checkout or PR.
 
-No installer, rescan or authorization campaign. No speculative Serum/preset,
-graphics, accessibility, runner or scheduling workaround. No ordinary promotion
-or broad stability claim. Keep Pigments18/rollback11, LoFi10, FRAGMENTS10, protected
-projects, environments, imported installer and candidate A exact. New candidate
-must remain reversible and distinct. Reuse installed MF3 custody; do not overwrite
-PR #110's software with pre-repair main. Inspect idle/session ownership before any
-live change. No automatic commercial launch or input. Return one draft PR and
-actual proof/nonclaims; do not merge without independent review.
+Primary claim: the generic supervised Windows installer retains bounded exact
+process/exit and durable installation facts, separating outer launch, child
+failure, cancellation and cleanup instead of calling every nonzero outer exit a
+launch failure. Reuse MF2 installer owner, exact cgroup, immutable import and
+operation recovery. No native audio, VST runtime, profile, runner or Serum changes.
 
-## Source-grounded selected correction
+Phase A precedes implementation and launches: inspect both Native Access prefixes
+and imported PE offline. Retain sanitized comparison without proprietary payload,
+account material, raw process identifiers or private logs. Preserve both attempts
+and all existing products/environments/projects. No causal claim from Xalia noise,
+installer filename, manifest elevation request, or outer numeric exit alone.
 
-Readback identified candidate A's exact Windows host as a pre-LC1 build
-(`46c7b85`, host `3ee36fd3…`), while the installed schema-2 kit contains the
-corrected owner (`9434f828`, host `348a4bbc…`). Retained native failure reports
-operation 14 while the old Windows owner unconditionally awaits Start. The
-existing LC1 normal, activation-only and wrong-sequence fixtures passed on the
-pinned runner in a new isolated prefix. Reuse the implemented lifecycle fix;
-do not invent another runtime workaround.
+Implement operation-bound process/exit ledger, versioned transaction/stage outcome,
+private bounded diagnostics and truthful frontend presentation. Sample before
+reaping, retain adopted exits, and require the complete owned cohort empty for
+retirement. Every role requires evidence or stays unknown. Keep installed outcome
+separate from process outcome; unavailable observations remain explicit.
 
-Preparation exposed one exact manager defect: selected-class inspection passed
-`first_audio=true`. Repair that crossing and prove the emitted inspector binding
-preserves the selected instrument; retain the refused report without retry until
-the generated regression passes. New candidate preparation legitimately requires
-a fresh inspection under its newer host generation.
+Prove through generated source-owned Windows multistage cases under the pinned
+runner, private HOME, separate scratch prefix and dedicated cgroup. Run affected
+manager/frontend/runtime/ownership tests, strict Clippy, AP8/AP12/PX2. AP10 out of
+scope unless native/audio changes (not planned). Do not expand security boundaries.
 
-PR #110 at `e662c2d3b6a47428c559512ef14fef891213edbd` is an explicit source
-integration dependency (local merge only; PR #110 stays unmerged). Keep LC2's
-implementation PR stacked on that exact branch until independent review resolves
-it. Do not duplicate or discard the installed history/projection repairs.
-
-## Current result
-
-Generated real native/Windows restart proof passed. Exact selected Serum inspection
-and manager-owned candidate-B construction completed after the handoff repair.
-B `f6af02eb…` is prepared and unpublished; failed A and all original product history
-remain immutable. `evidence/lc2/result.json` records installed source/artifacts,
-lineage and healthy idle readback. Return draft PR #111 for review; no commercial
-launch or publication was performed and B's product behavior remains untested.
-
-## Authorized operator handoff
-
-After the preparation result, the operator explicitly requested candidate B be
-made available for a human Bitwig test. `evidence/lc2/experimental-handoff.json`
-records the completed exact experimental publication and physical native/host
-readback. B is now deliberately enabled; A remains inactive. No agent launch or
-input occurred. Existing CA1 arm only accepts ordinary profiles (or its older
-fixed failure fixture), so generic candidate capture is unavailable and remains
-off; IF1/IF2 terminal and cleanup records remain available. No bypass was used.
-Product result is pending the human session. This supersedes only the current
-unpublished resting state, not the immutable preparation evidence.
-
-The human has now used candidate B successfully and quit Bitwig. Its exact host
-report confirms the activation-only restart, subsequent processing, full module
-unload and positive cleanup. The result and retained delivery-gap limitation are
-in `evidence/lc2/operator-session.json`. B remains experimentally published; no
-ordinary promotion. PRs #110 and #111 remain draft and unmerged pending review.
+Real Native Access attempt requires independent source review, then immutable
+installation and idle readback. At most one fresh linked attempt, same imported
+installer, human-only vendor UI. No live retry or installed software replacement
+before that review. Return one draft PR, not merged. Preserve Serum B's current
+experimental publication and all other product state.

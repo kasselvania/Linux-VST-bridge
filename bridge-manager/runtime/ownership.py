@@ -247,3 +247,122 @@ class CompanionCgroup:
             if time.monotonic()>=deadline:return False
             self.signal_members(signal.SIGKILL if time.monotonic()>deadline-3 else signal.SIGTERM)
             time.sleep(POLL_SECONDS)
+
+class InstallerLedger:
+    """Installer-only, private cgroup/PID-start custody. No name-based ownership.
+
+    Linux cgroup.procs omits zombies. Known identities and WNOWAIT children are
+    therefore revalidated against /proc/PID/cgroup before reap as well. A child
+    already reaped by its own parent has an explicitly unavailable exit status.
+    Windows DWORD exits are not inferred from Linux's eight-bit exit status.
+    """
+    LIMIT = 512
+
+    def __init__(self, scope, persist, clock=time.monotonic_ns):
+        self.scope=scope; self.persist=persist; self.clock=clock
+        self.records={}; self.dropped=0; self.unattributed_waits=0; self.unattributed_exits=[]
+        self.first_failure=None; self.cancelled=False; self.launchers={}
+        self.persistence_failures=0; self.phase='environment_bootstrap'
+
+    def checked(self, pid):
+        before=self.scope.identity(pid); group=self.scope.group_of(pid); after=self.scope.identity(pid)
+        if not before or not after or before['start_ticks']!=after['start_ticks'] or not self.scope.contains(group):return None
+        return dict(after,cgroup=group)
+
+    def add(self, observed, phase=None):
+        phase=phase or self.phase
+        key=(observed['pid'],observed['start_ticks']); now=self.clock()
+        row=self.records.get(key)
+        if row is None:
+            if len(self.records)>=self.LIMIT:self.dropped+=1;return None
+            parent=self.checked(observed['ppid']);child_after=self.checked(key[0])
+            if not child_after or child_after['start_ticks']!=key[1] or parent and child_after['ppid']!=parent['pid']:parent=None
+            row={'pid':key[0],'start_ticks':key[1],'parent':None if parent is None else {'pid':parent['pid'],'start_ticks':parent['start_ticks']},
+                 'first_ns':now,'last_ns':now,'cgroup':observed['cgroup'],'state':observed['state'],
+                 'relationship':'direct_launcher' if observed['pid'] in self.launchers else 'descendant','phase':phase,'role':'unknown','role_evidence':None,
+                 'linux_exit':None,'windows_exit':None,'exit_availability':'unavailable',
+                 'images':[],'image_observation':'unavailable'}
+            self.records[key]=row
+        row['last_ns']=now; row['state']=observed['state']
+        if observed['state']=='Z' and observed.get('exit_code') is not None:
+            self.exit(row,os.waitstatus_to_exitcode(observed['exit_code']),'proc_zombie_wait_status')
+        return row
+
+    def launcher(self, child, phase):
+        observed=self.checked(child.pid)
+        if observed is None:raise RuntimeError('installer launcher cgroup identity unavailable')
+        self.launchers[child.pid]=(child,observed['start_ticks']);self.phase=phase
+        row=self.add(observed,phase)
+        if row is None:raise RuntimeError('installer launcher ledger full')
+        row['relationship']='direct_launcher';row['phase']=phase
+        self.launchers[child.pid]=(child,observed['start_ticks'])
+        self.commit()
+
+    def exit(self,row,code,source):
+        if row['linux_exit'] is not None:
+            if row['linux_exit']['status']!=code:raise RuntimeError('installer exit custody conflict')
+            if source=='waitpid':row['linux_exit']['reaped']=True
+            return
+        row['linux_exit']={'domain':'linux_wait','status':code,'source':source,'observed_ns':self.clock(),'reaped':source=='waitpid'}
+        row['exit_availability']='observed';row['state']='exited'
+        if code!=0 and not self.cancelled and self.first_failure is None:
+            self.first_failure={'pid':row['pid'],'start_ticks':row['start_ticks'],'role':row['role'],
+                'phase':row['phase'],'relationship':row['relationship'],'domain':'linux_wait','status':code,
+                'observed_ns':row['linux_exit']['observed_ns'],'cause':'unestablished'}
+
+    def commit(self):
+        try:self.persist(self.value())
+        except (OSError,ValueError):self.persistence_failures+=1
+
+    def sample(self):
+        members=self.scope.members();seen=set()
+        for observed in members:
+            key=(observed['pid'],observed['start_ticks']);seen.add(key);self.add(observed)
+        # Includes zombies omitted from cgroup.procs. Never acquire a recycled PID.
+        for key,row in list(self.records.items()):
+            if key in seen:continue
+            current=self.checked(key[0])
+            if current and current['start_ticks']==key[1]:
+                self.add(current);members.append(current)
+            elif row['linux_exit'] is None:
+                row['state']='disappeared';row['exit_availability']='unavailable_parent_reaped_or_unobserved'
+        return members
+
+    def harvest(self):
+        self.sample()
+        # WNOWAIT preserves /proc identity, cgroup and zombie status until custody
+        # has been durably attempted. Never Popen.poll()/wait before this owner.
+        for _ in range(self.LIMIT):
+            try:info=os.waitid(os.P_ALL,0,os.WEXITED|os.WNOHANG|os.WNOWAIT)
+            except ChildProcessError:break
+            if info is None or info.si_pid==0:break
+            current=self.checked(info.si_pid)
+            row=self.add(current) if current else None
+            code=info.si_status if info.si_code==os.CLD_EXITED else -info.si_status
+            if row:self.exit(row,code,'waitid_wnowait')
+            else:
+                self.unattributed_waits+=1
+                if len(self.unattributed_exits)<64:self.unattributed_exits.append({'pid':info.si_pid,'status':code,'domain':'linux_wait','observed_ns':self.clock(),'ownership':'unverified'})
+            self.commit() # first failure survives subsequent cancellation/reaping
+            pid,status=os.waitpid(info.si_pid,os.WNOHANG)
+            if pid:
+                actual=os.waitstatus_to_exitcode(status)
+                if row:self.exit(row,actual,'waitpid')
+                owner=self.launchers.get(pid)
+                if owner and current and owner[1]==current['start_ticks']:owner[0].returncode=actual
+        remaining=self.sample();self.commit();return remaining
+
+    def cleanup(self,timeout=CLEANUP_SECONDS):
+        deadline=time.monotonic()+timeout
+        while True:
+            members=self.harvest()
+            if not members:return True
+            if time.monotonic()>=deadline:return False
+            self.scope.signal_members(signal.SIGKILL if time.monotonic()>deadline-3 else signal.SIGTERM)
+            time.sleep(POLL_SECONDS)
+
+    def value(self):
+        return {'schema':1,'processes':list(self.records.values()),'dropped_process_observations':self.dropped,
+                'unattributed_adopted_exits':self.unattributed_waits,'unattributed_exit_observations':self.unattributed_exits,
+                'dropped_unattributed_exit_observations':max(0,self.unattributed_waits-len(self.unattributed_exits)),'first_failure':self.first_failure,
+                'persistence_failures':self.persistence_failures}

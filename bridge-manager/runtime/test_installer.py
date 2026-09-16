@@ -5,16 +5,23 @@ import session,ownership
 from test_session import CgroupFixture
 
 class Scope:
-    def __init__(self,child,tail=0,clean=True):self.child=child;self.tail=tail;self.clean=clean;self.started=False;self.samples=[]
+    # Actual Linux fork tree for the OS-boundary test. Dedicated-unit identity
+    # validation itself is independently tested with CompanionCgroup fixtures.
+    proc_root=pathlib.Path('/proc')
+    def __init__(self):self.started=False;self.samples=[];self.supervisor=os.getpid()
+    identity=ownership.CompanionCgroup.identity
+    def group_of(self,pid):return '/test-owned' if self.identity(pid) else None
+    def contains(self,group):return group=='/test-owned'
     def members(self):
-        if not self.started:self.started=True;return []
-        if self.child.poll() is None:rows=[{'pid':self.child.pid,'state':'S'}]
-        elif self.tail:self.tail-=1;rows=[{'pid':999,'state':'S'}]
-        else:rows=[]
-        self.samples.append((self.child.returncode,len(rows)));return rows
-    def cleanup(self,reap):
-        if self.child.poll() is None:self.child.terminate();self.child.wait(timeout=3)
-        reap();return self.clean
+        rows=[]
+        for r in ownership.descendant_identities(self.supervisor):
+            v=self.identity(r['pid'])
+            if v:rows.append(dict(v,cgroup='/test-owned'))
+        self.samples.append(len(rows));return rows
+    def signal_members(self,sig):
+        for r in self.members():
+            try:os.kill(r['pid'],sig)
+            except ProcessLookupError:pass
 
 class InstallerTests(unittest.TestCase):
     def test_launcher_exit_between_poll_and_reap_preserves_nonzero_status(self):
@@ -41,20 +48,23 @@ class InstallerTests(unittest.TestCase):
                 root=pathlib.Path(tmp);(root/'operation.lock').touch();(root/'home').mkdir();(root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch();artifact=root/'installer';artifact.write_bytes(b'fixture')
                 a={'path':str(artifact),'sha256':session.hashlib.sha256(b'fixture').hexdigest()}
                 spec={'schema':2,'operation':'ab'*16,'environment':{'root':str(root),'runner':{'entry_point':'fixed-runner','proton':'fixed-proton','files':[]}},'installer':a,'format':'pe_executable','report':str(root/'result.json')}
-                bootstrap=subprocess.Popen([sys.executable,'-c','print("prefix ready")'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-                child=subprocess.Popen([sys.executable,'-c',f'import time;time.sleep(.15);print("private installer payload");raise SystemExit({code})'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-                scope=Scope(child,tail=4);old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]
+                real_popen=subprocess.Popen;children=[]
+                def launch_owned(args,**kwargs):
+                    program='print("prefix ready")' if len(children)==0 else f'import os,time;pid=os.fork();time.sleep(.2 if pid else .4);print("private installer payload");raise SystemExit({code} if pid else 0)'
+                    child=real_popen([sys.executable,'-c',program],stdout=subprocess.PIPE,stderr=subprocess.PIPE);children.append(child);return child
+                scope=Scope();old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]
                 try:
-                    with patch.object(session,'CompanionCgroup',return_value=scope),patch.object(session.subprocess,'Popen',side_effect=[bootstrap,child]) as launch,patch.object(session,'environment',return_value={}):
+                    with patch.object(session,'CompanionCgroup',return_value=scope),patch.object(session.subprocess,'Popen',side_effect=launch_owned) as launch,patch.object(session,'environment',return_value={}):
                         self.assertEqual(session.install(spec),code==0)
-                    self.assertIn((code,1),scope.samples);v=json.loads((root/'result.json').read_text());self.assertTrue(v['cleanup_confirmed']);self.assertEqual(v['owned_live'],0);self.assertEqual(v['raw_exit'],code);self.assertEqual(v['state'],'completed' if code==0 else 'failed');self.assertNotIn('private installer payload',(root/'result.json').read_text());self.assertGreater(v['retained_diagnostic_bytes'],0);self.assertTrue(v['private_diagnostics_written'])
+                    self.assertGreater(max(scope.samples),1);v=json.loads((root/'result.json').read_text());self.assertTrue(v['cleanup_confirmed']);self.assertEqual(v['owned_live'],0);self.assertEqual(v['raw_exit'],code);self.assertEqual(v['state'],'completed' if code==0 else 'failed');self.assertNotIn('private installer payload',(root/'result.json').read_text());self.assertGreater(v['retained_diagnostic_bytes'],0);self.assertTrue(v['private_diagnostics_written'])
                     self.assertEqual(launch.call_args.args[0],['fixed-runner','--verb=run','--','fixed-proton','runinprefix',str(artifact)])
                     self.assertEqual(launch.call_args.kwargs['env']['HOME'],str(root/'home'))
                     self.assertEqual(launch.call_args_list[0].args[0],['fixed-runner','--verb=run','--','fixed-proton','getcompatpath','/'])
                     self.assertEqual(launch.call_count,2)
                 finally:
                     for sig,handler in zip((signal.SIGTERM,signal.SIGINT),old):signal.signal(sig,handler)
-                    if child.poll() is None:child.kill();child.wait()
+                    for child in children:
+                        if child.poll() is None:child.kill();child.wait()
                     session.ctypes.CDLL(None).prctl(36,0,0,0,0)
     @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor subreaper')
     def test_launch_error_is_terminal_and_cleanup_is_not_fabricated(self):
@@ -62,8 +72,9 @@ class InstallerTests(unittest.TestCase):
             with self.subTest(clean=clean),tempfile.TemporaryDirectory() as tmp:
                 root=pathlib.Path(tmp);(root/'operation.lock').touch();artifact=root/'installer';artifact.write_bytes(b'fixture')
                 class Empty:
-                    def members(self):return []
-                    def cleanup(self,reap):return clean
+                    def members(self):
+                        if not clean:raise RuntimeError('unavailable cgroup')
+                        return []
                 spec={'schema':2,'operation':'ab'*16,'environment':{'root':str(root),'runner':{'entry_point':'fixed','proton':'fixed','files':[]}},'installer':{'path':str(artifact),'sha256':session.hashlib.sha256(b'fixture').hexdigest()},'format':'msi_compound','report':str(root/'result.json')}
                 old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]
                 try:

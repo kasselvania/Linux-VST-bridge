@@ -1,0 +1,392 @@
+{
+  "schema": 1,
+  "claim": "One human-operated post-review Native Access attempt; partial installation and running-application-close boundary; cause unestablished",
+  "source": {
+    "head": "0543c3d3d021a5d9821302c085ec93fdd69ae92b",
+    "tree": "697a47c517109457b0fb12533525f09741ee53ad",
+    "base_dependency": "0d1c644a182c98e326ee4697f49b4d0c1dfc45a0",
+    "pr": 112,
+    "status": "draft_unmerged",
+    "runtime_source_changed_for_this_evidence": false
+  },
+  "installation": {
+    "route": "existing_immutable_setup_idle_stop_install_restart",
+    "artifact_sha256": {
+      "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+      "operator_frontend": "f28f3d207ee28dd77d9f7762c925fce89bd105c6afbfa3023f8aecadf8d6415d",
+      "manager": "4f8e295a83eec3f7f01732190209e31ae5485cd61e08510716b6db23d365c7b9",
+      "supervisor": "866f8ea1400368b30c9e3b8f423c61aef5eeeda7ddb1e5635489bea0a8138491",
+      "ownership": "74754557d1a732458910833e255b34e4d4cade7ccf97df67e94ea53744b01377",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "72f0ccd2128cb6ca997f7138c08ebaf6802641fc32767c528d1573e64ba785ee"
+    },
+    "previous_software_retained": true,
+    "host_native_kit_product_rebuild": false,
+    "preflight_and_postinstall_idle_readback_passed": true
+  },
+  "attempt": {
+    "import_sha256": "82d7b7977d4fbc19db32aee8778c75906f6ddf935bcf2958f2d8d45141b2b2cc",
+    "import_size": 179877344,
+    "import_reused": true,
+    "source_file_reimported": false,
+    "historical_environments": [
+      "44c66a0541510c3c84ef3707f592a5cd",
+      "49c19ffeb4e01fc11f8a26e2edbead82"
+    ],
+    "previous_attempt": "49c19ffeb4e01fc11f8a26e2edbead82",
+    "environment": "da0f50e64aa8c8aeb91d8e66cda3fb1d",
+    "creation_operation": "e9c79c0d95ec4283170021f5fcad0e38",
+    "installer_operation": "be613124b24190ca01a6735bb3ffd839",
+    "new_environment_count": 1,
+    "launch_count": 1,
+    "published": false,
+    "creation_lock_waits": [
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 66,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "e9c79c0d95ec4283170021f5fcad0e38",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 32,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "e9c79c0d95ec4283170021f5fcad0e38",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 9878
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 29,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "e9c79c0d95ec4283170021f5fcad0e38",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 30,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "e9c79c0d95ec4283170021f5fcad0e38",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 32,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "e9c79c0d95ec4283170021f5fcad0e38",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "environment_creation_admission",
+        "timeout_ms": 10000
+      }
+    ],
+    "launch_route": "installed_manager_offered_closed_operator_request",
+    "vendor_input": "human_only",
+    "agent_vendor_input": false,
+    "retry_after_result": false
+  },
+  "operator_evidence": {
+    "source": "user_report_and_two_attached_screenshots",
+    "messages": [
+      "Native Access is running. Click OK to close it. If it doesn\u2019t close, try closing it manually.",
+      "Native Access cannot be closed. Please close it manually and click Retry to continue."
+    ],
+    "reported_behavior": "OK advances to cannot-close dialog; Retry repeats it; Cancel described by operator as a crash",
+    "retry_click_count": "not_measured",
+    "images": [
+      {
+        "ordinal": 1,
+        "sha256": "c71cc258ac1c187c94316befc12e0c34df2260a379ec617f4a944ae72fdfe840",
+        "size": 249925,
+        "retention": "private_only"
+      },
+      {
+        "ordinal": 2,
+        "sha256": "f34bbbf8d20b91afd0a68aa34820d85ad13d222fa692242435579e07d5036363",
+        "size": 231588,
+        "retention": "private_only"
+      }
+    ],
+    "screenshot_is_not_process_or_exception_authority": true
+  },
+  "startup": {
+    "stages": [
+      {
+        "stage": "supervisor_started",
+        "elapsed_ns": 9350
+      },
+      {
+        "stage": "prefix_initialization_launch_requested",
+        "elapsed_ns": 194457148
+      },
+      {
+        "stage": "prefix_initialization_started",
+        "elapsed_ns": 203599933
+      },
+      {
+        "stage": "helper_image_observed",
+        "elapsed_ns": 3160774339,
+        "image": "wineboot.exe"
+      },
+      {
+        "stage": "prefix_initialization_exit",
+        "elapsed_ns": 5280641789,
+        "exit": 0
+      },
+      {
+        "stage": "target_runner_launch_requested",
+        "elapsed_ns": 5340031891
+      },
+      {
+        "stage": "target_runner_started",
+        "elapsed_ns": 5346810434
+      },
+      {
+        "stage": "helper_image_observed",
+        "elapsed_ns": 6989816014,
+        "image": "wineboot.exe"
+      },
+      {
+        "stage": "target_image_observed",
+        "elapsed_ns": 8209066578
+      },
+      {
+        "stage": "cohort_retired",
+        "elapsed_ns": 247901183721,
+        "outer_exit": 2
+      }
+    ],
+    "target_observation": "observed",
+    "target_ready": "unknown",
+    "first_problem": null,
+    "exception_stack": "unavailable"
+  },
+  "result": {
+    "installer_state": "failed",
+    "operator_worker_state": "completed_supervision_not_successful_installation",
+    "transaction_outcome": "outer_nonzero_stage_unknown",
+    "outer_launcher_exit": 2,
+    "first_failure": {
+      "role": "unknown",
+      "phase": "target_runner",
+      "relationship": "direct_launcher",
+      "domain": "linux_wait",
+      "status": 2,
+      "cause": "unestablished"
+    },
+    "first_attributed_child_failure": null,
+    "child_failure_coverage": "unavailable_imported_target_root_not_bound_in_windows_trace_and_66_linux_exits_unavailable",
+    "durable_installation": "partial_installation",
+    "manager_cancellation": null,
+    "operator_cancel_report": "retained_separately_not_machine_status_or_crash_proof",
+    "cleanup_confirmed": true,
+    "owned_live": 0
+  },
+  "process_custody": {
+    "linux_count": 70,
+    "windows_count": 43,
+    "windows_self_exit_count": 33,
+    "linux_exit_unavailable": 66,
+    "linux_roles": {
+      "unknown": 70
+    },
+    "windows_imported_target_roots": 0,
+    "windows_target_tree_members": 0,
+    "windows_dropped_observations": 0,
+    "dropped_process_observations": 0,
+    "unattributed_adopted_exits": 0,
+    "persistence_failures": 0,
+    "cross_system_pid_join": false,
+    "private_transaction": {
+      "sha256": "cca7d8ad1e8a3461efac2ec384a636a9464821ae863b5d470cf03f80f0a63ca9",
+      "size": 99299
+    },
+    "sanitized_ledger_file": "native-access-attempt-3-ledger.json"
+  },
+  "prerequisites": {
+    "identity_source": "managed_cache_digest_and_retained_VC_install_log",
+    "package_results": [
+      {
+        "package": "vcRuntimeMinimum_x64",
+        "domain": "VC_Burn_apply_result",
+        "status": "0x0"
+      },
+      {
+        "package": "vcRuntimeAdditional_x64",
+        "domain": "VC_Burn_apply_result",
+        "status": "0x0"
+      }
+    ],
+    "apply_result": "0x0",
+    "bootstrapper_logged_exit": "0x0",
+    "restart": "None",
+    "observed_windows_ordinals": [
+      15,
+      16,
+      17
+    ],
+    "self_exit_statuses": [
+      0,
+      0,
+      0
+    ],
+    "imported_root_ancestry": "unavailable",
+    "files": [
+      {
+        "category": "prerequisite_cache",
+        "basename": "vc_runtimeMinimum_x64.msi",
+        "sha256": "fe5af8f2efc9bbdd2c23f22f2d3daf480a4047acf3b1edc6ecda81147c1ec14f",
+        "size": 212992,
+        "format": "compound_file"
+      },
+      {
+        "category": "prerequisite_cache",
+        "basename": "vc_runtimeAdditional_x64.msi",
+        "sha256": "7df26ee2169ef6c61c17675e1a2edbaf01bca2ed1a0bdc0f8396d029a336c1f7",
+        "size": 212992,
+        "format": "compound_file"
+      },
+      {
+        "category": "prerequisite_cache",
+        "basename": "VC_redist.x64.exe",
+        "sha256": "568c9ba533624084ea18f7a562b4aa2249ed4e41281524a061a0d0b1008cf6bd",
+        "size": 686152,
+        "format": "pe_executable"
+      }
+    ]
+  },
+  "durable_witnesses": {
+    "delta_counts": {
+      "files": {
+        "added": 3,
+        "changed": 0,
+        "removed": 0
+      },
+      "logs": {
+        "added": 3,
+        "changed": 0,
+        "removed": 0
+      },
+      "uninstall": {
+        "added": 3,
+        "changed": 0,
+        "removed": 0
+      },
+      "services": {
+        "added": 0,
+        "changed": 0,
+        "removed": 0
+      }
+    },
+    "application_registration_count": 0,
+    "dependency_health": "unproved",
+    "postinstall_launch": "unproved",
+    "incomplete": [],
+    "main_application_or_NTK_service": "not_witnessed_in_allowlisted_installation_surfaces",
+    "claim_scope": "allowlisted_files_uninstall_and_service_witnesses_not_complete_prefix_or_disk_absence"
+  },
+  "service_observations": {
+    "source": "Wine_service_start_return_trace",
+    "status_counts": {
+      "0": 19,
+      "1114": 2
+    },
+    "child_association": "unavailable_no_rpc_identity",
+    "nonzero_selected_as_cause": false,
+    "product_dependency_failure": "unproved"
+  },
+  "diagnostics": {
+    "runner": {
+      "capacity": 262144,
+      "record_capacity": 256,
+      "retained_bytes": 30330,
+      "dropped_bytes": 2245814,
+      "dropped_records": 27292
+    },
+    "accessibility_observer": {
+      "capacity": 32768,
+      "record_capacity": 64,
+      "retained_bytes": 800,
+      "dropped_bytes": 0,
+      "dropped_records": 0
+    },
+    "msi": {
+      "capacity": 131072,
+      "record_capacity": 64,
+      "retained_bytes": 0,
+      "dropped_bytes": 0,
+      "dropped_records": 0
+    },
+    "line_drops": 0,
+    "retained_private_log_bytes": 53754,
+    "dropped_private_log_bytes": 0,
+    "dropped_private_log_records": 0,
+    "unfinished_line_bytes": 0,
+    "availability": "bounded_runner_pipes",
+    "windows_exit_attribution": "bounded_create_self_exit_trace_separate_from_linux_identity"
+  },
+  "final_state": {
+    "system": {
+      "service": "active",
+      "keepers": 2,
+      "dsp": 0,
+      "maintenance": 0,
+      "ceiling": 6,
+      "pending_transactions": 0,
+      "stale_transports": 0,
+      "cleanup_unconfirmed": false
+    },
+    "capture": {
+      "active_retention": 0,
+      "armed": false
+    },
+    "preserved_prior_file_count": 276,
+    "protected_projects_unchanged": 5,
+    "physical_publications_unchanged": true,
+    "prior_attempts_and_evidence_byte_unchanged": true,
+    "operator_resume_record_present": false,
+    "owned_installer_and_worker_units": "retired_no_cgroup_owner",
+    "ordinary_products": {
+      "Pigments": 18,
+      "Pigments_rollback": 11,
+      "Pure_LoFi": 10,
+      "Efx_FRAGMENTS": 10
+    },
+    "Serum_instrument": "existing_candidate_B_experimental_revision_1_unchanged",
+    "Serum_candidate": "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44",
+    "Serum_FX": "installed_unqualified_unchanged",
+    "manager_window": "opened_from_installed_desktop_entry_may_remain_user_owned"
+  },
+  "review_direction": {
+    "observed_vendor_boundary": "running_application_detection_and_close_check",
+    "reporter_authority_gap": "missing_exact_windows_imported_target_root_chain",
+    "next_investigation": "independent_review_of_target_root_attribution_and_exact_application_detection_close_handoff",
+    "native_access_cause": "unestablished",
+    "no_security_expansion_or_runner_profile_change": true,
+    "no_second_attempt_authorized_or_performed": true,
+    "managed_first_launch": "not_selected_partial_not_installed"
+  }
+}

@@ -443,6 +443,7 @@ impl eframe::App for Operator {
                 for o in s.onboarding.iter().rev() {let historical=matches!(o.state.as_str(),"cancelled"|"failed"|"no_audio_plugin_discovered");egui::CollapsingHeader::new(if historical{format!("Earlier attempt — {}",o.state.replace('_'," "))}else{format!("Current attempt — {}",o.state.replace('_'," "))}).id_salt((&o.installer,&o.environment,"attempt")).default_open(!historical).show(ui,|ui|{
                     ui.heading(o.state.replace('_'," "));ui.label(format!("{} · {} bytes · {}",o.name,o.byte_size,o.format));
                     ui.label(&o.required_human_action);
+                    for line in installer_lines(&o.details["installation"]) { ui.label(line); }
                     if let Some(f)=self.feedback.as_ref().filter(|f|f.for_installer(&o.installer) || matches!(&f.action, Action::InstallerNewAttempt {previous,..} if o.environment.as_ref()==Some(previous))) {ui.colored_label(egui::Color32::YELLOW,&f.text);}
                     else if let Some(reason)=o.details["request_result"]["reason"].as_str(){ui.colored_label(egui::Color32::YELLOW,format!("Last request refused before worker launch: {reason}"));}
                     if let Some(failure)=&o.failure { for line in failure_lines(failure) { ui.colored_label(egui::Color32::YELLOW,line); } }
@@ -508,6 +509,48 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(Duration::from_millis(500));
     }
 }
+fn installer_lines(v: &serde_json::Value) -> Vec<String> {
+    let t=&v["transaction"];
+    if t["schema"] != 1 || t["operation"] != v["operation"] {
+        return if v["error"] == "installer_launcher_failed" {
+            vec!["Earlier installer result: outer launch route exited nonzero; the failing later stage and installation completeness were not captured.".into()]
+        } else {vec![]};
+    }
+    let outcome=match t["outcome"].as_str() {
+        Some("in_progress")=>"Installer supervision is ongoing. Exact Focus and Stop controls remain available; cleanup will be checked after retirement.",
+        Some("outer_nonzero_stage_unknown")=>"The outer installer route exited nonzero. The failing child or stage is not established.",
+        Some("installed_dependency_failed")=>"Application files are installed, but a process performing service/dependency work exited nonzero. Review that stage before reinstalling.",
+        Some("child_failed")=>"An owned child exited nonzero. Its role and underlying cause may still be unknown.",
+        Some("cancelled")=>"This attempt was cancelled. Earlier failure observations remain retained.",
+        Some("cleanup_unconfirmed")=>"Installer cleanup is unconfirmed. Further work is blocked.",
+        Some("installed")=>"Application files and installation registration were observed. First launch and dependency health remain unproved.",
+        Some("partial_installation")=>"Partial installation: durable changes exist, but a complete application installation is not established.",
+        Some("not_installed")=>"No durable installation was found in the inspected surfaces.",
+        _=>"Review the installer stage record; completion does not qualify or publish a plug-in.",
+    };
+    let mut lines=vec![outcome.into()];
+    if let Some(code)=v["startup"]["first_problem"]["code"].as_str() {
+        let observation=match code {
+            "native_steamclient_load_failed"=>"native runtime dependency load failed",
+            "native_steamclient_export_unavailable"=>"native runtime export unavailable",
+            "runtime_assertion_observed"=>"runtime assertion observed",
+            "prefix_initialization_failed"|"prefix_initialization_timeout"=>"environment initialization did not complete",
+            _=>"startup problem retained; inspect bounded details",
+        };
+        lines.push(format!("Earlier startup observation: {observation}. Cancellation and cleanup do not erase it."));
+    }
+    if let Some(n)=t["outer_launcher_exit"].as_i64(){lines.push(format!("Outer launcher exit: {n} (separate from payload and service exits)"));}
+    lines.push(format!("Durable installation: {}",t["durable_installation"].as_str().unwrap_or("unavailable").replace('_'," ")));
+    if !t["first_failure"].is_null() {
+        let f=&t["first_failure"];
+        lines.push(format!("First retained process result: phase {} · role {} · relationship {} · domain {} · status {} · cause unestablished",
+            f["phase"].as_str().unwrap_or("unknown"), f["role"].as_str().unwrap_or("unknown"),
+            f["relationship"].as_str().unwrap_or("unknown"), f["domain"].as_str().unwrap_or("unknown"), f["status"]));
+    }
+    lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
+    lines
+}
+
 fn failure_lines(f: &crate::model::OperationFailure) -> Vec<String> {
     let mut lines = vec![match f.stage {
         crate::model::FailureStage::OperatorValidationReadback => {
@@ -581,6 +624,35 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn first_failure_presents_exact_stage_role_relationship_domain_without_guessing() {
+        for role in [Some("service_dependency"), None] {
+            for (domain, status) in [("wine_self_exit_observation", 3010), ("linux_wait", 2)] {
+                let v = serde_json::json!({"operation":"exact","cleanup_confirmed":true,
+                    "transaction":{"schema":1,"operation":"exact","outcome":"cancelled",
+                        "outer_launcher_exit":-15,"durable_installation":"partial_installation",
+                        "first_failure":{"phase":"target_runner","role":role,
+                            "relationship":"descendant","domain":domain,"status":status}}});
+                let lines = super::installer_lines(&v);
+                let failure = lines.iter().find(|l| l.starts_with("First retained")).unwrap();
+                assert_eq!(failure, &format!("First retained process result: phase target_runner · role {} · relationship descendant · domain {domain} · status {status} · cause unestablished", role.unwrap_or("unknown")));
+                assert!(lines.iter().any(|l| l.contains("Outer launcher exit: -15")));
+                assert!(lines.iter().any(|l| l.contains("cleanup confirmed")));
+            }
+        }
+    }
+    #[test]
+    fn installer_partial_nonzero_cancellation_and_cleanup_stay_separate() {
+        let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"startup":{"first_problem":{"code":"runtime_assertion_observed"}},"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
+        let lines=super::installer_lines(&v).join(" ");
+        assert!(lines.contains("runtime assertion observed") && lines.contains("cancelled") && lines.contains("status 37") && lines.contains("partial installation") && lines.contains("cleanup confirmed"));
+        v["transaction"]["outcome"]="in_progress".into();
+        let ongoing=super::installer_lines(&v).join(" ");assert!(ongoing.contains("Exact Focus and Stop"));assert!(!ongoing.contains("Further work is blocked"));
+        v["transaction"]["operation"]="other".into();assert!(super::installer_lines(&v).is_empty());
+        let legacy=serde_json::json!({"error":"installer_launcher_failed"});
+        assert!(super::installer_lines(&legacy)[0].contains("failing later stage"));
+    }
+
     use super::*;
     fn state_fixture() -> Operator {
         let (sender, receiver) = mpsc::channel();
@@ -677,6 +749,53 @@ mod tests {
             capture: s.capture.clone(),
             operation: s.operation.clone(),
         })
+    }
+    #[test]
+    fn terminal_retry_offers_survive_snapshot_and_poll_without_frontend_inference() {
+        // These are manager-projected offers, not frontend eligibility rules.
+        // Cover both eligible completed outcomes and the three explicit refusals.
+        for (durable, outcome, linked, offered, disabled) in [
+            ("not_installed", "not_installed", false, true, None),
+            ("partial_installation", "partial_installation", false, true, None),
+            ("installed", "installed", false, false, None),
+            ("partial_installation", "cleanup_unconfirmed", false, false, None),
+            ("partial_installation", "partial_installation", true, false, None),
+            ("partial_installation", "partial_installation", false, true, Some("active DSP")),
+        ] {
+            let mut s = running_snapshot("prior-op");
+            s.system.service = "active".into();
+            s.system.cleanup_unconfirmed = outcome == "cleanup_unconfirmed";
+            s.operation = Some(serde_json::json!({"operation":"prior-op","state":"completed"}));
+            let card = &mut s.onboarding[0];
+            card.state = "completed".into();
+            card.details = serde_json::json!({"installation":{"operation":"prior-op","state":"completed",
+                "transaction":{"schema":1,"operation":"prior-op","outcome":outcome,"durable_installation":durable}},"linked_attempt":linked});
+            let action = Action::InstallerNewAttempt { previous:card.environment.clone().unwrap(), runner:"cd".repeat(32) };
+            card.actions = if offered { vec![AvailableAction { label:"New isolated attempt".into(),
+                action:action.clone(), disabled_reason:disabled.map(Into::into) }] } else { vec![] };
+            let mut o = state_fixture(); // reopening receives canonical snapshot
+            o.handle_reply(Reply::Snapshot(Box::new(s.clone())));
+            o.handle_reply(activity_from(&s));
+            let ctx = egui::Context::default();
+            let mut point = egui::Pos2::ZERO;
+            let mut chosen = None;
+            for pressed in [None, Some(true), Some(false)] {
+                o.pending = pressed == Some(false);
+                o.background_poll = o.pending;
+                let events = pressed.map(|pressed| vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton { pos:point, button:egui::PointerButton::Primary,
+                        pressed, modifiers:egui::Modifiers::NONE }]).unwrap_or_default();
+                let mut output = ctx.run_ui(egui::RawInput { events, ..Default::default() }, |ui| {
+                    point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
+                    let projected = o.snapshot.as_ref().unwrap();
+                    Operator::buttons(ui, &projected.onboarding[0].actions, projected.system.inactive_reason(),
+                        o.controls_pending(), &mut chosen);
+                });
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen, if offered && disabled.is_none() { Some(action) } else { None },
+                "{durable}/{outcome}, linked={linked}");
+        }
     }
     #[test]
     fn integrated_snapshot_first_and_activity_first_reconcile_stop() {

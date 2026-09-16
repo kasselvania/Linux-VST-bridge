@@ -6,7 +6,7 @@ callback work. The Rust manager supplies an exact verified registration.
 """
 import ctypes,mmap,collections,re
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
-from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup
+from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup,InstallerLedger
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -1132,6 +1132,7 @@ class InstallerStartup:
                 continue
             if not line.endswith((b'\n',b'\r')):self.pending[stream]=line;continue
             self.pending[stream]=b''
+            if b'Xalia' in line:continue
             if b'err:steamclient:' in line and b'unable to load native steamclient library' in line:
                 self.problem('native_steamclient_load_failed',source='bounded_runner_pipe_signature')
             elif b'err:steamclient:' in line and b'unable to load ' in line:
@@ -1189,6 +1190,405 @@ class InstallerStartup:
                 'helpers':self.helpers,'diagnostic_line_drops':self.line_drops,
                 'exception_stack':'unavailable'}
 
+# IS1 installer-only observations. Private records are separate from the small
+# manager receipt and from every validated VST/host protocol.
+def installer_atomic(path, value):
+    """Private replace, including recovery from an interrupted prior write."""
+    import tempfile
+    fd,name=tempfile.mkstemp(prefix='.'+path.name+'-',dir=path.parent)
+    try:
+        with os.fdopen(fd,'w') as f:json.dump(value,f,separators=(',',':'));f.flush();os.fsync(f.fileno())
+        os.replace(name,path)
+        d=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(d)
+        finally:os.close(d)
+    finally:
+        try:os.unlink(name)
+        except FileNotFoundError:pass
+
+def installer_open(path):
+    # Every component is no-follow, not just the leaf. An installer-created
+    # junction/symlink cannot turn observation into an operator-HOME export.
+    path=pathlib.Path(path)
+    if not path.is_absolute() or '..' in path.parts:raise ValueError('installer observation location')
+    fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY)
+    try:
+        for part in path.parts[1:-1]:
+            next_fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+            os.close(fd);fd=next_fd
+        result=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=fd)
+        if not stat.S_ISREG(os.fstat(result).st_mode):
+            os.close(result);raise ValueError('installer observation requires regular file')
+        return result
+    finally:os.close(fd)
+
+def installer_digest(path, maximum=64*1024*1024):
+    with os.fdopen(installer_open(path),'rb') as f:
+        a=os.fstat(f.fileno())
+        if not stat.S_ISREG(a.st_mode) or a.st_size>maximum:raise ValueError('installer image bound/type')
+        header=f.read(64);kind='unknown';pe=None
+        if header[:2]==b'MZ' and len(header)==64:
+            offset=struct.unpack_from('<I',header,60)[0]
+            if offset<=min(a.st_size-24,262144):
+                f.seek(offset);coff=f.read(24)
+                if coff[:4]==b'PE\0\0':
+                    kind='pe_executable';pe={'machine':struct.unpack_from('<H',coff,4)[0],'characteristics':struct.unpack_from('<H',coff,22)[0]}
+        elif header[:8]==bytes.fromhex('d0cf11e0a1b11ae1'):kind='compound_file'
+        f.seek(0);digest=hashlib.file_digest(f,'sha256').hexdigest();b=os.fstat(f.fileno())
+        stamp=lambda m:(m.st_dev,m.st_ino,m.st_size,m.st_mtime_ns,m.st_ctime_ns)
+        if stamp(a)!=stamp(b):raise ValueError('installer image changed')
+        return {'sha256':digest,'size':a.st_size,'device':a.st_dev,'inode':a.st_ino,'format':kind,'pe':pe}
+
+def installer_walk(root,incomplete,deadline,budget):
+    # os.walk materializes an entire directory before a caller can enforce a
+    # bound. Use a capped iterator instead; no filesystem-wide enumeration.
+    pending=[root]
+    while pending:
+        directory=pending.pop();files=[]
+        try:
+            if directory.resolve()!=directory:incomplete.append('aliased_directory');continue
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    budget[0]-=1
+                    if budget[0]<0 or time.monotonic()>deadline:
+                        incomplete.append('file_count_or_time_bound');return
+                    if entry.is_dir(follow_symlinks=False):pending.append(pathlib.Path(entry.path))
+                    elif entry.is_file(follow_symlinks=False):files.append(entry.name)
+            yield directory,[],files
+        except FileNotFoundError:continue
+        except OSError:incomplete.append('directory_unavailable')
+
+class InstallerWitnesses:
+    """Allowlisted installation metadata, not a prefix/account-data export.
+
+    Paths stay private. A registration is not proof of authorization, dependency
+    health or a successful post-install launch. Bounds make incomplete explicit.
+    """
+    def __init__(self, root):self.prefix=pathlib.Path(root)/'compatdata/pfx'
+    def snapshot(self):
+        out={'files':{},'logs':{},'uninstall':{},'services':{},'incomplete':[]}
+        c=self.prefix/'drive_c';count=0;budget=256*1024*1024;deadline=time.monotonic()+5;walk_budget=[8192]
+        roots=[c/'Program Files',c/'Program Files (x86)',c/'ProgramData',c/'windows/temp']
+        users=c/'users'
+        if users.is_dir():
+            for user in sorted(users.iterdir())[:16]:
+                if not user.is_symlink():roots.append(user/'Temp');roots.append(user/'AppData/Local/Temp')
+        for root in roots:
+            if root.resolve()!=root:out['incomplete'].append('aliased_root');continue
+            for directory,dirs,files in installer_walk(root,out["incomplete"],deadline,walk_budget):
+                dirs[:]=sorted(d for d in dirs if not (pathlib.Path(directory)/d).is_symlink())
+                count+=len(files)+1
+                if count>8192 or time.monotonic()>deadline:out['incomplete'].append('file_count_or_time_bound');break
+                for name in sorted(files):
+                    p=pathlib.Path(directory)/name;suffix=p.suffix.lower()
+                    if suffix not in ('.exe','.dll','.msi','.log'):continue
+                    try:
+                        m=p.lstat()
+                        if not stat.S_ISREG(m.st_mode):continue
+                        relative=str(p.relative_to(c))
+                        if suffix=='.log':
+                            # No content here; new/changed logs may be retained by
+                            # a bounded private-tail collector after finalization.
+                            out['logs'][relative]={'size':m.st_size,'mtime_ns':m.st_mtime_ns};continue
+                        row={'size':m.st_size,'sha256':None}
+                        if m.st_size<=min(budget,64*1024*1024):
+                            budget-=m.st_size;row.update(installer_digest(p))
+                        else:out['incomplete'].append('image_hash_bound')
+                        out['files'][relative]=row
+                    except (OSError,ValueError):out['incomplete'].append('file_unavailable_or_changed')
+            if count>8192 or time.monotonic()>deadline:break
+        for registry in ('system.reg','user.reg'):
+            path=self.prefix/registry
+            try:
+                with os.fdopen(installer_open(path),'rb') as f:data=f.read(8*1024*1024+1)
+                if len(data)>8*1024*1024:out['incomplete'].append('registry_bound');continue
+            except (OSError,ValueError):out['incomplete'].append('registry_unavailable');continue
+            kind=None;key=None
+            for line in data.decode(errors='replace').splitlines():
+                if line.startswith('['):
+                    raw=line[1:line.find(']')].replace('\\\\','\\');low=raw.lower();kind=None;key=None
+                    if '\\uninstall\\' in low:kind='uninstall'
+                    elif re.search(r'\\controlset\d{3}\\services\\[^\\]+$',low):kind='services'
+                    if kind:
+                        key=hashlib.sha256((registry+':'+raw).encode()).hexdigest();out[kind].setdefault(key,{})
+                elif kind and line.startswith('"'):
+                    match=re.fullmatch(r'"(DisplayName|DisplayVersion|InstallLocation|ImagePath|Start|Type)"=(.*)',line)
+                    if match:
+                        name,value=match.groups()
+                        # ImagePath can contain command arguments/secrets. Retain
+                        # only a digest and the executable location, never args.
+                        if name=='ImagePath':
+                            out[kind][key]['image_configuration_sha256']=hashlib.sha256(value.encode()).hexdigest()
+                            decoded=value.strip('"').replace('\\\\','\\').replace('\\"','"')
+                            image=re.match(r'^"?([A-Za-z]:\\.*?\.exe)(?:"|\s|$)',decoded,re.I)
+                            if image:out[kind][key]['image']=image.group(1)
+                        elif name in ('InstallLocation','DisplayName','DisplayVersion'):
+                            if len(value)<=1024:out[kind][key][name]=value.strip('"').replace('\\\\','\\')
+                        elif re.fullmatch('dword:[0-9a-fA-F]{8}',value):out[kind][key][name]=value
+        out['incomplete']=sorted(set(out['incomplete']));return out
+
+    @staticmethod
+    def compare(before,after):
+        delta={}
+        for key in ('files','logs','uninstall','services'):
+            a=before.get(key,{});b=after.get(key,{})
+            delta[key]={'added':sorted(k for k in b if k not in a),'changed':sorted(k for k in b if k in a and b[k]!=a[k]),'removed':sorted(k for k in a if k not in b)}
+        registrations=[]
+        for key in delta['uninstall']['added']+delta['uninstall']['changed']:
+            location=after['uninstall'][key].get('InstallLocation','').replace('\\','/').rstrip('/')
+            if not location.lower().startswith('c:/'):continue
+            relative=location[3:].lower()+'/'
+            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith('.exe') and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
+            if images:registrations.append({'registration':key,'images':images})
+        changed=any(delta[k][change] for k in ('files','uninstall','services') for change in ('added','changed','removed'))
+        return {'delta':delta,'application_registrations':registrations,
+            'classification':'installed' if registrations else 'partial_installation' if changed else 'indeterminate' if before.get('incomplete') or after.get('incomplete') else 'not_installed',
+            'dependency_health':'unproved','postinstall_launch':'unproved',
+            'incomplete':sorted(set(before.get('incomplete',[])+after.get('incomplete',[])))}
+
+class InstallerWindowsTrace:
+    """Observed Wine create/self-exit chain, separate from Linux ownership.
+
+    No PID-number equality joins Windows to Linux. Creation ordinal + launch
+    epoch delimit reuse. Paths are launch requests, not claimed mapped identity.
+    These are runner-pipe observations, never permission to signal a process.
+    """
+    HEADER=re.compile(r'^(\d+\.\d+):([0-9a-fA-F]+):([0-9a-fA-F]+):(trace|warn|err|fixme):([a-z0-9_]+):([A-Za-z0-9_]+) (.*)$')
+    def __init__(self,artifact,root):
+        self.artifact=artifact;self.root=pathlib.Path(root);self.epoch=0;self.pending={};self.rows=[];self.current={};self.seen=set();self.dropped=0;self.first_failure=None;self.cancelled=False;self.image_budget=256*1024*1024;self.service_results=[]
+    def begin(self):self.epoch+=1;self.pending={};self.current={};self.seen=set()
+    def active(self,pid):
+        row=self.current.get(pid)
+        return row if row and row['epoch']==self.epoch and row['self_exit'] is None else None
+    def retire(self,pid):
+        self.current.pop(pid,None)
+        # Unfinished creates cannot cross this creator generation's retirement.
+        for key in [key for key in self.pending if key[0]==pid]:self.pending.pop(key)
+    @staticmethod
+    def image(body):
+        # Decode only the executable prefix. Never retain command arguments/env.
+        m=re.match(r'app L"(.{1,2048}?)" cmdline ',body)
+        if m:return m[1].replace('\\\\','\\')
+        m=re.match(r'app \(null\) cmdline L"\\"(.{1,2048}?)\\"',body)
+        if m:return m[1].replace('\\\\','\\')
+        return None
+    def path(self,windows_path):
+        if not windows_path:return None
+        if windows_path[:3].lower()=='c:\\':path=self.root/'compatdata/pfx/drive_c'/windows_path[3:].replace('\\','/')
+        elif windows_path[:3].lower()=='z:\\':path=pathlib.Path('/'+windows_path[3:].replace('\\','/'))
+        else:return None
+        if '..' in path.parts:return None
+        return path
+    def feed(self,line):
+        match=self.HEADER.fullmatch(line.decode(errors='replace').rstrip('\r\n'))
+        if not match:return False
+        ts,pid,tid,level,channel,function,body=match.groups();pid=int(pid,16);tid=int(tid,16);key=(pid,tid)
+        if channel=='service' and function=='service_start':
+            result=re.fullmatch(r'returning (\d{1,10})',body)
+            if result and int(result[1])<2**32:
+                if len(self.service_results)<64:self.service_results.append({'epoch':self.epoch,'windows_pid':pid,'windows_tid':tid,'timestamp':ts,'function':function,'status':int(result[1]),'child_association':'unavailable_no_rpc_identity'})
+                else:self.dropped+=1
+            return True
+        if channel=='service' and function in ('CreateServiceW','StartServiceW'):
+            row=self.active(pid)
+            if row and row['target_tree']:
+                row['role']='service_dependency'
+                evidence=row.setdefault('role_evidence',[])
+                if len(evidence)<4:evidence.append({'source':'Wine service API observation','function':function,'timestamp':ts})
+            return True
+        if channel!='process':return False
+        if function=='CreateProcessInternalW' and body.startswith('app '):
+            if len(self.pending)>=512:self.dropped+=1;return True
+            if key in self.pending:self.pending[key]=None # unresolved nesting/refusal cannot authorize pairing
+            else:
+                parent=self.active(pid)
+                self.pending[key]={'timestamp':ts,'image_request':self.image(body),'epoch':self.epoch,
+                    'parent_ordinal':parent['creation_ordinal'] if parent else None,'unobserved_creator':pid not in self.seen}
+            return True
+        if function=='NtCreateUserProcess':
+            resolved=re.search(r' image L"(.{1,2048}?)" cmdline ',body)
+            if resolved and self.pending.get(key) is not None:
+                # This is Wine's resolved image request. Do not split an
+                # unquoted command line and guess which executable it names.
+                self.pending[key]['image_request']=resolved[1].replace('\\\\','\\')
+            return True
+        created=re.fullmatch(r'started process pid ([0-9a-fA-F]+) tid ([0-9a-fA-F]+)',body) if function=='CreateProcessInternalW' else None
+        if created:
+            request=self.pending.pop(key,None)
+            if len(self.rows)>=512:self.dropped+=1;return True
+            child=int(created[1],16);parent=self.active(pid)
+            # Creation completion belongs to the same still-active creator that
+            # issued the request, not whichever generation now has its PID.
+            if not (request and request['epoch']==self.epoch and parent and request['parent_ordinal']==parent['creation_ordinal']):parent=None
+            prior=self.active(child)
+            if prior:self.dropped+=1;self.retire(child);return True
+            path=self.path(request['image_request']) if request else None
+            target=bool(path is not None and path==pathlib.Path(self.artifact['path']) and request['epoch']==self.epoch and request['unobserved_creator'] and pid not in self.seen and parent is None)
+            rooted=target or (parent is not None and parent['target_tree'])
+            row={'epoch':self.epoch,'creation_ordinal':len(self.rows)+1,'windows_pid':child,'windows_tid':int(created[2],16),
+                 'created_timestamp':ts,'parent_ordinal':parent['creation_ordinal'] if parent else None,
+                 'creator_windows_pid':pid,'creator_windows_tid':tid,'target_tree':rooted,'target_root':target,
+                 'image_request':request['image_request'] if request else None,'image_identity':None,
+                 'role':'unknown','self_exit':None,'linux_identity':'unavailable_no_cross_id_inference'}
+            if path is not None:
+                try:
+                    if path==pathlib.Path(self.artifact['path']):
+                        # Import has just been verified by the launch owner. The
+                        # launch request names it, but this is not a mapped base.
+                        row['image_identity']={'sha256':self.artifact['sha256'],'authority':'verified_import_launch_request'}
+                    elif path.is_relative_to(self.root/'compatdata/pfx'):
+                        identity=installer_digest(path,min(self.image_budget,64*1024*1024));self.image_budget-=identity['size']
+                        row['image_identity']={**identity,'authority':'same_open_file_at_launch_request_not_mapped'}
+                except (OSError,ValueError):pass
+            self.rows.append(row);self.current[child]=row;self.seen.add(child);return True
+        exited=re.fullmatch(r'handle (0xffffffffffffffff|0xffffffff), exit_code (-?\d+), process_exiting (1)\.',body) if function=='NtTerminateProcess' else None
+        if exited:
+            code=int(exited[2]);row=self.active(pid)
+            if not row or not -(1<<31)<=code<(1<<32):return True
+            value={'domain':'wine_self_exit_observation','status':code&0xffffffff,'timestamp':ts,'source':'Wine NtTerminateProcess self pseudo-handle','process_exiting':int(exited[3])}
+            if row['self_exit'] is None:row['self_exit']=value
+            elif row['self_exit']['status']!=value['status']:row['exit_conflict']=True;return True
+            if value['status'] and row['target_tree'] and not row['target_root'] and self.first_failure is None and not self.cancelled:
+                self.first_failure={'role':row['role'],'phase':'target_runner','relationship':'descendant','domain':value['domain'],'status':value['status'],
+                    'cause':'unestablished','epoch':self.epoch,'creation_ordinal':row['creation_ordinal'],'timestamp':ts,'windows_pid':pid}
+            self.retire(pid)
+            return True
+        return True # exclude other process lines/arguments from private log projection
+    def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results}
+
+class InstallerTransaction:
+    def __init__(self,op,root,report,artifact=None):
+        self.windows_trace=InstallerWindowsTrace(artifact or {"path":"/unavailable","sha256":None},root)
+        self.op=op;self.root=pathlib.Path(root);self.report=report
+        self.path=report.parent/(op+'-transaction-private.json')
+        self.witness=InstallerWitnesses(root);self.before=None;self.after=None;self.durable=None
+        self.ledger=None;self.private_errors=0;self.accessibility=RecentCapture(32768,64)
+        self.ordinary=RecentCapture(262144,256);self.msi=RecentCapture(131072,64);self.line_pending={};self.line_drops=0
+        self.image_budget=256*1024*1024;self.image_seen={};self.next_images=0;self.log_tail_bytes=0;self.log_drops=0;self.log_record_drops=0
+        self.first_diagnostic=None
+    def begin_phase(self):
+        self.line_drops+=sum(bool(v[0]) or v[1] for v in self.line_pending.values())
+        self.line_pending={};self.windows_trace.begin()
+    def persist(self,ledger):
+        installer_atomic(self.path,{'schema':1,'operation':self.op,'ledger':ledger,'before':self.before,'after':self.after,
+            'durable_installation':self.durable,'diagnostics':self.diagnostics(),'first_diagnostic':self.first_diagnostic,
+            'windows_trace':self.windows_trace.value(),
+            'stages':[{'process':{'pid':r['pid'],'start_ticks':r['start_ticks']},'classification':r['role'],'evidence':r['role_evidence'],'linux_exit':r['linux_exit'],'windows_exit':r['windows_exit']} for r in ledger['processes']]})
+    def diagnostics(self):
+        return {'runner':self.ordinary.limits(),'accessibility_observer':self.accessibility.limits(),'msi':self.msi.limits(),
+                'line_drops':self.line_drops,'retained_private_log_bytes':self.log_tail_bytes,'dropped_private_log_bytes':self.log_drops,'dropped_private_log_records':self.log_record_drops,
+                'unfinished_line_bytes':sum(len(v[0]) for v in self.line_pending.values()),
+                'availability':'bounded_runner_pipes','windows_exit_attribution':'bounded_create_self_exit_trace_separate_from_linux_identity'}
+    def feed(self,data,stream):
+        if stream=='msi':self.msi.write(data);return
+        # Stream-local assembly and oversized-line discard. Diagnostic prose can
+        # never confer process identity, role or exact exit authority.
+        pending,discard=self.line_pending.get(stream,(b'',False));joined=pending+data;pending=b''
+        for part in joined.splitlines(keepends=True):
+            complete=part.endswith((b'\n',b'\r'))
+            if discard:
+                if complete:discard=False
+                continue
+            if len(part)>4096:
+                self.line_drops+=1;discard=not complete;continue
+            if not complete:pending=part;continue
+            pending=b''
+            target=self.accessibility if b'Xalia' in part else self.ordinary
+            if target is not self.accessibility:self.windows_trace.feed(part)
+            target.write(part)
+        self.line_pending[stream]=(b'' if discard else pending,discard)
+    def images(self):
+        if not self.ledger or time.monotonic_ns()<self.next_images:return
+        self.next_images=time.monotonic_ns()+100_000_000
+        prefix=self.root/'compatdata/pfx'
+        for row in self.ledger.records.values():
+            key=(row['pid'],row['start_ticks'])
+            if self.image_seen.get(key,0)>=20 or row['state']=='exited':continue
+            self.image_seen[key]=self.image_seen.get(key,0)+1
+            try:
+                proc=pathlib.Path('/proc')/str(key[0])
+                if 'linux_executable' not in row:
+                    # /proc/PID/exe is a kernel-held image reference, not a
+                    # caller pathname. Recheck exact start identity around it.
+                    before=self.ledger.checked(key[0])
+                    with (proc/'exe').open('rb') as f:
+                        md=os.fstat(f.fileno())
+                        if stat.S_ISREG(md.st_mode) and md.st_size<=min(self.image_budget,16*1024*1024):
+                            digest=hashlib.file_digest(f,'sha256').hexdigest();self.image_budget-=md.st_size
+                            after=self.ledger.checked(key[0]);end=os.fstat(f.fileno())
+                            stable=(md.st_dev,md.st_ino,md.st_size,md.st_mtime_ns,md.st_ctime_ns)==(end.st_dev,end.st_ino,end.st_size,end.st_mtime_ns,end.st_ctime_ns)
+                            if stable and before and after and before['start_ticks']==after['start_ticks']==key[1]:
+                                row['linux_executable']={'sha256':digest,'size':md.st_size,'device':md.st_dev,'inode':md.st_ino,'authority':'kernel_exe_reference_exact_start'}
+                with (proc/'maps').open('rb') as f:raw=f.read(524289)
+                now=self.ledger.checked(key[0])
+                if not now or now['start_ticks']!=key[1] or len(raw)>524288:continue
+                for line in raw.decode(errors='replace').splitlines():
+                    fields=line.split(None,5)
+                    if len(fields)!=6 or not fields[5].lower().endswith('.exe'):continue
+                    p=pathlib.Path(re.sub(r'\\([0-7]{3})',lambda m:chr(int(m[1],8)),fields[5]))
+                    if p==pathlib.Path(self.windows_trace.artifact['path']):relative='imported_installer'
+                    else:
+                        try:relative=str(p.relative_to(prefix))
+                        except ValueError:continue
+                    if any(i['location']==relative for i in row['images']):continue
+                    if len(row['images'])>=8:break
+                    identity=installer_digest(p,min(self.image_budget,64*1024*1024))
+                    device=tuple(int(n,16) for n in fields[3].split(':'))
+                    if (os.major(identity['device']),os.minor(identity['device']),identity['inode'])!=(*device,int(fields[4])):continue
+                    self.image_budget-=identity['size']
+                    if any(i['location']==relative and i['sha256']==identity['sha256'] for i in row['images']):continue
+                    row['images'].append(dict(identity,location=relative,authority='mapped_device_inode_same_open_digest'))
+                    row['image_observation']='observed'
+            except (OSError,ValueError):continue
+    def finish(self):
+        self.after=self.witness.snapshot()
+        self.durable=InstallerWitnesses.compare(self.before or {'incomplete':['baseline_unavailable']},self.after)
+        # Keep changed log tails private and bounded. Nothing is copied publicly.
+        changed_logs=self.durable['delta']['logs']['added']+self.durable['delta']['logs']['changed']
+        self.log_record_drops=max(0,len(changed_logs)-32)
+        for rel in changed_logs[:32]:
+            p=self.witness.prefix/'drive_c'/rel
+            try:
+                with os.fdopen(installer_open(p),'rb') as f:
+                    md=os.fstat(f.fileno())
+                    if not stat.S_ISREG(md.st_mode):continue
+                    size=min(md.st_size,65536,max(0,1048576-self.log_tail_bytes));f.seek(-size,2)
+                    data=f.read(size);self.log_tail_bytes+=len(data);self.log_drops+=md.st_size-len(data)
+                name=hashlib.sha256(rel.encode()).hexdigest()
+                fd=os.open(self.report.parent/(self.op+'-log-'+name),os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                with os.fdopen(fd,'wb') as out:out.write(data);out.flush();os.fsync(out.fileno())
+            except (OSError,ValueError):self.private_errors+=1
+        if self.msi.bytes:
+            try:
+                with (self.report.parent/(self.op+'-msi-private.log')).open('xb') as f:
+                    os.chmod(f.name,0o600)
+                    for row in self.msi.rows:f.write(row)
+                    f.flush();os.fsync(f.fileno())
+            except OSError:self.private_errors+=1
+        if self.ledger:self.ledger.commit()
+    def summary(self,outer,clean,cancelled,ongoing=False):
+        ledger=self.ledger;failure=self.windows_trace.first_failure or (ledger.first_failure if ledger else None)
+        durable=self.durable['classification'] if self.durable else 'unavailable'
+        if ongoing:outcome='in_progress'
+        elif not clean:outcome='cleanup_unconfirmed'
+        elif cancelled:outcome='cancelled'
+        elif outer not in (None,0) and failure and failure['relationship']=='descendant':outcome='installed_dependency_failed' if durable=='installed' and failure['role']=='service_dependency' else 'child_failed'
+        elif outer not in (None,0):outcome='outer_nonzero_stage_unknown'
+        elif durable=='installed':outcome='installed'
+        elif durable in ('partial_installation','not_installed'):outcome=durable
+        else:outcome='completed'
+        return {'schema':1,'operation':self.op,'outcome':outcome,'outer_launcher_exit':outer,
+            'durable_installation':durable,'installation_completeness':'unproved',
+            'first_failure':None if failure is None else {k:failure[k] for k in ('role','phase','relationship','domain','status','cause')},
+            'process_count':len(ledger.records) if ledger else 0,
+            'windows_self_exit_count':sum(r['self_exit'] is not None for r in self.windows_trace.rows),
+            'unavailable_exits':sum(r['linux_exit'] is None for r in ledger.records.values()) if ledger else 0,
+            'dropped_process_observations':ledger.dropped if ledger else 0,
+            'unattributed_adopted_exits':ledger.unattributed_waits if ledger else 0,
+            'private_record_written':self.path.is_file(),'persistence_failures':(ledger.persistence_failures if ledger else 0)+self.private_errors,
+            'diagnostics':self.diagnostics(),
+            'safe_next_action':'exact_owned_focus_or_stop' if ongoing else 'review_retained_outcome_before_retry' if outcome!='installed' or failure else 'managed_first_launch_required_not_authorized_by_installation'}
+
 def managed_install(spec):
     """MF2 initial installer, exact dedicated unit. No product admission authority."""
     op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
@@ -1196,46 +1596,65 @@ def managed_install(spec):
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;diagnostics=RecentCapture(131072,64);private_report_written=False
     sel=selectors.DefaultSelector();start=time.monotonic();startup=InstallerStartup(op,spec['installer'],root)
+    transaction=InstallerTransaction(op,root,report,spec['installer']);ledger=None;msi_fd=None;msi_fifo=None
     def stopping(*_):
         nonlocal stop
         stop=True;startup.cancellation()
+        if ledger:ledger.cancelled=True
+        transaction.windows_trace.cancelled=True
     signal.signal(signal.SIGTERM,stopping);signal.signal(signal.SIGINT,stopping)
-    def reap():installer_reap(child)
+    def reap():
+        if ledger:return ledger.harvest()
+        return []
     def drain(wait):
         for key,_ in sel.select(wait):
-            data=os.read(key.fileobj.fileno(),65536)
-            if data:diagnostics.write(data);startup.feed(data,'stdout' if key.fileobj is child.stdout else 'stderr')
+            data=os.read(key.fileobj if isinstance(key.fileobj,int) else key.fileobj.fileno(),65536)
+            if data:
+                stream='msi' if key.fileobj==msi_fd else 'stdout' if child and key.fileobj is child.stdout else 'stderr'
+                if stream!='msi':diagnostics.write(data)
+                transaction.feed(data,stream)
+                if transaction.windows_trace.first_failure and ledger:ledger.commit()
+                if stream!='msi':startup.feed(data,stream)
             else:sel.unregister(key.fileobj)
+    def outer_exit():
+        return child.returncode if child and getattr(child,"installer_phase",None)=="target_runner" else None
     def value(state,live):
-        return {'schema':2,'operation':op,'state':state,'raw_exit':child.returncode if child else None,
+        return {'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
-                'startup':startup.value(),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
+                'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop,state in ('starting','running','unknown')),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
     try:
         for a in [spec['installer'],*env['runner']['files']]:verify(a)
         scope=CompanionCgroup(installer_operation=op)
         if scope.members():raise RuntimeError('installer cgroup initially occupied')
+        ledger=InstallerLedger(scope,transaction.persist);transaction.ledger=ledger
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('installer subreaper unavailable')
         runner=env['runner'];base=[runner['entry_point'],'--verb=run','--',runner['proton']]
         argv=base+['runinprefix']
         if spec['format']=='pe_executable':argv.append(spec['installer']['path'])
-        elif spec['format']=='msi_compound':argv+=['msiexec','/i',windows(spec['installer']['path'],root/'compatdata/pfx')]
+        elif spec['format']=='msi_compound':
+            msi_fifo=report.parent/(op+'-msi.pipe');os.mkfifo(msi_fifo,0o600)
+            msi_fd=os.open(msi_fifo,os.O_RDWR|os.O_NONBLOCK|os.O_NOFOLLOW);sel.register(msi_fd,selectors.EVENT_READ)
+            argv+=['msiexec','/i',windows(spec['installer']['path'],root/'compatdata/pfx'),'/L*v',windows(msi_fifo,root/'compatdata/pfx')]
         else:raise RuntimeError('installer format unsupported')
         reg={'environment':env,'compatibility':{'disable_windows_accessibility':False}}
         launch_env=environment(reg);launch_env['HOME']=str(root/'home')
-        launch_env['WINEDEBUG']='-all,err+steamclient,err+module'
+        launch_env['PROTON_LOG']='0'
+        launch_env['WINEDEBUG']='-all,+timestamp,+pid,+tid,err+steamclient,err+module,trace+process,trace+service,trace+msi'
         startup.bind_images(runner)
         def launch(args, phase):
-            startup.stage(phase+'_launch_requested')
+            startup.stage(phase+'_launch_requested');transaction.begin_phase()
+            startup.line_drops+=sum(bool(v) for v in startup.pending.values())
+            startup.pending={};startup.discarding=set()
             process=subprocess.Popen(args,env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
             for pipe in (process.stdout,process.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)
-            startup.stage(phase+'_started',pid=process.pid)
+            process.installer_phase=phase;ledger.launcher(process,phase);startup.stage(phase+'_started',pid=process.pid)
             return process
         # This public verb calls init_session(True), including setup_prefix, but
         # never Session.run/steam.exe. runinprefix alone skips setup_prefix.
         child=launch(base+['getcompatpath','/'],'prefix_initialization')
         bootstrap_deadline=time.monotonic()+120
-        while child.poll() is None and not stop:
-            drain(.05);startup.observe(scope.members());reap()
+        while child.returncode is None and not stop:
+            members=reap();startup.observe(members);transaction.images();drain(.05)
             if time.monotonic()>bootstrap_deadline:
                 startup.problem('prefix_initialization_timeout');raise TimeoutError('prefix initialization')
             atomic(report,value('starting',len(scope.members())))
@@ -1248,14 +1667,16 @@ def managed_install(spec):
             if pipe in sel.get_map():sel.unregister(pipe)
             pipe.close()
         if not (root/'compatdata/pfx/system.reg').is_file():raise RuntimeError('prefix initialization missing')
+        # Baseline after runner initialization excludes default prefix construction.
+        transaction.before=transaction.witness.snapshot();ledger.commit()
         child=launch(argv,'target_runner')
         last=0
         while not stop:
-            reap();live=[r for r in scope.members() if r['state']!='Z'];startup.observe(live)
+            live=reap();startup.observe(live);transaction.images()
             state=vendor_operation_state(child.returncode,len(live))
             if state in ('completed','failed'):
                 clean=True
-                if state=='failed':error='installer_launcher_failed'
+                if state=='failed':error='outer_nonzero_stage_unknown'
                 break
             request_path=report.parent/(op+'-focus.json')
             if request_path.exists():
@@ -1274,15 +1695,24 @@ def managed_install(spec):
             if time.monotonic()-last>.5:atomic(report,value(state,len(live)));last=time.monotonic()
             drain(.05)
     except Exception as exc:
-        if not stop:error='installer_owner_'+type(exc).__name__;startup.problem('supervisor_startup_error')
+        if not stop:
+            error='installer_owner_'+type(exc).__name__
+            if startup.target is None:startup.problem('supervisor_startup_error')
+            else:startup.stage('supervision_error_observed',code=error)
     finally:
         if scope is not None and not clean:
-            try:clean=scope.cleanup(reap)
+            try:clean=ledger.cleanup() if ledger else not scope.members()
             except Exception:error='installer_cleanup_failed'
         if child:
             for _ in range(64):drain(0)
             child.stdout.close();child.stderr.close()
+        if msi_fd is not None:os.close(msi_fd)
+        if msi_fifo is not None:
+            try:msi_fifo.unlink()
+            except FileNotFoundError:pass
         sel.close()
+        try:transaction.finish()
+        except (OSError,ValueError):transaction.private_errors+=1
         state='cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed'
         try:
             with (report.parent/(op+'-private.log')).open('xb') as private:
@@ -1291,7 +1721,7 @@ def managed_install(spec):
                 private.flush();os.fsync(private.fileno())
             private_report_written=True
         except OSError:pass # Reporting must not prevent containment or its receipt.
-        startup.stage('cohort_retired' if clean else 'cleanup_unconfirmed',outer_exit=child.returncode if child else None)
+        startup.stage('cohort_retired' if clean else 'cleanup_unconfirmed',outer_exit=outer_exit())
         atomic(report,value(state,0 if clean else None));lock.close()
     return clean and error is None
 
