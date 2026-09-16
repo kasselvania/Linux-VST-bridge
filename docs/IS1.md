@@ -179,3 +179,41 @@ parent's exit, service-server response without RPC identity, or fixture stdout.
 No generic first-launch operation or automatic reinstall is authorized by the
 installation witness. A future first-launch crossing must retain its own exact
 application selection and process ownership.
+
+## Focused rereview repairs after `55ffc7c`
+
+New isolated attempts use one manager eligibility rule for both preparation and
+offered frontend actions. A positively retired, empty transaction with durable
+`not_installed` or `partial_installation` can have one explicit successor even
+when its top-level state is `completed`. Installed, unresolved, in-progress,
+cleanup-unconfirmed and still-owned outcomes cannot. Legacy receipts without a
+transaction retain their failed/cancelled retry rule. The creation owner checks
+the prior result and linked successor again under its existing registry guard,
+using only small custody records. It never rehashes the installer or runner there.
+The new attempt has a new environment and operation; prior records remain intact.
+
+Windows diagnostic history and active process authority are separate. A self-exit
+retires that generation from the active map and discards its unfinished creates.
+A create completion can inherit a target relationship only from the same active
+creator ordinal and launch epoch that issued its request. A known exited PID
+cannot masquerade as an unobserved outer launcher. Fully observed PID reuse gets
+a new ordinal, while retired rows and their role evidence remain unchanged.
+Windows IDs still confer no Linux ownership or signal authority.
+
+Added, changed **or removed** allowlisted executable/package, uninstall and
+service witnesses count as durable mutation. Removal-only results are at least
+`partial_installation`; a stronger installed registration/image witness retains
+precedence. Exact removal deltas remain available. Diagnostic-log changes alone
+do not count as installation.
+
+The frontend renders a first failure's phase, role (or unknown), relationship,
+domain and numeric status, with cause explicitly unestablished. Outer exit,
+cancellation and cleanup stay separate; numeric values receive no inferred
+MSI, vendor or Windows error meaning.
+
+Focused regressions exercise completed/no-install and partial-install retry,
+installed/cleanup/live/duplicate refusal, two prevalidated successor requests,
+snapshot and button behavior, exited/reused process generations, pending creates,
+service attribution and each removal-only surface. These are source-only tests;
+they do not replace or replay the accepted pinned-runner matrix or either retained
+Native Access attempt.

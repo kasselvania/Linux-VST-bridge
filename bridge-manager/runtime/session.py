@@ -1340,7 +1340,7 @@ class InstallerWitnesses:
             relative=location[3:].lower()+'/'
             images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith('.exe') and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
             if images:registrations.append({'registration':key,'images':images})
-        changed=any(delta[k]['added'] or delta[k]['changed'] for k in ('files','uninstall','services'))
+        changed=any(delta[k][change] for k in ('files','uninstall','services') for change in ('added','changed','removed'))
         return {'delta':delta,'application_registrations':registrations,
             'classification':'installed' if registrations else 'partial_installation' if changed else 'indeterminate' if before.get('incomplete') or after.get('incomplete') else 'not_installed',
             'dependency_health':'unproved','postinstall_launch':'unproved',
@@ -1355,8 +1355,15 @@ class InstallerWindowsTrace:
     """
     HEADER=re.compile(r'^(\d+\.\d+):([0-9a-fA-F]+):([0-9a-fA-F]+):(trace|warn|err|fixme):([a-z0-9_]+):([A-Za-z0-9_]+) (.*)$')
     def __init__(self,artifact,root):
-        self.artifact=artifact;self.root=pathlib.Path(root);self.epoch=0;self.pending={};self.rows=[];self.current={};self.dropped=0;self.first_failure=None;self.cancelled=False;self.image_budget=256*1024*1024;self.service_results=[]
-    def begin(self):self.epoch+=1;self.pending={};self.current={}
+        self.artifact=artifact;self.root=pathlib.Path(root);self.epoch=0;self.pending={};self.rows=[];self.current={};self.seen=set();self.dropped=0;self.first_failure=None;self.cancelled=False;self.image_budget=256*1024*1024;self.service_results=[]
+    def begin(self):self.epoch+=1;self.pending={};self.current={};self.seen=set()
+    def active(self,pid):
+        row=self.current.get(pid)
+        return row if row and row['epoch']==self.epoch and row['self_exit'] is None else None
+    def retire(self,pid):
+        self.current.pop(pid,None)
+        # Unfinished creates cannot cross this creator generation's retirement.
+        for key in [key for key in self.pending if key[0]==pid]:self.pending.pop(key)
     @staticmethod
     def image(body):
         # Decode only the executable prefix. Never retain command arguments/env.
@@ -1383,7 +1390,7 @@ class InstallerWindowsTrace:
                 else:self.dropped+=1
             return True
         if channel=='service' and function in ('CreateServiceW','StartServiceW'):
-            row=self.current.get(pid)
+            row=self.active(pid)
             if row and row['target_tree']:
                 row['role']='service_dependency'
                 evidence=row.setdefault('role_evidence',[])
@@ -1393,7 +1400,10 @@ class InstallerWindowsTrace:
         if function=='CreateProcessInternalW' and body.startswith('app '):
             if len(self.pending)>=512:self.dropped+=1;return True
             if key in self.pending:self.pending[key]=None # unresolved nesting/refusal cannot authorize pairing
-            else:self.pending[key]={'timestamp':ts,'image_request':self.image(body)}
+            else:
+                parent=self.active(pid)
+                self.pending[key]={'timestamp':ts,'image_request':self.image(body),'epoch':self.epoch,
+                    'parent_ordinal':parent['creation_ordinal'] if parent else None,'unobserved_creator':pid not in self.seen}
             return True
         if function=='NtCreateUserProcess':
             resolved=re.search(r' image L"(.{1,2048}?)" cmdline ',body)
@@ -1406,11 +1416,14 @@ class InstallerWindowsTrace:
         if created:
             request=self.pending.pop(key,None)
             if len(self.rows)>=512:self.dropped+=1;return True
-            child=int(created[1],16);parent=self.current.get(pid)
-            prior=self.current.get(child)
-            if prior and prior['self_exit'] is None:self.dropped+=1;self.current.pop(child,None);return True
+            child=int(created[1],16);parent=self.active(pid)
+            # Creation completion belongs to the same still-active creator that
+            # issued the request, not whichever generation now has its PID.
+            if not (request and request['epoch']==self.epoch and parent and request['parent_ordinal']==parent['creation_ordinal']):parent=None
+            prior=self.active(child)
+            if prior:self.dropped+=1;self.retire(child);return True
             path=self.path(request['image_request']) if request else None
-            target=path is not None and path==pathlib.Path(self.artifact['path']) and parent is None
+            target=bool(path is not None and path==pathlib.Path(self.artifact['path']) and request['epoch']==self.epoch and request['unobserved_creator'] and pid not in self.seen and parent is None)
             rooted=target or (parent is not None and parent['target_tree'])
             row={'epoch':self.epoch,'creation_ordinal':len(self.rows)+1,'windows_pid':child,'windows_tid':int(created[2],16),
                  'created_timestamp':ts,'parent_ordinal':parent['creation_ordinal'] if parent else None,
@@ -1427,10 +1440,10 @@ class InstallerWindowsTrace:
                         identity=installer_digest(path,min(self.image_budget,64*1024*1024));self.image_budget-=identity['size']
                         row['image_identity']={**identity,'authority':'same_open_file_at_launch_request_not_mapped'}
                 except (OSError,ValueError):pass
-            self.rows.append(row);self.current[child]=row;return True
+            self.rows.append(row);self.current[child]=row;self.seen.add(child);return True
         exited=re.fullmatch(r'handle (0xffffffffffffffff|0xffffffff), exit_code (-?\d+), process_exiting (1)\.',body) if function=='NtTerminateProcess' else None
         if exited:
-            code=int(exited[2]);row=self.current.get(pid)
+            code=int(exited[2]);row=self.active(pid)
             if not row or not -(1<<31)<=code<(1<<32):return True
             value={'domain':'wine_self_exit_observation','status':code&0xffffffff,'timestamp':ts,'source':'Wine NtTerminateProcess self pseudo-handle','process_exiting':int(exited[3])}
             if row['self_exit'] is None:row['self_exit']=value
@@ -1438,6 +1451,7 @@ class InstallerWindowsTrace:
             if value['status'] and row['target_tree'] and not row['target_root'] and self.first_failure is None and not self.cancelled:
                 self.first_failure={'role':row['role'],'phase':'target_runner','relationship':'descendant','domain':value['domain'],'status':value['status'],
                     'cause':'unestablished','epoch':self.epoch,'creation_ordinal':row['creation_ordinal'],'timestamp':ts,'windows_pid':pid}
+            self.retire(pid)
             return True
         return True # exclude other process lines/arguments from private log projection
     def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results}

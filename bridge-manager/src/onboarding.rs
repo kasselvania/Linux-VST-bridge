@@ -211,16 +211,9 @@ pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<Prep
         (result_path.clone(), FileIdentity::read(&result_path)?),
     ];
     let v = result(m, &r)?;
-    require(
-        retired(&v) && matches!(v["state"].as_str(), Some("failed" | "cancelled")),
-        "previous_attempt_not_failed_and_retired",
-    )?;
-    require(v["transaction"]["durable_installation"] != "installed", "installed_attempt_requires_first_launch_review")?;
-    require(
-        !records(m)?
-            .iter()
-            .any(|x| x.previous_attempt.as_deref() == Some(previous)),
-        "fresh_attempt_already_created",
+    require_new_attempt(
+        &v,
+        records(m)?.iter().any(|x| x.previous_attempt.as_deref() == Some(previous)),
     )?;
     let mut prepared = prepare_creation(m, &r.installer, runner)?;
     prepared.files.extend(stamps);
@@ -271,6 +264,24 @@ fn create_exact(
     guard.require_registry(m)?;
     require(valid_hex(owner, 32), "onboarding_creation_operation")?;
     m.require_inactive(None)?;
+    if let Some(previous) = &previous_attempt {
+        // Recheck under the same registry guard that commits the new environment.
+        // Two prevalidated requests cannot both create a linked successor.
+        // Re-read only small custody records here. Import/runner hashing belongs
+        // to prepare_attempt, outside registry authority.
+        let history = history_records(m)?;
+        let prior = history.iter().find(|r| r.id == *previous)
+            .ok_or("onboarding_previous_missing")?;
+        require(
+            !prior.published && prior.installer == installer.id
+                && !m.registry()?.classes.values().any(|e| e.registration.environment.id == *previous),
+            "onboarding_previous_binding",
+        )?;
+        require_new_attempt(
+            &result(m, prior)?,
+            history.iter().any(|x| x.previous_attempt.as_ref() == Some(previous)),
+        )?;
+    }
     let id = random_id()?;
     let root = m.root.join("environments").join(&id);
     private_dir(&root)?;
@@ -349,6 +360,34 @@ pub fn retired(v: &Value) -> bool {
             v["state"].as_str(),
             Some("completed" | "failed" | "cancelled")
         )
+}
+fn require_new_attempt(v: &Value, linked: bool) -> Result<()> {
+    require(retired(v), "previous_attempt_not_terminal_and_retired")?;
+    if let Some(t) = v.get("transaction") {
+        require(
+            !matches!(t["outcome"].as_str(), Some("in_progress" | "cleanup_unconfirmed")),
+            "previous_attempt_not_terminal_and_retired",
+        )?;
+        require(t["durable_installation"] != "installed", "installed_attempt_requires_first_launch_review")?;
+        require(
+            matches!(t["durable_installation"].as_str(), Some("not_installed" | "partial_installation")),
+            "previous_installation_outcome_unresolved",
+        )?;
+    } else {
+        // Legacy MF2 receipts remain readable and retain their original retry law.
+        require(matches!(v["state"].as_str(), Some("failed" | "cancelled")), "previous_installation_outcome_unresolved")?;
+    }
+    require(!linked, "fresh_attempt_already_created")
+}
+fn new_attempt_actions(
+    v: &Value, previous: &str, runners: &[(String, Runner)], linked: bool, busy: Option<&str>,
+) -> Vec<ui::AvailableAction> {
+    if require_new_attempt(v, linked).is_err() { return vec![]; }
+    runners.iter().map(|(key, runner)| ui::AvailableAction {
+        label: format!("New isolated attempt · {}", runner.version),
+        action: ui::Action::InstallerNewAttempt { previous: previous.into(), runner: key.clone() },
+        disabled_reason: busy.map(Into::into),
+    }).collect()
 }
 pub fn mark_dead(m: &Manager, r: &Record) -> Result<()> {
     let Some(op) = &r.installation_operation else {
@@ -580,24 +619,8 @@ pub fn projection(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::Onboarding>
                     disabled_reason: busy.map(Into::into),
                 });
             }
-            if retired(&v)
-                && matches!(v["state"].as_str(), Some("failed" | "cancelled"))
-                && v["transaction"]["durable_installation"] != "installed"
-                && !records
-                    .iter()
-                    .any(|x| x.previous_attempt.as_deref() == Some(&r.id))
-            {
-                for (key, runner) in &runners {
-                    actions.push(ui::AvailableAction {
-                        label: format!("New isolated attempt · {}", runner.version),
-                        action: ui::Action::InstallerNewAttempt {
-                            previous: r.id.clone(),
-                            runner: key.clone(),
-                        },
-                        disabled_reason: busy.map(Into::into),
-                    });
-                }
-            }
+            actions.extend(new_attempt_actions(&v, &r.id, &runners,
+                records.iter().any(|x| x.previous_attempt.as_deref() == Some(&r.id)), busy));
             let scan_path = m.root.join("inventory").join(format!("{}.json", r.id));
             let scan: Value = if scan_path.exists() {
                 read_json(&scan_path)?
@@ -696,6 +719,91 @@ mod tests {
         fs::write(&p, b).unwrap();
         let i = installer_import::import(&f.m, file(&p).unwrap()).unwrap();
         (f, i)
+    }
+    #[test]
+    fn terminal_durable_outcome_controls_projection_and_guarded_new_attempt() {
+        for (durable, outcome, cleanup, owned, allowed) in [
+            ("not_installed", "not_installed", true, 0, true),
+            ("partial_installation", "partial_installation", true, 0, true),
+            ("installed", "installed", true, 0, false),
+            ("partial_installation", "cleanup_unconfirmed", false, 0, false),
+            ("not_installed", "not_installed", true, 1, false),
+            ("not_installed", "in_progress", true, 0, false),
+            ("unavailable", "completed", true, 0, false),
+        ] {
+            let (f, i) = fixture();
+            let first = create_exact(&f.m, &i, f.r.environment.runner.clone(), &"ab".repeat(16),
+                &f.m.lock("registry.lock").unwrap(), None).unwrap();
+            let id = first["onboarding"].as_str().unwrap();
+            let op = "cd".repeat(16);
+            let prior = reserve(&f.m, id, &op).unwrap();
+            let dir = directory(&f.m, id).unwrap();
+            let rp = dir.join(format!("{op}-result.json"));
+            let record = dir.join("record.json");
+            let receipt = json!({"schema":2,"operation":op,"state":"completed",
+                "cleanup_confirmed":cleanup,"owned_live":owned,"transaction":{
+                    "schema":1,"operation":op,"outcome":outcome,"durable_installation":durable}});
+            atomic_json(&rp, &receipt).unwrap();
+            let private = dir.join("private-evidence.json");
+            fs::write(&private, b"retained private evidence").unwrap();
+            let retained = [&record, &rp, &private, &prior.environment.root.join("environment.json")]
+                .into_iter().map(|p| (p.clone(), fs::read(p).unwrap())).collect::<Vec<_>>();
+            let runner = prior.environment.runner.clone();
+            let key = runner_key(&runner).unwrap();
+            let offered = new_attempt_actions(&receipt, id, &[(key.clone(), runner.clone())], false, None);
+            assert_eq!(offered.len(), usize::from(allowed), "{durable}/{outcome}");
+            if allowed {
+                assert_eq!(offered[0].action, ui::Action::InstallerNewAttempt { previous:id.into(), runner:key.clone() });
+                let blocked = new_attempt_actions(&receipt, id, &[(key, runner.clone())], false, Some("active DSP"));
+                assert_eq!(blocked[0].disabled_reason.as_deref(), Some("active DSP"));
+            } else {
+                assert!(prepare_attempt(&f.m, id, &key).is_err());
+            }
+            let prepared = PreparedCreation { installer:i.clone(), runner,
+                files:vec![(record.clone(), FileIdentity::read(&record).unwrap()),
+                    (rp.clone(), FileIdentity::read(&rp).unwrap())], previous_attempt:Some(id.into()) };
+            let next = create_prepared(&f.m, prepared, &"ef".repeat(16), &f.m.lock("registry.lock").unwrap());
+            assert_eq!(next.is_ok(), allowed, "{durable}/{outcome}: {next:?}");
+            assert_eq!(records(&f.m).unwrap().len(), if allowed { 2 } else { 1 });
+            if let Ok(next) = next {
+                let r = load(&f.m, next["onboarding"].as_str().unwrap()).unwrap();
+                assert_ne!(r.environment.root, prior.environment.root);
+                assert_eq!(r.previous_attempt.as_deref(), Some(id));
+                assert!(!r.published && r.installation_operation.is_none());
+            }
+            for (path, bytes) in retained { assert_eq!(fs::read(path).unwrap(), bytes); }
+            assert!(!f.m.publications.exists());
+            assert!(!f.m.root.join("operator/resume.json").exists());
+        }
+    }
+    #[test]
+    fn two_prevalidated_attempts_cannot_create_two_successors() {
+        let (f, i) = fixture();
+        let first = create_exact(&f.m, &i, f.r.environment.runner.clone(), &"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(), None).unwrap();
+        let id = first["onboarding"].as_str().unwrap();
+        let op = "cd".repeat(16);
+        let prior = reserve(&f.m, id, &op).unwrap();
+        let dir = directory(&f.m, id).unwrap();
+        let rp = dir.join(format!("{op}-result.json"));
+        let record = dir.join("record.json");
+        let receipt = json!({"schema":2,"operation":op,"state":"completed","cleanup_confirmed":true,"owned_live":0,
+            "transaction":{"schema":1,"operation":op,"outcome":"partial_installation","durable_installation":"partial_installation"}});
+        atomic_json(&rp, &receipt).unwrap();
+        let bytes = fs::read(&rp).unwrap();
+        let prepare = || PreparedCreation { installer:i.clone(), runner:prior.environment.runner.clone(),
+            files:vec![(record.clone(), FileIdentity::read(&record).unwrap()),
+                (rp.clone(), FileIdentity::read(&rp).unwrap())], previous_attempt:Some(id.into()) };
+        let a = prepare(); let b = prepare();
+        create_prepared(&f.m, a, &"ef".repeat(16), &f.m.lock("registry.lock").unwrap()).unwrap();
+        assert!(create_prepared(&f.m, b, &"12".repeat(16), &f.m.lock("registry.lock").unwrap())
+            .unwrap_err().to_string().contains("fresh_attempt_already_created"));
+        let key = runner_key(&prior.environment.runner).unwrap();
+        assert!(new_attempt_actions(&receipt, id, &[(key.clone(), prior.environment.runner)], true, None).is_empty());
+        assert!(prepare_attempt(&f.m, id, &key).err().unwrap().to_string().contains("fresh_attempt_already_created"));
+        assert_eq!(records(&f.m).unwrap().len(), 2);
+        assert_eq!(fs::read(rp).unwrap(), bytes);
+        assert!(!f.m.publications.exists());
     }
     #[test]
     fn qualified_environment_leaves_initial_install_projection_without_erasing_history() {

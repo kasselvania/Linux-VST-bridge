@@ -541,7 +541,12 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
     }
     if let Some(n)=t["outer_launcher_exit"].as_i64(){lines.push(format!("Outer launcher exit: {n} (separate from payload and service exits)"));}
     lines.push(format!("Durable installation: {}",t["durable_installation"].as_str().unwrap_or("unavailable").replace('_'," ")));
-    if !t["first_failure"].is_null() {lines.push(format!("First retained process result: {} · status {} · cause unestablished",t["first_failure"]["domain"].as_str().unwrap_or("unknown"),t["first_failure"]["status"]));}
+    if !t["first_failure"].is_null() {
+        let f=&t["first_failure"];
+        lines.push(format!("First retained process result: phase {} · role {} · relationship {} · domain {} · status {} · cause unestablished",
+            f["phase"].as_str().unwrap_or("unknown"), f["role"].as_str().unwrap_or("unknown"),
+            f["relationship"].as_str().unwrap_or("unknown"), f["domain"].as_str().unwrap_or("unknown"), f["status"]));
+    }
     lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
     lines
 }
@@ -619,6 +624,23 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn first_failure_presents_exact_stage_role_relationship_domain_without_guessing() {
+        for role in [Some("service_dependency"), None] {
+            for (domain, status) in [("wine_self_exit_observation", 3010), ("linux_wait", 2)] {
+                let v = serde_json::json!({"operation":"exact","cleanup_confirmed":true,
+                    "transaction":{"schema":1,"operation":"exact","outcome":"cancelled",
+                        "outer_launcher_exit":-15,"durable_installation":"partial_installation",
+                        "first_failure":{"phase":"target_runner","role":role,
+                            "relationship":"descendant","domain":domain,"status":status}}});
+                let lines = super::installer_lines(&v);
+                let failure = lines.iter().find(|l| l.starts_with("First retained")).unwrap();
+                assert_eq!(failure, &format!("First retained process result: phase target_runner · role {} · relationship descendant · domain {domain} · status {status} · cause unestablished", role.unwrap_or("unknown")));
+                assert!(lines.iter().any(|l| l.contains("Outer launcher exit: -15")));
+                assert!(lines.iter().any(|l| l.contains("cleanup confirmed")));
+            }
+        }
+    }
     #[test]
     fn installer_partial_nonzero_cancellation_and_cleanup_stay_separate() {
         let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"startup":{"first_problem":{"code":"runtime_assertion_observed"}},"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
@@ -727,6 +749,53 @@ mod tests {
             capture: s.capture.clone(),
             operation: s.operation.clone(),
         })
+    }
+    #[test]
+    fn terminal_retry_offers_survive_snapshot_and_poll_without_frontend_inference() {
+        // These are manager-projected offers, not frontend eligibility rules.
+        // Cover both eligible completed outcomes and the three explicit refusals.
+        for (durable, outcome, linked, offered, disabled) in [
+            ("not_installed", "not_installed", false, true, None),
+            ("partial_installation", "partial_installation", false, true, None),
+            ("installed", "installed", false, false, None),
+            ("partial_installation", "cleanup_unconfirmed", false, false, None),
+            ("partial_installation", "partial_installation", true, false, None),
+            ("partial_installation", "partial_installation", false, true, Some("active DSP")),
+        ] {
+            let mut s = running_snapshot("prior-op");
+            s.system.service = "active".into();
+            s.system.cleanup_unconfirmed = outcome == "cleanup_unconfirmed";
+            s.operation = Some(serde_json::json!({"operation":"prior-op","state":"completed"}));
+            let card = &mut s.onboarding[0];
+            card.state = "completed".into();
+            card.details = serde_json::json!({"installation":{"operation":"prior-op","state":"completed",
+                "transaction":{"schema":1,"operation":"prior-op","outcome":outcome,"durable_installation":durable}},"linked_attempt":linked});
+            let action = Action::InstallerNewAttempt { previous:card.environment.clone().unwrap(), runner:"cd".repeat(32) };
+            card.actions = if offered { vec![AvailableAction { label:"New isolated attempt".into(),
+                action:action.clone(), disabled_reason:disabled.map(Into::into) }] } else { vec![] };
+            let mut o = state_fixture(); // reopening receives canonical snapshot
+            o.handle_reply(Reply::Snapshot(Box::new(s.clone())));
+            o.handle_reply(activity_from(&s));
+            let ctx = egui::Context::default();
+            let mut point = egui::Pos2::ZERO;
+            let mut chosen = None;
+            for pressed in [None, Some(true), Some(false)] {
+                o.pending = pressed == Some(false);
+                o.background_poll = o.pending;
+                let events = pressed.map(|pressed| vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton { pos:point, button:egui::PointerButton::Primary,
+                        pressed, modifiers:egui::Modifiers::NONE }]).unwrap_or_default();
+                let mut output = ctx.run_ui(egui::RawInput { events, ..Default::default() }, |ui| {
+                    point = ui.next_widget_position() + egui::vec2(12.0, 12.0);
+                    let projected = o.snapshot.as_ref().unwrap();
+                    Operator::buttons(ui, &projected.onboarding[0].actions, projected.system.inactive_reason(),
+                        o.controls_pending(), &mut chosen);
+                });
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen, if offered && disabled.is_none() { Some(action) } else { None },
+                "{durable}/{outcome}, linked={linked}");
+        }
     }
     #[test]
     fn integrated_snapshot_first_and_activity_first_reconcile_stop() {

@@ -58,6 +58,21 @@ class LedgerTests(unittest.TestCase):
         self.assertTrue(all(r['role']=='unknown' for r in ledger.records.values()))
 
 class WitnessTests(unittest.TestCase):
+    def test_removal_only_durable_surfaces_are_partial_and_keep_exact_delta(self):
+        for category,record in [('files',{'sha256':'ab','format':'pe_executable'}),
+                                ('uninstall',{'InstallLocation':'C:\\Fixture'}),
+                                ('services',{'Start':3})]:
+            with self.subTest(category=category):
+                empty={k:{} for k in ('files','logs','services','uninstall')}
+                empty['incomplete']=[]
+                before={**empty,category:{'removed-witness':record}}
+                value=session.InstallerWitnesses.compare(before,empty)
+                self.assertEqual(value['classification'],'partial_installation')
+                self.assertEqual(value['delta'][category],{'added':[],'changed':[],'removed':['removed-witness']})
+                installed={**empty,'files':{'Fixture/app.exe':{'sha256':'cd','format':'pe_executable'}},
+                           'uninstall':{'application':{'InstallLocation':'C:\\Fixture'}}}
+                self.assertEqual(session.InstallerWitnesses.compare(before,installed)['classification'],'installed')
+        self.assertEqual(session.InstallerWitnesses.compare({**empty,'logs':{'log':{'sha256':'ab'}}},empty)['classification'],'not_installed')
     def test_live_operation_is_not_a_cleanup_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
             tx=session.InstallerTransaction('ab'*16,tmp,pathlib.Path(tmp)/'r')
@@ -95,6 +110,65 @@ class WitnessTests(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text())['first_failure'],37);self.assertEqual(path.stat().st_mode&0o777,0o600)
 
 class WindowsTraceTests(unittest.TestCase):
+    def setUp(self):
+        self.trace=session.InstallerWindowsTrace({'path':'/fixture.exe','sha256':'ab'*32},'/private')
+        self.trace.begin();self.tick=0
+    def event(self,pid,function,body,channel='process'):
+        self.tick+=1
+        self.trace.feed(f'{self.tick}.000:{pid:04x}:{pid+4:04x}:trace:{channel}:{function} {body}'.encode())
+    def request(self,parent):
+        self.event(parent,'CreateProcessInternalW',r'app L"Z:\\fixture.exe" cmdline (null), inherit 0')
+    def complete(self,parent,child):
+        self.event(parent,'CreateProcessInternalW',f'started process pid {child:04x} tid {child+4:04x}')
+    def create(self,parent,child):
+        self.request(parent);self.complete(parent,child)
+    def exit(self,pid,status=0):
+        self.event(pid,'NtTerminateProcess',f'handle 0xffffffffffffffff, exit_code {status}, process_exiting 1.')
+    def test_exited_root_unobserved_pid_reuse_has_no_child_or_failure_authority(self):
+        self.create(32,232);self.exit(232)
+        history=json.loads(json.dumps(self.trace.rows[0]))
+        self.assertNotIn(232,self.trace.current)
+        self.create(232,240);self.exit(240,37)
+        self.assertFalse(self.trace.rows[1]['target_tree'])
+        self.assertFalse(self.trace.rows[1]['target_root'])
+        self.assertIsNone(self.trace.rows[1]['parent_ordinal'])
+        self.assertIsNone(self.trace.first_failure)
+        self.assertEqual(self.trace.rows[0],history)
+    def test_pending_request_cannot_cross_exited_creator_generation(self):
+        self.create(32,232);self.request(232);self.exit(232)
+        self.assertNotIn((232,236),self.trace.pending)
+        self.create(32,232) # fully observed replacement, not the pending creator
+        self.complete(232,240);self.exit(240,37)
+        self.assertFalse(self.trace.rows[-1]['target_tree'])
+        self.assertIsNone(self.trace.rows[-1]['parent_ordinal'])
+        self.assertIsNone(self.trace.first_failure)
+    def test_observed_reused_pid_has_new_ordinal_and_independent_chain(self):
+        self.create(32,232);self.create(232,240);self.exit(240);self.exit(232)
+        history=json.loads(json.dumps(self.trace.rows))
+        self.create(32,232);self.create(232,240)
+        self.event(240,'StartServiceW','bounded API observation','service')
+        self.exit(240,73)
+        new_root,new_child=self.trace.rows[2:]
+        self.assertEqual(new_root['creation_ordinal'],3)
+        self.assertEqual(new_child['parent_ordinal'],3)
+        self.assertTrue(new_child['target_tree'])
+        self.assertEqual(self.trace.first_failure['creation_ordinal'],4)
+        self.assertEqual(self.trace.first_failure['role'],'service_dependency')
+        self.assertEqual(self.trace.rows[:2],history)
+        self.assertEqual(new_child['linux_identity'],'unavailable_no_cross_id_inference')
+    def test_service_evidence_and_repeated_exit_cannot_change_retired_generation(self):
+        self.create(32,232);self.create(232,240);self.exit(240,37)
+        history=json.loads(json.dumps(self.trace.value()))
+        self.event(240,'CreateServiceW','bounded API observation','service')
+        self.event(240,'StartServiceW','bounded API observation','service')
+        self.exit(240,73)
+        self.assertEqual(self.trace.value(),history)
+        self.assertEqual(self.trace.first_failure['role'],'unknown')
+    def test_pending_request_and_parent_cannot_cross_launch_epoch(self):
+        self.create(32,232);self.request(232);self.trace.begin()
+        self.complete(232,240);self.exit(240,37)
+        self.assertFalse(self.trace.rows[-1]['target_tree'])
+        self.assertIsNone(self.trace.first_failure)
     def test_exact_created_child_self_exit_is_separate_from_outer_and_noise(self):
         w=session.InstallerWindowsTrace({'path':'/fixture.exe','sha256':'ab'*32},'/private');w.begin()
         lines=[

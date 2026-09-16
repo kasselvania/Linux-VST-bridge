@@ -1,5 +1,21 @@
 # IS1 — Multi-stage installer custody and post-prerequisite attribution
 
+## Active focused rereview repair
+
+Continue PR #112 from reviewed head `55ffc7c0bc3bbf8f14514a6139193fea6abbc1ee`
+(tree `95a4302701e978d34910cf88ffd80d751f19e577`). The process ledger,
+Windows trace, durable witnesses, schemas, private diagnostics and retained
+fixture evidence are accepted. Repair only terminal new-attempt eligibility,
+Windows active-generation retirement, removal-only durable changes and complete
+first-failure presentation. Preserve all historical evidence bytes.
+
+Run affected runtime/ownership, manager library/binary, frontend and strict
+Clippy checks, plus AP12/PX2. No Windows/build inputs change, so no AP8 rerun is
+required. No installation, Native Access attempt, twelve-case pinned Windows
+matrix, product mutation, dependency-PR change or merge belongs to this repair.
+
+## Original implementation scope and retained basis
+
 Operator-selected implementation. Exact integration base:
 `0d1c644a182c98e326ee4697f49b4d0c1dfc45a0`, tree
 `c9d126b541fefd59842da6f96e4362d2d26fe9f4`. PR #111 and its #110 dependency
