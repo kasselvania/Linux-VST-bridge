@@ -392,6 +392,7 @@ mod tests {
             path: default_manifest,
         };
         let sw = Software {
+            installer_launch: None,
             preparation_kit: None,
             operator_frontend: None,
             manager: old_host.host.clone(),

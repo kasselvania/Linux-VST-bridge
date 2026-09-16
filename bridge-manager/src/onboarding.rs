@@ -351,6 +351,18 @@ fn validate_installer_transaction(v: &Value, op: &str) -> Result<()> {
     require(t["schema"] == 1 && t["operation"] == op, "installer_transaction_identity")?;
     require(matches!(t["outcome"].as_str(), Some("in_progress" | "completed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
     require(matches!(t["durable_installation"].as_str(), Some("installed" | "partial_installation" | "not_installed" | "indeterminate" | "unavailable")), "installer_transaction_witness")?;
+    if let Some(b)=t.get("launch_binding").filter(|b|!b.is_null()) {
+        require(b["schema"]==1 && b["operation"]==op && b["epoch"]==2, "installer_launch_binding_identity")?;
+        require(b["artifact_sha256"].as_str().is_some_and(|v|valid_hex(v,64)) && b["token_sha256"].as_str().is_some_and(|v|valid_hex(v,64)), "installer_launch_binding_digest")?;
+        require(matches!(b["status"].as_str(),Some("bound"|"unavailable")), "installer_launch_binding_status")?;
+        if b["status"]=="bound" {require(b["root_ordinal"].as_u64().is_some_and(|n|(1..=512).contains(&n)), "installer_launch_binding_root")?;}
+    }
+    if let Some(p)=t.get("presence_close") {
+        require(p["schema"]==1 && p["observation_count"].as_u64().is_some_and(|n|n<=64), "installer_presence_bound")?;
+        let classes=p["operation_classes"].as_array().ok_or("installer_presence_classes")?;
+        require(classes.len() as u64==p["observation_count"].as_u64().unwrap_or(u64::MAX) && classes.iter().all(|c|matches!(c.as_str(),Some("unknown"|"presence_query"|"close_request"|"capability_query"))), "installer_presence_classes")?;
+        require(p["actual_match_or_close_result"]=="unavailable_without_exact_object_observation", "installer_presence_result_authority")?;
+    }
     Ok(())
 }
 pub fn retired(v: &Value) -> bool {
@@ -454,7 +466,7 @@ pub fn launch(m: &Manager, r: &Record) -> Result<()> {
     atomic_json(
         &path,
         &json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
-        "format":installer.format,"report":dir.join(format!("{op}-result.json"))}),
+        "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))}),
     )?;
     let status = Command::new("systemd-run")
         .args([
@@ -692,6 +704,22 @@ mod tests {
         v["transaction"]["outcome"]="guessed_vendor_cause".into();
         assert!(validate_installer_transaction(&v,"a").is_err());
         v["transaction"]["outcome"]="installed".into();v["transaction"]["schema"]=2.into();
+        assert!(validate_installer_transaction(&v,"a").is_err());
+    }
+    #[test]
+    fn is2_nested_custody_is_operation_bound_and_cannot_claim_helper_success() {
+        let mut v=json!({"transaction":{"schema":1,"operation":"a","outcome":"completed","durable_installation":"not_installed",
+            "launch_binding":{"schema":1,"operation":"a","epoch":2,"artifact_sha256":"a".repeat(64),"token_sha256":"b".repeat(64),"status":"bound","root_ordinal":1},
+            "presence_close":{"schema":1,"observation_count":2,"operation_classes":["presence_query","close_request"],"actual_match_or_close_result":"unavailable_without_exact_object_observation"}}});
+        assert!(validate_installer_transaction(&v,"a").is_ok());
+        for (field,bad) in [("operation",json!("b")),("epoch",json!(1)),("root_ordinal",json!(0)),("token_sha256",json!("raw token"))] {
+            let mut changed=v.clone();changed["transaction"]["launch_binding"][field]=bad;
+            assert!(validate_installer_transaction(&changed,"a").is_err());
+        }
+        v["transaction"]["presence_close"]["actual_match_or_close_result"]="helper_zero_means_closed".into();
+        assert!(validate_installer_transaction(&v,"a").is_err());
+        v["transaction"]["presence_close"]["actual_match_or_close_result"]="unavailable_without_exact_object_observation".into();
+        v["transaction"]["presence_close"]["observation_count"]=65.into();
         assert!(validate_installer_transaction(&v,"a").is_err());
     }
     #[test]

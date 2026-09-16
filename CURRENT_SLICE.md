@@ -1,70 +1,45 @@
-# IS1 — Multi-stage installer custody and post-prerequisite attribution
+# IS2 — Exact application-presence and close-handoff attribution
 
-## Active authorized real-attempt handoff
+Operator-selected implementation on exact IS1 evidence head
+`a0fde40e4c2a0536aa9b3271c3b945a94aa60d9b`, tree
+`a6c08ddab4964e3df672628b307de98fea4facb3`. Main remains `be9a7e9`; PRs
+#110/#111/#112 are open. IS2 explicitly stacks on #112 without changing or merging
+any dependency. Reviewed installed IS1 implementation is `0543c3d`.
 
-The focused repair at `0543c3d3d021a5d9821302c085ec93fdd69ae92b` / tree
-`697a47c517109457b0fb12533525f09741ee53ad` received independent install clearance.
-The operator then explicitly authorized immutable installation and one linked,
-human-operated Native Access attempt. That continuation superseded the repair's
-no-install/no-live-run restriction below; it did not authorize another attempt.
+Primary claim: a managed installer separates exact Windows launch-root authority,
+application-presence queries, attempted close and post-close recheck from helper
+success, outer exit, installation witnesses and cleanup. Missing facts stay
+unavailable. No product-name rule or vendor workaround is authorized.
 
-Exact reviewed software is installed. The single successor ended with partial
-installation, outer exit 2 and positive cleanup. Operator screenshots locate the
-visible boundary at running-application detection and failure to close it. The
-Windows trace has no imported-target root chain, so child failure attribution
-remains unavailable. No cause or crash is proved. Preserve this result separately
-in `evidence/is1/native-access-attempt-3.json`, its ledger projection and narrative.
-No runtime source changes, further commercial attempt, first launch or speculative
-compatibility repair belongs to this handoff. Commit/push evidence, retain exact
-installed identities and final state, and keep PR #112 draft/unmerged for review.
+Read-only attempt-3 forensics comes first. Preserve all IS1 evidence bytes and the
+three retired environments. Privately inspect the immutable import, retained
+bounded logs and temporary-file census; publish only classifications/hashes.
 
-## Accepted focused rereview repair
+Implement a source-owned, operation/epoch/token/artifact-bound launch observer and
+bounded generic presence/close records. Prove direct-loader/child/wrapper and
+identity-negative cases, plus real source-owned detection/close cases through the
+production installer supervisor and pinned runner. A launch adapter must preserve
+manifest enforcement, working directory/environment, exit and cohort ownership;
+it must not add elevation or security authority. No observer work touches audio.
 
-Continue PR #112 from reviewed head `55ffc7c0bc3bbf8f14514a6139193fea6abbc1ee`
-(tree `95a4302701e978d34910cf88ffd80d751f19e577`). The process ledger,
-Windows trace, durable witnesses, schemas, private diagnostics and retained
-fixture evidence are accepted. Repair only terminal new-attempt eligibility,
-Windows active-generation retirement, removal-only durable changes and complete
-first-failure presentation. Preserve all historical evidence bytes.
+Scope: installer runtime/ownership, closed manager integration, installer result
+presentation, Windows launch/close fixtures and their build inputs, focused tests
+and sanitized evidence. Existing products, runner, profiles, authorization,
+projects, publication and installed software stay unchanged. No Bitwig, Serum,
+Native Access launch, broad IS1 matrix replay, or accessibility experiment.
 
-Run affected runtime/ownership, manager library/binary, frontend and strict
-Clippy checks, plus AP12/PX2. No Windows/build inputs change, so no AP8 rerun is
-required. No installation, Native Access attempt, twelve-case pinned Windows
-matrix, product mutation, dependency-PR change or merge belongs to this repair.
+Run affected runtime/ownership, manager/frontend tests and strict Clippy;
+AP8 for Windows inputs, AP12 and PX2. AP10 out of scope. Return one draft PR.
+Independent source review and immutable installation are required before any
+commercial confirmation. At most one later linked human-only attempt is possible;
+none is authorized during this implementation. Keep all dependencies and IS2
+unmerged.
 
-## Original implementation scope and retained basis
-
-Operator-selected implementation. Exact integration base:
-`0d1c644a182c98e326ee4697f49b4d0c1dfc45a0`, tree
-`c9d126b541fefd59842da6f96e4362d2d26fe9f4`. PR #111 and its #110 dependency
-remain separate/unmerged. IS1 stacks on #111 because installed manager source
-`1228ad8` includes those fixes. No change to either dependency checkout or PR.
-
-Primary claim: the generic supervised Windows installer retains bounded exact
-process/exit and durable installation facts, separating outer launch, child
-failure, cancellation and cleanup instead of calling every nonzero outer exit a
-launch failure. Reuse MF2 installer owner, exact cgroup, immutable import and
-operation recovery. No native audio, VST runtime, profile, runner or Serum changes.
-
-Phase A precedes implementation and launches: inspect both Native Access prefixes
-and imported PE offline. Retain sanitized comparison without proprietary payload,
-account material, raw process identifiers or private logs. Preserve both attempts
-and all existing products/environments/projects. No causal claim from Xalia noise,
-installer filename, manifest elevation request, or outer numeric exit alone.
-
-Implement operation-bound process/exit ledger, versioned transaction/stage outcome,
-private bounded diagnostics and truthful frontend presentation. Sample before
-reaping, retain adopted exits, and require the complete owned cohort empty for
-retirement. Every role requires evidence or stays unknown. Keep installed outcome
-separate from process outcome; unavailable observations remain explicit.
-
-Prove through generated source-owned Windows multistage cases under the pinned
-runner, private HOME, separate scratch prefix and dedicated cgroup. Run affected
-manager/frontend/runtime/ownership tests, strict Clippy, AP8/AP12/PX2. AP10 out of
-scope unless native/audio changes (not planned). Do not expand security boundaries.
-
-Real Native Access attempt requires independent source review, then immutable
-installation and idle readback. At most one fresh linked attempt, same imported
-installer, human-only vendor UI. No live retry or installed software replacement
-before that review. Return one draft PR, not merged. Preserve Serum B's current
-experimental publication and all other product state.
+Exact-head rereview at `e7c2a9547fd025a45ab07e67bde447dffeb8e21f` accepts the
+Windows/root/close evidence and requests only setup rollback compatibility:
+explicit packages select their own installer adapter capability; an omitted
+adapter must omit `installer_launch` from Software for legacy schema readers.
+Only `package=None` acceptance retains the verified prior adapter. Preserve prior
+immutable generations. Verify strict legacy deserialization, current-package and
+acceptance retention, and unchanged old bytes. No installation, commercial run,
+Windows matrix replay, IS3 implementation or merge belongs to this repair.

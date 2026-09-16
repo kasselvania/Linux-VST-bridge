@@ -2322,6 +2322,7 @@ mod tests {
         };
         let a = f.r.host.clone();
         let sw = Software {
+            installer_launch: None,
             preparation_kit: None,
         manager: a.clone(),
             operator_frontend: None,

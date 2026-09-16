@@ -547,6 +547,17 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
             f["phase"].as_str().unwrap_or("unknown"), f["role"].as_str().unwrap_or("unknown"),
             f["relationship"].as_str().unwrap_or("unknown"), f["domain"].as_str().unwrap_or("unknown"), f["status"]));
     }
+    let binding=&t["launch_binding"];
+    if binding["schema"]==1 && binding["operation"]==v["operation"] {
+        lines.push(if binding["status"]=="bound" {"Installer Windows root: exact operation and launch generation observed.".into()}
+            else {format!("Installer Windows root unavailable: {}. Child attribution may be incomplete.",binding["reason"].as_str().unwrap_or("missing observation"))});
+    }
+    if t["presence_close"]["schema"]==1 {
+        lines.push(format!("Application presence/close requests observed: {}. Helper success does not prove a match or successful closure; exact match and recheck results remain unavailable.",t["presence_close"]["observation_count"]));
+        if t["presence_close"]["operation_classes"].as_array().is_some_and(|rows| rows.iter().any(|r| r=="presence_query" || r=="close_request")) {
+            lines.push("Observed request mechanism: PowerShell/CIM process query or script process close. The matched object and actual close outcome are unavailable.".into());
+        }
+    }
     lines.push(if v["cleanup_confirmed"]==true {"Owned process cleanup confirmed."} else {"Owned process cleanup not yet confirmed."}.into());
     lines
 }
@@ -624,6 +635,20 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn installer_root_and_presence_do_not_claim_close_from_helper_success() {
+        let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"transaction":{
+            "schema":1,"operation":"exact","outcome":"outer_nonzero_stage_unknown","durable_installation":"partial_installation",
+            "launch_binding":{"schema":1,"operation":"exact","status":"bound"},
+            "presence_close":{"schema":1,"observation_count":3,"operation_classes":["presence_query","close_request","presence_query"]}}});
+        let text=super::installer_lines(&v).join(" ");assert!(text.contains("exact operation and launch generation"));
+        assert!(text.contains("Helper success does not prove") && text.contains("results remain unavailable"));
+        assert!(text.contains("PowerShell/CIM") && text.contains("matched object and actual close outcome are unavailable"));
+        v["transaction"]["launch_binding"]["operation"]="unrelated".into();
+        assert!(!super::installer_lines(&v).join(" ").contains("exact operation and launch generation"));
+        v["transaction"]["launch_binding"]["operation"]="exact".into();v["transaction"]["launch_binding"]["status"]="unavailable".into();
+        assert!(super::installer_lines(&v).join(" ").contains("Child attribution may be incomplete"));
+    }
     #[test]
     fn first_failure_presents_exact_stage_role_relationship_domain_without_guessing() {
         for role in [Some("service_dependency"), None] {

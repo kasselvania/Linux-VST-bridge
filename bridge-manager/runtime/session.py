@@ -1346,6 +1346,51 @@ class InstallerWitnesses:
             'dependency_health':'unproved','postinstall_launch':'unproved',
             'incomplete':sorted(set(before.get('incomplete',[])+after.get('incomplete',[])))}
 
+class InstallerPresence:
+    """Closed script-operation observations, not interpreter or match-result authority.
+
+    Commands remain only in the existing bounded private runner sink. Their exact
+    UTF-16 digest and a strict grammar classify a request, never its execution.
+    A helper exit zero cannot establish presence, successful close or recheck.
+    """
+    def __init__(self):self.rows=[];self.dropped=0
+    @staticmethod
+    def request(body):
+        m=re.search(r' cmdline L"((?:[^"\\]|\\.)*)", inherit ',body)
+        if not m:return None
+        try:command=json.loads('"'+m[1]+'"')
+        except (ValueError,UnicodeError):return None
+        m=re.fullmatch(r'"([^"\r\n]+)" -C "([^"\r\n]{1,3072})"',command)
+        if not m or m[1].replace('\\','/').rsplit('/',1)[-1].lower()!='powershell.exe':return None
+        script=m[2];kind='unknown';predicate=None
+        query=r"Get-CimInstance -ClassName Win32_Process \| \? \{\$_\.Path -and \$_\.Path\.StartsWith\('([^'\r\n]+)', 'CurrentCultureIgnoreCase'\)\}"
+        found=re.fullmatch(r'if \(\('+query+r'\)\.Count -gt 0\) \{ exit 0 \} else \{ exit 1 \}',script)
+        if found:kind='presence_query';predicate=found[1]
+        else:
+            found=re.fullmatch(query+r' \| % \{ Stop-Process -Id \$_\.ProcessId( -Force)? \}',script)
+            if found:kind='close_request';predicate=found[1]
+            elif script=='if (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }':kind='capability_query'
+        return {'mechanism':'powershell_wmi','operation_class':kind,'query_sha256':hashlib.sha256(script.encode('utf-16le')).hexdigest(),
+            'predicate_sha256':hashlib.sha256(predicate.encode('utf-16le')).hexdigest() if predicate else None,
+            'scope':'executable_path_prefix' if predicate else 'unavailable','matched_object_count':None,'matched_objects':'unavailable_no_query_result_observation',
+            'close_mechanism':'script_process_api' if kind=='close_request' else None,'close_result':'unavailable' if kind=='close_request' else None,
+            'helper_exit':None,'recheck_result':'unavailable','cause':'unestablished'}
+    def created(self,request,row,authority):
+        if request is None:return
+        if len(self.rows)>=64:self.dropped+=1;return
+        value={**request,'ordinal':len(self.rows)+1,'epoch':row['epoch'],'process_ordinal':row['creation_ordinal'],
+            'caller_ordinal':row['parent_ordinal'],'authority':authority,'timestamp':row['created_timestamp'],'preceding_close':None}
+        if value['operation_class']=='presence_query' and value['predicate_sha256'] and value['caller_ordinal'] is not None:
+            prior=next((p for p in reversed(self.rows) if p['epoch']==value['epoch'] and p['caller_ordinal']==value['caller_ordinal'] and p['predicate_sha256']==value['predicate_sha256']),None)
+            if prior and prior['operation_class']=='close_request':value['preceding_close']=prior['ordinal']
+        self.rows.append(value)
+    def exited(self,row):
+        for value in self.rows:
+            if (value['epoch'],value['process_ordinal'])==(row['epoch'],row['creation_ordinal']):
+                value['helper_exit']={k:row['self_exit'][k] for k in ('domain','status')}
+    def value(self):return {'schema':1,'observations':self.rows,'dropped_observations':self.dropped,'actual_match_or_close_result':'unavailable_without_exact_object_observation'}
+
+
 class InstallerWindowsTrace:
     """Observed Wine create/self-exit chain, separate from Linux ownership.
 
@@ -1355,7 +1400,42 @@ class InstallerWindowsTrace:
     """
     HEADER=re.compile(r'^(\d+\.\d+):([0-9a-fA-F]+):([0-9a-fA-F]+):(trace|warn|err|fixme):([a-z0-9_]+):([A-Za-z0-9_]+) (.*)$')
     def __init__(self,artifact,root):
-        self.artifact=artifact;self.root=pathlib.Path(root);self.epoch=0;self.pending={};self.rows=[];self.current={};self.seen=set();self.dropped=0;self.first_failure=None;self.cancelled=False;self.image_budget=256*1024*1024;self.service_results=[]
+        self.artifact=artifact;self.root=pathlib.Path(root);self.epoch=0;self.pending={};self.rows=[];self.current={};self.seen=set();self.dropped=0;self.first_failure=None;self.cancelled=False;self.image_budget=256*1024*1024;self.service_results=[];self.binding=None;self.presence=InstallerPresence()
+    def arm_root(self,operation,token,size):
+        if not re.fullmatch('[0-9a-f]{32}',operation) or not re.fullmatch('[0-9a-f]{64}',token):raise ValueError('installer binding identity')
+        self.binding={'schema':1,'operation':operation,'epoch':2,'token_sha256':hashlib.sha256(token.encode()).hexdigest(),'artifact_sha256':self.artifact['sha256'],'size':size,'status':'unavailable','reason':'launch_record_not_observed','root_ordinal':None}
+        self.binding_token=token;self.binding_frames=0
+    def root_frame(self,line):
+        if line.startswith(b'IS2_REFUSED_V1 ') and self.binding is not None:
+            m=re.fullmatch(rb'IS2_REFUSED_V1 ([0-9a-f]{32}) ([0-9a-f]{64}) 2 ([0-9]{1,10})\r?\n',line)
+            if m and m[1].decode()==self.binding['operation'] and m[2].decode()==self.binding_token and int(m[3])<2**32 and self.binding_frames==0 and self.epoch==2:
+                self.binding.update(status='unavailable',reason='windows_creation_refused',status_domain='win32_create_process_error',status_code=int(m[3]));self.binding_frames+=1
+            return True
+        if not line.startswith(b'IS2_ROOT_V1 '):return False
+        if self.binding is None:return True
+        self.binding_frames+=1
+        match=re.fullmatch(rb'IS2_ROOT_V1 ([0-9a-f]{32}) ([0-9a-f]{64}) 2 ([0-9a-f]{64}) ([0-9]{1,10}) ([0-9]{1,10}) ([0-9]{1,20}) ([0-9]{1,10}) ([0-9]{1,20})\r?\n',line)
+        b=self.binding
+        def refuse(reason):b.update(status='unavailable',reason=reason);return True
+        if not match or self.binding_frames!=1 or self.epoch!=2:return refuse('malformed_duplicate_or_wrong_epoch_root')
+        op,token,digest,size,pid,created,adapter,adapter_created=[x.decode() for x in match.groups()]
+        if (op,token,digest,int(size))!=(b['operation'],self.binding_token,b['artifact_sha256'],b['size']):return refuse('root_binding_mismatch')
+        pid,created,adapter,adapter_created=map(int,(pid,created,adapter,adapter_created))
+        if not all((pid,created,adapter,adapter_created)) or pid==adapter or max(pid,adapter)>=2**32 or max(created,adapter_created)>=2**64:return refuse('root_generation_invalid')
+        row=self.active(pid)
+        if pid in self.seen and row is None:return refuse('root_generation_already_retired')
+        if row is None:
+            if len(self.rows)>=512:return refuse('root_observation_capacity')
+            row={'epoch':self.epoch,'creation_ordinal':len(self.rows)+1,'windows_pid':pid,'windows_tid':None,'created_timestamp':None,'parent_ordinal':None,'creator_windows_pid':adapter,'creator_windows_tid':None,'target_tree':False,'target_root':False,'image_request':None,'image_identity':None,'role':'unknown','self_exit':None,'linux_identity':'unavailable_no_cross_id_inference'}
+            self.rows.append(row);self.current[pid]=row;self.seen.add(pid)
+        elif row['creator_windows_pid']!=adapter or (row['image_identity'] is not None and row['image_identity'].get('sha256')!=b['artifact_sha256']):return refuse('trace_root_creator_or_image_conflict')
+        # The adapter proves the mapped image via the retained child handle and
+        # file ID. An unavailable/aliased Wine path observation is not stronger
+        # than that proof; a positively conflicting identity still refuses.
+        row.update(target_root=True,target_tree=True,windows_creation_time=created,root_authority='verified_launch_adapter_exact_handle_image_and_creation_time')
+        row['image_identity']={'sha256':digest,'size':int(size),'authority':'launch_adapter_same_open_file_hash_and_child_image_file_id'}
+        b.update(status='bound',reason=None,root_ordinal=row['creation_ordinal'],windows_pid=pid,windows_creation_time=created,adapter_windows_pid=adapter,adapter_windows_creation_time=adapter_created)
+        return True
     def begin(self):self.epoch+=1;self.pending={};self.current={};self.seen=set()
     def active(self,pid):
         row=self.current.get(pid)
@@ -1391,7 +1471,7 @@ class InstallerWindowsTrace:
             return True
         if channel=='service' and function in ('CreateServiceW','StartServiceW'):
             row=self.active(pid)
-            if row and row['target_tree']:
+            if row and row['target_tree'] and (self.binding is None or self.binding['status']=='bound'):
                 row['role']='service_dependency'
                 evidence=row.setdefault('role_evidence',[])
                 if len(evidence)<4:evidence.append({'source':'Wine service API observation','function':function,'timestamp':ts})
@@ -1403,7 +1483,7 @@ class InstallerWindowsTrace:
             else:
                 parent=self.active(pid)
                 self.pending[key]={'timestamp':ts,'image_request':self.image(body),'epoch':self.epoch,
-                    'parent_ordinal':parent['creation_ordinal'] if parent else None,'unobserved_creator':pid not in self.seen}
+                    'parent_ordinal':parent['creation_ordinal'] if parent else None,'unobserved_creator':pid not in self.seen,'presence':self.presence.request(body)}
             return True
         if function=='NtCreateUserProcess':
             resolved=re.search(r' image L"(.{1,2048}?)" cmdline ',body)
@@ -1423,8 +1503,8 @@ class InstallerWindowsTrace:
             prior=self.active(child)
             if prior:self.dropped+=1;self.retire(child);return True
             path=self.path(request['image_request']) if request else None
-            target=bool(path is not None and path==pathlib.Path(self.artifact['path']) and request['epoch']==self.epoch and request['unobserved_creator'] and pid not in self.seen and parent is None)
-            rooted=target or (parent is not None and parent['target_tree'])
+            target=bool(self.binding is None and path is not None and path==pathlib.Path(self.artifact['path']) and request['epoch']==self.epoch and request['unobserved_creator'] and pid not in self.seen and parent is None)
+            rooted=target or (parent is not None and parent['target_tree'] and (self.binding is None or self.binding['status']=='bound'))
             row={'epoch':self.epoch,'creation_ordinal':len(self.rows)+1,'windows_pid':child,'windows_tid':int(created[2],16),
                  'created_timestamp':ts,'parent_ordinal':parent['creation_ordinal'] if parent else None,
                  'creator_windows_pid':pid,'creator_windows_tid':tid,'target_tree':rooted,'target_root':target,
@@ -1440,7 +1520,9 @@ class InstallerWindowsTrace:
                         identity=installer_digest(path,min(self.image_budget,64*1024*1024));self.image_budget-=identity['size']
                         row['image_identity']={**identity,'authority':'same_open_file_at_launch_request_not_mapped'}
                 except (OSError,ValueError):pass
-            self.rows.append(row);self.current[child]=row;self.seen.add(child);return True
+            self.rows.append(row);self.current[child]=row;self.seen.add(child)
+            self.presence.created(request.get('presence') if request else None,row,'bound_installer_descendant' if rooted else 'unbound_runner_trace')
+            return True
         exited=re.fullmatch(r'handle (0xffffffffffffffff|0xffffffff), exit_code (-?\d+), process_exiting (1)\.',body) if function=='NtTerminateProcess' else None
         if exited:
             code=int(exited[2]);row=self.active(pid)
@@ -1448,13 +1530,14 @@ class InstallerWindowsTrace:
             value={'domain':'wine_self_exit_observation','status':code&0xffffffff,'timestamp':ts,'source':'Wine NtTerminateProcess self pseudo-handle','process_exiting':int(exited[3])}
             if row['self_exit'] is None:row['self_exit']=value
             elif row['self_exit']['status']!=value['status']:row['exit_conflict']=True;return True
-            if value['status'] and row['target_tree'] and not row['target_root'] and self.first_failure is None and not self.cancelled:
+            if value['status'] and row['target_tree'] and (self.binding is None or self.binding['status']=='bound') and not row['target_root'] and self.first_failure is None and not self.cancelled:
                 self.first_failure={'role':row['role'],'phase':'target_runner','relationship':'descendant','domain':value['domain'],'status':value['status'],
                     'cause':'unestablished','epoch':self.epoch,'creation_ordinal':row['creation_ordinal'],'timestamp':ts,'windows_pid':pid}
+            self.presence.exited(row)
             self.retire(pid)
             return True
         return True # exclude other process lines/arguments from private log projection
-    def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results}
+    def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results,'launch_binding':self.binding,'presence_close':self.presence.value()}
 
 class InstallerTransaction:
     def __init__(self,op,root,report,artifact=None):
@@ -1494,7 +1577,8 @@ class InstallerTransaction:
             if not complete:pending=part;continue
             pending=b''
             target=self.accessibility if b'Xalia' in part else self.ordinary
-            if target is not self.accessibility:self.windows_trace.feed(part)
+            if target is not self.accessibility:
+                if stream!='stderr' or not self.windows_trace.root_frame(part):self.windows_trace.feed(part)
             target.write(part)
         self.line_pending[stream]=(b'' if discard else pending,discard)
     def images(self):
@@ -1567,7 +1651,7 @@ class InstallerTransaction:
             except OSError:self.private_errors+=1
         if self.ledger:self.ledger.commit()
     def summary(self,outer,clean,cancelled,ongoing=False):
-        ledger=self.ledger;failure=self.windows_trace.first_failure or (ledger.first_failure if ledger else None)
+        ledger=self.ledger;failure=(self.windows_trace.first_failure if self.windows_trace.binding is None or self.windows_trace.binding['status']=='bound' else None) or (ledger.first_failure if ledger else None)
         durable=self.durable['classification'] if self.durable else 'unavailable'
         if ongoing:outcome='in_progress'
         elif not clean:outcome='cleanup_unconfirmed'
@@ -1587,6 +1671,8 @@ class InstallerTransaction:
             'unattributed_adopted_exits':ledger.unattributed_waits if ledger else 0,
             'private_record_written':self.path.is_file(),'persistence_failures':(ledger.persistence_failures if ledger else 0)+self.private_errors,
             'diagnostics':self.diagnostics(),
+            'launch_binding':None if self.windows_trace.binding is None else {k:v for k,v in self.windows_trace.binding.items() if k not in ('windows_pid','windows_creation_time','adapter_windows_pid','adapter_windows_creation_time')},
+            'presence_close':{'schema':1,'observation_count':len(self.windows_trace.presence.rows),'dropped_observations':self.windows_trace.presence.dropped,'actual_match_or_close_result':'unavailable_without_exact_object_observation','operation_classes':[v['operation_class'] for v in self.windows_trace.presence.rows]},
             'safe_next_action':'exact_owned_focus_or_stop' if ongoing else 'review_retained_outcome_before_retry' if outcome!='installed' or failure else 'managed_first_launch_required_not_authorized_by_installation'}
 
 def managed_install(spec):
@@ -1596,7 +1682,7 @@ def managed_install(spec):
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;diagnostics=RecentCapture(131072,64);private_report_written=False
     sel=selectors.DefaultSelector();start=time.monotonic();startup=InstallerStartup(op,spec['installer'],root)
-    transaction=InstallerTransaction(op,root,report,spec['installer']);ledger=None;msi_fd=None;msi_fifo=None
+    transaction=InstallerTransaction(op,root,report,spec['installer']);ledger=None;msi_fd=None;msi_fifo=None;launch_request=None
     def stopping(*_):
         nonlocal stop
         stop=True;startup.cancellation()
@@ -1630,7 +1716,16 @@ def managed_install(spec):
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('installer subreaper unavailable')
         runner=env['runner'];base=[runner['entry_point'],'--verb=run','--',runner['proton']]
         argv=base+['runinprefix']
-        if spec['format']=='pe_executable':argv.append(spec['installer']['path'])
+        if spec['format']=='pe_executable':
+            adapter=spec.get('installer_launch')
+            if adapter is None:argv.append(spec['installer']['path']) # retained schema-2 direct route, no new binding claim
+            else:
+                verify(adapter);token=os.urandom(32).hex();size=pathlib.Path(spec['installer']['path']).stat().st_size
+                transaction.windows_trace.arm_root(op,token,size)
+                launch_request=report.parent/(op+'-launch-request.private')
+                content='\n'.join(['IS2_LAUNCH_V1',op,token,'2',spec['installer']['sha256'],str(size),windows(spec['installer']['path'],root/'compatdata/pfx'),''])
+                with os.fdopen(os.open(launch_request,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
+                argv.extend([adapter['path'],windows(launch_request,root/'compatdata/pfx')])
         elif spec['format']=='msi_compound':
             msi_fifo=report.parent/(op+'-msi.pipe');os.mkfifo(msi_fifo,0o600)
             msi_fd=os.open(msi_fifo,os.O_RDWR|os.O_NONBLOCK|os.O_NOFOLLOW);sel.register(msi_fd,selectors.EVENT_READ)
@@ -1711,6 +1806,9 @@ def managed_install(spec):
             try:msi_fifo.unlink()
             except FileNotFoundError:pass
         sel.close()
+        if launch_request is not None:
+            try:launch_request.unlink()
+            except FileNotFoundError:pass
         try:transaction.finish()
         except (OSError,ValueError):transaction.private_errors+=1
         state='cleanup_unconfirmed' if not clean else 'cancelled' if stop else 'failed' if error else 'completed'

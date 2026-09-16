@@ -502,6 +502,7 @@ mod tests {
     fn completed_setup_receipt_does_not_race_service_startup_registry_lock() {
         let (f, _, c, _) = prepared();
         let sw = Software {
+            installer_launch: None,
             preparation_kit: None,
             operator_frontend: None,
             manager: c.host.clone(),
@@ -555,6 +556,7 @@ mod tests {
         )
         .unwrap();
         let sw = Software {
+            installer_launch: None,
             preparation_kit: None,
             operator_frontend: None,
             manager: c.host.clone(),
