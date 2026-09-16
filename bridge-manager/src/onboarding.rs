@@ -67,12 +67,17 @@ pub fn records(m: &Manager) -> Result<Vec<Record>> {
     if !p.exists() {
         return Ok(vec![]);
     }
+    // A registered environment belongs to qualification/product management.
+    // Retain its immutable onboarding history, but do not offer initial-install
+    // operations against it (including an inactive retained candidate).
+    let protected: std::collections::BTreeSet<_> = m.registry()?.classes.values()
+        .map(|e| e.registration.environment.id.clone()).collect();
     let mut rows = vec![];
     for (n, e) in fs::read_dir(p)?.enumerate() {
         require(n < 128, "onboarding_count_bound")?;
         let e = e?;
         let id = e.file_name().to_string_lossy().into_owned();
-        if valid_hex(&id, 32) {
+        if valid_hex(&id, 32) && !protected.contains(&id) {
             rows.push(load(m, &id)?);
         }
     }
@@ -639,6 +644,20 @@ mod tests {
         fs::write(&p, b).unwrap();
         let i = installer_import::import(&f.m, file(&p).unwrap()).unwrap();
         (f, i)
+    }
+    #[test]
+    fn qualified_environment_leaves_initial_install_projection_without_erasing_history() {
+        let (f,i)=fixture();
+        let v=create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let id=v["onboarding"].as_str().unwrap();let r=load(&f.m,id).unwrap();
+        let path=directory(&f.m,id).unwrap().join("record.json");let before=fs::read(&path).unwrap();
+        assert_eq!(records(&f.m).unwrap().len(),1);
+        let mut registration=f.r.clone();registration.environment=r.environment;
+        let mut db=f.m.registry().unwrap();db.classes.insert(registration.key(),Entry {registration,publication:Publication::Published,managed_revision:None});
+        atomic_json(&f.m.root.join("registry.json"),&db).unwrap();
+        assert!(records(&f.m).unwrap().is_empty());
+        assert!(load(&f.m,id).is_err());assert!(reserve(&f.m,id,&"cd".repeat(16)).is_err());
+        assert_eq!(fs::read(path).unwrap(),before);
     }
     #[test]
     fn new_isolated_environment_and_initial_transaction_are_durable_unpublished() {

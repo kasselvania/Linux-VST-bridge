@@ -40,7 +40,8 @@ impl Claim {
 }
 closed_enum!(Role { Instrument, Effect });
 closed_enum!(Family {
-    ArturiaPersistentV1
+    ArturiaPersistentV1,
+    ManagedInstallerV1
 });
 closed_enum!(Accessibility {
     WindowsDefault,
@@ -70,6 +71,7 @@ closed_enum!(Limitation {
     CapacityUnderQualification,
     DirectEditorUnderQualification,
     PigmentsUnderQualification,
+    InstrumentUnderQualification,
     AuxiliaryInputInactive,
     SoleStereoAuxiliaryInputOnly,
     ReturnedResultDiagnosis

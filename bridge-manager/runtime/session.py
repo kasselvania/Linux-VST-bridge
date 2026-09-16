@@ -53,6 +53,15 @@ def environment(reg):
         env['LVB_VENDOR_RETIREMENT']=retirement
     return env
 
+def managed_home(spec,env):
+    # The Rust owner verifies the exact onboarding/environment record before
+    # setting this flag. Keep the installed machine's HOME for its keeper,
+    # inspection and candidate DSP/editor alike; never copy the operator HOME.
+    if spec.get('onboarding_home'):
+        home=pathlib.Path(spec['registration']['environment']['root'])/'home'
+        private_directory(home)
+        env['HOME']=str(home)
+
 def command(spec):
     reg=spec['registration'];root=pathlib.Path(reg['environment']['root']);prefix=root/'compatdata/pfx';runner=reg['environment']['runner'];sid=spec['session'];mode='ap12-vendor-access' if spec.get('vendor_access') else 'ap8-module-inspection' if spec['inspect'] else 'ap9-commercial'
     if spec.get('bus_lifecycle_probe'):
@@ -792,9 +801,7 @@ def run(spec,peer=None):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg)
-    if spec.get('onboarding_home'):
-        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('shared_runtime'):raise RuntimeError('onboarding requires isolated inspection')
-        env['HOME']=str(pathlib.Path(reg['environment']['root'])/'home')
+    managed_home(spec,env)
     transport_environment(spec,env);delivery_trace(spec,env);stop=False
     capture=None;capture_error=None
     if spec.get('crash_capture'):
@@ -1024,7 +1031,7 @@ def keep(spec):
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
     directory=pathlib.Path(spec['directory']);verify(reg['host'])
     cmd=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',windows(reg['host']['path'],pathlib.Path(reg['environment']['root'])/'compatdata/pfx'),'--environment-owner',spec['session'],'--scanner-sha256',reg['host']['sha256']]
-    env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}});transport_environment(spec,env)
+    env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}});managed_home(spec,env);transport_environment(spec,env)
     root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
     sel=selectors.DefaultSelector();owned=set();text=bytearray();ready=False;started=time.monotonic();error=None;clean=False
     for pipe in (root.stdout,root.stderr):os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ)

@@ -66,6 +66,7 @@ pub fn fixture_limits() -> Limits {
 pub fn service_limits() -> Result<Limits> {
     let mut limits = fixture_limits();
     limits.classes.push(ClassLimit { class_id: crate::profiles::pigments_verified()?.class.class_id, dsp: 1 });
+    limits.classes.push(ClassLimit {class_id: crate::managed_candidate::candidate()?.class.class_id, dsp:1});
     Ok(limits)
 }
 
@@ -115,7 +116,8 @@ pub fn status(m: &Manager, limits: Limits, workers: usize, blocked: bool) -> Res
     let ordinary_limits = fixture_limits();
     let verified = verified_envelope(m, if extended { &ordinary_limits } else { &limits })?;
     let additional_verified = extended && verified_additional(m)?;
-    let engineering_classes = if extended && !additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
+    let mut engineering_classes = if extended && !additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
+    if extended { engineering_classes.push(limits.classes[3].clone()); }
     let verified_additional_classes = if additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     let owners = owners(m)?;
     let dsp = owners.iter().filter(|o| o.kind == Kind::Dsp).count();

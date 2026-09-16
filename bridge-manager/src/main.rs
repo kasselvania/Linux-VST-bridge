@@ -483,8 +483,15 @@ fn spec(
     private_dir(&results)?;
     let leases = m.root.join("runtime/leases");
     private_dir(&leases)?;
-    let onboarding_home = inspect && !keeper && m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
-    if onboarding_home {require(onboarding::load(m,&r.environment.id)?.environment==r.environment,"onboarding_inspection_environment")?;}
+    let onboarding_home = r.metadata.class_id == managed_candidate::candidate()?.class.class_id
+        || m.root.join("onboarding").join(&r.environment.id).join("record.json").exists();
+    if onboarding_home {
+        if r.metadata.class_id == managed_candidate::candidate()?.class.class_id {
+            managed_candidate::check_session(m,&r.metadata.class_id,&r.environment,&r.module,&r.host,&r.host_source_sha256)?;
+        } else {
+            require(onboarding::load(m,&r.environment.id)?.environment==r.environment,"onboarding_inspection_environment")?;
+        }
+    }
     let s = SessionSpec {
         onboarding_home,
         crash_capture: None,
@@ -1074,6 +1081,7 @@ fn main() -> Result<()> {
   Some("import-installer") if args.len()==1=>{let source=fs::File::from(std::io::stdin().as_fd().try_clone_to_owned()?);println!("{}",serde_json::to_string(&installer_import::import(&m,source)?)?);Ok(())},
   Some("vendor-app")=>vendor_cli::run(&m,&args[1..]),
   Some("vendor-product")=>vendor_product_cli::run(&m,&args[1..]),
+  Some("qualify-instrument")=>managed_cli::run_installer_qualification(&m,&args[1..]),
   Some("qualify-editor")=>managed_cli::run_qualification(&m,&args[1..]),
   Some("qualify-ui")=>managed_cli::run_ui_qualification(&m,&args[1..]),
   Some("qualify-failure")=>managed_cli::run_failure_qualification(&m,&args[1..]),
@@ -1128,6 +1136,13 @@ fn status(m: &Manager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn missing_candidate_onboarding_cannot_fall_back_to_operator_home() {
+        let f=super::test_fixture::Fixture::new();
+        let mut r:super::HostBinding=f.r.clone().into();
+        r.metadata.class_id=super::managed_candidate::candidate().unwrap().class.class_id;
+        assert!(super::spec(&f.m,r,false,false,false).is_err());
+    }
     use super::*;
     #[test]
     fn exposed_binding_cannot_erase_an_unresolved_retirement() {

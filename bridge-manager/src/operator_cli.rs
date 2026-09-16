@@ -208,6 +208,13 @@ fn inactive_reason(
         _ => None,
     }
 }
+pub(super) fn require_engineering_inactive(m: &Manager) -> Result<()> {
+    let cap=live_capacity(m)?;
+    let _guard=m.lock("registry.lock")?;
+    require(cap.owners==capacity::owners(m)?,"operator_owners_changed")?;
+    if let Some(reason)=inactive_reason(Some(&cap), vendor_retired(m)? && onboarding::all_retired(m)?, pending_transactions(m)?, false) {return Err(reason.into());}
+    m.require_inactive(None)
+}
 fn require_operator_inactive_with(
     m: &Manager,
     a: &ui::Action,

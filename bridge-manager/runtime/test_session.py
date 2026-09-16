@@ -18,6 +18,20 @@ import ownership
 import session
 
 
+class ManagedHomeTests(unittest.TestCase):
+    def test_private_home_retained_for_inspection_keeper_and_dsp_only_when_bound(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp).resolve();home=root/'home';home.mkdir(mode=0o700)
+            for mode in ({'inspect':True},{'keeper':True},{'shared_runtime':True},{'vendor_access':True}):
+                spec=dict(mode,registration={'environment':{'root':str(root)}},onboarding_home=True)
+                env={'HOME':'/ordinary'};session.managed_home(spec,env)
+                self.assertEqual(env['HOME'],str(home))
+                spec['onboarding_home']=False;env={'HOME':'/ordinary'};session.managed_home(spec,env)
+                self.assertEqual(env['HOME'],'/ordinary')
+            home.rmdir();home.symlink_to(root,target_is_directory=True)
+            with self.assertRaises(RuntimeError):session.managed_home(dict(spec,onboarding_home=True),{})
+
+
 class VendorOperationTests(unittest.TestCase):
     def test_ASC_launch_uses_vendor_shortcut_working_directory(self):
         root=pathlib.Path('/fixture/environment')

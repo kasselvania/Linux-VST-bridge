@@ -1,0 +1,47 @@
+{
+  "candidate_unpublished": true,
+  "candidate_history_retained": true,
+  "source": "b7bebddeec3c25e6ade460ae794a1c76f5fcf4d6",
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "siblings_unchanged": true,
+  "protected_projects_and_installation_records_unchanged": true,
+  "failure_evidence_unchanged": true,
+  "staged_artifacts_unchanged": true,
+  "schema": 1,
+  "bitwig_processes_after_user_close": 0,
+  "disposition": "SV1_FAILED_CANDIDATE_RETAINED_INACTIVE_AFTER_OPERATOR_CLOSE",
+  "ordinary_products": [
+    {
+      "name": "Pigments",
+      "revision": 18,
+      "publication_valid": true,
+      "rollback_revision_retained": true
+    },
+    {
+      "name": "Pure LoFi",
+      "revision": 10,
+      "publication_valid": true,
+      "rollback_revision_retained": true
+    },
+    {
+      "name": "Efx FRAGMENTS",
+      "revision": 10,
+      "publication_valid": true,
+      "rollback_revision_retained": true
+    }
+  ],
+  "keeper_posture": "Two service-owned environment keepers remain healthy; no DSP or maintenance owner remains."
+}
