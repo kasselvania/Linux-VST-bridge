@@ -260,7 +260,7 @@ class InstallerLedger:
 
     def __init__(self, scope, persist, clock=time.monotonic_ns):
         self.scope=scope; self.persist=persist; self.clock=clock
-        self.records={}; self.dropped=0; self.unattributed_waits=0
+        self.records={}; self.dropped=0; self.unattributed_waits=0; self.unattributed_exits=[]
         self.first_failure=None; self.cancelled=False; self.launchers={}
         self.persistence_failures=0; self.phase='environment_bootstrap'
 
@@ -340,7 +340,9 @@ class InstallerLedger:
             row=self.add(current) if current else None
             code=info.si_status if info.si_code==os.CLD_EXITED else -info.si_status
             if row:self.exit(row,code,'waitid_wnowait')
-            else:self.unattributed_waits+=1
+            else:
+                self.unattributed_waits+=1
+                if len(self.unattributed_exits)<64:self.unattributed_exits.append({'pid':info.si_pid,'status':code,'domain':'linux_wait','observed_ns':self.clock(),'ownership':'unverified'})
             self.commit() # first failure survives subsequent cancellation/reaping
             pid,status=os.waitpid(info.si_pid,os.WNOHANG)
             if pid:
@@ -361,5 +363,6 @@ class InstallerLedger:
 
     def value(self):
         return {'schema':1,'processes':list(self.records.values()),'dropped_process_observations':self.dropped,
-                'unattributed_adopted_exits':self.unattributed_waits,'first_failure':self.first_failure,
+                'unattributed_adopted_exits':self.unattributed_waits,'unattributed_exit_observations':self.unattributed_exits,
+                'dropped_unattributed_exit_observations':max(0,self.unattributed_waits-len(self.unattributed_exits)),'first_failure':self.first_failure,
                 'persistence_failures':self.persistence_failures}

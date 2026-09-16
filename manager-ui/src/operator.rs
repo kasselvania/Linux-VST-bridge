@@ -528,6 +528,16 @@ fn installer_lines(v: &serde_json::Value) -> Vec<String> {
         _=>"Review the installer stage record; completion does not qualify or publish a plug-in.",
     };
     let mut lines=vec![outcome.into()];
+    if let Some(code)=v["startup"]["first_problem"]["code"].as_str() {
+        let observation=match code {
+            "native_steamclient_load_failed"=>"native runtime dependency load failed",
+            "native_steamclient_export_unavailable"=>"native runtime export unavailable",
+            "runtime_assertion_observed"=>"runtime assertion observed",
+            "prefix_initialization_failed"|"prefix_initialization_timeout"=>"environment initialization did not complete",
+            _=>"startup problem retained; inspect bounded details",
+        };
+        lines.push(format!("Earlier startup observation: {observation}. Cancellation and cleanup do not erase it."));
+    }
     if let Some(n)=t["outer_launcher_exit"].as_i64(){lines.push(format!("Outer launcher exit: {n} (separate from payload and service exits)"));}
     lines.push(format!("Durable installation: {}",t["durable_installation"].as_str().unwrap_or("unavailable").replace('_'," ")));
     if !t["first_failure"].is_null() {lines.push(format!("First retained process result: {} · status {} · cause unestablished",t["first_failure"]["domain"].as_str().unwrap_or("unknown"),t["first_failure"]["status"]));}
@@ -610,9 +620,9 @@ fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json:
 mod tests {
     #[test]
     fn installer_partial_nonzero_cancellation_and_cleanup_stay_separate() {
-        let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
+        let mut v=serde_json::json!({"operation":"exact","cleanup_confirmed":true,"startup":{"first_problem":{"code":"runtime_assertion_observed"}},"transaction":{"schema":1,"operation":"exact","outcome":"cancelled","outer_launcher_exit":-15,"durable_installation":"partial_installation","first_failure":{"domain":"linux_wait","status":37}}});
         let lines=super::installer_lines(&v).join(" ");
-        assert!(lines.contains("cancelled") && lines.contains("status 37") && lines.contains("partial installation") && lines.contains("cleanup confirmed"));
+        assert!(lines.contains("runtime assertion observed") && lines.contains("cancelled") && lines.contains("status 37") && lines.contains("partial installation") && lines.contains("cleanup confirmed"));
         v["transaction"]["operation"]="other".into();assert!(super::installer_lines(&v).is_empty());
         let legacy=serde_json::json!({"error":"installer_launcher_failed"});
         assert!(super::installer_lines(&legacy)[0].contains("failing later stage"));

@@ -1395,6 +1395,13 @@ class InstallerWindowsTrace:
             if key in self.pending:self.pending[key]=None # unresolved nesting/refusal cannot authorize pairing
             else:self.pending[key]={'timestamp':ts,'image_request':self.image(body)}
             return True
+        if function=='NtCreateUserProcess':
+            resolved=re.search(r' image L"(.{1,2048}?)" cmdline ',body)
+            if resolved and self.pending.get(key) is not None:
+                # This is Wine's resolved image request. Do not split an
+                # unquoted command line and guess which executable it names.
+                self.pending[key]['image_request']=resolved[1].replace('\\\\','\\')
+            return True
         created=re.fullmatch(r'started process pid ([0-9a-fA-F]+) tid ([0-9a-fA-F]+)',body) if function=='CreateProcessInternalW' else None
         if created:
             request=self.pending.pop(key,None)

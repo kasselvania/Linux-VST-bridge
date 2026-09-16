@@ -143,3 +143,9 @@ capacity boundary. Generated scratch prefixes are removed only after positive
 retirement and identity checks; proof records remain private. Test oracle markers
 do not feed production role classification. No commercial installer, plug-in,
 credential, operator input or installed-software mutation belongs to this harness.
+
+Execution evidence is recorded separately from fixture design. The current
+[development matrix](../evidence/is1/generated-progress.json) predates the final
+source freeze; its nonclaims and pending checks are explicit. The
+[sanitized example](../evidence/is1/sanitized-example.json) demonstrates separate
+child/outer custody without private IDs, paths, arguments or proprietary data.

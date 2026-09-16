@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "origin": "source_owned_development_fixture",
+  "result": "child_failed",
+  "outer_launcher": {
+    "domain": "linux_wait",
+    "status": 2
+  },
+  "child": {
+    "private_reference": "child-2",
+    "domain": "wine_self_exit_observation",
+    "status": 37,
+    "role": "unknown",
+    "linux_identity": "unavailable_no_cross_id_inference",
+    "underlying_cause": "unestablished"
+  },
+  "durable_installation": "not_installed",
+  "cleanup_confirmed": true,
+  "proprietary_data_included": false,
+  "source_archive_sha256": "15bdc262486da8b1ecc3e9af4165e5a8050d78d6a196d18d453c6aabe486f550"
+}

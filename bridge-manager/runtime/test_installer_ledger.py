@@ -143,3 +143,26 @@ class InstallerBoundaries(unittest.TestCase):
             self.assertEqual(value['outcome'],'installed')
             self.assertEqual(value['first_failure']['status'],3010)
             self.assertEqual(value['safe_next_action'],'review_retained_outcome_before_retry')
+
+    def test_msi_sink_is_independent_bounded_and_never_a_process_cause(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp).resolve();tx=session.InstallerTransaction('ab'*16,root,root/'result.json')
+            for _ in range(50):tx.feed(b'Action: source-owned MSI record\n'*1000,'msi')
+            self.assertGreater(tx.msi.dropped_bytes,0);self.assertLessEqual(tx.msi.bytes,131072)
+            self.assertEqual(tx.ordinary.bytes,0);self.assertIsNone(tx.windows_trace.first_failure)
+            tx.finish();retained=root/(('ab'*16)+'-msi-private.log')
+            self.assertTrue(retained.is_file());self.assertEqual(retained.stat().st_mode&0o777,0o600)
+    def test_phase_boundary_cannot_join_two_incomplete_diagnostic_streams(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tx=session.InstallerTransaction('ab'*16,tmp,pathlib.Path(tmp)/'r')
+            tx.feed(b'1.0:00f0:00f4:trace:process:NtTerminateProcess handle ','stderr')
+            tx.begin_phase();tx.feed(b'0xffffffffffffffff, exit_code 37, process_exiting 1.\n','stderr')
+            self.assertIsNone(tx.windows_trace.first_failure);self.assertEqual(tx.line_drops,1)
+
+    def test_unquoted_command_needs_resolved_image_not_filename_guess(self):
+        w=session.InstallerWindowsTrace({'path':'/fixture.exe','sha256':'ab'*32},'/private');w.begin()
+        w.feed(br'1.000:0020:0024:trace:process:CreateProcessInternalW app (null) cmdline L"Z:\\fixture.exe secret", inherit 0')
+        self.assertIsNone(w.pending[(32,36)]['image_request'])
+        w.feed(br'1.010:0020:0024:trace:process:NtCreateUserProcess L"resolved" image L"Z:\\fixture.exe" cmdline L"secret" parent (nil) machine 0')
+        w.feed(b'1.020:0020:0024:trace:process:CreateProcessInternalW started process pid 00e8 tid 00ec')
+        self.assertTrue(w.rows[0]['target_root']);self.assertNotIn('secret',json.dumps(w.value()))
