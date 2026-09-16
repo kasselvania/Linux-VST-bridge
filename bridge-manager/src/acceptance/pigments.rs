@@ -495,6 +495,7 @@ mod tests {
         let cat_path = f.m.root.join("software/native-catalogue.json");
         atomic_json(&cat_path, &cat).unwrap();
         let sw = Software {
+            installer_launch: None,
             preparation_kit: None,
             operator_frontend: None,
             manager: old.clone(),
@@ -712,6 +713,7 @@ mod tests {
         let path = f.m.root.join("software/native-catalogue.json");
         atomic_json(&path, &cat).unwrap();
         let sw = Software {
+            installer_launch: None,
             preparation_kit: None,
             operator_frontend: None,
             manager: f.r.host.clone(),

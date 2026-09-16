@@ -351,6 +351,18 @@ fn validate_installer_transaction(v: &Value, op: &str) -> Result<()> {
     require(t["schema"] == 1 && t["operation"] == op, "installer_transaction_identity")?;
     require(matches!(t["outcome"].as_str(), Some("in_progress" | "completed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
     require(matches!(t["durable_installation"].as_str(), Some("installed" | "partial_installation" | "not_installed" | "indeterminate" | "unavailable")), "installer_transaction_witness")?;
+    if let Some(b)=t.get("launch_binding").filter(|b|!b.is_null()) {
+        require(b["schema"]==1 && b["operation"]==op && b["epoch"]==2, "installer_launch_binding_identity")?;
+        require(b["artifact_sha256"].as_str().is_some_and(|v|valid_hex(v,64)) && b["token_sha256"].as_str().is_some_and(|v|valid_hex(v,64)), "installer_launch_binding_digest")?;
+        require(matches!(b["status"].as_str(),Some("bound"|"unavailable")), "installer_launch_binding_status")?;
+        if b["status"]=="bound" {require(b["root_ordinal"].as_u64().is_some_and(|n|(1..=512).contains(&n)), "installer_launch_binding_root")?;}
+    }
+    if let Some(p)=t.get("presence_close") {
+        require(p["schema"]==1 && p["observation_count"].as_u64().is_some_and(|n|n<=64), "installer_presence_bound")?;
+        let classes=p["operation_classes"].as_array().ok_or("installer_presence_classes")?;
+        require(classes.len() as u64==p["observation_count"].as_u64().unwrap_or(u64::MAX) && classes.iter().all(|c|matches!(c.as_str(),Some("unknown"|"presence_query"|"close_request"|"capability_query"))), "installer_presence_classes")?;
+        require(p["actual_match_or_close_result"]=="unavailable_without_exact_object_observation", "installer_presence_result_authority")?;
+    }
     Ok(())
 }
 pub fn retired(v: &Value) -> bool {
@@ -454,7 +466,7 @@ pub fn launch(m: &Manager, r: &Record) -> Result<()> {
     atomic_json(
         &path,
         &json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
-        "format":installer.format,"report":dir.join(format!("{op}-result.json"))}),
+        "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))}),
     )?;
     let status = Command::new("systemd-run")
         .args([

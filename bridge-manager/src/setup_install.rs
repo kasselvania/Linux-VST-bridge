@@ -196,6 +196,7 @@ mod tests {
         };
         let source = a("source");
         Software {
+            installer_launch: None,
             preparation_kit: None,
         manager: a("manager"),
             operator_frontend: Some(a("frontend")),

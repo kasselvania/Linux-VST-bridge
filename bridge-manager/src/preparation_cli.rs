@@ -730,6 +730,7 @@ mod tests {
         .unwrap();
         let a = f.r.host.clone();
         let sw = Software {
+            installer_launch: None,
             preparation_kit: None,
             manager: a.clone(),
             operator_frontend: None,
@@ -763,6 +764,7 @@ mod tests {
     }
     fn projection_software(c: &prep::Candidate) -> Software {
         Software {
+            installer_launch: None,
             preparation_kit: None,
             manager: c.host.clone(),
             operator_frontend: None,

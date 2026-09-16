@@ -184,6 +184,7 @@ fn software(m: &Manager) -> Result<Software> {
         "host source manifest differs",
     )?;
     if let Some(a) = &s.preparation_kit { a.verify()?; }
+    if let Some(a) = &s.installer_launch { a.verify()?; }
     if let Some(a) = &s.operator_frontend {
         a.verify()?;
     }
@@ -307,7 +308,12 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
     let retained_kit=previous.as_ref().and_then(|s|s.preparation_kit.clone()).filter(|_|kit.is_none());
     if let Some(a)=&retained_kit {a.verify()?;}
     if let Some(path)=kit {files.push(("preparation-kit.zip",path));}
+    let adapter=package.map(|p|p.join("installer-launch.exe")).filter(|p|p.exists());
+    let retained_adapter=previous.as_ref().and_then(|s|s.installer_launch.clone()).filter(|_|adapter.is_none());
+    if let Some(a)=&retained_adapter {a.verify()?;}
+    if let Some(path)=adapter {files.push(("installer-launch.exe",path));}
     let mut identity = String::new();
+    if let Some(a)=&retained_adapter {identity.push_str(&serde_json::to_string(a)?);}
     if let Some(a)=&retained_kit {identity.push_str(&serde_json::to_string(a)?);}
 
     for (_, p) in &files {
@@ -440,6 +446,7 @@ fn setup_selected(m: &Manager, package: Option<&Path>, acceptance: Acceptance) -
         actual.validate(&m.root)?;
     }
     let installed = Software {
+        installer_launch: if files.iter().any(|(n,_)|*n=="installer-launch.exe"){Some(a("installer-launch.exe")?)}else{retained_adapter},
         preparation_kit: if files.iter().any(|(n,_)|*n=="preparation-kit.zip"){Some(a("preparation-kit.zip")?)}else{retained_kit},
         operator_frontend: if files.iter().any(|(n,_)|*n=="linux-audio-compatibility-manager") {Some(a("linux-audio-compatibility-manager")?)}else{retained_frontend},
         manager: a("linux-vst-bridge")?,
