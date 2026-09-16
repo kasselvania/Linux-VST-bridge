@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "operation": "33f30f67435083b7c95c80255383359c",
+  "state": "refused",
+  "reason": "Operator action: inspection_failed",
+  "boundary": "MF3 selected inspection constructed a first_audio job; multi-class factory refused unselected inspection",
+  "windows_failure": [
+    {
+      "event": "lifecycle",
+      "sequence": 44,
+      "state": "ap8_failure",
+      "reason": "multiple audio classes require explicit selection"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 45,
+      "state": "ap8_inspection_closed",
+      "exit_code": 90
+    }
+  ],
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "outer_cleanup_exit": -15,
+  "candidate_created": false,
+  "publication_changed": false,
+  "commercial_daw_session": false,
+  "system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  }
+}

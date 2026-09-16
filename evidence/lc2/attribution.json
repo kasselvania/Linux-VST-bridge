@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "disposition": "LC2_RETAINED_CANDIDATE_USES_PRE_LC1_OWNER",
+  "candidate_A_host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+  "candidate_A_host_source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+  "candidate_A_host_source": "46c7b85fce2370644cccec6197a6f1a06c188be1",
+  "candidate_A_host_ci": 34418620336,
+  "existing_repair_commit": "c7a58b63a65a7fdc7564cf6c29be272960d9871a",
+  "kit_host": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+  "kit_host_source": "9434f8289be1f04206e20b76e62a3a1b958e3040",
+  "source_comparison": [
+    {
+      "source_path": "windows-factory-probe/source/offline_processing.cpp",
+      "candidate_A_blob": "9f4254ea0760b97a3405d89c31520ba847b76e0e",
+      "corrected_host_source_sha256": "8b0d63980784e3877e9218aa2e40182ec738c8a3ca41bd4990d97adeee07b49b",
+      "matches_current_source_with_declared_line_endings": true
+    },
+    {
+      "source_path": "windows-factory-probe/source/mapped_processing.cpp",
+      "candidate_A_blob": "ceaae6b58df8355456c4e3d3e1c0a6eeb91337f4",
+      "corrected_host_source_sha256": "e11112bdc75beb8c77fe72d0d947f482d850b1eb2625c6f220d46ed35f85f967",
+      "matches_current_source_with_declared_line_endings": true
+    }
+  ],
+  "retained_native_rows": [
+    {
+      "event": "ap5_worker_fault",
+      "generation": 1,
+      "fault": 3,
+      "first_position": 4226048,
+      "processed": 16508,
+      "request_high": 4,
+      "result_high": 4,
+      "detail": "InvalidData: wrong lifecycle response"
+    },
+    {
+      "event": "ap7_fault_progress",
+      "context_ready": true,
+      "epoch": 0,
+      "worker_op": 14,
+      "worker_epoch": 1,
+      "worker_position": 0,
+      "request_published": 16510,
+      "request_consumed": 16510,
+      "result_published": 16506,
+      "result_consumed": 16506,
+      "service_us_max_at_report": 8924,
+      "observation_skips": 0
+    }
+  ],
+  "windows_record": "evidence/sv1/first-operator-session.json",
+  "attribution": "Native worker operation 14 is Deactivate; exact old Windows owner unconditionally starts a worker expecting Start after activation. This is the LC1 activation-only defect. Historical Windows actual received tuple was not retained, so this is source/native correlation, not direct wire custody.",
+  "repair": "Use corrected host through a new immutable manager-prepared candidate; no correlation relaxation or new vendor workaround.",
+  "nonclaims": [
+    "Does not prove all historical Serum crashes share this boundary.",
+    "No Serum exception, preset-complexity or graphics cause established.",
+    "New commercial restart/retirement remains untested."
+  ]
+}

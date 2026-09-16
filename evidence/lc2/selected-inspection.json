@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "operation": "9b33cd8ccbc6f3659cb0d58182486eca",
+  "inspection": "d777aa82d13e5d0993d8e9454ed4b2f40236b28ce52cdb1e19f17fa78927ad60",
+  "class_id": "56534558667350736572756D20320000",
+  "state": "completed",
+  "host": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+  "source_manifest": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+  "rows": [
+    {
+      "event": "lifecycle",
+      "sequence": 57,
+      "state": "ap8_controller_association",
+      "combined": false,
+      "class_id": "56534558667343736572756D20320000"
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 72,
+      "state": "ap8_bus",
+      "media": 0,
+      "direction": 1,
+      "index": 0,
+      "channels": 2,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 3
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 75,
+      "state": "ap8_bus",
+      "media": 1,
+      "direction": 0,
+      "index": 0,
+      "channels": 16,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 78,
+      "state": "ap8_bus",
+      "media": 1,
+      "direction": 1,
+      "index": 0,
+      "channels": 16,
+      "type": 0,
+      "flags": 1,
+      "arrangement": 0
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 173,
+      "state": "ap8_editor_interface",
+      "created": true,
+      "hwnd_result": 0,
+      "attached": false
+    },
+    {
+      "event": "lifecycle",
+      "sequence": 184,
+      "state": "ap8_inspection_closed",
+      "exit_code": 0
+    }
+  ],
+  "cleanup_confirmed": true,
+  "transport_retired": true,
+  "outer_cleanup_exit": -15,
+  "error": null,
+  "commercial_DAW_session": false,
+  "editor_attached": false,
+  "publication_changed": false,
+  "nonclaim": "Preliminary exact-class inspection, not DAW or GUI qualification. Outer -15 is supervisor retirement after Windows inspection exit 0."
+}

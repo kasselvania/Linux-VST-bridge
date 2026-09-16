@@ -71,6 +71,18 @@ class BusCensusCommandTests(unittest.TestCase):
             reg['compatibility']['event_output']='all_zero_buses'
             with self.assertRaisesRegex(RuntimeError,'unsupported event output policy'):session.environment(reg)
 
+    def test_exact_inspection_selection_reaches_command_and_handshake(self):
+        # Source-owned distinct instrument/effect IDs; no vendor naming dispatch.
+        for selected in ('A'*32, 'B'*32):
+            reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
+                 'metadata':{'class_id':selected},'host':{'path':'/fixture/host.exe','sha256':'1'*64},
+                 'host_source_sha256':'2'*64,'module':{'path':'/fixture/module.vst3','sha256':'3'*64}}
+            spec={'registration':reg,'session':'4'*32,'inspect':True,'first_audio':False}
+            argv,binding=session.command(spec)
+            self.assertEqual(argv[argv.index('--component-case')+1],'class:'+selected)
+            self.assertIn(('component_case=class:'+selected+'\n').encode(),binding)
+            self.assertNotIn(b'component_case=first-audio',binding)
+
     def test_probe_is_inspection_only_and_handshake_bound(self):
         reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
              'metadata':{'class_id':'A'*32},'host':{'path':'/fixture/compatdata/pfx/drive_c/host.exe','sha256':'1'*64},

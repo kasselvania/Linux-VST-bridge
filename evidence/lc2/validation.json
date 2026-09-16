@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "implementation_head": "1228ad8e82c0f36ef49f8e3a384f166382d12f02",
+  "manager_library": 125,
+  "manager_binary": 62,
+  "runtime_local": {
+    "total": 71,
+    "linux_only_skipped": 36
+  },
+  "native_backend": {
+    "passed": 68,
+    "ignored": 1,
+    "test_threads": 4,
+    "initial_default_parallel_run": "67 passed / 1 failed: shared INSTANCES capacity exhausted (Full). Bounded four-thread rerun passed; no test or runtime behavior changed."
+  },
+  "paired_windows_native_fixture": {
+    "normal": "passed",
+    "activation_only": "passed",
+    "wrong_sequence": "refused_as_expected",
+    "all_cohorts_empty": true
+  },
+  "lc2_report_tests": 5,
+  "strict_clippy": [
+    "manager",
+    "native_backend"
+  ],
+  "ci": [
+    {
+      "workflow": "AP12",
+      "run": 35044185471,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "PX2",
+      "run": 35044185469,
+      "conclusion": "success"
+    }
+  ],
+  "unchanged_artifact_reuse": {
+    "AP8_run": 35029171826,
+    "head": "9434f8289be1f04206e20b76e62a3a1b958e3040",
+    "host": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+    "reason": "No Windows source changed; exact kit artifact verified and paired fixture executed."
+  },
+  "AP10": "Not rerun: native/audio runtime source unchanged; new native product constructed from exact existing schema-2 kit recipe. Real native/Windows paired regression and backend suite passed.",
+  "frontend": "Unchanged frontend; AP12 frontend tests and strict Clippy passed."
+}
