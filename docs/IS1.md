@@ -144,8 +144,38 @@ retirement and identity checks; proof records remain private. Test oracle marker
 do not feed production role classification. No commercial installer, plug-in,
 credential, operator input or installed-software mutation belongs to this harness.
 
-Execution evidence is recorded separately from fixture design. The current
+Execution evidence is recorded separately from fixture design. The retained
 [development matrix](../evidence/is1/generated-progress.json) predates the final
-source freeze; its nonclaims and pending checks are explicit. The
+source verification; its historical nonclaims and pending checks remain explicit. The
 [sanitized example](../evidence/is1/sanitized-example.json) demonstrates separate
 child/outer custody without private IDs, paths, arguments or proprietary data.
+
+## Final source verification
+
+[Result and limitations](../evidence/is1/result.md) and the
+[machine-readable record](../evidence/is1/result.json) supersede the pending status
+of the earlier development matrix without rewriting that history. Direct MSI's
+private FIFO was verified on the pinned runner. The updater fixture retained the
+third-generation process; the post-launch fixture executed the copied installed
+image. Neither oracle's semantic labels are admitted as production authority.
+
+The public transaction outcome `in_progress` distinguishes an ongoing owned
+installer from terminal `cleanup_unconfirmed`. Exact Stop/Focus remain offered
+while supervision is active. A terminal failure observation remains visible in
+both states; cancellation is a separate fact.
+
+Record boundaries:
+
+| Record | Schema and authority |
+|---|---|
+| Existing installer result | Schema 2; operation, state, outer status, startup observations, cancellation and cleanup |
+| Public transaction | Schema 1; exact operation, outcome, durable witness classification, first nonzero observation, loss counts, safe next action |
+| Private transaction | Schema 1; Linux ledger, Windows diagnostic chain, before/after witnesses, stage rows and diagnostic custody |
+| Linux ledger row | Exact cgroup and PID/start; verified parent where available; phase, first/last monotonic time, state, wait source/domain/status, images, role or unknown |
+| Windows trace row | Launch epoch and creation ordinal, creator relationship, image-request evidence, self-exit DWORD and evidence-backed role or unknown; no inferred Linux identity |
+
+A missing stage is explicitly unproved; it is not inferred from a filename,
+parent's exit, service-server response without RPC identity, or fixture stdout.
+No generic first-launch operation or automatic reinstall is authorized by the
+installation witness. A future first-launch crossing must retain its own exact
+application selection and process ownership.
