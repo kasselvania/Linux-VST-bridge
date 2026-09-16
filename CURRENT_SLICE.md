@@ -77,3 +77,15 @@ B `f6af02eb…` is prepared and unpublished; failed A and all original product h
 remain immutable. `evidence/lc2/result.json` records installed source/artifacts,
 lineage and healthy idle readback. Return draft PR #111 for review; no commercial
 launch or publication was performed and B's product behavior remains untested.
+
+## Authorized operator handoff
+
+After the preparation result, the operator explicitly requested candidate B be
+made available for a human Bitwig test. `evidence/lc2/experimental-handoff.json`
+records the completed exact experimental publication and physical native/host
+readback. B is now deliberately enabled; A remains inactive. No agent launch or
+input occurred. Existing CA1 arm only accepts ordinary profiles (or its older
+fixed failure fixture), so generic candidate capture is unavailable and remains
+off; IF1/IF2 terminal and cleanup records remain available. No bypass was used.
+Product result is pending the human session. This supersedes only the current
+unpublished resting state, not the immutable preparation evidence.
