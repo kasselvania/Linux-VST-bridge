@@ -119,3 +119,45 @@ transactions and stale transports, capture off. All four development sessions
 (including the incomplete observation) retired with zero survivors and their
 scratch prefixes removed. AP8 builds and self-tests both x86 and x64; the real
 pinned comparison is x86. AP10 is out of scope.
+
+## Sealed experiment custody (rereview repair)
+
+The prior observation in `loader-authority.json` remains credible but is superseded
+for comparison custody. `package.py` now builds the fixed x86 consumer from clean,
+committed source and stages an exact file set. `fixture-manifest.json` is the
+resulting canonical, retained manifest: source head/tree, payload architecture and
+bytes, complete runner identity, both PowerShell images, installed owners, baseline
+override receipt, compiler recipe and every driver/owner source digest.
+
+The manifest does not hash itself. Its SHA-256 is a detached seal supplied to the
+campaign and each supervised invocation, and retained in every proof and the public
+result. The exact package directory includes the manifest plus the closed hashed
+file set. Extra/missing files, unknown manifest fields, duplicate JSON keys,
+noncanonical manifest bytes, writable or altered files, a changed seal, and source
+generation mismatch refuse before entering the production installer owner.
+
+The package and runner APIs here are source-owned development tools, not operator
+capabilities. The runner is selected by its sealed expected identity. Repeated
+registrations of the identical runner are one identity; conflicting generations
+with the same runner ID refuse. Every declared runner file, entry-point and Proton
+artifact is verified, and paths are retained publicly only as hashes. Installed
+manager, frontend, supervisor, ownership helper, adapter and the complete software
+record are bound separately from the staged session/ownership sources.
+
+`campaign.py` verifies the package before each session, invokes baseline → Unix
+override → restored, rereads the three immutable private proofs, and calls the
+committed comparator. That comparator requires canonical byte equality of the
+complete identity envelope, including the sealed manifest digest and every source
+owner. Baseline Windows override identities must match exactly across both outer
+sessions; the middle session's changed override is the declared independent
+variable, not silently normalized away. The campaign projects bounded private
+loader diagnostics, then writes `loader-authority.json` using a complete fsynced
+temporary file, atomic no-replace link and parent fsync. Failures stop the sequence;
+no result or historical evidence is overwritten.
+
+The source commit recorded by a package precedes its generated manifest/evidence
+commit, avoiding a Git/hash self-reference. All executable source bytes in the
+final candidate must still match that committed manifest. Tests mutate every
+identity leaf, require the exact file set/seal, reject ambiguous runners, exercise
+campaign order/early stop, and protect atomic retained results. AP8 hashes all
+binaries only after x64 and x86 build/self-test completion.

@@ -94,8 +94,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/mf3/windows_inspection_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git rev-parse HEAD | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SOURCE_COMMIT.txt"
-          Get-FileHash "${{ runner.temp }}/ap8-build/wf0/bin/Release/*.exe" -Algorithm SHA256 | Format-List | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SHA256.txt"
       - name: Build and self-test exact x86 IS3 consumer
         shell: cmd
         run: |
@@ -105,6 +103,12 @@ jobs:
           if errorlevel 1 exit /b %errorlevel%
           "${{ runner.temp }}/ap8-build/wf0/bin/Release/is3-capability-x86.exe" --self-test
           if errorlevel 1 exit /b %errorlevel%
+      - name: Inventory both Windows architectures after all builds
+        shell: pwsh
+        run: |
+          git rev-parse HEAD | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SOURCE_COMMIT.txt"
+          Get-FileHash "${{ runner.temp }}/ap8-build/wf0/bin/Release/*.exe" -Algorithm SHA256 | Format-List | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SHA256.txt"
+          "is3-capability.exe x64`nis3-capability-x86.exe x86" | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/IS3_ARCHITECTURES.txt"
       - name: Test socket idle and disconnect behavior
         shell: cmd
         run: |

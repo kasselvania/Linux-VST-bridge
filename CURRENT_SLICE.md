@@ -46,3 +46,13 @@ source-owned payload digest and exact operation. No replacement software install
 If this operation-scoped route is ineffective, a separate disposable-prefix
 registry comparison is permitted. Do not install a genuine interpreter before
 honest absence is established. Add x86 and x64 CI self-tests and keep PR #114 draft.
+
+## Proof custody rereview repair
+
+Preserve `ce0b9f9a9354ad2091898bb0d84e3c1792122ef8` and its credible behavioral
+observation byte-for-byte. Seal the complete cross-session identity, replace the
+unretained open manifest with a closed committed package/campaign owner, and move
+AP8 inventory generation after both architectures. Commit code before packaging;
+retain its exact head/tree and the generated manifest in the later evidence commit.
+Repeat only baseline, Unix override, restored through that sealed campaign.
+No Native Access, runtime installation, registry mutation or product changes.
