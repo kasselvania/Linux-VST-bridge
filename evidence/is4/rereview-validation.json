@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "executed_source": {
+    "head": "9af1ff1def83a5055aa12acb371ff6479dc61763",
+    "tree": "8ee95abdb6a10ba2e109f94b4e17770b4be80169"
+  },
+  "local": {
+    "manager_library_passed": 126,
+    "manager_binary_passed": 72,
+    "frontend_passed": 20,
+    "runtime_total": 120,
+    "runtime_macos_skipped": 37,
+    "is3_passed": 24,
+    "is4_passed": 25,
+    "strict_manager_clippy": "passed",
+    "strict_frontend_clippy": "passed"
+  },
+  "linux_staged": {
+    "tests_passed": 41,
+    "target_creation_failure_after_successful_prefix": "requested_retained_effective_null_cleanup_positive",
+    "successful_owned_target": "effective_receipt_confirmed",
+    "vendor_processes": false
+  },
+  "log_sha256": {
+    "manager": "26f52ff45ecf4fca73e5095e1fd4cdb2bf2f1018539231daf6774d4be4622a2a",
+    "frontend": "4172ef3b926ff8b0ffd851f6d75ed939523a155eaf594f923ea14ad0bc2de8b0",
+    "manager_clippy": "66890f8d87952da0cf2ad2ebaebb0ff099758d704c7e7df2bf7e61e0afe20b57",
+    "frontend_clippy": "92cc7593c69366793cfe1a9dc50ba23a9b4d74ffd68ae26083913f3bc07a3d30",
+    "runtime": "ea2c1230c2760111d179b2bf5ac905ac04ee1347e0d59d9232ae9f74a0657d16",
+    "is3": "7bb4af429f7bd2aba65afd03624c6ef0268bfe9607683492fdf007dd67cbd74f",
+    "is4": "b9782150a680ae451f40dd37de85f9569b908d28be67375f5a3bb937a1ae9f52"
+  },
+  "historical": {
+    "prior_campaign_unchanged": true,
+    "prior_manifest_sha256": "51f0056e092b90d19ddf30f90e71a54b93fc866943385f0bf927fe40957cf5de",
+    "prior_public_result_sha256": "9c69c6134535dda050f73008e6f307be6f24254705eb193e99fb8f759b934882",
+    "prior_private_proofs_unchanged": 3
+  },
+  "development_boundaries": [
+    "Initial projection regression lacked a native catalogue; corrected generated fixture passed. No Windows process ran for this failure.",
+    "An oversized read-only Linux-test transfer exceeded the existing bounded transport; compressed source transfer succeeded. No production limit was changed."
+  ],
+  "hosted": "Exact final-head AP8/AP12/PX2 links retained in PR #115; no AP10 inputs changed."
+}
