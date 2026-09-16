@@ -1038,3 +1038,58 @@ fn legacy_provenance_conflict_is_not_silently_reused_or_replaced() {
     );
     assert_eq!(fs::read(&seal).unwrap(), before);
 }
+
+#[test]
+fn installed_candidate_only_upgrade_materializes_history_without_replacing_candidate() {
+    let (f, c, b) = legacy_fixture();
+    let record = object(&f.m, "candidates", &c.id().unwrap()).unwrap().join("candidate.json");
+    immutable(&record, &c).unwrap(); // Actual pre-generation installed state.
+    let before = fs::read(&record).unwrap();
+    assert_eq!(retained_history_with_binding(&f.m, &b).unwrap(), vec![c.clone()]);
+    verify_legacy(&f.m, &c).unwrap();
+    assert!(lineage(&f.m, &c).unwrap().preparation_identity.starts_with("sv1:"));
+    assert_eq!(inspections(&f.m, &c.selection).unwrap(), vec![c.inspection.clone()]);
+    let revision = fs::read(root(&f.m).join("revision.json")).unwrap();
+    // Complete history is read-only, including after current inventory advances.
+    fs::remove_file(f.m.root.join("inventory").join(format!("{}.json", c.selection.environment.id))).unwrap();
+    assert_eq!(retained_history_with_binding(&f.m, &b).unwrap(), vec![c.clone()]);
+    assert_eq!(fs::read(root(&f.m).join("revision.json")).unwrap(), revision);
+    assert_eq!(fs::read(&record).unwrap(), before);
+}
+
+#[test]
+fn candidate_only_upgrade_retries_each_interruption_through_readback_owner() {
+    use history::MaterializeBoundary::*;
+    for boundary in [Environment, Onboarding, Inventory, ProvenanceStaged,
+        ProvenanceInstalled, Lineage, Candidate] {
+        let (f, c, b) = legacy_fixture();
+        let record = object(&f.m, "candidates", &c.id().unwrap()).unwrap().join("candidate.json");
+        immutable(&record, &c).unwrap();
+        let before = fs::read(&record).unwrap();
+        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        assert_eq!(history::materialize_legacy_with(&f.m, &c, &b, Some(boundary))
+            .unwrap_err().to_string(), "legacy_materialization_interrupted");
+        retained_history_with_binding(&f.m, &b).unwrap();
+        verify_legacy(&f.m, &c).unwrap();
+        let revision = fs::read(root(&f.m).join("revision.json")).unwrap();
+        retained_history_with_binding(&f.m, &b).unwrap();
+        assert_eq!(fs::read(root(&f.m).join("revision.json")).unwrap(), revision);
+        assert_eq!(fs::read(&record).unwrap(), before);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+        assert!(lineage(&f.m, &c).unwrap().preparation_identity.starts_with("sv1:"));
+    }
+}
+#[test]
+fn candidate_only_upgrade_refuses_bound_snapshot_conflict_without_rewriting_it() {
+    let (f, c, b) = legacy_fixture();
+    let record = object(&f.m, "candidates", &c.id().unwrap()).unwrap().join("candidate.json");
+    immutable(&record, &c).unwrap();
+    let before = fs::read(&record).unwrap();
+    let conflict = object(&f.m, "legacy", &c.id().unwrap()).unwrap().join("environment.json");
+    immutable_bytes(&conflict, b"conflicting immutable material").unwrap();
+    assert_eq!(retained_history_with_binding(&f.m, &b).unwrap_err().to_string(),
+        "preparation_immutable_conflict");
+    assert_eq!(fs::read(&conflict).unwrap(), b"conflicting immutable material");
+    assert_eq!(fs::read(&record).unwrap(), before);
+    assert!(!conflict.with_file_name("provenance.json").exists());
+}

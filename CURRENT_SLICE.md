@@ -69,3 +69,29 @@ processing-restart evidence and the original MF3/SV1 result bytes. Run affected
 manager/frontend/recipe/runtime tests, strict Clippy, AP12 and PX2. AP8 only if
 Windows or build inputs change. No installation, publication, Bitwig/Serum session,
 LC2 work or changes to PR #107. Return PR #109 draft and unmerged.
+
+## Post-merge installed upgrade repair
+
+The operator authorized completing the job after installation of merged main
+`be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec` exposed the retained-candidate-only
+migration gap. Complete original SV1 provenance/history atomically without
+rewriting candidate A. Run focused upgrade/interruption/conflict regressions,
+manager/frontend/runtime checks and applicable CI. Install the repair through
+immutable setup in an idle window, with the authorized service/keeper restart.
+Use the exact offered manager action to disable the pre-existing Serum
+experimental publication; preserve its immutable history and every sibling.
+Verify schema-4 snapshot, candidate/history facts, unpublished instrument and
+separate unqualified FX, ordinary products/projects and healthy zero ownership.
+No commercial session, reinspection, candidate rebuild or LC2 repair in this cut.
+The failed merged-install readback remains immutable evidence.
+
+### Installed repair result
+
+Implementation `f4a2e8888d3b40652173db3985ff8b2362119266` is installed through
+immutable setup. Full schema-4 readback passes; historical SV1 candidate A and
+its failed processing-restart evidence remain exact. One checked disable removed
+the pre-existing Serum experimental publication. The corrected card is prepared
+and unpublished; FX remains separately unqualified. Ordinary products and five
+projects are preserved, service/two keepers healthy, all ownership counts zero.
+See `evidence/mf3/upgrade-repair-result.*`. PR #110 is draft for review; LC2 remains
+separate and no new product session was performed.

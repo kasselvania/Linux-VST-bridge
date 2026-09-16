@@ -1,0 +1,297 @@
+{
+  "schema": 1,
+  "disposition": "MF3_INSTALLED_UPGRADE_REPAIRED_AND_READBACK_PASSED",
+  "source_head": "f4a2e8888d3b40652173db3985ff8b2362119266",
+  "source_tree": "8fd0eaf7c4e90feb15a682c16ba5cf67e3e33a79",
+  "merged_basis": "be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec",
+  "previous_failure": "evidence/mf3/merged-installation-readback.json",
+  "repairs": [
+    "Complete candidate-only retained SV1 adoption through existing atomic provenance/history materialization before snapshot token capture.",
+    "Project a removed experimental candidate as prepared, while preserving true ordinary authority and physical-publication disagreement."
+  ],
+  "installation": {
+    "route": "immutable_setup",
+    "idle_restart": "explicitly_operator_authorized",
+    "artifacts_sha256": {
+      "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+      "operator_frontend": "621599fe477358dfe3265b87470b20525c3d87d6c791696c91b9281b1bfe6f2d",
+      "manager": "cae894dda642167af1672c907e71553f7899f2c405977d54b206dffac954344b",
+      "supervisor": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab",
+      "ownership": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "b2cf70df51d9052979ab059f1ecd433d4c57fada9cdb194676b09074bfd58371"
+    },
+    "all_installed_artifact_digests_verified": true,
+    "immutable_artifacts_read_only": true,
+    "previous_software_retained": true,
+    "kit": {
+      "schema": 2,
+      "sha256": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+      "source": "be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec",
+      "builder": "8af097a89211fd51596cb3f0f36495016f95576bc460d97f405a7d6c34c4b265",
+      "descriptor_generator": "05ab8308c50d48871818b6906e7c6a2023c453bf225ae7733dd408686f504970",
+      "host": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+      "host_source_manifest": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+      "recipe_sha256": "7a364a3dff365a706e3c1f9e3a33b75f4594a68643e5d708522c1cd7bf5c1372"
+    },
+    "frontend_runtime_kit_reused_unchanged": true,
+    "windows_or_native_product_rebuild": false
+  },
+  "readback": {
+    "operator_model": 4,
+    "serum_instrument": {
+      "class_id": "56534558667350736572756D20320000",
+      "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+      "environment": "4db060b14388e41103834fc4dfdd023a",
+      "disposition": "prepared",
+      "active_revision": null,
+      "publication": "removed",
+      "registry_history": "Removed; historical registration and revisions retained, no active physical publication",
+      "physical_bitwig_link": false,
+      "candidate": {
+        "id": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+        "origin": "retained_sv1",
+        "host_sha256": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+        "source_sha256": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+        "native_sha256": "0c87f6c79914e9b9fbfd77c613cc5532fa74bfd71dea10eec249f0b2e558a16b",
+        "descriptor_sha256": "402c52381dd2fee2678aa2d357aeba96a37a5d6a7acbed2b2e4322259bb159b5",
+        "inspection": "3f5fc695d00bf874b5d3e8d3c646f2c6ade0a03e6763a744bc0c45bb0a3766b7",
+        "recipe": "2fbb4bbcc5a1295d462a74e9d3582ce3a9dc15335a082fa7228acce47e42c24f",
+        "lineage": {
+          "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+          "ordinal": 1,
+          "predecessor": null,
+          "preparation_identity": "sv1:a93ee5b13e4dc759cb55e90005c08b615cfe00cd:121c38272d670aaeace5c526dff0460178a9a6593267f596ecf28e96b83ee381",
+          "schema": 1
+        },
+        "terminal_cleanup": {
+          "cleanup_confirmed": true,
+          "disposition": "terminal_instance_failure",
+          "normal_retirement_proved": false,
+          "source": "retained_sv1",
+          "transport_retired": true
+        },
+        "unmet_requirements": [
+          "Midi: a retained passing product observation is required",
+          "Audio: a retained passing product observation is required",
+          "Automation: a retained passing product observation is required",
+          "StateRecall: a retained passing product observation is required",
+          "ProcessingRestart: a retained passing product observation is required",
+          "Retirement: a retained passing product observation is required"
+        ]
+      },
+      "candidate_bytes_unchanged": true,
+      "legacy_provenance_and_input_snapshots_materialized": true,
+      "evidence": [
+        {
+          "area": "daw_load",
+          "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+          "detail": "SV1 retained exact instrument processing session",
+          "operation": "retained-sv1",
+          "ordinal": 0,
+          "recorded_at": 0,
+          "schema": 1,
+          "status": "passed",
+          "witness": "machine_observation"
+        },
+        {
+          "area": "editor",
+          "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+          "detail": "Operator reported responsive editor before failure",
+          "operation": "retained-sv1",
+          "ordinal": 0,
+          "recorded_at": 0,
+          "schema": 1,
+          "status": "passed",
+          "witness": "operator_observation"
+        },
+        {
+          "area": "parameters",
+          "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+          "detail": "SV1 retained two complete gestures and 24 value events",
+          "operation": "retained-sv1",
+          "ordinal": 0,
+          "recorded_at": 0,
+          "schema": 1,
+          "status": "passed",
+          "witness": "machine_observation"
+        },
+        {
+          "area": "processing_restart",
+          "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+          "detail": "Terminal lifecycle correlation failure on processing restart",
+          "operation": "retained-sv1",
+          "ordinal": 0,
+          "recorded_at": 0,
+          "schema": 1,
+          "status": "failed",
+          "witness": "machine_observation"
+        },
+        {
+          "area": "retirement",
+          "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+          "detail": "Normal retirement was not observed; positive terminal cleanup is retained separately",
+          "operation": "retained-sv1",
+          "ordinal": 0,
+          "recorded_at": 0,
+          "schema": 1,
+          "status": "not_tested",
+          "witness": "machine_observation"
+        }
+      ]
+    },
+    "serum_fx": {
+      "class_id": "56534558667351736572756D20322066",
+      "disposition": "installed_unqualified",
+      "registry_entry": false,
+      "physical_bitwig_link": false
+    }
+  },
+  "experimental_removal": {
+    "reason": "Requested final resting state; publication was already present before merged installation",
+    "route": "exact offered ExperimentalDisable operator action",
+    "operation": "4637c220ccc77bd3bfa69016a66dca20",
+    "state": "completed",
+    "result": {
+      "candidate": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+      "experimental": false,
+      "history_preserved": true
+    },
+    "lock_waits": [
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 61,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "4637c220ccc77bd3bfa69016a66dca20",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 26,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "4637c220ccc77bd3bfa69016a66dca20",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 9878
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 29,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "registry.lock",
+        "operation": "4637c220ccc77bd3bfa69016a66dca20",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "operator_validation_readback",
+        "timeout_ms": 10000
+      },
+      {
+        "attempts": 1,
+        "elapsed_wait_us": 30,
+        "holder": "unknown",
+        "mode": "exclusive",
+        "name": "operator-canonical.lock",
+        "operation": "4637c220ccc77bd3bfa69016a66dca20",
+        "outcome": "acquired",
+        "policy": "bounded",
+        "purpose": "action_serialization",
+        "timeout_ms": 10000
+      }
+    ],
+    "issued_once": true,
+    "subsequent_presentation_assertion": "Removal completed; readback exposed stale ordinary-admission warning. Fixed projection with deterministic regression, without replaying removal."
+  },
+  "preservation": {
+    "final_installation_retained_files_unchanged": 267,
+    "protected_projects_unchanged": 5,
+    "changes_to_original_tracked_records": [
+      "registry publication status for exact Serum candidate after explicit disable",
+      "preparation revision token for history materialization"
+    ],
+    "new_immutable_history_records": "SV1 provenance, environment/onboarding/inventory snapshots, inspection history and candidate lineage",
+    "other_physical_publications_unchanged": true,
+    "pigments_ordinary": 18,
+    "pigments_rollback": 11,
+    "pure_lofi_ordinary": 10,
+    "efx_fragments_ordinary": 10,
+    "environments_onboarding_import_artifacts_and_authorization_preserved": true,
+    "recommended_frames": 512,
+    "frames_256": "unqualified"
+  },
+  "validation": {
+    "manager_library": {
+      "passed": 125
+    },
+    "manager_binary": {
+      "passed": 61
+    },
+    "frontend": {
+      "passed": 14
+    },
+    "recipe": {
+      "passed": 7
+    },
+    "runtime_local": {
+      "run": 70,
+      "skipped_linux_only": 36
+    },
+    "manager_strict_clippy": "passed",
+    "frontend_strict_clippy": "passed",
+    "focused_regressions": [
+      "Candidate-only retained upgrade reproduces pre-fix ENOENT",
+      "Seven interrupted materialization boundaries recover without candidate mutation",
+      "Conflicting immutable provenance refused",
+      "Subsequent readback leaves projection token unchanged",
+      "Historical candidate remains readable after inventory advancement",
+      "Removed experimental publication is prepared without active revision",
+      "Foreign physical publication remains needs_attention without Enable"
+    ],
+    "source_head_ci": {
+      "head": "f4a2e8888d3b40652173db3985ff8b2362119266",
+      "AP12": {
+        "run": 35042470997,
+        "conclusion": "success"
+      },
+      "PX2": {
+        "run": 35042471019,
+        "conclusion": "success"
+      }
+    },
+    "AP8_AP10": "not applicable: Windows/native runtime and build-recipe inputs unchanged"
+  },
+  "final_system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "resume_record_present": false,
+  "unexpected_bitwig_or_diagnostic_processes": 0,
+  "product_session_started": false,
+  "lc2_started": false,
+  "nonclaims": [
+    "No new Serum qualification, processing-restart, audio, editor, authorization or state result.",
+    "Normal Serum retirement remains unproved; prior positive terminal cleanup is separate.",
+    "No candidate rebuild, reinspection, installer run, scan or experimental enable.",
+    "Installed manager contains the two post-merge repairs; it is not byte-identical to merged be9a7e9. Frontend and schema-2 kit remain the exact merged builds.",
+    "LC2 remains separate and must create a new immutable candidate generation."
+  ]
+}

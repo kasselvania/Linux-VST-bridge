@@ -354,8 +354,21 @@ fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
     materialize_legacy(m, &candidate, &b)?;
     Ok(Some(candidate))
 }
+/// Upgrade older candidate-only records before taking an operator state token.
+/// This only completes retained history; it does not inspect, build or publish.
+pub fn materialize_retained_history(m: &Manager) -> Result<Vec<Candidate>> {
+    let binding = serde_json::from_slice(include_bytes!("../../../compatibility/sv1/binding.json"))?;
+    retained_history_with_binding(m, &binding)
+}
+fn retained_history_with_binding(m: &Manager, binding: &Value) -> Result<Vec<Candidate>> {
+    let out = retained_candidates(m)?;
+    for c in out.iter().filter(|c| c.origin == Origin::RetainedSv1) {
+        complete_legacy_history(m, c, binding)?;
+    }
+    Ok(out)
+}
 pub fn candidates(m: &Manager, _host: &Artifact, _source: &str) -> Result<Vec<Candidate>> {
-    let mut out = retained_candidates(m)?;
+    let mut out = materialize_retained_history(m)?;
     // Once adopted, mutable inventory is never consulted to reconstruct history.
     let legacy = crate::managed_candidate::candidate()?;
     if !out.iter().any(|c| c.origin == Origin::RetainedSv1) {

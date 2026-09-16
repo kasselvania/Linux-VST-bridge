@@ -1,0 +1,206 @@
+{
+  "schema": 1,
+  "disposition": "MF3_INSTALLED_POST_INSTALL_READBACK_FAILED",
+  "source_head": "be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec",
+  "source_tree": "b6664b8f0972861309d62e7f59e99e35061a45c3",
+  "merged_stack": {
+    "sv1_head": "d4b863837814b6e5f889952226dadb28798caae2",
+    "sv1_merge": "b470c377129538d48468ef613b8e360b18b13894",
+    "mf3_reviewed_head": "5a8c739953e3d739df3af7d6269ef9e67842ff25",
+    "mf3_merge": "be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec"
+  },
+  "installation": {
+    "immutable_setup": "completed",
+    "idle_service_restart": "explicitly_operator_authorized_after_source_requirement_was_reported",
+    "artifact_digests_verified": true,
+    "immutable_artifacts_read_only": true,
+    "previous_software_retained": true,
+    "installed_artifacts": {
+      "preparation_kit": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+      "operator_frontend": "621599fe477358dfe3265b87470b20525c3d87d6c791696c91b9281b1bfe6f2d",
+      "manager": "ced6f44389b0999fd6ebbd1849873d6bb50f43755ea0e32613de316de37d9ca9",
+      "supervisor": "56d8f5f0e6da34715a696fe05dcdb7aa18d4dae903a5e896737faf3cea0bbbab",
+      "ownership": "62fe909b488ef58cf9bf29dc914f18c85b5b49f9d612973601cc9760c52fad0e",
+      "host": "3ee36fd34384b2c282ec9cb6ae6c48d17f83940eaaf6d8f9a1fa130b65274939",
+      "source_manifest": "6ca742eaaa2547eeea866bcd2e8121c9ee400c57d0394c752e3ac2a9794432b5",
+      "native_catalogue": "8b0afa123a48b0aa91a21217fdaa22510a45e9e3c21906aa0ed57c9394fc37bb"
+    },
+    "build_toolchain": "Rust 1.95.0 manager/frontend cross-compiled to x86_64-unknown-linux-gnu using the existing Zig linker; registered kit archive built with stable Rust",
+    "kit": {
+      "schema": 2,
+      "sha256": "3d8bc23bbd575881721752647e10dc74cbcf4b4ef7ac2b175f207de22ec0abf2",
+      "source": "be9a7e9bd017a4d2739910f5fcbf71df7b10a8ec",
+      "builder": "8af097a89211fd51596cb3f0f36495016f95576bc460d97f405a7d6c34c4b265",
+      "descriptor_generator": "05ab8308c50d48871818b6906e7c6a2023c453bf225ae7733dd408686f504970",
+      "host": "348a4bbc6ea34f57fc5899c279d9e43999bf9ecae4563a6cfee88967d36f66be",
+      "host_source_manifest": "0ce0ecae2264bab24290712d0e3d2ed9e8c092ce6cb7a521fd0fac71ca010ac3",
+      "recipe_sha256": "7a364a3dff365a706e3c1f9e3a33b75f4594a68643e5d708522c1cd7bf5c1372"
+    },
+    "kit_roster_verified": true,
+    "default_product_host_rebuilt": false,
+    "serum_candidate_rebuilt": false
+  },
+  "readback": {
+    "operator_activity_schema": 4,
+    "operator_snapshot_exit": 1,
+    "operator_snapshot_error": "Error: Os { code: 2, kind: NotFound, message: \"No such file or directory\" }",
+    "canonical_managed_status_exit": 0,
+    "materialization": "failed_before_legacy_provenance_and_lineage",
+    "candidate": {
+      "id": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+      "origin": "retained_sv1",
+      "sha256": "33f68a981984e147b7bb17564d8b101e3eeaa2596e4bdbcb61a22070e6f0aa9e",
+      "legacy_provenance_present": false,
+      "lineage_present": false
+    },
+    "installed_inventory": [
+      {
+        "id": "56534558667350736572756D20320000",
+        "name": "Serum 2",
+        "role": "instrument",
+        "version": "2.1.5"
+      },
+      {
+        "id": "56534558667351736572756D20322066",
+        "name": "Serum 2 FX",
+        "role": "effect",
+        "version": "2.1.5"
+      }
+    ],
+    "serum_instrument": {
+      "registry_publication": "Published",
+      "qualification": "managed_experimental",
+      "profile": {
+        "activation_permitted": false,
+        "claim": "review_candidate",
+        "id": "xfer-serum2",
+        "revision": 1
+      },
+      "active_revision": {
+        "id": "19f3ec1079002f25b5ee2736a3ad06af",
+        "sha256": "19ebba3bc2ccee7b4a3be3c608637e01edc0d3d3667a5318d571fc194dc454e4"
+      },
+      "refusal": {
+        "code": "local_record_or_io_failure",
+        "detail": "No such file or directory (os error 2)"
+      },
+      "expected_unpublished_state": false,
+      "publication_predates_installation": true
+    },
+    "serum_fx": "installed/unqualified; separately retained inventory; no registry entry or physical publication; full operator projection unavailable",
+    "publication_checks": {
+      "serum_registry_entry_present": true,
+      "registry_unchanged_since_before_install": true,
+      "serum_link_present": true,
+      "serum_link_target_exists": true,
+      "serum_link_present_before_install": true,
+      "serum_link_target_unchanged": true
+    },
+    "serum_fx_registry_entry_present": false,
+    "serum_fx_physical_link_present": false
+  },
+  "failure": {
+    "class": "existing_candidate_adoption_migration_gap",
+    "entry_state": "pre-generation MF3 already retained a retained_sv1 candidate.json without the later legacy/provenance.json or lineage record",
+    "source_boundary": "preparation::candidates skips adopt_sv1 when any retained_sv1 candidate already exists; history::legacy_provenance requires the absent provenance file",
+    "observed_missing_surface": "preparation/legacy",
+    "historical_candidate_bytes_preserved": true,
+    "repair_direction": "Complete verified atomic SV1 provenance and lineage materialization for an existing legacy candidate before treating it as fully adopted; preserve candidate bytes and refuse conflicting provenance. Add an upgrade regression starting with the actual older candidate-only state.",
+    "compatibility_or_serum_fault": false
+  },
+  "historical_evidence": {
+    "sha256": "9897c73e1289f093b315c0343c7e82bba69cceda54f68530564455e1a7563459",
+    "processing_restart": "failed, original machine observation",
+    "normal_retirement": "not proved",
+    "terminal_disposition": "terminal_instance_failure",
+    "terminal_cleanup_confirmed": true,
+    "transport_retired": true,
+    "mf3_history_projection": "unavailable until migration repair"
+  },
+  "preservation": {
+    "tracked_records_and_artifacts_unchanged": 261,
+    "protected_projects_unchanged": 5,
+    "physical_publications_unchanged": true,
+    "ordinary_products": [
+      {
+        "name": "Pigments",
+        "revision": 18,
+        "claim": "verified_exact_fixture",
+        "publication": "Published",
+        "publication_valid": true,
+        "module_valid": true,
+        "native_artifact_valid": true,
+        "runner_valid": true,
+        "environment_valid": true,
+        "prior_rollback_valid": true,
+        "recommended_frames": 512
+      },
+      {
+        "name": "Pure LoFi",
+        "revision": 10,
+        "claim": "verified_exact_fixture",
+        "publication": "Published",
+        "publication_valid": true,
+        "module_valid": true,
+        "native_artifact_valid": true,
+        "runner_valid": true,
+        "environment_valid": true,
+        "prior_rollback_valid": true,
+        "recommended_frames": 512
+      },
+      {
+        "name": "Efx FRAGMENTS",
+        "revision": 10,
+        "claim": "verified_exact_fixture",
+        "publication": "Published",
+        "publication_valid": true,
+        "module_valid": true,
+        "native_artifact_valid": true,
+        "runner_valid": true,
+        "environment_valid": true,
+        "prior_rollback_valid": true,
+        "recommended_frames": 512
+      }
+    ],
+    "pigments_rollback_revision": 11,
+    "installer_and_onboarding_history_unchanged": true,
+    "environment_manifests_unchanged": true,
+    "product_or_inspection_session_started": false
+  },
+  "final_system": {
+    "service": "active",
+    "keepers": 2,
+    "dsp": 0,
+    "maintenance": 0,
+    "ceiling": 6,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false
+  },
+  "capture": {
+    "active_retention": 0,
+    "armed": false
+  },
+  "resume_record_present": false,
+  "diagnostics": {
+    "normal_snapshot_failure_reconfirmed": true,
+    "private_file_trace": "bounded trace retained a missing preparation/legacy lookup; instrumented snapshot exceeded its diagnostic deadline; not used as a successful readback",
+    "trace_and_snapshot_helpers_remaining": 0,
+    "no_raw_trace_paths_or_process_ids_published": true
+  },
+  "next": {
+    "lc2_started": false,
+    "gates": [
+      "successful full operator readback and SV1 history materialization",
+      "resolve pre-existing experimental Serum publication through its exact owner before claiming unpublished"
+    ]
+  },
+  "nonclaims": [
+    "Installation is not a successful MF3 operator-readback acceptance.",
+    "No new Serum, audio, editor, authorization, persistence or lifecycle result.",
+    "No native proxy or Windows product host rebuilt; no candidate prepared, published or removed.",
+    "Schema 4 is confirmed by activity; the full snapshot is unavailable.",
+    "Historical terminal cleanup is not normal retirement.",
+    "The pre-existing Serum experimental publication was preserved, not created or removed by this installation."
+  ]
+}
