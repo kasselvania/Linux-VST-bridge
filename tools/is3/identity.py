@@ -95,10 +95,11 @@ def validate_identity(v):
     if not v['runner']['files']:raise ValueError('runner_files')
     def art(a):
         exact(a,('sha256','size','location_sha256'));sha(a['sha256']);sha(a['location_sha256'])
-        if type(a['size'])!=int or a['size']<=0:raise ValueError('artifact_size')
+        if type(a['size'])!=int or a['size']<0:raise ValueError('artifact_size')
     for a in v['runner']['files']:art(a)
     for k in ('entry_point','proton'):
         art(v['runner'][k])
+        if v['runner'][k]['size']==0:raise ValueError('empty_runner_executable')
         if v['runner'][k] not in v['runner']['files']:raise ValueError('runner_set')
     if len({a['location_sha256'] for a in v['runner']['files']})!=len(v['runner']['files']):raise ValueError('runner_duplicate')
     exact(v['powershell_images'],('system32','syswow64'))

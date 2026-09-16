@@ -42,3 +42,10 @@ class PackageTests(unittest.TestCase):
             with self.assertRaises(ValueError):select_runner(registry([r,dict(r,version='changed')]),expected)
             p.write_bytes(b'changed')
             with self.assertRaises(ValueError):select_runner(registry([r]),expected)
+
+    def test_verified_empty_runner_member_is_retained_not_dropped(self):
+        from test_fixtures import fixture_manifest
+        m=fixture_manifest();m['runner']['files'].append({'sha256':hashlib.sha256(b'').hexdigest(),'size':0,'location_sha256':'1'*64})
+        validate_identity(envelope(m,'9'*64))
+        m['runner']['entry_point']['size']=0
+        with self.assertRaises(ValueError):validate_identity(envelope(m,'9'*64))
