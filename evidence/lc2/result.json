@@ -166,35 +166,48 @@
       "class_id": "41727475415649534B61743150726F63",
       "disposition": "ready",
       "active_revision": 18,
-      "rollback_revision": null
+      "recommended_revision": 18,
+      "ordinary_rollback_revisions": [
+        11
+      ]
     },
     {
       "name": "Pure LoFi",
       "class_id": "417274754156495350724C4650726F63",
       "disposition": "ready",
       "active_revision": 10,
-      "rollback_revision": null
+      "recommended_revision": 10,
+      "ordinary_rollback_revisions": [
+        3,
+        7
+      ]
     },
     {
       "name": "Efx FRAGMENTS",
       "class_id": "41727475415649536772616E50726F63",
       "disposition": "ready",
       "active_revision": 10,
-      "rollback_revision": null
+      "recommended_revision": 10,
+      "ordinary_rollback_revisions": [
+        3,
+        7
+      ]
     },
     {
       "name": "Serum 2",
       "class_id": "56534558667350736572756D20320000",
       "disposition": "prepared",
       "active_revision": null,
-      "rollback_revision": null
+      "recommended_revision": null,
+      "ordinary_rollback_revisions": []
     },
     {
       "name": "Serum 2 FX",
       "class_id": "56534558667351736572756D20322066",
       "disposition": "installed_unqualified",
       "active_revision": null,
-      "rollback_revision": null
+      "recommended_revision": null,
+      "ordinary_rollback_revisions": []
     }
   ],
   "preservation": {
